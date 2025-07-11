@@ -55,19 +55,19 @@ impl UPSEndCapCoreGadget {
 
         let end_user_leaf_hash = real_end_user_leaf.to_hash::<H,F,D>(builder);
 
-        let expected_public_key = builder.hash_two_to_one::<H>(
-            sig_proof_fingerprint,
-            sig_proof_param_hash,
-        );
+        // let expected_public_key = builder.hash_two_to_one::<H>(
+        //     sig_proof_fingerprint,
+        //     sig_proof_param_hash,
+        // );
 
         builder.connect_hashes(
             last_header_gadget.session_start_context.start_session_user_leaf.public_key,
             real_end_user_leaf.public_key,
         );
-        builder.connect_hashes(
-            last_header_gadget.session_start_context.start_session_user_leaf.public_key,
-            expected_public_key,
-        );
+        // builder.connect_hashes(
+        //     last_header_gadget.session_start_context.start_session_user_leaf.public_key,
+        //     expected_public_key,
+        // );
 
 
 

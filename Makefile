@@ -261,20 +261,20 @@ random-wallet:
 register-user:
 	@RUST_LOG=${LOG_LEVEL} curl -X POST ${COORDINATOR_RPC_URL} \
       -H "Content-Type: application/json" \
-      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "public_key": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "352637524d9b8482d65b9c8bc78d0d4849a063bc53558158f84ee3863081ab4b" }, "secp256k1_public_key_hash": "c35a18f4c09d2b0bff279ae2dabf9546c57302a97b0485cd5865b32c7263ae75"}, "id": 1 }' | jq .
+      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "public_key": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "352637524d9b8482d65b9c8bc78d0d4849a063bc53558158f84ee3863081ab4b" }, "secp256k1_public_key_hash": "a2a352c5708c16a3103058d6d1ce7448ac9d17e8e84f6b6d4bb9d408e6fae88f"}, "id": 1 }' | jq .
 	@sleep 0.5
 	@RUST_LOG=${LOG_LEVEL} curl -X POST ${COORDINATOR_RPC_URL} \
 	     -H "Content-Type: application/json" \
-	     -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "public_key": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "cad421940097e1a1257a0d85faf9441d6e52d17f2dcda0da6da5c3a4ea80fe15" }, "secp256k1_public_key_hash": "8a628a5fcf3c32d8db218d76b698add6a1de0756033e5ee6f7495da04b7d90a6"}, "id": 1 }' | jq .
+	     -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "public_key": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "cad421940097e1a1257a0d85faf9441d6e52d17f2dcda0da6da5c3a4ea80fe15" }, "secp256k1_public_key_hash": "ddfa90ea95fb632cb745d4e58425294b3677a241ee521528a3b40c2cbdbc90d1"}, "id": 1 }' | jq .
 
 register-user2:
 	@RUST_LOG=${LOG_LEVEL} curl -X POST ${COORDINATOR_RPC_URL} \
       -H "Content-Type: application/json" \
-      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "public_key": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "948eecedbc5579156b0ba347124538e2f1beb430f86615d656cea54bfc20a4b3" }, "secp256k1_public_key_hash": "e60a2141d4a38220262e59261292cc74a87c1631035131a1b53d5b0130ef5cdd"}, "id": 1 }' | jq .
+      -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "public_key": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "948eecedbc5579156b0ba347124538e2f1beb430f86615d656cea54bfc20a4b3" }, "secp256k1_public_key_hash": "bf264066d05ad3620e60ebc98014d897a966ccd4ff62b71c8487aa55870fc4e1"}, "id": 1 }' | jq .
 	@sleep 0.5
 	@RUST_LOG=${LOG_LEVEL} curl -X POST ${COORDINATOR_RPC_URL} \
 	     -H "Content-Type: application/json" \
-	     -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "public_key": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "e002b20332ebaabb07f0c1acd1d209558115796bddc1b407ee2e67f55b71c42e" }, "secp256k1_public_key_hash": "61bc9c91946f06daad19a54f31981d45a58d0d8ee91f985547765dde806b35ce" }, "id": 1 }' | jq .
+	     -d '{ "jsonrpc": "2.0", "method": "qed_register_user", "params": { "public_key": { "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0", "public_key_param": "e002b20332ebaabb07f0c1acd1d209558115796bddc1b407ee2e67f55b71c42e" }, "secp256k1_public_key_hash": "f0e2612e7217604a5e3151e76254baed6c033c19a7e68ffe10adf35193ad306b" }, "id": 1 }' | jq .
 
 random-register-user-batch:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli random-register-user-batch --total-user $(TOTAL_USER)

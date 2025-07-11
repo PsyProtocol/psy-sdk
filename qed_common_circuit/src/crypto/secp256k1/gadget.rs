@@ -180,7 +180,7 @@ impl DogeQEDSignatureCombinedHashGadget {
     ) -> Self {
         let hash_public_key = builder.hash_n_to_hash_no_pad::<H>(compressed_public_key.to_vec());
         let combined_hash = builder
-            .hash_n_to_hash_no_pad::<H>([hash_public_key.elements, message_hash.elements].concat());
+            .hash_n_to_hash_no_pad::<H>([message_hash.elements, hash_public_key.elements].concat());
 
         Self {
             compressed_public_key,
@@ -550,6 +550,10 @@ mod tests {
         sig_gadget.set_witness_public_keys_update(&mut pw, &pk, &sig, ho).unwrap();
         let proof = data.prove(pw).unwrap();
         tracing::info!("proof.public_inputs: {:?}", proof.public_inputs);
+        println!(
+            "🔔public_inputs: {}",
+            serde_json::to_string_pretty(&proof.public_inputs)?
+        );
         data.verify(proof)
     }
 

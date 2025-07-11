@@ -37,13 +37,16 @@ use qed_store::{
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 
-use crate::rpc::{
-    provider::{QUserRpcProvider, RpcConfig, RpcProvider},
-    request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
-};
 use crate::subcommand::args::{ContractCallArgs, WalletSessionArgs};
 use crate::subcommand::deploy_contract::gen_contract_deploy_and_circuits_for_functions;
 use crate::subcommand::utils::prove_func;
+use crate::{
+    rpc::{
+        provider::{QUserRpcProvider, RpcConfig, RpcProvider},
+        request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
+    },
+    subcommand::utils::hash_no_pad_compressed_publicKey,
+};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -210,14 +213,10 @@ impl WalletSession {
         let pk_info = self.wallet.get_public_key_info(private_key);
         let pk_hash = pk_info.qfhash::<QEDHasher>();
         let secp256k1_public_key = self.wallet.get_secp256k1_public_key(private_key)?;
-        let secp256k1_public_key_f = bytes_to_u32_vec_be(&secp256k1_public_key.0)
-            .iter()
-            .map(|n| GoldilocksField::from_canonical_u32(*n))
-            .collect::<Vec<_>>();
-        let secp256k1_public_key_hash = QHashOut(hash_n_to_hash_no_pad::<
+        let secp256k1_public_key_hash = hash_no_pad_compressed_publicKey::<
             GoldilocksField,
             PoseidonPermutation<GoldilocksField>,
-        >(&secp256k1_public_key_f));
+        >(secp256k1_public_key);
 
         if let Ok(user_id) = self.st_provider.get_user_id(pk_hash).await {
             tracing::info!("user `{}` already registered with id {}", pk_hash, user_id);
@@ -320,6 +319,15 @@ impl WalletSession {
         pk_hash: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> anyhow::Result<()> {
+        self.exec_contract_call_with_sign_type(pk_hash, contract_call_args, SignType::ZKSign)
+    }
+
+    pub async fn exec_contract_call_with_sign_type(
+        &self,
+        pk_hash: QHashOut<F>,
+        contract_call_args: Vec<ContractCallArgs>,
+        sign_type: SignType,
+    ) -> anyhow::Result<()> {
         tracing::info!(
             "exec contract call: {}",
             serde_json::to_string_pretty(&contract_call_args)?
@@ -330,7 +338,8 @@ impl WalletSession {
         self.prove_contract_calls(pk_hash, contract_call_args)
             .await?;
         tracing::info!("sign and submit");
-        self.sign_and_submit(pk_hash).await?;
+        self.sign_and_submit_with_sign_type(pk_hash, sign_type)
+            .await?;
         Ok(())
     }
 
@@ -497,14 +506,39 @@ impl WalletSession {
             .proof_tree_state
             .finalize_tree(&self.main_circuits.proof_tree_agg_circuits)?;
 
-        let public_key_param = self
-            .wallet_keys_store
-            .get(&pk_hash)
-            .ok_or(anyhow::format_err!(
-                "user {} not found, cannot get public key param",
-                user_session_mgr.user_id
-            ))?
-            .public_key_param;
+        let public_key_param = match sign_type {
+            SignType::ZKSign => {
+                self.wallet_keys_store
+                    .get(&pk_hash)
+                    .ok_or(anyhow::format_err!(
+                        "user {} not found, cannot get public key param",
+                        user_session_mgr.user_id
+                    ))?
+                    .public_key_param
+            }
+            SignType::SECP256K1Sign => {
+                if let Ok(compressed_pk) =
+                    self.wallet_secp256k1_keys_store
+                        .get(&pk_hash)
+                        .ok_or(anyhow::format_err!(
+                            "user {} not found, cannot get public key param",
+                            user_session_mgr.user_id
+                        ))
+                {
+                    hash_no_pad_compressed_publicKey::<
+                        GoldilocksField,
+                        PoseidonPermutation<GoldilocksField>,
+                    >(compressed_pk.clone())
+                } else {
+                    self.st_provider
+                        .get_user_leaf_data(
+                            user_session_mgr.current_checkpoint_id,
+                            user_session_mgr.user_id,
+                        )?
+                        .secp256k1_public_key_hash
+                }
+            }
+        };
 
         let (circuit_fingerprint, circuit_verifier_config) = match sign_type {
             SignType::ZKSign => (

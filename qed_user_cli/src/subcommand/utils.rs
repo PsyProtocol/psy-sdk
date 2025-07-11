@@ -1,9 +1,19 @@
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
-    hash::poseidon::PoseidonHash,
+    hash::{
+        hash_types::RichField,
+        hashing::{hash_n_to_hash_no_pad, PlonkyPermutation},
+        poseidon::PoseidonHash,
+    },
     plonk::config::PoseidonGoldilocksConfig,
 };
-use qed_core::config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT;
+use qed_core::{
+    config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT,
+    data::{
+        qhashout::QHashOut,
+        secp256k1::{bytes_to_u32_vec_le, CompressedPublicKey},
+    },
+};
 use qed_prover::{
     dpn::{circuits::cfc::DapenContractFunctionCircuit, data::cfc_code_definition_to_dapen_fc},
     ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager},
@@ -25,8 +35,9 @@ pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
     fn_name: &str,
     inputs: Vec<F>,
 ) -> anyhow::Result<()> {
-    let contract_code =
-        st.resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id }).await?;
+    let contract_code = st
+        .resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })
+        .await?;
 
     for (i, func) in contract_code.functions.iter().enumerate() {
         let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;
@@ -37,15 +48,30 @@ pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
             false,
         );
         if dapen_fc.name == fn_name {
-            return mgr.prove_contract_call(
-                circuit_mgr,
-                F::from_canonical_u64(contract_id),
-                i as u32,
-                &dapen_fc_circuit,
-                &dapen_fc,
-                inputs,
-            ).await;
+            return mgr
+                .prove_contract_call(
+                    circuit_mgr,
+                    F::from_canonical_u64(contract_id),
+                    i as u32,
+                    &dapen_fc_circuit,
+                    &dapen_fc,
+                    inputs,
+                )
+                .await;
         }
     }
     anyhow::bail!("unable to find function {}", fn_name);
+}
+
+pub fn hash_no_pad_compressed_publicKey<F: RichField, P: PlonkyPermutation<F>>(
+    secp256k1_public_key: CompressedPublicKey,
+) -> QHashOut<F> {
+    let mut secp256k1_public_key_bytes = vec![secp256k1_public_key.0[0], 0, 0, 0];
+    secp256k1_public_key_bytes.extend_from_slice(&secp256k1_public_key.0[1..]);
+    let secp256k1_public_key_f = bytes_to_u32_vec_le(&secp256k1_public_key_bytes)
+        .iter()
+        .map(|n| F::from_canonical_u32(*n))
+        .collect::<Vec<_>>();
+
+    QHashOut(hash_n_to_hash_no_pad::<F, P>(&secp256k1_public_key_f))
 }

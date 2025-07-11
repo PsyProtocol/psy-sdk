@@ -3,12 +3,11 @@ use std::str::FromStr;
 
 use anyhow::Ok;
 use plonky2::{
-    field::{goldilocks_field::GoldilocksField, types::Field},
-    hash::{hashing::hash_n_to_hash_no_pad, poseidon::PoseidonPermutation},
+    field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonPermutation,
     plonk::config::PoseidonGoldilocksConfig,
 };
 use qed_common_circuit::wallet::memory_wallet::QEDMemoryWallet;
-use qed_core::data::{qhashout::QHashOut, secp256k1::bytes_to_u32_vec_be};
+use qed_core::data::qhashout::QHashOut;
 use qed_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};
 use qed_store::config::store_config::QEDHasher;
 use serde::{Deserialize, Serialize};
@@ -17,6 +16,7 @@ use crate::rpc::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
 };
+use crate::subcommand::utils::hash_no_pad_compressed_publicKey;
 
 use super::args::{RandomArgs, RegisterUserArgs};
 
@@ -40,14 +40,10 @@ pub fn run(args: RegisterUserArgs) -> anyhow::Result<()> {
     let mut wallet = QEDMemoryWallet::<C, D>::new_fast_setup();
     let public_key = wallet.add_private_key_get_info(private_key);
     let secp256k1_public_key = wallet.add_secp256k1_private_key(private_key)?;
-    let secp256k1_public_key_f = bytes_to_u32_vec_be(&secp256k1_public_key.0)
-        .iter()
-        .map(|n| GoldilocksField::from_canonical_u32(*n))
-        .collect::<Vec<_>>();
-    let secp256k1_public_key_hash = QHashOut(hash_n_to_hash_no_pad::<
+    let secp256k1_public_key_hash = hash_no_pad_compressed_publicKey::<
         GoldilocksField,
         PoseidonPermutation<GoldilocksField>,
-    >(&secp256k1_public_key_f));
+    >(secp256k1_public_key);
 
     println!("{}", serde_json::to_string_pretty(&public_key)?);
     println!("{:?}", public_key.qfhash::<QEDHasher>().to_string());
@@ -78,14 +74,10 @@ pub fn run_random(args: RandomArgs) -> anyhow::Result<()> {
         let private_key = QHashOut::<GoldilocksField>::rand();
         let public_key = wallet.add_private_key_get_info(private_key);
         let secp256k1_public_key = wallet.add_secp256k1_private_key(private_key)?;
-        let secp256k1_public_key_f = bytes_to_u32_vec_be(&secp256k1_public_key.0)
-            .iter()
-            .map(|n| GoldilocksField::from_canonical_u32(*n))
-            .collect::<Vec<_>>();
-        let secp256k1_public_key_hash = QHashOut(hash_n_to_hash_no_pad::<
+        let secp256k1_public_key_hash = hash_no_pad_compressed_publicKey::<
             GoldilocksField,
             PoseidonPermutation<GoldilocksField>,
-        >(&secp256k1_public_key_f));
+        >(secp256k1_public_key);
 
         provider.register_user(QRegisterUserRPCRequest {
             public_key,
