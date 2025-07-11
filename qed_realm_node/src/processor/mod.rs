@@ -79,7 +79,10 @@ impl RealmProcessor {
     pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
         info!("Realm Processor starting");
         let st = Arc::new(self.store.dup());
-        st.initialize_store()?;
+        if st.initialize_store()? == 0 {
+            info!("Realm Processor initializing store");
+            self.store.commit_block_imm(0).await?;
+        };
         let realm_qps = Arc::new(self.sync_proof.clone());
         let mut context = RealmProcessorContext::new(
             self.realm_config,
