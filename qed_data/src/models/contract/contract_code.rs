@@ -7,7 +7,7 @@ use crate::models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE;
 
 pub trait ContractCodeModelReaderCore<
     const CONTRACT_CODE_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>, ContractCodeDefinition>,
 >
 {
@@ -38,7 +38,7 @@ pub trait ContractCodeModelReaderCore<
 
 pub trait ContractCodeModelCore<
     const CONTRACT_CODE_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     IDKVA: KVQStoreAdapter<S, CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>, ContractCodeDefinition>,
 >: ContractCodeModelReaderCore<CONTRACT_CODE_TABLE_TYPE, S, IDKVA>
 {
@@ -80,7 +80,7 @@ pub struct ContractCodeModel<const CONTRACT_CODE_TABLE_TYPE: u16, S, IDKVA> {
 
 impl<
         const CONTRACT_CODE_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>, ContractCodeDefinition>,
     > ContractCodeModelReaderCore<CONTRACT_CODE_TABLE_TYPE, S, IDKVA>
     for ContractCodeModel<CONTRACT_CODE_TABLE_TYPE, S, IDKVA>
@@ -88,7 +88,7 @@ impl<
 }
 impl<
         const CONTRACT_CODE_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         IDKVA: KVQStoreAdapter<
             S,
             CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>,

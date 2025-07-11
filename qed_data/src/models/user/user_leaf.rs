@@ -8,7 +8,7 @@ use crate::{config::store_config::QEDFelt, models::kvq_merkle::model::CHECKPOINT
 
 pub trait UserLeafModelReaderCore<
     const USER_LEAF_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>,
 >
 {
@@ -39,7 +39,7 @@ pub trait UserLeafModelReaderCore<
 
 pub trait UserLeafModelCore<
     const USER_LEAF_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     IDKVA: KVQStoreAdapter<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>,
 >: UserLeafModelReaderCore<USER_LEAF_TABLE_TYPE, S, IDKVA>
 {
@@ -82,7 +82,7 @@ pub struct UserLeafModel<const USER_LEAF_TABLE_TYPE: u16, S, IDKVA> {
 
 impl<
         const USER_LEAF_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>,
     > UserLeafModelReaderCore<USER_LEAF_TABLE_TYPE, S, IDKVA>
     for UserLeafModel<USER_LEAF_TABLE_TYPE, S, IDKVA>
@@ -90,7 +90,7 @@ impl<
 }
 impl<
         const USER_LEAF_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         IDKVA: KVQStoreAdapter<
             S,
             CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>,

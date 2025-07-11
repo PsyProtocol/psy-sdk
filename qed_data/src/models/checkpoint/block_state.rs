@@ -6,7 +6,7 @@ use crate::models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE;
 
 pub trait L2BlockStatesModelReaderCore<
     const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
 >
 {
@@ -36,7 +36,7 @@ pub trait L2BlockStatesModelReaderCore<
 }
 pub trait L2BlockStatesModelCore<
     const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
 >: L2BlockStatesModelReaderCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
 {
@@ -81,7 +81,7 @@ pub struct L2BlockStatesModel<const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16, S, K
 
 impl<
         const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
     > L2BlockStatesModelReaderCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
     for L2BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
@@ -89,7 +89,7 @@ impl<
 }
 impl<
         const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
     > L2BlockStatesModelCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
     for L2BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>

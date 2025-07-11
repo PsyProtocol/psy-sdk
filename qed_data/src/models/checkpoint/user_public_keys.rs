@@ -10,7 +10,7 @@ use crate::config::store_config::{QEDHash, QEDHasher, QUserPublicKeyRecord};
 
 pub trait QEDUserPublicKeyHelperModelReaderCore<
     const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapterReader<
         S,
         Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>,
@@ -54,7 +54,7 @@ pub trait QEDUserPublicKeyHelperModelReaderCore<
 }
 pub trait QEDUserPublicKeyHelperModelCore<
     const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapter<
         S,
         Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>,
@@ -123,7 +123,7 @@ pub struct QEDUserPublicKeyHelperModel<const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: 
 
 impl<
         const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         KVA: KVQStoreAdapterReader<
             S,
             Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>,
@@ -135,7 +135,7 @@ impl<
 }
 impl<
         const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         KVA: KVQStoreAdapter<
             S,
             Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>,

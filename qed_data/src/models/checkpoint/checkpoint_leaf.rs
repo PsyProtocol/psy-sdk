@@ -6,7 +6,7 @@ use crate::{config::store_config::QCheckpointLeaf, models::kvq_merkle::model::CH
 
 pub trait QEDCheckpointLeafModelReaderCore<
     const CHECKPOINT_LEAF_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
 >
 {
@@ -39,7 +39,7 @@ pub trait QEDCheckpointLeafModelReaderCore<
 }
 pub trait QEDCheckpointLeafModelCore<
     const CHECKPOINT_LEAF_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
 >: QEDCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
 {
@@ -75,7 +75,7 @@ pub struct QEDCheckpointLeafModel<const CHECKPOINT_LEAF_TABLE_TYPE: u16, S, KVA>
 
 impl<
         const CHECKPOINT_LEAF_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
     > QEDCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
     for QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
@@ -83,7 +83,7 @@ impl<
 }
 impl<
         const CHECKPOINT_LEAF_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
     > QEDCheckpointLeafModelCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
     for QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>

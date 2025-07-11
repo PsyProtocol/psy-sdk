@@ -17,7 +17,7 @@ pub const CHECKPOINT_ID_FUZZY_SIZE: usize = 8;
 pub trait KVQMerkleTreeModelReaderCore<
     const TABLE_TYPE: u16,
     const MARK_LEAVES: bool,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapterReader<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
     Hash: Copy + PartialEq + KVQSerializable,
     Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
@@ -97,7 +97,7 @@ pub trait KVQMerkleTreeModelReaderCore<
         node_keys.push(*leaf_key);
         node_keys.append(&mut leaf_key.siblings_above(level_difference));
         node_keys.push(leaf_key.parent_at_level(root_level));
-        
+
 
         let nodes = Self::get_nodes(
             store,
@@ -139,7 +139,7 @@ pub trait KVQMerkleTreeModelReaderCore<
 pub trait KVQMerkleTreeModelCore<
     const TABLE_TYPE: u16,
     const MARK_LEAVES: bool,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapter<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
     Hash: Copy + PartialEq + KVQSerializable,
     Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
@@ -259,7 +259,7 @@ pub trait KVQMerkleTreeModelCore<
             Vec::with_capacity(merkle_proof.siblings.len()*2+1);
         let mut k = base_leaf_key;
         let mut last_hash = merkle_proof.value;
-            
+
         for sibling in merkle_proof.siblings.iter() {
             updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
                 key: k,
@@ -285,7 +285,7 @@ pub trait KVQMerkleTreeModelCore<
             };
             k = k.parent();
         }
-        
+
         updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
             key: k,
             value: last_hash,
@@ -302,28 +302,28 @@ pub trait KVQMerkleTreeModelCore<
         updates: &mut Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
     ) -> anyhow::Result<(KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>, UpdateNearestCommonAncestorProof<Hash>)> {
         let nca = a.key.find_nearest_common_ancestor(&b.key);
-        
+
         let mut all_siblings = Vec::new();
         all_siblings.extend_from_slice(&a.key.siblings_to_level(nca.level+1));
         all_siblings.extend_from_slice(&b.key.siblings_to_level(nca.level+1));
         all_siblings.push(nca);
         let mut all_siblings_values = Self::get_nodes(store, tree_height, &all_siblings)?;
         let old_nearest_common_ancestor_value = all_siblings_values.pop().unwrap();
-        
+
         let dmp_a = Self::set_rehash_from_node_to_level_dmp_with_updates(
-            store, 
-            tree_height, 
-            a.key, 
-            a.value, 
-            nca.level+1, 
+            store,
+            tree_height,
+            a.key,
+            a.value,
+            nca.level+1,
             updates
         )?;
         let dmp_b = Self::set_rehash_from_node_to_level_dmp_with_updates(
-            store, 
-            tree_height, 
-            b.key, 
-            b.value, 
-            nca.level+1, 
+            store,
+            tree_height,
+            b.key,
+            b.value,
+            nca.level+1,
             updates
         )?;
 
@@ -363,11 +363,11 @@ pub trait KVQMerkleTreeModelCore<
         for n in nodes.iter() {
             let mut updates = Vec::new();
             dmps.push(Self::set_rehash_from_node_to_level_dmp_with_updates(
-                store, 
-                tree_height, 
-                n.key, 
-                n.value, 
-                root_level, 
+                store,
+                tree_height,
+                n.key,
+                n.value,
+                root_level,
                 &mut updates
             )?);
             Self::set_nodes(store, &updates)?;
@@ -384,16 +384,16 @@ pub trait KVQMerkleTreeModelCore<
         if nodes.len() == 1 {
             let mut updates = Vec::new();
             let dmp_a = Self::set_rehash_from_node_to_level_dmp_with_updates(
-                store, 
-                tree_height, 
-                nodes[0].key, 
-                nodes[0].value, 
-                root_level, 
+                store,
+                tree_height,
+                nodes[0].key,
+                nodes[0].value,
+                root_level,
                 &mut updates
             )?;
             let root_key = nodes[0].key;
             let root_value = nodes[0].value;
-            
+
             let link_proof = Self::set_rehash_from_node_to_level_dmp_with_updates(
                 store,
                 tree_height,
@@ -446,15 +446,15 @@ pub trait KVQMerkleTreeModelCore<
         let mut updates = Vec::with_capacity(nodes.len()*tree_height);
         let first_rung_len = full_nodes_len/2;
 
-        let mut current_inds = Vec::with_capacity(first_rung_len);        
+        let mut current_inds = Vec::with_capacity(first_rung_len);
         let mut current_nodes = Vec::with_capacity(first_rung_len);
 
         for i in 0..first_rung_len {
             let (node, proof) = Self::smart_injest_nca_split_kv(
-                store, 
-                tree_height, 
-                nodes[i*2], 
-                nodes[i*2+1], 
+                store,
+                tree_height,
+                nodes[i*2],
+                nodes[i*2+1],
                 &mut updates
             )?;
             current_nodes.push(node);
@@ -470,16 +470,16 @@ pub trait KVQMerkleTreeModelCore<
             let even_pairs = current_nodes_len/2;
             let new_nodes_len = even_pairs+(current_nodes_len&1);
             let has_odd = current_nodes_len&1 == 1;
-            
+
             let mut new_nodes = Vec::with_capacity(new_nodes_len);
             let mut new_inds = Vec::with_capacity(new_nodes_len);
 
             for i in 0..even_pairs {
                 let (node, proof) = Self::smart_injest_nca_split_kv(
-                    store, 
-                    tree_height, 
-                    current_nodes[i*2], 
-                    current_nodes[i*2+1], 
+                    store,
+                    tree_height,
+                    current_nodes[i*2],
+                    current_nodes[i*2+1],
                     &mut updates
                 )?;
                 new_nodes.push(node);
@@ -499,10 +499,10 @@ pub trait KVQMerkleTreeModelCore<
         match straggler {
             Some(x) => {
                 let (node, proof) = Self::smart_injest_nca_split_kv(
-                    store, 
-                    tree_height, 
-                    current_nodes[0], 
-                    x, 
+                    store,
+                    tree_height,
+                    current_nodes[0],
+                    x,
                     &mut updates
                 )?;
                 dependencies.push((current_inds[0] as i64, -1));
@@ -576,7 +576,7 @@ pub trait KVQMerkleTreeModelCore<
         root_level: u8
     ) -> anyhow::Result<()> {
         // TODO: optimize to get all nodes at once
-            
+
         let mut current = node;
         let mut current_value = Self::get_node(store, tree_height, &node)?;
 
@@ -605,7 +605,7 @@ pub trait KVQMerkleTreeModelCore<
         Self::set_nodes(store, &updates)?;
         Ok(())
     }
-    
+
     fn set_rehash_from_node_to_level_dmp_with_updates(
         store: &S,
         tree_height: usize,
@@ -636,7 +636,7 @@ pub trait KVQMerkleTreeModelCore<
         let old_sub_root = siblings_and_old.pop().unwrap();
         let old_value = siblings_and_old.pop().unwrap();
         let siblings = siblings_and_old;
-        
+
         let mut current_value = new_value;
         let mut current = node;
         updates.reserve(sub_height+1);
@@ -670,7 +670,7 @@ pub trait KVQMerkleTreeModelCore<
             siblings,
         })
     }
-    
+
     fn append_leaves_spider_man(
         store: &S,
         tree_height: usize,
@@ -778,7 +778,7 @@ pub trait KVQMerkleTreeModelCore<
             let old_leaves = (0..leaves_per_subtree)
                 .map(|_| zero_hash)
                 .collect::<Vec<_>>();
-            
+
             let t = subtree_count - 3;
             let base_ind = ll + t * leaves_per_subtree;
             let new_leaves = leaves[base_ind..(base_ind + leaves_per_subtree)].to_vec();
@@ -809,10 +809,10 @@ pub trait KVQMerkleTreeModelCore<
             let old_leaves = (0..leaves_per_subtree)
                 .map(|_| zero_hash)
                 .collect::<Vec<_>>();
-            
+
             let mut new_leaves = Vec::with_capacity(leaves_per_subtree);
             new_leaves.extend_from_slice(&leaves[leaves_used..]);
-            
+
             let zeros_to_add = leaves_per_subtree - new_leaves.len();
             for _ in 0..zeros_to_add {
                 new_leaves.push(zero_hash);
@@ -820,7 +820,7 @@ pub trait KVQMerkleTreeModelCore<
 
             let bb1 = ((cur_sub_tree_id as usize + subtree_count - 1) * leaves_per_subtree) as u64;
             let mut node_updates = Vec::with_capacity(leaves.len() - leaves_used);
-            
+
             for (i, l) in leaves[leaves_used..].iter().enumerate() {
                 node_updates.push(KVQPair {
                     key: first_empty_leaf_key.at_index(bb1 + i as u64),
@@ -839,14 +839,14 @@ pub trait KVQMerkleTreeModelCore<
 
         Ok(results)
     }
-    
+
     fn rehash_sub_tree(
         store: &S,
         tree_height: usize,
         sub_root_key: &KVQMerkleNodeKey<TABLE_TYPE>,
     ) -> anyhow::Result<()> {
         let sub_tree_height = tree_height - (sub_root_key.level as usize);
-        
+
         if sub_tree_height == 0 {
             return Ok(());
         } else if sub_tree_height == 1 {
@@ -922,7 +922,7 @@ pub trait KVQMerkleTreeModelCore<
 
         Ok(())
     }
-    
+
     fn rehash_sub_tree_top(
         store: &S,
         tree_height: usize,
@@ -960,11 +960,11 @@ pub trait KVQMerkleTreeModelCore<
             current_leaves = new_leaves;
             child_level -= 1;
         }
-        
+
         Self::set_nodes(store, &updates)?;
         Ok(())
     }
-    
+
     fn rehash_sub_tree_dmp(
         store: &S,
         tree_height: usize,

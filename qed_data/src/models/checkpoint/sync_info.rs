@@ -20,7 +20,7 @@ pub enum CheckpointError {
 
 pub trait QEDCheckpointSyncInfoModelReaderCore<
     const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapterReader<
         S,
         U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
@@ -107,7 +107,7 @@ pub trait QEDCheckpointSyncInfoModelReaderCore<
 }
 pub trait QEDCheckpointSyncInfoModelCore<
     const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapter<
         S,
         U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
@@ -153,7 +153,7 @@ pub struct QEDCheckpointSyncInfoModel<const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16
 
 impl<
         const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         KVA: KVQStoreAdapterReader<
             S,
             U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
@@ -165,7 +165,7 @@ impl<
 }
 impl<
         const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         KVA: KVQStoreAdapter<
             S,
             U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,

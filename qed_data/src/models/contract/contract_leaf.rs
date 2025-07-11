@@ -7,7 +7,7 @@ use crate::{config::store_config::QEDFelt, models::kvq_merkle::model::CHECKPOINT
 
 pub trait ContractLeafModelReaderCore<
     const CONTRACT_LEAF_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, QEDContractLeaf<QEDFelt>>,
 >
 {
@@ -38,7 +38,7 @@ pub trait ContractLeafModelReaderCore<
 
 pub trait ContractLeafModelCore<
     const CONTRACT_LEAF_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     IDKVA: KVQStoreAdapter<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, QEDContractLeaf<QEDFelt>>,
 >: ContractLeafModelReaderCore<CONTRACT_LEAF_TABLE_TYPE, S, IDKVA>
 {
@@ -80,7 +80,7 @@ pub struct ContractLeafModel<const CONTRACT_LEAF_TABLE_TYPE: u16, S, IDKVA> {
 
 impl<
         const CONTRACT_LEAF_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, QEDContractLeaf<QEDFelt>>,
     > ContractLeafModelReaderCore<CONTRACT_LEAF_TABLE_TYPE, S, IDKVA>
     for ContractLeafModel<CONTRACT_LEAF_TABLE_TYPE, S, IDKVA>
@@ -88,7 +88,7 @@ impl<
 }
 impl<
         const CONTRACT_LEAF_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         IDKVA: KVQStoreAdapter<
             S,
             CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>,

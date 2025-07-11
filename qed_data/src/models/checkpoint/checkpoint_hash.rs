@@ -9,7 +9,7 @@ use crate::
 
 pub trait QEDCheckpointHashHelperModelReaderCore<
     const CHECKPOINT_HASH_HELPER_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapterReader<
         S,
         Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>,
@@ -34,7 +34,7 @@ pub trait QEDCheckpointHashHelperModelReaderCore<
 }
 pub trait QEDCheckpointHashHelperModelCore<
     const CHECKPOINT_HASH_HELPER_TABLE_TYPE: u16,
-    S: KVQBinaryStore,
+    S,
     KVA: KVQStoreAdapter<
         S,
         Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>,
@@ -84,7 +84,7 @@ pub struct QEDCheckpointHashHelperModel<const CHECKPOINT_HASH_HELPER_TABLE_TYPE:
 
 impl<
         const CHECKPOINT_HASH_HELPER_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         KVA: KVQStoreAdapterReader<
             S,
             Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>,
@@ -96,7 +96,7 @@ impl<
 }
 impl<
         const CHECKPOINT_HASH_HELPER_TABLE_TYPE: u16,
-        S: KVQBinaryStore,
+        S,
         KVA: KVQStoreAdapter<
             S,
             Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>,
