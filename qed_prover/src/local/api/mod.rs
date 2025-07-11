@@ -163,7 +163,8 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
-        self.wallet_session.exec_contract_call(pk_hash, contract_call_args).await
+        self.wallet_session.exec_contract_call(pk_hash, contract_call_args)
+            .await
             .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
         Ok("start session".to_string())
     }
@@ -173,7 +174,8 @@ impl WasmRpcServer {
     pub async fn start_session(&self, pk_hash: &str) -> Result<String, JsError> {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-        self.wallet_session.start_session(pk_hash).await
+        self.wallet_session.start_session(pk_hash)
+            .await
             .map_err(|e| JsError::new(&format!("Start session error: {}", e)))?;
         Ok("start session".to_string())
     }
@@ -186,7 +188,8 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
-        self.wallet_session.prove_contract_call(pk_hash, contract_call_arg).await
+        self.wallet_session.prove_contract_call(pk_hash, contract_call_arg)
+            .await
             .map_err(|e| JsError::new(&format!("Prove contract call error: {}", e)))?;
         Ok("prove contract call".to_string())
     }
@@ -199,7 +202,8 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
-        self.wallet_session.prove_contract_calls(pk_hash, contract_call_args).await
+        self.wallet_session.prove_contract_calls(pk_hash, contract_call_args)
+            .await
             .map_err(|e| JsError::new(&format!("Prove contract calls error: {}", e)))?;
         Ok("prove contract calls".to_string())
     }

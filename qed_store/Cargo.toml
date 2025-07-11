@@ -10,38 +10,33 @@ anyhow     = { workspace = true }
 hashbrown      = { workspace = true }
 serde      = { workspace = true }
 serde_json      = { workspace = true }
-serde_with = { workspace = true }
-hex = { workspace = true }
-hex-literal = { workspace = true }
-lazy_static = { workspace = true }
 async-trait = { workspace = true }
 plonky2 = { workspace = true }
-twox-hash = { workspace = true }
 tracing = { workspace = true }
 indexmap = { workspace = true }
 clap = { workspace = true }
 
-kvq = { path = "../kvq" }
-qed_core = { path = "../qed_core" }
-qed_data = { path = "../qed_data" }
-qed_crypto = { path = "../qed_crypto" }
+kvq = { workspace = true }
+qed_core = { workspace = true }
+qed_data = { workspace = true }
+qed_crypto = { workspace = true }
 thiserror = { workspace = true }
 maybe-async = { workspace = true }
 
 # ScyllaDB support - only for non-WASM targets
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-scylla = { version = "0.15.1" }
-futures = { version = "0.3.0" }
-tokio = { version = "1.43.0", features = ["full"] }
-uuid = { version = "1.0", features = ["v4"] }
+scylla = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
 
 [features]
 default = ["is_sync"]
 is_sync = ["maybe-async/is_sync"]
 
 [dev-dependencies]
-tempfile = "3.0"
-futures = "0.3"
+tempfile = { workspace = true }
+futures = { workspace = true }
 
 [[test]]
 name = "kvq_store_tests"

@@ -5,6 +5,7 @@ use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use crate::local::types::{ContractCallArgs, WalletKeyPair, RpcConfig};
+use maybe_async::maybe_async;
 
 type F = GoldilocksField;
 
@@ -12,6 +13,7 @@ pub struct WalletSession {
     // Minimal state for WASM
 }
 
+#[maybe_async]
 impl WalletSession {
     pub fn new(_rpc_config: &RpcConfig) -> anyhow::Result<Self> {
         Ok(Self {})

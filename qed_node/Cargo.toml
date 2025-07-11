@@ -11,33 +11,26 @@ bincode      = { workspace = true }
 serde      = { workspace = true }
 serde_json      = { workspace = true }
 serde_repr      = { workspace = true }
-serde_with = { workspace = true }
 hex = { workspace = true }
-hex-literal = { workspace = true }
-lazy_static = { workspace = true }
 plonky2 = { workspace = true }
-twox-hash = { workspace = true }
 tracing = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
-kvq = { path = "../kvq" }
-qed_core = { path = "../qed_core" }
-qed_common_circuit = { path = "../qed_common_circuit" }
-qed_rollup_circuit = { path = "../qed_rollup_circuit" }
-qed_data = { path = "../qed_data" }
-qed_crypto = { path = "../qed_crypto" }
-qed_store = { path = "../qed_store" }
+kvq = { workspace = true }
+qed_core = { workspace = true }
+qed_common_circuit = { workspace = true }
+qed_rollup_circuit = { workspace = true }
+qed_data = { workspace = true }
+qed_crypto = { workspace = true }
+qed_store = { workspace = true }
 
 rand = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
-lapin = "=2.5.0"
 fred = { workspace = true }
 once_cell = { workspace = true }
 redis = { workspace = true }
 bb8-redis = { workspace = true }
 bb8 = { workspace = true }
-rsmq = { git = "https://github.com/jimzk/rsmq-async-rs", package = "rsmq_async", features = ["break-js-comp", "sync", "tokio"] }
-r2d2 = "0.8.10"
-rabbitmq-stream-client = "0.8.0"
+rsmq = { workspace = true }
 url = { workspace = true }

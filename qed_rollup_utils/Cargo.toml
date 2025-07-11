@@ -10,10 +10,7 @@ tracing-subscriber = { workspace = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
-chrono ={ version = "0.4.39"  }
-qed_core = { workspace = true }
-qed_data = { workspace = true }
-qedlang_core = { workspace = true }
+chrono = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 jsonwebtoken = { workspace = true }
