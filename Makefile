@@ -137,7 +137,7 @@ init:
 	@docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
 	@docker run -d --name qed-scylla-realm16384 -p 9044:9042 scylladb/scylla:latest
 	@echo "Waiting for databases to be ready..."
-	@sleep 30
+	@sleep 10
 
 .PHONY: shutdown
 shutdown:

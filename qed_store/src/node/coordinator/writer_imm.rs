@@ -32,7 +32,7 @@ use qed_data::{
 
 type F = GoldilocksField;
 #[async_trait]
-impl<T: KVQBinaryStore + Send + Sync + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreWriterAsyncImm<F> for T {
+impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreWriterAsyncImm<F> for T {
     async fn batch_append_contract_tree_imm(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
 
         <Self as QTreeDataStoreWriterSync<F>>::batch_append_contract_tree(

@@ -33,7 +33,7 @@ type F = GoldilocksField;
 
 #[cfg(feature = "is_sync")]
 #[async_trait]
-impl<T: KVQBinaryStore + Send + Sync>
+impl<T: KVQBinaryStore>
     QEDCoordinatorStoreReaderAsync<F> for T
 {
     async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>> {

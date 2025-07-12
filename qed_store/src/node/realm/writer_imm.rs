@@ -38,7 +38,7 @@ use qed_data::{
 };
 type F = GoldilocksField;
 #[async_trait]
-impl<T: KVQBinaryStore + Send + Sync> QEDRealmStoreWriterAsyncImm<F> for T {
+impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
     async fn injest_user_leaves_batch_imm(&self, checkpoint_id: u64, leaves: &[QEDUserLeaf<F>]) -> anyhow::Result<()> {
         for l in leaves.iter() {
             self.set_user_leaf_data(checkpoint_id, l)?;

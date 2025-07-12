@@ -192,7 +192,7 @@ pub trait KVQStoreAdapterWithHelpers<S, K: KVQSerializable, V: KVQSerializable>:
 //pub type KVQStoreAdapter<K: KVQSerializable, V: KVQSerializable> =
 // KVQStoreAdapter<KVQBinaryStore, K, V>;
 
-pub trait KVQBinaryStore {
+pub trait KVQBinaryStore: Send + Sync {
     // Read operations
     fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>>;
     fn get_exact(&self, key: &Vec<u8>) -> anyhow::Result<Vec<u8>>;

@@ -26,7 +26,7 @@ type F = GoldilocksField;
 
 #[cfg(feature = "is_sync")]
 #[async_trait]
-impl<T: KVQBinaryStore + Send + Sync> QEDRealmStoreReaderAsync<F> for T {
+impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
     async fn get_checkpoint_leaf_data(
         &self,
         checkpoint_id: u64,

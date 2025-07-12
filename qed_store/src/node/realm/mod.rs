@@ -80,25 +80,6 @@ pub trait QEDRealmStoreReaderAsync<F: RichField> {
 
 }
 
-
-
-#[async_trait]
-pub trait QEDRealmStoreWriterAsync<F: RichField> {
-    async fn injest_user_tree_nodes_mut(&mut self, checkpoint_id: u64, nodes: &[QMerkleNode<F>]) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>>;
-    async fn injest_checkpoint_sync_data_mut(&mut self, sync_info: QEDCheckpointSyncInfo<F>) -> anyhow::Result<()>;
-
-
-    async fn set_contract_leaf_data_mut(&mut self, checkpoint_id: u64, contract_id: u64, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()>;
-    async fn set_contract_leaf_data_f_mut(&mut self, checkpoint_id: F, contract_id: F, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()>;
-
-    async fn set_contract_code_definition_mut(&mut self, checkpoint_id: u64, contract_id: u64, definition: &ContractCodeDefinition) -> anyhow::Result<()>;
-    async fn set_contract_code_definition_f_mut(&mut self, checkpoint_id: F, contract_id: F, definition: &ContractCodeDefinition) -> anyhow::Result<()>;
-
-    async fn commit_block_mut(&mut self, checkpoint_id: u64) -> anyhow::Result<()>;
-
-}
-
-
 #[async_trait]
 pub trait QEDRealmStoreWriterAsyncImm<F: RichField> {
     async fn injest_user_tree_nodes_imm(&self, checkpoint_id: u64, root_level: u8, nodes: &[QMerkleNode<F>]) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>>;

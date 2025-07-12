@@ -35,7 +35,7 @@ pub struct SimpleBlockProcessor {}
 
 #[maybe_async::maybe_async]
 impl SimpleBlockProcessor {
-    pub async fn process_block<S: KVQBinaryStore + Sync>(
+    pub async fn process_block<S: KVQBinaryStore>(
         store: &S,
         cmds: &QEDBlockCommands<QEDFelt>,
         fingerprints: &QEDWorkerToolboxCoreCircuitFingerprints<QEDFelt>,
