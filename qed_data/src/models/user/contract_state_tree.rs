@@ -17,17 +17,17 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UserContractStateTreeId<
     S,
-    A =  KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QEDHash>,
+    IDKVA =  KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QEDHash>,
 > {
     pub user_id: u64,
     pub contract_id: u32,
     pub height: u8,
     #[serde(skip)]
-    _adapter: PhantomData<(S, A)>,
+    _adapter: PhantomData<(S, IDKVA)>,
 }
 
-impl<S, A: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QEDHash>>
-    UserContractStateTreeId<S, A>
+impl<S, IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QEDHash>>
+    UserContractStateTreeId<S, IDKVA>
 {
     pub fn new(user_id: u64, contract_id: u32, height: u8) -> Self {
         Self {
@@ -57,7 +57,7 @@ impl<S, A: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TY
         checkpoint_id: u64,
         index: u64,
     ) -> anyhow::Result<QEDMerkleProof> {
-        BaseContractStateTreeStore::<S, A>::get_leaf(
+        BaseContractStateTreeStore::<S, IDKVA>::get_leaf(
             store,
             &self.get_leaf_key(checkpoint_id, index),
         )
@@ -68,7 +68,7 @@ impl<S, A: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TY
         checkpoint_id: u64,
         index: u64,
     ) -> anyhow::Result<QHashOut<QEDFelt>> {
-        BaseContractStateTreeStore::<S, A>::get_node(
+        BaseContractStateTreeStore::<S, IDKVA>::get_node(
             store,
             self.height.into(),
             &self.get_leaf_key(checkpoint_id, index),
@@ -81,7 +81,7 @@ impl<S, A: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TY
         index: u64,
         value: QEDHash,
     ) -> anyhow::Result<QEDDeltaMerkleProof> {
-        BaseContractStateTreeStore::<S, A>::set_leaf(
+        BaseContractStateTreeStore::<S, IDKVA>::set_leaf(
             store,
             &self.get_leaf_key(checkpoint_id, index),
             value,
@@ -93,7 +93,7 @@ impl<S, A: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TY
         checkpoint_id: u64,
         merkle_proof: &QEDMerkleProof,
     ) -> anyhow::Result<()> {
-        BaseContractStateTreeStore::<S, A>::injest_merkle_proof(
+        BaseContractStateTreeStore::<S, IDKVA>::injest_merkle_proof(
             store,
             CONTRACT_STATE_TREE_ID,
             self.user_id,
@@ -103,7 +103,7 @@ impl<S, A: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TY
         )
     }
     pub fn get_root(&self, store: &S, checkpoint_id: u64) -> anyhow::Result<QEDHash> {
-        BaseContractStateTreeStore::<S, A>::get_node(
+        BaseContractStateTreeStore::<S, IDKVA>::get_node(
             store,
             self.height.into(),
             &KVQMerkleNodeKey {

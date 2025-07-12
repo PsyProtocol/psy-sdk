@@ -15,18 +15,18 @@ type GF = QEDFelt;
 type QHasher = QEDHasher;
 #[derive(Serialize)]
 #[serde(bound = "for<'de2> TX: Deserialize<'de2>")]
-pub struct TransactionDebtTreeRef<S, TX: QFieldHashable<F> + Serialize, F: RichField, const HEIGHT: u8, const TREE_ID: u8, A = KVQStandardAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> {
+pub struct TransactionDebtTreeRef<S, TX: QFieldHashable<F> + Serialize, F: RichField, const HEIGHT: u8, const TREE_ID: u8, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> {
     _tx: PhantomData<TX>,
     _f: PhantomData<F>,
     #[serde(skip)]
-    _adapter: PhantomData<(S, A)>,
+    _adapter: PhantomData<(S, IDKVA)>,
     next_index: u64,
     checkpoint_id: u64,
     remaining_debt: Vec<DPNTransactionDebtItem<TX, F>>,
 }
 
 
-impl<S, TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const HEIGHT: u8, const TREE_ID: u8, A: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> TransactionDebtTreeRef<S, TX, F, HEIGHT, TREE_ID, A> {
+impl<S, TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const HEIGHT: u8, const TREE_ID: u8, IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> TransactionDebtTreeRef<S, TX, F, HEIGHT, TREE_ID, IDKVA> {
     pub fn new(checkpoint_id: u64) -> Self {
         Self {
             _tx: PhantomData::default(),
@@ -82,19 +82,19 @@ impl<S, TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const
 }
 
 
-impl<S, TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, const TREE_ID: u8, A: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> TransactionDebtTreeRef<S, TX, GF, HEIGHT, TREE_ID, A> {
+impl<S, TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, const TREE_ID: u8, IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> TransactionDebtTreeRef<S, TX, GF, HEIGHT, TREE_ID, IDKVA> {
     pub fn get_latest_tx_debt_leaf(&self, store: &S) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
         self.get_tx_debt_leaf(store, self.get_latest_index())
     }
     pub fn get_tx_debt_leaf(&self, store: &S, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
-        LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, A>::get_leaf_fc(store, self.checkpoint_id, leaf_index)
+        LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, IDKVA>::get_leaf_fc(store, self.checkpoint_id, leaf_index)
     }
     pub fn add_tx_debt(&mut self, store: &S, call_data: TX) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
         let new_index = self.next_index as u64;
         self.next_index += 1;
         let hash = call_data.qfhash::<QHasher>();
 
-        let insertion_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, A>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
+        let insertion_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, IDKVA>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
         let debt_item = DPNTransactionDebtItem {
             call_data,
             tree_index: new_index,
@@ -110,7 +110,7 @@ impl<S, TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, 
         self.next_index += 1;
         let hash = call_data.qfhash::<QHasher>();
 
-        let insertion_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, A>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
+        let insertion_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, IDKVA>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
         let debt_item = DPNTransactionDebtItem {
             call_data,
             tree_index: new_index,
@@ -124,7 +124,7 @@ impl<S, TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, 
         let removed = self.remove_proof_debt_item_by_tree_index_u64(tree_leaf_index);
         match removed {
             Some(item) => {
-                let removal_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, A>::set_leaf_fc(
+                let removal_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, IDKVA>::set_leaf_fc(
                     store,
                     self.checkpoint_id,
                     tree_leaf_index,
@@ -150,7 +150,7 @@ impl<S, TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, 
         let removed = self.remove_proof_debt_item_by_tree_index_u64(tree_leaf_index);
         match removed {
             Some(item) => {
-                let removal_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, A>::set_leaf_fc(
+                let removal_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, IDKVA>::set_leaf_fc(
                     store,
                     self.checkpoint_id,
                     tree_leaf_index,
