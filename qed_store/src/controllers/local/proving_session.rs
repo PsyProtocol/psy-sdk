@@ -69,6 +69,7 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
     pub transaction_records: Vec<QEDLocalTransactionRecord<F>>,
 
     pub deferred_tx_debt_store: TransactionDebtTreeRef<
+        KVQSimpleMemoryBackingStore,
         DPNProvingSessionSimpleMethodCall<F>,
         F,
         DEFERRED_TRANSACTION_TREE_HEIGHT,
@@ -491,7 +492,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
             }).await?
             .state_tree_height
             .to_canonical_u64() as u8;
-        let id = UserContractStateTreeId::<kvq::adapters::standard::KVQStandardAdapter<KVQSimpleMemoryBackingStore, qed_data::models::kvq_merkle::key::KVQMerkleNodeKey<{ qed_data::config::store_config::USER_CONTRACT_STATE_TREE_TABLE_TYPE }>, qed_data::config::store_config::QEDHash>>::new(
+        let id = UserContractStateTreeId::<KVQSimpleMemoryBackingStore>::new(
             self.user_id_u64,
             contract.to_canonical_u64() as u32,
             state_tree_height,
@@ -552,7 +553,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
             }).await?
             .state_tree_height
             .to_canonical_u64() as u8;
-        let id = UserContractStateTreeId::<kvq::adapters::standard::KVQStandardAdapter<KVQSimpleMemoryBackingStore, qed_data::models::kvq_merkle::key::KVQMerkleNodeKey<{ qed_data::config::store_config::USER_CONTRACT_STATE_TREE_TABLE_TYPE }>, qed_data::config::store_config::QEDHash>>::new(
+        let id = UserContractStateTreeId::<KVQSimpleMemoryBackingStore>::new(
             self.user_id_u64,
             contract.to_canonical_u64() as u32,
             state_tree_height,

@@ -1,32 +1,32 @@
 use std::marker::PhantomData;
 
-use kvq::traits::{KVQBinaryStore, KVQSerializable, KVQStoreAdapter};
+use kvq::{adapters::standard::KVQStandardAdapter, memory::simple::KVQSimpleMemoryBackingStore, traits::{KVQBinaryStore, KVQSerializable, KVQStoreAdapter}};
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
-use qed_data::dpn::proving_session::DPNTransactionDebtItem;
+use qed_data::{config::store_config::QEDHash, dpn::proving_session::DPNTransactionDebtItem, models::kvq_merkle::key::KVQMerkleNodeKey};
 use serde::{Deserialize, Serialize};
 
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, models::kvq_merkle::model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore}};
 
-use super::config::LocalProvingSessionTreeStore;
+use super::config::{LocalProvingSessionTreeStore, LOCAL_PROVING_SESSION_TREE_TABLE_TYPE};
 
 type GF = QEDFelt;
 type QHasher = QEDHasher;
 #[derive(Serialize)]
 #[serde(bound = "for<'de2> TX: Deserialize<'de2>")]
-pub struct TransactionDebtTreeRef<TX: QFieldHashable<F> + Serialize, F: RichField, const HEIGHT: u8, const TREE_ID: u8, A = kvq::adapters::standard::KVQStandardAdapter<kvq::memory::simple::KVQSimpleMemoryBackingStore, qed_data::models::kvq_merkle::key::KVQMerkleNodeKey<0xFE01>, qed_data::config::store_config::QEDHash>> {
+pub struct TransactionDebtTreeRef<S, TX: QFieldHashable<F> + Serialize, F: RichField, const HEIGHT: u8, const TREE_ID: u8, A = KVQStandardAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> {
     _tx: PhantomData<TX>,
     _f: PhantomData<F>,
     #[serde(skip)]
-    _adapter: PhantomData<A>,
+    _adapter: PhantomData<(S, A)>,
     next_index: u64,
     checkpoint_id: u64,
     remaining_debt: Vec<DPNTransactionDebtItem<TX, F>>,
 }
 
 
-impl<TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const HEIGHT: u8, const TREE_ID: u8, A> TransactionDebtTreeRef<TX, F, HEIGHT, TREE_ID, A> {
+impl<S, TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const HEIGHT: u8, const TREE_ID: u8, A: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> TransactionDebtTreeRef<S, TX, F, HEIGHT, TREE_ID, A> {
     pub fn new(checkpoint_id: u64) -> Self {
         Self {
             _tx: PhantomData::default(),
@@ -82,24 +82,14 @@ impl<TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const HE
 }
 
 
-impl<TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, const TREE_ID: u8, A> TransactionDebtTreeRef<TX, GF, HEIGHT, TREE_ID, A> {
-
-    pub fn get_latest_tx_debt_leaf<S>(&self, store: &S) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>>
-    where
-        A: KVQStoreAdapter<S, qed_data::models::kvq_merkle::key::KVQMerkleNodeKey<0xFE01>, qed_data::config::store_config::QEDHash>
-    {
+impl<S, TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, const TREE_ID: u8, A: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> TransactionDebtTreeRef<S, TX, GF, HEIGHT, TREE_ID, A> {
+    pub fn get_latest_tx_debt_leaf(&self, store: &S) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
         self.get_tx_debt_leaf(store, self.get_latest_index())
     }
-    pub fn get_tx_debt_leaf<S>(&self, store: &S, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>>
-    where
-        A: KVQStoreAdapter<S, qed_data::models::kvq_merkle::key::KVQMerkleNodeKey<0xFE01>, qed_data::config::store_config::QEDHash>
-    {
+    pub fn get_tx_debt_leaf(&self, store: &S, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
         LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, A>::get_leaf_fc(store, self.checkpoint_id, leaf_index)
     }
-    pub fn add_tx_debt<S>(&mut self, store: &S, call_data: TX) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>>
-    where
-        A: KVQStoreAdapter<S, qed_data::models::kvq_merkle::key::KVQMerkleNodeKey<0xFE01>, qed_data::config::store_config::QEDHash>
-    {
+    pub fn add_tx_debt(&mut self, store: &S, call_data: TX) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
         let new_index = self.next_index as u64;
         self.next_index += 1;
         let hash = call_data.qfhash::<QHasher>();
@@ -115,10 +105,7 @@ impl<TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, con
         Ok(insertion_proof)
     }
 
-    pub fn add_tx_debt_imm<S>(&mut self, store: &S, call_data: TX) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>>
-    where
-        A: KVQStoreAdapter<S, qed_data::models::kvq_merkle::key::KVQMerkleNodeKey<0xFE01>, qed_data::config::store_config::QEDHash>
-    {
+    pub fn add_tx_debt_imm(&mut self, store: &S, call_data: TX) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
         let new_index = self.next_index as u64;
         self.next_index += 1;
         let hash = call_data.qfhash::<QHasher>();
@@ -133,10 +120,7 @@ impl<TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, con
         self.remaining_debt.push(debt_item);
         Ok(insertion_proof)
     }
-    pub fn repay_tx_debt<S>(&mut self, store: &S, tree_leaf_index: u64) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)>
-    where
-        A: KVQStoreAdapter<S, qed_data::models::kvq_merkle::key::KVQMerkleNodeKey<0xFE01>, qed_data::config::store_config::QEDHash>
-    {
+    pub fn repay_tx_debt(&mut self, store: &S, tree_leaf_index: u64) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)> {
         let removed = self.remove_proof_debt_item_by_tree_index_u64(tree_leaf_index);
         match removed {
             Some(item) => {
@@ -162,10 +146,7 @@ impl<TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, con
             None => anyhow::bail!("transaction debt not found at tree index {}", tree_leaf_index),
         }
     }
-    pub fn repay_tx_debt_imm<S>(&mut self, store: &S, tree_leaf_index: u64) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)>
-    where
-        A: KVQStoreAdapter<S, qed_data::models::kvq_merkle::key::KVQMerkleNodeKey<0xFE01>, qed_data::config::store_config::QEDHash>
-    {
+    pub fn repay_tx_debt_imm(&mut self, store: &S, tree_leaf_index: u64) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)> {
         let removed = self.remove_proof_debt_item_by_tree_index_u64(tree_leaf_index);
         match removed {
             Some(item) => {

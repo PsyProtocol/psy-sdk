@@ -228,7 +228,7 @@ impl<T: KVQBinaryStore> QTreeDataStoreReaderSync<F> for T {
         height: u8,
         leaf_id: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        UserContractStateTreeId::<kvq::adapters::standard::KVQStandardAdapter<T, KVQMerkleNodeKey<{ USER_CONTRACT_STATE_TREE_TABLE_TYPE }>, QHashOut<F>>>::new(user_id, contract_id, height).get_leaf_value_ucs(
+        UserContractStateTreeId::<Self>::new(user_id, contract_id, height).get_leaf_value_ucs(
             self,
             checkpoint_id,
             leaf_id,
@@ -260,7 +260,7 @@ impl<T: KVQBinaryStore> QTreeDataStoreReaderSync<F> for T {
         height: u8,
         leaf_id: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        UserContractStateTreeId::<kvq::adapters::standard::KVQStandardAdapter<T, KVQMerkleNodeKey<{ USER_CONTRACT_STATE_TREE_TABLE_TYPE }>, QHashOut<F>>>::new(user_id, contract_id, height).get_leaf_ucs(
+        UserContractStateTreeId::<Self>::new(user_id, contract_id, height).get_leaf_ucs(
             self,
             checkpoint_id,
             leaf_id,
@@ -713,7 +713,7 @@ impl<T: KVQBinaryStore> QTreeDataStoreWriterSync<F> for T {
         leaf_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        UserContractStateTreeId::<kvq::adapters::standard::KVQStandardAdapter<T, KVQMerkleNodeKey<{ USER_CONTRACT_STATE_TREE_TABLE_TYPE }>, QHashOut<F>>>::new(user_id, contract_id, height).set_leaf_ucs(
+        UserContractStateTreeId::<T>::new(user_id, contract_id, height).set_leaf_ucs(
             self,
             checkpoint_id,
             leaf_id,
@@ -730,7 +730,7 @@ impl<T: KVQBinaryStore> QTreeDataStoreWriterSync<F> for T {
         leaf_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        UserContractStateTreeId::<kvq::adapters::standard::KVQStandardAdapter<T, KVQMerkleNodeKey<{ USER_CONTRACT_STATE_TREE_TABLE_TYPE }>, QHashOut<F>>>::new(
+        UserContractStateTreeId::<T>::new(
             user_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
             height,
