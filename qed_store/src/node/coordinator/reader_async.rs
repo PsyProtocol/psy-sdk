@@ -1,3 +1,4 @@
+use kvq::traits::KVQBinaryStore;
 use qed_data::{
     config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore},
     models::{
@@ -8,12 +9,9 @@ use qed_data::{
             KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelReaderCore,
         },
     },
-    qstore::imm::core::QEDStorageAdapterImmutable,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync,
-        qtreedata::
-            QTreeDataStoreReaderSync
-        ,
+        qtreedata::QTreeDataStoreReaderSync,
     },
 };
 use crate::node::coordinator::QEDCoordinatorStoreReaderAsync;
@@ -35,7 +33,7 @@ type F = GoldilocksField;
 
 #[cfg(feature = "is_sync")]
 #[async_trait]
-impl<T: QEDStorageAdapterImmutable + Send + Sync>
+impl<T: KVQBinaryStore + Send + Sync>
     QEDCoordinatorStoreReaderAsync<F> for T
 {
     async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>> {

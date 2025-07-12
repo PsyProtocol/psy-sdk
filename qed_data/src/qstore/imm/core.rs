@@ -40,15 +40,10 @@ use crate::{
     },
 };
 
-pub trait QEDStorageAdapterImmutable: KVQBinaryStore {}
-impl<T: KVQBinaryStore> QEDStorageAdapterImmutable for T {}
-
-pub trait QEDStorageAdapterImmutableAsync: kvq::traits::KVQBinaryStoreAsync {}
-impl<T: kvq::traits::KVQBinaryStoreAsync> QEDStorageAdapterImmutableAsync for T {}
 type F = QEDFelt;
 
 #[maybe_async::maybe_async(?Send)]
-impl<T: QEDStorageAdapterImmutable + Sync> QMetaDataStoreReaderSync<F> for T {
+impl<T: KVQBinaryStore + Sync> QMetaDataStoreReaderSync<F> for T {
     async fn get_user_leaf_data(
         &self,
         checkpoint_id: u64,
@@ -120,7 +115,7 @@ impl<T: QEDStorageAdapterImmutable + Sync> QMetaDataStoreReaderSync<F> for T {
     }
 }
 
-impl<T: QEDStorageAdapterImmutable> QMetaDataStoreWriterSync<F> for T {
+impl<T: KVQBinaryStore> QMetaDataStoreWriterSync<F> for T {
     fn set_user_leaf_data(&self, checkpoint_id: u64, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()> {
         UserLeafTableStore::<T>::set_user_ref(self, checkpoint_id, leaf_data)
     }
@@ -202,7 +197,7 @@ impl<T: QEDStorageAdapterImmutable> QMetaDataStoreWriterSync<F> for T {
 }
 
 #[maybe_async::maybe_async(?Send)]
-impl<T: QEDStorageAdapterImmutable + Sync> QTreeDataStoreReaderSync<F> for T {
+impl<T: KVQBinaryStore + Sync> QTreeDataStoreReaderSync<F> for T {
     async fn get_user_contract_state_tree_root(
         &self,
         checkpoint_id: u64,
@@ -708,7 +703,7 @@ impl<T: QEDStorageAdapterImmutable + Sync> QTreeDataStoreReaderSync<F> for T {
     }
 }
 
-impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
+impl<T: KVQBinaryStore> QTreeDataStoreWriterSync<F> for T {
     fn set_user_state_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
@@ -957,10 +952,10 @@ impl<T: QEDStorageAdapterImmutable> QTreeDataStoreWriterSync<F> for T {
     }
 }
 
-impl<T: QEDStorageAdapterImmutable> QEDComboDataStoreWriterSync<F> for T {}
+impl<T: KVQBinaryStore> QEDComboDataStoreWriterSync<F> for T {}
 
 #[maybe_async::maybe_async]
-impl<T: QEDStorageAdapterImmutable + Sync> QEDComboDataStoreReaderSync<F> for T {}
+impl<T: KVQBinaryStore + Sync> QEDComboDataStoreReaderSync<F> for T {}
 
 #[maybe_async::maybe_async]
-impl<T: QEDStorageAdapterImmutable + Sync> QEDComboDataStoreReaderWriterSync<F> for T {}
+impl<T: KVQBinaryStore + Sync> QEDComboDataStoreReaderWriterSync<F> for T {}

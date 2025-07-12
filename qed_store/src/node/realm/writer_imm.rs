@@ -12,14 +12,11 @@ use qed_data::{
             KVQMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore,
         }},
     },
-    qstore::imm::core::QEDStorageAdapterImmutable,
-    traits::qdatastore::
-        qmetadata::QMetaDataStoreWriterSync
-    ,
+    traits::qdatastore::qmetadata::QMetaDataStoreWriterSync,
 };
 use crate::node::realm::QEDRealmStoreWriterAsyncImm;
 use async_trait::async_trait;
-use kvq::traits::KVQPair;
+use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     util::log2_ceil,
@@ -41,7 +38,7 @@ use qed_data::{
 };
 type F = GoldilocksField;
 #[async_trait]
-impl<T: QEDStorageAdapterImmutable + Send + Sync> QEDRealmStoreWriterAsyncImm<F> for T {
+impl<T: KVQBinaryStore + Send + Sync> QEDRealmStoreWriterAsyncImm<F> for T {
     async fn injest_user_leaves_batch_imm(&self, checkpoint_id: u64, leaves: &[QEDUserLeaf<F>]) -> anyhow::Result<()> {
         for l in leaves.iter() {
             self.set_user_leaf_data(checkpoint_id, l)?;

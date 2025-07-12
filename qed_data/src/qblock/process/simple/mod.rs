@@ -1,6 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 use std::time::SystemTime;
 
+use kvq::traits::KVQBinaryStore;
 use plonky2::field::types::{Field, PrimeField64};
 use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
 use qed_core::data::qhashout::QHashOut;
@@ -28,14 +29,13 @@ use crate::{
         qtreedata::{QTreeDataStoreReaderSync, QTreeDataStoreWriterSync},
     },
 };
-use crate::qstore::imm::core::QEDStorageAdapterImmutable;
 
 
 pub struct SimpleBlockProcessor {}
 
 #[maybe_async::maybe_async]
 impl SimpleBlockProcessor {
-    pub async fn process_block<S: QEDStorageAdapterImmutable + Sync>(
+    pub async fn process_block<S: KVQBinaryStore + Sync>(
         store: &S,
         cmds: &QEDBlockCommands<QEDFelt>,
         fingerprints: &QEDWorkerToolboxCoreCircuitFingerprints<QEDFelt>,
