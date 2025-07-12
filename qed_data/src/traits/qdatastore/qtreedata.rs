@@ -240,35 +240,93 @@ pub trait QTreeDataStoreReaderSync<F: RichField> {
 
 pub trait QTreeDataStoreWriterSync<F: RichField> {
     fn batch_append_user_registration_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>;
-    fn batch_append_user_registration_tree_f(&self, checkpoint_id: F, start_leaf_index: F, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>;
+    fn batch_append_user_registration_tree_f(&self, checkpoint_id: F, start_leaf_index: F, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
+        self.batch_append_user_registration_tree(
+            checkpoint_id.to_canonical_u64(),
+            start_leaf_index.to_canonical_u64(),
+            sub_tree_height,
+            leaf_hashes,
+        )
+    }
 
 
     fn set_user_state_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, contract_id: u32, height: u8, leaf_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
-    fn set_user_state_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, contract_id: F, height: u8, leaf_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
+    fn set_user_state_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, contract_id: F, height: u8, leaf_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+        self.set_user_state_tree_leaf_hash(
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            contract_id.to_canonical_u64() as u32,
+            height,
+            leaf_id.to_canonical_u64(),
+            leaf_hash,
+        )
+    }
 
     fn set_user_contract_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, contract_id: u32, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
-    fn set_user_contract_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, contract_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
+    fn set_user_contract_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, contract_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+        self.set_user_contract_tree_leaf_hash(
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            contract_id.to_canonical_u64() as u32,
+            leaf_hash,
+        )
+    }
 
     fn set_user_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
-    fn set_user_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
+    fn set_user_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+        self.set_user_tree_leaf_hash(
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            leaf_hash,
+        )
+    }
 
     fn set_deposit_tree_leaf_hash(&self, checkpoint_id: u64, deposit_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
-    fn set_deposit_tree_leaf_hash_f(&self, checkpoint_id: F, deposit_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
+    fn set_deposit_tree_leaf_hash_f(&self, checkpoint_id: F, deposit_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+        self.set_deposit_tree_leaf_hash(
+            checkpoint_id.to_canonical_u64(),
+            deposit_id.to_canonical_u64(),
+            leaf_hash,
+        )
+    }
 
     fn set_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
-    fn set_withdrawal_tree_leaf_hash_f(&self, checkpoint_id: F, withdrawal_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
+    fn set_withdrawal_tree_leaf_hash_f(&self, checkpoint_id: F, withdrawal_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+        self.set_withdrawal_tree_leaf_hash(
+            checkpoint_id.to_canonical_u64(),
+            withdrawal_id.to_canonical_u64(),
+            leaf_hash,
+        )
+    }
 
 
     fn set_contract_function_whitelist(&self, checkpoint_id: u64, contract_id: u64, leaves: &[QHashOut<F>]) -> anyhow::Result<QHashOut<F>>;
-    fn set_contract_function_whitelist_f(&self, checkpoint_id: F, contract_id: F, leaves: &[QHashOut<F>]) -> anyhow::Result<QHashOut<F>>;
+    fn set_contract_function_whitelist_f(&self, checkpoint_id: F, contract_id: F, leaves: &[QHashOut<F>]) -> anyhow::Result<QHashOut<F>> {
+        self.set_contract_function_whitelist(
+            checkpoint_id.to_canonical_u64(),
+            contract_id.to_canonical_u64(),
+            leaves,
+        )
+    }
 
     fn batch_append_contract_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>;
 
     fn set_contract_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
-    fn set_contract_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
+    fn set_contract_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+        self.set_contract_tree_leaf_hash(
+            checkpoint_id.to_canonical_u64(),
+            contract_id.to_canonical_u64(),
+            leaf_hash,
+        )
+    }
 
     fn set_checkpoint_tree_leaf_hash(&self, checkpoint_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
-    fn set_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
+    fn set_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+        self.set_checkpoint_tree_leaf_hash(
+            checkpoint_id.to_canonical_u64(),
+            leaf_hash,
+        )
+    }
 }
 
 

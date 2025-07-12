@@ -40,13 +40,30 @@ pub trait QMetaDataStoreWriterSync<F: RichField> {
     fn set_user_leaf_data(&self, checkpoint_id: u64, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()>;
 
     fn set_contract_leaf_data(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()>;
-    fn set_contract_leaf_data_f(&self, checkpoint_id: F, contract_id: F, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()>;
+    fn set_contract_leaf_data_f(&self, checkpoint_id: F, contract_id: F, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()> {
+        self.set_contract_leaf_data(
+            checkpoint_id.to_canonical_u64(),
+            contract_id.to_canonical_u64(),
+            leaf_data,
+        )
+    }
 
     fn set_checkpoint_leaf_data(&self, checkpoint_id: u64, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()>;
-    fn set_checkpoint_leaf_data_f(&self, checkpoint_id: F, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()>;
+    fn set_checkpoint_leaf_data_f(&self, checkpoint_id: F, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()> {
+        self.set_checkpoint_leaf_data(
+            checkpoint_id.to_canonical_u64(),
+            leaf_data,
+        )
+    }
 
     fn set_contract_code_definition(&self, checkpoint_id: u64, contract_id: u64, definition: &ContractCodeDefinition) -> anyhow::Result<()>;
-    fn set_contract_code_definition_f(&self, checkpoint_id: F, contract_id: F, definition: &ContractCodeDefinition) -> anyhow::Result<()>;
+    fn set_contract_code_definition_f(&self, checkpoint_id: F, contract_id: F, definition: &ContractCodeDefinition) -> anyhow::Result<()> {
+        self.set_contract_code_definition(
+            checkpoint_id.to_canonical_u64(),
+            contract_id.to_canonical_u64(),
+            definition,
+        )
+    }
 
     fn set_l2_block_state(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()>;
 }
