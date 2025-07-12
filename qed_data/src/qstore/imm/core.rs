@@ -1,4 +1,4 @@
-use kvq::traits::KVQBinaryStore;
+use kvq::traits::{KVQBinaryStore, KVQSerializable, KVQStoreAdapter};
 use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
 use crate::config::store_config::USER_CONTRACT_STATE_TREE_TABLE_TYPE;
 use plonky2::field::types::PrimeField64;
@@ -228,7 +228,7 @@ impl<T: KVQBinaryStore> QTreeDataStoreReaderSync<F> for T {
         height: u8,
         leaf_id: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        UserContractStateTreeId::<Self>::new(user_id, contract_id, height).get_leaf_value_ucs(
+        UserContractStateTreeId::<T>::new(user_id, contract_id, height).get_leaf_value_ucs(
             self,
             checkpoint_id,
             leaf_id,
@@ -260,7 +260,7 @@ impl<T: KVQBinaryStore> QTreeDataStoreReaderSync<F> for T {
         height: u8,
         leaf_id: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        UserContractStateTreeId::<Self>::new(user_id, contract_id, height).get_leaf_ucs(
+        UserContractStateTreeId::<T>::new(user_id, contract_id, height).get_leaf_ucs(
             self,
             checkpoint_id,
             leaf_id,
