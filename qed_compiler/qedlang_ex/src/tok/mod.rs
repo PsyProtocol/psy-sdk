@@ -1,17 +1,17 @@
-use qedlang_core::dpn::{ 
-    network_constants::{MAX_USERS, TICKER_FELT_LEN},
-    ops::{context_trait::DPNContext, sym_felt::SymFeltRef, utils::{QStatefulContract, SparseArray, U252}}
-};
+use qedlang_core::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef, utils::{QStatefulContract, SparseArray, U252}};
 use std::marker::PhantomData;
 
 type Felt = SymFeltRef;
-/* 
+
+/*
+const MAX_USERS: usize = 1073741824;
+const TICKER_FELT_LEN: usize = 2;
 #[derive(Debug, QContractState)]
 pub struct SimpleTokenContract<C: DPNContext<Felt>> {
     pub balance: U252,
     pub claimed_transfer_amount: SparseArray<U252, MAX_USERS>,
     pub sent_transfer_amount: SparseArray<U252, MAX_USERS>,
-    _c: PhantomData<C>, 
+    _c: PhantomData<C>,
 }
 
 #[qcontract]
