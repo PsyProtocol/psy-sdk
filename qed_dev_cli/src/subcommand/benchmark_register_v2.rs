@@ -22,7 +22,7 @@ use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
 use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync};
-use qed_dev_cli::test_helpers::contract::gen_test_contract;
+use super::super::test_helpers::contract::gen_test_contract;
 use std::time::Duration;
 
 

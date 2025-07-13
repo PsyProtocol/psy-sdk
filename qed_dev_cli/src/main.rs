@@ -1,4 +1,5 @@
 mod subcommand;
+use qed_dev_cli::test_helpers;
 
 use clap::Parser;
 use subcommand::{Cli, Commands};
@@ -46,6 +47,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::RandomRegisterUserBatch(args) => {
             subcommand::register_user::run_random(args)?;
+        }
+        Commands::GetUserIdFromRegistrationId(args) => {
+            subcommand::get_user_id_from_registration_id::run(args).await?;
         }
     }
     

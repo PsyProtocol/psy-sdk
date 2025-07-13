@@ -1,4 +1,5 @@
 use clap::{command, Parser, Subcommand};
+pub use get_user_id_from_registration_id::GetUserIdFromRegistrationIdArgs;
 
 pub mod test_full_group_1;
 pub mod test_register_v2;
@@ -10,6 +11,7 @@ pub mod generate_token;
 pub mod produce_block;
 pub mod block_state;
 pub mod register_user;
+pub mod get_user_id_from_registration_id;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -60,6 +62,9 @@ pub enum Commands {
     
     #[command(about = "Register random users in batch")]
     RandomRegisterUserBatch(RandomArgs),
+    
+    #[command(about = "Get user ID and realm from registration ID")]
+    GetUserIdFromRegistrationId(GetUserIdFromRegistrationIdArgs),
 }
 
 #[derive(Parser)]

@@ -4,7 +4,7 @@ use kvq::{
     traits::KVQBinaryStore,
 };
 use std::sync::Arc;
-use qed_dev_cli::test_helpers::{
+use super::super::test_helpers::{
     contract::{gen_test_contract, SimpleTestContract},
     ups::ExampleDemoUserInfoStore,
 };

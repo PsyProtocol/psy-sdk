@@ -116,6 +116,8 @@ CONTRACT_ID              := 0
 SLOT_ID                  := 0
 CONTRACT_STATE_HEIGHT    := 32
 REALM_ID                 := 0
+REGISTRATION_ID          := 1
+STRATEGY                 := 2
 
 COORDINATOR_RPC_URL      := $(shell jq -r '.coordinator_configs[].rpc_url[]' rpc.config)
 REALM_RPC_URL            := $(shell jq -r '.realm_configs[0].rpc_url[]' rpc.config)
@@ -392,6 +394,9 @@ realm-get-user-contract-state-tree-merkle-proof:
 
 realm-get-checkpoint-global-state-roots:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_global_state_roots", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+
+get-user-id-from-registration-id:
+	@./target/${PROFILE}/qed_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY}
 
 image:
 	docker build \
