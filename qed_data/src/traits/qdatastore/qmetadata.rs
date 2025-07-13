@@ -7,7 +7,8 @@ use crate::qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{
 pub trait QMetaDataStoreReaderSync<F: RichField> {
     async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<F>>;
     async fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<QEDUserLeaf<F>> {
-        self.get_user_leaf_data(
+        <Self as QMetaDataStoreReaderSync<F>>::get_user_leaf_data(
+            self,
             checkpoint_id.to_canonical_u64(),
             user_id.to_canonical_u64(),
         ).await
@@ -15,24 +16,24 @@ pub trait QMetaDataStoreReaderSync<F: RichField> {
 
     async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
     async fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<QEDContractLeaf<F>> {
-        self.get_contract_leaf_data(contract_id.to_canonical_u64()).await
+        <Self as QMetaDataStoreReaderSync<F>>::get_contract_leaf_data(self, contract_id.to_canonical_u64()).await
     }
 
     async  fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>>;
     async  fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>> {
-        self.get_checkpoint_leaf_data(checkpoint_id.to_canonical_u64()).await
+        <Self as QMetaDataStoreReaderSync<F>>::get_checkpoint_leaf_data(self, checkpoint_id.to_canonical_u64()).await
     }
 
     async fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<ContractCodeDefinition>;
     async fn get_contract_code_definition_f(&self, contract_id: F) -> anyhow::Result<ContractCodeDefinition> {
-        self.get_contract_code_definition(contract_id.to_canonical_u64()).await
+        <Self as QMetaDataStoreReaderSync<F>>::get_contract_code_definition(self, contract_id.to_canonical_u64()).await
     }
 
     async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState>;
 
     async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState>;
     async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState> {
-        self.get_l2_block_state(checkpoint_id.to_canonical_u64()).await
+        <Self as QMetaDataStoreReaderSync<F>>::get_l2_block_state(self, checkpoint_id.to_canonical_u64()).await
     }
 }
 
@@ -41,7 +42,8 @@ pub trait QMetaDataStoreWriterSync<F: RichField> {
 
     fn set_contract_leaf_data(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()>;
     fn set_contract_leaf_data_f(&self, checkpoint_id: F, contract_id: F, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()> {
-        self.set_contract_leaf_data(
+        <Self as QMetaDataStoreWriterSync<F>>::set_contract_leaf_data(
+            self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64(),
             leaf_data,
@@ -50,7 +52,8 @@ pub trait QMetaDataStoreWriterSync<F: RichField> {
 
     fn set_checkpoint_leaf_data(&self, checkpoint_id: u64, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()>;
     fn set_checkpoint_leaf_data_f(&self, checkpoint_id: F, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()> {
-        self.set_checkpoint_leaf_data(
+        <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data(
+            self,
             checkpoint_id.to_canonical_u64(),
             leaf_data,
         )
@@ -58,7 +61,8 @@ pub trait QMetaDataStoreWriterSync<F: RichField> {
 
     fn set_contract_code_definition(&self, checkpoint_id: u64, contract_id: u64, definition: &ContractCodeDefinition) -> anyhow::Result<()>;
     fn set_contract_code_definition_f(&self, checkpoint_id: F, contract_id: F, definition: &ContractCodeDefinition) -> anyhow::Result<()> {
-        self.set_contract_code_definition(
+        <Self as QMetaDataStoreWriterSync<F>>::set_contract_code_definition(
+            self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64(),
             definition,

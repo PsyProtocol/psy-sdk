@@ -22,7 +22,7 @@ type H = QEDHasher;
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<
-    SR: QEDRealmStoreReaderAsync<F>,
+    SR: QEDRealmStoreReaderAsync<F> + Sync,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 > {
@@ -40,7 +40,7 @@ pub struct RealmEdgeContext<
 }
 
 impl<
-        SR: QEDRealmStoreReaderAsync<F>,
+        SR: QEDRealmStoreReaderAsync<F> + Sync,
         DQ: CheckpointDrainQueueEmitterAsyncImm,
         PS: QProofStoreAsyncImm,
     > RealmEdgeContext<SR, DQ, PS>

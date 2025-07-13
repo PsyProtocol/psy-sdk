@@ -58,21 +58,6 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
             leaf_hashes,
         )
     }
-    async fn batch_append_user_registration_tree_f_imm(
-        &self,
-        checkpoint_id: F,
-        start_leaf_index: F,
-        sub_tree_height: u8,
-        leaf_hashes: &[QHashOut<F>],
-    ) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
-        <Self as QTreeDataStoreWriterSync<F>>::batch_append_user_registration_tree_f(
-            self,
-            checkpoint_id,
-            start_leaf_index,
-            sub_tree_height,
-            leaf_hashes,
-        )
-    }
     async fn injest_user_tree_nodes_imm(
         &self,
         checkpoint_id: u64,
@@ -94,19 +79,6 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
             leaf_hash,
         )
     }
-    async fn set_deposit_tree_leaf_hash_f_imm(
-        &self,
-        checkpoint_id: F,
-        deposit_id: F,
-        leaf_hash: QHashOut<F>,
-    ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QTreeDataStoreWriterSync<F>>::set_deposit_tree_leaf_hash_f(
-            self,
-            checkpoint_id,
-            deposit_id,
-            leaf_hash,
-        )
-    }
     async fn set_withdrawal_tree_leaf_hash_imm(
         &self,
         checkpoint_id: u64,
@@ -114,19 +86,6 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
         <Self as QTreeDataStoreWriterSync<F>>::set_withdrawal_tree_leaf_hash(
-            self,
-            checkpoint_id,
-            withdrawal_id,
-            leaf_hash,
-        )
-    }
-    async fn set_withdrawal_tree_leaf_hash_f_imm(
-        &self,
-        checkpoint_id: F,
-        withdrawal_id: F,
-        leaf_hash: QHashOut<F>,
-    ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QTreeDataStoreWriterSync<F>>::set_withdrawal_tree_leaf_hash_f(
             self,
             checkpoint_id,
             withdrawal_id,
@@ -146,19 +105,6 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
             leaves,
         )
     }
-    async fn set_contract_function_whitelist_f_imm(
-        &self,
-        checkpoint_id: F,
-        contract_id: F,
-        leaves: &[QHashOut<F>],
-    ) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreWriterSync<F>>::set_contract_function_whitelist_f(
-            self,
-            checkpoint_id,
-            contract_id,
-            leaves,
-        )
-    }
     async fn set_contract_tree_leaf_hash_imm(
         &self,
         checkpoint_id: u64,
@@ -172,37 +118,12 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
             leaf_hash,
         )
     }
-    async fn set_contract_tree_leaf_hash_f_imm(
-        &self,
-        checkpoint_id: F,
-        contract_id: F,
-        leaf_hash: QHashOut<F>,
-    ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QTreeDataStoreWriterSync<F>>::set_contract_tree_leaf_hash_f(
-            self,
-            checkpoint_id,
-            contract_id,
-            leaf_hash,
-        )
-    }
     async fn set_checkpoint_tree_leaf_hash_imm(
         &self,
         checkpoint_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
         <Self as QTreeDataStoreWriterSync<F>>::set_checkpoint_tree_leaf_hash(
-            self,
-            checkpoint_id,
-            leaf_hash,
-        )
-    }
-    async fn set_checkpoint_tree_leaf_hash_f_imm(
-        &self,
-        checkpoint_id: F,
-        leaf_hash: QHashOut<F>,
-    ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-
-        <Self as QTreeDataStoreWriterSync<F>>::set_checkpoint_tree_leaf_hash_f(
             self,
             checkpoint_id,
             leaf_hash,
@@ -221,19 +142,6 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
             leaf_data,
         )
     }
-    async fn set_contract_leaf_data_f_imm(
-        &self,
-        checkpoint_id: F,
-        contract_id: F,
-        leaf_data: &QEDContractLeaf<F>,
-    ) -> anyhow::Result<()> {
-        <Self as QMetaDataStoreWriterSync<F>>::set_contract_leaf_data_f(
-            self,
-            checkpoint_id,
-            contract_id,
-            leaf_data,
-        )
-    }
     async fn set_checkpoint_leaf_data_imm(
         &self,
         checkpoint_id: u64,
@@ -246,18 +154,6 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
             leaf_data,
         )
     }
-    async fn set_checkpoint_leaf_data_f_imm(
-        &self,
-        checkpoint_id: F,
-        leaf_data: &QEDCheckpointLeaf<F>,
-    ) -> anyhow::Result<()> {
-
-        <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data_f(
-            self,
-            checkpoint_id,
-            leaf_data,
-        )
-    }
     async fn set_contract_code_definition_imm(
         &self,
         checkpoint_id: u64,
@@ -265,19 +161,6 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         definition: &ContractCodeDefinition,
     ) -> anyhow::Result<()> {
         <Self as QMetaDataStoreWriterSync<F>>::set_contract_code_definition(
-            self,
-            checkpoint_id,
-            contract_id,
-            definition,
-        )
-    }
-    async fn set_contract_code_definition_f_imm(
-        &self,
-        checkpoint_id: F,
-        contract_id: F,
-        definition: &ContractCodeDefinition,
-    ) -> anyhow::Result<()> {
-        <Self as QMetaDataStoreWriterSync<F>>::set_contract_code_definition_f(
             self,
             checkpoint_id,
             contract_id,

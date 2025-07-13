@@ -229,7 +229,7 @@ impl ExampleDemoUserInfoStore {
         Ok(new_mgr)
     }
     pub async fn send_txs_to_edge<
-    SR: QEDRealmStoreReaderAsync<F>,
+    SR: QEDRealmStoreReaderAsync<F> + Sync,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 > (&mut self, edge: &RealmEdgeContext<SR, DQ, PS>) -> anyhow::Result<()>{

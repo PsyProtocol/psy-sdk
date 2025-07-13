@@ -157,20 +157,6 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
             leaf_data,
         )
     }
-    async fn set_contract_leaf_data_f_imm(
-        &self,
-        checkpoint_id: F,
-        contract_id: F,
-        leaf_data: &QEDContractLeaf<F>,
-    ) -> anyhow::Result<()> {
-        <Self as QEDRealmStoreWriterAsyncImm<F>>::set_contract_leaf_data_imm(
-            &self,
-            checkpoint_id.to_canonical_u64(),
-            contract_id.to_canonical_u64(),
-            leaf_data,
-        )
-        .await
-    }
 
     async fn set_contract_code_definition_imm(
         &self,
@@ -184,20 +170,6 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
             contract_id,
             definition,
         )
-    }
-    async fn set_contract_code_definition_f_imm(
-        &self,
-        checkpoint_id: F,
-        contract_id: F,
-        definition: &ContractCodeDefinition,
-    ) -> anyhow::Result<()> {
-        <Self as QEDRealmStoreWriterAsyncImm<F>>::set_contract_code_definition_imm(
-            &self,
-            checkpoint_id.to_canonical_u64(),
-            contract_id.to_canonical_u64(),
-            definition,
-        )
-        .await
     }
 
     async fn commit_block_imm(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
