@@ -1,17 +1,14 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use fred::prelude::{KeysInterface, Pool};
-use futures::future::join_all;
 use kvq::traits::KVQPair;
 use plonky2::{
-    field::{packed::PackedField, types::Field},
+    field::types::Field,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use qed_common_circuit::treeprover::aggregation::state_transition;
 use qed_core::{
     config::network_constants::{
-        BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT
+        BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID, REALM_USER_TREE_HEIGHT
     },
     data::qhashout::QHashOut,
     job::{
@@ -54,17 +51,13 @@ use qed_data::{
     protocol::circuit_inputs::{agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput, checkpoint_transition::{QCQEDCheckpointStateTransitionInput, QCQEDCheckpointStateTransitionInputPartial}},
     qblock::cmds::deploy_contract::QBCDeployContractWithRoot,
     qdata::{
-        checkpoint::{
-            QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf,
-            QEDCheckpointLeafCompactWithStateRoots, QEDCheckpointLeafStats, QEDL2BlockState,
-        },
+        checkpoint::{QEDCheckpointLeafCompactWithStateRoots, QEDL2BlockState},
         contract::QEDContractLeaf,
-        pm_reward_commitment::PMRewardCommitment,
+
     },
 };
-use qed_rollup_circuit::guta::gadgets::guta_header;
 use qed_store::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserTreeStore}, models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore, node::coordinator::store_traits::{
+    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher}, node::coordinator::store_traits::{
         QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
     }
 };

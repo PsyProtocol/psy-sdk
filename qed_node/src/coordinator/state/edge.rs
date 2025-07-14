@@ -12,7 +12,6 @@ use qed_store::{
     node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync,
 };
 use rand::{thread_rng, RngCore};
-use serde::{Deserialize, Serialize};
 
 use super::processor::CoordinatorConfig;
 

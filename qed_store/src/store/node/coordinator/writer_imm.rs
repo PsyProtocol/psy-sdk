@@ -295,6 +295,10 @@ impl<T: QEDStorageAdapterImmutable + Send + Sync + QEDCoordinatorStoreReaderAsyn
     async fn commit_block(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
         self.imm_flush_change()
     }
+
+    async fn rollback_block(&self, checkpoint_id: u64) -> anyhow::Result<()>{
+        self.imm_clear_change()
+    }
     async fn initialize_store(&self) -> anyhow::Result<u64> {
 
         let latest_l2_block_state_or_err = self.get_latest_l2_block_state().await;
