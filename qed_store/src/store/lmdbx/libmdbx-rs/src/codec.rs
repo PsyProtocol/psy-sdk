@@ -1,5 +1,5 @@
 use crate::{Error, TransactionKind};
-use derive_more::{Debug, Deref, DerefMut};
+use derive_more::{Deref, DerefMut};
 use std::{borrow::Cow, slice};
 
 /// Implement this to be able to decode data values

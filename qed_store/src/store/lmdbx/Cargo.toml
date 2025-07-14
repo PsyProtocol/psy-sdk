@@ -7,5 +7,5 @@ version = "0.1.0"
 
 [dependencies]
 anyhow  = { workspace = true }
-kvq     = { path = "../../../../kvq" }
+kvq     = { workspace = true }
 reth-libmdbx  = { path = "./libmdbx-rs" }

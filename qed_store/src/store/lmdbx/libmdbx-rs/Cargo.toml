@@ -1,29 +1,24 @@
 [package]
 name = "reth-libmdbx"
 description = "Idiomatic and safe MDBX wrapper"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
 license = "Apache-2.0"
-homepage.workspace = true
-repository.workspace = true
-
-[lints]
-workspace = true
 
 [dependencies]
-reth-mdbx-sys.workspace = true
+reth-mdbx-sys = { path = "./mdbx-sys" }
 
-bitflags.workspace = true
-byteorder.workspace = true
-derive_more.workspace = true
-indexmap.workspace = true
-parking_lot.workspace = true
-smallvec.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
+bitflags = "2.4"
+byteorder = "1.5"
+derive_more = "0.99"
+indexmap = "2.0"
+parking_lot = "0.12"
+smallvec = "1.11"
+thiserror = "1.0"
+tracing = "0.1"
 
-dashmap = { workspace = true, features = ["inline"], optional = true }
+dashmap = { version = "5.5", features = ["inline"], optional = true }
 
 [features]
 default = []
@@ -31,10 +26,10 @@ return-borrowed = []
 read-tx-timeouts = ["dep:dashmap"]
 
 [dev-dependencies]
-pprof = { workspace = true, features = ["flamegraph", "frame-pointer", "criterion"] }
-criterion.workspace = true
-rand.workspace = true
-tempfile.workspace = true
+pprof = { version = "0.13", features = ["flamegraph", "frame-pointer", "criterion"] }
+criterion = "0.5"
+rand = "0.8"
+tempfile = "3.8"
 
 [[bench]]
 name = "cursor"

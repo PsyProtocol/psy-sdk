@@ -123,21 +123,22 @@ COORDINATOR_RPC_URL      := $(shell jq -r '.coordinator_configs[].rpc_url[]' rpc
 REALM_RPC_URL            := $(shell jq -r '.realm_configs[0].rpc_url[]' rpc.config)
 
 init:
-	./target/${PROFILE}/dargo new ${PROJECT_DIR}; \
-	cp qed_compiler/tests/new_token.qed ${FILE}
+	@./target/${PROFILE}/dargo new ${PROJECT_DIR}
+	@cp qed_compiler/tests/new_token.qed ${FILE}
+	@mkdir -p $(PWD)/db
 	@echo "Cleaning up any existing containers..."
-	@docker stop qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 > /dev/null 2>&1 || true
-	@docker rm qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 > /dev/null 2>&1 || true
-	@docker stop qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
-	@docker rm qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
+	# @docker stop qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 > /dev/null 2>&1 || true
+	# @docker rm qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 > /dev/null 2>&1 || true
+	# @docker stop qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
+	# @docker rm qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
 	@echo "Starting Redis containers..."
 	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm16384 -p 6381:6379 redis:alpine redis-server --save ""
-	@echo "Starting ScyllaDB containers..."
-	@docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
-	@docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
-	@docker run -d --name qed-scylla-realm16384 -p 9044:9042 scylladb/scylla:latest
+	# @echo "Starting ScyllaDB containers..."
+	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
+	# @docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
+	# @docker run -d --name qed-scylla-realm16384 -p 9044:9042 scylladb/scylla:latest
 	@echo "Waiting for databases to be ready..."
 	@sleep 10
 
@@ -148,7 +149,7 @@ shutdown:
 	@docker rm qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 > /dev/null 2>&1 || true
 	@docker stop qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
 	@docker rm qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
-	@rm -fr ${PROJECT_DIR}
+	@rm -fr ${PROJECT_DIR} ${PWD}/db > /dev/null 2>&1 || true
 
 run-all: shutdown init compile
 	@./scripts/run_all.sh
@@ -163,28 +164,41 @@ compile:
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo compile --entry-path ${FILE} --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
 
 run-coordinator-processor:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --scylla-uri=127.0.0.1:9042 --scylla-keyspace=qed_coordinator
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --backend-type lmdbx --path ${PWD}/db/coordinator
 
 run-coordinator-edge:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --scylla-uri=127.0.0.1:9042 --scylla-keyspace=qed_coordinator
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --backend-type lmdbx --path ${PWD}/db/coordinator
 
 run-coordinator-worker:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-worker
 
 run-realm-processor:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor --redis-uri=redis://127.0.0.1:6380 --scylla-uri=127.0.0.1:9043 --scylla-keyspace=qed_realm
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor --redis-uri=redis://127.0.0.1:6380 --backend-type lmdbx --path ${PWD}/db/realm0
+
+run-realm-edge:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --backend-type lmdbx --path ${PWD}/db/realm0
 
 run-realm-worker:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker --redis-uri=redis://127.0.0.1:6380
 
-run-realm-edge:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --scylla-uri=127.0.0.1:9043 --scylla-keyspace=qed_realm
-
 run-realm-processor16384:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6381 \
-      --scylla-uri=127.0.0.1:9044 \
-      --scylla-keyspace=qed_realm \
+      --backend-type lmdbx \
+      --path ${PWD}/db/realm16384 \
+      --node-id=2 \
+      --realm-id=16384 \
+      --worker-queue-suffix=rwq16384 \
+      --notifications-queue-suffix=rnq16384 \
+      --proof-store-key-suffix=RP16384
+
+run-realm-edge16384:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+      --listen-addr=0.0.0.0:8547 \
+      --redis-uri=redis://127.0.0.1:6381 \
+      --backend-type lmdbx \
+      --path ${PWD}/db/realm16384 \
+      --coordinator-addr=http://127.0.0.1:8545 \
       --node-id=2 \
       --realm-id=16384 \
       --worker-queue-suffix=rwq16384 \
@@ -194,19 +208,6 @@ run-realm-processor16384:
 run-realm-worker16384:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
       --redis-uri=redis://127.0.0.1:6381 \
-      --worker-queue-suffix=rwq16384 \
-      --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384
-
-run-realm-edge16384:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
-      --listen-addr=0.0.0.0:8547 \
-      --redis-uri=redis://127.0.0.1:6381 \
-      --scylla-uri=127.0.0.1:9044 \
-      --scylla-keyspace=qed_realm \
-      --coordinator-addr=http://127.0.0.1:8545 \
-      --node-id=2 \
-      --realm-id=16384 \
       --worker-queue-suffix=rwq16384 \
       --notifications-queue-suffix=rnq16384 \
       --proof-store-key-suffix=RP16384

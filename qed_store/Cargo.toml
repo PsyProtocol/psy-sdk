@@ -29,6 +29,7 @@ scylla = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
+kvq_store_lmdbx = { path = "src/store/lmdbx" }
 
 [features]
 default = ["is_sync"]
