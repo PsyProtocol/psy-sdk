@@ -33,6 +33,7 @@ use qed_store::{
 };
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, warn};
+use kvq::cache::KVQBinaryStoreCached;
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 
 type C = PoseidonGoldilocksConfig;
@@ -128,7 +129,7 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        KVQArcImmutableStoreWrapper<KVQlibmdbxStore>,
+        KVQArcImmutableStoreWrapper<KVQBinaryStoreCached<KVQlibmdbxStore>>,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
@@ -148,11 +149,10 @@ impl
             &cp_config.queue_args.proof_store_key_suffix,
             &cp_config.queue_args.proof_store_key_suffix,
         ).await?;
-
-        let store_reader: KVQArcImmutableStoreWrapper<KVQlibmdbxStore> =
-            KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(
-                KVQlibmdbxStore::new_write_with_size(&cp_config.db_path, cp_config.db_size_gb)?,
-            );
+        let store_reader =
+            KVQArcImmutableStoreWrapper::<KVQBinaryStoreCached<KVQlibmdbxStore>>::new(KVQBinaryStoreCached::new(KVQlibmdbxStore::new_write_with_size(
+                &cp_config.db_path, cp_config.db_size_gb
+            )?));
 
         //try to get the block 1's state
         let st = Arc::new(store_reader.dup());
@@ -269,10 +269,12 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 }
                 info!("start build block {}", next_checkpoint);
                 if let Err(e) = coordinator_processor.ctx.build_block().await {
+                    coordinator_processor.ctx.rollback_block(next_checkpoint).await?;
                     error!("❌ Failed to build block {}: {:?}", next_checkpoint, e);
                     tokio::time::sleep(Duration::from_secs(2)).await;
                     bail!("❌ Failed to build block {}: {:?}", next_checkpoint, e);
                 }
+                coordinator_processor.ctx.commit_block(next_checkpoint).await?;
                 info!("✅ Successfully built block {}", next_checkpoint);
                 next_checkpoint += 1;
                 push_latest_global_coordinator_status(
