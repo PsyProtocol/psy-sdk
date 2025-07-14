@@ -192,13 +192,7 @@ impl<KVQ: KVQBinaryStore> KVQBinaryStoreWriterImmutable for KVQArcImmutableStore
             self.write()?.delete_many(keys)
         }
     }
-
-    fn imm_flush_change(&self) -> anyhow::Result<()> {
-        {
-            self.write()?.flush_change()
-        }
-    }
-
+    
     fn imm_flush_change(&self) -> anyhow::Result<()> {
         {
             self.write()?.flush_change()
