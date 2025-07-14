@@ -1,5 +1,6 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
+use qed_store::store::backend::BackendConfig;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]
@@ -75,25 +76,7 @@ impl Default for QueueConfig {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Parser)]
-#[serde(default)]
-pub struct DBConfig {
-    /// Database path
-    #[arg(long, env = "REALM_DB_PATH", default_value = "./db/realm0")]
-    pub path: String,
 
-    #[arg(long, env = "REALM_DB_SIZE_GB", default_value_t = 100)]
-    pub size_gb: usize,
-}
-
-impl Default for DBConfig {
-    fn default() -> Self {
-        Self {
-            path: "./db/realm0".to_string(),
-            size_gb: 100,
-        }
-    }
-}
 
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]
@@ -102,11 +85,11 @@ pub struct RPCConfig {
     #[arg(long, env = "REALM_EDGE_LISTEN_ADDR", default_value = "0.0.0.0:8546")]
     pub listen_addr: String,
 
-    /// Coordinator RPC listen address
+    /// Coordinator RPC address
     #[arg(
         long,
         env = "COORDINATOR_EDGE_ADDR",
-        default_value = "http://0.0.0.0:8545"
+        default_value = "http://127.0.0.1:8545"
     )]
     pub coordinator_addr: String,
 }
@@ -115,7 +98,7 @@ impl Default for RPCConfig {
     fn default() -> Self {
         Self {
             listen_addr: "0.0.0.0:8546".to_string(),
-            coordinator_addr: "0.0.0.0:8545".to_string(),
+            coordinator_addr: "http://127.0.0.1:8545".to_string(),
         }
     }
 }
@@ -127,9 +110,9 @@ pub struct RealmNodeConfig {
     #[command(flatten)]
     pub realm: RealmConfig,
 
-    /// Database configuration
+    /// Store backend configuration
     #[command(flatten)]
-    pub db: DBConfig,
+    pub backend: BackendConfig,
 
     /// Redis configuration for queue and proof storage
     #[command(flatten)]
@@ -151,9 +134,9 @@ pub struct RealmEdgeConfig {
     #[command(flatten)]
     pub realm: RealmConfig,
 
-    /// Database configuration
+    /// Store backend configuration
     #[command(flatten)]
-    pub db: DBConfig,
+    pub backend: BackendConfig,
 
     /// Redis configuration for queue and proof storage
     #[command(flatten)]

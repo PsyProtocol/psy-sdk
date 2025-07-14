@@ -32,10 +32,10 @@ Parameters:
     Default: 10.0.20.0/24
     Description: CIDR block for realm 0 subnet
   
-  Realm16384SubnetCIDR:
+  Realm32SubnetCIDR:
     Type: String
     Default: 10.0.30.0/24
-    Description: CIDR block for realm 16384 subnet
+    Description: CIDR block for realm 32 subnet
   
   WorkerInstanceType:
     Type: String
@@ -59,6 +59,37 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
     Description: Latest Ubuntu 22.04 LTS AMI
+  
+  ScyllaDBDataVolumeSize:
+    Type: Number
+    Default: 1000
+    MinValue: 100
+    MaxValue: 16000
+    Description: Size of ScyllaDB data volume in GB
+  
+  ScyllaDBCommitLogVolumeSize:
+    Type: Number
+    Default: 200
+    MinValue: 50
+    MaxValue: 1000
+    Description: Size of ScyllaDB commit log volume in GB
+  
+  ScyllaDBInstanceType:
+    Type: String
+    Default: r6i.2xlarge
+    AllowedValues:
+      - r6i.large     # 2 vCPU, 16 GiB RAM
+      - r6i.xlarge    # 4 vCPU, 32 GiB RAM
+      - r6i.2xlarge   # 8 vCPU, 64 GiB RAM
+      - r6i.4xlarge   # 16 vCPU, 128 GiB RAM
+    Description: EC2 instance type for ScyllaDB nodes
+  
+  ScyllaDBInstanceCount:
+    Type: Number
+    Default: 3
+    MinValue: 1
+    MaxValue: 9
+    Description: Number of ScyllaDB instances
 
 Conditions:
   HasKeyPair: !Not [!Equals [!Ref KeyPairName, ""]]
@@ -112,16 +143,16 @@ Resources:
         - Key: Name
           Value: !Sub ${ProjectName}-realm0-subnet
 
-  Realm16384Subnet:
+  Realm32Subnet:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [2, !GetAZs '']
-      CidrBlock: !Ref Realm16384SubnetCIDR
+      CidrBlock: !Ref Realm32SubnetCIDR
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-realm16384-subnet
+          Value: !Sub ${ProjectName}-realm32-subnet
 
   # Route Table for Public Subnets
   PublicRouteTable:
@@ -152,11 +183,11 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref Realm0Subnet
 
-  Realm16384SubnetRouteTableAssociation:
+  Realm32SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicRouteTable
-      SubnetId: !Ref Realm16384Subnet
+      SubnetId: !Ref Realm32Subnet
 
   # Security Groups
   CoordinatorSecurityGroup:
@@ -178,7 +209,7 @@ Resources:
           SourceSecurityGroupId: !Ref ALBSecurityGroup
         # Allow ALB access to dynamic ports for ECS
         - IpProtocol: tcp
-          FromPort: 32768
+          FromPort: 4194304
           ToPort: 65535
           SourceSecurityGroupId: !Ref ALBSecurityGroup
         # Allow internal coordinator communication
@@ -209,7 +240,7 @@ Resources:
           SourceSecurityGroupId: !Ref ALBSecurityGroup
         # Allow ALB access to dynamic ports for ECS
         - IpProtocol: tcp
-          FromPort: 32768
+          FromPort: 4194304
           ToPort: 65535
           SourceSecurityGroupId: !Ref ALBSecurityGroup
         # Allow internal realm 0 communication
@@ -221,11 +252,11 @@ Resources:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
 
-  Realm16384SecurityGroup:
+  Realm32SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub ${ProjectName}-realm16384-sg
-      GroupDescription: Security group for realm 16384 services
+      GroupName: !Sub ${ProjectName}-realm32-sg
+      GroupDescription: Security group for realm 32 services
       VpcId: !Ref VPC
       SecurityGroupIngress:
         # SSH access
@@ -240,14 +271,14 @@ Resources:
           SourceSecurityGroupId: !Ref ALBSecurityGroup
         # Allow ALB access to dynamic ports for ECS
         - IpProtocol: tcp
-          FromPort: 32768
+          FromPort: 4194304
           ToPort: 65535
           SourceSecurityGroupId: !Ref ALBSecurityGroup
-        # Allow internal realm 16384 communication
+        # Allow internal realm 32 communication
         - IpProtocol: tcp
           FromPort: 0
           ToPort: 65535
-          CidrIp: !Ref Realm16384SubnetCIDR
+          CidrIp: !Ref Realm32SubnetCIDR
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -285,11 +316,11 @@ Resources:
           ToPort: 6380
           CidrIp: 10.0.0.0/16
 
-  Realm16384RedisSecurityGroup:
+  Realm32RedisSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub ${ProjectName}-realm16384-redis-sg
-      GroupDescription: Security group for realm 16384 Redis
+      GroupName: !Sub ${ProjectName}-realm32-redis-sg
+      GroupDescription: Security group for realm 32 Redis
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -326,54 +357,409 @@ Resources:
         - Name: containerInsights
           Value: enabled
 
-  # EBS Multi-Attach Volumes for shared MDBX database storage
+  # ScyllaDB Security Group
+  ScyllaDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-scylladb-sg
+      GroupDescription: Security group for ScyllaDB cluster
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        # SSH access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        # ScyllaDB CQL port
+        - IpProtocol: tcp
+          FromPort: 9042
+          ToPort: 9042
+          CidrIp: 10.0.0.0/16
+        # ScyllaDB inter-node communication
+        - IpProtocol: tcp
+          FromPort: 7000
+          ToPort: 7001
+          CidrIp: 10.0.0.0/16
+        # ScyllaDB JMX port
+        - IpProtocol: tcp
+          FromPort: 7199
+          ToPort: 7199
+          CidrIp: 10.0.0.0/16
+        # ScyllaDB REST API
+        - IpProtocol: tcp
+          FromPort: 10000
+          ToPort: 10000
+          CidrIp: 10.0.0.0/16
+        # ScyllaDB Prometheus metrics
+        - IpProtocol: tcp
+          FromPort: 9180
+          ToPort: 9180
+          CidrIp: 10.0.0.0/16
+        # ScyllaDB node exporter
+        - IpProtocol: tcp
+          FromPort: 9100
+          ToPort: 9100
+          CidrIp: 10.0.0.0/16
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  # ScyllaDB Launch Template
+  ScyllaDBLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${ProjectName}-scylladb-lt
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: !Ref ScyllaDBInstanceType
+        KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref AWS::NoValue]
+        IamInstanceProfile:
+          Name: !Ref WorkerInstanceProfile
+        SecurityGroupIds:
+          - !Ref ScyllaDBSecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              Iops: 16000
+              Throughput: 1000
+              DeleteOnTermination: true
+          # Dedicated EBS volume for ScyllaDB data
+          - DeviceName: /dev/xvdb
+            Ebs:
+              VolumeSize: !Ref ScyllaDBDataVolumeSize
+              VolumeType: gp3
+              Iops: 16000
+              Throughput: 1000
+              DeleteOnTermination: true
+              Encrypted: true
+          # Dedicated EBS volume for ScyllaDB commitlog
+          - DeviceName: /dev/xvdc
+            Ebs:
+              VolumeSize: !Ref ScyllaDBCommitLogVolumeSize
+              VolumeType: gp3
+              Iops: 16000
+              Throughput: 1000
+              DeleteOnTermination: true
+              Encrypted: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Project
+                Value: !Ref ProjectName
+              - Key: Component
+                Value: scylladb
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            exec > /var/log/user-data.log 2>&1
+            echo "Starting ScyllaDB setup at $(date)..."
+            
+            # Install cqlsh for ScyllaDB management
+            apt-get update && apt-get install -y python3-pip
+            pip3 install cassandra-driver cqlsh
+            
+            # Configure system settings for ScyllaDB
+            echo "Configuring system settings for ScyllaDB..."
+            
+            # Set AIO max nr for ScyllaDB performance
+            sysctl -w fs.aio-max-nr=5029568
+            echo "fs.aio-max-nr=5029568" >> /etc/sysctl.conf
+            
+            # Disable swap
+            swapoff -a
+            sed -i '/ swap / s/^/#/' /etc/fstab
+            
+            # Update system and install Docker
+            apt-get update -y
+            apt-get install -y docker.io awscli jq xfsprogs
+            systemctl enable docker
+            systemctl start docker
+            
+            # Setup EBS volumes
+            echo "Setting up EBS volumes..."
+            
+            # Wait for EBS volumes to be attached
+            sleep 10
+            
+            # Support both xvd* and nvme* device naming
+            DATA_DEVICE=""
+            COMMITLOG_DEVICE=""
+            
+            # First check for traditional xvd* devices
+            if [ -b /dev/xvdb ] && [ -b /dev/xvdc ]; then
+              echo "Found traditional xvd* devices"
+              DATA_DEVICE="/dev/xvdb"
+              COMMITLOG_DEVICE="/dev/xvdc"
+            else
+              echo "Checking for NVMe devices..."
+              # For newer instances, identify by size
+              for device in /dev/nvme*n1; do
+                if [ -b "$device" ]; then
+                  SIZE=$(lsblk -b -n -o SIZE "$device" 2>/dev/null | head -1)
+                  if [ -n "$SIZE" ]; then
+                    SIZE_GB=$((SIZE / 1024 / 1024 / 1024))
+                    if [ $SIZE_GB -eq 1000 ]; then
+                      DATA_DEVICE="$device"
+                    elif [ $SIZE_GB -eq 200 ]; then
+                      COMMITLOG_DEVICE="$device"
+                    fi
+                  fi
+                fi
+              done
+            fi
+            
+            echo "Data device: $DATA_DEVICE, Commitlog device: $COMMITLOG_DEVICE"
+            
+            # Exit if devices not found
+            if [ -z "$DATA_DEVICE" ] || [ -z "$COMMITLOG_DEVICE" ]; then
+              echo "ERROR: Could not identify EBS volumes"
+              exit 1
+            fi
+            
+            # Format EBS volumes with XFS
+            mkfs.xfs -f "$DATA_DEVICE"
+            mkfs.xfs -f "$COMMITLOG_DEVICE"
+            
+            # Create mount points
+            mkdir -p /var/lib/scylla
+            
+            # Mount data volume first
+            mount "$DATA_DEVICE" /var/lib/scylla
+            
+            # Now create commitlog directory on the mounted filesystem
+            mkdir -p /var/lib/scylla/commitlog
+            
+            # Mount commitlog volume
+            mount "$COMMITLOG_DEVICE" /var/lib/scylla/commitlog
+            
+            # Add to fstab for persistence
+            echo "$DATA_DEVICE /var/lib/scylla xfs defaults,nofail,noatime 0 2" >> /etc/fstab
+            echo "$COMMITLOG_DEVICE /var/lib/scylla/commitlog xfs defaults,nofail,noatime 0 2" >> /etc/fstab
+            
+            # Create data directories for Docker volumes
+            mkdir -p /var/lib/scylla/data
+            mkdir -p /var/lib/scylla/config
+            
+            # Set proper permissions (UID 999 for scylla user in container)
+            chown -R 999:999 /var/lib/scylla
+            
+            # Get instance metadata
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+            PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+            
+            # Get other ScyllaDB nodes from Auto Scaling Group
+            ASG_NAME="${ProjectName}-scylladb-asg"
+            REGION="${AWS::Region}"
+            
+            # Wait a bit for other instances to start
+            sleep 30
+            
+            # Get all instances in the ASG
+            INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
+              --auto-scaling-group-names $ASG_NAME \
+              --region $REGION \
+              --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`].InstanceId' \
+              --output text)
+            
+            # Get IPs of all instances
+            SEEDS=""
+            for instance in $INSTANCES; do
+              if [ "$instance" != "$INSTANCE_ID" ]; then
+                IP=$(aws ec2 describe-instances \
+                  --instance-ids $instance \
+                  --region $REGION \
+                  --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                  --output text)
+                if [ -n "$IP" ]; then
+                  if [ -z "$SEEDS" ]; then
+                    SEEDS="$IP"
+                  else
+                    SEEDS="$SEEDS,$IP"
+                  fi
+                fi
+              fi
+            done
+            
+            # If no other nodes, use self as seed
+            if [ -z "$SEEDS" ]; then
+              SEEDS="$INSTANCE_IP"
+            fi
+            
+            # Pull ScyllaDB Docker image
+            docker pull scylladb/scylla:2025.1
+            
+            # Start ScyllaDB container (standalone instance)
+            docker run --name scylladb -d \
+              --restart always \
+              -p 9042:9042 \
+              -p 9180:9180 \
+              -p 9100:9100 \
+              -v /var/lib/scylla/data:/var/lib/scylla \
+              scylladb/scylla:2025.1
+            
+            # Wait for ScyllaDB to be ready
+            echo "Waiting for ScyllaDB to start..."
+            while ! cqlsh -e "DESC KEYSPACES" $INSTANCE_IP 9042 > /dev/null 2>&1; do
+              sleep 5
+            done
+            
+            # Store connection info in SSM
+            aws ssm put-parameter \
+              --name "/${ProjectName}/scylladb/node-$INSTANCE_ID/endpoint" \
+              --value "$INSTANCE_IP:9042" \
+              --type String \
+              --overwrite \
+              --region ${AWS::Region}
+            
+            # Also store based on subnet
+            SUBNET_THIRD_OCTET=$(echo $INSTANCE_IP | cut -d. -f3)
+            case $SUBNET_THIRD_OCTET in
+              10)
+                # Coordinator subnet
+                aws ssm put-parameter \
+                  --name "/${ProjectName}/scylladb/coordinator-endpoint" \
+                  --value "$INSTANCE_IP:9042" \
+                  --type String \
+                  --overwrite \
+                  --region ${AWS::Region}
+                ;;
+              20)
+                # Realm0 subnet
+                aws ssm put-parameter \
+                  --name "/${ProjectName}/scylladb/realm0-endpoint" \
+                  --value "$INSTANCE_IP:9042" \
+                  --type String \
+                  --overwrite \
+                  --region ${AWS::Region}
+                ;;
+              30)
+                # Realm32 subnet
+                aws ssm put-parameter \
+                  --name "/${ProjectName}/scylladb/realm32-endpoint" \
+                  --value "$INSTANCE_IP:9042" \
+                  --type String \
+                  --overwrite \
+                  --region ${AWS::Region}
+                ;;
+            esac
+            
+            # On the first node, create keyspaces for QED
+            if [ "$SEEDS" == "$INSTANCE_IP" ]; then
+              echo "First node, creating QED keyspaces..."
+              sleep 30  # Give time for cluster to stabilize
+              
+              # Create keyspaces with replication factor 3
+              cqlsh $INSTANCE_IP 9042 << 'CQLEOF'
+              CREATE KEYSPACE IF NOT EXISTS qed_coordinator
+                WITH REPLICATION = {
+                  'class': 'NetworkTopologyStrategy',
+                  'datacenter1': 3
+                }
+                AND durable_writes = true;
+              
+              CREATE KEYSPACE IF NOT EXISTS qed_realm_0
+                WITH REPLICATION = {
+                  'class': 'NetworkTopologyStrategy',
+                  'datacenter1': 3
+                }
+                AND durable_writes = true;
+              
+              CREATE KEYSPACE IF NOT EXISTS qed_realm_32
+                WITH REPLICATION = {
+                  'class': 'NetworkTopologyStrategy',
+                  'datacenter1': 3
+                }
+                AND durable_writes = true;
+            CQLEOF
+              
+              # Store cluster contact point
+              aws ssm put-parameter \
+                --name "/${ProjectName}/scylladb/cluster-contact-point" \
+                --value "$INSTANCE_IP:9042" \
+                --type String \
+                --overwrite \
+                --region ${AWS::Region}
+            fi
+            
+            echo "ScyllaDB setup completed successfully at $(date)"
+
+  # EBS Volumes for Multi-Attach
   CoordinatorEBSVolume:
     Type: AWS::EC2::Volume
     Properties:
-      VolumeType: gp3
-      Size: 100
-      Iops: 3000
-      Throughput: 125
-      Encrypted: true
       AvailabilityZone: !Select [0, !GetAZs '']
+      Size: 500
+      VolumeType: io2
+      Iops: 16000
+      MultiAttachEnabled: true
+      Encrypted: true
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-coordinator-data
+          Value: !Sub ${ProjectName}-coordinator-ebs
         - Key: Project
           Value: !Ref ProjectName
 
   Realm0EBSVolume:
     Type: AWS::EC2::Volume
     Properties:
-      VolumeType: gp3
-      Size: 100
-      Iops: 3000
-      Throughput: 125
-      Encrypted: true
       AvailabilityZone: !Select [1, !GetAZs '']
+      Size: 500
+      VolumeType: io2
+      Iops: 16000
+      MultiAttachEnabled: true
+      Encrypted: true
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-realm0-data
+          Value: !Sub ${ProjectName}-realm0-ebs
         - Key: Project
           Value: !Ref ProjectName
 
-  Realm16384EBSVolume:
+  Realm32EBSVolume:
     Type: AWS::EC2::Volume
     Properties:
-      VolumeType: gp3
-      Size: 100
-      Iops: 3000
-      Throughput: 125
-      Encrypted: true
       AvailabilityZone: !Select [2, !GetAZs '']
+      Size: 500
+      VolumeType: io2
+      Iops: 16000
+      MultiAttachEnabled: true
+      Encrypted: true
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-realm16384-data
+          Value: !Sub ${ProjectName}-realm32-ebs
         - Key: Project
           Value: !Ref ProjectName
 
-  # EBS Volume Attachments for Multi-Attach volumes
-  # Note: Actual attachment will be done by EC2 user data scripts
+  # ScyllaDB Auto Scaling Group
+  ScyllaDBAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${ProjectName}-scylladb-asg
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ScyllaDBLaunchTemplate
+        Version: !GetAtt ScyllaDBLaunchTemplate.LatestVersionNumber
+      MinSize: !Ref ScyllaDBInstanceCount
+      MaxSize: !Ref ScyllaDBInstanceCount
+      DesiredCapacity: !Ref ScyllaDBInstanceCount
+      VPCZoneIdentifier:
+        - !Ref CoordinatorSubnet
+        - !Ref Realm0Subnet
+        - !Ref Realm32Subnet
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 600
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-scylladb-node
+          PropagateAtLaunch: true
+        - Key: Project
+          Value: !Ref ProjectName
+          PropagateAtLaunch: true
+        - Key: Component
+          Value: scylladb
+          PropagateAtLaunch: true
 
   # ECR Repository (managed externally)
 
@@ -392,7 +778,7 @@ Resources:
         SecurityGroupIds:
           - !Ref CoordinatorRedisSecurityGroup
           - !Ref Realm0RedisSecurityGroup
-          - !Ref Realm16384RedisSecurityGroup
+          - !Ref Realm32RedisSecurityGroup
         TagSpecifications:
           - ResourceType: instance
             Tags:
@@ -421,7 +807,7 @@ Resources:
             echo "Instance IP: $INSTANCE_IP"
             
             # Create data directories for 3 Redis instances
-            mkdir -p /data/redis-coordinator /data/redis-realm0 /data/redis-realm16384
+            mkdir -p /data/redis-coordinator /data/redis-realm0 /data/redis-realm32
             
             # Run Coordinator Redis (port 6379)
             echo "Starting Coordinator Redis container..."
@@ -433,7 +819,9 @@ Resources:
               --memory=20g \
               redis:7-alpine \
               redis-server \
+                --save "" \
                 --appendonly yes \
+                --appendfsync everysec \
                 --dir /data \
                 --maxmemory 18gb \
                 --maxmemory-policy allkeys-lru \
@@ -449,27 +837,31 @@ Resources:
               --memory=20g \
               redis:7-alpine \
               redis-server \
+                --save "" \
                 --appendonly yes \
+                --appendfsync everysec \
                 --dir /data \
                 --maxmemory 18gb \
                 --maxmemory-policy allkeys-lru \
                 --port 6379 || { echo "Realm0 Redis failed"; exit 1; }
             
-            # Run Realm16384 Redis (port 6381)
-            echo "Starting Realm16384 Redis container..."
+            # Run Realm32 Redis (port 6381)
+            echo "Starting Realm32 Redis container..."
             docker run -d \
-              --name redis-realm16384 \
+              --name redis-realm32 \
               -p 6381:6379 \
-              -v /data/redis-realm16384:/data \
+              -v /data/redis-realm32:/data \
               --restart always \
               --memory=20g \
               redis:7-alpine \
               redis-server \
+                --save "" \
                 --appendonly yes \
+                --appendfsync everysec \
                 --dir /data \
                 --maxmemory 18gb \
                 --maxmemory-policy allkeys-lru \
-                --port 6379 || { echo "Realm16384 Redis failed"; exit 1; }
+                --port 6379 || { echo "Realm32 Redis failed"; exit 1; }
             
             # Wait for containers to be ready
             sleep 15
@@ -492,11 +884,11 @@ Resources:
               --region ${AWS::Region} || echo "Realm0 SSM parameter failed"
             
             aws ssm put-parameter \
-              --name "/${ProjectName}/redis/realm16384/endpoint" \
+              --name "/${ProjectName}/redis/realm32/endpoint" \
               --value "$INSTANCE_IP:6381" \
               --type String \
               --overwrite \
-              --region ${AWS::Region} || echo "Realm16384 SSM parameter failed"
+              --region ${AWS::Region} || echo "Realm32 SSM parameter failed"
             
             echo "Multi-Redis setup completed successfully at $(date)"
 
@@ -514,7 +906,7 @@ Resources:
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
         - !Ref Realm0Subnet
-        - !Ref Realm16384Subnet
+        - !Ref Realm32Subnet
       HealthCheckType: EC2
       HealthCheckGracePeriod: 300
       Tags:
@@ -538,7 +930,7 @@ Resources:
       Subnets:
         - !Ref CoordinatorSubnet
         - !Ref Realm0Subnet
-        - !Ref Realm16384Subnet
+        - !Ref Realm32Subnet
 
   # CloudWatch Log Group
   CloudWatchLogGroup:
@@ -684,29 +1076,29 @@ Resources:
           Value: realm0
           PropagateAtLaunch: true
 
-  Realm16384AutoScalingGroup:
+  Realm32AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: !Sub ${ProjectName}-realm16384-asg
+      AutoScalingGroupName: !Sub ${ProjectName}-realm32-asg
       LaunchTemplate:
-        LaunchTemplateId: !Ref Realm16384LaunchTemplate
-        Version: !GetAtt Realm16384LaunchTemplate.LatestVersionNumber
+        LaunchTemplateId: !Ref Realm32LaunchTemplate
+        Version: !GetAtt Realm32LaunchTemplate.LatestVersionNumber
       MinSize: 1
       MaxSize: 2
       DesiredCapacity: 1
       VPCZoneIdentifier:
-        - !Ref Realm16384Subnet
+        - !Ref Realm32Subnet
       HealthCheckType: EC2
       HealthCheckGracePeriod: 300
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-realm16384-worker
+          Value: !Sub ${ProjectName}-realm32-worker
           PropagateAtLaunch: true
         - Key: Project
           Value: !Ref ProjectName
           PropagateAtLaunch: true
         - Key: Realm
-          Value: realm16384
+          Value: realm32
           PropagateAtLaunch: true
 
   # Launch Templates (only for coordinator and edge services that need EFS)
@@ -1021,10 +1413,10 @@ Resources:
               - Key: Environment
                 Value: !Ref Environment
 
-  Realm16384LaunchTemplate:
+  Realm32LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: !Sub ${ProjectName}-realm16384-template
+      LaunchTemplateName: !Sub ${ProjectName}-realm32-template
       LaunchTemplateData:
         ImageId: !Ref LatestAmiId
         InstanceType: !Ref WorkerInstanceType
@@ -1035,7 +1427,7 @@ Resources:
           - DeviceIndex: 0
             DeleteOnTermination: true
             Groups:
-              - !Ref Realm16384SecurityGroup
+              - !Ref Realm32SecurityGroup
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
@@ -1052,12 +1444,12 @@ Resources:
             usermod -aG docker ubuntu
             
             # Attach and mount EBS Multi-Attach volume
-            echo "Attaching EBS volume for realm16384 data..."
+            echo "Attaching EBS volume for realm32 data..."
             INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
             
             # Attach EBS volume
             aws ec2 attach-volume \
-              --volume-id ${Realm16384EBSVolume} \
+              --volume-id ${Realm32EBSVolume} \
               --instance-id $INSTANCE_ID \
               --device /dev/xvdf \
               --region ${AWS::Region} || { echo "Failed to attach EBS volume"; exit 1; }
@@ -1123,25 +1515,25 @@ Resources:
             fi
             
             # Create mount point and mount
-            mkdir -p /data/realm16384
+            mkdir -p /data/realm32
             # For Multi-Attach volumes, use specific mount options to prevent cache issues
-            mount -o noatime,nodiratime "$DEVICE_NAME" /data/realm16384 || { echo "Failed to mount EBS volume"; exit 1; }
+            mount -o noatime,nodiratime "$DEVICE_NAME" /data/realm32 || { echo "Failed to mount EBS volume"; exit 1; }
             
             # Add to fstab for persistent mounting (use UUID for reliability)
             VOLUME_UUID=$(blkid -s UUID -o value "$DEVICE_NAME")
             if [ -n "$VOLUME_UUID" ]; then
-              echo "UUID=$VOLUME_UUID /data/realm16384 ext4 defaults,noatime 0 0" >> /etc/fstab
+              echo "UUID=$VOLUME_UUID /data/realm32 ext4 defaults,noatime 0 0" >> /etc/fstab
             else
-              echo "$DEVICE_NAME /data/realm16384 ext4 defaults,noatime 0 0" >> /etc/fstab
+              echo "$DEVICE_NAME /data/realm32 ext4 defaults,noatime 0 0" >> /etc/fstab
             fi
             
             # Verify mount
-            if ! mountpoint -q /data/realm16384; then
+            if ! mountpoint -q /data/realm32; then
               echo "ERROR: EBS mount failed"; exit 1
             fi
             
             # Set permissions for QED data
-            chown -R 1001:1001 /data/realm16384
+            chown -R 1001:1001 /data/realm32
             
             # Install ECS agent
             curl -O https://s3.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.amd64.deb
@@ -1153,7 +1545,7 @@ Resources:
             echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
             echo ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true >> /etc/ecs/ecs.config
             echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo 'ECS_INSTANCE_ATTRIBUTES={"realm":"realm16384"}' >> /etc/ecs/ecs.config
+            echo 'ECS_INSTANCE_ATTRIBUTES={"realm":"realm32"}' >> /etc/ecs/ecs.config
             
             # Start ECS agent
             systemctl enable ecs
@@ -1170,7 +1562,7 @@ Resources:
           - ResourceType: instance
             Tags:
               - Key: Name
-                Value: !Sub ${ProjectName}-realm16384
+                Value: !Sub ${ProjectName}-realm32
               - Key: Project
                 Value: !Ref ProjectName
               - Key: Environment
@@ -1195,11 +1587,11 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm0-subnet-id
 
-  Realm16384SubnetId:
-    Description: Realm 16384 Subnet ID
-    Value: !Ref Realm16384Subnet
+  Realm32SubnetId:
+    Description: Realm 32 Subnet ID
+    Value: !Ref Realm32Subnet
     Export:
-      Name: !Sub ${ProjectName}-realm16384-subnet-id
+      Name: !Sub ${ProjectName}-realm32-subnet-id
 
   CoordinatorSecurityGroupId:
     Description: Coordinator Security Group ID
@@ -1213,17 +1605,28 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm0-sg
 
-  Realm16384SecurityGroupId:
-    Description: Realm 16384 Security Group ID
-    Value: !Ref Realm16384SecurityGroup
+  Realm32SecurityGroupId:
+    Description: Realm 32 Security Group ID
+    Value: !Ref Realm32SecurityGroup
     Export:
-      Name: !Sub ${ProjectName}-realm16384-sg
+      Name: !Sub ${ProjectName}-realm32-sg
 
   # Redis endpoints are stored in SSM Parameter Store by the initialization script
   # The following parameters are available:
   # /${ProjectName}/redis/coordinator/endpoint
   # /${ProjectName}/redis/realm0/endpoint
-  # /${ProjectName}/redis/realm16384/endpoint
+  # /${ProjectName}/redis/realm32/endpoint
+  
+  # ScyllaDB endpoints are stored in SSM Parameter Store by the initialization script
+  # The following parameters are available:
+  # /${ProjectName}/scylladb/cluster-contact-point
+  # /${ProjectName}/scylladb/node-<instance-id>/endpoint
+  
+  ScyllaDBAutoScalingGroupName:
+    Description: ScyllaDB Auto Scaling Group Name
+    Value: !Ref ScyllaDBAutoScalingGroup
+    Export:
+      Name: !Sub ${ProjectName}-scylladb-asg
 
   ECSClusterName:
     Description: ECS Cluster Name
@@ -1255,11 +1658,11 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm0-ebs-volume-id
 
-  Realm16384EBSVolumeId:
-    Description: EBS Volume ID for Realm 16384
-    Value: !Ref Realm16384EBSVolume
+  Realm32EBSVolumeId:
+    Description: EBS Volume ID for Realm 32
+    Value: !Ref Realm32EBSVolume
     Export:
-      Name: !Sub ${ProjectName}-realm16384-ebs-volume-id
+      Name: !Sub ${ProjectName}-realm32-ebs-volume-id
 
   # Redis Auto Scaling Group Outputs
   RedisAutoScalingGroupName:
@@ -1274,21 +1677,21 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-redis-launch-template
 
-  # Redis Endpoints (will be set by instances via SSM)
-  CoordinatorRedisEndpoint:
-    Description: Coordinator Redis Endpoint (from SSM)
-    Value: !Sub "{{resolve:ssm:/${ProjectName}/redis/coordinator/endpoint}}"
-    Export:
-      Name: !Sub ${ProjectName}-coordinator-redis-private-ip
+  # Redis Configuration Info
+  RedisInfo:
+    Description: Redis endpoint information
+    Value: !Sub |
+      Redis endpoints will be available in SSM Parameter Store after instances initialize:
+      - /${ProjectName}/redis/coordinator/endpoint (port 6379)
+      - /${ProjectName}/redis/realm0/endpoint (port 6380)
+      - /${ProjectName}/redis/realm32/endpoint (port 6381)
 
-  Realm0RedisEndpoint:
-    Description: Realm0 Redis Endpoint (from SSM)  
-    Value: !Sub "{{resolve:ssm:/${ProjectName}/redis/realm0/endpoint}}"
-    Export:
-      Name: !Sub ${ProjectName}-realm0-redis-private-ip
-
-  Realm16384RedisEndpoint:
-    Description: Realm16384 Redis Endpoint (from SSM)
-    Value: !Sub "{{resolve:ssm:/${ProjectName}/redis/realm16384/endpoint}}"
-    Export:
-      Name: !Sub ${ProjectName}-realm16384-redis-private-ip
+  # ScyllaDB Configuration Info
+  ScyllaDBInfo:
+    Description: ScyllaDB endpoint information
+    Value: !Sub |
+      ScyllaDB endpoints will be available in SSM Parameter Store after instances initialize:
+      - /${ProjectName}/scylladb/coordinator-endpoint
+      - /${ProjectName}/scylladb/realm0-endpoint  
+      - /${ProjectName}/scylladb/realm32-endpoint
+      - /${ProjectName}/scylladb/cluster-contact-point

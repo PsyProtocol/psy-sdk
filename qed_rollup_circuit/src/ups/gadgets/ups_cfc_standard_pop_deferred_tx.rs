@@ -4,7 +4,7 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::{hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget, 
+use qed_common_circuit::{hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget,
     traits::WitnessValueFor}
 ;
 use qed_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
@@ -24,7 +24,7 @@ pub struct UPSVerifyPopDeferredTxStepGadget {
     // start require witness
     pub standard_cfc_verify_gadget: UPSVerifyCFCStandardStepGadget,
     pub ups_pop_deferred_tx_proof: DeltaMerkleProofGadget,
-    
+
 }
 impl UPSVerifyPopDeferredTxStepGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
@@ -34,11 +34,11 @@ impl UPSVerifyPopDeferredTxStepGadget {
         ups_session_proof_tree_height: usize,
     ) -> Self {
         let ups_pop_deferred_tx_proof = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(
-            builder, 
+            builder,
             DEFERRED_TRANSACTION_TREE_HEIGHT as usize
         );
 
-        let expected_deferred_tx_leaf_hash = ups_pop_deferred_tx_proof.new_value;
+        let expected_deferred_tx_leaf_hash = ups_pop_deferred_tx_proof.old_value;
 
         // ensure ups_pop_deferred_tx_proof's old root is the same as previous_step_header_gadget's deferred_tx_debt_tree_root
         builder.connect_hashes(
@@ -60,19 +60,19 @@ impl UPSVerifyPopDeferredTxStepGadget {
         // ie. start the deferred debt tree in the tx as it is AFTER removing remove the current transaction
         corrections.previous_step_deferred_tx_debt_tree_root = ups_pop_deferred_tx_proof.new_root;
 
-        
-    
+
+
 
         let standard_cfc_verify_gadget = UPSVerifyCFCStandardStepGadget::add_virtual_to_with_corrections::<H,F,D>(
-            builder, 
-            previous_step_header_gadget, 
-            &corrections, 
-            current_proof_tree_root, 
+            builder,
+            previous_step_header_gadget,
+            &corrections,
+            current_proof_tree_root,
             ups_session_proof_tree_height
         );
 
 
-        // compute the hash of the deferred transaction item for the transaction we just proved 
+        // compute the hash of the deferred transaction item for the transaction we just proved
         let computed_deferred_tx_stack_item: DeferredTransactionStackItemGadget = DeferredTransactionStackItemGadget {
             call_data: standard_cfc_verify_gadget.process_cfc_state_delta_gadget.cfc_transaction_input_context.transaction_call_start_ctx.call_data,
         };
@@ -84,7 +84,7 @@ impl UPSVerifyPopDeferredTxStepGadget {
             computed_deferred_tx_leaf_hash,
         );
 
-        
+
         Self {
             standard_cfc_verify_gadget,
             ups_pop_deferred_tx_proof,
@@ -96,7 +96,7 @@ impl UPSVerifyPopDeferredTxStepGadget {
         target: &UPSVerifyPopDeferredTxStepInput<F>,
     )  -> anyhow::Result<()> {
         self.standard_cfc_verify_gadget.set_witness(
-            witness, 
+            witness,
             &target.standard_cfc_verify_input
         )?;
 

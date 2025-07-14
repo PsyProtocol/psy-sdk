@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use kvq::traits::KVQPair;
 use plonky2::{
@@ -8,7 +8,7 @@ use plonky2::{
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use qed_core::{
-    config::network_constants::{COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, CST_USER_UPDATE_CHANNEL_ID, DEFAULT_USER_STATE_TREE_ROOT, GLOBAL_USER_TREE_HEIGHT, REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT},
+    config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, CST_USER_UPDATE_CHANNEL_ID, DEFAULT_USER_STATE_TREE_ROOT, GLOBAL_USER_TREE_HEIGHT, REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueConsumerAsyncImm,
@@ -38,10 +38,8 @@ use qed_data::{
     qdata::{checkpoint::{QEDCheckpointLeafCompactWithStateRoots, QEDL2BlockState}, user::QEDUserLeaf},
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
-use qed_store::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
-    node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-};
+use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
+use qed_store::node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -68,7 +66,7 @@ impl RealmConfig {
     pub fn get_standard(rpc_node_id: u32, realm_id: u32) -> Self {
         let library = get_cached_circuit_library::<F>();
 
-        let realm_root_level = REALM_USER_TREE_HEIGHT;
+        let realm_root_level = COORDINATOR_USER_TREE_HEIGHT;
         let users_per_realm = 1usize << (REALM_USER_TREE_HEIGHT as usize);
 
         Self {
@@ -231,7 +229,7 @@ impl<
                     eprintln!("DEBUGPRINT[611]: processor.rs:236: pending_register_users={}", serde_json::to_string_pretty(&pending_register_users).unwrap());
                     let dmps = self
                         .store
-                        .injest_user_leaves_imm(checkpoint_id, REALM_USER_TREE_HEIGHT, &uleaves)
+                        .injest_user_leaves_imm(checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, &uleaves)
                         .await?;
                     //println!("dmps[0] {:?}",dmps[0]);
                     //println!("dmps[0].json {}",serde_json::to_string_pretty(&dmps[0]).unwrap());
@@ -245,6 +243,7 @@ impl<
                             global_user_tree_update_proof: upd,
                         })
                         .collect::<Vec<_>>();
+                    eprintln!("DEBUGPRINT[867]: processor.rs:246: regs={}", serde_json::to_string_pretty(&regs).unwrap());
 
                     let guta_new = GlobalUserTreeAggregatorHeader {
                         checkpoint_tree_root: guta.checkpoint_tree_root,
@@ -258,7 +257,7 @@ impl<
                                 .global_user_tree_update_proof
                                 .new_root,
                             node_index: F::from_canonical_u32(self.realm_config.realm_id),
-                            node_level: F::from_canonical_u8(REALM_USER_TREE_HEIGHT),
+                            node_level: F::from_canonical_u8(COORDINATOR_USER_TREE_HEIGHT),
                         },
                         stats: guta.stats,
                     };
@@ -366,7 +365,7 @@ impl<
             return Ok((vec![vec![w_id]], guta, proof));
         }
 
-        if guta.state_transition.node_level == F::from_canonical_u8(REALM_USER_TREE_HEIGHT) {
+        if guta.state_transition.node_level == F::from_canonical_u8(COORDINATOR_USER_TREE_HEIGHT) {
             eprintln!("DEBUGPRINT[518]: processor.rs:370 (after if guta.state_transition.node_level == F…)");
             return Ok((jobs, guta, proof));
         } else {
@@ -386,7 +385,7 @@ impl<
             let bp = self
                 .store
                 .get_user_bottom_tree_merkle_proof(
-                    REALM_USER_TREE_HEIGHT,
+                    COORDINATOR_USER_TREE_HEIGHT,
                     checkpoint_id,
                     (guta.state_transition.node_index.to_canonical_u64())
                         << ((GLOBAL_USER_TREE_HEIGHT as u64
@@ -395,12 +394,9 @@ impl<
                 )
                 .await?;
 
-            let top_line_siblings_len = guta.state_transition.node_level.to_canonical_u64() as usize - REALM_USER_TREE_HEIGHT as usize;
+            let top_line_siblings_len = guta.state_transition.node_level.to_canonical_u64() as usize - COORDINATOR_USER_TREE_HEIGHT as usize;
             eprintln!("DEBUGPRINT[520]: processor.rs:399 (after let top_line_siblings_len = guta.state_t…)");
 
-
-                //println!("bp.siblings.len() = {}, top_line_siblings_len={}, REALM_USER_TREE_HEIGHT={}, guta.state_transition.node_level={}",bp.siblings.len(), top_line_siblings_len, REALM_USER_TREE_HEIGHT, guta.state_transition.node_level.to_canonical_u64());
-                //println!("bp.siblings: {:?}",bp.siblings);
             let good_sibs = bp.siblings[(bp.siblings.len() - top_line_siblings_len)..].to_vec();
             eprintln!("DEBUGPRINT[521]: processor.rs:405 (after let good_sibs = bp.siblings[(bp.siblings…)");
 
@@ -528,7 +524,7 @@ impl<
                 .store
                 .injest_user_tree_nodes_imm(
                     checkpoint_id,
-                    REALM_USER_TREE_HEIGHT,
+                    COORDINATOR_USER_TREE_HEIGHT,
                     &[QMerkleNode {
                         key: SimpleMerkleNodeKey {
                             index: guta_queue_items[0]
@@ -589,7 +585,7 @@ impl<
 
         let res = self
             .store
-            .injest_user_tree_nodes_imm(checkpoint_id, REALM_USER_TREE_HEIGHT, &mnu)
+            .injest_user_tree_nodes_imm(checkpoint_id,COORDINATOR_USER_TREE_HEIGHT, &mnu)
             .await?;
         eprintln!("DEBUGPRINT[700]: processor.rs:590: res={}", serde_json::to_string_pretty(&res).unwrap());
 
@@ -741,6 +737,8 @@ impl<
         Ok((levels, guta, res.link_proof))
     }
     pub async fn build_block(&mut self) -> anyhow::Result<()> {
+        let start = Instant::now();
+        info!("realm STARTED new block");
         //let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
@@ -774,7 +772,7 @@ impl<
         self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
 
 
-
+        info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())
     }
 }

@@ -680,6 +680,30 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *values = self.rewrite_expr(*values, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
+                    CheckedIntrinsicExprNode::InvokeSync {
+                        contract_id,
+                        method_id,
+                        inputs,
+                        type_id,
+                        location,
+                    } => {
+                        *contract_id = self.rewrite_expr(*contract_id, ctx)?;
+                        *method_id = self.rewrite_expr(*method_id, ctx)?;
+                        *inputs = self.rewrite_expr(*inputs, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::InvokeDeferred {
+                        contract_id,
+                        method_id,
+                        inputs,
+                        type_id,
+                        location,
+                    } => {
+                        *contract_id = self.rewrite_expr(*contract_id, ctx)?;
+                        *method_id = self.rewrite_expr(*method_id, ctx)?;
+                        *inputs = self.rewrite_expr(*inputs, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
                 }
             }
             CheckedExprNode::LambdaFunction(_) => {}

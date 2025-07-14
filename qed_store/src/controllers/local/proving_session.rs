@@ -37,7 +37,7 @@ use qed_data::{
     }
 };
 
-use crate::{
+use qed_data::{
     config::store_config::{QEDHasher, UserContractTreeStore},
     models::{
         kvq_merkle::model::{
@@ -45,7 +45,7 @@ use crate::{
         },
         user::contract_state_tree::UserContractStateTreeId,
     },
-    store::imm::{
+    qstore::imm::{
         cache::QEDCmdStoreWithCache,
         cmd::{
             QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot, QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof
@@ -62,7 +62,6 @@ use super::{
     state_tracker::QEDLocalStateTracker,
 };
 
-#[derive(Clone, Debug)]
 pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> {
     pub cmd_store: QEDCmdStoreWithCache<F, R>,
     pub state_tree_store: KVQSimpleMemoryBackingStore,
@@ -70,6 +69,7 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
     pub transaction_records: Vec<QEDLocalTransactionRecord<F>>,
 
     pub deferred_tx_debt_store: TransactionDebtTreeRef<
+        KVQSimpleMemoryBackingStore,
         DPNProvingSessionSimpleMethodCall<F>,
         F,
         DEFERRED_TRANSACTION_TREE_HEIGHT,
@@ -492,7 +492,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
             }).await?
             .state_tree_height
             .to_canonical_u64() as u8;
-        let id = UserContractStateTreeId::new(
+        let id = UserContractStateTreeId::<KVQSimpleMemoryBackingStore>::new(
             self.user_id_u64,
             contract.to_canonical_u64() as u32,
             state_tree_height,
@@ -553,7 +553,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
             }).await?
             .state_tree_height
             .to_canonical_u64() as u8;
-        let id = UserContractStateTreeId::new(
+        let id = UserContractStateTreeId::<KVQSimpleMemoryBackingStore>::new(
             self.user_id_u64,
             contract.to_canonical_u64() as u32,
             state_tree_height,
@@ -595,13 +595,13 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
             ),
         ).await?;
 
-        UserContractTreeStore::injest_merkle_proof_sfc(
+        UserContractTreeStore::<KVQSimpleMemoryBackingStore>::injest_merkle_proof_sfc(
             &mut self.state_tree_store,
             self.user_id_u64,
             self.start_checkpoint_u64,
             &old_upper_merkle_proof,
         )?;
-        UserContractTreeStore::get_leaf_sfc(
+        UserContractTreeStore::<KVQSimpleMemoryBackingStore>::get_leaf_sfc(
             &self.state_tree_store,
             self.write_checkpoint_u64,
             self.user_id_u64,
@@ -625,13 +625,13 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
             ),
         ).await?;
 
-        UserContractTreeStore::injest_merkle_proof_sfc(
+        UserContractTreeStore::<KVQSimpleMemoryBackingStore>::injest_merkle_proof_sfc(
             &mut self.state_tree_store,
             self.user_id_u64,
             self.start_checkpoint_u64,
             &old_upper_merkle_proof,
         )?;
-        UserContractTreeStore::set_leaf_sfc(
+        UserContractTreeStore::<KVQSimpleMemoryBackingStore>::set_leaf_sfc(
             &mut self.state_tree_store,
             self.write_checkpoint_u64,
             self.user_id_u64,
@@ -656,13 +656,13 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
             ),
         ).await?;
 
-        UserContractTreeStore::injest_merkle_proof_sfc(
+        UserContractTreeStore::<KVQSimpleMemoryBackingStore>::injest_merkle_proof_sfc(
             &mut self.state_tree_store,
             self.user_id_u64,
             self.start_checkpoint_u64,
             &old_upper_merkle_proof,
         )?;
-        UserContractTreeStore::set_leaf_sfc(
+        UserContractTreeStore::<KVQSimpleMemoryBackingStore>::set_leaf_sfc(
             &mut self.state_tree_store,
             self.write_checkpoint_u64,
             self.user_id_u64,

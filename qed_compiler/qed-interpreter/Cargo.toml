@@ -8,21 +8,17 @@ qed-ast = { workspace = true }
 qed-parser = { workspace = true }
 qed-sema = { workspace = true }
 anyhow = { workspace = true }
-strum = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 qed-common = { workspace = true }
 insta = { workspace = true }
 qed-fmt = { workspace = true }
 qed-utils = { workspace = true }
-either = { workspace = true }
-hashbrown = { workspace = true }
 plonky2 = { workspace = true }
 indexmap = { workspace = true }
 enum-as-inner = { workspace = true }
 qedlang_core = { workspace = true }
 qed_crypto = { workspace = true }
-qed_store = { workspace = true }
 qed_exec = { workspace = true }
 ariadne = { workspace = true }
 

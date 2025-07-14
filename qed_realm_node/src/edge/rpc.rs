@@ -11,7 +11,7 @@ use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
 use qed_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use qed_store::config::store_config::QEDFelt;
+use qed_data::config::store_config::QEDFelt;
 use serde::Deserialize;
 use kvq::traits::KVQSerializable;
 

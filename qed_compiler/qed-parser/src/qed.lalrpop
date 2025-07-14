@@ -857,6 +857,27 @@ IntrinsicExpression: ExprNode<F> = {
                 location: Location::new(file_id, l, r)
             }
         )
+    },
+    <l:@L> <variable:INVOKE_SYNC> "#" "<" <return_type:Ty> ">"  "(" <contract_id: Expression> "," <method_id: Expression>  "," <inputs: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::InvokeSync {
+                contract_id: expr_nodes.alloc_item(contract_id),
+                method_id: expr_nodes.alloc_item(method_id),
+                inputs: expr_nodes.alloc_item(inputs),
+                return_type,
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:INVOKE_DEFERRED> "(" <contract_id: Expression> "," <method_id: Expression>  "," <inputs: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::InvokeDeferred {
+                contract_id: expr_nodes.alloc_item(contract_id),
+                method_id: expr_nodes.alloc_item(method_id),
+                inputs: expr_nodes.alloc_item(inputs),
+                location: Location::new(file_id, l, r)
+            }
+        )
     }
 }
 
@@ -1103,6 +1124,9 @@ extern {
         CTX_GET_OTHER_CONTRACT_STATE_HASH_AT => Token::IntrinsicCtxGetOtherContractStateHashAt,
         CTX_GET_OTHER_USER_CONTRACT_STATE_HASH_AT => Token::IntrinsicCtxGetOtherUserContractStateHashAt,
         CTX_SET_STATE_HASH_AT => Token::IntrinsicCtxSetStateHashAt,
+
+        INVOKE_SYNC => Token::IntrinsicInvokeSync,
+        INVOKE_DEFERRED => Token::IntrinsicInvokeDeferred,
 
         MOD => Token::KeywordMod,
         USE => Token::KeywordUse,

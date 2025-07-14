@@ -1,4 +1,4 @@
-use kvq::traits::KVQSerializable;
+use kvq::traits::{KVQSerializable, ScyllaKey};
 use serde::{Deserialize, Serialize};
 
 use super::hash_key::Hash4x64Key;
@@ -50,5 +50,24 @@ impl<const TABLE_TYPE: u16> Hash4x64KeyWithId<TABLE_TYPE> {
             hash: hash.into(),
             id,
         }
+    }
+}
+
+impl<const TABLE_TYPE: u16> ScyllaKey for Hash4x64KeyWithId<TABLE_TYPE> {
+    fn get_partition_key(&self) -> Vec<u8> {
+        let mut result = Vec::with_capacity(40);
+        for element in &self.hash.elements {
+            result.extend_from_slice(&element.to_be_bytes());
+        }
+        result.extend_from_slice(&self.id.to_be_bytes());
+        result
+    }
+
+    fn get_clustering_key(&self) -> Option<Vec<u8>> {
+        None
+    }
+
+    fn get_table_type(&self) -> u16 {
+        TABLE_TYPE
     }
 }

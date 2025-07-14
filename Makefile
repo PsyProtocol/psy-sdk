@@ -1,7 +1,7 @@
 export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
 PROFILE                  := release
-LOG_LEVEL                := qed_user_prover=info,qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+LOG_LEVEL                := qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
 
 default: build-release wasm-build
 
@@ -16,7 +16,7 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: common_config_generator
-	@cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin dargo --bin qed_user_prover
+	@cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server
 
 fmt:
 	@cargo fmt
@@ -102,10 +102,10 @@ PROJECT_DIR              := $(PWD)/examples
 FILE                     := $(PWD)/examples/src/main.qed
 PARAMETERS               :=
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
-USER16384_0_PRIVATE_KEY  := f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
+USER32_0_PRIVATE_KEY  := f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
 
 USER1_PRIVATE_KEY        := 73ae514d6f69510ad778a05128d980951d9d8c097beb022471b2f50f19c41268
-USER16384_1_PRIVATE_KEY  := 88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d
+USER32_1_PRIVATE_KEY  := 88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d
 
 CURRENT_USER_PRIVATE_KEY := ${USER0_PRIVATE_KEY}
 
@@ -116,28 +116,35 @@ CONTRACT_ID              := 0
 SLOT_ID                  := 0
 CONTRACT_STATE_HEIGHT    := 32
 REALM_ID                 := 0
+REGISTRATION_ID          := 1
+STRATEGY                 := 2
 
 COORDINATOR_RPC_URL      := $(shell jq -r '.coordinator_configs[].rpc_url[]' rpc.config)
 REALM_RPC_URL            := $(shell jq -r '.realm_configs[0].rpc_url[]' rpc.config)
 
 init:
-	@mkdir -p $(PWD)/db
 	@./target/${PROFILE}/dargo new ${PROJECT_DIR}
 	@cp qed_compiler/tests/new_token.qed ${FILE}
-
-.PHONY: launch
-launch: shutdown init compile
+	@mkdir -p $(PWD)/db
+	@echo "Starting Redis containers..."
+	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
+	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
+	@docker run -d --name qed-redis-realm32 -p 6381:6379 redis:alpine redis-server --save ""
+	# @echo "Starting ScyllaDB containers..."
+	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
+	# @docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
+	# @docker run -d --name qed-scylla-realm32 -p 9044:9042 scylladb/scylla:latest
+	@echo "Waiting for databases to be ready..."
+	@sleep 10
 
 .PHONY: shutdown
 shutdown:
-	@sudo rm -fr redis-data
-	@redis-cli 'FLUSHALL' > /dev/null 2>&1 || true
-	@redis-cli -u redis://127.0.0.1:6380 'FLUSHALL' > /dev/null 2>&1 || true
-	@redis-cli -u redis://127.0.0.1:6381 'FLUSHALL' > /dev/null 2>&1 || true
-	@sudo rm -fr $(PWD)/db
-	@rm -fr ${PROJECT_DIR}
+	@echo "Stopping and removing database containers..."
+	@docker rm -f qed-redis-coordinator qed-redis-realm0 qed-redis-realm32 > /dev/null 2>&1 || true
+	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm32 > /dev/null 2>&1 || true
+	@rm -fr ${PROJECT_DIR} ${PWD}/db > /dev/null 2>&1 || true
 
-run-all:
+run-all: shutdown init compile
 	@./scripts/run_all.sh
 
 run-scenario0:
@@ -150,104 +157,59 @@ compile:
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo compile --entry-path ${FILE} --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
 
 run-coordinator-processor:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --backend-type lmdbx --path ${PWD}/db/coordinator
 
 run-coordinator-edge:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge
-
-run-coordinator-edge-1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --listen-addr=0.0.0.0:9545
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --backend-type lmdbx --path ${PWD}/db/coordinator
 
 run-coordinator-worker:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-worker
 
 run-realm-processor:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor --redis-uri=redis://127.0.0.1:6380
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor --redis-uri=redis://127.0.0.1:6380 --backend-type lmdbx --path ${PWD}/db/realm0
+
+run-realm-edge:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --backend-type lmdbx --path ${PWD}/db/realm0
 
 run-realm-worker:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker --redis-uri=redis://127.0.0.1:6380
 
-run-realm-edge:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380
-
-run-realm-edge-1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --listen-addr=0.0.0.0:9546
-
-run-realm-processor16384:
+run-realm-processor32:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6381 \
+      --backend-type lmdbx \
+      --path ${PWD}/db/realm32 \
       --node-id=2 \
-      --realm-id=16384 \
-      --worker-queue-suffix=rwq16384 \
-      --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384 \
-      --path=./db/realm16384
+      --realm-id=32 \
+      --worker-queue-suffix=rwq32 \
+      --notifications-queue-suffix=rnq32 \
+      --proof-store-key-suffix=RP32
 
-run-realm-worker16384:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
-      --redis-uri=redis://127.0.0.1:6381 \
-      --worker-queue-suffix=rwq16384 \
-      --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384
-
-run-realm-edge16384:
+run-realm-edge32:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
       --listen-addr=0.0.0.0:8547 \
       --redis-uri=redis://127.0.0.1:6381 \
+      --backend-type lmdbx \
+      --path ${PWD}/db/realm32 \
       --coordinator-addr=http://127.0.0.1:8545 \
       --node-id=2 \
-      --realm-id=16384 \
-      --worker-queue-suffix=rwq16384 \
-      --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384 \
-      --path=./db/realm16384
+      --realm-id=32 \
+      --worker-queue-suffix=rwq32 \
+      --notifications-queue-suffix=rnq32 \
+      --proof-store-key-suffix=RP32
 
-run-realm-edge16384-1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
-      --listen-addr=0.0.0.0:9547 \
+run-realm-worker32:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
       --redis-uri=redis://127.0.0.1:6381 \
-      --coordinator-addr=http://127.0.0.1:8545 \
-      --node-id=2 \
-      --realm-id=16384 \
-      --worker-queue-suffix=rwq16384 \
-      --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384 \
-      --path=./db/realm16384
+      --worker-queue-suffix=rwq32 \
+      --notifications-queue-suffix=rnq32 \
+      --proof-store-key-suffix=RP32
 
 run-user-prover:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_prover
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover
 
 run-web-wallet:
 	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
-
-# run-realm-processor8192:
-# 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
-#       --redis-uri=redis://127.0.0.1:6382 \
-#       --node-id=2 \
-#       --realm-id=8192 \
-#       --worker-queue-suffix=rwq8192 \
-#       --notifications-queue-suffix=rnq8192 \
-#       --proof-store-key-suffix=RP8192 \
-#       --path=./db/realm8192
-
-# run-realm-worker8192:
-# 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
-#       --redis-uri=redis://127.0.0.1:6382 \
-#       --worker-queue-suffix=rwq8192 \
-#       --notifications-queue-suffix=rnq8192 \
-#       --proof-store-key-suffix=RP8192
-
-# run-realm-edge8192:
-# 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
-#       --listen-addr=0.0.0.0:8548 \
-#       --redis-uri=redis://127.0.0.1:6382 \
-#       --coordinator-addr=http://127.0.0.1:8545 \
-#       --node-id=2 \
-#       --realm-id=8192 \
-#       --worker-queue-suffix=rwq8192 \
-#       --notifications-queue-suffix=rnq8192 \
-#       --proof-store-key-suffix=RP8192 \
-#       --path=./db/realm8192
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token
@@ -281,18 +243,19 @@ random-register-user-batch:
 
 deploy-contract:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${CURRENT_USER_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER32_0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
 
 mint:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000
 
 transfer:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 536870912 --inputs 500
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 134217728 --inputs 500
 
 claim:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER16384_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER32_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0
 
 return-back:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER16384_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 500
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER32_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 500
 
 mint2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000
@@ -332,6 +295,9 @@ get-checkpoint-global-state-roots:
 
 qed-get-checkpoint-tree-root:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+
+qed-get-latest-checkpoint-tree-root:
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_checkpoint_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
 
 qed-get-checkpoint-tree-leaf-hash:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_leaf_hash", "params": [${CHECKPOINT_ID}, ${LEAF_CHECKPOINT_ID}], "id": 1 }' | jq .
@@ -374,6 +340,9 @@ realm-get-checkpoint-leaf-data:
 
 realm-get-latest-checkpoint-tree-root:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_checkpoint_tree_root", "params": [], "id": 1 }' | jq .
+
+realm-checkpoint-global-state-roots:
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_global_state_roots", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
 
 realm-get-checkpoint-tree-root:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
@@ -420,6 +389,9 @@ realm-get-user-contract-state-tree-merkle-proof:
 realm-get-checkpoint-global-state-roots:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_global_state_roots", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
 
+get-user-id-from-registration-id:
+	@./target/${PROFILE}/qed_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY}
+
 image:
 	docker build \
 		-c 512 \
@@ -427,8 +399,8 @@ image:
 		-f Dockerfile .
 
 wasm-build:
-	@cd qed_user_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features --features wasm32
-	@cd qed_user_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features --features wasm32
+	@cd qed_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features
+	@cd qed_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

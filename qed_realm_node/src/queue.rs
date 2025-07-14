@@ -10,7 +10,7 @@ use fred::prelude::FredResult;
 use redis::{AsyncCommands, RedisResult};
 use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::rsmq::{QueueId, RsmqQueue};
-use qed_node_common::coordinator::CheckpointSyncInfo;
+use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use crate::F;
 
 const REAML_PROOF_KEY: &str = "REALM_PROOF";

@@ -1,18 +1,18 @@
 use anyhow::anyhow;
 use bb8::Pool;
+use bb8_redis::RedisConnectionManager;
+use fred::prelude::KeysInterface;
+use hex::encode;
+use kvq::traits::KVQSerializable;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 
-use bb8_redis::{
-    redis::AsyncCommands,
-    RedisConnectionManager,
-};
+use bb8_redis::redis::AsyncCommands;
 use bincode;
-use fred::prelude::KeysInterface;
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
-use qed_store::config::store_config::QEDFelt;
-use qed_store::config::store_config::QEDHasher;
+use qed_data::config::store_config::QEDFelt;
+use qed_data::config::store_config::QEDHasher;
 
 pub const USER_ID_KEY_PREFIX: &str = "qed:reg:user_id:";
 pub const PUBKEY_KEY_PREFIX: &str = "qed:reg:pubkey:";
@@ -27,12 +27,8 @@ pub async fn save_user_mapping_to_redis(
     let user_key = format!("{}{}", USER_ID_KEY_PREFIX, user_id);
     let public_key = format!("{}{}", PUBKEY_KEY_PREFIX, public_key);
 
-    // 4.save to redis
     let mut conn = redis_pool.get().await?;
-    // user_id -> public_key
     conn.set::<_, _, ()>(&user_key, &public_key).await?;
-
-    // pubkey_hex -> user_id
     conn.set::<_, _, ()>(&public_key, user_id.to_string())
         .await?;
 
@@ -45,7 +41,6 @@ pub async fn get_user_id_by_pubkey(
 ) -> anyhow::Result<Option<u64>> {
     let public_key = format!("{}{}", PUBKEY_KEY_PREFIX, public_key);
     let mut conn = redis_pool.get().await?;
-    let a = conn.get(&public_key).await?;
     let result: Option<String> = conn.get(&public_key).await?;
 
     Ok(result.and_then(|s| s.parse::<u64>().ok()))

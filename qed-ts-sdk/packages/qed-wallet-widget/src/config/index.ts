@@ -64,14 +64,14 @@ export const defaultConfig: WalletConfig = {
     },
   },
   network: {
-    users_per_realm: 32768,
+    users_per_realm: 4194304,
     realm_configs: [
       {
         id: 0,
         rpc_url: ["http://127.0.0.1:8546"]
       },
       {
-        id: 16384,
+        id: 32,
         rpc_url: ["http://127.0.0.1:8547"]
       },
       {

@@ -445,8 +445,8 @@ monitor_stack_progress() {
     local last_event_time=""
     local stack_status=""
     
-    log_info "🚀 开始监控CloudFormation部署进度: $stack_name"
-    log_info "📱 实时监控页面: https://${AWS_REGION}.console.aws.amazon.com/cloudformation/home?region=${AWS_REGION}#/stacks/stackinfo?stackId=${stack_name}"
+    log_info "🚀 Starting CloudFormation deployment monitoring: $stack_name"
+    log_info "📱 Real-time monitoring page: https://${AWS_REGION}.console.aws.amazon.com/cloudformation/home?region=${AWS_REGION}#/stacks/stackinfo?stackId=${stack_name}"
     echo ""
     
     while true; do
@@ -461,15 +461,15 @@ monitor_stack_progress() {
         case "$stack_status" in
             "CREATE_COMPLETE"|"UPDATE_COMPLETE")
                 echo ""
-                log_info "🎉 Stack部署成功完成!"
+                log_info "🎉 Stack deployment completed successfully!"
                 show_resource_summary "$stack_name"
                 break
                 ;;
             "CREATE_FAILED"|"UPDATE_FAILED"|"ROLLBACK_COMPLETE"|"UPDATE_ROLLBACK_COMPLETE")
                 echo ""
-                log_error "💥 Stack部署失败: $stack_status"
+                log_error "💥 Stack deployment failed: $stack_status"
                 echo ""
-                log_error "失败事件详情:"
+                log_error "Failed event details:"
                 aws cloudformation --no-cli-pager describe-stack-events \
                     --stack-name "$stack_name" \
                     --region ${AWS_REGION} \
@@ -480,7 +480,7 @@ monitor_stack_progress() {
                 return 1
                 ;;
             "STACK_NOT_EXISTS")
-                log_error "❌ Stack不存在: $stack_name"
+                log_error "❌ Stack does not exist: $stack_name"
                 return 1
                 ;;
         esac
@@ -496,7 +496,7 @@ monitor_stack_progress() {
             --output text 2>/dev/null)
         
         if [ -n "$events" ]; then
-            echo "📋 最新事件:"
+            echo "📋 Latest events:"
             echo "$events" | while IFS=$'\t' read -r timestamp resource_id resource_type status reason; do
                 if [ -n "$timestamp" ]; then
                     local time_formatted=$(date -d "$timestamp" '+%H:%M:%S' 2>/dev/null || echo "$timestamp")
@@ -510,7 +510,7 @@ monitor_stack_progress() {
                             ;;
                         *"FAILED")
                             echo "    ❌ $time_formatted │ $short_resource │ $status"
-                            [ -n "$reason" ] && echo "       └─ 原因: $reason"
+                            [ -n "$reason" ] && echo "       └─ Reason: $reason"
                             ;;
                         *)
                             echo "    ℹ️  $time_formatted │ $short_resource │ $status"
@@ -569,11 +569,11 @@ show_deployment_progress() {
     
     # Show progress bar
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "📊 部署进度: ${percentage}% (${completed_resources}/${total_resources} 资源完成)"
-    echo "🔄 状态: $stack_status"
+    echo "📊 Deployment progress: ${percentage}% (${completed_resources}/${total_resources} resources completed)"
+    echo "🔄 Status: $stack_status"
     
     if [ "$in_progress_resources" -gt 0 ]; then
-        echo "⏳ 正在创建: $in_progress_resources 个资源"
+        echo "⏳ Creating: $in_progress_resources resources"
         
         # Show what's currently being created
         aws cloudformation --no-cli-pager list-stack-resources \
@@ -586,7 +586,7 @@ show_deployment_progress() {
     fi
     
     if [ "$failed_resources" -gt 0 ]; then
-        echo "❌ 失败: $failed_resources 个资源"
+        echo "❌ Failed: $failed_resources resources"
     fi
     
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -597,7 +597,7 @@ show_resource_summary() {
     local stack_name=$1
     
     echo ""
-    echo "📝 部署完成资源摘要:"
+    echo "📝 Deployment completed resource summary:"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # Group resources by type
@@ -692,9 +692,9 @@ build_and_push_image() {
     log_info "Building Rust binaries..."
     
     # Build Rust binaries first
-    if [ ! -f "target/release/qed_rollup_cli" ] || [ ! -f "target/release/qed_user_prover" ]; then
+    if [ ! -f "target/release/qed_rollup_cli" ]; then
         log_info "Compiling Rust binaries..."
-        cargo build --release --bin qed_rollup_cli --bin qed_user_prover || {
+        cargo build --release --bin qed_rollup_cli || {
             log_error "Rust compilation failed"
             exit 1
         }
@@ -719,7 +719,7 @@ build_and_push_image() {
     log_info "Building image with Docker BuildKit..."
     DOCKER_BUILDKIT=1 docker build \
         -t ${PROJECT_NAME}-rollup:latest \
-        -f Dockerfile \
+        -f aws-deployment/docker/Dockerfile \
         . || {
         log_error "Docker build failed"
         exit 1
@@ -829,15 +829,35 @@ deploy_infrastructure() {
     log_info "📋 Monitor progress at: https://${AWS_REGION}.console.aws.amazon.com/cloudformation/home?region=${AWS_REGION}#/stacks/stackinfo?stackId=${STACK_NAME}"
     log_info "💻 Or use CLI: aws cloudformation --no-cli-pager describe-stack-events --stack-name ${STACK_NAME} --region ${AWS_REGION}"
     
+    # Create S3 bucket for CloudFormation templates
+    ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    S3_BUCKET="cf-templates-${ACCOUNT_ID}-${AWS_REGION}"
+    
+    if aws s3 ls "s3://${S3_BUCKET}" 2>/dev/null; then
+        log_info "Using existing S3 bucket: ${S3_BUCKET}"
+    else
+        log_info "Creating S3 bucket for CloudFormation templates: ${S3_BUCKET}"
+        if [ "$AWS_REGION" = "us-east-1" ]; then
+            aws s3 mb "s3://${S3_BUCKET}"
+        else
+            aws s3 mb "s3://${S3_BUCKET}" --region ${AWS_REGION}
+        fi
+    fi
+    
     # Start deployment in background and monitor immediately
     aws cloudformation --no-cli-pager deploy \
         --template-file aws-deployment/cloudformation/main.yaml \
         --stack-name ${STACK_NAME} \
+        --s3-bucket ${S3_BUCKET} \
         --parameter-overrides \
             ProjectName=${PROJECT_NAME} \
             Environment=${ENVIRONMENT:-production} \
             WorkerInstanceType=${WORKER_INSTANCE_TYPE:-c6i.4xlarge} \
             KeyPairName=${KEY_PAIR_NAME} \
+            ScyllaDBInstanceType=${SCYLLA_INSTANCE_TYPE:-r6i.large} \
+            ScyllaDBInstanceCount=${SCYLLA_INSTANCE_COUNT:-3} \
+            ScyllaDBDataVolumeSize=${SCYLLA_DATA_VOLUME_SIZE:-1000} \
+            ScyllaDBCommitLogVolumeSize=${SCYLLA_COMMITLOG_VOLUME_SIZE:-200} \
         --capabilities CAPABILITY_NAMED_IAM \
         --region ${AWS_REGION} \
         --no-fail-on-empty-changeset &
@@ -860,13 +880,69 @@ deploy_infrastructure() {
 deploy_ecs_services() {
     log_info "Deploying ECS services..."
     
-    # Wait for Redis instance to be ready and SSM parameters to be set
-    log_info "Waiting for Redis instance to initialize..."
-    sleep 30
+    # Initial wait for instances to start
+    log_info "Waiting for EC2 instances to initialize..."
+    sleep 60  # Give instances time to boot and start UserData scripts
+    
+    # Wait for ScyllaDB SSM parameters to be available
+    log_info "Waiting for ScyllaDB endpoints to be configured..."
+    local max_attempts=30
+    local attempt=0
+    local all_params_ready=false
+    
+    while [ $attempt -lt $max_attempts ] && [ "$all_params_ready" = "false" ]; do
+        all_params_ready=true
+        
+        # Check if all required SSM parameters exist
+        # Check ScyllaDB endpoints
+        for param in "coordinator-endpoint" "realm0-endpoint" "realm32-endpoint"; do
+            if ! aws ssm get-parameter --name "/${PROJECT_NAME}/scylladb/${param}" --region ${AWS_REGION} &>/dev/null; then
+                all_params_ready=false
+                log_warning "Waiting for /${PROJECT_NAME}/scylladb/${param}..."
+                break
+            fi
+        done
+        
+        # Check Redis endpoints
+        for param in "coordinator/endpoint" "realm0/endpoint" "realm32/endpoint"; do
+            if ! aws ssm get-parameter --name "/${PROJECT_NAME}/redis/${param}" --region ${AWS_REGION} &>/dev/null; then
+                all_params_ready=false
+                log_warning "Waiting for /${PROJECT_NAME}/redis/${param}..."
+                break
+            fi
+        done
+        
+        if [ "$all_params_ready" = "false" ]; then
+            sleep 10
+            ((attempt++))
+        fi
+    done
+    
+    if [ "$all_params_ready" = "false" ]; then
+        log_error "ScyllaDB endpoints not configured after $max_attempts attempts"
+        return 1
+    fi
+    
+    log_info "✅ All ScyllaDB endpoints are configured"
+    
+    # Display all configured endpoints
+    log_info "📍 Configured endpoints:"
+    log_info "ScyllaDB:"
+    for param in "coordinator-endpoint" "realm0-endpoint" "realm32-endpoint"; do
+        endpoint=$(aws ssm get-parameter --name "/${PROJECT_NAME}/scylladb/${param}" --region ${AWS_REGION} --query 'Parameter.Value' --output text 2>/dev/null || echo "Error reading parameter")
+        log_info "  /${PROJECT_NAME}/scylladb/${param}: $endpoint"
+    done
+    
+    log_info "Redis:"
+    for param in "coordinator/endpoint" "realm0/endpoint" "realm32/endpoint"; do
+        endpoint=$(aws ssm get-parameter --name "/${PROJECT_NAME}/redis/${param}" --region ${AWS_REGION} --query 'Parameter.Value' --output text 2>/dev/null || echo "Error reading parameter")
+        log_info "  /${PROJECT_NAME}/redis/${param}: $endpoint"
+    done
     
     aws cloudformation --no-cli-pager deploy \
         --template-file aws-deployment/cloudformation/ecs-services.yaml \
         --stack-name ${PROJECT_NAME}-ecs-services \
+        --s3-bucket ${S3_BUCKET} \
         --parameter-overrides \
             ProjectName=${PROJECT_NAME} \
             Environment=${ENVIRONMENT:-production} \
@@ -876,6 +952,92 @@ deploy_ecs_services() {
         --no-fail-on-empty-changeset
     
     log_info "ECS services deployed successfully."
+    
+    # Update RPC config with ALB URL
+    update_rpc_config
+}
+
+# Function to update rpc.config with deployed ALB URL
+update_rpc_config() {
+    log_info "Updating rpc.config with deployed endpoints..."
+    
+    # Get ALB DNS name
+    ALB_DNS=$(aws cloudformation describe-stacks \
+        --stack-name ${PROJECT_NAME}-infrastructure \
+        --region ${AWS_REGION} \
+        --query 'Stacks[0].Outputs[?OutputKey==`ALBDNSName`].OutputValue' \
+        --output text)
+    
+    if [ -z "$ALB_DNS" ]; then
+        log_warning "Could not retrieve ALB DNS name"
+        return
+    fi
+    
+    # Create new rpc.config
+    cat > rpc.config << EOF
+{
+	"users_per_realm": 4194304,
+	"realm_configs": [
+		{
+			"id": 0,
+			"rpc_url": [
+				"http://${ALB_DNS}:8546"
+			]
+		},
+		{
+			"id": 32,
+			"rpc_url": [
+				"http://${ALB_DNS}:8547"
+			]
+		}
+	],
+	"coordinator_configs": [
+		{
+			"id": 0,
+			"rpc_url": [
+				"http://${ALB_DNS}:8545"
+			]
+		}
+	]
+}
+EOF
+    
+    log_info "✅ Updated rpc.config with ALB URL: ${ALB_DNS}"
+    
+    # Print helpful log commands
+    print_log_commands
+}
+
+# Function to print log viewing commands
+print_log_commands() {
+    cat << EOF
+
+📋 Useful commands for monitoring:
+
+# ECS Service Logs (replace TASK_ID with actual task ID):
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "coordinator-processor/coordinator-processor/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "coordinator-worker/coordinator-worker/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "coordinator-edge/coordinator-edge/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm0-processor/realm0-processor/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm0-worker/realm0-worker/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm0-edge/realm0-edge/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm32-processor/realm32-processor/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm32-worker/realm32-worker/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm32-edge/realm32-edge/TASK_ID" --follow --region ${AWS_REGION}
+
+# List all log streams:
+aws logs describe-log-streams --log-group-name /ecs/${PROJECT_NAME} --region ${AWS_REGION} --query 'logStreams[*].logStreamName' --output table
+
+# Redis logs (on Redis instance):
+aws ssm send-command --instance-ids REDIS_INSTANCE_ID --document-name AWS-RunShellScript --parameters 'commands=["tail -f /var/log/redis/*.log"]' --region ${AWS_REGION}
+
+# ScyllaDB logs (on ScyllaDB instances):
+aws ssm send-command --instance-ids SCYLLA_INSTANCE_ID --document-name AWS-RunShellScript --parameters 'commands=["docker logs -f scylladb"]' --region ${AWS_REGION}
+
+# Get instance IDs:
+aws ec2 describe-instances --filters "Name=tag:Project,Values=${PROJECT_NAME}" "Name=instance-state-name,Values=running" --region ${AWS_REGION} --query 'Reservations[].Instances[].[Tags[?Key==\`Name\`].Value|[0],InstanceId]' --output table
+
+EOF
 }
 
 # Main cleanup function (enhanced with specialized EFS cleanup)

@@ -15,10 +15,9 @@ WORKDIR /app
 # Copy the compiled binaries from local target directory
 # Make sure to run 'cargo build --release' before building the image
 COPY target/release/qed_rollup_cli /usr/local/bin/
-COPY target/release/qed_user_prover /usr/local/bin/
 
 # Make binaries executable
-RUN chmod +x /usr/local/bin/qed_rollup_cli /usr/local/bin/qed_user_prover
+RUN chmod +x /usr/local/bin/qed_rollup_cl
 
 # Create necessary directories
 RUN mkdir -p /data && chown -R qed:qed /data

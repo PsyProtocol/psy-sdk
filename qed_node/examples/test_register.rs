@@ -1,5 +1,5 @@
 use fred::prelude::*;
-use kvq::memory::{arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore};
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use qed_core::
     utils::debug_timer::DebugTimer
 ;
@@ -17,11 +17,9 @@ use qed_node::{
     nimpl::proof_store_fred::ProofStoreFred,
     worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
 };
-use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::
-    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync
-;
+use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::{sync::Arc, time::Duration};
 
 
@@ -47,10 +45,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let q = ProofStoreFred::new(pool, "wq1".to_string(), "nq1".to_string());
 
-    let store_reader: KVQArcImmutableStoreWrapper<KVQSimpleMemoryBackingStore> =
-        KVQArcImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-            KVQSimpleMemoryBackingStore::new(),
-        );
+    let store_reader = Arc::new(KVQSimpleMemoryBackingStore::new());
 
     store_reader.initialize_store()?;
     //let worker_count = 16usize;
@@ -81,7 +76,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?,
     };
 
-    let coordinator_processor_node = CoordinatorProcessorContext::new(
+    let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
         Arc::clone(&st),
         qps.clone(),

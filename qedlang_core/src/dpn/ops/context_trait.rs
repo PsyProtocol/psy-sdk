@@ -345,12 +345,19 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn cset_state_range_at(&mut self, sub_slot_index: F, values: &[F]);
 
 
+    fn cinvoke_external_contract_function_sync(
+        &mut self,
+        contract_id: F,
+        method_id: F,
+        input_args: Vec<F>,
+        num_outputs: u32,
+    ) -> Vec<F>;
     fn cinvoke_external_contract_function_deferred(
         &mut self,
-        contract_id: SymFeltRef,
-        method_id: SymFeltRef,
-        input_args: Vec<SymFeltRef>,
-    ) -> [SymFeltRef; 4];
+        contract_id: F,
+        method_id: F,
+        input_args: Vec<F>,
+    ) -> [F; 4];
     fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4];
     fn get_state_range_at(&mut self, sub_slot_index: F, length: F) -> Vec<F>;
     fn get_other_contract_state_hash_at(&mut self, contract_state_tree_height: F, contract_id: F, slot_index: F) -> [F; 4];

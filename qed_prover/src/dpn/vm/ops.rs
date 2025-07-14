@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::target::{BoolTarget, Target}, plonk::circuit_builder::CircuitBuilder};
 use qed_common_circuit::{builder::comparison::CircuitBuilderComparison, crypto::secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint}, hash::base_types::hash160::Hash160Target, u32::{arithmetic_u32::{CircuitBuilderU32, U32Target}, interleaved_u32::CircuitBuilderB32}};
-use qed_store::config::store_config::QEDHasher;
+use qed_data::config::store_config::QEDHasher;
 use qedlang_core::dpn::ops::op_types::{decode_indexed_op_id, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType};
 
 const COMPARISON_BITS: usize = 63;

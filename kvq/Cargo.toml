@@ -9,6 +9,5 @@ version = "0.1.0"
 anyhow     = { workspace = true }
 async-trait      = { workspace = true }
 serde      = { workspace = true }
-serde_with = { workspace = true }
 hex = { workspace = true }
 plonky2 = { workspace = true }

@@ -9,7 +9,9 @@ use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 use redis::AsyncCommands;
 use std::time::Duration;
 use async_trait::async_trait;
-use crate::nimpl::drain_queue_redis::dq_imm::{PROOFS, PROOF_COUNTERS};
+
+pub const PROOFS: &'static str = "proofs";
+pub const PROOF_COUNTERS: &'static str = "proof_counters";
 
 #[derive(Clone)]
 pub struct DrainQueueRedisAsync {

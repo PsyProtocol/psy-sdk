@@ -22,14 +22,13 @@ qed-utils = { workspace = true }
 plonky2 = { workspace = true }
 qed_crypto = { workspace = true }
 qed_exec = { workspace = true }
-qed_store = { workspace = true }
 qed_data = { workspace = true }
 qed_core = { workspace = true }
 qed_common_circuit = { workspace = true }
 qed-common = { workspace = true }
 qed-sema = { workspace = true }
 qed-ast = { workspace = true }
-qed-abi = { path = "../qed-abi" }
+qed-abi = { workspace = true }
 num-bigint = { workspace = true }
 
 

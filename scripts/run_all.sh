@@ -16,21 +16,14 @@ COORDINATOR_WORKER_LOG="$LOG_DIR/coordinator-worker.log"
 REALM_PROCESSOR_LOG="$LOG_DIR/realm-processor.log"
 REALM_WORKER_LOG="$LOG_DIR/realm-worker.log"
 COORDINATOR_EDGE_LOG="$LOG_DIR/coordinator-edge.log"
-COORDINATOR_EDGE_1_LOG="$LOG_DIR/coordinator-edge-1.log"
 REALM_EDGE_LOG="$LOG_DIR/realm-edge.log"
-REALM_EDGE_1_LOG="$LOG_DIR/realm-edge-1.log"
 
-REALM_PROCESSOR16384_LOG="$LOG_DIR/realm-processor16384.log"
-REALM_WORKER16384_LOG="$LOG_DIR/realm-worker16384.log"
-REALM_EDGE16384_LOG="$LOG_DIR/realm-edge16384.log"
-REALM_EDGE16384_1_LOG="$LOG_DIR/realm-edge16384-1.log"
+REALM_PROCESSOR32_LOG="$LOG_DIR/realm-processor32.log"
+REALM_WORKER32_LOG="$LOG_DIR/realm-worker32.log"
+REALM_EDGE32_LOG="$LOG_DIR/realm-edge32.log"
 
 LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
 WEB_WALLET_LOG="$LOG_DIR/web_wallet.log"
-
-# REALM_PROCESSOR8192_LOG="$LOG_DIR/realm-processor8192.log"
-# REALM_WORKER8192_LOG="$LOG_DIR/realm-worker8192.log"
-# REALM_EDGE8192_LOG="$LOG_DIR/realm-edge8192.log"
 
 # Clear log files at startup
 echo "Clearing log files..."
@@ -40,19 +33,11 @@ echo "Clearing log files..."
 : > "$REALM_WORKER_LOG"
 : > "$COORDINATOR_EDGE_LOG"
 : > "$REALM_EDGE_LOG"
-: > "$REALM_PROCESSOR16384_LOG"
-: > "$REALM_WORKER16384_LOG"
-: > "$REALM_EDGE16384_LOG"
+: > "$REALM_PROCESSOR32_LOG"
+: > "$REALM_WORKER32_LOG"
+: > "$REALM_EDGE32_LOG"
 : > "$LOCAL_USER_PROVER_LOG"
 : > "$WEB_WALLET_LOG"
-# : > "$REALM_PROCESSOR8192_LOG"
-# : > "$REALM_WORKER8192_LOG"
-# : > "$REALM_EDGE8192_LOG"
-
-# Run shutdown, init, compile
-make shutdown
-make init
-make compile
 
 # Array to store PIDs of background processes
 declare -a PIDS=()
@@ -97,33 +82,21 @@ run_service "make run-coordinator-worker" "coordinator-worker" "$COORDINATOR_WOR
 PIDS+=($!)
 run_service "make run-realm-processor" "realm-processor" "$REALM_PROCESSOR_LOG" &
 PIDS+=($!)
-run_service "make run-realm-processor16384" "realm-processor16384" "$REALM_PROCESSOR16384_LOG" &
+run_service "make run-realm-processor32" "realm-processor32" "$REALM_PROCESSOR32_LOG" &
 PIDS+=($!)
-# run_service "make run-realm-processor8192" "realm-processor8192" "$REALM_PROCESSOR8192_LOG" &
-# PIDS+=($!)
 run_service "make run-realm-worker" "realm-worker" "$REALM_WORKER_LOG" &
 PIDS+=($!)
-run_service "make run-realm-worker16384" "realm-worker16384" "$REALM_WORKER16384_LOG" &
+run_service "make run-realm-worker32" "realm-worker32" "$REALM_WORKER32_LOG" &
 PIDS+=($!)
-# run_service "make run-realm-worker8192" "realm-worker8192" "$REALM_WORKER8192_LOG" &
-# PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors/workers)
 sleep 3
 run_service "make run-coordinator-edge" "coordinator-edge" "$COORDINATOR_EDGE_LOG" &
 PIDS+=($!)
-run_service "make run-coordinator-edge-1" "coordinator-edge-1" "$COORDINATOR_EDGE_1_LOG" &
-PIDS+=($!)
 run_service "make run-realm-edge" "realm-edge" "$REALM_EDGE_LOG" &
 PIDS+=($!)
-run_service "make run-realm-edge-1" "realm-edge-1" "$REALM_EDGE_1_LOG" &
+run_service "make run-realm-edge32" "realm-edge32" "$REALM_EDGE32_LOG" &
 PIDS+=($!)
-run_service "make run-realm-edge16384" "realm-edge16384" "$REALM_EDGE16384_LOG" &
-PIDS+=($!)
-run_service "make run-realm-edge16384-1" "realm-edge16384-1" "$REALM_EDGE16384_1_LOG" &
-PIDS+=($!)
-# run_service "make run-realm-edge8192" "realm-edge8192" "$REALM_EDGE8192_LOG" &
-# PIDS+=($!)
 
 sleep 1
 run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &

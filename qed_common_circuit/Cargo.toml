@@ -8,33 +8,21 @@ version = "0.1.0"
 plonky2 = { workspace = true }
 anyhow = { workspace = true }
 num = { workspace = true }
-unroll = { workspace = true }
 serde_json = { workspace = true }
-serde_repr = { workspace = true }
 itertools = { workspace = true }
-postcard = { workspace = true }
 serde = { workspace = true }
-serde_with = { workspace = true }
 hex = { workspace = true }
 rand = { workspace = true }
-getrandom = { workspace = true }
 bitflags = { workspace = true }
-# bitcoin = { workspace = true }
-sha2 = { workspace = true }
-ripemd = { workspace = true }
-log = { workspace = true }
-env_logger = { workspace = true }
 bincode = { workspace = true }
 hashbrown = { workspace = true }
-lazy_static = { workspace = true }
-k256 = { workspace = true }
-kvq           = { path = "../kvq" }
-qed_crypto           = { path = "../qed_crypto" }
-qed_core           = { path = "../qed_core" }
+kvq = { workspace = true }
+qed_crypto = { workspace = true }
+qed_core = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = { workspace = true }
 rand_chacha = "0.3.1"
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }

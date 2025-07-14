@@ -49,7 +49,7 @@ export const config = {
                 // Additional realm endpoints for different realm IDs
                 realms: {
                     0: 'http://127.0.0.1:8546',        // Default realm (0)
-                    16384: 'http://127.0.0.1:8547',    // Realm 16384
+                    32: 'http://127.0.0.1:8547',    // Realm 32
                     // 8192: 'http://127.0.0.1:8548',  // Realm 8192 (commented in Makefile)
                 }
             },
@@ -86,8 +86,8 @@ export const config = {
         privateKeys: {
             user0: process.env.USER0_PRIVATE_KEY || '17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a',
             user1: process.env.USER1_PRIVATE_KEY || '73ae514d6f69510ad778a05128d980951d9d8c097beb022471b2f50f19c41268',
-            user16384_0: process.env.USER16384_0_PRIVATE_KEY || 'f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d',
-            user16384_1: process.env.USER16384_1_PRIVATE_KEY || '88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d',
+            user32_0: process.env.USER32_0_PRIVATE_KEY || 'f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d',
+            user32_1: process.env.USER32_1_PRIVATE_KEY || '88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d',
         },
 
         // Key pairs with derived public keys for signer pattern
@@ -102,15 +102,15 @@ export const config = {
                 1n,
                 0
             ),
-            user16384_0: createKeyPairInfo(
-                process.env.USER16384_0_PRIVATE_KEY || 'f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d',
-                536870912n, // User ID in realm 16384
-                16384
+            user32_0: createKeyPairInfo(
+                process.env.USER32_0_PRIVATE_KEY || 'f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d',
+                134217728n, // User ID in realm 32
+                32
             ),
-            user16384_1: createKeyPairInfo(
-                process.env.USER16384_1_PRIVATE_KEY || '88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d',
-                536870913n, // User ID in realm 16384
-                16384
+            user32_1: createKeyPairInfo(
+                process.env.USER32_1_PRIVATE_KEY || '88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d',
+                536870913n, // User ID in realm 32
+                32
             ),
         },
 
@@ -158,12 +158,12 @@ export const config = {
         defaultId: parseInt(process.env.REALM_ID || '0'),
         // Realm-specific configurations from Makefile
         configs: {
-            16384: {
+            32: {
                 nodeId: 2,
-                workerQueueSuffix: 'rwq16384',
-                notificationsQueueSuffix: 'rnq16384',
-                proofStoreKeySuffix: 'RP16384',
-                dbPath: './db/realm16384',
+                workerQueueSuffix: 'rwq32',
+                notificationsQueueSuffix: 'rnq32',
+                proofStoreKeySuffix: 'RP32',
+                dbPath: './db/realm32',
                 redisUri: 'redis://127.0.0.1:6381',
             },
             // 8192: {
@@ -242,7 +242,7 @@ export function getKeyPairsForRealm(realmId: number): KeyPairInfo[] {
 
 // Export types for better TypeScript support
 export type Environment = 'local' | 'testnet' | 'mainnet';
-export type RealmId = 0 | 16384 | 8192;
+export type RealmId = 0 | 32 | 8192;
 export type KeyManagementMode = 'local' | 'kms' | 'hardware';
 export type SigningMethod = 'mock' | 'ecdsa' | 'eddsa' | 'custom';
 export type SignerStrategy = 'current' | 'userId' | 'manual';

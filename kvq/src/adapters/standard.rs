@@ -1,17 +1,13 @@
 use std::marker::PhantomData;
 
 use crate::traits::KVQBinaryStore;
-use crate::traits::KVQBinaryStoreImmutable;
-use crate::traits::KVQBinaryStoreReader;
 use crate::traits::KVQPair;
 use crate::traits::KVQSerializable;
 use crate::traits::KVQStoreAdapter;
-use crate::traits::KVQStoreAdapterImmutable;
 use crate::traits::KVQStoreAdapterReader;
-use crate::traits::KVQBinaryStoreImmutableAsync;
-use crate::traits::KVQBinaryStoreReaderAsync;
-use crate::traits::KVQStoreAdapterImmutableAsync;
+use crate::traits::KVQBinaryStoreAsync;
 use crate::traits::KVQStoreAdapterReaderAsync;
+use crate::traits::KVQStoreAdapterAsync;
 
 
 
@@ -22,7 +18,7 @@ pub struct KVQStandardAdapter<S, K: KVQSerializable, V: KVQSerializable> {
     _v: PhantomData<V>,
 }
 
-impl<S: KVQBinaryStoreReader, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapterReader<S, K, V>
+impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapterReader<S, K, V>
     for KVQStandardAdapter<S, K, V>
 {
     fn get_exact_if_exists(s: &S, key: &K) -> anyhow::Result<Option<V>> {
@@ -135,14 +131,14 @@ impl<S: KVQBinaryStoreReader, K: KVQSerializable, V: KVQSerializable> KVQStoreAd
 impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapter<S, K, V>
     for KVQStandardAdapter<S, K, V>
 {
-    fn set_ref(s: &mut S, key: &K, value: &V) -> anyhow::Result<()> {
+    fn set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()> {
         s.set(key.to_bytes()?, value.to_bytes()?)
     }
-    fn set(s: &mut S, key: K, value: V) -> anyhow::Result<()> {
+    fn set(s: &S, key: K, value: V) -> anyhow::Result<()> {
         s.set(key.to_bytes()?, value.to_bytes()?)
     }
 
-    fn set_many_ref<'a>(s: &mut S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> {
+    fn set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> {
         let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
             .iter()
             .map(|kv| {
@@ -155,7 +151,7 @@ impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapter<
         s.set_many_vec(pairs?)
     }
 
-    fn set_many(s: &mut S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> {
+    fn set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> {
         let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
             .iter()
             .map(|kv| {
@@ -168,11 +164,11 @@ impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapter<
         s.set_many_vec(pairs?)
     }
 
-    fn delete(s: &mut S, key: &K) -> anyhow::Result<bool> {
+    fn delete(s: &S, key: &K) -> anyhow::Result<bool> {
         s.delete(&key.to_bytes()?)
     }
 
-    fn delete_many(s: &mut S, keys: &[K]) -> anyhow::Result<Vec<bool>> {
+    fn delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>> {
         let mut results: Vec<bool> = Vec::with_capacity(keys.len());
 
         for k in keys {
@@ -182,7 +178,7 @@ impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapter<
         Ok(results)
     }
 
-    fn set_many_split_ref(s: &mut S, keys: &[K], values: &[V]) -> anyhow::Result<()> {
+    fn set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()> {
         if keys.len() != values.len() {
             return Err(anyhow::anyhow!("Keys and values must have the same length"));
         }
@@ -200,70 +196,6 @@ impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapter<
 
 
 
-impl<S: KVQBinaryStoreImmutable, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapterImmutable<S, K, V>
-    for KVQStandardAdapter<S, K, V>
-{
-    fn imm_set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()> {
-        s.imm_set(key.to_bytes()?, value.to_bytes()?)
-    }
-    fn imm_set(s: &S, key: K, value: V) -> anyhow::Result<()> {
-        s.imm_set(key.to_bytes()?, value.to_bytes()?)
-    }
-
-    fn imm_set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> {
-        let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
-            .iter()
-            .map(|kv| {
-                Ok(KVQPair {
-                    key: kv.key.to_bytes()?,
-                    value: kv.value.to_bytes()?,
-                })
-            })
-            .collect();
-        s.imm_set_many_vec(pairs?)
-    }
-
-    fn imm_set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> {
-        let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
-            .iter()
-            .map(|kv| {
-                Ok(KVQPair {
-                    key: kv.key.to_bytes()?,
-                    value: kv.value.to_bytes()?,
-                })
-            })
-            .collect();
-        s.imm_set_many_vec(pairs?)
-    }
-
-    fn imm_delete(s: &S, key: &K) -> anyhow::Result<bool> {
-        s.imm_delete(&key.to_bytes()?)
-    }
-
-    fn imm_delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>> {
-        let mut results: Vec<bool> = Vec::with_capacity(keys.len());
-
-        for k in keys {
-            let r = s.imm_delete(&k.to_bytes()?)?;
-            results.push(r)
-        }
-        Ok(results)
-    }
-
-    fn imm_set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()> {
-        if keys.len() != values.len() {
-            return Err(anyhow::anyhow!("Keys and values must have the same length"));
-        }
-        let mut keys_bytes: Vec<Vec<u8>> = Vec::with_capacity(keys.len());
-        let mut values_bytes: Vec<Vec<u8>> = Vec::with_capacity(values.len());
-        for (k, v) in keys.iter().zip(values.iter()) {
-            keys_bytes.push(k.to_bytes()?);
-            values_bytes.push(v.to_bytes()?);
-        }
-
-        s.imm_set_many_split_ref(&keys_bytes, &values_bytes)
-    }
-}
 
 
 
@@ -271,7 +203,7 @@ impl<S: KVQBinaryStoreImmutable, K: KVQSerializable, V: KVQSerializable> KVQStor
 
 
 #[async_trait]
-impl<S: KVQBinaryStoreReaderAsync+ Send + Sync, K: KVQSerializable + Send + Sync, V: KVQSerializable+ Send + Sync> KVQStoreAdapterReaderAsync<S, K, V>
+impl<S: KVQBinaryStoreAsync+ Send + Sync, K: KVQSerializable + Send + Sync, V: KVQSerializable+ Send + Sync> KVQStoreAdapterReaderAsync<S, K, V>
     for KVQStandardAdapter<S, K, V>
 {
     async fn get_exact_if_exists(s: &S, key: &K) -> anyhow::Result<Option<V>> {
@@ -382,14 +314,18 @@ impl<S: KVQBinaryStoreReaderAsync+ Send + Sync, K: KVQSerializable + Send + Sync
 }
 
 #[async_trait]
-impl<S: KVQBinaryStoreImmutableAsync + Send + Sync, K: KVQSerializable+ Send + Sync, V: KVQSerializable+ Send + Sync> KVQStoreAdapterImmutableAsync<S, K, V>
+impl<S: KVQBinaryStoreAsync + Send + Sync, K: KVQSerializable + Send + Sync, V: KVQSerializable + Send + Sync> KVQStoreAdapterAsync<S, K, V>
     for KVQStandardAdapter<S, K, V>
 {
-    async fn imm_set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()> {
-        s.imm_set(key.to_bytes()?, value.to_bytes()?).await
+    async fn set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()> {
+        s.set(key.to_bytes()?, value.to_bytes()?).await
     }
 
-    async  fn imm_set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> {
+    async fn set(s: &S, key: K, value: V) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait {
+        s.set(key.to_bytes()?, value.to_bytes()?).await
+    }
+
+    async fn set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> {
         let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
             .iter()
             .map(|kv| {
@@ -399,10 +335,10 @@ impl<S: KVQBinaryStoreImmutableAsync + Send + Sync, K: KVQSerializable+ Send + S
                 })
             })
             .collect();
-        s.imm_set_many_vec(pairs?).await
+        s.set_many_vec(pairs?).await
     }
 
-    async fn imm_set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> {
+    async fn set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait {
         let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
             .iter()
             .map(|kv| {
@@ -412,24 +348,24 @@ impl<S: KVQBinaryStoreImmutableAsync + Send + Sync, K: KVQSerializable+ Send + S
                 })
             })
             .collect();
-        s.imm_set_many_vec(pairs?).await
+        s.set_many_vec(pairs?).await
     }
 
-    async fn imm_delete(s: &S, key: &K) -> anyhow::Result<bool> {
-        s.imm_delete(&key.to_bytes()?).await
+    async fn delete(s: &S, key: &K) -> anyhow::Result<bool> {
+        s.delete(&key.to_bytes()?).await
     }
 
-    async fn imm_delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>> {
+    async fn delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>> {
         let mut results: Vec<bool> = Vec::with_capacity(keys.len());
 
         for k in keys {
-            let r = s.imm_delete(&k.to_bytes()?).await?;
+            let r = s.delete(&k.to_bytes()?).await?;
             results.push(r)
         }
         Ok(results)
     }
 
-    async fn imm_set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()> {
+    async fn set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()> {
         if keys.len() != values.len() {
             return Err(anyhow::anyhow!("Keys and values must have the same length"));
         }
@@ -440,7 +376,8 @@ impl<S: KVQBinaryStoreImmutableAsync + Send + Sync, K: KVQSerializable+ Send + S
             values_bytes.push(v.to_bytes()?);
         }
 
-        s.imm_set_many_split_ref(&keys_bytes, &values_bytes).await
+        s.set_many_split_ref(&keys_bytes, &values_bytes).await
     }
 }
+
 

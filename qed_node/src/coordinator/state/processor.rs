@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use chrono::Utc;
 use fred::prelude::{KeysInterface, Pool};
@@ -11,7 +11,7 @@ use plonky2::{
 use qed_common_circuit::treeprover::aggregation::state_transition;
 use qed_core::{
     config::network_constants::{
-        BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT
+        BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT
     },
     data::qhashout::QHashOut,
     job::{
@@ -63,10 +63,11 @@ use qed_data::{
     },
 };
 use qed_rollup_circuit::guta::gadgets::guta_header;
-use qed_store::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserTreeStore}, models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore, node::coordinator::store_traits::{
-        QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
-    }
+use qed_data::{
+    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserTreeStore}, models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore,
+};
+use qed_store::node::coordinator::{
+    QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -104,7 +105,7 @@ impl CoordinatorConfig {
     pub fn get_standard(rpc_node_id: u32) -> Self {
         let library = get_cached_circuit_library::<F>();
 
-        let realm_root_level = REALM_USER_TREE_HEIGHT;
+        let realm_root_level = COORDINATOR_USER_TREE_HEIGHT;
         let users_per_realm = 1usize << (REALM_USER_TREE_HEIGHT as usize);
 
         Self {
@@ -151,9 +152,6 @@ pub struct CoordinatorProcessorContext<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub latest_block_state: QEDL2BlockState,
     pub coordinator_config: CoordinatorConfig,
-    chkpoint_id: u64,
-    //pub checkpoint_id: u64,
-    //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
 }
 
 impl<
@@ -185,8 +183,6 @@ impl<
             proof_store,
             proof_verifier,
             latest_block_state,
-            chkpoint_id: checkpoint_id,
-            //checkpoint_id,
         })
     }
 
@@ -621,7 +617,7 @@ impl<
                     stats_b: guta_queue_items[i * 2 + 1].guta_stats,
                     nca_proof: res.nca_proofs[i].to_partial(),
                 };
-                tracing::info!("❗guta input: {:?}", input);
+                eprintln!("DEBUGPRINT[866]: processor.rs:620: input={}", serde_json::to_string_pretty(&input).unwrap());
 
                 let x = CircuitInputWithDependencies {
                     input,
@@ -794,7 +790,9 @@ impl<
         Ok((levels, guta))
     }
 
-    pub async fn build_block(&self) -> anyhow::Result<()> {
+    pub async fn build_block(&mut self) -> anyhow::Result<()> {
+        let start = Instant::now();
+        info!("coordinator STARTED new block");
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
@@ -985,6 +983,7 @@ impl<
         
         
         let checkpoint_tree_update_siblings = checkpoint_dmp.siblings.clone();
+        let old_checkpoint_leaf_hash = checkpoint_dmp.old_value;
         let witness_checkpoint_state_transition = CircuitInputWithDependencies{
             input: QCQEDCheckpointStateTransitionInput::<F>{
                 partial: partial_input,
@@ -1042,6 +1041,7 @@ impl<
             checkpoint_tree_update_siblings,
             regsitered_users_start_pivot_siblings,
             registered_users: new_accounts,
+            old_checkpoint_leaf_hash,
         };
         eprintln!("DEBUGPRINT[591]: processor.rs:1007: l2_sync={}", serde_json::to_string_pretty(&l2_sync).unwrap());
         self.store
@@ -1051,10 +1051,13 @@ impl<
         //todo! mark, should commit the txn
         self.sync_queue.chq_push_imm(l2_sync).await?;
 
+        self.latest_block_state = new_l2_block_state;
         tracing::info!(
             "lastest block state: {:?}",
-            self.store.get_latest_l2_block_state().await?,
+            self.latest_block_state,
         );
+
+        info!("coordinator FINISHED block {} in {}ms", self.latest_block_state.checkpoint_id, start.elapsed().as_millis());
 
         Ok(())
     }

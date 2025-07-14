@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 use async_trait::async_trait;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KVQPair<K, V> {
@@ -43,6 +44,12 @@ impl<'de, K: Deserialize<'de>, V: Deserialize<'de>> Deserialize<'de> for KVQPair
 pub trait KVQSerializable: Clone + PartialEq {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>>;
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self>;
+}
+
+pub trait ScyllaKey: KVQSerializable {
+    fn get_partition_key(&self) -> Vec<u8>;
+    fn get_clustering_key(&self) -> Option<Vec<u8>>;
+    fn get_table_type(&self) -> u16;
 }
 
 pub fn unwrap_kv_vec_result<T>(results: Vec<Option<T>>) -> anyhow::Result<Vec<T>> {
@@ -126,51 +133,35 @@ pub trait KVQStoreAdapterReaderAsync<S: Sync, K: KVQSerializable + Sync, V: KVQS
     }
 }
 
+#[async_trait]
+pub trait KVQStoreAdapterAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSerializable + Sync>:
+    KVQStoreAdapterReaderAsync<S, K, V>
+{
+    async fn set(s: &S, key: K, value: V) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait;
+    async fn set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()>;
+    async fn set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> where K: 'a, V: 'a;
+    async fn set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()>;
+    async fn set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait;
+
+    async fn delete(s: &S, key: &K) -> anyhow::Result<bool>;
+    async fn delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>>;
+}
+
 pub trait KVQStoreAdapter<S, K: KVQSerializable, V: KVQSerializable>:
     KVQStoreAdapterReader<S, K, V>
 {
-    fn set(s: &mut S, key: K, value: V) -> anyhow::Result<()>;
-    fn set_ref(s: &mut S, key: &K, value: &V) -> anyhow::Result<()>;
-    fn set_many_ref<'a>(s: &mut S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()>;
-    fn set_many_split_ref(s: &mut S, keys: &[K], values: &[V]) -> anyhow::Result<()>;
-    fn set_many(s: &mut S, items: &[KVQPair<K, V>]) -> anyhow::Result<()>;
+    fn set(s: &S, key: K, value: V) -> anyhow::Result<()>;
+    fn set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()>;
+    fn set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()>;
+    fn set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()>;
+    fn set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()>;
 
-    fn delete(s: &mut S, key: &K) -> anyhow::Result<bool>;
-    fn delete_many(s: &mut S, keys: &[K]) -> anyhow::Result<Vec<bool>>;
-    //fn delete_many_sized<const SIZE: usize>(s: &mut S, keys: &[K; SIZE]) ->
+    fn delete(s: &S, key: &K) -> anyhow::Result<bool>;
+    fn delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>>;
+    //fn delete_many_sized<const SIZE: usize>(s: &S, keys: &[K; SIZE]) ->
     // anyhow::Result<[bool; SIZE]>;
 }
 
-#[async_trait]
-pub trait KVQStoreAdapterImmutableAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSerializable>:
-    KVQStoreAdapterReaderAsync<S, K, V>
-{
-    //async fn imm_set(s: &S, key: K, value: V) -> anyhow::Result<()>;
-    async fn imm_set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()>;
-    async fn imm_set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()>;
-    async fn imm_set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()>;
-    async fn imm_set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()>;
-
-    async fn imm_delete(s: &S, key: &K) -> anyhow::Result<bool>;
-    async fn imm_delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>>;
-    //fn imm_delete_many_sized<const SIZE: usize>(s: &S, keys: &[K; SIZE]) ->
-    // anyhow::Result<[bool; SIZE]>;
-}
-
-pub trait KVQStoreAdapterImmutable<S, K: KVQSerializable, V: KVQSerializable>:
-    KVQStoreAdapterReader<S, K, V>
-{
-    fn imm_set(s: &S, key: K, value: V) -> anyhow::Result<()>;
-    fn imm_set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()>;
-    fn imm_set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()>;
-    fn imm_set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()>;
-    fn imm_set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()>;
-
-    fn imm_delete(s: &S, key: &K) -> anyhow::Result<bool>;
-    fn imm_delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>>;
-    //fn imm_delete_many_sized<const SIZE: usize>(s: &S, keys: &[K; SIZE]) ->
-    // anyhow::Result<[bool; SIZE]>;
-}
 
 pub trait KVQStoreAdapterWithHelpers<S, K: KVQSerializable, V: KVQSerializable>:
     KVQStoreAdapter<S, K, V>
@@ -197,36 +188,12 @@ pub trait KVQStoreAdapterWithHelpers<S, K: KVQSerializable, V: KVQSerializable>:
 }
 
 
-#[async_trait]
-pub trait KVQStoreAdapterWithHelpersImmutableAsync<S: Sync + Send, K: KVQSerializable + Sync + Send, V: KVQSerializable + Sync + Send>:
-    KVQStoreAdapterImmutableAsync<S, K, V>
-{
-    async fn set_many_ref_clone_batch<'a>(
-        s: &S,
-        items: &[KVQPair<&'a K, &'a V>],
-    ) -> anyhow::Result<()> {
-        let mut items_owned = Vec::with_capacity(items.len());
-        for item in items {
-            items_owned.push(KVQPair {
-                key: item.key.clone(),
-                value: item.value.clone(),
-            });
-        }
-        Self::imm_set_many(s, &items_owned).await?;
-        Ok(())
-    }
-    async fn set_many_ref_serial<'a>(s: &mut S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> {
-        for item in items {
-            Self::imm_set_ref(s, item.key, item.value).await?;
-        }
-        Ok(())
-    }
-}
 
 //pub type KVQStoreAdapter<K: KVQSerializable, V: KVQSerializable> =
 // KVQStoreAdapter<KVQBinaryStore, K, V>;
 
-pub trait KVQBinaryStoreReader {
+pub trait KVQBinaryStore: Send + Sync {
+    // Read operations
     fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>>;
     fn get_exact(&self, key: &Vec<u8>) -> anyhow::Result<Vec<u8>>;
     fn get_many_exact(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<Vec<u8>>>;
@@ -271,10 +238,24 @@ pub trait KVQBinaryStoreReader {
     ) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         unwrap_kv_vec_result(self.get_many_leq_kv(keys, fuzzy_bytes)?)
     }
+
+    // Write operations
+    fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
+    fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()>;
+    fn set_many_ref<'a>(
+        &self,
+        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
+    ) -> anyhow::Result<()>;
+    fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()>;
+    fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()>;
+
+    fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool>;
+    fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
 }
 
 #[async_trait]
-pub trait KVQBinaryStoreReaderAsync {
+pub trait KVQBinaryStoreAsync {
+    // Read operations
     async fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>>;
     async fn get_exact(&self, key: &Vec<u8>) -> anyhow::Result<Vec<u8>>;
     async fn get_many_exact(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<Vec<u8>>>;
@@ -319,109 +300,103 @@ pub trait KVQBinaryStoreReaderAsync {
     ) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         unwrap_kv_vec_result(self.get_many_leq_kv(keys, fuzzy_bytes).await?)
     }
-}
 
-pub trait KVQBinaryStoreWriter {
-    fn set(&mut self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
-    fn set_ref(&mut self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()>;
-    fn set_many_ref<'a>(
-        &mut self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> anyhow::Result<()>;
-    fn set_many_vec(&mut self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()>;
-    fn set_many_split_ref(&mut self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()>;
-
-    fn delete(&mut self, key: &Vec<u8>) -> anyhow::Result<bool>;
-    fn delete_many(&mut self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
-}
-
-
-pub trait KVQBinaryStoreWriterImmutable {
-    fn imm_set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
-    fn imm_set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()>;
-    fn imm_set_many_ref<'a>(
-        &self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> anyhow::Result<()>;
-    fn imm_set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()>;
-    fn imm_set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()>;
-
-    fn imm_delete(&self, key: &Vec<u8>) -> anyhow::Result<bool>;
-    fn imm_delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
-}
-
-#[async_trait]
-pub trait KVQBinaryStoreWriterAsync {
-    async fn set(&mut self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
-    async fn set_ref(&mut self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()>;
+    // Write operations
+    async fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
+    async fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()>;
     async fn set_many_ref<'a>(
-        &mut self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> anyhow::Result<()>;
-    async fn set_many_vec(&mut self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()>;
-    async fn set_many_split_ref(&mut self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()>;
-
-    async fn delete(&mut self, key: &Vec<u8>) -> anyhow::Result<bool>;
-    async fn delete_many(&mut self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
-}
-
-#[async_trait]
-pub trait KVQBinaryStoreWriterImmutableAsync {
-    async fn imm_set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
-    async fn imm_set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()>;
-    async fn imm_set_many_ref<'a>(
         &self,
         items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
     ) -> anyhow::Result<()>;
-    async fn imm_set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()>;
-    async fn imm_set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()>;
+    async fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()>;
+    async fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()>;
 
-    async fn imm_delete(&self, key: &Vec<u8>) -> anyhow::Result<bool>;
-    async fn imm_delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
+    async fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool>;
+    async fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
 }
 
-pub trait KVQBinaryStoreWriterAutoImmutable: KVQBinaryStoreWriterImmutable {}
-impl<T: KVQBinaryStoreWriterAutoImmutable> KVQBinaryStoreWriter for T {
-    fn set(&mut self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()> {
-        self.imm_set(key, value)
+
+
+// Arc forwarding implementations for sync traits
+impl<T: KVQBinaryStore> KVQBinaryStore for Arc<T> {
+    // Read operations
+    fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
+        (**self).get_exact_if_exists(key)
     }
 
-    fn set_ref(&mut self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()> {
-        self.imm_set_ref(key, value)
+    fn get_exact(&self, key: &Vec<u8>) -> anyhow::Result<Vec<u8>> {
+        (**self).get_exact(key)
+    }
+
+    fn get_many_exact(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<Vec<u8>>> {
+        (**self).get_many_exact(keys)
+    }
+
+    fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<Vec<u8>>> {
+        (**self).get_leq(key, fuzzy_bytes)
+    }
+
+    fn get_fuzzy_range_leq_kv(
+        &self,
+        key: &Vec<u8>,
+        fuzzy_bytes: usize,
+    ) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+        (**self).get_fuzzy_range_leq_kv(key, fuzzy_bytes)
+    }
+
+    fn get_leq_kv(
+        &self,
+        key: &Vec<u8>,
+        fuzzy_bytes: usize,
+    ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+        (**self).get_leq_kv(key, fuzzy_bytes)
+    }
+
+    fn get_many_leq(
+        &self,
+        keys: &[Vec<u8>],
+        fuzzy_bytes: usize,
+    ) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
+        (**self).get_many_leq(keys, fuzzy_bytes)
+    }
+
+    fn get_many_leq_kv(
+        &self,
+        keys: &[Vec<u8>],
+        fuzzy_bytes: usize,
+    ) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+        (**self).get_many_leq_kv(keys, fuzzy_bytes)
+    }
+
+    // Write operations
+    fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()> {
+        (**self).set(key, value)
+    }
+
+    fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()> {
+        (**self).set_ref(key, value)
     }
 
     fn set_many_ref<'a>(
-        &mut self,
+        &self,
         items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
     ) -> anyhow::Result<()> {
-        self.imm_set_many_ref(items)
+        (**self).set_many_ref(items)
     }
 
-    fn set_many_vec(&mut self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()> {
-        self.imm_set_many_vec(items)
+    fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()> {
+        (**self).set_many_vec(items)
     }
 
-    fn set_many_split_ref(&mut self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()> {
-        self.imm_set_many_split_ref(keys, values)
+    fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool> {
+        (**self).delete(key)
     }
 
-    fn delete(&mut self, key: &Vec<u8>) -> anyhow::Result<bool> {
-        self.imm_delete(key)
+    fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {
+        (**self).delete_many(keys)
     }
 
-    fn delete_many(&mut self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {
-        self.imm_delete_many(keys)
+    fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()> {
+        (**self).set_many_split_ref(keys, values)
     }
 }
-
-
-pub trait KVQBinaryStore: KVQBinaryStoreReader + KVQBinaryStoreWriter {}
-pub trait KVQBinaryStoreImmutable: KVQBinaryStore + KVQBinaryStoreWriterImmutable {}
-
-impl<T: KVQBinaryStoreReader + KVQBinaryStoreWriter> KVQBinaryStore for T {}
-
-
-
-pub trait KVQBinaryStoreImmutableAsync: KVQBinaryStoreReaderAsync + KVQBinaryStoreWriterImmutableAsync {}
-
-impl<T: KVQBinaryStoreReaderAsync + KVQBinaryStoreWriterImmutableAsync> KVQBinaryStoreImmutableAsync for T {}

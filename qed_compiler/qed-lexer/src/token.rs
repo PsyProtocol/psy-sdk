@@ -82,6 +82,12 @@ pub enum Token<'input> {
     #[token("__ctx_set_state_hash_at")]
     IntrinsicCtxSetStateHashAt,
 
+    #[token("__invoke_sync")]
+    IntrinsicInvokeSync,
+
+    #[token("__invoke_deferred")]
+    IntrinsicInvokeDeferred,
+
     #[token("new")]
     KeywordNew,
     #[token("extern")]
