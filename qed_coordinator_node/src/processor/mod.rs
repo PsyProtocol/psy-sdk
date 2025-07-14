@@ -16,8 +16,7 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
-use qed_node::nimpl::{new_fred_pool, new_redis_async_pool};
-use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_node::nimpl::{new_redis_async_pool};
 use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
     nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS},
@@ -163,7 +162,9 @@ impl
                     "⚠️ Failed to get block 1 state: {:?}， need initialize the db",
                     e
                 );
-                QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
+                if  QEDComboDataStoreReaderWriterSync::initialize_store(&*st)? == 0 {
+                    st.commit_block(0).await?;
+                }
                 true
             }
         };
