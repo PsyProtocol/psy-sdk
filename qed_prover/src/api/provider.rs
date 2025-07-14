@@ -312,7 +312,7 @@ impl Default for RpcConfig {
                     rpc_url: vec!["http://127.0.0.1:8546".into()],
                 },
                 RealmRpcConfig {
-                    id: 16384,
+                    id: 32,
                     rpc_url: vec!["http://127.0.0.1:8547".into()],
                 },
             ],

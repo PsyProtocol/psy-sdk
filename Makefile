@@ -102,10 +102,10 @@ PROJECT_DIR              := $(PWD)/examples
 FILE                     := $(PWD)/examples/src/main.qed
 PARAMETERS               :=
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
-USER16384_0_PRIVATE_KEY  := f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
+USER32_0_PRIVATE_KEY  := f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
 
 USER1_PRIVATE_KEY        := 73ae514d6f69510ad778a05128d980951d9d8c097beb022471b2f50f19c41268
-USER16384_1_PRIVATE_KEY  := 88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d
+USER32_1_PRIVATE_KEY  := 88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d
 
 CURRENT_USER_PRIVATE_KEY := ${USER0_PRIVATE_KEY}
 
@@ -126,29 +126,22 @@ init:
 	@./target/${PROFILE}/dargo new ${PROJECT_DIR}
 	@cp qed_compiler/tests/new_token.qed ${FILE}
 	@mkdir -p $(PWD)/db
-	@echo "Cleaning up any existing containers..."
-	# @docker stop qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 > /dev/null 2>&1 || true
-	# @docker rm qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 > /dev/null 2>&1 || true
-	# @docker stop qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
-	# @docker rm qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
 	@echo "Starting Redis containers..."
 	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
-	@docker run -d --name qed-redis-realm16384 -p 6381:6379 redis:alpine redis-server --save ""
+	@docker run -d --name qed-redis-realm32 -p 6381:6379 redis:alpine redis-server --save ""
 	# @echo "Starting ScyllaDB containers..."
 	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
 	# @docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
-	# @docker run -d --name qed-scylla-realm16384 -p 9044:9042 scylladb/scylla:latest
+	# @docker run -d --name qed-scylla-realm32 -p 9044:9042 scylladb/scylla:latest
 	@echo "Waiting for databases to be ready..."
 	@sleep 10
 
 .PHONY: shutdown
 shutdown:
 	@echo "Stopping and removing database containers..."
-	@docker stop qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 > /dev/null 2>&1 || true
-	@docker rm qed-redis-coordinator qed-redis-realm0 qed-redis-realm16384 > /dev/null 2>&1 || true
-	@docker stop qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
-	@docker rm qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm16384 > /dev/null 2>&1 || true
+	@docker rm -f qed-redis-coordinator qed-redis-realm0 qed-redis-realm32 > /dev/null 2>&1 || true
+	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm32 > /dev/null 2>&1 || true
 	@rm -fr ${PROJECT_DIR} ${PWD}/db > /dev/null 2>&1 || true
 
 run-all: shutdown init compile
@@ -181,36 +174,36 @@ run-realm-edge:
 run-realm-worker:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker --redis-uri=redis://127.0.0.1:6380
 
-run-realm-processor16384:
+run-realm-processor32:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6381 \
       --backend-type lmdbx \
-      --path ${PWD}/db/realm16384 \
+      --path ${PWD}/db/realm32 \
       --node-id=2 \
-      --realm-id=16384 \
-      --worker-queue-suffix=rwq16384 \
-      --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384
+      --realm-id=32 \
+      --worker-queue-suffix=rwq32 \
+      --notifications-queue-suffix=rnq32 \
+      --proof-store-key-suffix=RP32
 
-run-realm-edge16384:
+run-realm-edge32:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
       --listen-addr=0.0.0.0:8547 \
       --redis-uri=redis://127.0.0.1:6381 \
       --backend-type lmdbx \
-      --path ${PWD}/db/realm16384 \
+      --path ${PWD}/db/realm32 \
       --coordinator-addr=http://127.0.0.1:8545 \
       --node-id=2 \
-      --realm-id=16384 \
-      --worker-queue-suffix=rwq16384 \
-      --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384
+      --realm-id=32 \
+      --worker-queue-suffix=rwq32 \
+      --notifications-queue-suffix=rnq32 \
+      --proof-store-key-suffix=RP32
 
-run-realm-worker16384:
+run-realm-worker32:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
       --redis-uri=redis://127.0.0.1:6381 \
-      --worker-queue-suffix=rwq16384 \
-      --notifications-queue-suffix=rnq16384 \
-      --proof-store-key-suffix=RP16384
+      --worker-queue-suffix=rwq32 \
+      --notifications-queue-suffix=rnq32 \
+      --proof-store-key-suffix=RP32
 
 run-user-prover:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover
@@ -250,19 +243,19 @@ random-register-user-batch:
 
 deploy-contract:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${CURRENT_USER_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER16384_0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER32_0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
 
 mint:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000
 
 transfer:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 536870912 --inputs 500
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 134217728 --inputs 500
 
 claim:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER16384_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER32_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0
 
 return-back:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER16384_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 500
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER32_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 500
 
 mint2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000

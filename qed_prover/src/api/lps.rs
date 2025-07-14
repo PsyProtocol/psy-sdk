@@ -3,7 +3,7 @@ use super::request::*;
 use crate::qed_rpc_call_back;
 use anyhow::Ok;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::{config::network_constants::REALM_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+use qed_core::{config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
@@ -568,7 +568,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 let top_proof = self.get_user_sub_tree_merkle_proof(
                     checkpoint_id,
                     0,
-                    REALM_USER_TREE_HEIGHT,
+                    COORDINATOR_USER_TREE_HEIGHT,
                     self.get_realm_id(user_id),
                 ).await?;
                 eprintln!(

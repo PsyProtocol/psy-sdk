@@ -11,7 +11,7 @@ use plonky2::{
 use qed_common_circuit::treeprover::aggregation::state_transition;
 use qed_core::{
     config::network_constants::{
-        BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT
+        BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT
     },
     data::qhashout::QHashOut,
     job::{
@@ -105,7 +105,7 @@ impl CoordinatorConfig {
     pub fn get_standard(rpc_node_id: u32) -> Self {
         let library = get_cached_circuit_library::<F>();
 
-        let realm_root_level = REALM_USER_TREE_HEIGHT;
+        let realm_root_level = COORDINATOR_USER_TREE_HEIGHT;
         let users_per_realm = 1usize << (REALM_USER_TREE_HEIGHT as usize);
 
         Self {
@@ -617,7 +617,7 @@ impl<
                     stats_b: guta_queue_items[i * 2 + 1].guta_stats,
                     nca_proof: res.nca_proofs[i].to_partial(),
                 };
-                tracing::info!("❗guta input: {:?}", input);
+                eprintln!("DEBUGPRINT[866]: processor.rs:620: input={}", serde_json::to_string_pretty(&input).unwrap());
 
                 let x = CircuitInputWithDependencies {
                     input,

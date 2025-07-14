@@ -43,14 +43,14 @@ async function basicUsageExample() {
     // Step 5: Access nested array data (no signer needed for reads)
     console.log('5️⃣ Accessing Array Data...');
     try {
-        // Access user data at index 536870912
+        // Access user data at index 134217728
         // The array calculation works as follows:
         // 1. other_user_info base offset: 1
-        // 2. Array index 536870912 with nth_size 2: 536870912 * 2 = 1073741824
+        // 2. Array index 134217728 with nth_size 2: 134217728 * 2 = 1073741824
         // 3. Total array element offset: 1 + 1073741824 = 1073741825
         // 4. amount_sent is at position 0 within the struct
         // 5. amount_claimed is at position 1 within the struct
-        const userIndex = 536870912;
+        const userIndex = 134217728;
         const userInfo = contract.other_user_info[userIndex];
 
         // These will read from offsets:
