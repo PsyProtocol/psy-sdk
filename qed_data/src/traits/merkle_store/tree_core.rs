@@ -76,7 +76,7 @@ const MARK_LEAVES: bool,
             Vec::with_capacity(merkle_proof.siblings.len()*2+1);
         let mut k = base_leaf_key;
         let mut last_hash = merkle_proof.value;
-            
+
         for sibling in merkle_proof.siblings.iter() {
             updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
                 key: k,
@@ -102,7 +102,7 @@ const MARK_LEAVES: bool,
             };
             k = k.parent();
         }
-        
+
         updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
             key: k,
             value: last_hash,
@@ -110,7 +110,7 @@ const MARK_LEAVES: bool,
         Self::set_nodes(store, &updates).await?;
         Ok(())
     }
-    /* 
+    /*
     async fn injest_merkle_proof_set_leaf(
         store: &S,
         key: &KVQMerkleNodeKey<TABLE_TYPE>,
@@ -123,7 +123,7 @@ const MARK_LEAVES: bool,
         let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> =
             Vec::with_capacity((height as usize));
         let mut k = key.clone();
-            
+
         for sibling in siblings.iter() {
             updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
                 key: k.sibling(),
@@ -131,7 +131,7 @@ const MARK_LEAVES: bool,
             });
             k = k.parent();
         }
-        
+
         Self::set_nodes(store, &updates)?;
         Self::set_leaf(store, &key.at_checkpoint(new_checkpoint), value)
 
@@ -143,7 +143,7 @@ const MARK_LEAVES: bool,
         root_level: u8
     )-> anyhow::Result<()> {
         // TODO: optimize to get all nodes at once
-            
+
         let mut current = node;
         let mut current_value = Self::get_node(store, tree_height, &node).await?;
 
@@ -206,7 +206,7 @@ const MARK_LEAVES: bool,
         let siblings = siblings_and_old;
 
 
-        
+
         let mut current_value = old_value;
         let mut current = node;
         updates.reserve(sub_height+1);
@@ -293,7 +293,7 @@ const MARK_LEAVES: bool,
 
 
 
-        
+
 
     }
     async fn rehash_sub_tree(
@@ -321,7 +321,7 @@ const MARK_LEAVES: bool,
             return Ok(());
         }
 
-        
+
         let mut child_base_key = sub_root_key.first_leaf_child(tree_height as u8);
 
         let mut nodes_at_current_level = 1usize << (sub_tree_height - 1);
@@ -398,7 +398,7 @@ const MARK_LEAVES: bool,
             let dmp_a = Self::set_rehash_from_node_to_level_dmp_with_updates(store, tree_height, nodes[0].key, nodes[0].value, root_level, &mut updates).await?;
             let root_key = nodes[0].key;
             let root_value = nodes[0].value;
-            
+
 
                 let link_proof = Self::set_rehash_from_node_to_level_dmp_with_updates(
                     store,
@@ -458,7 +458,7 @@ const MARK_LEAVES: bool,
         let mut updates = Vec::with_capacity(nodes.len()*tree_height);
         let first_rung_len = full_nodes_len/2;
 
-        let mut current_inds = Vec::with_capacity(first_rung_len);        
+        let mut current_inds = Vec::with_capacity(first_rung_len);
         let mut current_nodes =Vec::with_capacity(first_rung_len);
 
 
@@ -486,7 +486,7 @@ const MARK_LEAVES: bool,
             let new_nodes_len = even_pairs+(current_nodes_len&1);
             let has_odd = current_nodes_len&1 == 1;
 
-            
+
             let mut new_nodes = Vec::with_capacity(new_nodes_len);
             let mut new_inds = Vec::with_capacity(new_nodes_len);
 
@@ -573,7 +573,7 @@ const MARK_LEAVES: bool,
 
                 Self::set_nodes(store, &updates).await?;
                 let root_proof_index =  nca_proofs.len()-1;
-                
+
 
                 Ok(UpdateNCAProofsWithDependencies {
                     nca_proofs,
@@ -691,7 +691,7 @@ const MARK_LEAVES: bool,
                 Self::set_nodes(store, &node_updates).await?;
 
                 results.push(SpidermanUpdateProof {
-                    top_line_proof: Self::rehash_sub_tree_dmp(store, sub_tree_height as usize, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height)).await?,
+                    top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height as usize, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height)).await?,
                     web_proof_old_leaves: old_leaves.clone(),
                     web_proof_new_leaves: new_leaves,
                 });
@@ -783,7 +783,7 @@ const MARK_LEAVES: bool,
         let mut values = Self::get_nodes(store, tree_height, &keys).await?;
 
 
-    
+
 
         let new_sub_tree_root = values.pop().unwrap();
         let new_tree_root = values.pop().unwrap();

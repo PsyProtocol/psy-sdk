@@ -76,7 +76,6 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
     ) -> anyhow::Result<()> {
         let checkpoint_id = sync_info.core.l2_block_state.checkpoint_id;
 
-        // First, injest the old checkpoint merkle proof to establish the tree structure
         let old_checkpoint_proof = MerkleProofCore {
             root: sync_info.checkpoint_tree_update_proof.old_root,
             value: sync_info.checkpoint_tree_update_proof.old_value,
@@ -84,12 +83,11 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
             siblings: sync_info.checkpoint_tree_update_proof.siblings.clone(),
         };
 
-        // Use injest_merkle_proof_set_leaf to properly set up the tree structure
         CheckpointTreeStore::<Self>::injest_merkle_proof_set_leaf_fc(
             self,
-            checkpoint_id,  // This is used as the checkpoint_id for the proof
+            checkpoint_id,
             &old_checkpoint_proof,
-            checkpoint_id,  // New checkpoint_id for the leaf
+            checkpoint_id,
             sync_info.core.checkpoint_leaf_hash,
         )?;
         CheckpointLeafTableStore::<Self>::set_checkpoint_leaf(
