@@ -65,6 +65,7 @@ use qed_store::node::coordinator::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
+use qed_store::node::realm::QEDRealmStoreWriterAsyncImm;
 use crate::coordinator::state::user_map::{get_node_redis_pool, save_user_mapping_to_redis};
 
 
@@ -166,8 +167,6 @@ impl<
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
         let latest_block_state: QEDL2BlockState = store.get_latest_l2_block_state().await?;
-        let checkpoint_id = latest_block_state.checkpoint_id;
-
         Ok(Self {
             coordinator_config,
             store,

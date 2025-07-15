@@ -3,8 +3,8 @@ use std::ops::Bound::Included;
 
 use crate::traits::{KVQBinaryStore, KVQPair};
 pub trait KVQBinaryStoreCachedTrait: KVQBinaryStore {
-    fn flush_changes(&mut self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
-    fn flush_simple(&mut self) -> anyhow::Result<()>;
+    fn flush_changes(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
+    fn flush_simple(&self) -> anyhow::Result<()>;
     fn is_removed(&self, key: &Vec<u8>) -> bool;
     fn get_non_removed_keys(&self) -> Vec<Vec<u8>>;
     fn get_removed_keys(&self) -> Vec<Vec<u8>>;
@@ -14,13 +14,12 @@ pub enum CacheValueType {
     Bytes(Vec<u8>),
     Removed,
 }
+
+#[derive(Clone)]
 pub struct KVQBinaryStoreCached<S: KVQBinaryStore> {
     pub store: Arc<S>,
     pub map: Arc<RwLock<BTreeMap<Vec<u8>, CacheValueType>>>,
     pub proper_delete_return: bool,
-}
-
-impl<S: KVQBinaryStore> KVQBinaryStoreCached<S> {
 }
 
 impl<S: KVQBinaryStore> KVQBinaryStoreCached<S> {
@@ -62,7 +61,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
             .map(|x| x.0.to_owned())
             .collect::<Vec<_>>()
     }
-    fn flush_changes(&mut self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
+    fn flush_changes(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let mut map = self.map.write().unwrap();
         let keys_to_set: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = map.iter().filter(|(_, vt)|{
             match vt {
@@ -96,7 +95,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
         map.clear();
         Ok((set_keys, removed_keys))
     }
-    fn flush_simple(&mut self) -> anyhow::Result<()> {
+    fn flush_simple(&self) -> anyhow::Result<()> {
         let (keys_to_set, removed_keys) = {
             let mut map = self.map.write().unwrap();
             let keys_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>> = map.iter().filter(|(_, vt)|{

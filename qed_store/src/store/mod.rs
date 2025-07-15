@@ -3,6 +3,7 @@
 pub mod scylla;
 pub mod lmdbx;
 pub mod backend;
+pub mod journal;
 
 use std::sync::Arc;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};

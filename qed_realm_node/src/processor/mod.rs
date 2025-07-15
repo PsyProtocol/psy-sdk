@@ -20,21 +20,21 @@ use qed_node::nimpl::new_redis_async_pool;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::store::journal::JournalStore;
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
-    QEDStore,
+    JournalStore<QEDStore>,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
 >;
 
-#[derive(Debug)]
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub sync_proof: ProofStoreRedisAsync,
     pub sync_checkpoint: Queue,
-    pub store: Arc<QEDStore>,
+    pub store: Arc<JournalStore<QEDStore>>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
 }
 
@@ -59,7 +59,8 @@ impl RealmProcessor {
             &config.queue.proof_store_key_suffix,
         ).await?;
         let store = QEDStore::new(&config.backend.to_backend()).await?;
-        let store_reader = Arc::new(store);
+        let store = Arc::new(JournalStore::new(store));
+        let store_reader = store.clone();
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
@@ -79,7 +80,7 @@ impl RealmProcessor {
         let st = self.store.clone();
         let realm_qps = Arc::new(self.sync_proof.clone());
         let mut context: ConcreteRealmProcessorContext = RealmProcessorContext::<
-            QEDStore,
+            JournalStore<QEDStore>,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,

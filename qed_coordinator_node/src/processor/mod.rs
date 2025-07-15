@@ -34,6 +34,7 @@ use qed_store::node::coordinator::{
 
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, warn};
+use qed_store::store::journal::JournalStore;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -128,7 +129,7 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        Arc<QEDStore>,
+        JournalStore<QEDStore>,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
@@ -151,10 +152,11 @@ impl
         ).await?;
 
         let qed_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
+        let qed_store = JournalStore::new(qed_store);
         let store_reader = Arc::new(qed_store);
 
         //try to get the block 1's state
-        let st = Arc::new(store_reader.clone());
+        let st = store_reader.clone();
         let need_init = match st.get_l2_block_state(1).await {
             Ok(_) => false,
             Err(e) => {
@@ -162,7 +164,7 @@ impl
                     "⚠️ Failed to get block 1 state: {:?}， need initialize the db",
                     e
                 );
-                QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
+                QEDComboDataStoreReaderWriterSync::initialize_store(&st)?;
                 true
             }
         };
@@ -179,7 +181,7 @@ impl
 
         let mut coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
-            Arc::clone(&st),
+            st.clone(),
             qps.clone(),
             qps.clone(),
             qps.clone(),
