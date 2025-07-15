@@ -6,8 +6,8 @@ use kvq::traits::KVQBinaryStore;
 use kvq::traits::ambassador_impl_KVQBinaryStore;
 
 pub trait Journal: KVQBinaryStore {
-    fn commit(&self) -> anyhow::Result<()>;
-    fn rollback(&self) -> anyhow::Result<()>;
+    fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
+    fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
 }
 
 
@@ -27,11 +27,11 @@ impl<S: KVQBinaryStore> JournalStore<S> {
 }
 
 impl<S: KVQBinaryStore> Journal for JournalStore<S> {
-    fn commit(&self) -> anyhow::Result<()> {
+    fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
         self.inner.flush_simple()
     }
 
-    fn rollback(&self) -> anyhow::Result<()> {
+    fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
         let mut map = self.inner.map.write().unwrap();
         map.clear();
         Ok(())
