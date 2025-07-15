@@ -8,19 +8,15 @@ thiserror = { workspace = true }
 tower-lsp = {workspace = true}
 tokio = {workspace = true}
 lsp-types = {workspace = true}
-dashmap = {workspace = true}
-env_logger = {workspace = true}
 
-unicode-segmentation = "1.12"
+unicode-segmentation = { workspace = true }
 
 qed-sema = { workspace = true }
 qed-ast = { workspace = true }
-qed-parser = { workspace = true }
 qed-interpreter = { workspace = true }
 qed-common = { workspace = true }
 dargo = { workspace = true }
 qed-dargo-toml = { workspace = true }
-qed-dargo = { workspace = true }
 
 qedlang_core = { workspace = true }
 

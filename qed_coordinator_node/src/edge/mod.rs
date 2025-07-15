@@ -50,6 +50,15 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
         config.listen_addr
     );
     let handle = server.start(rpc_module);
-    handle.stopped().await;
-    Ok(())
+    
+    // Return immediately and let the caller handle the server lifecycle
+    // The server will continue running in the background
+    tokio::spawn(async move {
+        handle.stopped().await;
+    });
+    
+    // Keep the function running
+    loop {
+        tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+    }
 }

@@ -1,4 +1,4 @@
-use kvq::memory::{immutable::KVQImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore};
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     plonk::config::PoseidonGoldilocksConfig,
@@ -17,14 +17,14 @@ use qed_data::{
 use qed_prover::dpn::{
     circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition,
 };
-use qed_store::{
+use qed_data::{
     config::store_config::QEDHasher,
-    controllers::local::proving_session::QEDLocalProvingSessionStore,
     qblock::process::simple::SimpleBlockProcessor,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync,
     },
 };
+use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 pub const D: usize = 2;
@@ -36,7 +36,7 @@ pub fn prepare_environment_with_real_contract(
 ) -> anyhow::Result<
     QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQSimpleMemoryBackingStore,
     >,
 > {
     let whitelist_items_fake = vec![
@@ -45,9 +45,7 @@ pub fn prepare_environment_with_real_contract(
         QHashOut::rand(),
         QHashOut::rand(),
     ];
-    let st = KVQImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-        KVQSimpleMemoryBackingStore::new(),
-    );
+    let st = KVQSimpleMemoryBackingStore::new();
     st.initialize_store()?;
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
@@ -117,7 +115,7 @@ pub fn prepare_environment_with_real_contract(
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQSimpleMemoryBackingStore,
     > = QEDLocalProvingSessionStore::new_at(
         st,
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),

@@ -1,4 +1,4 @@
-use kvq::traits::KVQSerializable;
+use kvq::traits::{KVQSerializable, ScyllaKey};
 use plonky2::hash::hash_types::{HashOut, RichField};
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
@@ -81,5 +81,23 @@ impl<F: RichField, const TABLE_TYPE: u16> From<Hash4x64Key<TABLE_TYPE>> for QHas
                 F::from_noncanonical_u64(value.elements[3]),
             ],
         })
+    }
+}
+
+impl<const TABLE_TYPE: u16> ScyllaKey for Hash4x64Key<TABLE_TYPE> {
+    fn get_partition_key(&self) -> Vec<u8> {
+        let mut result = Vec::with_capacity(32);
+        for element in &self.elements {
+            result.extend_from_slice(&element.to_be_bytes());
+        }
+        result
+    }
+
+    fn get_clustering_key(&self) -> Option<Vec<u8>> {
+        None
+    }
+
+    fn get_table_type(&self) -> u16 {
+        TABLE_TYPE
     }
 }

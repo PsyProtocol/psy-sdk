@@ -11,11 +11,10 @@ use crate::Queue;
 use crate::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
 use jsonrpsee::server::ServerBuilder;
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use qed_store::store::QEDStore;
 use qed_node::realm::state::processor::RealmConfig;
 use sync::spawn_active_checkpoint_sync_task;
-use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_node::common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use tracing::{debug, info};
 use qed_node::nimpl::{new_fred_pool, new_redis_async_pool};
@@ -61,6 +60,7 @@ pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedi
     Ok(proof_store)
 }
 
+
 /// Start Realm Edge node
 pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     info!(
@@ -76,12 +76,9 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let proof_store = Arc::new(proof_store);
     let checkpoint_queue = proof_store.clone();
 
-    // Create store reader
-    let store_reader = KVQArcImmutableStoreWrapper::<KVQlibmdbxStore>::new(
-        KVQlibmdbxStore::new_read(&config.db.path)?,
-    );
-
-    let store_reader = Arc::new(store_reader);
+    // Create storage reader based on backend configuration
+    let store = QEDStore::new(&config.backend.to_backend()).await?;
+    let store_reader = Arc::new(store);
 
     debug!("created store reader successfully!");
     // Create proof verifier

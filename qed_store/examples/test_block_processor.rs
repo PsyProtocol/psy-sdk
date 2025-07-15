@@ -1,9 +1,10 @@
 
-use kvq::memory::{arc_imm::KVQArcImmutableStoreWrapper, simple::KVQSimpleMemoryBackingStore};
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use std::sync::Arc;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_data::{protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints, qblock::cmds::{core::QEDBlockCommands, register_user::QBCRegisterUser}};
-use qed_store::{qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}};
+use qed_data::{qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}};
 
 type GF = GoldilocksField;
 
@@ -11,7 +12,7 @@ type GF = GoldilocksField;
 fn test_simple_block_processor() -> anyhow::Result<()> {
     let mut t = DebugTimer::new("test_kvq_simple_store_arc");
     t.lap("start");
-    let st = KVQArcImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(KVQSimpleMemoryBackingStore::new());
+    let st = Arc::new(KVQSimpleMemoryBackingStore::new());
     let cur_checkpoint = st.initialize_store()?;
     t.event(format!("current_checkpoint: {}", cur_checkpoint));
 

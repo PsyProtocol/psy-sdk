@@ -41,19 +41,18 @@ use qed_data::qdata::user::QEDUserLeaf;
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 use qed_node::realm::state::processor::RealmConfig;
 use qed_rollup_utils::generate_jwt_token;
-use qed_store::config::store_config::QEDFelt;
-use qed_store::config::store_config::UserTreeStore;
-use qed_store::models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore;
-use qed_store::{
-    config::store_config::QCheckpointSyncInfoCompact, node::realm::QEDRealmStoreReaderAsync,
-};
+use qed_data::config::store_config::QEDFelt;
+use qed_data::config::store_config::UserTreeStore;
+use qed_data::models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore;
+use qed_data::config::store_config::QCheckpointSyncInfoCompact;
+use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info, warn};
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<
-    SR: QEDRealmStoreReaderAsync<F>,
+    SR: QEDRealmStoreReaderAsync<F> + Sync,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 > {
@@ -65,7 +64,7 @@ pub struct RealmEdgeContext<
 }
 
 impl<
-        SR: QEDRealmStoreReaderAsync<F>,
+        SR: QEDRealmStoreReaderAsync<F> + Sync,
         DQ: CheckpointDrainQueueEmitterAsyncImm,
         PS: QProofStoreAsyncImm,
     > RealmEdgeContext<SR, DQ, PS>

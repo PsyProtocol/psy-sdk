@@ -162,7 +162,7 @@ export const NetworkSettings: React.FC<NetworkSettingsProps> = ({
           label="Users per Realm"
           labelProps={{ style: { fontSize: '14px', fontWeight: 500 } }}
           value={localConfig.users_per_realm}
-          onChange={(value) => setLocalConfig({ ...localConfig, users_per_realm: value || 32768 })}
+          onChange={(value) => setLocalConfig({ ...localConfig, users_per_realm: value || 4194304 })}
           min={1}
           size="sm"
         />

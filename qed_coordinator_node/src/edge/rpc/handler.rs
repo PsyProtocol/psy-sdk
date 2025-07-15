@@ -43,13 +43,12 @@ use qed_node::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by
 use qed_node::nimpl::worker_queue_redis::redis_queue::{
     CEQueueNotification, RedisQueue, CE_NOTIFICATIONS,
 };
-use qed_node_common::coordinator::CheckpointSyncInfo;
+use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 // qed_store
-use qed_store::config::store_config::{QEDFelt, QEDHasher};
-use qed_store::node::coordinator::store_traits::QEDCoordinatorStoreReaderAsync;
-use qed_store::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use qed_store::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
-use reth_libmdbx::error;
+use qed_data::config::store_config::{QEDFelt, QEDHasher};
+use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
+use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 // crate inner
 use crate::communicate::GlobalCoordinatorStatus;
 use crate::context::{with_temp_ctx_read_async, GLOBAL_COORD_EDGE_STATE};
@@ -255,9 +254,9 @@ impl CoordinatorEdgeHandler {
                 Err(e) => {
                     error!("❌ Failed to get old root: {:?}", e);
 
-                    if let Some(mdbx_err) = e.downcast_ref::<error::Error>() {
-                        error!("❌ MDBX explain: {}", mdbx_err.explain());
-                    }
+                    // if let Some(mdbx_err) = e.downcast_ref::<error::Error>() {
+                    //     error!("❌ MDBX explain: {}", mdbx_err.explain());
+                    // }
 
                     let mut source = e.source();
                     while let Some(err) = source {

@@ -1,11 +1,6 @@
 use std::marker::PhantomData;
 
-use kvq::
-    memory::{
-        immutable::KVQImmutableStoreWrapper,
-        simple::KVQSimpleMemoryBackingStore,
-    }
-;
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
@@ -17,11 +12,12 @@ use qed_data::{
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
 use qed_exec::vm::exec::QEDEvalSessionResult;
-use qed_store::{
-    config::store_config::QEDHasher, controllers::local::proving_session::QEDLocalProvingSessionStore, qblock::process::simple::SimpleBlockProcessor, store::imm::cmd_processor::QEDReadCommandProcessorSync, traits::qdatastore::
+use qed_data::{
+    config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, qstore::imm::cmd_processor::QEDReadCommandProcessorSync, traits::qdatastore::
         qtreedata::
             QEDComboDataStoreReaderWriterSync
 };
+use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -86,12 +82,10 @@ fn prepare_environment_with_contract(
 ) -> anyhow::Result<
     QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQSimpleMemoryBackingStore,
     >,
 > {
-    let st = KVQImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-        KVQSimpleMemoryBackingStore::new(),
-    );
+    let st = KVQSimpleMemoryBackingStore::new();
     st.initialize_store()?;
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
@@ -127,7 +121,7 @@ fn prepare_environment_with_contract(
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQSimpleMemoryBackingStore,
     > = QEDLocalProvingSessionStore::new_at(
         st,
         GoldilocksField::ONE,

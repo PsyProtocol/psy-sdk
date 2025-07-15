@@ -1,0 +1,13 @@
+[package]
+name = "qed-abi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+qed-ast = { workspace = true }
+qed-common = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = "1.4"

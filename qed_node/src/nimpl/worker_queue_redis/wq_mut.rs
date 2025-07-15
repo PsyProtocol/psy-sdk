@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use qed_core::job::{id::{QProvingJobDataID, QWorkerJobBenchmark}, worker_queue::{ProvingDispatcher, ProvingWorkerListener, WorkerEventReceiverSync, WorkerEventTransmitterSync}};
-use qed_node_common::worker::event_proc_memory::QEDArcImmutableEventProcessorWrapper;
+use crate::worker::event_proc_memory::QEDArcImmutableEventProcessorWrapper;
 
 use super::redis_queue::{QueueNotification, RedisQueue, Q_JOB, Q_NOTIFICATIONS};
 
@@ -51,7 +51,7 @@ impl WorkerEventReceiverSync for QEDRedisEventProcessor {
         self.job_queue.dispatch(Q_NOTIFICATIONS, QueueNotification::CoreJobCompleted)?;
         Ok(())
     }
-    
+
     fn record_job_bench_mut(&mut self, job: QProvingJobDataID, duration: u64) -> anyhow::Result<()> {
         if self.benckmarks_enabled {
             self.benchmarks.push(QWorkerJobBenchmark {

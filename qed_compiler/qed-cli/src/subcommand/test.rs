@@ -5,7 +5,7 @@ use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::qblock::cmds::register_user::QBCRegisterUser;
 use qed_exec::vm::exec::QEDEvalSessionResult;
 use qed_interpreter::Interpreter;
-use qed_store::config::store_config::QEDHasher;
+use qed_data::config::store_config::QEDHasher;
 use qed_utils::{
     gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract,
     TestArgs, C, D,

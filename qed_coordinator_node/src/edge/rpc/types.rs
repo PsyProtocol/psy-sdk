@@ -5,7 +5,7 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 
 use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
 
-use qed_store::config::store_config::QEDFelt;
+use qed_data::config::store_config::QEDFelt;
 
 #[derive(Deserialize)]
 pub struct SubmitGUTAParams {

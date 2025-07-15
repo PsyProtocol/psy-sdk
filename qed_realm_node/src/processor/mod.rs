@@ -1,38 +1,40 @@
 use crate::config::RealmNodeConfig;
 use crate::{Queue, SyncCheckpointQueue, SyncProofQueue, C, D, F};
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
-use kvq_store_lmdbx::KVQlibmdbxStore;
+use fred::prelude::KeysInterface;
+use kvq::traits::KVQSerializable;
+use qed_store::store::QEDStore;
+use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
+use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
+use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
-use qed_node_common::verifier::get_cached_generic_verifier;
-use qed_store::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
+use qed_node::common::verifier::get_cached_generic_verifier;
+use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
-use kvq::cache::KVQBinaryStoreCached;
-use qed_core::job::id::ProvingJobDataId;
 use qed_node::nimpl::new_redis_async_pool;
-use qed_node_common::coordinator::CheckpointSyncInfo;
-use qed_store::node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm};
+use qed_data::qdata::checkpoint::CheckpointSyncInfo;
+use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 
-type KVQArcImmutableStore = KVQArcImmutableStoreWrapper<KVQBinaryStoreCached<KVQlibmdbxStore>>;
-
 type ConcreteRealmProcessorContext = RealmProcessorContext<
-    KVQArcImmutableStore,
+    QEDStore,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
 >;
 
+#[derive(Debug)]
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub sync_proof: ProofStoreRedisAsync,
     pub sync_checkpoint: Queue,
-    pub store: KVQArcImmutableStore,
+    pub store: Arc<QEDStore>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
 }
 
@@ -56,12 +58,8 @@ impl RealmProcessor {
             &config.queue.proof_store_key_suffix,
             &config.queue.proof_store_key_suffix,
         ).await?;
-
-        let store_reader =
-            KVQArcImmutableStoreWrapper::<KVQBinaryStoreCached<KVQlibmdbxStore>>::new(KVQBinaryStoreCached::new(KVQlibmdbxStore::new_write_with_size(
-                &config.db.path,
-                config.db.size_gb,
-            )?));
+        let store = QEDStore::new(&config.backend.to_backend()).await?;
+        let store_reader = Arc::new(store);
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
@@ -78,13 +76,15 @@ impl RealmProcessor {
 
     pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
         info!("Realm Processor starting");
-        let st = Arc::new(self.store.dup());
-        if st.initialize_store()? == 0 {
-            info!("Realm Processor initializing store");
-            self.store.commit_block_imm(0).await?;
-        };
+        let st = self.store.clone();
         let realm_qps = Arc::new(self.sync_proof.clone());
-        let mut context = RealmProcessorContext::new(
+        let mut context: ConcreteRealmProcessorContext = RealmProcessorContext::<
+            QEDStore,
+            ProofStoreRedisAsync,
+            ProofStoreRedisAsync,
+            ProofStoreRedisAsync,
+            ProofStoreRedisAsync,
+        >::new(
             self.realm_config,
             st.clone(),
             realm_qps.clone(),
@@ -177,13 +177,8 @@ impl RealmProcessor {
         &mut self,
         context: &mut ConcreteRealmProcessorContext,
     ) -> anyhow::Result<ProvingJobDataId> {
-        let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await;
-        let next_checkpoint_id = local_latest_checkpoint_id + 1;
-        self.store.commit_block_imm(local_latest_checkpoint_id).await?;
-        if let Err(err) = context.build_block().await {
-            self.store.rollback_block_imm(next_checkpoint_id).await?;
-            return Err(err);
-        }
+        let next_checkpoint_id = self.get_local_latest_l2_block_state().await + 1;
+        context.build_block().await?;
         let realm_worker_output_job_id = self
             .sync_proof
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)

@@ -1,11 +1,6 @@
 use std::marker::PhantomData;
 
-use kvq::
-    memory::{
-        immutable::KVQImmutableStoreWrapper,
-        simple::KVQSimpleMemoryBackingStore,
-    }
-;
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
@@ -15,15 +10,14 @@ use qed_data::{
     qblock::cmds::{
         core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
     },
-    qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
+    qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}, qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
-use qed_store::{
-    config::store_config::QEDHasher, controllers::local::proving_session::QEDLocalProvingSessionStore, qblock::process::simple::SimpleBlockProcessor, store::imm::cmd_processor::QEDReadCommandProcessorSync, traits::qdatastore::
-        qtreedata::
-            QEDComboDataStoreReaderWriterSync
+use qed_data::{
+    config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
+use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -58,16 +52,16 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         read_index: Felt,
         write_index: Felt,
         write_value: Felt,
-    ) -> Felt {        
+    ) -> Felt {
         let read_value = ctx.get_state_hash_at(read_index);
         let read_vv = read_value[0];
-        
+
         let mut test_value = write_value;
         ctx.assert_true(read_index > 1337, "read index must be greater than 1337");
         for _ in 0..10000 {
             test_value = test_value + 1337;
         }
-        
+
         if write_value > 100 {
             ctx.cset_state_hash_at(write_index, [write_value, 0, test_value, 0]);
         }
@@ -96,12 +90,10 @@ fn prepare_environment_with_contract(
 ) -> anyhow::Result<
     QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQSimpleMemoryBackingStore,
     >,
 > {
-    let st = KVQImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-        KVQSimpleMemoryBackingStore::new(),
-    );
+    let st = KVQSimpleMemoryBackingStore::new();
     st.initialize_store()?;
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
@@ -138,7 +130,7 @@ fn prepare_environment_with_contract(
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQSimpleMemoryBackingStore,
     > = QEDLocalProvingSessionStore::new_at(
         st,
         GoldilocksField::ONE,
@@ -198,9 +190,9 @@ fn test_prove_simple() -> anyhow::Result<()> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
     let cf_circuit = DapenContractFunctionCircuit::<C, D>::new(&compiled, contract_state_tree_height, session_proof_tree_height, false);
-    
+
     timer.lap("built circuit");
-    
+
 
 
 
@@ -230,10 +222,10 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("generated witness input");
     println!("witnesss_json:\n{:?}",&result);
     //println!("witnesss_json:\n{}",serde_json::to_string(&result).unwrap());
-    
+
     println!("common_looks_like: \n{:?}\n\n\n", cf_circuit.get_common_circuit_data_ref());
     let proof = cf_circuit.prove_base(&result).unwrap();
-    
+
     timer.lap("proved");
     println!("public_inputs: {:?}",&proof.public_inputs);
 

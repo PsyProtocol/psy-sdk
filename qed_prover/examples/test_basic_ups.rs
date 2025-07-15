@@ -1,11 +1,6 @@
 use std::marker::PhantomData;
 
-use kvq::
-    memory::{
-        immutable::KVQImmutableStoreWrapper,
-        simple::KVQSimpleMemoryBackingStore,
-    }
-;
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer};
@@ -18,11 +13,10 @@ use qed_data::{
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
 use qed_prover::{dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager}};
-use qed_store::{
-    config::store_config::QEDHasher, controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, 
-        qtreedata::
-            QEDComboDataStoreReaderWriterSync}
+use qed_data::{
+    config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
+use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -59,7 +53,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
 
         let new_balance = current_balance+amount;
 
-        /* 
+        /*
         ctx.cset_state_hash_at(ctx.get_user_id(), [
             new_balance,
             self_user_leaf[1],
@@ -104,7 +98,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         recipient: Felt,
         amount: Felt,
     ) -> Felt {
-        
+
         let self_user_id = ctx.get_user_id();
         let self_user_leaf = ctx.get_state_hash_at(self_user_id);
 
@@ -138,14 +132,14 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
             p2p_leaf[3],
         ]);
         current_balance
-        
+
     }
     pub fn simple_claim(
         &mut self,
         ctx: &mut C,
         sender: Felt,
     ) -> Felt {
-        
+
         let self_user_id = ctx.get_user_id();
         ctx.assert_true(sender != self_user_id, "you cannot claim from your self");
 
@@ -184,7 +178,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         ]);
 
         new_balance
-        
+
     }
 }
 
@@ -198,7 +192,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
 ) -> anyhow::Result<(Vec<DapenContractFunctionCircuit<C,D>>, QBCDeployContract<GoldilocksField>)>{
 
     let code_defs = defs.iter().map(|x| dapen_fc_to_cfc_code_definition(x)).collect::<Vec<_>>();
-    let mut fingerprints = Vec::with_capacity(defs.len()*2); 
+    let mut fingerprints = Vec::with_capacity(defs.len()*2);
     let circuits = defs.iter().map(|x| {
 
         let c = DapenContractFunctionCircuit::<C, D>::new(x, contract_state_tree_height as usize, UPS_SESSION_PROOF_TREE_HEIGHT as usize, false);
@@ -227,7 +221,7 @@ fn prepare_environment_with_real_contract(
 ) -> anyhow::Result<
     QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQSimpleMemoryBackingStore,
     >,
 > {
     let whitelist_items_fake = vec![
@@ -236,9 +230,7 @@ fn prepare_environment_with_real_contract(
         QHashOut::rand(),
         QHashOut::rand(),
     ];
-    let st = KVQImmutableStoreWrapper::<KVQSimpleMemoryBackingStore>::new(
-        KVQSimpleMemoryBackingStore::new(),
-    );
+    let st = KVQSimpleMemoryBackingStore::new();
     st.initialize_store()?;
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
@@ -305,11 +297,11 @@ fn prepare_environment_with_real_contract(
     )?;
 
     let latest_l2_block_state = st.get_latest_l2_block_state()?;
-    
+
 
     let lps: QEDLocalProvingSessionStore<
         GoldilocksField,
-        KVQImmutableStoreWrapper<KVQSimpleMemoryBackingStore>,
+        KVQSimpleMemoryBackingStore,
     > = QEDLocalProvingSessionStore::new_at(
         st,
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
@@ -442,10 +434,10 @@ fn test_prove_simple() -> anyhow::Result<()> {
     let fingerprint = wallet.get_zksig_circuit_fingerprint();
     let pub_key = wallet.add_private_key(priv_key_obj);
     timer.lap("finished building wallet/zksig circuits");
-    
+
 
     timer.lap("prepared environement");
-    
+
 
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
@@ -476,7 +468,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("end: init QEDUPSStepCircuitManager");
 
 
-    
+
     let lps = prepare_environment_with_real_contract(
         QBCRegisterUser::new(fingerprint, pub_param),
         deploy_cmd,
@@ -492,7 +484,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     main_circuits.register_info(&mut circuit_info);
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(
-            contract_id.to_canonical_u64() as u32, 
+            contract_id.to_canonical_u64() as u32,
             simple_mint_debug_def.method_id
         ),
         simple_mint_debug_circuit.get_fingerprint(),
@@ -500,7 +492,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     );
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(
-            contract_id.to_canonical_u64() as u32, 
+            contract_id.to_canonical_u64() as u32,
             simple_transfer_def.method_id
         ),
         simple_transfer_circuit.get_fingerprint(),
@@ -508,7 +500,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     );
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(
-            contract_id.to_canonical_u64() as u32, 
+            contract_id.to_canonical_u64() as u32,
             simple_claim_def.method_id
         ),
         simple_claim_circuit.get_fingerprint(),
@@ -527,10 +519,10 @@ fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("proved ups_start");
 
     mgr.prove_contract_call(
-        &main_circuits, 
-        contract_id, 
-        0, 
-        &simple_mint_debug_circuit, 
+        &main_circuits,
+        contract_id,
+        0,
+        &simple_mint_debug_circuit,
         &simple_mint_debug_def,
         vec![
             GoldilocksField::from_noncanonical_u64(1000)
@@ -538,13 +530,13 @@ fn test_prove_simple() -> anyhow::Result<()> {
     )?;
     timer.lap("proved ups_cfc_standard_tx");
 
-    
+
 
     mgr.prove_contract_call(
-        &main_circuits, 
-        contract_id, 
-        1, 
-        &simple_transfer_circuit, 
+        &main_circuits,
+        contract_id,
+        1,
+        &simple_transfer_circuit,
         &simple_transfer_def,
         vec![
             GoldilocksField::from_noncanonical_u64(2),
@@ -567,7 +559,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
          new_nonce,
          wallet.circuit.get_fingerprint(),
          public_key_param,
-        signature_proof, 
+        signature_proof,
          wallet.circuit.get_verifier_config_ref().to_owned()
     )?;
     timer.lap("Proved End Cap for UPS Session 🎉");
@@ -577,9 +569,9 @@ fn test_prove_simple() -> anyhow::Result<()> {
     main_circuits.ups_end_cap.verify_proof(end_cap_proof)?;
     timer.lap("✅ Verified End Cap Proof");
 
-    
 
-    
+
+
 
 
 

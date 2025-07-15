@@ -655,6 +655,48 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     location,
                 }))
             }
+            IntrinsicExprNode::InvokeSync {
+                contract_id,
+                method_id,
+                inputs,
+                return_type,
+                location,
+            } => {
+                let contract_id = self.visit_expr(contract_id, ctx)?;
+                let method_id = self.visit_expr(method_id, ctx)?;
+                let inputs = self.visit_expr(inputs, ctx)?;
+                let return_type = self.typecheck(&return_type, ctx)?;
+
+                Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::InvokeSync {
+                        contract_id: self.program.exprs.alloc_item(contract_id),
+                        method_id: self.program.exprs.alloc_item(method_id),
+                        inputs: self.program.exprs.alloc_item(inputs),
+                        type_id: return_type,
+                        location,
+                    },
+                ))
+            }
+            IntrinsicExprNode::InvokeDeferred {
+                contract_id,
+                method_id,
+                inputs,
+                location,
+            } => {
+                let contract_id = self.visit_expr(contract_id, ctx)?;
+                let method_id = self.visit_expr(method_id, ctx)?;
+                let inputs = self.visit_expr(inputs, ctx)?;
+
+                Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::InvokeDeferred {
+                        contract_id: self.program.exprs.alloc_item(contract_id),
+                        method_id: self.program.exprs.alloc_item(method_id),
+                        inputs: self.program.exprs.alloc_item(inputs),
+                        type_id: VOID_TYPE,
+                        location,
+                    },
+                ))
+            }
         }
     }
 

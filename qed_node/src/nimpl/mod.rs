@@ -7,14 +7,9 @@ use fred::{
 use fred::types::{ClusterHash, CustomCommand};
 
 pub mod drain_queue_fred;
-pub mod drain_queue_redis;
 pub mod drain_queue_redis_async;
 pub mod proof_store_fred;
 pub mod proof_store_redis_async;
-pub mod proof_store_redis;
-pub mod worker_queue_ampq;
-pub mod worker_queue_rabbit;
-pub mod worker_queue_rabbit_stream;
 pub mod worker_queue_redis;
 
 /// Create a new Redis connection pool
@@ -74,14 +69,14 @@ pub async fn new_fred_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<
 pub async fn new_redis_async_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<bb8::Pool<bb8_redis::RedisConnectionManager>> {
     // Create the connection manager
     let manager = bb8_redis::RedisConnectionManager::new(redis_url)?;
-    
+
     // Build the pool with similar configuration to fred pool
     let pool = bb8::Pool::builder()
         .max_size(pool_size as u32)
         .connection_timeout(Duration::from_secs(10))
         .build(manager)
         .await?;
-    
+
     // Optionally add client identification (if supported by redis-rs)
     // This may require getting a connection and executing a command
     if let Ok(role) = std::env::var("QED_ROLE") {
@@ -95,9 +90,9 @@ pub async fn new_redis_async_pool(redis_url: &str, pool_size: usize) -> anyhow::
                 .await;
         }
     }
-    
+
     // Log pool creation
     tracing::info!("✅ Created bb8-redis connection pool with size {}", pool_size);
-    
+
     Ok(pool)
 }

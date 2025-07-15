@@ -1,4 +1,5 @@
 use clap::Args;
+use qed_store::store::backend::BackendConfig;
 
 #[derive(Clone, Debug, Args)]
 pub struct CoordinatorWorkerArgs {
@@ -8,8 +9,8 @@ pub struct CoordinatorWorkerArgs {
         default_value = "redis://localhost:6379"
     )]
     pub redis_uri: String,
-    #[clap(long, short, default_value = "20")]
-    pub pool_size: u32,
+    #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
+    pub redis_pool_size: u32,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }
@@ -22,12 +23,10 @@ pub struct CoordinatorProcessorArgs {
         default_value = "redis://localhost:6379"
     )]
     pub redis_uri: String,
-    #[clap(long, short, default_value = "20")]
-    pub pool_size: u32,
-    #[clap(env = "COORDINATOR_DB_PATH", long, default_value = "./db/coordinator")]
-    pub db_path: String,
-    #[clap(env = "COORDINATOR_DB_SIZE_GB", long, default_value = "100")]
-    pub db_size_gb: usize,
+    #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
+    pub redis_pool_size: u32,
+    #[clap(flatten)]
+    pub backend: BackendConfig,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }
@@ -42,8 +41,8 @@ pub struct CoordinatorEdgeArgs {
     pub redis_uri: String,
     #[clap(env = "COORDINATOR_LISTEN_ADDR", long, default_value = "0.0.0.0:8545")]
     pub listen_addr: String,
-    #[clap(env = "COORDINATOR_DB_PATH", long, default_value = "./db/coordinator")]
-    pub db_path: String,
+    #[clap(flatten)]
+    pub backend: BackendConfig,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }
@@ -67,7 +66,7 @@ pub struct CoordinatorQueueArgs {
     #[clap(
         env = "COORDINATOR_PROOF_STORE_KEY_SUFFIX",
         long,
-        short,
+        short = 'k',
         default_value = "CW"
     )]
     pub proof_store_key_suffix: String,

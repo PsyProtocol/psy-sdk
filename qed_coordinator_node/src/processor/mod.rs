@@ -1,8 +1,6 @@
 use crate::args::CoordinatorProcessorArgs;
 use crate::communicate::push_latest_global_coordinator_status;
 use anyhow::bail;
-use kvq::memory::arc_imm::KVQArcImmutableStoreWrapper;
-use kvq_store_lmdbx::KVQlibmdbxStore;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
@@ -16,24 +14,26 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_node::coordinator::state::processor::CoordinatorConfig;
 use qed_node::coordinator::state::user_map::init_node_redis_pool;
 use qed_node::nimpl::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
-use qed_node::nimpl::{new_redis_async_pool};
+use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_node::nimpl::{new_fred_pool, new_redis_async_pool};
+use qed_node::nimpl::proof_store_fred::ProofStoreFred;
 use qed_node::{
     coordinator::state::processor::CoordinatorProcessorContext,
     nimpl::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS},
 };
-use qed_node_common::verifier::get_cached_generic_verifier;
+use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::{
+use qed_store::store::{QEDStore, Backend};
+use qed_data::{
     config::store_config::QEDFelt,
-    node::coordinator::store_traits::{
-        QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
-    },
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
+use qed_store::node::coordinator::{
+    QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
+};
+
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, warn};
-use kvq::cache::KVQBinaryStoreCached;
-use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -128,7 +128,7 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        KVQArcImmutableStoreWrapper<KVQBinaryStoreCached<KVQlibmdbxStore>>,
+        Arc<QEDStore>,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
@@ -138,23 +138,23 @@ impl
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
-        let pool = new_redis_async_pool(&cp_config.redis_uri, cp_config.pool_size as usize).await?;
-        init_node_redis_pool(pool.clone())?;
+        let pool = new_fred_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
+        let bb8_pool = new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
+        init_node_redis_pool(bb8_pool.clone())?;
         info!("🐶 redis pool initialized");
         let q = ProofStoreRedisAsync::new2(
-            pool.clone(),
+            bb8_pool,
             &cp_config.queue_args.worker_queue_suffix,
             &cp_config.queue_args.notifications_queue_suffix,
             &cp_config.queue_args.proof_store_key_suffix,
             &cp_config.queue_args.proof_store_key_suffix,
         ).await?;
-        let store_reader =
-            KVQArcImmutableStoreWrapper::<KVQBinaryStoreCached<KVQlibmdbxStore>>::new(KVQBinaryStoreCached::new(KVQlibmdbxStore::new_write_with_size(
-                &cp_config.db_path, cp_config.db_size_gb
-            )?));
+
+        let qed_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
+        let store_reader = Arc::new(qed_store);
 
         //try to get the block 1's state
-        let st = Arc::new(store_reader.dup());
+        let st = Arc::new(store_reader.clone());
         let need_init = match st.get_l2_block_state(1).await {
             Ok(_) => false,
             Err(e) => {
@@ -162,9 +162,7 @@ impl
                     "⚠️ Failed to get block 1 state: {:?}， need initialize the db",
                     e
                 );
-                if  QEDComboDataStoreReaderWriterSync::initialize_store(&*st)? == 0 {
-                    st.commit_block(0).await?;
-                }
+                QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
                 true
             }
         };
@@ -179,7 +177,7 @@ impl
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
-        let coordinator_processor_ctx = CoordinatorProcessorContext::new(
+        let mut coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
             Arc::clone(&st),
             qps.clone(),
@@ -270,12 +268,10 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 }
                 info!("start build block {}", next_checkpoint);
                 if let Err(e) = coordinator_processor.ctx.build_block().await {
-                    coordinator_processor.ctx.rollback_block(next_checkpoint).await?;
                     error!("❌ Failed to build block {}: {:?}", next_checkpoint, e);
                     tokio::time::sleep(Duration::from_secs(2)).await;
                     bail!("❌ Failed to build block {}: {:?}", next_checkpoint, e);
                 }
-                coordinator_processor.ctx.commit_block(next_checkpoint).await?;
                 info!("✅ Successfully built block {}", next_checkpoint);
                 next_checkpoint += 1;
                 push_latest_global_coordinator_status(

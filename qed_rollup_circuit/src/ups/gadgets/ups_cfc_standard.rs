@@ -21,12 +21,12 @@ use super::{correct_header_hashes::CorrectUPSHeaderHashesGadget, ups_cfc_verify_
 pub struct UPSVerifyCFCStandardStepGadget {
 
     // start require witness
-    pub verify_cfc_exists_and_valid_gadget: UPSVerifyCFCProofExistsAndValidGadget,    
+    pub verify_cfc_exists_and_valid_gadget: UPSVerifyCFCProofExistsAndValidGadget,
     pub process_cfc_state_delta_gadget: UPSCFCStandardStateDeltaGadget,
 
     // start computed
     pub new_header_gadget: UserProvingSessionHeaderGadget,
-    
+
 }
 impl UPSVerifyCFCStandardStepGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
@@ -37,10 +37,10 @@ impl UPSVerifyCFCStandardStepGadget {
     ) -> Self {
         let corrections = CorrectUPSHeaderHashesGadget::from_previous_step(previous_step_header_gadget);
         Self::add_virtual_to_with_corrections::<H,F,D>(
-            builder, 
-            previous_step_header_gadget, 
-            &corrections, 
-            current_proof_tree_root, 
+            builder,
+            previous_step_header_gadget,
+            &corrections,
+            current_proof_tree_root,
             ups_session_proof_tree_height
         )
     }
@@ -57,7 +57,7 @@ impl UPSVerifyCFCStandardStepGadget {
             ups_session_proof_tree_height,
         );
         let contract_state_tree_height = verify_cfc_exists_and_valid_gadget.cfc_inclusion_proof_gadget.contract_inclusion_proof.contract_leaf.state_tree_height;
-            
+
         let (process_cfc_state_delta_gadget, new_header_gadget) = UPSCFCStandardStateDeltaGadget::add_virtual_to::<H,F,D>(
             builder,
             previous_step_header_gadget,
@@ -69,13 +69,13 @@ impl UPSVerifyCFCStandardStepGadget {
         // constrain verify with previous
         // ensure the cfc proof verifier gadget is using the correct proof tree root (ie. so we know this proof actually exists if UPS is later to believed)
         builder.connect_hashes(
-            verify_cfc_exists_and_valid_gadget.attested_proof_tree_root, 
+            verify_cfc_exists_and_valid_gadget.attested_proof_tree_root,
             current_proof_tree_root,
         );
 
-        // ensure the cfc proof verifier is working with the correct checkpoint leaf hash (ie. so the contract function tree is correct) 
+        // ensure the cfc proof verifier is working with the correct checkpoint leaf hash (ie. so the contract function tree is correct)
         builder.connect_hashes(
-            verify_cfc_exists_and_valid_gadget.checkpoint_leaf_hash, 
+            verify_cfc_exists_and_valid_gadget.checkpoint_leaf_hash,
             previous_step_header_gadget.session_start_context.checkpoint_leaf_hash,
         );
 
@@ -112,7 +112,7 @@ impl UPSVerifyCFCStandardStepGadget {
 
 
 
-        
+
         Self {
             verify_cfc_exists_and_valid_gadget,
             process_cfc_state_delta_gadget,
@@ -125,7 +125,7 @@ impl UPSVerifyCFCStandardStepGadget {
         target: &UPSVerifyCFCStandardStepInput<F>,
     )  -> anyhow::Result<()> {
         self.verify_cfc_exists_and_valid_gadget.set_witness_params(
-            witness, 
+            witness,
             &target.checkpoint_state,
             &target.verify_cfc_proof_input,
             &target.cfc_inclusion_proof

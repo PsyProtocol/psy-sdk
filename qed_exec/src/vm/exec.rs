@@ -16,10 +16,9 @@ use qed_data::dpn::{
     cfc_context_input::{DapenCFCUserTransactionEndContext, DapenCFCUserTransactionInputContext},
     proving_session::DPNProvingSessionSimpleMethodCall,
 };
-use qed_store::{
+use qed_data::{
     config::store_config::QEDHasher,
-    controllers::local::proving_session::QEDLocalProvingSessionStore,
-    store::imm::{
+    qstore::imm::{
         cmd::{
             QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof,
             QSRMerkleCmdGetUserContractTreeMerkleProof,
@@ -30,6 +29,7 @@ use qed_store::{
         },
     },
 };
+use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
 use qedlang_core::dpn::{
     ops::{
         op_types::DPNOpType,

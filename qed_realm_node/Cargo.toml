@@ -13,7 +13,6 @@ qed_data = { workspace = true }
 qed_store = { workspace = true }
 qed_crypto = { workspace = true }
 qed_node = { workspace = true }
-qed_node_common = { workspace = true }
 qed_rollup_utils = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
@@ -26,7 +25,6 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 tokio = { workspace = true }
 kvq = { workspace = true }
-kvq_store_lmdbx = { workspace = true }
 tower-http = { workspace = true }
 hyper = { workspace = true }
 tower = { workspace = true }

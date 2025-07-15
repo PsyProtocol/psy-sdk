@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
+use super::processor::RealmConfig;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::PrimeField64}, plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs}};
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{
-    drain_queue::{CheckpointDrainQueueEmitterAsyncImm}, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+    drain_queue::CheckpointDrainQueueEmitterAsyncImm, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
     traits::QProofStoreAsyncImm,
 }};
 use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::{MerkleZeroHasher, PoseidonHasher}, qhashable::QFieldHashable}};
-use qed_data::{guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}};
-use qed_store::{config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher}, node::realm::QEDRealmStoreReaderAsync};
-
-use super::processor::RealmConfig;
+use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
+use qed_data::guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput};
+use qed_store::node::realm::QEDRealmStoreReaderAsync;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -18,7 +18,7 @@ type H = QEDHasher;
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<
-    SR: QEDRealmStoreReaderAsync<F>,
+    SR: QEDRealmStoreReaderAsync<F> + Sync,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 > {
@@ -36,7 +36,7 @@ pub struct RealmEdgeContext<
 }
 
 impl<
-        SR: QEDRealmStoreReaderAsync<F>,
+        SR: QEDRealmStoreReaderAsync<F> + Sync,
         DQ: CheckpointDrainQueueEmitterAsyncImm,
         PS: QProofStoreAsyncImm,
     > RealmEdgeContext<SR, DQ, PS>
@@ -73,9 +73,9 @@ impl<
         self.proof_verifier
             .verify_proof_of_type(circuit_type, proof)
     }
-    pub async fn get_checkpoint_id_async(&self) -> anyhow::Result<u64> {        
+    pub async fn get_checkpoint_id_async(&self) -> anyhow::Result<u64> {
         Ok(self.store_reader.get_latest_l2_block_state().await?.checkpoint_id)
-    } 
+    }
     pub async fn ensure_checkpoint_hash_valid(&self, checkpoint_id: F, checkpoint_root_hash: QHashOut<F>) -> anyhow::Result<()> {
         let expected = self.store_reader.get_checkpoint_tree_root_f(checkpoint_id).await?;
         if expected != checkpoint_root_hash {
@@ -106,7 +106,7 @@ impl<
 
         let mut contracts_helper = SimpleContractHeightCache::<F>::new();
         for (contract_id, insecure_unvalidated_user_provided_cst_height) in input.get_needed_contract_zero_hashes() {
-            // SECURITY - TODO: check the heights against the ones stored on chain 
+            // SECURITY - TODO: check the heights against the ones stored on chain
 
             let qh: QHashOut<GoldilocksField> = PoseidonHasher::get_zero_hash(insecure_unvalidated_user_provided_cst_height);
             contracts_helper.add_contract(contract_id, insecure_unvalidated_user_provided_cst_height as u8, qh);
@@ -137,15 +137,15 @@ impl<
         if expected_start_user_leaf_hash != input.core.state_transition.start_user_leaf_hash {
             anyhow::bail!("invalid start user leaf state, potentially submitted a separate end cap while proving the current one");
         }
-        
+
         if user_leaf.last_checkpoint_id.to_canonical_u64() > input.core.checkpoint_id.to_canonical_u64() {
             anyhow::bail!("invalid checkpoint in proving session: cannot go backward");
         }
-        
+
         if user_leaf.nonce.to_canonical_u64() > input.core.new_user_leaf.nonce.to_canonical_u64() {
             anyhow::bail!("invalid checkpoint in proving session: cannot go backward");
         }
-        
+
         let old_user_state_tree_root = user_leaf.user_state_tree_root;
         println!("old_user_state_tree_root: {:?}",old_user_state_tree_root);
         println!("old_user_state_tree_root: {}",serde_json::to_string(&old_user_state_tree_root).unwrap());
@@ -193,16 +193,16 @@ impl<
         println!("enqueued queue item");
 
 
-        
-
-
-        
 
 
 
 
 
-        /* 
+
+
+
+
+        /*
         if proof.public_inputs.len() != 4 {
             anyhow::bail!("invalid proof");
         }else if input.contract_state_updates.len() == 0 {
@@ -233,7 +233,7 @@ impl<
 
         let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
         let checkpoint_id = self.get_checkpoint_id_async().await?;
-        
+
         let user_leaf = self.store_reader.get_user_leaf_data(checkpoint_id, user_id_u64).await?;
         let expected_start_user_leaf_hash = user_leaf.qfhash::<H>();
         if expected_start_user_leaf_hash != input.core.state_transition.start_user_leaf_hash {
@@ -262,9 +262,9 @@ impl<
         &self,
         input: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
-    
+
         self.checkpoint_queue.cdq_push_imm(input).await?;
         Ok(())
     }
-    
+
 }

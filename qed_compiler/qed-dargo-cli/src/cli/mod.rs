@@ -3,6 +3,7 @@ mod complete_cmd;
 mod doc_cmd;
 mod execute_cmd;
 mod fmt_cmd;
+mod generate_abi_cmd;
 mod init_cmd;
 mod new_cmd;
 mod test_cmd;
@@ -27,6 +28,7 @@ pub(crate) fn start_cli() -> Result<()> {
         DargoCommand::Test(args) => test_cmd::run(args),
         DargoCommand::Fmt(args) => fmt_cmd::run(args),
         DargoCommand::Complete(args) => complete_cmd::run(args),
+        DargoCommand::GenerateAbi(args) => with_workspace(args, config, generate_abi_cmd::run),
     }?;
     Ok(())
 }
@@ -52,6 +54,8 @@ enum DargoCommand {
     Test(test_cmd::TestCommand),
     Fmt(fmt_cmd::FmtCommand),
     Complete(complete_cmd::CompleteCommand),
+    #[command(name = "generate-abi")]
+    GenerateAbi(generate_abi_cmd::GenerateAbiCommand),
 }
 
 #[derive(Args, Clone, Debug)]

@@ -186,7 +186,7 @@ fn gen_write_config() -> anyhow::Result<()> {
 
 
     write_file(PathBuf::from_iter(["qed_crypto","src","common","cached_circuit_library.rs"]), &cached_circuit_library)?;
-    write_file(PathBuf::from_iter(["qed_node_common", "src", "verifier" ,"cached_common_data.rs"]), &cached_common_data)?;
+    write_file(PathBuf::from_iter(["qed_node", "src", "common", "verifier" ,"cached_common_data.rs"]), &cached_common_data)?;
 
 
     Ok(())

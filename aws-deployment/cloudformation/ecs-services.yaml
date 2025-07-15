@@ -19,7 +19,7 @@ Parameters:
 
   LogLevel:
     Type: String
-    Default: qed_user_prover=info,qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+    Default: qed_user_cli=debug,qed_rollup_cli=debug,qed_realm_node=debug,qed_coordinator_node=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
     Description: Log level configuration
 
   MinEdgeCount:
@@ -57,10 +57,25 @@ Parameters:
     Default: /qed-protocol/redis/realm0/endpoint
     Description: SSM parameter for Realm0 Redis endpoint
 
-  Realm16384RedisEndpoint:
+  Realm32RedisEndpoint:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /qed-protocol/redis/realm16384/endpoint
-    Description: SSM parameter for Realm16384 Redis endpoint
+    Default: /qed-protocol/redis/realm32/endpoint
+    Description: SSM parameter for Realm32 Redis endpoint
+
+  CoordinatorScyllaDBEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /qed-protocol/scylladb/coordinator-endpoint
+    Description: SSM parameter for Coordinator ScyllaDB endpoint
+
+  Realm0ScyllaDBEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /qed-protocol/scylladb/realm0-endpoint
+    Description: SSM parameter for Realm0 ScyllaDB endpoint
+
+  Realm32ScyllaDBEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /qed-protocol/scylladb/realm32-endpoint
+    Description: SSM parameter for Realm32 ScyllaDB endpoint
 
 Resources:
   # Task Definitions
@@ -74,10 +89,6 @@ Resources:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: coordinator-data
-          Host:
-            SourcePath: /data/coordinator
       ContainerDefinitions:
         - Name: coordinator-processor
           Image: !Ref ContainerImage
@@ -88,17 +99,14 @@ Resources:
             InitProcessEnabled: true
           Command:
             - coordinator-processor
-            - --db-path
-            - /data
             - !Sub --redis-uri=redis://${CoordinatorRedisEndpoint}
+            - !Sub --scylla-uri=${CoordinatorScyllaDBEndpoint}
+            - --scylla-keyspace=qed_coordinator
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: coordinator-data
-              ContainerPath: /data
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -115,7 +123,7 @@ Resources:
       RequiresCompatibilities:
         - EC2
       Cpu: '8192'
-      Memory: '16384'
+      Memory: '32'
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
       ContainerDefinitions:
@@ -154,10 +162,6 @@ Resources:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: coordinator-data
-          Host:
-            SourcePath: /data/coordinator
       ContainerDefinitions:
         - Name: coordinator-edge
           Image: !Ref ContainerImage
@@ -169,16 +173,14 @@ Resources:
           Command:
             - coordinator-edge
             - --listen-addr=0.0.0.0:8545
-            - --db-path=/data
             - !Sub --redis-uri=redis://${CoordinatorRedisEndpoint}
+            - !Sub --scylla-uri=${CoordinatorScyllaDBEndpoint}
+            - --scylla-keyspace=qed_coordinator
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: coordinator-data
-              ContainerPath: /data
           PortMappings:
             - ContainerPort: 8545
               HostPort: 0
@@ -201,10 +203,6 @@ Resources:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: realm0-data
-          Host:
-            SourcePath: /data/realm0
       ContainerDefinitions:
         - Name: realm0-processor
           Image: !Ref ContainerImage
@@ -215,16 +213,14 @@ Resources:
             InitProcessEnabled: true
           Command:
             - realm-processor
-            - --path=/data
             - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
+            - !Sub --scylla-uri=${Realm0ScyllaDBEndpoint}
+            - --scylla-keyspace=qed_realm_0
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: realm0-data
-              ContainerPath: /data
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -241,7 +237,7 @@ Resources:
       RequiresCompatibilities:
         - EC2
       Cpu: '8192'
-      Memory: '16384'
+      Memory: '32'
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
       ContainerDefinitions:
@@ -250,6 +246,9 @@ Resources:
           Command:
             - realm-worker
             - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
+            - --worker-queue-suffix=rwq0
+            - --notifications-queue-suffix=rnq0
+            - --proof-store-key-suffix=RP0
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -280,10 +279,6 @@ Resources:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: realm0-data
-          Host:
-            SourcePath: /data/realm0
       ContainerDefinitions:
         - Name: realm0-edge
           Image: !Ref ContainerImage
@@ -295,8 +290,9 @@ Resources:
           Command:
             - realm-edge
             - --listen-addr=0.0.0.0:8546
-            - --path=/data
             - !Sub --redis-uri=redis://${Realm0RedisEndpoint}
+            - !Sub --scylla-uri=${Realm0ScyllaDBEndpoint}
+            - --scylla-keyspace=qed_realm_0
             - !Sub
               - --coordinator-addr=http://${ALBDNS}:8545
               - ALBDNS:
@@ -306,9 +302,6 @@ Resources:
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: realm0-data
-              ContainerPath: /data
           PortMappings:
             - ContainerPort: 8546
               HostPort: 0
@@ -321,22 +314,18 @@ Resources:
               awslogs-stream-prefix: realm0-edge
           Essential: true
 
-  Realm16384ProcessorTaskDefinition:
+  Realm32ProcessorTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub ${ProjectName}-realm16384-processor
+      Family: !Sub ${ProjectName}-realm32-processor
       NetworkMode: bridge
       PidMode: host
       RequiresCompatibilities:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: realm16384-data
-          Host:
-            SourcePath: /data/realm16384
       ContainerDefinitions:
-        - Name: realm16384-processor
+        - Name: realm32-processor
           Image: !Ref ContainerImage
           Memory: 8192
           MemoryReservation: 6144
@@ -345,49 +334,47 @@ Resources:
             InitProcessEnabled: true
           Command:
             - realm-processor
-            - --path=/data
             - --node-id=2
-            - --realm-id=16384
-            - --worker-queue-suffix=rwq16384
-            - --notifications-queue-suffix=rnq16384
-            - --proof-store-key-suffix=RP16384
-            - !Sub --redis-uri=redis://${Realm16384RedisEndpoint}
+            - --realm-id=32
+            - --worker-queue-suffix=rwq32
+            - --notifications-queue-suffix=rnq32
+            - --proof-store-key-suffix=RP32
+            - !Sub --redis-uri=redis://${Realm32RedisEndpoint}
+            - !Sub --scylla-uri=${Realm32ScyllaDBEndpoint}
+            - --scylla-keyspace=qed_realm_32
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: realm16384-data
-              ContainerPath: /data
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: !Sub /ecs/${ProjectName}
               awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: realm16384-processor
+              awslogs-stream-prefix: realm32-processor
           Essential: true
 
-  Realm16384WorkerTaskDefinition:
+  Realm32WorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub ${ProjectName}-realm16384-worker
+      Family: !Sub ${ProjectName}-realm32-worker
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
       Cpu: '8192'
-      Memory: '16384'
+      Memory: '32'
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
       ContainerDefinitions:
-        - Name: realm16384-worker
+        - Name: realm32-worker
           Image: !Ref ContainerImage
           Command:
             - realm-worker
-            - --worker-queue-suffix=rwq16384
-            - --notifications-queue-suffix=rnq16384
-            - --proof-store-key-suffix=RP16384
-            - !Sub --redis-uri=redis://${Realm16384RedisEndpoint}
+            - !Sub --redis-uri=redis://${Realm32RedisEndpoint}
+            - --worker-queue-suffix=rwq32
+            - --notifications-queue-suffix=rnq32
+            - --proof-store-key-suffix=RP32
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -405,25 +392,21 @@ Resources:
             Options:
               awslogs-group: !Sub /ecs/${ProjectName}
               awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: realm16384-worker
+              awslogs-stream-prefix: realm32-worker
           Essential: true
 
-  Realm16384EdgeTaskDefinition:
+  Realm32EdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub ${ProjectName}-realm16384-edge
+      Family: !Sub ${ProjectName}-realm32-edge
       NetworkMode: bridge
       PidMode: host
       RequiresCompatibilities:
         - EC2
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
-      Volumes:
-        - Name: realm16384-data
-          Host:
-            SourcePath: /data/realm16384
       ContainerDefinitions:
-        - Name: realm16384-edge
+        - Name: realm32-edge
           Image: !Ref ContainerImage
           Memory: 8192
           MemoryReservation: 6144
@@ -433,13 +416,14 @@ Resources:
           Command:
             - realm-edge
             - --listen-addr=0.0.0.0:8547
-            - --path=/data
             - --node-id=2
-            - --realm-id=16384
-            - --worker-queue-suffix=rwq16384
-            - --notifications-queue-suffix=rnq16384
-            - --proof-store-key-suffix=RP16384
-            - !Sub --redis-uri=redis://${Realm16384RedisEndpoint}
+            - --realm-id=32
+            - --worker-queue-suffix=rwq32
+            - --notifications-queue-suffix=rnq32
+            - --proof-store-key-suffix=RP32
+            - !Sub --redis-uri=redis://${Realm32RedisEndpoint}
+            - !Sub --scylla-uri=${Realm32ScyllaDBEndpoint}
+            - --scylla-keyspace=qed_realm_32
             - !Sub
               - --coordinator-addr=http://${ALBDNS}:8545
               - ALBDNS:
@@ -449,9 +433,6 @@ Resources:
               Value: !Ref LogLevel
             - Name: JWT_SECRET
               Value: "6738d20a5504291acc9a5c3d3ac676bc9f12af02bc14f511ea7f68352d46165f"
-          MountPoints:
-            - SourceVolume: realm16384-data
-              ContainerPath: /data
           PortMappings:
             - ContainerPort: 8547
               HostPort: 0
@@ -461,7 +442,7 @@ Resources:
             Options:
               awslogs-group: !Sub /ecs/${ProjectName}
               awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: realm16384-edge
+              awslogs-stream-prefix: realm32-edge
           Essential: true
 
   # Target Groups for Load Balancer
@@ -503,10 +484,10 @@ Resources:
       Matcher:
         HttpCode: "200,404,405"
 
-  Realm16384EdgeTargetGroup:
+  Realm32EdgeTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub ${ProjectName}-realm16384-edge-tg
+      Name: !Sub ${ProjectName}-realm32-edge-tg
       Port: 8547
       Protocol: HTTP
       VpcId:
@@ -545,7 +526,7 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref Realm0EdgeTargetGroup
 
-  Realm16384ALBListener:
+  Realm32ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn:
@@ -554,7 +535,7 @@ Resources:
       Protocol: HTTP
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref Realm16384EdgeTargetGroup
+          TargetGroupArn: !Ref Realm32EdgeTargetGroup
 
   # ECS Services
   CoordinatorProcessorService:
@@ -650,52 +631,52 @@ Resources:
         - Type: memberOf
           Expression: 'attribute:realm == realm0'
 
-  Realm16384ProcessorService:
+  Realm32ProcessorService:
     Type: AWS::ECS::Service
     DependsOn: CoordinatorProcessorService
     Properties:
-      ServiceName: !Sub ${ProjectName}-realm16384-processor
+      ServiceName: !Sub ${ProjectName}-realm32-processor
       Cluster:
         Fn::ImportValue: !Sub ${ProjectName}-cluster-name
-      TaskDefinition: !Ref Realm16384ProcessorTaskDefinition
+      TaskDefinition: !Ref Realm32ProcessorTaskDefinition
       LaunchType: EC2
       DesiredCount: 1
       PlacementConstraints:
         - Type: memberOf
-          Expression: 'attribute:realm == realm16384'
+          Expression: 'attribute:realm == realm32'
 
-  Realm16384WorkerService:
+  Realm32WorkerService:
     Type: AWS::ECS::Service
-    DependsOn: Realm16384ProcessorService
+    DependsOn: Realm32ProcessorService
     Properties:
-      ServiceName: !Sub ${ProjectName}-realm16384-worker
+      ServiceName: !Sub ${ProjectName}-realm32-worker
       Cluster:
         Fn::ImportValue: !Sub ${ProjectName}-cluster-name
-      TaskDefinition: !Ref Realm16384WorkerTaskDefinition
+      TaskDefinition: !Ref Realm32WorkerTaskDefinition
       LaunchType: EC2
       DesiredCount: !Ref MinWorkerCount
       PlacementConstraints:
         - Type: memberOf
           Expression: 'attribute:ecs.instance-type =~ c6i.*'
 
-  Realm16384EdgeService:
+  Realm32EdgeService:
     Type: AWS::ECS::Service
-    DependsOn: Realm16384ProcessorService
+    DependsOn: Realm32ProcessorService
     Properties:
-      ServiceName: !Sub ${ProjectName}-realm16384-edge
+      ServiceName: !Sub ${ProjectName}-realm32-edge
       Cluster:
         Fn::ImportValue: !Sub ${ProjectName}-cluster-name
-      TaskDefinition: !Ref Realm16384EdgeTaskDefinition
+      TaskDefinition: !Ref Realm32EdgeTaskDefinition
       LaunchType: EC2
       DesiredCount: !Ref MinEdgeCount
       LoadBalancers:
-        - ContainerName: realm16384-edge
+        - ContainerName: realm32-edge
           ContainerPort: 8547
-          TargetGroupArn: !Ref Realm16384EdgeTargetGroup
+          TargetGroupArn: !Ref Realm32EdgeTargetGroup
       HealthCheckGracePeriodSeconds: 60
       PlacementConstraints:
         - Type: memberOf
-          Expression: 'attribute:realm == realm16384'
+          Expression: 'attribute:realm == realm32'
 
   # Auto Scaling for Worker Services
   CoordinatorWorkerScalingTarget:
@@ -746,23 +727,23 @@ Resources:
         ScaleInCooldown: 300
         ScaleOutCooldown: 60
 
-  Realm16384WorkerScalingTarget:
+  Realm32WorkerScalingTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
-    DependsOn: Realm16384WorkerService
+    DependsOn: Realm32WorkerService
     Properties:
       MaxCapacity: !Ref MaxWorkerCount
       MinCapacity: !Ref MinWorkerCount
-      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm16384-worker
+      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm32-worker
       RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
 
-  Realm16384WorkerCPUScalingPolicy:
+  Realm32WorkerCPUScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub ${ProjectName}-realm16384-worker-cpu-scaling
+      PolicyName: !Sub ${ProjectName}-realm32-worker-cpu-scaling
       PolicyType: TargetTrackingScaling
-      ScalingTargetId: !Ref Realm16384WorkerScalingTarget
+      ScalingTargetId: !Ref Realm32WorkerScalingTarget
       TargetTrackingScalingPolicyConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
@@ -819,23 +800,23 @@ Resources:
         ScaleInCooldown: 300
         ScaleOutCooldown: 60
 
-  Realm16384EdgeScalingTarget:
+  Realm32EdgeScalingTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
-    DependsOn: Realm16384EdgeService
+    DependsOn: Realm32EdgeService
     Properties:
       MaxCapacity: !Ref MaxEdgeCount
       MinCapacity: !Ref MinEdgeCount
-      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm16384-edge
+      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm32-edge
       RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
 
-  Realm16384EdgeCPUScalingPolicy:
+  Realm32EdgeCPUScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub ${ProjectName}-realm16384-edge-cpu-scaling
+      PolicyName: !Sub ${ProjectName}-realm32-edge-cpu-scaling
       PolicyType: TargetTrackingScaling
-      ScalingTargetId: !Ref Realm16384EdgeScalingTarget
+      ScalingTargetId: !Ref Realm32EdgeScalingTarget
       TargetTrackingScalingPolicyConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
@@ -880,11 +861,11 @@ Resources:
         - Name: ClusterName
           Value: !Sub ${ProjectName}-cluster
 
-  Realm16384EdgeHighCPUAlarm:
+  Realm32EdgeHighCPUAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub ${ProjectName}-realm16384-edge-high-cpu
-      AlarmDescription: Triggers when realm 16384 edge service CPU is too high
+      AlarmName: !Sub ${ProjectName}-realm32-edge-high-cpu
+      AlarmDescription: Triggers when realm 32 edge service CPU is too high
       MetricName: CPUUtilization
       Namespace: AWS/ECS
       Statistic: Average
@@ -894,7 +875,7 @@ Resources:
       ComparisonOperator: GreaterThanThreshold
       Dimensions:
         - Name: ServiceName
-          Value: !Sub ${ProjectName}-realm16384-edge
+          Value: !Sub ${ProjectName}-realm32-edge
         - Name: ClusterName
           Value: !Sub ${ProjectName}-cluster
 
@@ -917,14 +898,14 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm0-endpoint
 
-  Realm16384Endpoint:
-    Description: Realm 16384 public endpoint
+  Realm32Endpoint:
+    Description: Realm 32 public endpoint
     Value: !Sub
       - http://${ALBDNS}:8547
       - ALBDNS:
           Fn::ImportValue: !Sub ${ProjectName}-alb-dns
     Export:
-      Name: !Sub ${ProjectName}-realm16384-endpoint
+      Name: !Sub ${ProjectName}-realm32-endpoint
 
   CoordinatorEdgeTaskDefinition:
     Description: Coordinator Edge Task Definition ARN
@@ -938,8 +919,8 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm0-edge-task-def
 
-  Realm16384EdgeTaskDefinition:
-    Description: Realm 16384 Edge Task Definition ARN
-    Value: !Ref Realm16384EdgeTaskDefinition
+  Realm32EdgeTaskDefinition:
+    Description: Realm 32 Edge Task Definition ARN
+    Value: !Ref Realm32EdgeTaskDefinition
     Export:
-      Name: !Sub ${ProjectName}-realm16384-edge-task-def
+      Name: !Sub ${ProjectName}-realm32-edge-task-def
