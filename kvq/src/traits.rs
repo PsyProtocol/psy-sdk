@@ -73,6 +73,7 @@ pub fn unwrap_kv_result<T>(item_opt: Option<T>) -> anyhow::Result<T> {
     }
 }
 
+#[auto_impl(&, Box, Arc)]
 pub trait KVQStoreAdapterReader<S, K: KVQSerializable, V: KVQSerializable> {
     fn get_exact_if_exists(s: &S, key: &K) -> anyhow::Result<Option<V>>;
     fn get_exact(s: &S, key: &K) -> anyhow::Result<V>;
@@ -104,6 +105,7 @@ pub trait KVQStoreAdapterReader<S, K: KVQSerializable, V: KVQSerializable> {
 }
 
 #[async_trait]
+#[auto_impl(&, Box, Arc)]
 pub trait KVQStoreAdapterReaderAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSerializable> {
     async fn get_exact_if_exists(s: &S, key: &K) -> anyhow::Result<Option<V>>;
     async fn get_exact(s: &S, key: &K) -> anyhow::Result<V>;
@@ -135,6 +137,7 @@ pub trait KVQStoreAdapterReaderAsync<S: Sync, K: KVQSerializable + Sync, V: KVQS
 }
 
 #[async_trait]
+#[auto_impl(&, Box, Arc)]
 pub trait KVQStoreAdapterAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSerializable + Sync>:
     KVQStoreAdapterReaderAsync<S, K, V>
 {
@@ -148,6 +151,7 @@ pub trait KVQStoreAdapterAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSeriali
     async fn delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>>;
 }
 
+#[auto_impl(&, Box, Arc)]
 pub trait KVQStoreAdapter<S, K: KVQSerializable, V: KVQSerializable>:
     KVQStoreAdapterReader<S, K, V>
 {
@@ -163,7 +167,7 @@ pub trait KVQStoreAdapter<S, K: KVQSerializable, V: KVQSerializable>:
     // anyhow::Result<[bool; SIZE]>;
 }
 
-
+#[auto_impl(&, Box, Arc)]
 pub trait KVQStoreAdapterWithHelpers<S, K: KVQSerializable, V: KVQSerializable>:
     KVQStoreAdapter<S, K, V>
 {
@@ -256,6 +260,7 @@ pub trait KVQBinaryStore: Send + Sync {
     fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
 }
 
+#[delegatable_trait]
 #[async_trait]
 pub trait KVQBinaryStoreAsync {
     // Read operations

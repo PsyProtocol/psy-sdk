@@ -2485,6 +2485,7 @@ dependencies = [
  "async-trait",
  "auto_impl",
  "hex",
+ "parking_lot",
  "plonky2",
  "serde",
 ]

@@ -13,3 +13,4 @@ hex = { workspace = true }
 plonky2 = { workspace = true }
 auto_impl = { workspace = true }
 ambassador = { workspace = true }
+parking_lot = { workspace = true}
