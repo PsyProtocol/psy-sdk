@@ -1,10 +1,12 @@
 use kvq::traits::KVQPair;
 use std::sync::Arc;
 use ambassador::Delegate;
+use auto_impl::auto_impl;
 use kvq::cache::{KVQBinaryStoreCached, KVQBinaryStoreCachedTrait};
 use kvq::traits::KVQBinaryStore;
 use kvq::traits::ambassador_impl_KVQBinaryStore;
 
+#[auto_impl(&, Box, Arc)]
 pub trait Journal: KVQBinaryStore {
     fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
     fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
