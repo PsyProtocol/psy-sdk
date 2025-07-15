@@ -6,7 +6,6 @@ pub type F = qed_data::config::store_config::QEDFelt;
 
 pub type H = QEDHasher;
 
-pub mod api;
 pub mod config;
 pub mod edge;
 pub mod processor;

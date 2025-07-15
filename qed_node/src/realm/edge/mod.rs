@@ -5,7 +5,6 @@ pub mod rpc;
 mod sync;
 
 use std::clone;
-use self::context::RealmEdgeContext;
 use super::context::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
 use super::Queue;
@@ -13,6 +12,7 @@ use super::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
 use jsonrpsee::server::ServerBuilder;
 use qed_store::store::QEDStore;
+use crate::realm::state::edge::RealmEdgeContext;
 use crate::realm::state::processor::RealmConfig;
 use sync::spawn_active_checkpoint_sync_task;
 use crate::common::verifier::get_cached_generic_verifier;
