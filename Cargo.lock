@@ -2488,6 +2488,7 @@ dependencies = [
  "parking_lot",
  "plonky2",
  "serde",
+ "tokio",
 ]
 
 [[package]]

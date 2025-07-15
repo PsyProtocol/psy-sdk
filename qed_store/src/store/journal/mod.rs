@@ -34,9 +34,7 @@ impl<S: KVQBinaryStore> Journal for JournalStore<S> {
     }
 
     fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
-        {
-            self.inner.map.write().clear();
-        }
+        self.inner.clear_cache();
         Ok(())
     }
 }
