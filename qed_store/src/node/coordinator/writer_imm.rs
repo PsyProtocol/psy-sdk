@@ -176,13 +176,6 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
     ) -> anyhow::Result<()> {
         CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, sync_info)
     }
-    async fn commit_block(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn rollback_block(&self, checkpoint_id: u64) -> anyhow::Result<()> {
-        Ok(())
-    }
 
     async fn initialize_store(&self) -> anyhow::Result<u64> {
 

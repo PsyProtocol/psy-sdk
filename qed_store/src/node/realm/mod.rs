@@ -149,7 +149,4 @@ pub trait QEDRealmStoreWriterAsyncImm<F: RichField> {
     async fn set_contract_code_definition_f_imm(&self, checkpoint_id: F, contract_id: F, definition: &ContractCodeDefinition) -> anyhow::Result<()> {
         <Self as QEDRealmStoreWriterAsyncImm<F>>::set_contract_code_definition_imm(self, checkpoint_id.to_canonical_u64(), contract_id.to_canonical_u64(), definition).await
     }
-
-    async fn commit_block_imm(&self, checkpoint_id: u64) -> anyhow::Result<()>;
-    async fn rollback_block_imm(&self, checkpoint_id: u64) -> anyhow::Result<()>;
 }

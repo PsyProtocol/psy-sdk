@@ -171,14 +171,6 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
         )
     }
 
-    async fn commit_block_imm(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
-       Ok(())
-    }
-
-    async fn rollback_block_imm(&self, checkpoint_id: u64) -> anyhow::Result<()>{
-        Ok(())
-    }
-
     async fn injest_checked_cst_nodes_imm(&self, user_updates: &[CSTUserUpdate<QHashOut<F>>]) -> anyhow::Result<()> {
         for upd in user_updates.iter() {
 

@@ -1054,13 +1054,5 @@ impl<
 
         Ok(())
     }
-
-    pub async fn commit_block(&self,checkpoint_id: u64) -> anyhow::Result<()> {
-        self.store.commit_block(checkpoint_id).await
-    }
-
-    pub async fn rollback_block(&self, checkpoint_id: u64) -> anyhow::Result<()> {
-        self.store.rollback_block(checkpoint_id).await
-    }
 }
 

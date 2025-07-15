@@ -167,7 +167,9 @@ impl
                     "⚠️ Failed to get block 1 state: {:?}， need initialize the db",
                     e
                 );
-                QEDComboDataStoreReaderWriterSync::initialize_store(&qed_store)?;
+                if  QEDComboDataStoreReaderWriterSync::initialize_store(&qed_store)? == 0 {
+                    qed_store.commit(0)?;
+                }
                 true
             }
         };
