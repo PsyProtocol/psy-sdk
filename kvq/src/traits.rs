@@ -260,7 +260,6 @@ pub trait KVQBinaryStore: Send + Sync {
     fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
 }
 
-#[delegatable_trait]
 #[async_trait]
 pub trait KVQBinaryStoreAsync {
     // Read operations
