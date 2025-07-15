@@ -7,13 +7,13 @@ use qed_core::{
     },
     utils::debug_timer::DebugTimer,
 };
-use qed_node::nimpl::drain_queue_fred::DrainQueueFred;
+use qed_store::queue::drain_queue_fred::DrainQueueFred;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 
 
 use rand::{thread_rng, Rng};
-use qed_node::nimpl::new_fred_pool;
+use qed_store::queue::new_fred_pool;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 struct TestItem {

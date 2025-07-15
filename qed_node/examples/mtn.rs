@@ -3,9 +3,9 @@ use qed_core::{
     job::{id::QProvingJobDataID, traits::QProofStoreWriterAsyncImm, worker_queue::WorkerEventTransmitterAsyncImm},
     utils::debug_timer::DebugTimer,
 };
-use qed_node::nimpl::proof_store_fred::ProofStoreFred;
+use qed_store::queue::proof_store_fred::ProofStoreFred;
 use std::time::Duration;
-use qed_node::nimpl::new_fred_pool;
+use qed_store::queue::new_fred_pool;
 
 fn gen_jobs_ids(checkpoint_id: u64, height: usize) -> Vec<Vec<QProvingJobDataID>> {
     let mut jobs = Vec::with_capacity(height);

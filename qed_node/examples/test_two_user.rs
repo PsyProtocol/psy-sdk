@@ -14,9 +14,9 @@ use qed_node::{
             processor::{CoordinatorConfig, CoordinatorProcessorContext},
         },
     },
-    nimpl::proof_store_fred::ProofStoreFred,
     worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
 };
+use qed_store::queue::proof_store_fred::ProofStoreFred;
 use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
@@ -32,7 +32,7 @@ use plonky2::{
 use qed_core::
     data::qhashout::QHashOut
 ;
-use qed_node::nimpl::new_fred_pool;
+use qed_store::queue::new_fred_pool;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;

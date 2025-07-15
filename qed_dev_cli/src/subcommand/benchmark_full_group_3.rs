@@ -47,7 +47,6 @@ use qed_node::{
             processor::{CoordinatorConfig, CoordinatorProcessorContext},
         },
     },
-    nimpl::proof_store_fred::ProofStoreFred,
     realm::state::{
         edge::RealmEdgeContext,
         processor::{RealmConfig, RealmProcessorContext},
@@ -75,7 +74,8 @@ use qed_store::{
             QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
         },
         realm::QEDRealmStoreReaderAsync,
-    }
+    },
+    queue::proof_store_fred::ProofStoreFred,
 };
 
 use std::time::Duration;

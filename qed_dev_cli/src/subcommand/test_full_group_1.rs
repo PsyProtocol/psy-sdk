@@ -26,7 +26,6 @@ use qed_node::{
             processor::{CoordinatorConfig, CoordinatorProcessorContext},
         },
     },
-    nimpl::proof_store_fred::ProofStoreFred,
     realm::state::{
         edge::RealmEdgeContext,
         processor::{RealmConfig, RealmProcessorContext},
@@ -49,6 +48,7 @@ use qed_store::{controllers::local::{
         proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
     },
     node::coordinator::QEDCoordinatorStoreReaderAsync,
+    queue::proof_store_fred::ProofStoreFred,
 };
 
 use super::super::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
@@ -61,7 +61,6 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_node::nimpl::new_fred_pool;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -69,7 +68,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let pool = qed_store::queue::new_fred_pool("redis://127.0.0.1:6379", 8).await?;
 
     timer.lap("connected to redis");
 

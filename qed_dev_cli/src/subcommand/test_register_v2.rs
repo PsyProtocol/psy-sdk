@@ -15,13 +15,13 @@ use qed_node::{
             edge::CoordinatorEdgeContext,
             processor::{CoordinatorConfig, CoordinatorProcessorContext},
         },
-    }, nimpl::proof_store_fred::ProofStoreFred, realm::state::{edge::RealmEdgeContext, processor::{RealmConfig, RealmProcessorContext}}, worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker}
+    }, realm::state::{edge::RealmEdgeContext, processor::{RealmConfig, RealmProcessorContext}}, worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker}
 };
 use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
-use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync};
+use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::proof_store_fred::ProofStoreFred};
 use super::super::test_helpers::contract::gen_test_contract;
 use std::time::Duration;
 
@@ -35,7 +35,6 @@ use plonky2::{
 use qed_core::
     data::qhashout::QHashOut
 ;
-use qed_node::nimpl::new_fred_pool;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -43,7 +42,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
+    let pool = qed_store::queue::new_fred_pool("redis://127.0.0.1:6379",8).await?;
 
     timer.lap("connected to redis");
 

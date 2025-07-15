@@ -3464,45 +3464,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_coordinator_node"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "bincode",
- "chrono",
- "clap",
- "futures",
- "headers",
- "hex",
- "http 1.3.1",
- "hyper 1.6.0",
- "jsonrpsee",
- "jsonwebtoken",
- "kvq",
- "once_cell",
- "plonky2",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_node",
- "qed_prover",
- "qed_realm_node",
- "qed_rollup_circuit",
- "qed_rollup_utils",
- "qed_store",
- "rand 0.8.5",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "tokio",
- "tower 0.5.2",
- "tower-http",
- "tracing",
-]
-
-[[package]]
 name = "qed_core"
 version = "0.1.0"
 dependencies = [
@@ -3621,13 +3582,20 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum",
  "bb8",
  "bb8-redis",
  "bincode",
  "chrono",
+ "clap",
  "fred",
  "futures",
+ "headers",
  "hex",
+ "http 1.3.1",
+ "hyper 1.6.0",
+ "jsonrpsee",
+ "jsonwebtoken",
  "kvq",
  "once_cell",
  "plonky2",
@@ -3635,16 +3603,25 @@ dependencies = [
  "qed_core",
  "qed_crypto",
  "qed_data",
+ "qed_prover",
  "qed_rollup_circuit",
+ "qed_rollup_utils",
  "qed_store",
  "rand 0.8.5",
  "redis 0.30.0",
+ "reqwest 0.11.27",
  "rsmq_async",
  "serde",
  "serde_json",
  "serde_repr",
+ "serde_with",
+ "thiserror 2.0.12",
  "tokio",
+ "tower 0.5.2",
+ "tower-http",
  "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
  "url",
 ]
 
@@ -3697,39 +3674,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_realm_node"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bb8",
- "bb8-redis",
- "bincode",
- "clap",
- "fred",
- "hex",
- "hyper 1.6.0",
- "jsonrpsee",
- "kvq",
- "plonky2",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_node",
- "qed_rollup_utils",
- "qed_store",
- "redis 0.30.0",
- "serde",
- "serde_json",
- "serde_with",
- "thiserror 2.0.12",
- "tokio",
- "tower 0.5.2",
- "tower-http",
- "tracing",
-]
-
-[[package]]
 name = "qed_rollup_circuit"
 version = "0.1.0"
 dependencies = [
@@ -3751,10 +3695,8 @@ dependencies = [
  "anyhow",
  "clap",
  "dotenv",
- "qed_coordinator_node",
- "qed_realm_node",
+ "qed_node",
  "qed_rollup_utils",
- "qed_worker",
  "tokio",
  "tracing",
 ]
@@ -3778,7 +3720,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bb8",
+ "bb8-redis",
+ "bincode",
  "clap",
+ "fred",
  "futures",
  "hashbrown 0.14.5",
  "indexmap 2.9.0",
@@ -3789,13 +3735,17 @@ dependencies = [
  "qed_core",
  "qed_crypto",
  "qed_data",
+ "redis 0.30.0",
+ "rsmq_async",
  "scylla",
  "serde",
  "serde_json",
+ "serde_repr",
  "tempfile",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
+ "url",
  "uuid",
 ]
 
@@ -3841,33 +3791,6 @@ dependencies = [
  "wasm-logger",
  "wasm-tracing",
  "web-sys",
-]
-
-[[package]]
-name = "qed_worker"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap",
- "fred",
- "jsonrpsee",
- "kvq",
- "plonky2",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_node",
- "qed_rollup_circuit",
- "qed_store",
- "serde",
- "serde_json",
- "serde_with",
- "thiserror 2.0.12",
- "tokio",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
 ]
 
 [[package]]
