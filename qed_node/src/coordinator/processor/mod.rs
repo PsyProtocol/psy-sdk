@@ -17,9 +17,7 @@ use qed_store::queue::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
 use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
 use qed_store::queue::{new_fred_pool, new_redis_async_pool};
 use qed_store::queue::proof_store_fred::ProofStoreFred;
-use crate::{
-    coordinator::state::processor::CoordinatorProcessorContext,
-};
+use crate::coordinator::state::processor::CoordinatorProcessorContext;
 use qed_store::queue::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS};
 use crate::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;

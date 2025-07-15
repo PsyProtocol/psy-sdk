@@ -17,6 +17,8 @@ use kvq::traits::KVQSerializable;
 
 #[rpc(server, client, namespace = "qed")]
 pub trait RealmEdgeRpc {
+    #[method(name = "get_user_id")]
+    async fn get_user_id(&self, public_key: QHashOut<F>) -> RpcResult<u64>;
     /// Check if a user id belongs to this realm
     #[method(name = "check_user_id_in_realm")]
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool>;

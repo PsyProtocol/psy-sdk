@@ -30,7 +30,7 @@ use qed_crypto::{
         qhashable::QFieldHashable,
     },
 };
-use qed_data::config::store_config::QCheckpointSyncInfoCompact;
+use qed_data::config::store_config::{QCheckpointSyncInfoCompact, UserPublicKeyTableStore};
 use qed_data::config::store_config::QEDFelt;
 use qed_data::config::store_config::UserTreeStore;
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
@@ -38,6 +38,7 @@ use qed_data::guta::{
     api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
     end_cap_input::SubmitUserEndCapNonProofInput,
 };
+use qed_data::models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelReaderCore;
 use qed_data::models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore;
 use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
@@ -58,6 +59,12 @@ where
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
+    async fn get_user_id(&self, public_key: QHashOut<F>) -> RpcResult<u64> {
+        Ok(self.store_reader.get_first_user_id(public_key)
+            .await
+            .map_err(RpcError::Anyhow)?)
+    }
+
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool> {
         Ok(self.includes_user_id(user_id))
     }
