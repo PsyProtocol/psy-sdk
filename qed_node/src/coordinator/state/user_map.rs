@@ -8,7 +8,6 @@ use bb8_redis::{
     RedisConnectionManager,
 };
 use bincode;
-use fred::prelude::KeysInterface;
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_store::config::store_config::QEDFelt;

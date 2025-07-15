@@ -1,7 +1,7 @@
 use std::env;
 use crate::error::RpcError;
 use crate::rpc::RealmEdgeRpcServer;
-use crate::{SyncCheckpointQueue, SyncProofQueue, C, D, F, H};
+use crate::{SyncProofQueue, C, D, F, H};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::http_client::{HeaderMap, HeaderValue};
