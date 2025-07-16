@@ -27,6 +27,13 @@ qed_crypto = { workspace = true }
 thiserror = { workspace = true }
 maybe-async = { workspace = true }
 
+# ScyllaDB support - only for non-WASM targets
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+scylla = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+kvq_store_lmdbx = { path = "src/store/lmdbx" }
 # Redis and queue dependencies
 fred = { workspace = true }
 redis = { workspace = true }
@@ -35,13 +42,6 @@ bb8 = { workspace = true }
 rsmq = { workspace = true }
 url = { workspace = true }
 
-# ScyllaDB support - only for non-WASM targets
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-scylla = { workspace = true }
-futures = { workspace = true }
-tokio = { workspace = true }
-uuid = { workspace = true }
-kvq_store_lmdbx = { path = "src/store/lmdbx" }
 
 [features]
 default = ["is_sync"]
