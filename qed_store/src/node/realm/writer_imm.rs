@@ -14,7 +14,7 @@ use qed_data::{
     },
     traits::qdatastore::qmetadata::QMetaDataStoreWriterSync,
 };
-use crate::node::realm::QEDRealmStoreWriterAsyncImm;
+use crate::node::realm::{QEDRealmStoreWriterAsyncImm};
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::{
@@ -36,6 +36,7 @@ use qed_data::{
         contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
     }, qstore::uct_merkle_nodes::CSTUserUpdate, qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact}
 };
+
 type F = GoldilocksField;
 #[async_trait]
 impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
@@ -170,9 +171,6 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
         )
     }
 
-    async fn commit_block_imm(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
-        Ok(())
-    }
     async fn injest_checked_cst_nodes_imm(&self, user_updates: &[CSTUserUpdate<QHashOut<F>>]) -> anyhow::Result<()> {
         for upd in user_updates.iter() {
 

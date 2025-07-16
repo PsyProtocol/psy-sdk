@@ -28,14 +28,14 @@ use qed_crypto::{
 };
 use qed_data::{
     guta::{
-        api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPIQueueItem, UserEndCapNonProofCoreInputQueueItem},
+        api::{GUTARealmCheckpointResult, UserEndCapNonProofCoreInputQueueItem},
         header::GlobalUserTreeAggregatorHeader,
         proof_input::{
             GUTANoChangeFullInput, GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyEndCapSimpleStandardInput, VerifyGUTAToCapCircuitInputSimple, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput, VerifyTwoGUTAProofGadgetStandardInputSimple
         },
         stats::GUTAStats,
     },
-    qdata::{checkpoint::{QEDCheckpointLeafCompactWithStateRoots, QEDL2BlockState}, user::QEDUserLeaf},
+    qdata::{checkpoint::{QEDCheckpointLeafCompactWithStateRoots}, user::QEDUserLeaf},
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
 use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
@@ -222,7 +222,7 @@ impl<
                             )),
                         })
                         .collect::<Vec<_>>();
-                    tracing::info!(
+                    info!(
                         "DEBUGPRINT[517]: processor.rs:236: pending_register_users={}",
                         serde_json::to_string_pretty(&pending_register_users).unwrap()
                     );
@@ -742,6 +742,7 @@ impl<
         //let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        // todo fix the bug!!!
         let pending_users = if self.pending_register_users.len() > 32 {
             self.pending_register_users.split_off(self.pending_register_users.len()-32)
         }else{

@@ -4,7 +4,6 @@ pub mod request;
 pub mod rpc;
 mod sync;
 
-use std::clone;
 use self::context::RealmEdgeContext;
 use crate::context::spawn_realm_job_update_task;
 use crate::rpc::RealmEdgeRpcServer;

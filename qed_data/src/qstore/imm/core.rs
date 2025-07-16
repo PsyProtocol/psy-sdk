@@ -1,14 +1,11 @@
-use kvq::traits::{KVQBinaryStore, KVQSerializable, KVQStoreAdapter};
-use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
-use crate::config::store_config::USER_CONTRACT_STATE_TREE_TABLE_TYPE;
-use plonky2::field::types::PrimeField64;
-use qed_core::{config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
-use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof};
 use crate::qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
     contract::{ContractCodeDefinition, QEDContractLeaf},
     user::QEDUserLeaf,
 };
+use kvq::traits::KVQBinaryStore;
+use qed_core::{config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
+use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof};
 
 use crate::{
     config::store_config::{

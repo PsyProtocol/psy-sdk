@@ -1,4 +1,3 @@
-use kvq::traits::KVQBinaryStore;
 use kvq::traits::KVQPair;
 use kvq::traits::KVQSerializable;
 use kvq::traits::KVQStoreAdapter;

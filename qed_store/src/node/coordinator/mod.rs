@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
+use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::UpdateNCAProofsWithDependencies}};
 use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}}, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 
 pub mod reader_async;
@@ -189,8 +189,6 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
 
     async fn set_l2_block_state_imm(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()>;
     async fn set_checkpoint_sync_info_imm(&self, sync_info: QEDCheckpointSyncInfoCompact<F>) -> anyhow::Result<()>;
-
-    async fn commit_block(&self, checkpoint_id: u64) -> anyhow::Result<()>;
     async fn initialize_store(&self) -> anyhow::Result<u64>;
 
 }

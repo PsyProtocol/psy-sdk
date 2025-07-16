@@ -2,8 +2,6 @@ use anyhow::anyhow;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use fred::prelude::KeysInterface;
-use hex::encode;
-use kvq::traits::KVQSerializable;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 

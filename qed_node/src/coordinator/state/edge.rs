@@ -10,7 +10,6 @@ use qed_data::{guta::api::SubmitGUTARealmResultAPINoProofInput, qblock::cmds::de
 use qed_data::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use rand::{thread_rng, RngCore};
-use serde::{Deserialize, Serialize};
 
 use super::processor::CoordinatorConfig;
 

@@ -1,40 +1,34 @@
 use crate::config::RealmNodeConfig;
 use crate::{Queue, SyncCheckpointQueue, SyncProofQueue, C, D, F};
-use fred::prelude::KeysInterface;
-use kvq::traits::KVQSerializable;
 use qed_store::store::QEDStore;
-use qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
-use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
-use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataId};
+use qed_core::job::id::{ProvingJobDataId};
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use qed_node::common::verifier::get_cached_generic_verifier;
-use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 use qed_node::nimpl::new_redis_async_pool;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
-use qed_store::node::realm::QEDRealmStoreReaderAsync;
+use qed_store::node::realm::{QEDRealmStoreReaderAsync};
 use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::store::journal::{Journal, JournalStore};
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
-    QEDStore,
+    JournalStore<QEDStore>,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
 >;
 
-#[derive(Debug)]
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub sync_proof: ProofStoreRedisAsync,
     pub sync_checkpoint: Queue,
-    pub store: Arc<QEDStore>,
+    pub store: Arc<JournalStore<QEDStore>>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
 }
 
@@ -59,7 +53,8 @@ impl RealmProcessor {
             &config.queue.proof_store_key_suffix,
         ).await?;
         let store = QEDStore::new(&config.backend.to_backend()).await?;
-        let store_reader = Arc::new(store);
+        let store = Arc::new(JournalStore::new(store));
+        let store_reader = store.clone();
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
@@ -79,7 +74,7 @@ impl RealmProcessor {
         let st = self.store.clone();
         let realm_qps = Arc::new(self.sync_proof.clone());
         let mut context: ConcreteRealmProcessorContext = RealmProcessorContext::<
-            QEDStore,
+            JournalStore<QEDStore>,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
@@ -177,8 +172,14 @@ impl RealmProcessor {
         &mut self,
         context: &mut ConcreteRealmProcessorContext,
     ) -> anyhow::Result<ProvingJobDataId> {
-        let next_checkpoint_id = self.get_local_latest_l2_block_state().await + 1;
-        context.build_block().await?;
+        let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await;
+        let next_checkpoint_id = local_latest_checkpoint_id + 1;
+        self.store.commit(local_latest_checkpoint_id)?;
+        if let Err(err) = context.build_block().await {
+            self.store.rollback(next_checkpoint_id)?;
+            return Err(err);
+        }
+
         let realm_worker_output_job_id = self
             .sync_proof
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)

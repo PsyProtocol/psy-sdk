@@ -1,19 +1,12 @@
-use crate::edge::request::QSubmitEndCapRPCRequest;
 use crate::{C, D, F};
-use jsonrpsee::core::Serialize;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
-use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::field::types::PrimeField64;
+use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
 use qed_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
-use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use qed_data::config::store_config::QEDFelt;
-use serde::Deserialize;
-use kvq::traits::KVQSerializable;
 
 #[rpc(server, client, namespace = "qed")]
 pub trait RealmEdgeRpc {

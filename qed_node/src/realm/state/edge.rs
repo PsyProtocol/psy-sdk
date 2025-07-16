@@ -1,19 +1,15 @@
 use std::sync::Arc;
 
-use anyhow::bail;
-use plonky2::{field::{goldilocks_field::GoldilocksField, types::PrimeField64}, hash::hash_types::HashOut, plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs}};
+use super::processor::RealmConfig;
+use plonky2::{field::{goldilocks_field::GoldilocksField, types::PrimeField64}, plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs}};
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{
-    drain_queue::{CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata}, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+    drain_queue::CheckpointDrainQueueEmitterAsyncImm, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
     traits::QProofStoreAsyncImm,
 }};
-use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher, PoseidonHasher}, qhashable::QFieldHashable}, signature::zk::data::ZKPublicKeyInfo};
-use qed_data::{guta::{api::{SimpleContractHeightCache, SubmitGUTARealmResultAPINoProofInput, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}, qblock::cmds::deploy_contract::QBCDeployContract};
+use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::{MerkleZeroHasher, PoseidonHasher}, qhashable::QFieldHashable}};
 use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
+use qed_data::guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
-use rand::{thread_rng, RngCore};
-use serde::{Deserialize, Serialize};
-
-use super::processor::RealmConfig;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;

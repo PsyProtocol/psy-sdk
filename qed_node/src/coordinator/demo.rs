@@ -1,4 +1,4 @@
-use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
+use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_core::job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, traits::QProofStoreAsyncImm};
 use qed_data::config::store_config::QEDFelt;
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
