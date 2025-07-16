@@ -6,6 +6,7 @@ use crate::api::request::{
     Id, QRegisterUserRPCRequest, RequestParams, ResponseResult, RpcRequest,
     RpcResponse, Version,
 };
+use serde_json;
 
 use anyhow::Ok;
 use rand::Rng;
@@ -18,7 +19,8 @@ use reqwest::Client;
 
 use super::request::{
     QAddWithdrawalRPCRequest, QClaimDepositRPCRequest, QDeployContractRPCRequest,
-    QSubmitEndCapRPCRequest, QTokenTransferRPCRequest,
+    QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest,
+    QGetUserIdRPCRequest,
 };
 
 use qed_core::{config::network_constants::REALM_USER_TREE_HEIGHT, data::qhashout::QHashOut};
@@ -134,14 +136,15 @@ macro_rules! qed_rpc_call {
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
         tracing::info!("qed rpc call: {}", $rpc_url);
+        let request = RpcRequest {
+            jsonrpc: Version::V2,
+            request: $rpc_params,
+            id: Id::Number(1),
+        };
         $instance
             .client
             .post($rpc_url)
-            .json(&RpcRequest {
-                jsonrpc: Version::V2,
-                request: $rpc_params,
-                id: Id::Number(1),
-            })
+            .json(&request)
             .send()?
             .json::<RpcResponse<$ret_ty>>()?
     }};
@@ -226,9 +229,10 @@ impl QUserRpcProvider for RpcProvider {
         &self,
         req: QDeployContractRPCRequest<F>,
     ) -> anyhow::Result<()> {
+        let url = self.get_coordinator_url()?;
         qed_rpc_call!(
             self,
-            self.get_coordinator_url()?,
+            url,
             RequestParams::<F>::DeployContract(req)
         )
     }
@@ -237,10 +241,6 @@ impl QUserRpcProvider for RpcProvider {
         &self,
         req: QSubmitEndCapRPCRequest<F>,
     ) -> anyhow::Result<()> {
-        // tracing::info!(
-        //     "submit end cap proof: {}",
-        //     serde_json::to_string_pretty(&req).unwrap()
-        // );
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         qed_rpc_call!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req))
     }
@@ -253,8 +253,8 @@ impl RpcProvider {
         let url =  self.get_coordinator_url()?;
         let response = qed_rpc_call_back!(
             self,
-           url,
-            RequestParams::<F>::GetUserId(public_key),
+            url,
+            RequestParams::<F>::GetUserId(QGetUserIdRPCRequest { public_key }),
             u64
         );
         match response.result {
@@ -334,10 +334,4 @@ pub struct RealmRpcConfig {
 pub struct CoordinatorRpcConfig {
     pub id: u64,
     pub rpc_url: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StoreConfig {
-    pub coordinator_store_path: String,
-    pub realm_store_path: String,
 }

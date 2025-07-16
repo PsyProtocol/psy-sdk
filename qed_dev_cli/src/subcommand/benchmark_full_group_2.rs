@@ -10,7 +10,6 @@ use qed_crypto::{
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput};
 use qed_node::{
     coordinator::{
-        demo::CoordinatorDemoEdgeNode,
         state::{
             edge::CoordinatorEdgeContext,
             processor::{CoordinatorConfig, CoordinatorProcessorContext},
@@ -82,16 +81,15 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("built coordinator worker circuits");
 
-    let coordinator_edge_node = CoordinatorDemoEdgeNode {
-        ctx: CoordinatorEdgeContext::new(
+    let coordinator_edge_node =
+        CoordinatorEdgeContext::new(
             coord_config,
             Arc::clone(&st),
             qps.clone(),
             qps.clone(),
             Arc::clone(&proof_verifier),
         )
-        .await?,
-    };
+        .await?;
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
@@ -110,11 +108,11 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("finished building wallet/zksig/helper circuits");
     let (contract_helper, contract_deploy_cmd) =gen_test_contract::<C,D>(QHashOut::rand())?;
-    coordinator_edge_node.ctx.handle_deploy_contract(contract_deploy_cmd).await?;
+    coordinator_edge_node.handle_deploy_contract(contract_deploy_cmd).await?;
 
     let mut current_g_reg_id = 0;
     let priv_keys_batch_1 = (0..100).map(|x| QHashOut::rand()).collect::<Vec<_>>();
-    let mut g_users = helper.register_users(&coordinator_edge_node.ctx, current_g_reg_id, &priv_keys_batch_1).await?;
+    let mut g_users = helper.register_users(&coordinator_edge_node, current_g_reg_id, &priv_keys_batch_1).await?;
 
     timer.lap("deployed contract and registered users");
 
@@ -175,7 +173,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id).await?;
 
-    coordinator_edge_node.ctx.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
+    coordinator_edge_node.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
         realm_id: 0,
         checkpoint_id: realm_result.checkpoint_id,
         guta_stats: realm_result.guta_stats,
@@ -300,7 +298,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     println!("rr: {:?}",realm_result);
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
 
-    coordinator_edge_node.ctx.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
+    coordinator_edge_node.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
         realm_id: 0,
         checkpoint_id: realm_result.checkpoint_id,
         guta_stats: realm_result.guta_stats,
@@ -357,7 +355,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     println!("rr: {:?}",realm_result);
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
 
-    coordinator_edge_node.ctx.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
+    coordinator_edge_node.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
         realm_id: 0,
         checkpoint_id: realm_result.checkpoint_id,
         guta_stats: realm_result.guta_stats,

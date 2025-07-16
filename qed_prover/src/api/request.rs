@@ -8,6 +8,7 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
+use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
 use qed_data::qdata::checkpoint::QEDL2BlockState;
@@ -53,7 +54,19 @@ pub enum RequestParams<F: RichField> {
     #[serde(rename = "qed_build_block")]
     ProduceBlock,
     #[serde(rename = "qed_get_user_id")]
-    GetUserId(QHashOut<F>),
+    GetUserId(QGetUserIdRPCRequest<F>),
+    #[serde(rename = "qed_submit_guta")]
+    SubmitGuta(QSubmitGutaRPCRequest<F>),
+    #[serde(rename = "qed_get_latest_checkpoint")]
+    GetLatestCheckpoint,
+    #[serde(rename = "qed_latest_checkpoint")]
+    LatestCheckpoint,
+    #[serde(rename = "qed_get_latest_checkpoint_id")]
+    GetLatestCheckpointId,
+    #[serde(rename = "qed_get_checkpoint_sync_info")]
+    GetCheckpointSyncInfo(QGetCheckpointSyncInfoRPCRequest),
+    #[serde(rename = "qed_get_checkpoint_sync_info_compact")]
+    GetCheckpointSyncInfoCompact(QGetCheckpointSyncInfoCompactRPCRequest),
 
     /// for realm edge
     TokenTransfer(QTokenTransferRPCRequest),
@@ -421,7 +434,6 @@ pub struct QAddWithdrawalRPCRequest {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize,TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
-#[serde(transparent)]
 pub struct QRegisterUserRPCRequest<F: RichField> {
     pub public_key: ZKPublicKeyInfo<F>,
 }
@@ -438,7 +450,6 @@ impl<F: RichField> QRegisterUserRPCRequest<F> {
 #[derive(Debug, Clone, Serialize, Deserialize,TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
-#[serde(transparent)]
 pub struct QDeployContractRPCRequest<F: RichField> {
     pub deploy_contract: QBCDeployContract<F>,
 }
@@ -450,6 +461,35 @@ pub struct QSubmitEndCapRPCRequest<F: RichField> {
     pub user_ec_input: SubmitUserEndCapNonProofInput<F>,
     #[ts(type  = "any")]
     pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, concrete(F = GoldilocksField))]
+#[serde(bound = "")]
+pub struct QSubmitGutaRPCRequest<F: RichField> {
+    #[ts(type = "any")]
+    pub input: SubmitGUTARealmResultAPINoProofInput<F>,
+    #[ts(type = "any")]
+    pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, concrete(F = GoldilocksField))]
+#[serde(bound = "")]
+pub struct QGetUserIdRPCRequest<F: RichField> {
+    pub public_key: QHashOut<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct QGetCheckpointSyncInfoRPCRequest {
+    pub checkpoint_id: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct QGetCheckpointSyncInfoCompactRPCRequest {
+    pub checkpoint_id: u64,
 }
 
 // lps

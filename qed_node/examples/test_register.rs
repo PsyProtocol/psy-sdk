@@ -8,7 +8,6 @@ use qed_crypto::{
 };
 use qed_node::{
     coordinator::{
-        demo::CoordinatorDemoEdgeNode,
         state::{
             edge::CoordinatorEdgeContext,
             processor::{CoordinatorConfig, CoordinatorProcessorContext},
@@ -65,16 +64,15 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
     timer.lap("built coordinator worker circuits");
 
-    let coordinator_edge_node = CoordinatorDemoEdgeNode {
-        ctx: CoordinatorEdgeContext::new(
+    let coordinator_edge_node =
+        CoordinatorEdgeContext::new(
             coord_config,
             Arc::clone(&st),
             qps.clone(),
             qps.clone(),
             Arc::clone(&proof_verifier),
         )
-        .await?,
-    };
+        .await?;
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
@@ -94,7 +92,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     };
 
     coordinator_edge_node
-        .ctx
         .handle_process_regsiter_user(user_a_info)
         .await?;
 
@@ -104,7 +101,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     };
 
     coordinator_edge_node
-        .ctx
         .handle_process_regsiter_user(user_b_info)
         .await?;
     timer.lap("sent requests");

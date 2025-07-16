@@ -1,11 +1,15 @@
 pub mod communicate;
 pub mod context;
+pub mod handler;
+pub mod jwt;
+pub mod types;
 pub mod rpc;
+pub mod error;
 
 use super::args::CoordinatorEdgeArgs;
-use self::context::{get_jwt_secret, init_coordinator_edge};
-use self::rpc::router::build_rpc_module;
-use self::rpc::jwt::{JwtSecret, ServerLayer};
+use self::rpc::CoordinatorEdgeRpcServer;
+use self::jwt::{JwtSecret, ServerLayer};
+use std::env;
 
 use hyper::Method;
 use jsonrpsee::server::Server;
@@ -17,19 +21,18 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");
     info!("✅ Loaded config: {:#?}", config);
 
-    init_coordinator_edge(&config).await?;
-
-    let (rpc_module, handler) = build_rpc_module(config.clone())?;
+    let handler = handler::CoordinatorEdgeHandler::new(config.clone()).await?;
     handler.spawn_cp_sync_listener().await?;
+    let rpc_module = handler.clone().into_rpc();
 
     let addr: SocketAddr = config.listen_addr.parse()?;
 
-    let jwt_secret = match get_jwt_secret() {
-        Some(jwt_secret) => JwtSecret::from_hex(&jwt_secret.as_bytes())?,
-        None => {
-            return Err(anyhow::anyhow!("JWT secret not found"));
-        }
-    };
+    let jwt_secret_str = env::var("JWT_SECRET")
+        .unwrap_or_else(|_| {
+            info!("JWT_SECRET not found in environment, using default for development");
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string()
+        });
+    let jwt_secret = JwtSecret::from_hex(&jwt_secret_str)?;
 
     let cors_opts = CorsLayer::new()
         .allow_methods([
@@ -50,13 +53,13 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
         config.listen_addr
     );
     let handle = server.start(rpc_module);
-    
+
     // Return immediately and let the caller handle the server lifecycle
     // The server will continue running in the background
     tokio::spawn(async move {
         handle.stopped().await;
     });
-    
+
     // Keep the function running
     loop {
         tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;

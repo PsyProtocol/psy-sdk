@@ -19,7 +19,7 @@ qedlang_core = { workspace = true }
 qed_data = { workspace = true }
 qed_crypto = { workspace = true }
 maybe-async = {workspace = true}
-qed_store = { workspace = true, default-features = false }
+qed_store = { workspace = true }
 qedlang_macros = { workspace = true }
 
 [features]

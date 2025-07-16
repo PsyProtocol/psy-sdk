@@ -1,5 +1,5 @@
 // std
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use anyhow::bail;
@@ -36,7 +36,7 @@ use qed_data::qdata::checkpoint::{
 };
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::user::QEDUserLeaf;
-use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
+use qed_data::qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact};
 
 // qed_node
 use crate::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by_pubkey};
@@ -45,14 +45,22 @@ use qed_store::queue::worker_queue_redis::redis_queue::{
 };
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 // qed_store
-use qed_data::config::store_config::{QEDFelt, QEDHasher};
+use qed_data::config::store_config::{QEDFelt, QEDHasher, QCheckpointSyncInfoCompact};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 // crate inner
 use crate::coordinator::edge::communicate::GlobalCoordinatorStatus;
-use crate::coordinator::edge::context::{with_temp_ctx_read_async, GLOBAL_COORD_EDGE_STATE, LATEST_CHECKPOINT_ID};
+use crate::coordinator::edge::context::{StoreReader, DrainQueue, ProofStore, GLOBAL_COORD_EDGE_STATE, LATEST_CHECKPOINT_ID};
 use crate::coordinator::args::CoordinatorEdgeArgs;
+use crate::coordinator::state::edge::CoordinatorEdgeContext;
+use crate::coordinator::state::user_map::init_node_redis_pool;
+use qed_store::queue::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
+use qed_store::queue::{new_fred_pool, new_redis_async_pool};
+use qed_store::queue::proof_store_fred::ProofStoreFred;
+use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+use crate::common::verifier::get_cached_generic_verifier;
+use qed_store::store::{QEDStore, Backend};
 
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 
@@ -64,14 +72,58 @@ const D: usize = 2;
 pub struct CoordinatorEdgeHandler {
     notify_queue: RedisQueue,
     cp_listener: Arc<Mutex<Option<JoinHandle<()>>>>,
+    ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
+    sync_queue: DrainQueueRedisAsync,
+    store: Arc<StoreReader>,
+    latest_checkpoint_id: Arc<AtomicU64>,
 }
 
 impl CoordinatorEdgeHandler {
-    pub fn new(args: CoordinatorEdgeArgs) -> anyhow::Result<Self> {
-        let redis_uri = args.redis_uri.clone();
+    pub async fn new(args: CoordinatorEdgeArgs) -> anyhow::Result<Self> {
+        info!("🚀 Initializing coordinator edge handler...");
+
+        // Create QED store reader from backend configuration
+        info!("🗄️ Initializing storage backend...");
+        let qed_store = QEDStore::from_backend(args.backend.to_backend()).await?;
+        let store_reader = Arc::new(qed_store);
+
+        let redis_pool = new_redis_async_pool(&args.redis_uri, 8).await?;
+        init_node_redis_pool(redis_pool.clone())?;
+
+        let sync_queue = DrainQueueRedisAsync::new(&args.redis_uri).await?;
+
+        let qe_args = &args.queue_args;
+
+        let proof_store = Arc::new(ProofStoreRedisAsync::new2(
+            redis_pool.clone(),
+            &qe_args.worker_queue_suffix,
+            &qe_args.notifications_queue_suffix,
+            &qe_args.proof_store_key_suffix,
+            &qe_args.proof_store_key_suffix,
+        ).await?);
+
+        // init verifier
+        let verifier = Arc::new(get_cached_generic_verifier::<_, 2>());
+
+        let edge_config = crate::coordinator::state::processor::CoordinatorConfig::get_standard(0);
+
+        // init context
+        let ctx = CoordinatorEdgeContext::new(
+            edge_config,
+            store_reader.clone(),
+            Arc::clone(&proof_store),
+            Arc::clone(&proof_store),
+            verifier,
+        )
+        .await?;
+
         Ok(Self {
-            notify_queue: RedisQueue::new(redis_uri.as_str())?,
+            notify_queue: RedisQueue::new(args.redis_uri.as_str())?,
             cp_listener: Arc::new(Mutex::new(None)),
+            ctx,
+            sync_queue,
+            store: store_reader,
+            latest_checkpoint_id: Arc::new(AtomicU64::new(0)),
         })
     }
     ///receive StartSync notification from CP
@@ -80,13 +132,17 @@ impl CoordinatorEdgeHandler {
         if self.cp_listener.lock().await.is_some() {
             return Ok(());
         }
+        
+        let sync_queue = self.sync_queue.clone();
+        let latest_checkpoint_id = Arc::clone(&self.latest_checkpoint_id);
+        
         let handle = tokio::spawn(async move {
             let mut last_logged_checkpoint = None;
 
             loop {
-                let fallback = match get_latest_status_from_coord_sync_queue().await {
+                let fallback = match get_latest_status_from_coord_sync_queue_with(&sync_queue).await {
                     Ok(Some(status)) => {
-                        let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+                        let latest = latest_checkpoint_id.load(Ordering::Relaxed);
 
                         if Some(status.confirmed_checkpoint_id) != last_logged_checkpoint {
                             debug!("🔔 Detected new checkpoint sync status: {:?}", status);
@@ -98,7 +154,7 @@ impl CoordinatorEdgeHandler {
                                 "🔄 Updating local checkpoint from {} → {}",
                                 latest, status.confirmed_checkpoint_id
                             );
-                            LATEST_CHECKPOINT_ID
+                            latest_checkpoint_id
                                 .store(status.confirmed_checkpoint_id, Ordering::Relaxed);
                             info!(
                                 "⭐ Coordinator Edge now updated to {}",
@@ -153,17 +209,8 @@ impl CoordinatorEdgeHandler {
         }
         info!("🆕 User not found in Redis. Starting new registration.");
 
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| {
-            let queue = ctx.checkpoint_queue.clone();
-            let zk_user = zk_user_info.clone();
-
-            async move {
-                queue.cdq_push_imm(zk_user).await?;
-                info!("✅ User pushed to checkpoint queue.");
-                Ok(())
-            }
-        })
-        .await?;
+        self.ctx.checkpoint_queue.cdq_push_imm(zk_user_info).await?;
+        info!("✅ User pushed to checkpoint queue.");
         Ok(())
     }
 
@@ -183,43 +230,29 @@ impl CoordinatorEdgeHandler {
         &self,
         contract: QBCDeployContract<QEDFelt>,
     ) -> anyhow::Result<()> {
-        let next_checkpoint_id = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 1;
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| {
-            let queue = ctx.checkpoint_queue.clone();
-            let config = ctx.coordinator_config.clone();
-            let contract = contract.clone();
+        let next_checkpoint_id = self.latest_checkpoint_id.load(Ordering::Relaxed) + 1;
+        
+        let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
 
-            async move {
-                let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
+        let cd_for_queue = WithDrainQueueMetadata::new_params(
+            self.ctx.coordinator_config.deploy_contract_channel_id,
+            next_checkpoint_id,
+            rand::thread_rng().next_u64(),
+            with_root,
+        );
 
-                let cd_for_queue = WithDrainQueueMetadata::new_params(
-                    config.deploy_contract_channel_id,
-                    next_checkpoint_id,
-                    rand::thread_rng().next_u64(),
-                    with_root,
-                );
-
-                queue.cdq_push_imm(cd_for_queue).await?;
-                Ok(())
-            }
-        })
-        .await
+        self.ctx.checkpoint_queue.cdq_push_imm(cd_for_queue).await?;
+        Ok(())
     }
     pub async fn submit_guta(
         &self,
         input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
         proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
     ) -> anyhow::Result<()> {
-        let (checkpoint_queue, proof_store, config, verifier) =
-            with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| {
-                let checkpoint_queue = ctx.checkpoint_queue.clone();
-                let proof_store = ctx.proof_store.clone();
-                let config = ctx.coordinator_config.clone();
-                let verifier = ctx.proof_verifier.clone();
-
-                std::future::ready(Ok((checkpoint_queue, proof_store, config, verifier)))
-            })
-            .await?;
+        let checkpoint_queue = self.ctx.checkpoint_queue.clone();
+        let proof_store = self.ctx.proof_store.clone();
+        let config = self.ctx.coordinator_config.clone();
+        let verifier = self.ctx.proof_verifier.clone();
         // verify top line proof
         if !input.top_line_proof.verify::<QEDHasher>() {
             anyhow::bail!("invalid top line proof from realm");
@@ -243,31 +276,28 @@ impl CoordinatorEdgeHandler {
         );
 
         // verify state consistency
-        let old_root = with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            match ctx
-                .store_reader
-                .get_user_latest_top_tree_cap_root(config.realm_root_level, input.realm_id)
-                .await
-            {
-                Ok(root) => Ok(root),
-                Err(e) => {
-                    error!("❌ Failed to get old root: {:?}", e);
+        let old_root = match self
+            .store
+            .get_user_latest_top_tree_cap_root(config.realm_root_level, input.realm_id)
+            .await
+        {
+            Ok(root) => root,
+            Err(e) => {
+                error!("❌ Failed to get old root: {:?}", e);
 
-                    // if let Some(mdbx_err) = e.downcast_ref::<error::Error>() {
-                    //     error!("❌ MDBX explain: {}", mdbx_err.explain());
-                    // }
+                // if let Some(mdbx_err) = e.downcast_ref::<error::Error>() {
+                //     error!("❌ MDBX explain: {}", mdbx_err.explain());
+                // }
 
-                    let mut source = e.source();
-                    while let Some(err) = source {
-                        error!("⛓ Caused by: {}", err);
-                        source = err.source();
-                    }
-
-                    Err(anyhow::anyhow!("Failed to get old root"))
+                let mut source = e.source();
+                while let Some(err) = source {
+                    error!("⛓ Caused by: {}", err);
+                    source = err.source();
                 }
+
+                return Err(anyhow::anyhow!("Failed to get old root"));
             }
-        })
-        .await?;
+        };
 
         info!(
             "old root from db: {:?}, hex = {:?}",
@@ -298,7 +328,7 @@ impl CoordinatorEdgeHandler {
     }
 
     pub async fn build_block(&self) -> anyhow::Result<()> {
-        let next_checkpoint = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed) + 1;
+        let next_checkpoint = self.latest_checkpoint_id.load(Ordering::Relaxed) + 1;
         self.notify_queue.clone().dispatch(
             CE_NOTIFICATIONS,
             CEQueueNotification::StartProduceBlock { next_checkpoint },
@@ -311,7 +341,7 @@ impl CoordinatorEdgeHandler {
         &self,
         request_checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo<F>> {
-        let latest = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
+        let latest = self.latest_checkpoint_id.load(Ordering::Relaxed);
 
         if request_checkpoint_id > latest {
             bail!(
@@ -321,19 +351,14 @@ impl CoordinatorEdgeHandler {
             );
         }
 
-        let compact = with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(
-                &*ctx.store_reader,
-                request_checkpoint_id,
-            )
-            .await
-        })
-        .await?;
+        let compact = self.store.get_checkpoint_sync_info_compact(request_checkpoint_id).await?;
+        
+        // Convert compact to full sync info with all required fields
         let sync_info = CheckpointSyncInfo {
             latest_checkpoint_id: latest,
             description: None,
             source_coordinator_edge_id: None,
-            sync_timestamp: Utc::now().timestamp() as u64,
+            sync_timestamp: chrono::Utc::now().timestamp() as u64,
             compact,
         };
         Ok(sync_info)
@@ -343,24 +368,18 @@ impl CoordinatorEdgeHandler {
         &self,
         contract_id: u64,
     ) -> anyhow::Result<QEDContractLeaf<QEDFelt>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_leaf_data(&*ctx.store_reader, contract_id)
-                .await
-        })
-        .await
+        QEDCoordinatorStoreReaderAsync::get_contract_leaf_data(&*self.store, contract_id)
+            .await
     }
     // async fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<QEDContractLeaf<F>>;
     pub async fn get_contract_leaf_data_f(
         &self,
         contract_id: F,
     ) -> anyhow::Result<QEDContractLeaf<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_leaf_data_f(
-                &*ctx.store_reader,
-                contract_id,
-            )
-            .await
-        })
+        QEDCoordinatorStoreReaderAsync::get_contract_leaf_data_f(
+            &*self.store,
+            contract_id,
+        )
         .await
     }
     // async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>>;
@@ -368,13 +387,9 @@ impl CoordinatorEdgeHandler {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<QEDCheckpointLeaf<QEDFelt>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>>;
@@ -382,13 +397,9 @@ impl CoordinatorEdgeHandler {
         &self,
         checkpoint_id: F,
     ) -> anyhow::Result<QEDCheckpointLeaf<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data_f(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<ContractCodeDefinition>;
@@ -396,13 +407,9 @@ impl CoordinatorEdgeHandler {
         &self,
         contract_id: u64,
     ) -> anyhow::Result<ContractCodeDefinition> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_code_definition(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_code_definition(&*self.store,
                 contract_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_code_definition_f(&self, contract_id: F) -> anyhow::Result<ContractCodeDefinition>;
@@ -410,36 +417,23 @@ impl CoordinatorEdgeHandler {
         &self,
         contract_id: F,
     ) -> anyhow::Result<ContractCodeDefinition> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_code_definition_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_code_definition_f(&*self.store,
                 contract_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState>;
     pub async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*ctx.store_reader).await
-        })
-        .await
+        QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await
     }
     // async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState>;
     pub async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_l2_block_state(&*ctx.store_reader, checkpoint_id)
-                .await
-        })
+        QEDCoordinatorStoreReaderAsync::get_l2_block_state(&*self.store, checkpoint_id)
         .await
     }
     // async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState>;
     pub async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_l2_block_state_f(&*ctx.store_reader, checkpoint_id)
-                .await
-        })
+        QEDCoordinatorStoreReaderAsync::get_l2_block_state_f(&*self.store, checkpoint_id)
         .await
     }
     // async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
@@ -447,13 +441,9 @@ impl CoordinatorEdgeHandler {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_registration_tree_root(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_user_registration_tree_root(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
@@ -461,13 +451,9 @@ impl CoordinatorEdgeHandler {
         &self,
         checkpoint_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_registration_tree_root_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_user_registration_tree_root_f(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_user_registration_tree_leaf_hash(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<QHashOut<F>>;
@@ -476,14 +462,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         leaf_index: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_registration_tree_leaf_hash(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_user_registration_tree_leaf_hash(&*self.store,
                 checkpoint_id,
                 leaf_index,
             )
-            .await
-        })
         .await
     }
     // async fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<QHashOut<F>>;
@@ -492,14 +474,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         leaf_index: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_registration_tree_leaf_hash_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_user_registration_tree_leaf_hash_f(&*self.store,
                 checkpoint_id,
                 leaf_index,
             )
-            .await
-        })
         .await
     }
     // async fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -508,14 +486,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         leaf_index: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_registration_tree_merkle_proof(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_user_registration_tree_merkle_proof(&*self.store,
                 checkpoint_id,
                 leaf_index,
             )
-            .await
-        })
         .await
     }
     // async fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -524,30 +498,20 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         leaf_index: F,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_registration_tree_merkle_proof_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_user_registration_tree_merkle_proof_f(&*self.store,
                 checkpoint_id,
                 leaf_index,
             )
-            .await
-        })
         .await
     }
     // async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     pub async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_tree_root(&*ctx.store_reader, checkpoint_id)
-                .await
-        })
+        QEDCoordinatorStoreReaderAsync::get_user_tree_root(&*self.store, checkpoint_id)
         .await
     }
     // async fn get_user_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
     pub async fn get_user_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_tree_root_f(&*ctx.store_reader, checkpoint_id)
-                .await
-        })
+        QEDCoordinatorStoreReaderAsync::get_user_tree_root_f(&*self.store, checkpoint_id)
         .await
     }
     // async fn get_user_sub_tree_merkle_proof(&self, checkpoint_id: u64, root_level: u8, leaf_level: u8, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -558,16 +522,12 @@ impl CoordinatorEdgeHandler {
         leaf_level: u8,
         leaf_index: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_sub_tree_merkle_proof(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_user_sub_tree_merkle_proof(&*self.store,
                 checkpoint_id,
                 root_level,
                 leaf_level,
                 leaf_index,
             )
-            .await
-        })
         .await
     }
     // async fn get_user_top_tree_merkle_proof(&self, checkpoint_id: u64, leaf_level: u8, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -577,15 +537,11 @@ impl CoordinatorEdgeHandler {
         leaf_level: u8,
         leaf_index: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_top_tree_merkle_proof(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_user_top_tree_merkle_proof(&*self.store,
                 checkpoint_id,
                 leaf_level,
                 leaf_index,
             )
-            .await
-        })
         .await
     }
     // async fn get_user_top_tree_cap_root(&self, checkpoint_id: u64, cap_level: u8, cap_index: u64) -> anyhow::Result<QHashOut<F>>;
@@ -595,15 +551,11 @@ impl CoordinatorEdgeHandler {
         cap_level: u8,
         cap_index: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_top_tree_cap_root(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_user_top_tree_cap_root(&*self.store,
                 checkpoint_id,
                 cap_level,
                 cap_index,
             )
-            .await
-        })
         .await
     }
     // async fn get_user_latest_top_tree_cap_root(&self, cap_level: u8, cap_index: u64) -> anyhow::Result<QHashOut<F>>;
@@ -612,14 +564,10 @@ impl CoordinatorEdgeHandler {
         cap_level: u8,
         cap_index: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_user_latest_top_tree_cap_root(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_user_latest_top_tree_cap_root(&*self.store,
                 cap_level,
                 cap_index,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_function_tree_root(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<QHashOut<F>>;
@@ -628,14 +576,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         contract_id: u32,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_function_tree_root(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_function_tree_root(&*self.store,
                 checkpoint_id,
                 contract_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_function_tree_root_f(&self, checkpoint_id: F, contract_id: F) -> anyhow::Result<QHashOut<F>>;
@@ -644,14 +588,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         contract_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_function_tree_root_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_function_tree_root_f(&*self.store,
                 checkpoint_id,
                 contract_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_function_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> anyhow::Result<QHashOut<F>>;
@@ -661,15 +601,11 @@ impl CoordinatorEdgeHandler {
         contract_id: u32,
         function_id: u32,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_function_tree_leaf_hash(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_function_tree_leaf_hash(&*self.store,
                 checkpoint_id,
                 contract_id,
                 function_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_function_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> anyhow::Result<QHashOut<F>>;
@@ -679,15 +615,11 @@ impl CoordinatorEdgeHandler {
         contract_id: F,
         function_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_function_tree_leaf_hash_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_function_tree_leaf_hash_f(&*self.store,
                 checkpoint_id,
                 contract_id,
                 function_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_function_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -697,15 +629,11 @@ impl CoordinatorEdgeHandler {
         contract_id: u32,
         function_id: u32,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_function_tree_merkle_proof(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_function_tree_merkle_proof(&*self.store,
                 checkpoint_id,
                 contract_id,
                 function_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_function_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -715,37 +643,25 @@ impl CoordinatorEdgeHandler {
         contract_id: F,
         function_id: F,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_function_tree_merkle_proof_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_function_tree_merkle_proof_f(&*self.store,
                 checkpoint_id,
                 contract_id,
                 function_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     pub async fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_tree_root(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_tree_root(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
     pub async fn get_contract_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_tree_root_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_tree_root_f(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<QHashOut<F>>;
@@ -754,14 +670,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         contract_id: u32,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_tree_leaf_hash(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_tree_leaf_hash(&*self.store,
                 checkpoint_id,
                 contract_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F) -> anyhow::Result<QHashOut<F>>;
@@ -770,14 +682,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         contract_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_tree_leaf_hash_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_tree_leaf_hash_f(&*self.store,
                 checkpoint_id,
                 contract_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -786,14 +694,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         contract_id: u32,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_tree_merkle_proof(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_tree_merkle_proof(&*self.store,
                 checkpoint_id,
                 contract_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_contract_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -802,33 +706,22 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         contract_id: F,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_contract_tree_merkle_proof_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_contract_tree_merkle_proof_f(&*self.store,
                 checkpoint_id,
                 contract_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     pub async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_deposit_tree_root(&*ctx.store_reader, checkpoint_id)
-                .await
-        })
+        QEDCoordinatorStoreReaderAsync::get_deposit_tree_root(&*self.store, checkpoint_id)
         .await
     }
     // async fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
     pub async fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_deposit_tree_root_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_deposit_tree_root_f(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_deposit_tree_leaf_hash(&self, checkpoint_id: u64, deposit_id: u32) -> anyhow::Result<QHashOut<F>>;
@@ -837,14 +730,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         deposit_id: u32,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_deposit_tree_leaf_hash(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_deposit_tree_leaf_hash(&*self.store,
                 checkpoint_id,
                 deposit_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_deposit_tree_leaf_hash_f(&self, checkpoint_id: F, deposit_id: F) -> anyhow::Result<QHashOut<F>>;
@@ -853,14 +742,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         deposit_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_deposit_tree_leaf_hash_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_deposit_tree_leaf_hash_f(&*self.store,
                 checkpoint_id,
                 deposit_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_deposit_tree_merkle_proof(&self, checkpoint_id: u64, deposit_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -869,14 +754,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         deposit_id: u32,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_deposit_tree_merkle_proof(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_deposit_tree_merkle_proof(&*self.store,
                 checkpoint_id,
                 deposit_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_deposit_tree_merkle_proof_f(&self, checkpoint_id: F, deposit_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -885,14 +766,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         deposit_id: F,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_deposit_tree_merkle_proof_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_deposit_tree_merkle_proof_f(&*self.store,
                 checkpoint_id,
                 deposit_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
@@ -900,13 +777,9 @@ impl CoordinatorEdgeHandler {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_root(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_root(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_withdrawal_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
@@ -914,13 +787,9 @@ impl CoordinatorEdgeHandler {
         &self,
         checkpoint_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_root_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_root_f(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u32) -> anyhow::Result<QHashOut<F>>;
@@ -929,14 +798,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         withdrawal_id: u32,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_leaf_hash(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_leaf_hash(&*self.store,
                 checkpoint_id,
                 withdrawal_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_withdrawal_tree_leaf_hash_f(&self, checkpoint_id: F, withdrawal_id: F) -> anyhow::Result<QHashOut<F>>;
@@ -945,14 +810,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         withdrawal_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_leaf_hash_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_leaf_hash_f(&*self.store,
                 checkpoint_id,
                 withdrawal_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_withdrawal_tree_merkle_proof(&self, checkpoint_id: u64, withdrawal_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -961,14 +822,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         withdrawal_id: u32,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_merkle_proof(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_merkle_proof(&*self.store,
                 checkpoint_id,
                 withdrawal_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_withdrawal_tree_merkle_proof_f(&self, checkpoint_id: F, withdrawal_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -977,36 +834,25 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         withdrawal_id: F,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_merkle_proof_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_withdrawal_tree_merkle_proof_f(&*self.store,
                 checkpoint_id,
                 withdrawal_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<QHashOut<F>>;
     pub async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_latest_checkpoint_tree_root(&*ctx.store_reader)
-                .await
-        })
-        .await
+        QEDCoordinatorStoreReaderAsync::get_latest_checkpoint_tree_root(&*self.store)
+            .await
     }
     // async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     pub async fn get_checkpoint_tree_root(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_root(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_root(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
@@ -1014,13 +860,9 @@ impl CoordinatorEdgeHandler {
         &self,
         checkpoint_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_root_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_root_f(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_checkpoint_tree_leaf_hash(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
@@ -1029,14 +871,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         leaf_checkpoint_id: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_leaf_hash(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_leaf_hash(&*self.store,
                 checkpoint_id,
                 leaf_checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> anyhow::Result<QHashOut<F>>;
@@ -1045,14 +883,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         leaf_checkpoint_id: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_leaf_hash_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_leaf_hash_f(&*self.store,
                 checkpoint_id,
                 leaf_checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -1061,14 +895,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         leaf_checkpoint_id: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_merkle_proof(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_merkle_proof(&*self.store,
                 checkpoint_id,
                 leaf_checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
@@ -1077,14 +907,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         leaf_checkpoint_id: F,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_merkle_proof_f(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_merkle_proof_f(&*self.store,
                 checkpoint_id,
                 leaf_checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>>;
@@ -1092,13 +918,9 @@ impl CoordinatorEdgeHandler {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<QEDCheckpointGlobalStateRoots<QEDFelt>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_global_state_roots(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_global_state_roots(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
     // async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>>;
@@ -1106,13 +928,9 @@ impl CoordinatorEdgeHandler {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<QEDCheckpointSyncInfoCompact<QEDFelt>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(
-                &*ctx.store_reader,
+        QEDCoordinatorStoreReaderAsync::get_checkpoint_sync_info_compact(&*self.store,
                 checkpoint_id,
             )
-            .await
-        })
         .await
     }
 
@@ -1121,21 +939,15 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         user_id: u64,
     ) -> anyhow::Result<QEDUserLeaf<QEDFelt>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            ctx.store_reader.get_user_leaf_data(checkpoint_id, user_id)
-        })
-        .await
+        self.store.get_user_leaf_data(checkpoint_id, user_id)
     }
     pub async fn get_user_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
         user_id: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<QEDFelt>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            ctx.store_reader
-                .get_user_tree_merkle_proof(checkpoint_id, user_id)
-        })
-        .await
+        self.store
+            .get_user_tree_merkle_proof(checkpoint_id, user_id)
     }
 
     pub async fn get_user_tree_merkle_proof_f(
@@ -1143,12 +955,20 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: F,
         user_id: F,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<QEDFelt>>> {
-        with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-            ctx.store_reader
-                .get_user_tree_merkle_proof_f(checkpoint_id, user_id)
-        })
-        .await
+        self.store
+            .get_user_tree_merkle_proof_f(checkpoint_id, user_id)
     }
+}
+
+pub async fn get_latest_status_from_coord_sync_queue_with(
+    sync_queue: &DrainQueueRedisAsync,
+) -> anyhow::Result<Option<GlobalCoordinatorStatus>> {
+    // note: we use the fixed checkpoint_id 0 to get the latest status
+    let checkpoint_id = 0;
+    let entries = sync_queue
+        .get_imm::<GlobalCoordinatorStatus>(COORD_STATUS_CHANNEL_ID, checkpoint_id)
+        .await?;
+    Ok(entries.into_iter().next())
 }
 
 pub async fn get_latest_status_from_coord_sync_queue(
@@ -1157,22 +977,16 @@ pub async fn get_latest_status_from_coord_sync_queue(
         .get()
         .ok_or_else(|| anyhow::anyhow!("GLOBAL_COORD_EDGE_STATE is not initialized"))?;
 
-    // note: we use the fixed checkpoint_id 0 to get the latest status
-    let checkpoint_id = 0;
-    let entries = state
-        .sync_queue
-        .get_imm::<GlobalCoordinatorStatus>(COORD_STATUS_CHANNEL_ID, checkpoint_id)
-        .await?;
-    Ok(entries.into_iter().next())
+    get_latest_status_from_coord_sync_queue_with(&state.sync_queue).await
 }
 
 pub async fn get_latest_checkpoint_from_db<C, const D: usize>() -> anyhow::Result<u64> {
-    with_temp_ctx_read_async::<_, _, _, C, D>(|ctx| async move {
-        let state =
-            QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*ctx.store_reader).await?;
-        Ok(state.checkpoint_id)
-    })
-    .await
+    let state = GLOBAL_COORD_EDGE_STATE
+        .get()
+        .ok_or_else(|| anyhow::anyhow!("GLOBAL_COORD_EDGE_STATE is not initialized"))?;
+    
+    let block_state = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*state.store).await?;
+    Ok(block_state.checkpoint_id)
 }
 
 pub async fn recover_latest_checkpoint_from_db_if_needed() -> anyhow::Result<()> {
@@ -1184,6 +998,10 @@ pub async fn recover_latest_checkpoint_from_db_if_needed() -> anyhow::Result<()>
         }
     };
 
+    let state = GLOBAL_COORD_EDGE_STATE
+        .get()
+        .ok_or_else(|| anyhow::anyhow!("GLOBAL_COORD_EDGE_STATE is not initialized"))?;
+        
     let current_cached = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
 
     if latest_checkpoint > current_cached {
@@ -1200,4 +1018,414 @@ pub async fn recover_latest_checkpoint_from_db_if_needed() -> anyhow::Result<()>
     }
 
     Ok(())
+}
+
+use async_trait::async_trait;
+use jsonrpsee::core::RpcResult;
+use super::rpc::CoordinatorEdgeRpcServer;
+use super::error::RpcError;
+use super::types::LatestCheckpointResponse;
+use qed_prover::api::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+
+#[async_trait]
+impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
+    async fn register_user(&self, public_key: ZKPublicKeyInfo<F>) -> RpcResult<String> {
+        self.register_user(public_key)
+            .await
+            .map(|_| "ok".to_string())
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_id(&self, public_key: QHashOut<F>) -> RpcResult<u64> {
+        self.get_user_id(public_key)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn deploy_contract(&self, deploy_contract: QBCDeployContract<F>) -> RpcResult<String> {
+        self.deploy_contract(deploy_contract)
+            .await
+            .map(|_| "ok".to_string())
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn build_block(&self) -> RpcResult<String> {
+        self.build_block()
+            .await
+            .map(|_| "ok".to_string())
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn submit_guta(
+        &self,
+        input: SubmitGUTARealmResultAPINoProofInput<F>,
+        proof: ProofWithPublicInputs<F, C, D>,
+    ) -> RpcResult<String> {
+        self.submit_guta(input, proof)
+            .await
+            .map(|_| "ok".to_string())
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_latest_checkpoint(&self) -> RpcResult<LatestCheckpointResponse> {
+        Ok(LatestCheckpointResponse {
+            checkpoint_id: self.latest_checkpoint_id.load(Ordering::Relaxed),
+        })
+    }
+    
+    async fn latest_checkpoint(&self) -> RpcResult<u64> {
+        Ok(self.latest_checkpoint_id.load(Ordering::Relaxed))
+    }
+    
+    async fn get_latest_checkpoint_id(&self) -> RpcResult<u64> {
+        Ok(self.latest_checkpoint_id.load(Ordering::Relaxed))
+    }
+    
+    async fn get_checkpoint_sync_info(&self, checkpoint_id: u64) -> RpcResult<CheckpointSyncInfo<F>> {
+        self.get_checkpoint_sync_info(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> RpcResult<QCheckpointSyncInfoCompact> {
+        self.get_checkpoint_sync_info_compact(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_leaf_data(&self, contract_id: u64) -> RpcResult<QEDContractLeaf<F>> {
+        self.get_contract_leaf_data(contract_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_leaf_data_f(&self, contract_id: F) -> RpcResult<QEDContractLeaf<F>> {
+        self.get_contract_leaf_data_f(contract_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_code_definition(&self, contract_id: u64) -> RpcResult<ContractCodeDefinition> {
+        self.get_contract_code_definition(contract_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_code_definition_f(&self, contract_id: F) -> RpcResult<ContractCodeDefinition> {
+        self.get_contract_code_definition_f(contract_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> RpcResult<QEDCheckpointLeaf<F>> {
+        self.get_checkpoint_leaf_data(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> RpcResult<QEDCheckpointLeaf<F>> {
+        self.get_checkpoint_leaf_data_f(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> RpcResult<QEDCheckpointGlobalStateRoots<F>> {
+        self.get_checkpoint_global_state_roots(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_latest_l2_block_state(&self) -> RpcResult<QEDL2BlockState> {
+        self.get_latest_l2_block_state()
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<QEDL2BlockState> {
+        self.get_l2_block_state(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<QEDL2BlockState> {
+        self.get_l2_block_state_f(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
+        self.get_user_registration_tree_root(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_user_registration_tree_root_f(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_registration_tree_leaf_hash(&self, checkpoint_id: u64, leaf_index: u64) -> RpcResult<QHashOut<F>> {
+        self.get_user_registration_tree_leaf_hash(checkpoint_id, leaf_index)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> RpcResult<QHashOut<F>> {
+        self.get_user_registration_tree_leaf_hash_f(checkpoint_id, leaf_index)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_user_registration_tree_merkle_proof(checkpoint_id, leaf_index)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_user_registration_tree_merkle_proof_f(checkpoint_id, leaf_index)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
+        self.get_user_tree_root(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_user_tree_root_f(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_sub_tree_merkle_proof(&self, checkpoint_id: u64, root_level: u8, leaf_level: u8, leaf_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_user_sub_tree_merkle_proof(checkpoint_id, root_level, leaf_level, leaf_index)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_top_tree_merkle_proof(&self, checkpoint_id: u64, leaf_level: u8, leaf_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_user_top_tree_merkle_proof(checkpoint_id, leaf_level, leaf_index)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_top_tree_cap_root(&self, checkpoint_id: u64, cap_level: u8, cap_index: u64) -> RpcResult<QHashOut<F>> {
+        self.get_user_top_tree_cap_root(checkpoint_id, cap_level, cap_index)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_latest_top_tree_cap_root(&self, cap_level: u8, cap_index: u64) -> RpcResult<QHashOut<F>> {
+        self.get_user_latest_top_tree_cap_root(cap_level, cap_index)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QEDUserLeaf<F>> {
+        self.get_user_leaf_data(checkpoint_id, user_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_user_tree_merkle_proof(checkpoint_id, user_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_user_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_user_tree_merkle_proof_f(checkpoint_id, user_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_function_tree_root(&self, checkpoint_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>> {
+        self.get_contract_function_tree_root(checkpoint_id, contract_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_function_tree_root_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_contract_function_tree_root_f(checkpoint_id, contract_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_function_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> RpcResult<QHashOut<F>> {
+        self.get_contract_function_tree_leaf_hash(checkpoint_id, contract_id, function_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_function_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_contract_function_tree_leaf_hash_f(checkpoint_id, contract_id, function_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_function_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_contract_function_tree_merkle_proof(checkpoint_id, contract_id, function_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_function_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_contract_function_tree_merkle_proof_f(checkpoint_id, contract_id, function_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
+        self.get_contract_tree_root(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_contract_tree_root_f(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>> {
+        self.get_contract_tree_leaf_hash(checkpoint_id, contract_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_contract_tree_leaf_hash_f(checkpoint_id, contract_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_contract_tree_merkle_proof(checkpoint_id, contract_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_contract_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_contract_tree_merkle_proof_f(checkpoint_id, contract_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
+        self.get_deposit_tree_root(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_deposit_tree_root_f(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_deposit_tree_leaf_hash(&self, checkpoint_id: u64, deposit_id: u32) -> RpcResult<QHashOut<F>> {
+        self.get_deposit_tree_leaf_hash(checkpoint_id, deposit_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_deposit_tree_leaf_hash_f(&self, checkpoint_id: F, deposit_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_deposit_tree_leaf_hash_f(checkpoint_id, deposit_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_deposit_tree_merkle_proof(&self, checkpoint_id: u64, deposit_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_deposit_tree_merkle_proof(checkpoint_id, deposit_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_deposit_tree_merkle_proof_f(&self, checkpoint_id: F, deposit_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_deposit_tree_merkle_proof_f(checkpoint_id, deposit_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
+        self.get_withdrawal_tree_root(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_withdrawal_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_withdrawal_tree_root_f(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u32) -> RpcResult<QHashOut<F>> {
+        self.get_withdrawal_tree_leaf_hash(checkpoint_id, withdrawal_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_withdrawal_tree_leaf_hash_f(&self, checkpoint_id: F, withdrawal_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_withdrawal_tree_leaf_hash_f(checkpoint_id, withdrawal_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_withdrawal_tree_merkle_proof(&self, checkpoint_id: u64, withdrawal_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_withdrawal_tree_merkle_proof(checkpoint_id, withdrawal_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_withdrawal_tree_merkle_proof_f(&self, checkpoint_id: F, withdrawal_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_withdrawal_tree_merkle_proof_f(checkpoint_id, withdrawal_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_latest_checkpoint_tree_root(&self) -> RpcResult<QHashOut<F>> {
+        self.get_latest_checkpoint_tree_root()
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
+        self.get_checkpoint_tree_root(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_checkpoint_tree_root_f(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_checkpoint_tree_leaf_hash(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
+        self.get_checkpoint_tree_leaf_hash(checkpoint_id, leaf_checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_checkpoint_tree_leaf_hash_f(checkpoint_id, leaf_checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_checkpoint_tree_merkle_proof(checkpoint_id, leaf_checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+    
+    async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_checkpoint_tree_merkle_proof_f(checkpoint_id, leaf_checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
 }

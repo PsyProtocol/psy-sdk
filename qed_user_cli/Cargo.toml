@@ -20,10 +20,10 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 qed_core = { workspace = true }
 qedlang_core = { workspace = true }
-qed_prover = { workspace = true, default-features = false}
+qed_prover = { workspace = true}
 qed_data = { workspace = true }
 qed_rollup_utils = { workspace = true }
-qed_store = { workspace = true, default-features = false }
+qed_store = { workspace = true }
 kvq = { workspace = true }
 hashbrown = { workspace = true }
 async-trait = { workspace = true }

@@ -13,7 +13,7 @@ pub struct SubmitGUTAParams {
     pub proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LatestCheckpointResponse {
-    pub(crate) checkpoint_id: u64,
+    pub checkpoint_id: u64,
 }

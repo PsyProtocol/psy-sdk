@@ -113,11 +113,11 @@ where
     }
 
     async fn fetch_coordinator_latest_checkpoint(&mut self) -> bool {
-        match self.client.request::<Option<LatestCheckpointResponse>, _>(
+        match self.client.request::<LatestCheckpointResponse, _>(
             "qed_get_latest_checkpoint",
             rpc_params![]
         ).await {
-            Ok(Some(latest_checkpoint)) => {
+            Ok(latest_checkpoint) => {
                 self.latest_checkpoint_id = latest_checkpoint.checkpoint_id;
                 if self.is_up_to_date() {
                     info!(
@@ -128,13 +128,6 @@ where
                     return false;
                 }
                 true
-            }
-            Ok(None) => {
-                info!(
-                    "Local checkpoint {} is up-to-date with coordinator at checkpoint",
-                    self.current_local_checkpoint_id
-                );
-                false
             }
             Err(e) => {
                 error!("RPC call to coordinator ('qed_get_latest_checkpoint') failed: {:?}", e);
@@ -246,3 +239,4 @@ pub async fn spawn_active_checkpoint_sync_task<
 pub struct LatestCheckpointResponse {
     pub checkpoint_id: u64,
 }
+

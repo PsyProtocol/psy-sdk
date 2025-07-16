@@ -1,6 +1,5 @@
 use std::{fmt, str::FromStr, task::Context};
 
-use crate::coordinator::edge::rpc::router::JwtAuthMetadata;
 use http::{header::AUTHORIZATION, Request, Response};
 use jsonrpsee::server::HttpBody;
 use rand::prelude::*;
@@ -29,6 +28,11 @@ pub enum Error {
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub const JWT_SECRET_LENGTH: usize = 32;
+
+#[derive(Debug, Clone)]
+pub struct JwtAuthMetadata {
+    pub token: String,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JwtSecret([u8; JWT_SECRET_LENGTH]);
