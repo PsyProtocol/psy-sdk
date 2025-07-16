@@ -1,7 +1,7 @@
-use qed_coordinator_node::CoordinatorWorkerArgs;
+use qed_node::coordinator::CoordinatorWorkerArgs;
 use tracing::info;
 
-use qed_worker::{CoordinatorWorker, Worker, WorkerState};
+use qed_node::worker::{CoordinatorWorker, Worker, WorkerState};
 
 async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
     let state = WorkerState::new(

@@ -20,13 +20,11 @@ use qed_data::guta::api::{
 };
 use qed_node::{
     coordinator::{
-        demo::CoordinatorDemoEdgeNode,
         state::{
             edge::CoordinatorEdgeContext,
             processor::{CoordinatorConfig, CoordinatorProcessorContext},
         },
     },
-    nimpl::proof_store_fred::ProofStoreFred,
     realm::state::{
         edge::RealmEdgeContext,
         processor::{RealmConfig, RealmProcessorContext},
@@ -49,6 +47,7 @@ use qed_store::{controllers::local::{
         proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
     },
     node::coordinator::QEDCoordinatorStoreReaderAsync,
+    queue::proof_store_fred::ProofStoreFred,
 };
 
 use super::super::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
@@ -61,7 +60,6 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_node::nimpl::new_fred_pool;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -69,7 +67,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let pool = qed_store::queue::new_fred_pool("redis://127.0.0.1:6379", 8).await?;
 
     timer.lap("connected to redis");
 
@@ -99,16 +97,15 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("built coordinator worker circuits");
 
-    let coordinator_edge_node = CoordinatorDemoEdgeNode {
-        ctx: CoordinatorEdgeContext::new(
+    let coordinator_edge_node =
+        CoordinatorEdgeContext::new(
             coord_config,
             Arc::clone(&st),
             qps.clone(),
             qps.clone(),
             Arc::clone(&proof_verifier),
         )
-        .await?,
-    };
+        .await?;
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
@@ -134,16 +131,13 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let (contract_helper, contract_deploy_cmd) =
         gen_test_contract_2::<C, D>(pub_key_1.qfhash::<QEDHasher>())?;
     coordinator_edge_node
-        .ctx
         .handle_deploy_contract(contract_deploy_cmd)
         .await?;
 
     coordinator_edge_node
-        .ctx
         .handle_process_regsiter_user(pub_key_0)
         .await?;
     coordinator_edge_node
-        .ctx
         .handle_process_regsiter_user(pub_key_1)
         .await?;
     timer.lap("sent requests");
@@ -217,7 +211,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id).await?;
 
     coordinator_edge_node
-        .ctx
         .handle_recv_guta_from_realm(
             SubmitGUTARealmResultAPINoProofInput {
                 realm_id: 0,
@@ -420,7 +413,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?;
 
     coordinator_edge_node
-        .ctx
         .handle_recv_guta_from_realm(
             SubmitGUTARealmResultAPINoProofInput {
                 realm_id: 0,

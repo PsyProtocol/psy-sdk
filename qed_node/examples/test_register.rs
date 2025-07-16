@@ -8,15 +8,14 @@ use qed_crypto::{
 };
 use qed_node::{
     coordinator::{
-        demo::CoordinatorDemoEdgeNode,
         state::{
             edge::CoordinatorEdgeContext,
             processor::{CoordinatorConfig, CoordinatorProcessorContext},
         },
     },
-    nimpl::proof_store_fred::ProofStoreFred,
     worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
 };
+use qed_store::queue::proof_store_fred::ProofStoreFred;
 use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
@@ -32,7 +31,7 @@ use plonky2::{
 use qed_core::
     data::qhashout::QHashOut
 ;
-use qed_node::nimpl::new_fred_pool;
+use qed_store::queue::new_fred_pool;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -65,16 +64,15 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
     timer.lap("built coordinator worker circuits");
 
-    let coordinator_edge_node = CoordinatorDemoEdgeNode {
-        ctx: CoordinatorEdgeContext::new(
+    let coordinator_edge_node =
+        CoordinatorEdgeContext::new(
             coord_config,
             Arc::clone(&st),
             qps.clone(),
             qps.clone(),
             Arc::clone(&proof_verifier),
         )
-        .await?,
-    };
+        .await?;
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
@@ -94,7 +92,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     };
 
     coordinator_edge_node
-        .ctx
         .handle_process_regsiter_user(user_a_info)
         .await?;
 
@@ -104,7 +101,6 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     };
 
     coordinator_edge_node
-        .ctx
         .handle_process_regsiter_user(user_b_info)
         .await?;
     timer.lap("sent requests");

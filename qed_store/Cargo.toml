@@ -6,6 +6,8 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde_repr = { workspace = true }
+bincode = { workspace = true }
 anyhow     = { workspace = true }
 hashbrown      = { workspace = true }
 serde      = { workspace = true }
@@ -24,6 +26,14 @@ qed_data = { workspace = true }
 qed_crypto = { workspace = true }
 thiserror = { workspace = true }
 maybe-async = { workspace = true }
+
+# Redis and queue dependencies
+fred = { workspace = true }
+redis = { workspace = true }
+bb8-redis = { workspace = true }
+bb8 = { workspace = true }
+rsmq = { workspace = true }
+url = { workspace = true }
 
 # ScyllaDB support - only for non-WASM targets
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

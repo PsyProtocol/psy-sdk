@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::UpdateNCAProofsWithDependencies}};
-use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}}, qsync::coordinator::QEDCheckpointSyncInfoCompact};
+use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
+use qed_data::{config::store_config::UserPublicKeyTableStore, models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user_public_key::QEDUserPublicKeyRecord}, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 
 pub mod reader_async;
 pub mod writer_imm;
@@ -129,6 +129,8 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField> {
 
     async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>>;
     async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>>;
+    
+    async fn get_first_user_id(&self, public_key: QHashOut<F>) -> anyhow::Result<u64>;
 }
 
 
@@ -190,5 +192,7 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
     async fn set_l2_block_state_imm(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()>;
     async fn set_checkpoint_sync_info_imm(&self, sync_info: QEDCheckpointSyncInfoCompact<F>) -> anyhow::Result<()>;
     async fn initialize_store(&self) -> anyhow::Result<u64>;
+    
+    async fn set_user_public_key_records(&self, records: &[QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()>;
 
 }

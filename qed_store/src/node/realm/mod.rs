@@ -9,6 +9,7 @@ pub mod writer_imm;
 
 #[async_trait]
 pub trait QEDRealmStoreReaderAsync<F: RichField> {
+    async fn get_first_user_id(&self, public_key: QHashOut<F>) -> anyhow::Result<u64>;
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>>;
     async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>> {
         <Self as QEDRealmStoreReaderAsync<F>>::get_checkpoint_leaf_data(self, checkpoint_id.to_canonical_u64()).await

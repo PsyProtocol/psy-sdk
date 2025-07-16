@@ -1,8 +1,8 @@
 use crate::node::realm::QEDRealmStoreReaderAsync;
 use qed_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore},
+    config::store_config::{CheckpointSyncInfoTableStore, UserPublicKeyTableStore, UserTreeStore},
     models::{
-        checkpoint::sync_info::QEDCheckpointSyncInfoModelReaderCore,
+        checkpoint::{sync_info::QEDCheckpointSyncInfoModelReaderCore, user_public_keys::QEDUserPublicKeyHelperModelReaderCore},
         kvq_merkle::model::
         KVQFixedConfigMerkleTreeModelReaderCore
         ,
@@ -27,6 +27,13 @@ type F = GoldilocksField;
 #[cfg(feature = "is_sync")]
 #[async_trait]
 impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
+    async fn get_first_user_id(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
+        Ok(
+        UserPublicKeyTableStore::<Self>::get_first_user_for_public_key_hash_if_exists(self, public_key)?
+            .ok_or(anyhow::anyhow!("User not found".to_string()))?
+            .user_id,
+        )
+    }
     async fn get_checkpoint_leaf_data(
         &self,
         checkpoint_id: u64,

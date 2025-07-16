@@ -24,26 +24,26 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     #[command(about = "Run the coordinator edge node")]
-    CoordinatorEdge(qed_coordinator_node::CoordinatorEdgeArgs),
+    CoordinatorEdge(qed_node::coordinator::CoordinatorEdgeArgs),
     #[command(about = "Run the coordinator processor node")]
-    CoordinatorProcessor(qed_coordinator_node::CoordinatorProcessorArgs),
+    CoordinatorProcessor(qed_node::coordinator::CoordinatorProcessorArgs),
     #[command(about = "Run the coordinator worker node")]
-    CoordinatorWorker(qed_coordinator_node::CoordinatorWorkerArgs),
+    CoordinatorWorker(qed_node::coordinator::CoordinatorWorkerArgs),
     #[command(about = "Run the realm edge node")]
     RealmEdge {
         #[command(flatten)]
-        config: qed_realm_node::RealmEdgeConfig,
+        config: qed_node::realm::RealmEdgeConfig,
     },
     #[command(about = "Run the realm processor node")]
     RealmProcessor {
         #[command(flatten)]
-        config: qed_realm_node::RealmNodeConfig,
+        config: qed_node::realm::RealmNodeConfig,
     },
     #[command(about = "Run the realm worker node")]
     RealmWorker {
         #[command(flatten)]
-        redis_config: qed_realm_node::RedisConfig,
+        redis_config: qed_node::realm::RedisConfig,
         #[command(flatten)]
-        queue_config: qed_realm_node::QueueConfig,
+        queue_config: qed_node::realm::QueueConfig,
     },
 }

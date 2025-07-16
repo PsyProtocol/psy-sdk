@@ -224,4 +224,11 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         }
 
     }
+    
+    async fn set_user_public_key_records(&self, records: &[qed_data::qdata::user_public_key::QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()> {
+        use qed_data::config::store_config::UserPublicKeyTableStore;
+        use qed_data::models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore;
+        
+        UserPublicKeyTableStore::<Self>::set_user_public_key_records(self, records)
+    }
 }

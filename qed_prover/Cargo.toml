@@ -32,8 +32,8 @@ qed_rollup_utils = { workspace = true }
 qedlang_core = { workspace = true }
 qed_data = { workspace = true }
 qed_crypto = { workspace = true }
-qed_exec = { workspace = true, default-features = false }
-qed_store = { workspace = true, default-features = false }
+qed_exec = { workspace = true }
+qed_store = { workspace = true }
 qedlang_macros = { workspace = true }
 maybe-async = { workspace = true }
 wasm-bindgen = { workspace = true }

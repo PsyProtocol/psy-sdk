@@ -41,13 +41,11 @@ use qed_data::guta::api::{
 };
 use qed_node::{
     coordinator::{
-        demo::CoordinatorDemoEdgeNode,
         state::{
             edge::CoordinatorEdgeContext,
             processor::{CoordinatorConfig, CoordinatorProcessorContext},
         },
     },
-    nimpl::proof_store_fred::ProofStoreFred,
     realm::state::{
         edge::RealmEdgeContext,
         processor::{RealmConfig, RealmProcessorContext},
@@ -75,7 +73,8 @@ use qed_store::{
             QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
         },
         realm::QEDRealmStoreReaderAsync,
-    }
+    },
+    queue::proof_store_fred::ProofStoreFred,
 };
 
 use std::time::Duration;
@@ -309,16 +308,15 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("built coordinator worker circuits");
 
-    let coordinator_edge_node = CoordinatorDemoEdgeNode {
-        ctx: CoordinatorEdgeContext::new(
+    let coordinator_edge_node =
+        CoordinatorEdgeContext::new(
             coord_config,
             Arc::clone(&st),
             qps.clone(),
             qps.clone(),
             Arc::clone(&proof_verifier),
         )
-        .await?,
-    };
+        .await?;
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
@@ -389,7 +387,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let mut tg = TestGrouping {
         coord_circuits: coordinator_worker_circuits,
-        coord_edge: coordinator_edge_node.ctx,
+        coord_edge: coordinator_edge_node,
         coord_proc: coordinator_processor_node,
         realm_edge: realm_edge_node,
         realm_proc: realm_processor_node,
