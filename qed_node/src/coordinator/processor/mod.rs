@@ -20,7 +20,7 @@ use crate::coordinator::state::processor::CoordinatorProcessorContext;
 use qed_store::queue::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS};
 use crate::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::store::{QEDStore};
+use qed_store::store::QEDStore;
 use qed_data::{
     config::store_config::QEDFelt,
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,

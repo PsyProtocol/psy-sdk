@@ -2,14 +2,14 @@ use crate::realm::config::RealmNodeConfig;
 use crate::realm::{Queue, SyncCheckpointQueue, SyncProofQueue, C, D, F};
 use fred::prelude::KeysInterface;
 use kvq::traits::KVQSerializable;
-use crate::config::RealmNodeConfig;
-use crate::{Queue, SyncCheckpointQueue, SyncProofQueue, C, D, F};
+use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
+use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use qed_store::store::QEDStore;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use crate::common::verifier::get_cached_generic_verifier;
 use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
-use qed_node::realm::state::processor::{RealmConfig, RealmProcessorContext};
-use qed_node::common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
@@ -18,8 +18,6 @@ use qed_store::queue::new_redis_async_pool;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
-use qed_store::node::realm::QEDRealmStoreReaderAsync;
-use qed_node::nimpl::proof_store_redis_async::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
