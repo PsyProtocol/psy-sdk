@@ -14,12 +14,9 @@ serde      = { workspace = true }
 serde_json      = { workspace = true }
 serde_repr      = { workspace = true }
 serde_with = { workspace = true }
-hex = { workspace = true }
 plonky2 = { workspace = true }
 tracing = { workspace = true }
 serde_cbor = { workspace = true}
-rand = { workspace = true }
-reqwest = { workspace = true }
 clap = { workspace = true }
 ts-rs = { workspace = true }
 dashmap = { workspace = true }
@@ -59,6 +56,9 @@ tower = { workspace = true }
 tower-http = { workspace = true }
 hyper = { workspace = true }
 jsonrpsee = { workspace = true }
+reqwest = { workspace = true }
+rand = { workspace = true }
+qed_store = { workspace = true }
 
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
