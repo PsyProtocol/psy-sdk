@@ -1,10 +1,11 @@
 use kvq::traits::KVQBinaryStore;
 use qed_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore},
+    config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore, UserPublicKeyTableStore},
     models::{
-        checkpoint::
-            sync_info::QEDCheckpointSyncInfoModelReaderCore
-        ,
+        checkpoint::{
+            sync_info::QEDCheckpointSyncInfoModelReaderCore,
+            user_public_keys::QEDUserPublicKeyHelperModelReaderCore
+        },
         kvq_merkle::model::{
             KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelReaderCore,
         },
@@ -296,5 +297,13 @@ impl<T: KVQBinaryStore>
         checkpoint_id: u64,
     ) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
         CheckpointSyncInfoTableStore::<Self>::get_checkpoint_sync_info_compact(self, checkpoint_id)
+    }
+    
+    async fn get_first_user_id(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
+        Ok(
+            UserPublicKeyTableStore::<Self>::get_first_user_for_public_key_hash_if_exists(self, public_key)?
+                .ok_or(anyhow::anyhow!("User not found"))?
+                .user_id,
+        )
     }
 }

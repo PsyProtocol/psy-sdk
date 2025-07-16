@@ -41,7 +41,7 @@ use qed_crypto::{
     signature::zk::data::ZKPublicKeyInfo,
 };
 use qed_data::{
-    guta::{
+    config::store_config::UserPublicKeyTableStore, guta::{
         api::SubmitGUTARealmResultAPIQueueItem,
         header::GlobalUserTreeAggregatorHeader,
         proof_input::{
@@ -49,18 +49,14 @@ use qed_data::{
             VerifyTwoGUTAProofGadgetStandardInputSimple,
         },
         stats::GUTAStats,
-    },
-    proof_store::builder::ProofStoreBuilder,
-    protocol::circuit_inputs::{agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput, checkpoint_transition::{QCQEDCheckpointStateTransitionInput, QCQEDCheckpointStateTransitionInputPartial}},
-    qblock::cmds::deploy_contract::QBCDeployContractWithRoot,
-    qdata::{
+    }, models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore, proof_store::builder::ProofStoreBuilder, protocol::circuit_inputs::{agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput, checkpoint_transition::{QCQEDCheckpointStateTransitionInput, QCQEDCheckpointStateTransitionInputPartial}}, qblock::cmds::deploy_contract::QBCDeployContractWithRoot, qdata::{
         checkpoint::{
             QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf,
             QEDCheckpointLeafCompactWithStateRoots, QEDCheckpointLeafStats, QEDL2BlockState,
         },
         contract::QEDContractLeaf,
-        pm_reward_commitment::PMRewardCommitment,
-    },
+        pm_reward_commitment::PMRewardCommitment, user_public_key::QEDUserPublicKeyRecord,
+    }
 };
 use qed_rollup_circuit::guta::gadgets::guta_header;
 use qed_data::{
@@ -71,7 +67,6 @@ use qed_store::node::coordinator::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
-use crate::coordinator::state::user_map::{get_node_redis_pool, save_user_mapping_to_redis};
 
 
 type F = QEDFelt;
@@ -321,38 +316,37 @@ impl<
             .await?;
         eprintln!("DEBUGPRINT[724]: processor.rs:326: user_registrations={}", serde_json::to_string_pretty(&user_registrations).unwrap());
 
-        let start_user_id = last_l2_blockstate.next_user_id;
+        let start_registration_user_id = last_l2_blockstate.next_user_id;
 
-        let redis_pool = get_node_redis_pool()?;
-
-        for (i, pubkey_info) in user_registrations.iter().enumerate() {
-            let register_id = start_user_id + i as u64;
-            let user_id = get_user_id_from_registration_id(register_id);
-            let redis_pool = redis_pool.clone();
-
-            match save_user_mapping_to_redis(&redis_pool, user_id, pubkey_info).await {
-                Ok(_) => {
-                    tracing::info!("✅ Saved user_id={} mapping to Redis", user_id);
-                }
-                Err(e) => {
-                    tracing::error!("❌ Failed to save user_id={} to Redis: {:?}", user_id, e);
-                    return Err(e);
-                }
+        let new_user_records = user_registrations.iter().enumerate().map(|(i, x)| {
+            let registration_id = start_registration_user_id + (i as u64);
+            let user_id = get_user_id_from_registration_id(registration_id);
+            QEDUserPublicKeyRecord {
+                public_key_param: x.public_key_param,
+                fingerprint: x.fingerprint,
+                public_key: x.qfhash::<QEDHasher>(),
+                user_id,
+                checkpoint_id,
             }
-        }
+        }).collect::<Vec<_>>();
+        tracing::info!(
+            "injest_checkpoint_sync_data_imm: start_registration_user_id: {}, new_user_records: {:?}",
+            start_registration_user_id,
+            new_user_records
+        );
+        self.store.set_user_public_key_records(&new_user_records).await?;
 
         let new_public_keys = user_registrations
             .iter()
             .map(|x| x.to_hash::<QEDHasher>())
             .collect::<Vec<_>>();
 
-
         let mut psb = ProofStoreBuilder::new();
         let wits = self
             .store
             .batch_append_user_registration_tree_imm(
                 checkpoint_id,
-                start_user_id,
+                start_registration_user_id,
                 self.coordinator_config.register_user_tree_batch_height,
                 &new_public_keys,
             )
@@ -366,7 +360,7 @@ impl<
 
         let siblings = if wits.len() != 0 {
             self.store
-                .get_user_registration_tree_merkle_proof(checkpoint_id, start_user_id)
+                .get_user_registration_tree_merkle_proof(checkpoint_id, start_registration_user_id)
                 .await?
                 .siblings
         } else {

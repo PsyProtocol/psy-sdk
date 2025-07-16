@@ -59,12 +59,6 @@ where
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
-    async fn get_user_id(&self, public_key: QHashOut<F>) -> RpcResult<u64> {
-        Ok(self.store_reader.get_first_user_id(public_key)
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool> {
         Ok(self.includes_user_id(user_id))
     }

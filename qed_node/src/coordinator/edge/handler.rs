@@ -39,7 +39,6 @@ use qed_data::qdata::user::QEDUserLeaf;
 use qed_data::qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact};
 
 // qed_node
-use crate::coordinator::state::user_map::{get_node_redis_pool, get_user_id_by_pubkey};
 use qed_store::queue::worker_queue_redis::redis_queue::{
     CEQueueNotification, RedisQueue, CE_NOTIFICATIONS,
 };
@@ -54,7 +53,6 @@ use crate::coordinator::edge::communicate::GlobalCoordinatorStatus;
 use crate::coordinator::edge::context::{StoreReader, DrainQueue, ProofStore, GLOBAL_COORD_EDGE_STATE, LATEST_CHECKPOINT_ID};
 use crate::coordinator::args::CoordinatorEdgeArgs;
 use crate::coordinator::state::edge::CoordinatorEdgeContext;
-use crate::coordinator::state::user_map::init_node_redis_pool;
 use qed_store::queue::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
 use qed_store::queue::{new_fred_pool, new_redis_async_pool};
 use qed_store::queue::proof_store_fred::ProofStoreFred;
@@ -88,7 +86,6 @@ impl CoordinatorEdgeHandler {
         let store_reader = Arc::new(qed_store);
 
         let redis_pool = new_redis_async_pool(&args.redis_uri, 8).await?;
-        init_node_redis_pool(redis_pool.clone())?;
 
         let sync_queue = DrainQueueRedisAsync::new(&args.redis_uri).await?;
 
@@ -198,16 +195,18 @@ impl CoordinatorEdgeHandler {
         &self,
         zk_user_info: ZKPublicKeyInfo<QEDFelt>,
     ) -> anyhow::Result<()> {
-        let public_key = zk_user_info.qfhash::<QEDHasher>().to_string();
+        let public_key_hash = zk_user_info.qfhash::<QEDHasher>();
 
-        let redis_pool = get_node_redis_pool()?;
-        let result = get_user_id_by_pubkey(redis_pool.as_ref(), &public_key).await?;
-
-        if let Some(user_id) = result {
-            info!("🛑 User already registered in Redis, user_id = {}", user_id);
-            return Ok(());
+        // Check if user is already registered using the store reader
+        match self.store.get_first_user_id(public_key_hash).await {
+            Ok(user_id) => {
+                info!("🛑 User already registered, user_id = {}", user_id);
+                return Ok(());
+            }
+            Err(_) => {
+                info!("🆕 User not found. Starting new registration.");
+            }
         }
-        info!("🆕 User not found in Redis. Starting new registration.");
 
         self.ctx.checkpoint_queue.cdq_push_imm(zk_user_info).await?;
         info!("✅ User pushed to checkpoint queue.");
@@ -215,16 +214,13 @@ impl CoordinatorEdgeHandler {
     }
 
     pub async fn get_user_id(&self, public_key: QHashOut<QEDFelt>) -> anyhow::Result<u64> {
-        let redis_pool = get_node_redis_pool()?;
-
-        let result = get_user_id_by_pubkey(redis_pool.as_ref(), &public_key.to_string()).await;
-
-        let Some(user_id) = result? else {
-            error!("❌ User not found");
-            bail!("User not found");
-        };
-
-        Ok(user_id)
+        match self.store.get_first_user_id(public_key).await {
+            Ok(user_id) => Ok(user_id),
+            Err(_) => {
+                error!("❌ User not found");
+                bail!("User not found");
+            }
+        }
     }
     pub async fn deploy_contract(
         &self,

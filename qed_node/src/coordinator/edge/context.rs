@@ -9,7 +9,6 @@ use std::sync::{atomic::AtomicU64, Arc, OnceLock};
 use tracing::info;
 
 use crate::coordinator::state::edge::CoordinatorEdgeContext;
-use crate::coordinator::state::user_map::init_node_redis_pool;
 use qed_store::queue::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
 use qed_store::queue::{new_fred_pool, new_redis_async_pool};
 use qed_store::queue::proof_store_fred::ProofStoreFred;
@@ -30,11 +29,6 @@ pub struct GlobalCoordinatorEdgeState {
 }
 pub static GLOBAL_COORD_EDGE_STATE: OnceLock<GlobalCoordinatorEdgeState> = OnceLock::new();
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum UserRegisterState {
-    Registered(u64),
-}
-
 pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Initializing coordinator edge node...");
 
@@ -44,7 +38,6 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     let store_reader = Arc::new(qed_store);
 
     let redis_pool = new_redis_async_pool(&config.redis_uri, 8).await?;
-    init_node_redis_pool(redis_pool.clone())?;
 
     let sync_queue = DrainQueueRedisAsync::new(&config.redis_uri).await?;
 
@@ -89,34 +82,4 @@ pub async fn init_coordinator_edge(config: &CoordinatorEdgeArgs) -> anyhow::Resu
     info!("🚀 Coordinator Edge Initialized");
 
     Ok(())
-}
-
-
-pub async fn with_temp_ctx_read_async<F, Fut, R, C, const D: usize>(f: F) -> anyhow::Result<R>
-where
-    F: FnOnce(CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>) -> Fut,
-    Fut: Future<Output = anyhow::Result<R>>,
-{
-    let state = GLOBAL_COORD_EDGE_STATE
-        .get()
-        .ok_or_else(|| anyhow!("GLOBAL_COORD_EDGE_STATE is not initialized"))?;
-
-    let latest_checkpoint_id = LATEST_CHECKPOINT_ID.load(std::sync::atomic::Ordering::Relaxed);
-
-    let temp_ctx = CoordinatorEdgeContext {
-        coordinator_config: state.ctx.coordinator_config.clone(),
-        store_reader: Arc::clone(&state.ctx.store_reader),
-        checkpoint_queue: Arc::clone(&state.ctx.checkpoint_queue),
-        proof_store: Arc::clone(&state.ctx.proof_store),
-        proof_verifier: Arc::clone(&state.ctx.proof_verifier),
-        last_chkpnt_id: latest_checkpoint_id,
-    };
-
-    f(temp_ctx).await
-}
-
-pub fn get_jwt_secret() -> Option<Arc<String>> {
-    GLOBAL_COORD_EDGE_STATE
-        .get()
-        .map(|state| Arc::clone(&state.jwt_secret))
 }

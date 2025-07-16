@@ -12,7 +12,6 @@ use qed_core::job::{
 };
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use crate::coordinator::state::processor::CoordinatorConfig;
-use crate::coordinator::state::user_map::init_node_redis_pool;
 use qed_store::queue::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
 use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
 use qed_store::queue::{new_fred_pool, new_redis_async_pool};
@@ -138,7 +137,6 @@ impl
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
         let pool = new_fred_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
         let bb8_pool = new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
-        init_node_redis_pool(bb8_pool.clone())?;
         info!("🐶 redis pool initialized");
         let q = ProofStoreRedisAsync::new2(
             bb8_pool,

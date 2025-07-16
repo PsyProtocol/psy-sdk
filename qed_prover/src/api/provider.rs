@@ -250,7 +250,7 @@ impl QUserRpcProvider for RpcProvider {
 impl RpcProvider {
     pub async fn get_user_id<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
         tracing::info!("user: {:?}", public_key);
-        let url =  self.get_coordinator_url()?;
+        let url = self.get_coordinator_url()?;
         let response = qed_rpc_call_back!(
             self,
             url,
