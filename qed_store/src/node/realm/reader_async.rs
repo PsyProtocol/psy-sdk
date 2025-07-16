@@ -1,20 +1,20 @@
-use kvq::traits::KVQBinaryStore;
+use crate::node::realm::QEDRealmStoreReaderAsync;
 use qed_data::{
     config::store_config::{CheckpointSyncInfoTableStore, UserPublicKeyTableStore, UserTreeStore},
     models::{
         checkpoint::{sync_info::QEDCheckpointSyncInfoModelReaderCore, user_public_keys::QEDUserPublicKeyHelperModelReaderCore},
         kvq_merkle::model::
-            KVQFixedConfigMerkleTreeModelReaderCore
+        KVQFixedConfigMerkleTreeModelReaderCore
         ,
     },
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync,
     },
 };
-use crate::node::realm::QEDRealmStoreReaderAsync;
 
 use async_trait::async_trait;
-use plonky2::field::{goldilocks_field::GoldilocksField, types::PrimeField64};
+use kvq::traits::KVQBinaryStore;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::{

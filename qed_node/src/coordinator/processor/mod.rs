@@ -20,7 +20,7 @@ use crate::coordinator::state::processor::CoordinatorProcessorContext;
 use qed_store::queue::worker_queue_redis::redis_queue::{CEQueueNotification, RedisQueue, CE_NOTIFICATIONS};
 use crate::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::store::{QEDStore, Backend};
+use qed_store::store::{QEDStore};
 use qed_data::{
     config::store_config::QEDFelt,
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
@@ -31,12 +31,14 @@ use qed_store::node::coordinator::{
 
 use std::{sync::Arc, time::Duration};
 use tracing::{error, info, warn};
+use qed_store::store::journal::{Journal, JournalStore};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
 
 pub struct CoordinatorProcessNode<
+    JL: Journal,
     SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
     DQ: CheckpointDrainQueueConsumerAsyncImm,
     HQ: CheckpointHistoryQueueEmitterAsyncImm,
@@ -46,6 +48,7 @@ pub struct CoordinatorProcessNode<
     SQ: CheckpointDrainQueueEmitterAsyncImm + CheckpointDrainQueueConsumerAsyncImm,
 > {
     pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
+    pub journal_store: JL,
     pub sync_queue: Arc<SQ>,
     pub edge_command_queue: RedisQueue,
     pub proof_store: PS,
@@ -55,6 +58,7 @@ pub struct CoordinatorProcessNode<
 }
 
 impl<
+        JL: Journal,
         SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
         DQ: CheckpointDrainQueueConsumerAsyncImm,
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
@@ -62,10 +66,11 @@ impl<
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
         SQ: CheckpointDrainQueueEmitterAsyncImm + CheckpointDrainQueueConsumerAsyncImm,
-    > CoordinatorProcessNode<SR, DQ, HQ, WQ, PS, ER, SQ>
+    > CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER, SQ>
 {
     pub fn new(
         ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
+        journal_store: JL,
         edge_command_queue: RedisQueue,
         sync_queue: Arc<SQ>,
         proof_store: PS,
@@ -75,6 +80,7 @@ impl<
     ) -> Self {
         Self {
             ctx,
+            journal_store,
             edge_command_queue,
             sync_queue,
             proof_store,
@@ -125,7 +131,8 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        Arc<QEDStore>,
+        JournalStore<QEDStore>,
+        JournalStore<QEDStore>,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
@@ -147,18 +154,19 @@ impl
         ).await?;
 
         let qed_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
-        let store_reader = Arc::new(qed_store);
+        let qed_store = JournalStore::new(qed_store);
 
         //try to get the block 1's state
-        let st = Arc::new(store_reader.clone());
-        let need_init = match st.get_l2_block_state(1).await {
+        let need_init = match qed_store.get_l2_block_state(1).await {
             Ok(_) => false,
             Err(e) => {
                 error!(
                     "⚠️ Failed to get block 1 state: {:?}， need initialize the db",
                     e
                 );
-                QEDComboDataStoreReaderWriterSync::initialize_store(&*st)?;
+                if  QEDComboDataStoreReaderWriterSync::initialize_store(&qed_store)? == 0 {
+                    qed_store.commit(0)?;
+                }
                 true
             }
         };
@@ -175,7 +183,7 @@ impl
 
         let mut coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
-            Arc::clone(&st),
+            Arc::new(qed_store.clone()),
             qps.clone(),
             qps.clone(),
             qps.clone(),
@@ -198,6 +206,7 @@ impl
 
         Ok(CoordinatorProcessNode::new(
             coordinator_processor_ctx,
+            qed_store,
             edge_command_queue,
             sync_queue,
             q.clone(),
@@ -264,10 +273,12 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 }
                 info!("start build block {}", next_checkpoint);
                 if let Err(e) = coordinator_processor.ctx.build_block().await {
+                    coordinator_processor.journal_store.rollback(next_checkpoint)?;
                     error!("❌ Failed to build block {}: {:?}", next_checkpoint, e);
                     tokio::time::sleep(Duration::from_secs(2)).await;
                     bail!("❌ Failed to build block {}: {:?}", next_checkpoint, e);
                 }
+                coordinator_processor.journal_store.commit(next_checkpoint)?;
                 info!("✅ Successfully built block {}", next_checkpoint);
                 next_checkpoint += 1;
                 push_latest_global_coordinator_status(

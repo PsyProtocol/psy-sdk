@@ -11,3 +11,9 @@ async-trait      = { workspace = true }
 serde      = { workspace = true }
 hex = { workspace = true }
 plonky2 = { workspace = true }
+auto_impl = { workspace = true }
+ambassador = { workspace = true }
+parking_lot = { workspace = true}
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true}

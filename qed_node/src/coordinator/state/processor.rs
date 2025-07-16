@@ -1,14 +1,11 @@
 use std::{sync::Arc, time::Instant};
 
 use chrono::Utc;
-use fred::prelude::{KeysInterface, Pool};
-use futures::future::join_all;
 use kvq::traits::KVQPair;
 use plonky2::{
-    field::{packed::PackedField, types::Field},
+    field::types::Field,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use qed_common_circuit::treeprover::aggregation::state_transition;
 use qed_core::{
     config::network_constants::{
         BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT
@@ -167,8 +164,6 @@ impl<
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
         let latest_block_state: QEDL2BlockState = store.get_latest_l2_block_state().await?;
-        let checkpoint_id = latest_block_state.checkpoint_id;
-
         Ok(Self {
             coordinator_config,
             store,

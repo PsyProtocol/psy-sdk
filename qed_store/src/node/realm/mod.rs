@@ -1,11 +1,8 @@
 use async_trait::async_trait;
-use kvq::traits::KVQPair;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
+use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, utils::{common::QMerkleNode, sub_tree_nca::UpdateNCAProofsWithDependencies}};
 use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}, qstore::uct_merkle_nodes::CSTUserUpdate, qsync::coordinator::QEDCheckpointSyncInfo};
-
-use qed_data::models::kvq_merkle::key::KVQMerkleNodeKey;
 
 pub mod reader_async;
 pub mod writer_imm;
@@ -153,6 +150,4 @@ pub trait QEDRealmStoreWriterAsyncImm<F: RichField> {
     async fn set_contract_code_definition_f_imm(&self, checkpoint_id: F, contract_id: F, definition: &ContractCodeDefinition) -> anyhow::Result<()> {
         <Self as QEDRealmStoreWriterAsyncImm<F>>::set_contract_code_definition_imm(self, checkpoint_id.to_canonical_u64(), contract_id.to_canonical_u64(), definition).await
     }
-
-    async fn commit_block_imm(&self, checkpoint_id: u64) -> anyhow::Result<()>;
 }

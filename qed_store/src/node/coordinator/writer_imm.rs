@@ -1,18 +1,18 @@
-use kvq::traits::KVQBinaryStore;
+use crate::node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm};
 use qed_data::{
     config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore},
     models::{
-        checkpoint::sync_info::{self, QEDCheckpointSyncInfoModelCore},
+        checkpoint::sync_info::QEDCheckpointSyncInfoModelCore,
         kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
     },
     traits::qdatastore::{
         qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync,
     },
 };
-use crate::node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm};
 
 use async_trait::async_trait;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use kvq::traits::KVQBinaryStore;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::{merkle::{
     core::DeltaMerkleProofCore,
@@ -24,7 +24,7 @@ use qed_crypto::hash::{merkle::{
 }, traits::qhashable::QFieldHashable};
 use qed_data::{
     qdata::{
-        checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState, QEDCheckpointGlobalStateRoots},
+        checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
         contract::{ContractCodeDefinition, QEDContractLeaf},
     },
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
@@ -176,10 +176,7 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
     ) -> anyhow::Result<()> {
         CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, sync_info)
     }
-    async fn commit_block(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
-        todo!()
-        //<Self as QMetaDataStoreWriterSync<F>>::commit_block(self, checkpoint_id)
-    }
+
     async fn initialize_store(&self) -> anyhow::Result<u64> {
 
         let latest_l2_block_state_or_err = self.get_latest_l2_block_state().await;

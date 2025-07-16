@@ -288,6 +288,8 @@ lapin = "=2.5.0"
 r2d2 = "0.8.10"
 rabbitmq-stream-client = "0.8.0"
 headers = { version = "0.4" }
+ambassador = "0.4"
+auto_impl = "1"
 
 [profile.release]
 debug = true

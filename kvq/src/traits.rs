@@ -1,7 +1,8 @@
+use ambassador::delegatable_trait;
+use async_trait::async_trait;
+use auto_impl::auto_impl;
 use serde::Deserialize;
 use serde::Serialize;
-use async_trait::async_trait;
-use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KVQPair<K, V> {
@@ -72,6 +73,7 @@ pub fn unwrap_kv_result<T>(item_opt: Option<T>) -> anyhow::Result<T> {
     }
 }
 
+#[auto_impl(&, Box, Arc)]
 pub trait KVQStoreAdapterReader<S, K: KVQSerializable, V: KVQSerializable> {
     fn get_exact_if_exists(s: &S, key: &K) -> anyhow::Result<Option<V>>;
     fn get_exact(s: &S, key: &K) -> anyhow::Result<V>;
@@ -103,6 +105,7 @@ pub trait KVQStoreAdapterReader<S, K: KVQSerializable, V: KVQSerializable> {
 }
 
 #[async_trait]
+#[auto_impl(&, Box, Arc)]
 pub trait KVQStoreAdapterReaderAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSerializable> {
     async fn get_exact_if_exists(s: &S, key: &K) -> anyhow::Result<Option<V>>;
     async fn get_exact(s: &S, key: &K) -> anyhow::Result<V>;
@@ -134,6 +137,7 @@ pub trait KVQStoreAdapterReaderAsync<S: Sync, K: KVQSerializable + Sync, V: KVQS
 }
 
 #[async_trait]
+#[auto_impl(&, Box, Arc)]
 pub trait KVQStoreAdapterAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSerializable + Sync>:
     KVQStoreAdapterReaderAsync<S, K, V>
 {
@@ -147,6 +151,7 @@ pub trait KVQStoreAdapterAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSeriali
     async fn delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>>;
 }
 
+#[auto_impl(&, Box, Arc)]
 pub trait KVQStoreAdapter<S, K: KVQSerializable, V: KVQSerializable>:
     KVQStoreAdapterReader<S, K, V>
 {
@@ -162,7 +167,7 @@ pub trait KVQStoreAdapter<S, K: KVQSerializable, V: KVQSerializable>:
     // anyhow::Result<[bool; SIZE]>;
 }
 
-
+#[auto_impl(&, Box, Arc)]
 pub trait KVQStoreAdapterWithHelpers<S, K: KVQSerializable, V: KVQSerializable>:
     KVQStoreAdapter<S, K, V>
 {
@@ -192,6 +197,8 @@ pub trait KVQStoreAdapterWithHelpers<S, K: KVQSerializable, V: KVQSerializable>:
 //pub type KVQStoreAdapter<K: KVQSerializable, V: KVQSerializable> =
 // KVQStoreAdapter<KVQBinaryStore, K, V>;
 
+#[delegatable_trait]
+#[auto_impl(Arc)]
 pub trait KVQBinaryStore: Send + Sync {
     // Read operations
     fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>>;
@@ -315,88 +322,3 @@ pub trait KVQBinaryStoreAsync {
     async fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
 }
 
-
-
-// Arc forwarding implementations for sync traits
-impl<T: KVQBinaryStore> KVQBinaryStore for Arc<T> {
-    // Read operations
-    fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
-        (**self).get_exact_if_exists(key)
-    }
-
-    fn get_exact(&self, key: &Vec<u8>) -> anyhow::Result<Vec<u8>> {
-        (**self).get_exact(key)
-    }
-
-    fn get_many_exact(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<Vec<u8>>> {
-        (**self).get_many_exact(keys)
-    }
-
-    fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<Vec<u8>>> {
-        (**self).get_leq(key, fuzzy_bytes)
-    }
-
-    fn get_fuzzy_range_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
-        (**self).get_fuzzy_range_leq_kv(key, fuzzy_bytes)
-    }
-
-    fn get_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
-        (**self).get_leq_kv(key, fuzzy_bytes)
-    }
-
-    fn get_many_leq(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
-        (**self).get_many_leq(keys, fuzzy_bytes)
-    }
-
-    fn get_many_leq_kv(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
-        (**self).get_many_leq_kv(keys, fuzzy_bytes)
-    }
-
-    // Write operations
-    fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()> {
-        (**self).set(key, value)
-    }
-
-    fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()> {
-        (**self).set_ref(key, value)
-    }
-
-    fn set_many_ref<'a>(
-        &self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> anyhow::Result<()> {
-        (**self).set_many_ref(items)
-    }
-
-    fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()> {
-        (**self).set_many_vec(items)
-    }
-
-    fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool> {
-        (**self).delete(key)
-    }
-
-    fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {
-        (**self).delete_many(keys)
-    }
-
-    fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()> {
-        (**self).set_many_split_ref(keys, values)
-    }
-}
