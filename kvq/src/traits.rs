@@ -258,6 +258,16 @@ pub trait KVQBinaryStore: Send + Sync {
 
     fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool>;
     fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
+
+    fn set_and_delete_many(
+        &self,
+        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
+        keys_to_delete: &[Vec<u8>]
+    ) -> anyhow::Result<()> {
+        self.set_many_ref(keys_to_set)?;
+        self.delete_many(keys_to_delete)?;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -320,5 +330,32 @@ pub trait KVQBinaryStoreAsync {
 
     async fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool>;
     async fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
+
+    async fn set_and_delete_many(
+        &self,
+        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
+        keys_to_delete: &[Vec<u8>]
+    ) -> anyhow::Result<()> {
+        self.set_many_ref(keys_to_set).await?;
+        self.delete_many(keys_to_delete).await?;
+        Ok(())
+    }
+}
+
+pub enum Operation {
+    Set(Vec<u8>, Vec<u8>),
+    SetMany(Vec<KVQPair<Vec<u8>, Vec<u8>>>),
+    Delete(Vec<u8>),
+    DeleteMany(Vec<Vec<u8>>),
+}
+
+#[async_trait::async_trait]
+pub trait KVQBinaryStoreBatchWriter {
+    fn batch_operation(&self, operations: &[Operation]) -> anyhow::Result<()>;
+}
+
+#[async_trait::async_trait]
+pub trait KVQBinaryStoreBatchWriterAsync {
+   async fn batch_operation(&self,operations: &[Operation]) -> anyhow::Result<()>;
 }
 
