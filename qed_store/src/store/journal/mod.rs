@@ -11,6 +11,7 @@ use kvq::traits::ambassador_impl_KVQBinaryStore;
 pub trait Journal: KVQBinaryStore {
     fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
     fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
+    fn get_base_store(&self) -> &dyn KVQBinaryStore;
 }
 
 
@@ -38,6 +39,10 @@ impl<S: KVQBinaryStore> Journal for JournalStore<S> {
         self.inner.clear_cache();
         Ok(())
     }
+    
+    fn get_base_store(&self) -> &dyn KVQBinaryStore {
+        self.inner.store.as_ref()
+    }
 }
 
 #[async_trait]
@@ -45,6 +50,7 @@ impl<S: KVQBinaryStore> Journal for JournalStore<S> {
 pub trait JournalAsync: KVQBinaryStoreAsync {
     async fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
     async fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
+    async fn get_base_store(&self) -> &dyn KVQBinaryStoreAsync;
 }
 
 
@@ -132,5 +138,9 @@ impl<S: KVQBinaryStoreAsync+ Send + Sync> JournalAsync for JournalStoreAsync<S> 
     async fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
         self.inner.clear_cache().await;
         Ok(())
+    }
+    
+    async fn get_base_store(&self) -> &dyn KVQBinaryStoreAsync {
+        self.inner.store.as_ref()
     }
 }
