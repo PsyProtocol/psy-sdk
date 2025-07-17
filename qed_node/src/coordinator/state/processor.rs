@@ -599,6 +599,7 @@ impl<
                 eprintln!("DEBUGPRINT[560]: processor.rs:589 (after if l_dep_ind == -1 && r_dep_ind == -1 )");
                 let input = VerifyTwoGUTAProofGadgetStandardInputSimple {
                     checkpoint_tree_root: guta_queue_items[i * 2].checkpoint_tree_root,
+                    b_checkpoint_tree_root: guta_queue_items[i * 2 + 1].checkpoint_tree_root,
                     stats_a: guta_queue_items[i * 2].guta_stats,
                     stats_b: guta_queue_items[i * 2 + 1].guta_stats,
                     nca_proof: res.nca_proofs[i].to_partial(),
@@ -632,6 +633,7 @@ impl<
                             .1
                             .input
                             .checkpoint_tree_root,
+                        b_checkpoint_tree_root: witnesses[r_dep_ind as usize].1.input.checkpoint_tree_root,
                         stats_a: witnesses[l_dep_ind as usize].1.input.get_combined_stats(),
                         stats_b: witnesses[r_dep_ind as usize].1.input.get_combined_stats(),
                         nca_proof: res.nca_proofs[i].to_partial(),
@@ -661,6 +663,7 @@ impl<
                             .1
                             .input
                             .checkpoint_tree_root,
+                        b_checkpoint_tree_root: guta_queue_items.last().as_ref().unwrap().checkpoint_tree_root,
                         stats_a: witnesses[l_dep_ind as usize].1.input.get_combined_stats(),
                         stats_b: guta_queue_items.last().as_ref().unwrap().guta_stats.clone(),
                         nca_proof: res.nca_proofs[i].to_partial(),
