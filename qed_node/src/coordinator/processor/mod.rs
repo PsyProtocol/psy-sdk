@@ -222,22 +222,19 @@ impl
 }
 
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
-    let auto_seal = args.auto_seal;
     let mut coordinator_processor = CoordinatorProcessNode::new_with_config(args).await?;
 
     loop {
-        if !auto_seal {
-            loop {
-                match coordinator_processor.wait_for_produce_block().await {
-                    Ok(true) => break,
-                    Ok(false) => {
-                        tokio::time::sleep(Duration::from_secs(1)).await;
-                    }
-                    Err(e) => {
-                        error!("❌ Error waiting for produce block: {:?}", e);
-                        tokio::time::sleep(Duration::from_secs(1)).await;
-                        continue;
-                    }
+        loop {
+            match coordinator_processor.wait_for_produce_block().await {
+                Ok(true) => break,
+                Ok(false) => {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                }
+                Err(e) => {
+                    error!("❌ Error waiting for produce block: {:?}", e);
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    continue;
                 }
             }
         }

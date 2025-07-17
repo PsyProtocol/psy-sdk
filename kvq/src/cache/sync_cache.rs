@@ -20,18 +20,47 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCached<S> {
             proper_delete_return: false,
         }
     }
-    
-    fn key_matches_fuzzy(&self, key: &Vec<u8>, target: &Vec<u8>, fuzzy_bytes: usize) -> bool {
+
+    fn get_leq_from_cache(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Option<KVQPair<Vec<u8>, Vec<u8>>> {
+        let map = self.map.read();
+
         if fuzzy_bytes == 0 {
-            return true;
+            for (k, v) in map.range(..=key.clone()).rev() {
+                match v {
+                    CacheValueType::Bytes(b) => {
+                        return Some(KVQPair {
+                            key: k.clone(),
+                            value: b.clone(),
+                        });
+                    }
+                    CacheValueType::Removed => {
+                    }
+                }
+            }
+        } else {
+            let key_end = key.to_vec();
+            let mut base_key = key.to_vec();
+            let key_len = base_key.len();
+
+            for i in 0..fuzzy_bytes {
+                base_key[key_len - i - 1] = 0;
+            }
+
+            for (k, v) in map.range((Included(base_key), Included(key_end))).rev() {
+                match v {
+                    CacheValueType::Bytes(b) => {
+                        return Some(KVQPair {
+                            key: k.clone(),
+                            value: b.clone(),
+                        });
+                    }
+                    CacheValueType::Removed => {
+                    }
+                }
+            }
         }
-        
-        if key.len() != target.len() {
-            return false;
-        }
-        
-        let non_fuzzy_len = key.len() - fuzzy_bytes;
-        key[..non_fuzzy_len] == target[..non_fuzzy_len]
+
+        None
     }
 }
 impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
@@ -133,7 +162,6 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
             (keys_to_set, removed_keys)
         };
 
-        // Convert Vec<KVQPair<Vec<u8>, Vec<u8>>> to Vec<KVQPair<&Vec<u8>, &Vec<u8>>>
         let keys_to_set_ref: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = keys_to_set
             .iter()
             .map(|kv| KVQPair {
@@ -177,30 +205,9 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
             ));
         }
 
-        let map = self.map.read();
-        let mut cache_candidate: Option<KVQPair<Vec<u8>, Vec<u8>>> = None;
-        
-        for (k, v) in map.range(..=key.clone()) {
-            match v {
-                CacheValueType::Bytes(b) => {
-                    if fuzzy_bytes == 0 || self.key_matches_fuzzy(k, key, fuzzy_bytes) {
-                        cache_candidate = Some(KVQPair {
-                            key: k.clone(),
-                            value: b.clone(),
-                        });
-                    }
-                }
-                CacheValueType::Removed => {
-                    if cache_candidate.as_ref().map_or(false, |c| c.key == *k) {
-                        cache_candidate = None;
-                    }
-                }
-            }
-        }
-        drop(map);
-        
+        let cache_candidate = self.get_leq_from_cache(key, fuzzy_bytes);
         let store_candidate = self.store.get_leq_kv(key, fuzzy_bytes)?;
-        
+
         match (cache_candidate, store_candidate) {
             (None, None) => Ok(None),
             (Some(c), None) => Ok(Some(c.value)),
@@ -232,30 +239,9 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
             ));
         }
 
-        let map = self.map.read();
-        let mut cache_candidate: Option<KVQPair<Vec<u8>, Vec<u8>>> = None;
-        
-        for (k, v) in map.range(..=key.clone()) {
-            match v {
-                CacheValueType::Bytes(b) => {
-                    if fuzzy_bytes == 0 || self.key_matches_fuzzy(k, key, fuzzy_bytes) {
-                        cache_candidate = Some(KVQPair {
-                            key: k.clone(),
-                            value: b.clone(),
-                        });
-                    }
-                }
-                CacheValueType::Removed => {
-                    if cache_candidate.as_ref().map_or(false, |c| c.key == *k) {
-                        cache_candidate = None;
-                    }
-                }
-            }
-        }
-        drop(map);
-        
+        let cache_candidate = self.get_leq_from_cache(key, fuzzy_bytes);
         let store_candidate = self.store.get_leq_kv(key, fuzzy_bytes)?;
-        
+
         match (cache_candidate, store_candidate) {
             (None, None) => Ok(None),
             (Some(c), None) => Ok(Some(c)),
@@ -330,29 +316,29 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
         }
 
         let map = self.map.read();
-        Ok(map
-            .range((Included(base_key), Included(key_end)))
-            .filter(|x| match x.1 {
-                CacheValueType::Bytes(_) => true,
-                CacheValueType::Removed => false,
-            })
-            .map(|(k, v)| KVQPair {
-                key: k.to_owned(),
-                value: match v {
-                    CacheValueType::Bytes(b) => b.to_owned(),
-                    CacheValueType::Removed => Vec::new(),
-                },
-            })
-            .chain(
-                self.store
-                    .get_fuzzy_range_leq_kv(key, fuzzy_bytes)?
-                    .into_iter()
-                    .filter(|x| !map.contains_key(&x.key)),
-            )
-            .collect::<Vec<_>>())
+        let mut results = BTreeMap::new();
+
+        for item in self.store.get_fuzzy_range_leq_kv(key, fuzzy_bytes)? {
+            results.insert(item.key.clone(), item);
+        }
+
+        for (k, v) in map.range((Included(base_key), Included(key_end))) {
+            match v {
+                CacheValueType::Bytes(b) => {
+                    results.insert(k.clone(), KVQPair {
+                        key: k.clone(),
+                        value: b.clone(),
+                    });
+                }
+                CacheValueType::Removed => {
+                    results.remove(k);
+                }
+            }
+        }
+
+        Ok(results.into_values().collect())
     }
 
-    // Write operations
     fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()> {
         self.map.write().insert(key, CacheValueType::Bytes(value));
         Ok(())

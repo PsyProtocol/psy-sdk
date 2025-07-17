@@ -29,12 +29,6 @@ pub struct CoordinatorProcessorArgs {
     pub backend: BackendConfig,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
-    #[clap(
-        env = "COORDINATOR_AUTO_SEAL",
-        long,
-        default_value = "false"
-    )]
-    pub auto_seal: bool,
 }
 
 #[derive(Clone, Debug, Args)]
