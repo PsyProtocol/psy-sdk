@@ -142,7 +142,6 @@ pub struct CoordinatorProcessorContext<
     pub prover_queue: Arc<WQ>,
     pub proof_store: Arc<PS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub latest_block_state: QEDL2BlockState,
     pub coordinator_config: CoordinatorConfig,
 }
 
@@ -163,7 +162,6 @@ impl<
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
-        let latest_block_state: QEDL2BlockState = store.get_latest_l2_block_state().await?;
         Ok(Self {
             coordinator_config,
             store,
@@ -172,7 +170,6 @@ impl<
             sync_queue,
             proof_store,
             proof_verifier,
-            latest_block_state,
         })
     }
 
@@ -1040,13 +1037,12 @@ impl<
         //todo! mark, should commit the txn
         self.sync_queue.chq_push_imm(l2_sync).await?;
 
-        self.latest_block_state = new_l2_block_state;
         tracing::info!(
             "lastest block state: {:?}",
-            self.latest_block_state,
+            new_l2_block_state,
         );
 
-        info!("coordinator FINISHED block {} in {}ms", self.latest_block_state.checkpoint_id, start.elapsed().as_millis());
+        info!("coordinator FINISHED block {} in {}ms", new_l2_block_state.checkpoint_id, start.elapsed().as_millis());
 
         Ok(())
     }

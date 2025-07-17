@@ -1,12 +1,10 @@
 // std
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use anyhow::bail;
 use chrono::Utc;
 use rand::RngCore;
 use tokio::sync::Mutex;
-use tokio::task::JoinHandle;
 use tracing::{debug, error, info};
 
 use kvq::traits::KVQSerializable;
@@ -14,7 +12,6 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 
 // qed_core
-use qed_core::config::network_constants::COORD_STATUS_CHANNEL_ID;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
@@ -49,13 +46,11 @@ use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 // crate inner
-use crate::coordinator::edge::communicate::GlobalCoordinatorStatus;
-use crate::coordinator::edge::context::{StoreReader, DrainQueue, ProofStore, GLOBAL_COORD_EDGE_STATE, LATEST_CHECKPOINT_ID};
+use crate::coordinator::edge::{StoreReader, DrainQueue, ProofStore};
 use crate::coordinator::args::CoordinatorEdgeArgs;
 use crate::coordinator::state::edge::CoordinatorEdgeContext;
-use qed_store::queue::drain_queue_redis_async::dq_imm::DrainQueueRedisAsync;
-use qed_store::queue::{new_fred_pool, new_redis_async_pool};
-use qed_store::queue::proof_store_fred::ProofStoreFred;
+use crate::coordinator::error::CoordinatorError;
+use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
 use crate::common::verifier::get_cached_generic_verifier;
 use qed_store::store::{QEDStore, Backend};
@@ -69,11 +64,8 @@ const D: usize = 2;
 #[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
     notify_queue: RedisQueue,
-    cp_listener: Arc<Mutex<Option<JoinHandle<()>>>>,
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
-    sync_queue: DrainQueueRedisAsync,
     store: Arc<StoreReader>,
-    latest_checkpoint_id: Arc<AtomicU64>,
 }
 
 impl CoordinatorEdgeHandler {
@@ -86,8 +78,6 @@ impl CoordinatorEdgeHandler {
         let store_reader = Arc::new(qed_store);
 
         let redis_pool = new_redis_async_pool(&args.redis_uri, 8).await?;
-
-        let sync_queue = DrainQueueRedisAsync::new(&args.redis_uri).await?;
 
         let qe_args = &args.queue_args;
 
@@ -116,117 +106,48 @@ impl CoordinatorEdgeHandler {
 
         Ok(Self {
             notify_queue: RedisQueue::new(args.redis_uri.as_str())?,
-            cp_listener: Arc::new(Mutex::new(None)),
             ctx,
-            sync_queue,
             store: store_reader,
-            latest_checkpoint_id: Arc::new(AtomicU64::new(0)),
         })
     }
-    ///receive StartSync notification from CP
-    pub async fn spawn_cp_sync_listener(&self) -> anyhow::Result<()> {
-        // note: run this only once
-        if self.cp_listener.lock().await.is_some() {
-            return Ok(());
-        }
-        
-        let sync_queue = self.sync_queue.clone();
-        let latest_checkpoint_id = Arc::clone(&self.latest_checkpoint_id);
-        
-        let handle = tokio::spawn(async move {
-            let mut last_logged_checkpoint = None;
-
-            loop {
-                let fallback = match get_latest_status_from_coord_sync_queue_with(&sync_queue).await {
-                    Ok(Some(status)) => {
-                        let latest = latest_checkpoint_id.load(Ordering::Relaxed);
-
-                        if Some(status.confirmed_checkpoint_id) != last_logged_checkpoint {
-                            debug!("🔔 Detected new checkpoint sync status: {:?}", status);
-                            last_logged_checkpoint = Some(status.confirmed_checkpoint_id);
-                        }
-
-                        if status.confirmed_checkpoint_id > latest {
-                            info!(
-                                "🔄 Updating local checkpoint from {} → {}",
-                                latest, status.confirmed_checkpoint_id
-                            );
-                            latest_checkpoint_id
-                                .store(status.confirmed_checkpoint_id, Ordering::Relaxed);
-                            info!(
-                                "⭐ Coordinator Edge now updated to {}",
-                                status.confirmed_checkpoint_id
-                            );
-                        } else {
-                            // debug!(
-                            //     "ℹ️ No new confirmed checkpoint detected, local = {}, redis = {}",
-                            //     latest, status.confirmed_checkpoint_id
-                            // );
-                        }
-
-                        false
-                    }
-
-                    Ok(None) => {
-                        debug!("⚠️ Redis queue empty or status missing. Fallback to DB.");
-                        true
-                    }
-
-                    Err(e) => {
-                        error!("❌ Redis query failed: {:?}", e);
-                        true
-                    }
-                };
-                if fallback {
-                    info!("🔄 Fallback to DB for latest checkpoint.");
-                    //it means redis queue is empty or error, fallback to db
-                    if let Err(e) = recover_latest_checkpoint_from_db_if_needed().await {
-                        error!("❌ Failed to recover checkpoint from DB: {:?}", e);
-                    }
-                }
-                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-            }
-        });
-        *self.cp_listener.lock().await = Some(handle);
-        Ok(())
+    
+    async fn get_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
+        let block_state = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await?;
+        Ok(block_state.checkpoint_id)
     }
 
     pub async fn register_user(
         &self,
         zk_user_info: ZKPublicKeyInfo<QEDFelt>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), CoordinatorError> {
         let public_key_hash = zk_user_info.qfhash::<QEDHasher>();
 
         // Check if user is already registered using the store reader
-        match self.store.get_first_user_id(public_key_hash).await {
-            Ok(user_id) => {
-                info!("🛑 User already registered, user_id = {}", user_id);
-                return Ok(());
-            }
-            Err(_) => {
-                info!("🆕 User not found. Starting new registration.");
-            }
+        if let Ok(user_id) = self.store.get_first_user_id(public_key_hash).await {
+            info!("🛑 User already registered, user_id = {}", user_id);
+            return Ok(()); // Already registered is not an error
         }
 
-        self.ctx.checkpoint_queue.cdq_push_imm(zk_user_info).await?;
+        info!("🆕 User not found. Starting new registration.");
+        self.ctx.checkpoint_queue.cdq_push_imm(zk_user_info).await
+            .map_err(|e| CoordinatorError::QueueError(e.to_string()))?;
         info!("✅ User pushed to checkpoint queue.");
         Ok(())
     }
 
-    pub async fn get_user_id(&self, public_key: QHashOut<QEDFelt>) -> anyhow::Result<u64> {
-        match self.store.get_first_user_id(public_key).await {
-            Ok(user_id) => Ok(user_id),
-            Err(_) => {
-                error!("❌ User not found");
-                bail!("User not found");
-            }
-        }
+    pub async fn get_user_id(&self, public_key: QHashOut<QEDFelt>) -> Result<u64, CoordinatorError> {
+        self.store.get_first_user_id(public_key).await
+            .map_err(|_| {
+                error!("❌ User not found for public key: {:?}", public_key);
+                CoordinatorError::UserNotFound { public_key }
+            })
     }
     pub async fn deploy_contract(
         &self,
         contract: QBCDeployContract<QEDFelt>,
     ) -> anyhow::Result<()> {
-        let next_checkpoint_id = self.latest_checkpoint_id.load(Ordering::Relaxed) + 1;
+        let latest = self.get_latest_checkpoint_id().await?;
+        let next_checkpoint_id = latest + 1;
         
         let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
 
@@ -281,10 +202,6 @@ impl CoordinatorEdgeHandler {
             Err(e) => {
                 error!("❌ Failed to get old root: {:?}", e);
 
-                // if let Some(mdbx_err) = e.downcast_ref::<error::Error>() {
-                //     error!("❌ MDBX explain: {}", mdbx_err.explain());
-                // }
-
                 let mut source = e.source();
                 while let Some(err) = source {
                     error!("⛓ Caused by: {}", err);
@@ -324,7 +241,8 @@ impl CoordinatorEdgeHandler {
     }
 
     pub async fn build_block(&self) -> anyhow::Result<()> {
-        let next_checkpoint = self.latest_checkpoint_id.load(Ordering::Relaxed) + 1;
+        let latest = self.get_latest_checkpoint_id().await?;
+        let next_checkpoint = latest + 1;
         self.notify_queue.clone().dispatch(
             CE_NOTIFICATIONS,
             CEQueueNotification::StartProduceBlock { next_checkpoint },
@@ -337,7 +255,7 @@ impl CoordinatorEdgeHandler {
         &self,
         request_checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo<F>> {
-        let latest = self.latest_checkpoint_id.load(Ordering::Relaxed);
+        let latest = self.get_latest_checkpoint_id().await?;
 
         if request_checkpoint_id > latest {
             bail!(
@@ -956,65 +874,7 @@ impl CoordinatorEdgeHandler {
     }
 }
 
-pub async fn get_latest_status_from_coord_sync_queue_with(
-    sync_queue: &DrainQueueRedisAsync,
-) -> anyhow::Result<Option<GlobalCoordinatorStatus>> {
-    // note: we use the fixed checkpoint_id 0 to get the latest status
-    let checkpoint_id = 0;
-    let entries = sync_queue
-        .get_imm::<GlobalCoordinatorStatus>(COORD_STATUS_CHANNEL_ID, checkpoint_id)
-        .await?;
-    Ok(entries.into_iter().next())
-}
 
-pub async fn get_latest_status_from_coord_sync_queue(
-) -> anyhow::Result<Option<GlobalCoordinatorStatus>> {
-    let state = GLOBAL_COORD_EDGE_STATE
-        .get()
-        .ok_or_else(|| anyhow::anyhow!("GLOBAL_COORD_EDGE_STATE is not initialized"))?;
-
-    get_latest_status_from_coord_sync_queue_with(&state.sync_queue).await
-}
-
-pub async fn get_latest_checkpoint_from_db<C, const D: usize>() -> anyhow::Result<u64> {
-    let state = GLOBAL_COORD_EDGE_STATE
-        .get()
-        .ok_or_else(|| anyhow::anyhow!("GLOBAL_COORD_EDGE_STATE is not initialized"))?;
-    
-    let block_state = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*state.store).await?;
-    Ok(block_state.checkpoint_id)
-}
-
-pub async fn recover_latest_checkpoint_from_db_if_needed() -> anyhow::Result<()> {
-    let latest_checkpoint = match get_latest_checkpoint_from_db::<C, D>().await {
-        Ok(latest_checkpoint) => latest_checkpoint,
-        Err(e) => {
-            error!("❌ Failed to get latest checkpoint from DB: {:?}", e);
-            return Ok(());
-        }
-    };
-
-    let state = GLOBAL_COORD_EDGE_STATE
-        .get()
-        .ok_or_else(|| anyhow::anyhow!("GLOBAL_COORD_EDGE_STATE is not initialized"))?;
-        
-    let current_cached = LATEST_CHECKPOINT_ID.load(Ordering::Relaxed);
-
-    if latest_checkpoint > current_cached {
-        info!(
-            "🔔 Detected newer checkpoint in DB, updating from {} -> {}",
-            current_cached, latest_checkpoint
-        );
-        LATEST_CHECKPOINT_ID.store(latest_checkpoint, Ordering::Relaxed);
-    } else {
-        debug!(
-            "ℹ️ No newer checkpoint in DB, current = {}, db = {}",
-            current_cached, latest_checkpoint
-        );
-    }
-
-    Ok(())
-}
 
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
@@ -1029,13 +889,13 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         self.register_user(public_key)
             .await
             .map(|_| "ok".to_string())
-            .map_err(RpcError::Anyhow)
+            .map_err(|e| RpcError::Anyhow(e.into()))
     }
     
     async fn get_user_id(&self, public_key: QHashOut<F>) -> RpcResult<u64> {
         self.get_user_id(public_key)
             .await
-            .map_err(RpcError::Anyhow)
+            .map_err(|e| RpcError::Anyhow(e.into()))
     }
     
     async fn deploy_contract(&self, deploy_contract: QBCDeployContract<F>) -> RpcResult<String> {
@@ -1064,17 +924,22 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     }
     
     async fn get_latest_checkpoint(&self) -> RpcResult<LatestCheckpointResponse> {
-        Ok(LatestCheckpointResponse {
-            checkpoint_id: self.latest_checkpoint_id.load(Ordering::Relaxed),
-        })
+        let checkpoint_id = self.get_latest_checkpoint_id()
+            .await
+            .map_err(RpcError::Anyhow)?;
+        Ok(LatestCheckpointResponse { checkpoint_id })
     }
     
     async fn latest_checkpoint(&self) -> RpcResult<u64> {
-        Ok(self.latest_checkpoint_id.load(Ordering::Relaxed))
+        self.get_latest_checkpoint_id()
+            .await
+            .map_err(RpcError::Anyhow)
     }
     
     async fn get_latest_checkpoint_id(&self) -> RpcResult<u64> {
-        Ok(self.latest_checkpoint_id.load(Ordering::Relaxed))
+        self.get_latest_checkpoint_id()
+            .await
+            .map_err(RpcError::Anyhow)
     }
     
     async fn get_checkpoint_sync_info(&self, checkpoint_id: u64) -> RpcResult<CheckpointSyncInfo<F>> {

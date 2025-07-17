@@ -369,8 +369,7 @@ pub trait QEDComboDataStoreReaderWriterSync<F: RichField>: QEDComboDataStoreRead
     async fn initialize_store(&self) -> anyhow::Result<u64> {
 
         let latest_l2_block_state_or_err = <Self as QMetaDataStoreReaderSync<F>>::get_latest_l2_block_state(self).await;
-        if latest_l2_block_state_or_err.is_ok() {
-            let v = latest_l2_block_state_or_err.unwrap();
+        if let Ok(v) = latest_l2_block_state_or_err {
             Ok(v.checkpoint_id)
         }else{
             // database not initialized with data for the genesis block

@@ -50,11 +50,6 @@ pub enum CEQueueNotification {
     StartProduceBlock { next_checkpoint: u64 },
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub enum CPQueueNotification {
-    StartSync { checkpoint: u64 },
-}
-
 impl RedisQueue {
     pub fn new(uri: &str) -> Result<Self> {
         let queue = {

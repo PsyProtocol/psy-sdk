@@ -1,8 +1,6 @@
 use std::time::Duration;
 
 use qed_core::job::{id::{QProvingJobDataID, QWorkerJobBenchmark}, worker_queue::{ProvingDispatcher, ProvingWorkerListener, WorkerEventReceiverSync, WorkerEventTransmitterSync}};
-// TODO: QEDArcImmutableEventProcessorWrapper should be moved to qed_core
-// For now, we'll define it here to avoid circular dependency
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
