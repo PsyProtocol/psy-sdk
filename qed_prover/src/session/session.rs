@@ -631,7 +631,7 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str(
             "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
         )?;
-        let private_key134217728 = QHashOut::<GoldilocksField>::from_str(
+        let private_key8388608 = QHashOut::<GoldilocksField>::from_str(
             "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d",
         )?;
 
@@ -650,7 +650,7 @@ mod tests {
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
-        let user134217728 = wallet_session.register_user(private_key134217728)?;
+        let user8388608 = wallet_session.register_user(private_key8388608)?;
 
         wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(10));
@@ -663,8 +663,8 @@ mod tests {
         // add user0
         wallet_session.add_user(private_key0)?;
 
-        // add user134217728
-        wallet_session.add_user(private_key134217728)?;
+        // add user8388608
+        wallet_session.add_user(private_key8388608)?;
 
         // user0 mint 1000
         wallet_session.exec_contract_call(
@@ -681,13 +681,13 @@ mod tests {
         wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(10));
 
-        // user0 transfer 500 to user134217728
+        // user0 transfer 500 to user8388608
         wallet_session.exec_contract_call(
             user0,
             vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
-                inputs: vec![134217728, 500],
+                inputs: vec![8388608, 500],
             }],
         )?;
 
@@ -696,9 +696,9 @@ mod tests {
         wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(10));
 
-        // user134217728 claim
+        // user8388608 claim
         wallet_session.exec_contract_call(
-            user134217728,
+            user8388608,
             vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
@@ -711,9 +711,9 @@ mod tests {
         wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(10));
 
-        // user134217728 transfer 500 to user0
+        // user8388608 transfer 500 to user0
         wallet_session.exec_contract_call(
-            user134217728,
+            user8388608,
             vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
@@ -739,7 +739,7 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str(
             "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
         )?;
-        let private_key134217728 = QHashOut::<GoldilocksField>::from_str(
+        let private_key8388608 = QHashOut::<GoldilocksField>::from_str(
             "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d",
         )?;
 
@@ -759,7 +759,7 @@ mod tests {
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
-        let user134217728 = wallet_session.register_user(private_key134217728)?;
+        let user8388608 = wallet_session.register_user(private_key8388608)?;
 
         wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(10));
@@ -772,8 +772,8 @@ mod tests {
         // add user0
         wallet_session.add_user(private_key0)?;
 
-        // add user134217728
-        wallet_session.add_user(private_key134217728)?;
+        // add user8388608
+        wallet_session.add_user(private_key8388608)?;
 
         // user0 mint 1000 contract 0
         wallet_session.exec_contract_call(

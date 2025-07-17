@@ -62,7 +62,7 @@ export const defaultConfig: WalletConfig = {
     },
   },
   network: {
-    users_per_realm: 4194304,
+    users_per_realm: 8388608,
     realm_configs: [
       {
         id: 0,

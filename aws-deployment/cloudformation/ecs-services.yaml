@@ -57,10 +57,10 @@ Parameters:
     Default: /qed-protocol/redis/realm0/endpoint
     Description: SSM parameter for Realm0 Redis endpoint
 
-  Realm32RedisEndpoint:
+  Realm1RedisEndpoint:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /qed-protocol/redis/realm32/endpoint
-    Description: SSM parameter for Realm32 Redis endpoint
+    Default: /qed-protocol/redis/realm1/endpoint
+    Description: SSM parameter for Realm1 Redis endpoint
 
   CoordinatorScyllaDBEndpoint:
     Type: AWS::SSM::Parameter::Value<String>
@@ -72,10 +72,10 @@ Parameters:
     Default: /qed-protocol/scylladb/realm0-endpoint
     Description: SSM parameter for Realm0 ScyllaDB endpoint
 
-  Realm32ScyllaDBEndpoint:
+  Realm1ScyllaDBEndpoint:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /qed-protocol/scylladb/realm32-endpoint
-    Description: SSM parameter for Realm32 ScyllaDB endpoint
+    Default: /qed-protocol/scylladb/realm1-endpoint
+    Description: SSM parameter for Realm1 ScyllaDB endpoint
 
 Resources:
   # Task Definitions
@@ -314,10 +314,10 @@ Resources:
               awslogs-stream-prefix: realm0-edge
           Essential: true
 
-  Realm32ProcessorTaskDefinition:
+  Realm1ProcessorTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub ${ProjectName}-realm32-processor
+      Family: !Sub ${ProjectName}-realm1-processor
       NetworkMode: bridge
       PidMode: host
       RequiresCompatibilities:
@@ -325,7 +325,7 @@ Resources:
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
       ContainerDefinitions:
-        - Name: realm32-processor
+        - Name: realm1-processor
           Image: !Ref ContainerImage
           Memory: 8192
           MemoryReservation: 6144
@@ -335,13 +335,13 @@ Resources:
           Command:
             - realm-processor
             - --node-id=2
-            - --realm-id=32
-            - --worker-queue-suffix=rwq32
-            - --notifications-queue-suffix=rnq32
-            - --proof-store-key-suffix=RP32
-            - !Sub --redis-uri=redis://${Realm32RedisEndpoint}
-            - !Sub --scylla-uri=${Realm32ScyllaDBEndpoint}
-            - --scylla-keyspace=qed_realm_32
+            - --realm-id=1
+            - --worker-queue-suffix=rwq1
+            - --notifications-queue-suffix=rnq1
+            - --proof-store-key-suffix=RP1
+            - !Sub --redis-uri=redis://${Realm1RedisEndpoint}
+            - !Sub --scylla-uri=${Realm1ScyllaDBEndpoint}
+            - --scylla-keyspace=qed_realm_1
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -352,13 +352,13 @@ Resources:
             Options:
               awslogs-group: !Sub /ecs/${ProjectName}
               awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: realm32-processor
+              awslogs-stream-prefix: realm1-processor
           Essential: true
 
-  Realm32WorkerTaskDefinition:
+  Realm1WorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub ${ProjectName}-realm32-worker
+      Family: !Sub ${ProjectName}-realm1-worker
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
@@ -367,14 +367,14 @@ Resources:
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
       ContainerDefinitions:
-        - Name: realm32-worker
+        - Name: realm1-worker
           Image: !Ref ContainerImage
           Command:
             - realm-worker
-            - !Sub --redis-uri=redis://${Realm32RedisEndpoint}
-            - --worker-queue-suffix=rwq32
-            - --notifications-queue-suffix=rnq32
-            - --proof-store-key-suffix=RP32
+            - !Sub --redis-uri=redis://${Realm1RedisEndpoint}
+            - --worker-queue-suffix=rwq1
+            - --notifications-queue-suffix=rnq1
+            - --proof-store-key-suffix=RP1
           Environment:
             - Name: RUST_LOG
               Value: !Ref LogLevel
@@ -392,13 +392,13 @@ Resources:
             Options:
               awslogs-group: !Sub /ecs/${ProjectName}
               awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: realm32-worker
+              awslogs-stream-prefix: realm1-worker
           Essential: true
 
-  Realm32EdgeTaskDefinition:
+  Realm1EdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub ${ProjectName}-realm32-edge
+      Family: !Sub ${ProjectName}-realm1-edge
       NetworkMode: bridge
       PidMode: host
       RequiresCompatibilities:
@@ -406,7 +406,7 @@ Resources:
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task-execution
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-ecs-task
       ContainerDefinitions:
-        - Name: realm32-edge
+        - Name: realm1-edge
           Image: !Ref ContainerImage
           Memory: 8192
           MemoryReservation: 6144
@@ -417,13 +417,13 @@ Resources:
             - realm-edge
             - --listen-addr=0.0.0.0:8547
             - --node-id=2
-            - --realm-id=32
-            - --worker-queue-suffix=rwq32
-            - --notifications-queue-suffix=rnq32
-            - --proof-store-key-suffix=RP32
-            - !Sub --redis-uri=redis://${Realm32RedisEndpoint}
-            - !Sub --scylla-uri=${Realm32ScyllaDBEndpoint}
-            - --scylla-keyspace=qed_realm_32
+            - --realm-id=1
+            - --worker-queue-suffix=rwq1
+            - --notifications-queue-suffix=rnq1
+            - --proof-store-key-suffix=RP1
+            - !Sub --redis-uri=redis://${Realm1RedisEndpoint}
+            - !Sub --scylla-uri=${Realm1ScyllaDBEndpoint}
+            - --scylla-keyspace=qed_realm_1
             - !Sub
               - --coordinator-addr=http://${ALBDNS}:8545
               - ALBDNS:
@@ -442,7 +442,7 @@ Resources:
             Options:
               awslogs-group: !Sub /ecs/${ProjectName}
               awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: realm32-edge
+              awslogs-stream-prefix: realm1-edge
           Essential: true
 
   # Target Groups for Load Balancer
@@ -484,10 +484,10 @@ Resources:
       Matcher:
         HttpCode: "200,404,405"
 
-  Realm32EdgeTargetGroup:
+  Realm1EdgeTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub ${ProjectName}-realm32-edge-tg
+      Name: !Sub ${ProjectName}-realm1-edge-tg
       Port: 8547
       Protocol: HTTP
       VpcId:
@@ -526,7 +526,7 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref Realm0EdgeTargetGroup
 
-  Realm32ALBListener:
+  Realm1ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn:
@@ -535,7 +535,7 @@ Resources:
       Protocol: HTTP
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref Realm32EdgeTargetGroup
+          TargetGroupArn: !Ref Realm1EdgeTargetGroup
 
   # ECS Services
   CoordinatorProcessorService:
@@ -631,52 +631,52 @@ Resources:
         - Type: memberOf
           Expression: 'attribute:realm == realm0'
 
-  Realm32ProcessorService:
+  Realm1ProcessorService:
     Type: AWS::ECS::Service
     DependsOn: CoordinatorProcessorService
     Properties:
-      ServiceName: !Sub ${ProjectName}-realm32-processor
+      ServiceName: !Sub ${ProjectName}-realm1-processor
       Cluster:
         Fn::ImportValue: !Sub ${ProjectName}-cluster-name
-      TaskDefinition: !Ref Realm32ProcessorTaskDefinition
+      TaskDefinition: !Ref Realm1ProcessorTaskDefinition
       LaunchType: EC2
       DesiredCount: 1
       PlacementConstraints:
         - Type: memberOf
-          Expression: 'attribute:realm == realm32'
+          Expression: 'attribute:realm == realm1'
 
-  Realm32WorkerService:
+  Realm1WorkerService:
     Type: AWS::ECS::Service
-    DependsOn: Realm32ProcessorService
+    DependsOn: Realm1ProcessorService
     Properties:
-      ServiceName: !Sub ${ProjectName}-realm32-worker
+      ServiceName: !Sub ${ProjectName}-realm1-worker
       Cluster:
         Fn::ImportValue: !Sub ${ProjectName}-cluster-name
-      TaskDefinition: !Ref Realm32WorkerTaskDefinition
+      TaskDefinition: !Ref Realm1WorkerTaskDefinition
       LaunchType: EC2
       DesiredCount: !Ref MinWorkerCount
       PlacementConstraints:
         - Type: memberOf
           Expression: 'attribute:ecs.instance-type =~ c6i.*'
 
-  Realm32EdgeService:
+  Realm1EdgeService:
     Type: AWS::ECS::Service
-    DependsOn: Realm32ProcessorService
+    DependsOn: Realm1ProcessorService
     Properties:
-      ServiceName: !Sub ${ProjectName}-realm32-edge
+      ServiceName: !Sub ${ProjectName}-realm1-edge
       Cluster:
         Fn::ImportValue: !Sub ${ProjectName}-cluster-name
-      TaskDefinition: !Ref Realm32EdgeTaskDefinition
+      TaskDefinition: !Ref Realm1EdgeTaskDefinition
       LaunchType: EC2
       DesiredCount: !Ref MinEdgeCount
       LoadBalancers:
-        - ContainerName: realm32-edge
+        - ContainerName: realm1-edge
           ContainerPort: 8547
-          TargetGroupArn: !Ref Realm32EdgeTargetGroup
+          TargetGroupArn: !Ref Realm1EdgeTargetGroup
       HealthCheckGracePeriodSeconds: 60
       PlacementConstraints:
         - Type: memberOf
-          Expression: 'attribute:realm == realm32'
+          Expression: 'attribute:realm == realm1'
 
   # Auto Scaling for Worker Services
   CoordinatorWorkerScalingTarget:
@@ -727,23 +727,23 @@ Resources:
         ScaleInCooldown: 300
         ScaleOutCooldown: 60
 
-  Realm32WorkerScalingTarget:
+  Realm1WorkerScalingTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
-    DependsOn: Realm32WorkerService
+    DependsOn: Realm1WorkerService
     Properties:
       MaxCapacity: !Ref MaxWorkerCount
       MinCapacity: !Ref MinWorkerCount
-      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm32-worker
+      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm1-worker
       RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
 
-  Realm32WorkerCPUScalingPolicy:
+  Realm1WorkerCPUScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub ${ProjectName}-realm32-worker-cpu-scaling
+      PolicyName: !Sub ${ProjectName}-realm1-worker-cpu-scaling
       PolicyType: TargetTrackingScaling
-      ScalingTargetId: !Ref Realm32WorkerScalingTarget
+      ScalingTargetId: !Ref Realm1WorkerScalingTarget
       TargetTrackingScalingPolicyConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
@@ -800,23 +800,23 @@ Resources:
         ScaleInCooldown: 300
         ScaleOutCooldown: 60
 
-  Realm32EdgeScalingTarget:
+  Realm1EdgeScalingTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
-    DependsOn: Realm32EdgeService
+    DependsOn: Realm1EdgeService
     Properties:
       MaxCapacity: !Ref MaxEdgeCount
       MinCapacity: !Ref MinEdgeCount
-      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm32-edge
+      ResourceId: !Sub service/${ProjectName}-cluster/${ProjectName}-realm1-edge
       RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
 
-  Realm32EdgeCPUScalingPolicy:
+  Realm1EdgeCPUScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub ${ProjectName}-realm32-edge-cpu-scaling
+      PolicyName: !Sub ${ProjectName}-realm1-edge-cpu-scaling
       PolicyType: TargetTrackingScaling
-      ScalingTargetId: !Ref Realm32EdgeScalingTarget
+      ScalingTargetId: !Ref Realm1EdgeScalingTarget
       TargetTrackingScalingPolicyConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
@@ -861,11 +861,11 @@ Resources:
         - Name: ClusterName
           Value: !Sub ${ProjectName}-cluster
 
-  Realm32EdgeHighCPUAlarm:
+  Realm1EdgeHighCPUAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub ${ProjectName}-realm32-edge-high-cpu
-      AlarmDescription: Triggers when realm 32 edge service CPU is too high
+      AlarmName: !Sub ${ProjectName}-realm1-edge-high-cpu
+      AlarmDescription: Triggers when realm 1 edge service CPU is too high
       MetricName: CPUUtilization
       Namespace: AWS/ECS
       Statistic: Average
@@ -875,7 +875,7 @@ Resources:
       ComparisonOperator: GreaterThanThreshold
       Dimensions:
         - Name: ServiceName
-          Value: !Sub ${ProjectName}-realm32-edge
+          Value: !Sub ${ProjectName}-realm1-edge
         - Name: ClusterName
           Value: !Sub ${ProjectName}-cluster
 
@@ -898,14 +898,14 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm0-endpoint
 
-  Realm32Endpoint:
-    Description: Realm 32 public endpoint
+  Realm1Endpoint:
+    Description: Realm 1 public endpoint
     Value: !Sub
       - http://${ALBDNS}:8547
       - ALBDNS:
           Fn::ImportValue: !Sub ${ProjectName}-alb-dns
     Export:
-      Name: !Sub ${ProjectName}-realm32-endpoint
+      Name: !Sub ${ProjectName}-realm1-endpoint
 
   CoordinatorEdgeTaskDefinition:
     Description: Coordinator Edge Task Definition ARN
@@ -919,8 +919,8 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm0-edge-task-def
 
-  Realm32EdgeTaskDefinition:
-    Description: Realm 32 Edge Task Definition ARN
-    Value: !Ref Realm32EdgeTaskDefinition
+  Realm1EdgeTaskDefinition:
+    Description: Realm 1 Edge Task Definition ARN
+    Value: !Ref Realm1EdgeTaskDefinition
     Export:
-      Name: !Sub ${ProjectName}-realm32-edge-task-def
+      Name: !Sub ${ProjectName}-realm1-edge-task-def

@@ -32,10 +32,10 @@ Parameters:
     Default: 10.0.20.0/24
     Description: CIDR block for realm 0 subnet
   
-  Realm32SubnetCIDR:
+  Realm1SubnetCIDR:
     Type: String
     Default: 10.0.30.0/24
-    Description: CIDR block for realm 32 subnet
+    Description: CIDR block for realm 1 subnet
   
   WorkerInstanceType:
     Type: String
@@ -143,16 +143,16 @@ Resources:
         - Key: Name
           Value: !Sub ${ProjectName}-realm0-subnet
 
-  Realm32Subnet:
+  Realm1Subnet:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [2, !GetAZs '']
-      CidrBlock: !Ref Realm32SubnetCIDR
+      CidrBlock: !Ref Realm1SubnetCIDR
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-realm32-subnet
+          Value: !Sub ${ProjectName}-realm1-subnet
 
   # Route Table for Public Subnets
   PublicRouteTable:
@@ -183,11 +183,11 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref Realm0Subnet
 
-  Realm32SubnetRouteTableAssociation:
+  Realm1SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicRouteTable
-      SubnetId: !Ref Realm32Subnet
+      SubnetId: !Ref Realm1Subnet
 
   # Security Groups
   CoordinatorSecurityGroup:
@@ -209,7 +209,7 @@ Resources:
           SourceSecurityGroupId: !Ref ALBSecurityGroup
         # Allow ALB access to dynamic ports for ECS
         - IpProtocol: tcp
-          FromPort: 4194304
+          FromPort: 8388608
           ToPort: 65535
           SourceSecurityGroupId: !Ref ALBSecurityGroup
         # Allow internal coordinator communication
@@ -240,7 +240,7 @@ Resources:
           SourceSecurityGroupId: !Ref ALBSecurityGroup
         # Allow ALB access to dynamic ports for ECS
         - IpProtocol: tcp
-          FromPort: 4194304
+          FromPort: 8388608
           ToPort: 65535
           SourceSecurityGroupId: !Ref ALBSecurityGroup
         # Allow internal realm 0 communication
@@ -252,11 +252,11 @@ Resources:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
 
-  Realm32SecurityGroup:
+  Realm1SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub ${ProjectName}-realm32-sg
-      GroupDescription: Security group for realm 32 services
+      GroupName: !Sub ${ProjectName}-realm1-sg
+      GroupDescription: Security group for realm 1 services
       VpcId: !Ref VPC
       SecurityGroupIngress:
         # SSH access
@@ -271,14 +271,14 @@ Resources:
           SourceSecurityGroupId: !Ref ALBSecurityGroup
         # Allow ALB access to dynamic ports for ECS
         - IpProtocol: tcp
-          FromPort: 4194304
+          FromPort: 8388608
           ToPort: 65535
           SourceSecurityGroupId: !Ref ALBSecurityGroup
-        # Allow internal realm 32 communication
+        # Allow internal realm 1 communication
         - IpProtocol: tcp
           FromPort: 0
           ToPort: 65535
-          CidrIp: !Ref Realm32SubnetCIDR
+          CidrIp: !Ref Realm1SubnetCIDR
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -316,11 +316,11 @@ Resources:
           ToPort: 6380
           CidrIp: 10.0.0.0/16
 
-  Realm32RedisSecurityGroup:
+  Realm1RedisSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub ${ProjectName}-realm32-redis-sg
-      GroupDescription: Security group for realm 32 Redis
+      GroupName: !Sub ${ProjectName}-realm1-redis-sg
+      GroupDescription: Security group for realm 1 Redis
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -637,9 +637,9 @@ Resources:
                   --region ${AWS::Region}
                 ;;
               30)
-                # Realm32 subnet
+                # Realm1 subnet
                 aws ssm put-parameter \
-                  --name "/${ProjectName}/scylladb/realm32-endpoint" \
+                  --name "/${ProjectName}/scylladb/realm1-endpoint" \
                   --value "$INSTANCE_IP:9042" \
                   --type String \
                   --overwrite \
@@ -668,7 +668,7 @@ Resources:
                 }
                 AND durable_writes = true;
               
-              CREATE KEYSPACE IF NOT EXISTS qed_realm_32
+              CREATE KEYSPACE IF NOT EXISTS qed_realm_1
                 WITH REPLICATION = {
                   'class': 'NetworkTopologyStrategy',
                   'datacenter1': 3
@@ -718,7 +718,7 @@ Resources:
         - Key: Project
           Value: !Ref ProjectName
 
-  Realm32EBSVolume:
+  Realm1EBSVolume:
     Type: AWS::EC2::Volume
     Properties:
       AvailabilityZone: !Select [2, !GetAZs '']
@@ -729,7 +729,7 @@ Resources:
       Encrypted: true
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-realm32-ebs
+          Value: !Sub ${ProjectName}-realm1-ebs
         - Key: Project
           Value: !Ref ProjectName
 
@@ -747,7 +747,7 @@ Resources:
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
         - !Ref Realm0Subnet
-        - !Ref Realm32Subnet
+        - !Ref Realm1Subnet
       HealthCheckType: EC2
       HealthCheckGracePeriod: 600
       Tags:
@@ -778,7 +778,7 @@ Resources:
         SecurityGroupIds:
           - !Ref CoordinatorRedisSecurityGroup
           - !Ref Realm0RedisSecurityGroup
-          - !Ref Realm32RedisSecurityGroup
+          - !Ref Realm1RedisSecurityGroup
         TagSpecifications:
           - ResourceType: instance
             Tags:
@@ -807,7 +807,7 @@ Resources:
             echo "Instance IP: $INSTANCE_IP"
             
             # Create data directories for 3 Redis instances
-            mkdir -p /data/redis-coordinator /data/redis-realm0 /data/redis-realm32
+            mkdir -p /data/redis-coordinator /data/redis-realm0 /data/redis-realm1
             
             # Run Coordinator Redis (port 6379)
             echo "Starting Coordinator Redis container..."
@@ -845,12 +845,12 @@ Resources:
                 --maxmemory-policy allkeys-lru \
                 --port 6379 || { echo "Realm0 Redis failed"; exit 1; }
             
-            # Run Realm32 Redis (port 6381)
-            echo "Starting Realm32 Redis container..."
+            # Run Realm1 Redis (port 6381)
+            echo "Starting Realm1 Redis container..."
             docker run -d \
-              --name redis-realm32 \
+              --name redis-realm1 \
               -p 6381:6379 \
-              -v /data/redis-realm32:/data \
+              -v /data/redis-realm1:/data \
               --restart always \
               --memory=20g \
               redis:7-alpine \
@@ -861,7 +861,7 @@ Resources:
                 --dir /data \
                 --maxmemory 18gb \
                 --maxmemory-policy allkeys-lru \
-                --port 6379 || { echo "Realm32 Redis failed"; exit 1; }
+                --port 6379 || { echo "Realm1 Redis failed"; exit 1; }
             
             # Wait for containers to be ready
             sleep 15
@@ -884,11 +884,11 @@ Resources:
               --region ${AWS::Region} || echo "Realm0 SSM parameter failed"
             
             aws ssm put-parameter \
-              --name "/${ProjectName}/redis/realm32/endpoint" \
+              --name "/${ProjectName}/redis/realm1/endpoint" \
               --value "$INSTANCE_IP:6381" \
               --type String \
               --overwrite \
-              --region ${AWS::Region} || echo "Realm32 SSM parameter failed"
+              --region ${AWS::Region} || echo "Realm1 SSM parameter failed"
             
             echo "Multi-Redis setup completed successfully at $(date)"
 
@@ -906,7 +906,7 @@ Resources:
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
         - !Ref Realm0Subnet
-        - !Ref Realm32Subnet
+        - !Ref Realm1Subnet
       HealthCheckType: EC2
       HealthCheckGracePeriod: 300
       Tags:
@@ -930,7 +930,7 @@ Resources:
       Subnets:
         - !Ref CoordinatorSubnet
         - !Ref Realm0Subnet
-        - !Ref Realm32Subnet
+        - !Ref Realm1Subnet
 
   # CloudWatch Log Group
   CloudWatchLogGroup:
@@ -1076,29 +1076,29 @@ Resources:
           Value: realm0
           PropagateAtLaunch: true
 
-  Realm32AutoScalingGroup:
+  Realm1AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: !Sub ${ProjectName}-realm32-asg
+      AutoScalingGroupName: !Sub ${ProjectName}-realm1-asg
       LaunchTemplate:
-        LaunchTemplateId: !Ref Realm32LaunchTemplate
-        Version: !GetAtt Realm32LaunchTemplate.LatestVersionNumber
+        LaunchTemplateId: !Ref Realm1LaunchTemplate
+        Version: !GetAtt Realm1LaunchTemplate.LatestVersionNumber
       MinSize: 1
       MaxSize: 2
       DesiredCapacity: 1
       VPCZoneIdentifier:
-        - !Ref Realm32Subnet
+        - !Ref Realm1Subnet
       HealthCheckType: EC2
       HealthCheckGracePeriod: 300
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-realm32-worker
+          Value: !Sub ${ProjectName}-realm1-worker
           PropagateAtLaunch: true
         - Key: Project
           Value: !Ref ProjectName
           PropagateAtLaunch: true
         - Key: Realm
-          Value: realm32
+          Value: realm1
           PropagateAtLaunch: true
 
   # Launch Templates (only for coordinator and edge services that need EFS)
@@ -1413,10 +1413,10 @@ Resources:
               - Key: Environment
                 Value: !Ref Environment
 
-  Realm32LaunchTemplate:
+  Realm1LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: !Sub ${ProjectName}-realm32-template
+      LaunchTemplateName: !Sub ${ProjectName}-realm1-template
       LaunchTemplateData:
         ImageId: !Ref LatestAmiId
         InstanceType: !Ref WorkerInstanceType
@@ -1427,7 +1427,7 @@ Resources:
           - DeviceIndex: 0
             DeleteOnTermination: true
             Groups:
-              - !Ref Realm32SecurityGroup
+              - !Ref Realm1SecurityGroup
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
@@ -1444,12 +1444,12 @@ Resources:
             usermod -aG docker ubuntu
             
             # Attach and mount EBS Multi-Attach volume
-            echo "Attaching EBS volume for realm32 data..."
+            echo "Attaching EBS volume for realm1 data..."
             INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
             
             # Attach EBS volume
             aws ec2 attach-volume \
-              --volume-id ${Realm32EBSVolume} \
+              --volume-id ${Realm1EBSVolume} \
               --instance-id $INSTANCE_ID \
               --device /dev/xvdf \
               --region ${AWS::Region} || { echo "Failed to attach EBS volume"; exit 1; }
@@ -1515,25 +1515,25 @@ Resources:
             fi
             
             # Create mount point and mount
-            mkdir -p /data/realm32
+            mkdir -p /data/realm1
             # For Multi-Attach volumes, use specific mount options to prevent cache issues
-            mount -o noatime,nodiratime "$DEVICE_NAME" /data/realm32 || { echo "Failed to mount EBS volume"; exit 1; }
+            mount -o noatime,nodiratime "$DEVICE_NAME" /data/realm1 || { echo "Failed to mount EBS volume"; exit 1; }
             
             # Add to fstab for persistent mounting (use UUID for reliability)
             VOLUME_UUID=$(blkid -s UUID -o value "$DEVICE_NAME")
             if [ -n "$VOLUME_UUID" ]; then
-              echo "UUID=$VOLUME_UUID /data/realm32 ext4 defaults,noatime 0 0" >> /etc/fstab
+              echo "UUID=$VOLUME_UUID /data/realm1 ext4 defaults,noatime 0 0" >> /etc/fstab
             else
-              echo "$DEVICE_NAME /data/realm32 ext4 defaults,noatime 0 0" >> /etc/fstab
+              echo "$DEVICE_NAME /data/realm1 ext4 defaults,noatime 0 0" >> /etc/fstab
             fi
             
             # Verify mount
-            if ! mountpoint -q /data/realm32; then
+            if ! mountpoint -q /data/realm1; then
               echo "ERROR: EBS mount failed"; exit 1
             fi
             
             # Set permissions for QED data
-            chown -R 1001:1001 /data/realm32
+            chown -R 1001:1001 /data/realm1
             
             # Install ECS agent
             curl -O https://s3.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.amd64.deb
@@ -1545,7 +1545,7 @@ Resources:
             echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
             echo ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true >> /etc/ecs/ecs.config
             echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo 'ECS_INSTANCE_ATTRIBUTES={"realm":"realm32"}' >> /etc/ecs/ecs.config
+            echo 'ECS_INSTANCE_ATTRIBUTES={"realm":"realm1"}' >> /etc/ecs/ecs.config
             
             # Start ECS agent
             systemctl enable ecs
@@ -1562,7 +1562,7 @@ Resources:
           - ResourceType: instance
             Tags:
               - Key: Name
-                Value: !Sub ${ProjectName}-realm32
+                Value: !Sub ${ProjectName}-realm1
               - Key: Project
                 Value: !Ref ProjectName
               - Key: Environment
@@ -1587,11 +1587,11 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm0-subnet-id
 
-  Realm32SubnetId:
-    Description: Realm 32 Subnet ID
-    Value: !Ref Realm32Subnet
+  Realm1SubnetId:
+    Description: Realm 1 Subnet ID
+    Value: !Ref Realm1Subnet
     Export:
-      Name: !Sub ${ProjectName}-realm32-subnet-id
+      Name: !Sub ${ProjectName}-realm1-subnet-id
 
   CoordinatorSecurityGroupId:
     Description: Coordinator Security Group ID
@@ -1605,17 +1605,17 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm0-sg
 
-  Realm32SecurityGroupId:
-    Description: Realm 32 Security Group ID
-    Value: !Ref Realm32SecurityGroup
+  Realm1SecurityGroupId:
+    Description: Realm 1 Security Group ID
+    Value: !Ref Realm1SecurityGroup
     Export:
-      Name: !Sub ${ProjectName}-realm32-sg
+      Name: !Sub ${ProjectName}-realm1-sg
 
   # Redis endpoints are stored in SSM Parameter Store by the initialization script
   # The following parameters are available:
   # /${ProjectName}/redis/coordinator/endpoint
   # /${ProjectName}/redis/realm0/endpoint
-  # /${ProjectName}/redis/realm32/endpoint
+  # /${ProjectName}/redis/realm1/endpoint
   
   # ScyllaDB endpoints are stored in SSM Parameter Store by the initialization script
   # The following parameters are available:
@@ -1658,11 +1658,11 @@ Outputs:
     Export:
       Name: !Sub ${ProjectName}-realm0-ebs-volume-id
 
-  Realm32EBSVolumeId:
-    Description: EBS Volume ID for Realm 32
-    Value: !Ref Realm32EBSVolume
+  Realm1EBSVolumeId:
+    Description: EBS Volume ID for Realm 1
+    Value: !Ref Realm1EBSVolume
     Export:
-      Name: !Sub ${ProjectName}-realm32-ebs-volume-id
+      Name: !Sub ${ProjectName}-realm1-ebs-volume-id
 
   # Redis Auto Scaling Group Outputs
   RedisAutoScalingGroupName:
@@ -1684,7 +1684,7 @@ Outputs:
       Redis endpoints will be available in SSM Parameter Store after instances initialize:
       - /${ProjectName}/redis/coordinator/endpoint (port 6379)
       - /${ProjectName}/redis/realm0/endpoint (port 6380)
-      - /${ProjectName}/redis/realm32/endpoint (port 6381)
+      - /${ProjectName}/redis/realm1/endpoint (port 6381)
 
   # ScyllaDB Configuration Info
   ScyllaDBInfo:
@@ -1693,5 +1693,5 @@ Outputs:
       ScyllaDB endpoints will be available in SSM Parameter Store after instances initialize:
       - /${ProjectName}/scylladb/coordinator-endpoint
       - /${ProjectName}/scylladb/realm0-endpoint  
-      - /${ProjectName}/scylladb/realm32-endpoint
+      - /${ProjectName}/scylladb/realm1-endpoint
       - /${ProjectName}/scylladb/cluster-contact-point

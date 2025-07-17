@@ -895,7 +895,7 @@ deploy_ecs_services() {
         
         # Check if all required SSM parameters exist
         # Check ScyllaDB endpoints
-        for param in "coordinator-endpoint" "realm0-endpoint" "realm32-endpoint"; do
+        for param in "coordinator-endpoint" "realm0-endpoint" "realm1-endpoint"; do
             if ! aws ssm get-parameter --name "/${PROJECT_NAME}/scylladb/${param}" --region ${AWS_REGION} &>/dev/null; then
                 all_params_ready=false
                 log_warning "Waiting for /${PROJECT_NAME}/scylladb/${param}..."
@@ -904,7 +904,7 @@ deploy_ecs_services() {
         done
         
         # Check Redis endpoints
-        for param in "coordinator/endpoint" "realm0/endpoint" "realm32/endpoint"; do
+        for param in "coordinator/endpoint" "realm0/endpoint" "realm1/endpoint"; do
             if ! aws ssm get-parameter --name "/${PROJECT_NAME}/redis/${param}" --region ${AWS_REGION} &>/dev/null; then
                 all_params_ready=false
                 log_warning "Waiting for /${PROJECT_NAME}/redis/${param}..."
@@ -928,13 +928,13 @@ deploy_ecs_services() {
     # Display all configured endpoints
     log_info "📍 Configured endpoints:"
     log_info "ScyllaDB:"
-    for param in "coordinator-endpoint" "realm0-endpoint" "realm32-endpoint"; do
+    for param in "coordinator-endpoint" "realm0-endpoint" "realm1-endpoint"; do
         endpoint=$(aws ssm get-parameter --name "/${PROJECT_NAME}/scylladb/${param}" --region ${AWS_REGION} --query 'Parameter.Value' --output text 2>/dev/null || echo "Error reading parameter")
         log_info "  /${PROJECT_NAME}/scylladb/${param}: $endpoint"
     done
     
     log_info "Redis:"
-    for param in "coordinator/endpoint" "realm0/endpoint" "realm32/endpoint"; do
+    for param in "coordinator/endpoint" "realm0/endpoint" "realm1/endpoint"; do
         endpoint=$(aws ssm get-parameter --name "/${PROJECT_NAME}/redis/${param}" --region ${AWS_REGION} --query 'Parameter.Value' --output text 2>/dev/null || echo "Error reading parameter")
         log_info "  /${PROJECT_NAME}/redis/${param}: $endpoint"
     done
@@ -976,7 +976,7 @@ update_rpc_config() {
     # Create new rpc.config
     cat > rpc.config << EOF
 {
-	"users_per_realm": 4194304,
+	"users_per_realm": 8388608,
 	"realm_configs": [
 		{
 			"id": 0,
@@ -1021,9 +1021,9 @@ aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "coordinator-edge/coordina
 aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm0-processor/realm0-processor/TASK_ID" --follow --region ${AWS_REGION}
 aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm0-worker/realm0-worker/TASK_ID" --follow --region ${AWS_REGION}
 aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm0-edge/realm0-edge/TASK_ID" --follow --region ${AWS_REGION}
-aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm32-processor/realm32-processor/TASK_ID" --follow --region ${AWS_REGION}
-aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm32-worker/realm32-worker/TASK_ID" --follow --region ${AWS_REGION}
-aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm32-edge/realm32-edge/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm1-processor/realm1-processor/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm1-worker/realm1-worker/TASK_ID" --follow --region ${AWS_REGION}
+aws logs tail /ecs/${PROJECT_NAME} --log-stream-names "realm1-edge/realm1-edge/TASK_ID" --follow --region ${AWS_REGION}
 
 # List all log streams:
 aws logs describe-log-streams --log-group-name /ecs/${PROJECT_NAME} --region ${AWS_REGION} --query 'logStreams[*].logStreamName' --output table

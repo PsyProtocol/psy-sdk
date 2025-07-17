@@ -129,19 +129,19 @@ init:
 	@echo "Starting Redis containers..."
 	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
-	@docker run -d --name qed-redis-realm32 -p 6381:6379 redis:alpine redis-server --save ""
+	@docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
 	# @echo "Starting ScyllaDB containers..."
 	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
 	# @docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
-	# @docker run -d --name qed-scylla-realm32 -p 9044:9042 scylladb/scylla:latest
+	# @docker run -d --name qed-scylla-realm1 -p 9044:9042 scylladb/scylla:latest
 	@echo "Waiting for databases to be ready..."
 	@sleep 10
 
 .PHONY: shutdown
 shutdown:
 	@echo "Stopping and removing database containers..."
-	@docker rm -f qed-redis-coordinator qed-redis-realm0 qed-redis-realm32 > /dev/null 2>&1 || true
-	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm32 > /dev/null 2>&1 || true
+	@docker rm -f qed-redis-coordinator qed-redis-realm0 qed-redis-realm1 > /dev/null 2>&1 || true
+	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
 	@rm -fr ${PROJECT_DIR} ${PWD}/db > /dev/null 2>&1 || true
 
 run-all: shutdown init compile
@@ -174,36 +174,36 @@ run-realm-edge:
 run-realm-worker:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker --redis-uri=redis://127.0.0.1:6380
 
-run-realm-processor32:
+run-realm-processor1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6381 \
       --backend-type lmdbx \
-      --path ${PWD}/db/realm32 \
+      --path ${PWD}/db/realm1 \
       --node-id=2 \
-      --realm-id=32 \
-      --worker-queue-suffix=rwq32 \
-      --notifications-queue-suffix=rnq32 \
-      --proof-store-key-suffix=RP32
+      --realm-id=1 \
+      --worker-queue-suffix=rwq1 \
+      --notifications-queue-suffix=rnq1 \
+      --proof-store-key-suffix=RP1
 
-run-realm-edge32:
+run-realm-edge1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
       --listen-addr=0.0.0.0:8547 \
       --redis-uri=redis://127.0.0.1:6381 \
       --backend-type lmdbx \
-      --path ${PWD}/db/realm32 \
+      --path ${PWD}/db/realm1 \
       --coordinator-addr=http://127.0.0.1:8545 \
       --node-id=2 \
-      --realm-id=32 \
-      --worker-queue-suffix=rwq32 \
-      --notifications-queue-suffix=rnq32 \
-      --proof-store-key-suffix=RP32
+      --realm-id=1 \
+      --worker-queue-suffix=rwq1 \
+      --notifications-queue-suffix=rnq1 \
+      --proof-store-key-suffix=RP1
 
-run-realm-worker32:
+run-realm-worker1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
       --redis-uri=redis://127.0.0.1:6381 \
-      --worker-queue-suffix=rwq32 \
-      --notifications-queue-suffix=rnq32 \
-      --proof-store-key-suffix=RP32
+      --worker-queue-suffix=rwq1 \
+      --notifications-queue-suffix=rnq1 \
+      --proof-store-key-suffix=RP1
 
 run-user-prover:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover
@@ -249,7 +249,7 @@ mint:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000
 
 transfer:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 134217728 --inputs 500
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${CURRENT_USER_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 500
 
 claim:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER32_0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0
@@ -270,10 +270,10 @@ return-back2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1 --inputs 500
 
 claim3:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 4194304
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 8388608
 
 return-back3:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 4194304 --inputs 500
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 500
 
 balance-of:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}, ${CONTRACT_STATE_HEIGHT}, ${SLOT_ID}], "id": 1 }' | jq .
