@@ -35,7 +35,7 @@ use qed_data::{
         },
         stats::GUTAStats,
     },
-    qdata::{checkpoint::{QEDCheckpointLeafCompactWithStateRoots}, user::QEDUserLeaf},
+    qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, user::QEDUserLeaf},
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
 use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};

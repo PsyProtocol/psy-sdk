@@ -131,6 +131,7 @@ impl<
         let checkpoint_id = self.get_checkpoint_id_async().await?;
         let next_checkpoint_id = checkpoint_id + 2;
         if end_cap_checkpoint_id > checkpoint_id {
+            tracing::info!("ensure end cap checkpoint id: {} {} {}", checkpoint_id, end_cap_checkpoint_id, next_checkpoint_id);
             anyhow::bail!("invalid checkpoint id");
         }
 
@@ -156,7 +157,7 @@ impl<
         );
         let user_leaf = self
             .store_reader
-            .get_user_leaf_data(checkpoint_id, user_id_u64)
+            .get_user_leaf_data(end_cap_checkpoint_id, user_id_u64)
             .await?;
         let expected_start_user_leaf_hash = user_leaf.qfhash::<H>();
         if expected_start_user_leaf_hash != input.core.state_transition.start_user_leaf_hash {
