@@ -19,7 +19,6 @@ use qed_core::job::drain_queue::{
 };
 use qed_core::job::id::ProvingJobCircuitType;
 use qed_core::job::traits::QProofStoreWriterAsyncImm;
-use qed_core::job::worker_queue::ProvingDispatcher;
 
 // qed_crypto
 use qed_crypto::hash::merkle::core::MerkleProofCore;
@@ -36,15 +35,14 @@ use qed_data::qdata::user::QEDUserLeaf;
 use qed_data::qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact};
 
 // qed_node
-use qed_store::queue::worker_queue_redis::redis_queue::{
-    CEQueueNotification, RedisQueue, CE_NOTIFICATIONS,
-};
+use qed_store::queue::rsmq_queue::CEQueueNotification;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 // qed_store
 use qed_data::config::store_config::{QEDFelt, QEDHasher, QCheckpointSyncInfoCompact};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
+use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
 // crate inner
 use crate::coordinator::edge::{StoreReader, DrainQueue, ProofStore};
 use crate::coordinator::args::CoordinatorEdgeArgs;
@@ -63,7 +61,7 @@ const D: usize = 2;
 
 #[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
-    notify_queue: RedisQueue,
+    history_queue: Arc<ProofStore>,
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
 }
@@ -105,7 +103,7 @@ impl CoordinatorEdgeHandler {
         .await?;
 
         Ok(Self {
-            notify_queue: RedisQueue::new(args.redis_uri.as_str())?,
+            history_queue: Arc::clone(&proof_store),
             ctx,
             store: store_reader,
         })
@@ -243,10 +241,12 @@ impl CoordinatorEdgeHandler {
     pub async fn build_block(&self) -> anyhow::Result<()> {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint = latest + 1;
-        self.notify_queue.clone().dispatch(
-            CE_NOTIFICATIONS,
-            CEQueueNotification::StartProduceBlock { next_checkpoint },
-        )?;
+        
+        // Use CheckpointHistoryQueue instead of RedisQueue
+        self.history_queue.chq_push_imm(
+            CEQueueNotification::StartProduceBlock { next_checkpoint }
+        ).await?;
+        
         info!("☎️ build block {} cmd have send to CP", next_checkpoint);
         Ok(())
     }

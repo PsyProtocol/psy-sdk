@@ -433,6 +433,13 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
             .await?;
         Ok(T::from_bytes(&result)?)
     }
+    
+    async fn is_empty(&self) -> anyhow::Result<bool> {
+        // Check if REALM_CHECKPOINT queue is empty
+        let realm_checkpoint_key = format!("{}-REALM_CHECKPOINT", self.worker_queue_id);
+        let length: usize = self.pool.llen(&realm_checkpoint_key).await?;
+        Ok(length == 0)
+    }
 }
 
 #[async_trait]

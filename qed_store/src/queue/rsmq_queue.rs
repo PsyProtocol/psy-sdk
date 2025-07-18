@@ -3,17 +3,19 @@ use crate::queue::fred_queue::{
     PS_WORKER_QUEUE_KEY_PREFIX, SyncProofQueue,
 };
 use async_trait::async_trait;
+use qed_core::config::network_constants::{COORDINATOR_TO_REALM_CHANNEL, REALM_TO_COORDINATOR_CHANNEL};
 use kvq::traits::KVQSerializable;
 use qed_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable,
 };
 use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, HQSerializable,
+    HistoryQueueMetadata, HistoryQueueMetadataTagged,
 };
 use qed_core::job::id::{QProvingJobDataID, ProvingJobDataId, QWorkerJobBenchmark};
 use qed_core::job::worker_queue::{
-    WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm, ProvingDispatcher, 
-    ProvingWorkerListener, WorkerEventReceiverSync, WorkerEventTransmitterSync
+    WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm, 
+    WorkerEventReceiverSync, WorkerEventTransmitterSync
 };
 use rsmq::{PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqError, RsmqOptions,
     RsmqConnectionSync, RsmqSync, RsmqMessage};
@@ -297,6 +299,18 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
             };
         }
     }
+    
+    async fn is_empty(&self) -> anyhow::Result<bool> {
+        // Check if sync proof queue is empty
+        let queue_id = QueueId::SyncProof {
+            worker_queue_suffix: self.worker_queue_suffix.clone(),
+        };
+        match self.pool.get_queue_attributes(&queue_id.get_queue_id()).await {
+            Ok(attrs) => Ok(attrs.msgs == 0),
+            Err(RsmqError::QueueNotFound) => Ok(true),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 #[async_trait]
@@ -436,6 +450,34 @@ pub enum CEQueueNotification {
     StartProduceBlock { next_checkpoint: u64 },
 }
 
+// Channel IDs are imported from network_constants
+
+// Implement KVQSerializable for CEQueueNotification
+impl KVQSerializable for CEQueueNotification {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+    
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+// Implement HistoryQueueMetadataTagged for CEQueueNotification
+impl HistoryQueueMetadataTagged for CEQueueNotification {
+    fn get_hq_metadata(&self) -> HistoryQueueMetadata {
+        match self {
+            CEQueueNotification::StartProduceBlock { next_checkpoint } => {
+                HistoryQueueMetadata {
+                    channel_id: COORDINATOR_TO_REALM_CHANNEL,
+                    checkpoint_id: *next_checkpoint,
+                    item_id: *next_checkpoint, // Using checkpoint as item_id
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct RedisQueue {
     // we use queue here because pubsub is mpmc
@@ -489,76 +531,6 @@ impl RedisQueue {
     }
 }
 
-impl ProvingDispatcher for RedisQueue {
-    fn dispatch(
-        self: &mut Self,
-        topic: &'static str,
-        value: impl Serialize + Send + 'static,
-    ) -> anyhow::Result<()> {
-        self.queue
-            .send_message(topic, serde_json::to_vec(&value)?, None)?;
-        Ok(())
-    }
-}
-
-impl ProvingWorkerListener for RedisQueue {
-    fn subscribe(&mut self, _topic: &str) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn receive_one(
-        &mut self,
-        topic: &'static str,
-        hidden: Option<Duration>,
-    ) -> anyhow::Result<Option<(String, Vec<u8>)>> {
-        match self.queue.receive_message(topic, hidden)? {
-            Some(RsmqMessage { id, message, .. }) => Ok(Some((id, message))),
-            None => Ok(None),
-        }
-    }
-
-    fn pop_one(&mut self, topic: &'static str) -> anyhow::Result<Option<Vec<u8>>> {
-        match self.queue.pop_message(topic)? {
-            Some(RsmqMessage { message, .. }) => Ok(Some(message)),
-            None => Ok(None),
-        }
-    }
-
-    fn receive_all(
-        &mut self,
-        topic: &'static str,
-        hidden: Option<Duration>,
-    ) -> anyhow::Result<Vec<(String, Vec<u8>)>> {
-        let mut result = Vec::new();
-        while let Some(RsmqMessage { id, message, .. }) =
-            self.queue.receive_message(topic, hidden)?
-        {
-            result.push((id, message));
-        }
-
-        Ok(result)
-    }
-
-    fn pop_all(&mut self, topic: &'static str) -> anyhow::Result<Vec<Vec<u8>>> {
-        let mut result = Vec::new();
-        while let Some(RsmqMessage { message, .. }) = self.queue.pop_message(topic)? {
-            result.push(message);
-        }
-
-        Ok(result)
-    }
-
-    fn delete_message(&mut self, topic: &'static str, id: String) -> anyhow::Result<bool> {
-        Ok(self.queue.delete_message(topic, &id)?)
-    }
-
-    fn is_empty(&mut self) -> bool {
-        matches!(
-            self.queue.get_queue_attributes(Q_JOB).map(|x| x.msgs == 0),
-            Ok(true)
-        )
-    }
-}
 
 // Wrapper types from wq_mut.rs
 #[derive(Clone)]
@@ -602,25 +574,27 @@ impl QEDRedisEventProcessor {
 impl WorkerEventReceiverSync for QEDRedisEventProcessor {
     fn wait_for_next_job_mut(&mut self) -> anyhow::Result<QProvingJobDataID> {
         loop {
-            let job = self.job_queue.pop_one(Q_JOB)?;
-            if job.is_some() {
-                return Ok(serde_json::from_slice(&job.unwrap())?)
-            } else {
-                std::thread::sleep(Duration::from_millis(250));
-                continue;
+            match self.job_queue.queue.pop_message::<Vec<u8>>(Q_JOB)? {
+                Some(RsmqMessage { message, .. }) => {
+                    return Ok(serde_json::from_slice(&message)?)
+                }
+                None => {
+                    std::thread::sleep(Duration::from_millis(250));
+                    continue;
+                }
             }
         }
     }
 
     fn enqueue_jobs_mut(&mut self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         for job in jobs {
-            self.job_queue.dispatch(Q_JOB, job.clone())?;
+            self.job_queue.queue.send_message(Q_JOB, serde_json::to_vec(&job)?, None)?;
         }
         Ok(())
     }
 
     fn notify_core_goal_completed_mut(&mut self, _job: QProvingJobDataID) -> anyhow::Result<()> {
-        self.job_queue.dispatch(Q_NOTIFICATIONS, QueueNotification::CoreJobCompleted)?;
+        self.job_queue.queue.send_message(Q_NOTIFICATIONS, serde_json::to_vec(&QueueNotification::CoreJobCompleted)?, None)?;
         Ok(())
     }
 
@@ -638,20 +612,22 @@ impl WorkerEventReceiverSync for QEDRedisEventProcessor {
 impl WorkerEventTransmitterSync for QEDRedisEventProcessor {
     fn enqueue_jobs_mut(&mut self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         for job in jobs {
-            self.job_queue.dispatch(Q_JOB, job.clone())?;
+            self.job_queue.queue.send_message(Q_JOB, serde_json::to_vec(&job)?, None)?;
         }
         Ok(())
     }
 
     fn wait_for_block_proving_jobs_mut(&mut self, _checkpoint_id: u64) -> anyhow::Result<bool> {
         loop {
-            match self
-                .job_queue
-                .pop_one(Q_NOTIFICATIONS)?
-                .map(|v| serde_json::from_slice::<QueueNotification>(&v))
-            {
-                Some(Ok(QueueNotification::CoreJobCompleted)) => return Ok(true),
-                Some(Err(_)) | None => {
+            match self.job_queue.queue.pop_message::<Vec<u8>>(Q_NOTIFICATIONS)? {
+                Some(RsmqMessage { message, .. }) => match serde_json::from_slice::<QueueNotification>(&message) {
+                    Ok(QueueNotification::CoreJobCompleted) => return Ok(true),
+                    Err(_) => {
+                        std::thread::sleep(Duration::from_millis(500));
+                        continue;
+                    }
+                },
+                None => {
                     std::thread::sleep(Duration::from_millis(500));
                     continue;
                 }

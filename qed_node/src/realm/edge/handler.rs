@@ -2,7 +2,7 @@ use super::error::RpcError;
 use super::rpc::RealmEdgeRpcServer;
 use crate::realm::state::edge::RealmEdgeContext;
 use crate::realm::state::processor::RealmConfig;
-use crate::realm::{SyncCheckpointQueue, SyncProofQueue, C, D, F, H};
+use crate::realm::{SyncProofQueue, C, D, F, H};
 use std::env;
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};

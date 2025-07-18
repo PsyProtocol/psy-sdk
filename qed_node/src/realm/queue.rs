@@ -1,1 +1,1 @@
-pub use qed_store::queue::{SyncProofQueue, Queue, SyncCheckpointQueue};
+pub use qed_store::queue::SyncProofQueue;

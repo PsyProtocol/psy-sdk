@@ -515,3 +515,14 @@ impl<F: RichField + Serialize + for<'de> Deserialize<'de>> KVQSerializable
     }
 }
 
+impl<F: RichField> qed_core::job::history_queue::HistoryQueueMetadataTagged for CheckpointSyncInfo<F> {
+    fn get_hq_metadata(&self) -> qed_core::job::history_queue::HistoryQueueMetadata {
+        // Use the same channel as the compact version for consistency
+        qed_core::job::history_queue::HistoryQueueMetadata {
+            channel_id: qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            checkpoint_id: self.compact.l2_block_state.checkpoint_id,
+            item_id: self.compact.l2_block_state.checkpoint_id,
+        }
+    }
+}
+

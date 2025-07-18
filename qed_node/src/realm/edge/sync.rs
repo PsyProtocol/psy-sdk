@@ -1,4 +1,4 @@
-use crate::realm::{SyncCheckpointQueue, F};
+use crate::realm::F;
 use std::sync::Arc;
 use std::time::Duration;
 use jsonrpsee::rpc_params;
@@ -10,13 +10,14 @@ use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use anyhow::Result;
 use qed_data::models::checkpoint::sync_info::CheckpointError;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
+use qed_core::job::history_queue::{CheckpointHistoryQueueEmitterAsyncImm, CheckpointHistoryQueueConsumerAsyncImm};
 
 const SYNC_INTERVAL: Duration = Duration::from_millis(500);
 
 pub struct CheckpointSyncManager<SR, IQ>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-    IQ: SyncCheckpointQueue + Sync + Send + 'static,
+    IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 {
     store_reader: Arc<SR>,
     sync_queue: Arc<IQ>,
@@ -28,7 +29,7 @@ where
 impl<SR, IQ> CheckpointSyncManager<SR, IQ>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-    IQ: SyncCheckpointQueue + Sync + Send + 'static,
+    IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 {
     pub fn new(
         store_reader: Arc<SR>,
@@ -197,7 +198,7 @@ where
             "Received sync info for next checkpoint from coordinator. Pushing to queue."
         );
 
-        match self.sync_queue.produce_checkpoint_async_info(sync_info).await {
+        match self.sync_queue.chq_push_imm(sync_info).await {
             Ok(_) => {
                 self.current_local_checkpoint_id = next_checkpoint_id;
                 if self.current_local_checkpoint_id == latest_checkpoint_id {
@@ -216,7 +217,7 @@ where
 
 pub async fn spawn_active_checkpoint_sync_task<
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-    IQ: SyncCheckpointQueue + Sync + Send + 'static,
+    IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 >(
     store_reader: Arc<SR>,
     interval_sync_queue: Arc<IQ>,

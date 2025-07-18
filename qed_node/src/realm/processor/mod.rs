@@ -1,9 +1,10 @@
 use crate::realm::config::RealmNodeConfig;
-use crate::realm::{Queue, SyncCheckpointQueue, SyncProofQueue, C, D, F};
+use crate::realm::{SyncProofQueue, C, D, F};
 use fred::prelude::KeysInterface;
 use kvq::traits::KVQSerializable;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
+use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_store::store::QEDStore;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
@@ -31,7 +32,7 @@ type ConcreteRealmProcessorContext = RealmProcessorContext<
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub sync_proof: ProofStoreRedisAsync,
-    pub sync_checkpoint: Queue,
+    pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
     pub store: Arc<JournalStore<QEDStore>>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
 }
@@ -62,11 +63,12 @@ impl RealmProcessor {
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
-        let sync_info = Queue::new(config.redis.redis_uri.as_str(), 10, config.queue.worker_queue_suffix).await?;
+        // Use the same ProofStoreRedisAsync for checkpoint sync
+        let sync_checkpoint = Arc::new(realm_qps.clone());
         let processor = RealmProcessor {
             realm_config,
             sync_proof: realm_qps,
-            sync_checkpoint: sync_info,
+            sync_checkpoint,
             store: store_reader,
             proof_verifier,
         };
@@ -197,7 +199,15 @@ impl RealmProcessor {
     pub async fn wait_latest_checkpoint(
         &self,
     ) -> anyhow::Result<CheckpointSyncInfo<F>> {
-        self.sync_checkpoint.consume_checkpoint_async_info().await
+        // Get the next expected checkpoint
+        let current_checkpoint = self.get_local_latest_l2_block_state().await;
+        let expected_checkpoint = current_checkpoint + 1;
+        
+        // Wait for the next checkpoint sync info
+        self.sync_checkpoint.wait_for_next_item_imm::<CheckpointSyncInfo<F>>(
+            qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            expected_checkpoint
+        ).await
     }
 
     pub async fn get_local_latest_l2_block_state(&self) -> u64 {
