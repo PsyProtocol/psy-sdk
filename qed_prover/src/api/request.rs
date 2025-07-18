@@ -509,13 +509,23 @@ pub struct QAddWithdrawalRPCRequest {
 #[serde(bound = "")]
 pub struct QRegisterUserRPCRequest<F: RichField> {
     pub public_key: ZKPublicKeyInfo<F>,
+    pub secp256k1_public_key_hash: QHashOut<F>,
 }
 
 impl<F: RichField> QRegisterUserRPCRequest<F> {
-    pub fn new_batch(public_keys: &[ZKPublicKeyInfo<F>]) -> Vec<Self> {
+    pub fn new_batch(
+        public_keys: &[ZKPublicKeyInfo<F>],
+        secp256k1_public_key_hashs: &[QHashOut<F>],
+    ) -> Vec<Self> {
         public_keys
             .iter()
-            .map(|pk| QRegisterUserRPCRequest { public_key: *pk })
+            .zip(secp256k1_public_key_hashs.iter())
+            .map(
+                |(&public_key, &secp256k1_public_key_hash)| QRegisterUserRPCRequest {
+                    public_key,
+                    secp256k1_public_key_hash,
+                },
+            )
             .collect()
     }
 }

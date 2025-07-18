@@ -1,5 +1,5 @@
 use plonky2::{
-    field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::target::Target, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}
+    field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::target::{BoolTarget, Target}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}
 };
 use qed_common_circuit::
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore}
@@ -55,19 +55,40 @@ impl UPSEndCapCoreGadget {
 
         let end_user_leaf_hash = real_end_user_leaf.to_hash::<H,F,D>(builder);
 
-        let expected_public_key = builder.hash_two_to_one::<H>(
-            sig_proof_fingerprint,
-            sig_proof_param_hash,
-        );
+        let expected_public_key =
+            builder.hash_two_to_one::<H>(sig_proof_fingerprint, sig_proof_param_hash);
+        let mut is_secp_sign = builder.constant_bool(true);
+        last_header_gadget
+            .session_start_context
+            .start_session_user_leaf
+            .secp256k1_public_key_hash
+            .elements
+            .iter()
+            .zip(sig_proof_param_hash.elements.iter())
+            .for_each(|(a, b)| {
+                let is_equal = builder.is_equal(*a, *b);
+                is_secp_sign = builder.and(is_secp_sign, is_equal);
+            });
+        let is_zk_sign = builder.not(is_secp_sign);
+        last_header_gadget
+            .session_start_context
+            .start_session_user_leaf
+            .public_key
+            .elements
+            .iter()
+            .zip(expected_public_key.elements.iter())
+            .for_each(|(a, b)| {
+                builder.conditional_assert_eq(is_zk_sign.target, *a, *b);
+            });
 
         builder.connect_hashes(
             last_header_gadget.session_start_context.start_session_user_leaf.public_key,
             real_end_user_leaf.public_key,
         );
-        builder.connect_hashes(
-            last_header_gadget.session_start_context.start_session_user_leaf.public_key,
-            expected_public_key,
-        );
+        // builder.connect_hashes(
+        //     last_header_gadget.session_start_context.start_session_user_leaf.public_key,
+        //     expected_public_key,
+        // );
 
 
 

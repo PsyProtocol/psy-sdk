@@ -14,6 +14,7 @@ use crate::gadgets::qdata::user::QEDUserLeafGadget;
 pub struct GUTARegisterUserCoreGadget {
     pub global_user_tree_update_proof: VariableHeightDeltaMerkleProofOptGadget,
     pub public_key: HashOutTarget,
+    pub secp256k1_public_key_hash: HashOutTarget,
 
     // computed
     pub user_id: Target,
@@ -33,6 +34,7 @@ impl GUTARegisterUserCoreGadget {
         default_user_state_tree_root: QHashOut<F>,
         input_height_target: Option<Target>,
         public_key: HashOutTarget,
+        secp256k1_public_key_hash: HashOutTarget,
     ) -> Self {
 
         let global_user_tree_update_proof = VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full::<H,F,D>(
@@ -50,6 +52,7 @@ impl GUTARegisterUserCoreGadget {
             user_id,
             public_key,
             default_user_state_tree_root,
+            secp256k1_public_key_hash,
         );
 
         let user_leaf_hash = user_leaf_gadget.to_hash::<H,F,D>(builder);
@@ -69,6 +72,7 @@ impl GUTARegisterUserCoreGadget {
             needs_public_key_witness: false,
             //global_user_tree_realm_height,
             global_user_tree_height,
+            secp256k1_public_key_hash,
         }
     }
 
@@ -80,6 +84,7 @@ impl GUTARegisterUserCoreGadget {
         input_height_target: Option<Target>,
     ) -> Self {
         let public_key = builder.add_virtual_hash();
+        let secp256k1_public_key_hash = builder.add_virtual_hash();
 
         let mut gadget = Self::add_virtual_to_with_public_key::<H,F,D>(
             builder,
@@ -87,7 +92,8 @@ impl GUTARegisterUserCoreGadget {
             global_user_tree_height,
             default_user_state_tree_root,
             input_height_target,
-            public_key
+            public_key,
+            secp256k1_public_key_hash,
         );
 
         gadget.needs_public_key_witness = true;
@@ -116,6 +122,7 @@ impl GUTARegisterUserCoreGadget {
         &self,
         witness: &mut W,
         public_key: QHashOut<F>,
+        secp256k1_public_key_hash: QHashOut<F>,
         global_user_tree_update_proof: &DeltaMerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
         self.global_user_tree_update_proof.set_witness(
@@ -126,6 +133,10 @@ impl GUTARegisterUserCoreGadget {
             witness.set_hash_target(
                 self.public_key,
                 public_key.0
+            )?;
+            witness.set_hash_target(
+                self.secp256k1_public_key_hash,
+                secp256k1_public_key_hash.0,
             )?;
         }
         Ok(())

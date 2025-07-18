@@ -216,6 +216,7 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
                 regsitered_users_start_pivot_siblings: vec![],
                 registered_users: vec![],
                 old_checkpoint_leaf_hash: r.old_value,
+                registered_users_secp256k1_public_keys: vec![],
             };
             self.set_checkpoint_sync_info_imm(sync_info).await?;
 

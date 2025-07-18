@@ -26,7 +26,7 @@ const D: usize = 2;
 pub trait CoordinatorEdgeRpc {
     // Basic methods
     #[method(name = "register_user")]
-    async fn register_user(&self, public_key: ZKPublicKeyInfo<F>) -> RpcResult<String>;
+    async fn register_user(&self, public_key: ZKPublicKeyInfo<F>, secp256k1_public_key_hash: QHashOut<F>) -> RpcResult<String>;
 
     #[method(name = "get_user_id")]
     async fn get_user_id(&self, public_key: QHashOut<F>) -> RpcResult<u64>;

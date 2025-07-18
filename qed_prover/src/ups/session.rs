@@ -364,6 +364,7 @@ impl<
         };
         let new_step_user_leaf = QEDUserLeaf {
             public_key: self.current_ups_header.current_state.user_leaf.public_key,
+            secp256k1_public_key_hash: self.current_ups_header.current_state.user_leaf.secp256k1_public_key_hash,
             user_state_tree_root: process_cfc_state_delta_input.user_contract_tree_update_proof.new_root,
             balance: process_cfc_state_delta_input.cfc_transaction_input_context.transaction_call_start_ctx.start_user_balance+process_cfc_state_delta_input.cfc_transaction_input_context.transaction_end_ctx.total_balance_spent,
             event_index: process_cfc_state_delta_input.cfc_transaction_input_context.transaction_call_start_ctx.start_user_event_index+process_cfc_state_delta_input.cfc_transaction_input_context.transaction_end_ctx.total_events_emitted,
@@ -682,6 +683,7 @@ impl<
         self.last_ups_step_proof_info.circuit_id = LocalCircuitType::UPSCFCDeferred.into();
         let new_step_user_leaf = QEDUserLeaf {
             public_key: self.current_ups_header.current_state.user_leaf.public_key,
+            secp256k1_public_key_hash: self.current_ups_header.current_state.user_leaf.secp256k1_public_key_hash,
             user_state_tree_root: process_cfc_state_delta_input.user_contract_tree_update_proof.new_root,
             balance: process_cfc_state_delta_input.cfc_transaction_input_context.transaction_call_start_ctx.start_user_balance
                 + process_cfc_state_delta_input.cfc_transaction_input_context.transaction_end_ctx.total_balance_spent,

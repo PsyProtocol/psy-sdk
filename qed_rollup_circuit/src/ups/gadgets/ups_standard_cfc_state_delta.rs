@@ -288,6 +288,7 @@ impl UPSCFCStandardStateDeltaGadget {
             last_checkpoint_id: previous_step_header_gadget.current_state.user_leaf.last_checkpoint_id,
             event_index: new_step_event_index,
             user_id: previous_step_header_gadget.current_state.user_leaf.user_id,
+            secp256k1_public_key_hash: previous_step_header_gadget.current_state.user_leaf.secp256k1_public_key_hash,
         };
 
         let new_step_current_state = UserProvingSessionCurrentStateGadget {

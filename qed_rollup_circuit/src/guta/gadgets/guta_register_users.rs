@@ -142,7 +142,8 @@ impl GUTARegisterUsersGadget {
                 g.set_witness_params(
                     witness,
                     &input.user_registration_tree_merkle_proof,
-                    &input.global_user_tree_update_proof
+                    &input.global_user_tree_update_proof,
+                    &input.secp256k1_public_key_hash,
                 )?;
             }
             witness.set_target(
@@ -166,12 +167,14 @@ impl GUTARegisterUsersGadget {
                     witness,
                     &guta_register_user_inputs[i].user_registration_tree_merkle_proof,
                     &guta_register_user_inputs[i].global_user_tree_update_proof,
+                    &guta_register_user_inputs[i].secp256k1_public_key_hash,
                 )?;
             }else{
                 g.set_witness_params(
                     witness,
                     &dummy_value.user_registration_tree_merkle_proof,
-                    &dummy_value.global_user_tree_update_proof
+                    &dummy_value.global_user_tree_update_proof,
+                    &dummy_value.secp256k1_public_key_hash,
                 )?;
             }
         }

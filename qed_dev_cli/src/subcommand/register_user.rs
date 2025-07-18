@@ -2,11 +2,11 @@ use core::time;
 use std::str::FromStr;
 
 use anyhow::Ok;
-use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonPermutation, plonk::config::PoseidonGoldilocksConfig};
+use qed_common_circuit::{circuits::zk_signature3::manager::SimpleQEDZKSignatureManager, wallet::memory_wallet::QEDMemoryWallet};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::{
-    hash::traits::qhashable::QFieldHashable,
+    hash::traits::{hasher::{FieldQHasher, PoseidonHasher}, qhashable::QFieldHashable},
     signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
 use qed_data::config::store_config::QEDHasher;
@@ -16,6 +16,7 @@ use qed_prover::api::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
 };
+use qed_prover::session::hash_no_pad_compressed_publicKey;
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
@@ -34,16 +35,29 @@ pub fn run(args: super::RegisterUserArgs) -> anyhow::Result<()> {
 
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(private_key));
+    let mut wallet = QEDMemoryWallet::<C, D>::new_fast_setup();
+    let public_key = wallet.add_private_key_get_info(private_key);
+    let secp256k1_public_key = wallet.add_secp256k1_private_key(private_key)?;
+    let secp256k1_public_key_hash = hash_no_pad_compressed_publicKey::<
+        GoldilocksField,
+        PoseidonPermutation<GoldilocksField>,
+    >(secp256k1_public_key);
 
-    println!("{}", serde_json::to_string_pretty(&public_key).unwrap());
+    println!("{}", serde_json::to_string_pretty(&public_key)?);
     println!("{:?}", public_key.qfhash::<QEDHasher>().to_string());
     provider.register_user(QRegisterUserRPCRequest {
         public_key: public_key,
+        secp256k1_public_key_hash,
     })?;
 
-    println!("{}", serde_json::to_string_pretty(&public_key).unwrap());
+    println!(
+        "secp256k1_public_key: {}",
+        serde_json::to_string_pretty(&secp256k1_public_key)?
+    );
+    println!(
+        "secp256k1_public_key_hash: {}",
+        secp256k1_public_key_hash.to_string()
+    );
 
     Ok(())
 }
@@ -51,14 +65,21 @@ pub fn run(args: super::RegisterUserArgs) -> anyhow::Result<()> {
 pub fn run_random(args: super::RandomArgs) -> anyhow::Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
 
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+    let mut wallet: QEDMemoryWallet<PoseidonGoldilocksConfig, 2> =
+        QEDMemoryWallet::<C, D>::new_fast_setup();
 
     for i in 0..args.total_user {
         let private_key = QHashOut::<GoldilocksField>::rand();
-        let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(private_key));
+        let public_key = wallet.add_private_key_get_info(private_key);
+        let secp256k1_public_key = wallet.add_secp256k1_private_key(private_key)?;
+        let secp256k1_public_key_hash = hash_no_pad_compressed_publicKey::<
+            GoldilocksField,
+            PoseidonPermutation<GoldilocksField>,
+        >(secp256k1_public_key);
 
         provider.register_user(QRegisterUserRPCRequest {
-            public_key: public_key,
+            public_key,
+            secp256k1_public_key_hash,
         })?;
 
         let keypair = KeyPair {

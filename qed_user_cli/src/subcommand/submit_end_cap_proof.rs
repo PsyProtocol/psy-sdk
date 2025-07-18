@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use qed_prover::api::{args::ContractCallArgs, provider::RpcConfig};
+use qed_prover::{api::{args::ContractCallArgs, provider::RpcConfig}, session::SignType};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
 use qed_prover::session::WalletSession;
@@ -22,7 +22,7 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
 
-    let mut wallet_session = WalletSession::new(&rpc_config)?;
+    let mut wallet_session = WalletSession::new_fast_setup(&rpc_config)?;
     let user_pk_hash = wallet_session.add_user(private_key)?;
 
     wallet_session.exec_contract_call(user_pk_hash, contract_call_args)?;

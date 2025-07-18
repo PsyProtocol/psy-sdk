@@ -65,7 +65,7 @@ impl GUTAOnlyRegisterUsersGadget {
         default_user_state_tree_root: QHashOut<F>,
     ) -> anyhow::Result<()> {
         let dummy_public_key = QHashOut::from_values(1, 1, 1, 1);
-        let dummy_user_leaf_hash = QEDUserLeaf::new_user_default(F::ZERO, dummy_public_key, default_user_state_tree_root).alghash::<H>();
+        let dummy_user_leaf_hash = QEDUserLeaf::new_user_default(F::ZERO, dummy_public_key, dummy_public_key, default_user_state_tree_root).alghash::<H>();
 
         self.register_users_gadget.set_witness_params(
             witness,

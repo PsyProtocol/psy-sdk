@@ -362,6 +362,7 @@ pub struct GUTANoChangeFullInput<F: RichField> {
 pub struct GUTARegisterUserFullInput<F: RichField> {
     pub user_registration_tree_merkle_proof: MerkleProofCore<QHashOut<F>>,
     pub global_user_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
+    pub secp256k1_public_key_hash: QHashOut<F>,
 }
 impl<F: RichField> GUTARegisterUserFullInput<F> {
 
@@ -377,7 +378,7 @@ impl<F: RichField> GUTARegisterUserFullInput<F> {
         let siblings = (0..GLOBAL_USER_TREE_HEIGHT).map(|_| QHashOut::ZERO).collect::<Vec<_>>();
         let user_registration_tree_merkle_proof = MerkleProofCore::new_from_params::<H>(0, fake_public_key, siblings);
 
-        let user_leaf = QEDUserLeaf::new_user_default(F::ZERO, fake_public_key, user_state_tree_root);
+        let user_leaf = QEDUserLeaf::new_user_default(F::ZERO, fake_public_key, fake_public_key, user_state_tree_root);
         let leaf_hash = user_leaf.qfhash::<H>();
 
         let dmp_siblings = (0..height).map(|_| QHashOut::ZERO).collect();
@@ -391,6 +392,7 @@ impl<F: RichField> GUTARegisterUserFullInput<F> {
         Self {
             user_registration_tree_merkle_proof,
             global_user_tree_update_proof,
+            secp256k1_public_key_hash: fake_public_key,
         }
 
     }
@@ -418,6 +420,7 @@ impl<F: RichField> GUTARegisterUserFullInput<F> {
         Self {
             user_registration_tree_merkle_proof,
             global_user_tree_update_proof,
+            secp256k1_public_key_hash: fake_public_key,
         }
 
     }

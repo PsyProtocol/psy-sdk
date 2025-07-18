@@ -5,6 +5,7 @@ use anyhow::bail;
 use chrono::Utc;
 use rand::RngCore;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 use tracing::{debug, error, info};
 
 use kvq::traits::KVQSerializable;
@@ -23,13 +24,13 @@ use qed_core::job::worker_queue::ProvingDispatcher;
 
 // qed_crypto
 use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use qed_crypto::signature::zk::data::{PublicKeyInfo, ZKPublicKeyInfo};
 
 // qed_data
 use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::{
-    QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
+    CheckpointSyncInfo, QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState
 };
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::user::QEDUserLeaf;
@@ -39,7 +40,6 @@ use qed_data::qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoC
 use qed_store::queue::worker_queue_redis::redis_queue::{
     CEQueueNotification, RedisQueue, CE_NOTIFICATIONS,
 };
-use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 // qed_store
 use qed_data::config::store_config::{QEDFelt, QEDHasher, QCheckpointSyncInfoCompact};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
@@ -119,6 +119,7 @@ impl CoordinatorEdgeHandler {
     pub async fn register_user(
         &self,
         zk_user_info: ZKPublicKeyInfo<QEDFelt>,
+        secp256k1_public_key_hash: QHashOut<QEDFelt>,
     ) -> Result<(), CoordinatorError> {
         let public_key_hash = zk_user_info.qfhash::<QEDHasher>();
 
@@ -129,7 +130,10 @@ impl CoordinatorEdgeHandler {
         }
 
         info!("🆕 User not found. Starting new registration.");
-        self.ctx.checkpoint_queue.cdq_push_imm(zk_user_info).await
+        self.ctx.checkpoint_queue.cdq_push_imm(PublicKeyInfo{
+                    zk_public_key: zk_user_info,
+                    secp256k1_public_key_hash,
+                }).await
             .map_err(|e| CoordinatorError::QueueError(e.to_string()))?;
         info!("✅ User pushed to checkpoint queue.");
         Ok(())
@@ -885,8 +889,8 @@ use qed_prover::api::request::{QRegisterUserRPCRequest, QDeployContractRPCReques
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
-    async fn register_user(&self, public_key: ZKPublicKeyInfo<F>) -> RpcResult<String> {
-        self.register_user(public_key)
+    async fn register_user(&self, public_key: ZKPublicKeyInfo<F>, secp256k1_public_key_hash: QHashOut<F>) -> RpcResult<String> {
+        self.register_user(public_key, secp256k1_public_key_hash)
             .await
             .map(|_| "ok".to_string())
             .map_err(|e| RpcError::Anyhow(e.into()))

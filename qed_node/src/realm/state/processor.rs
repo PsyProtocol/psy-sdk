@@ -110,6 +110,7 @@ pub struct RealmProcessorContext<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
     pub pending_register_users: Vec<MerkleProofCore<QHashOut<F>>>,
+    pub pending_register_users_secp256k1_public_keys: Vec<QHashOut<F>>,
     //chkpoint_id: u64,
     //pub checkpoint_id: u64,
     //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
@@ -141,6 +142,7 @@ impl<
             proof_store,
             proof_verifier,
             pending_register_users: Vec::new(),
+            pending_register_users_secp256k1_public_keys: Vec::new(),
         })
     }
 
@@ -158,14 +160,16 @@ impl<
         input: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
         let dmps = input.get_registered_user_merkle_proofs::<QEDHasher>();
+        let registered_users_secp256k1_public_keys = input.registered_users_secp256k1_public_keys.clone();
         self.store
             .injest_checkpoint_sync_data_imm(input.to_sync_info::<QEDHasher>())
             .await?;
-        dmps.into_iter().for_each(|x| {
+        dmps.into_iter().zip(registered_users_secp256k1_public_keys.iter()).for_each(|(x, &secp256k1_public_key)| {
             let real_id = get_user_id_from_registration_id(x.index);
 
             if self.realm_config.includes_user_id(real_id) {
                 self.pending_register_users.push(x);
+                self.pending_register_users_secp256k1_public_keys.push(secp256k1_public_key);
             }
         });
 
@@ -193,6 +197,7 @@ impl<
         &self,
         checkpoint_id: u64,
         pending_register_users: &[MerkleProofCore<QHashOut<F>>],
+        pending_register_users_secp256k1_public_keys: &[QHashOut<F>],
     ) -> anyhow::Result<(
         Vec<Vec<QProvingJobDataID>>,
         GlobalUserTreeAggregatorHeader<F>,
@@ -210,8 +215,10 @@ impl<
                 if pending_register_users.len() <= 64 {
                     let uleaves = pending_register_users
                         .iter()
-                        .map(|x| QEDUserLeaf {
+                        .zip(pending_register_users_secp256k1_public_keys.iter())
+                        .map(|(x, &secp256k1_public_key_hash)| QEDUserLeaf {
                             public_key: x.value,
+                            secp256k1_public_key_hash: secp256k1_public_key_hash,
                             user_state_tree_root: self.realm_config.default_user_state_tree_root,
                             balance: F::ZERO,
                             nonce: F::ZERO,
@@ -238,9 +245,11 @@ impl<
                     let regs = dmps
                         .into_iter()
                         .zip(pending_register_users.iter())
-                        .map(|(upd, mp)| GUTARegisterUserFullInput {
+                        .zip(pending_register_users_secp256k1_public_keys.iter())
+                        .map(|((upd, mp), &secp256k1_public_key_hash)| GUTARegisterUserFullInput {
                             user_registration_tree_merkle_proof: mp.to_owned(),
                             global_user_tree_update_proof: upd,
+                            secp256k1_public_key_hash,
                         })
                         .collect::<Vec<_>>();
                     eprintln!("DEBUGPRINT[867]: processor.rs:246: regs={}", serde_json::to_string_pretty(&regs).unwrap());
@@ -757,7 +766,7 @@ impl<
         };
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
-        let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_realms_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
+        let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_realms_ensure_no_topline(new_checkpoint_id, &pending_users, &self.pending_register_users_secp256k1_public_keys).await?;
         println!("guta_jobs: {:?}",guta_jobs);
         let finished_job = QProvingJobDataID::new_notify_realm_complete_witness(new_checkpoint_id, self.realm_config.realm_id);
         let res = GUTARealmCheckpointResult{
