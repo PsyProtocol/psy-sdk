@@ -47,7 +47,7 @@ use qed_store::{controllers::local::{
         proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
     },
     node::coordinator::QEDCoordinatorStoreReaderAsync,
-    queue::proof_store_fred::ProofStoreFred,
+    queue::ProofStoreFred,
 };
 
 use super::super::test_helpers::contract::{gen_test_contract, gen_test_contract_2};

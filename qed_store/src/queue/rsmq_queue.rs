@@ -1,6 +1,6 @@
-use super::proof_store_fred::{
+use crate::queue::fred_queue::{
     PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX,
-    PS_WORKER_QUEUE_KEY_PREFIX,
+    PS_WORKER_QUEUE_KEY_PREFIX, SyncProofQueue,
 };
 use async_trait::async_trait;
 use kvq::traits::KVQSerializable;
@@ -10,12 +10,19 @@ use qed_core::job::drain_queue::{
 use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, HQSerializable,
 };
-use qed_core::job::id::QProvingJobDataID;
-use qed_core::job::worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm};
-use rsmq::{PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqError, RsmqOptions};
+use qed_core::job::id::{QProvingJobDataID, ProvingJobDataId, QWorkerJobBenchmark};
+use qed_core::job::worker_queue::{
+    WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm, ProvingDispatcher, 
+    ProvingWorkerListener, WorkerEventReceiverSync, WorkerEventTransmitterSync
+};
+use rsmq::{PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqError, RsmqOptions,
+    RsmqConnectionSync, RsmqSync, RsmqMessage};
+use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
 use std::time::Duration;
+use std::sync::{Arc, RwLock};
 use tokio::time::sleep;
 use tracing::{error, info};
 
@@ -365,6 +372,290 @@ impl WorkerEventTransmitterAsyncImm for RsmqQueue {
                 }
             }
             sleep(Duration::from_millis(500)).await;
+        }
+    }
+}
+
+#[async_trait]
+impl SyncProofQueue for RsmqQueue {
+    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()> {
+        let queue_id = QueueId::SyncProof {
+            worker_queue_suffix: self.worker_queue_suffix.clone(),
+        };
+        self.send_message(&queue_id, item.to_bytes()?).await
+    }
+
+    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId> {
+        let queue_id = QueueId::SyncProof {
+            worker_queue_suffix: self.worker_queue_suffix.clone(),
+        };
+        match self.pop_message(&queue_id).await? {
+            None => {
+                anyhow::bail!("No message in queue");
+            }
+            Some(bytes) => match ProvingJobDataId::from_bytes(&bytes) {
+                Ok(id) => Ok(id),
+                Err(err) => Err(anyhow::anyhow!(
+                    "Failed to parse ProvingJobDataId: {:?}",
+                    err
+                )),
+            },
+        }
+    }
+}
+
+// Sync queue types from worker_queue_redis
+pub const Q_HIDDEN: Option<Duration> = Some(Duration::from_secs(600));
+pub const Q_DELAY: Option<Duration> = None;
+pub const Q_CAP: Option<i32> = Some(-1);
+
+pub const Q_RPC_TOKEN_TRANSFER: &'static str = "RPC_TOKEN_TRANSFER";
+pub const Q_RPC_CLAIM_DEPOSIT: &'static str = "RPC_CLAIM_DEPOSIT";
+pub const Q_RPC_ADD_WITHDRAWAL: &'static str = "RPC_ADD_WITHDRAWAL";
+pub const Q_RPC_REGISTER_USER: &'static str = "RPC_REGISTER_USER";
+
+pub const Q_CMD: &'static str = "CMD";
+pub const Q_JOB: &'static str = "JOB";
+pub const Q_NOTIFICATIONS: &'static str = "NOTIFICATIONS";
+pub const CE_NOTIFICATIONS: &'static str = "CE_NOTIFICATIONS";
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum QueueCmd {
+    ProduceBlock = 0,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum QueueNotification {
+    CoreJobCompleted = 0,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub enum CEQueueNotification {
+    StartProduceBlock { next_checkpoint: u64 },
+}
+
+#[derive(Clone)]
+pub struct RedisQueue {
+    // we use queue here because pubsub is mpmc
+    queue: RsmqSync,
+}
+
+impl RedisQueue {
+    pub fn new(uri: &str) -> anyhow::Result<Self> {
+        let queue = {
+            let url = url::Url::parse(uri)?;
+            let mut rsmq_option = RsmqOptions::default();
+            if let Some(host) = url.host() {
+                rsmq_option.host = host.to_string();
+            }
+            if let Some(port) = url.port() {
+                rsmq_option.port = port;
+            }
+            let mut queue = RsmqSync::new(rsmq_option)?;
+            for q in &[
+                Q_RPC_TOKEN_TRANSFER,
+                Q_RPC_CLAIM_DEPOSIT,
+                Q_RPC_ADD_WITHDRAWAL,
+                Q_RPC_REGISTER_USER,
+                Q_CMD,
+                Q_JOB,
+                Q_NOTIFICATIONS,
+                CE_NOTIFICATIONS,
+            ] {
+                if matches!(
+                    queue.get_queue_attributes(*q),
+                    Err(RsmqError::QueueNotFound)
+                ) {
+                    let _ = queue.create_queue(*q, Q_HIDDEN, Q_DELAY, Q_CAP);
+                }
+            }
+            Ok::<_, anyhow::Error>(queue)
+        }?;
+        Ok(Self { queue })
+    }
+
+    pub fn ensure_queue(&mut self, name: &str) -> anyhow::Result<()> {
+        if matches!(
+            self.queue.get_queue_attributes(name),
+            Err(rsmq::RsmqError::QueueNotFound)
+        ) {
+            // use Q_HIDDEN / Q_DELAY / Q_CAP
+            self.queue.create_queue(name, Q_HIDDEN, Q_DELAY, Q_CAP)?;
+            tracing::info!("🔧 RSMQ queue `{name}` created");
+        }
+        Ok(())
+    }
+}
+
+impl ProvingDispatcher for RedisQueue {
+    fn dispatch(
+        self: &mut Self,
+        topic: &'static str,
+        value: impl Serialize + Send + 'static,
+    ) -> anyhow::Result<()> {
+        self.queue
+            .send_message(topic, serde_json::to_vec(&value)?, None)?;
+        Ok(())
+    }
+}
+
+impl ProvingWorkerListener for RedisQueue {
+    fn subscribe(&mut self, _topic: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn receive_one(
+        &mut self,
+        topic: &'static str,
+        hidden: Option<Duration>,
+    ) -> anyhow::Result<Option<(String, Vec<u8>)>> {
+        match self.queue.receive_message(topic, hidden)? {
+            Some(RsmqMessage { id, message, .. }) => Ok(Some((id, message))),
+            None => Ok(None),
+        }
+    }
+
+    fn pop_one(&mut self, topic: &'static str) -> anyhow::Result<Option<Vec<u8>>> {
+        match self.queue.pop_message(topic)? {
+            Some(RsmqMessage { message, .. }) => Ok(Some(message)),
+            None => Ok(None),
+        }
+    }
+
+    fn receive_all(
+        &mut self,
+        topic: &'static str,
+        hidden: Option<Duration>,
+    ) -> anyhow::Result<Vec<(String, Vec<u8>)>> {
+        let mut result = Vec::new();
+        while let Some(RsmqMessage { id, message, .. }) =
+            self.queue.receive_message(topic, hidden)?
+        {
+            result.push((id, message));
+        }
+
+        Ok(result)
+    }
+
+    fn pop_all(&mut self, topic: &'static str) -> anyhow::Result<Vec<Vec<u8>>> {
+        let mut result = Vec::new();
+        while let Some(RsmqMessage { message, .. }) = self.queue.pop_message(topic)? {
+            result.push(message);
+        }
+
+        Ok(result)
+    }
+
+    fn delete_message(&mut self, topic: &'static str, id: String) -> anyhow::Result<bool> {
+        Ok(self.queue.delete_message(topic, &id)?)
+    }
+
+    fn is_empty(&mut self) -> bool {
+        matches!(
+            self.queue.get_queue_attributes(Q_JOB).map(|x| x.msgs == 0),
+            Ok(true)
+        )
+    }
+}
+
+// Wrapper types from wq_mut.rs
+#[derive(Clone)]
+pub struct QEDArcImmutableEventProcessorWrapper<P> {
+    pub inner: Arc<RwLock<P>>,
+}
+
+impl<P> QEDArcImmutableEventProcessorWrapper<P> {
+    pub fn new(inner: P) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(inner)),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct QEDRedisEventProcessor {
+    pub job_queue: RedisQueue,
+    pub benckmarks_enabled: bool,
+    pub benchmarks: Vec<QWorkerJobBenchmark>,
+}
+
+impl QEDRedisEventProcessor {
+    pub fn new(dispatcher: RedisQueue) -> Self {
+        Self::new_with_config(dispatcher, false)
+    }
+    
+    pub fn new_with_config(dispatcher: RedisQueue, benckmarks_enabled: bool) -> Self {
+        Self {
+            job_queue: dispatcher,
+            benckmarks_enabled,
+            benchmarks: Vec::new(),
+        }
+    }
+    
+    pub fn to_imm(self) -> QEDArcImmutableEventProcessorWrapper<Self> {
+        QEDArcImmutableEventProcessorWrapper::new(self)
+    }
+}
+
+impl WorkerEventReceiverSync for QEDRedisEventProcessor {
+    fn wait_for_next_job_mut(&mut self) -> anyhow::Result<QProvingJobDataID> {
+        loop {
+            let job = self.job_queue.pop_one(Q_JOB)?;
+            if job.is_some() {
+                return Ok(serde_json::from_slice(&job.unwrap())?)
+            } else {
+                std::thread::sleep(Duration::from_millis(250));
+                continue;
+            }
+        }
+    }
+
+    fn enqueue_jobs_mut(&mut self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
+        for job in jobs {
+            self.job_queue.dispatch(Q_JOB, job.clone())?;
+        }
+        Ok(())
+    }
+
+    fn notify_core_goal_completed_mut(&mut self, _job: QProvingJobDataID) -> anyhow::Result<()> {
+        self.job_queue.dispatch(Q_NOTIFICATIONS, QueueNotification::CoreJobCompleted)?;
+        Ok(())
+    }
+
+    fn record_job_bench_mut(&mut self, job: QProvingJobDataID, duration: u64) -> anyhow::Result<()> {
+        if self.benckmarks_enabled {
+            self.benchmarks.push(QWorkerJobBenchmark {
+                job_id: job.to_fixed_bytes(),
+                duration,
+            });
+        }
+        Ok(())
+    }
+}
+
+impl WorkerEventTransmitterSync for QEDRedisEventProcessor {
+    fn enqueue_jobs_mut(&mut self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
+        for job in jobs {
+            self.job_queue.dispatch(Q_JOB, job.clone())?;
+        }
+        Ok(())
+    }
+
+    fn wait_for_block_proving_jobs_mut(&mut self, _checkpoint_id: u64) -> anyhow::Result<bool> {
+        loop {
+            match self
+                .job_queue
+                .pop_one(Q_NOTIFICATIONS)?
+                .map(|v| serde_json::from_slice::<QueueNotification>(&v))
+            {
+                Some(Ok(QueueNotification::CoreJobCompleted)) => return Ok(true),
+                Some(Err(_)) | None => {
+                    std::thread::sleep(Duration::from_millis(500));
+                    continue;
+                }
+            }
         }
     }
 }

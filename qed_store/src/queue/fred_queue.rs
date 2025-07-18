@@ -1,9 +1,10 @@
 use std::sync::Arc;
 use std::time::Duration;
+use std::fmt;
 
 use async_trait::async_trait;
-use fred::prelude::{HashesInterface, KeysInterface, ListInterface, Pool};
-use kvq::traits::KVQPair;
+use fred::prelude::{HashesInterface, KeysInterface, ListInterface, Pool, FredResult};
+use kvq::traits::{KVQPair, KVQSerializable};
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use qed_core::job::{
     drain_queue::{
@@ -13,7 +14,7 @@ use qed_core::job::{
         CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
         CheckpointHistoryQueueEmitterSyncImm, HQSerializable,
     },
-    id::QProvingJobDataID,
+    id::{QProvingJobDataID, ProvingJobDataId},
     traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
@@ -27,14 +28,46 @@ pub const PS_DRAIN_QUEUE_KEY_PREFIX: &'static str = "PSDQV1_";
 pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
 pub const PS_NOTIFICATIONS_QUEUE_KEY_PREFIX: &'static str = "PSNQV1";
 pub const PS_HISTORY_QUEUE_KEY_PREFIX: &'static str = "PSHQV1";
+pub const REAML_PROOF_KEY: &str = "REALM_PROOF";
 
-#[derive(Debug, Clone)]
+#[async_trait]
+pub trait SyncProofQueue {
+    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()>;
+    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId>;
+}
+
+#[derive(Clone)]
 pub struct ProofStoreFred {
     pool: Pool,
     pub worker_queue_id: String,
     notifications_queue_id: String,
     proof_store_key: String,
     proof_store_counters: String,
+}
+
+impl fmt::Debug for ProofStoreFred {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ProofStoreFred {{ pool: ..., worker_queue_id: {:?}, notifications_queue_id: {:?} }}", 
+               self.worker_queue_id, self.notifications_queue_id)
+    }
+}
+
+/// Wrapper struct that provides only drain queue functionality
+#[derive(Clone)]
+pub struct DrainQueueFred {
+    pool: Pool,
+}
+
+impl DrainQueueFred {
+    pub fn new(pool: Pool) -> Self {
+        Self { pool }
+    }
+}
+
+impl fmt::Debug for DrainQueueFred {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "DrainQueueFred {{ pool: ... }}")
+    }
 }
 
 impl ProofStoreFred {
@@ -251,40 +284,6 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
 
         Ok(())
     }
-    /*
-    fn wait_for_next_job_mut(&mut self) -> anyhow::Result<QProvingJobDataID> {
-        loop {
-            let job = self.job_queue.pop_one(Q_JOB)?;
-            if job.is_some() {
-                return Ok(serde_json::from_slice(&job.unwrap())?)
-            }else{
-                std::thread::sleep(Duration::from_millis(250));
-                continue;
-            }
-        }
-    }
-
-    fn enqueue_jobs_mut(&mut self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
-        for job in jobs {
-            self.job_queue.dispatch(Q_JOB, job.clone())?;
-        }
-        Ok(())
-    }
-
-    fn notify_core_goal_completed_mut(&mut self, _job: QProvingJobDataID) -> anyhow::Result<()> {
-        self.job_queue.dispatch(Q_NOTIFICATIONS, QueueNotification::CoreJobCompleted)?;
-        Ok(())
-    }
-
-    fn record_job_bench_mut(&mut self, job: QProvingJobDataID, duration: u64) -> anyhow::Result<()> {
-        if self.benckmarks_enabled {
-            self.benchmarks.push(QWorkerJobBenchmark {
-                job_id: job.to_fixed_bytes(),
-                duration,
-            });
-        }
-        Ok(())
-    }*/
 }
 
 #[async_trait]
@@ -329,29 +328,6 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
             sleep(Duration::from_millis(500)).await;
         }
     }
-    /*
-    fn enqueue_jobs_mut(&mut self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
-        for job in jobs {
-            self.job_queue.dispatch(Q_JOB, job.clone())?;
-        }
-        Ok(())
-    }
-
-    fn wait_for_block_proving_jobs_mut(&mut self, _checkpoint_id: u64) -> anyhow::Result<bool> {
-        loop {
-            match self
-                .job_queue
-                .pop_one(Q_NOTIFICATIONS)?
-                .map(|v| serde_json::from_slice::<QueueNotification>(&v))
-            {
-                Some(Ok(QueueNotification::CoreJobCompleted)) => return Ok::<_, anyhow::Error>(true),
-                Some(Err(_)) | None => {
-                    std::thread::sleep(Duration::from_millis(500));
-                    continue;
-                }
-            }
-        }
-    }*/
 }
 
 #[async_trait]
@@ -456,5 +432,70 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
             ))
             .await?;
         Ok(T::from_bytes(&result)?)
+    }
+}
+
+#[async_trait]
+impl SyncProofQueue for ProofStoreFred {
+    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()> {
+        let realm_proof_key = format!("{}-{}", self.worker_queue_id, REAML_PROOF_KEY);
+        self.pool()
+            .rpush::<(), &str, Vec<u8>>(&realm_proof_key, item.to_bytes()?)
+            .await?;
+        Ok(())
+    }
+
+    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId> {
+        let realm_proof_key = format!("{}-{}", self.worker_queue_id, REAML_PROOF_KEY);
+        let result: FredResult<(String, Vec<u8>)> = self.pool().blpop(realm_proof_key, 0.0).await;
+
+        match result {
+            Ok((_, bytes)) => match ProvingJobDataId::from_bytes(&bytes) {
+                Ok(id) => Ok(id),
+                Err(err) => Err(anyhow::anyhow!(
+                    "Failed to parse ProvingJobDataId: {:?}",
+                    err
+                )),
+            },
+            Err(err) => Err(anyhow::anyhow!("Error getting job_id from Redis {:?}", err)),
+        }
+    }
+}
+
+// DrainQueueFred trait implementations - for backward compatibility
+#[async_trait]
+impl CheckpointDrainQueueEmitterAsyncImm for DrainQueueFred {
+    async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
+        let metadata = item.get_dq_metadata();
+        let bytes = item.to_bytes()?;
+        self.pool
+            .lpush::<(), String, &[u8]>(
+                format!("CDQ_2_{}_{}", metadata.channel_id, metadata.checkpoint_id),
+                &bytes,
+            )
+            .await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
+    async fn cdq_drain_imm<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<T>> {
+        let key = format!("CDQ_2_{}_{}", channel_id, checkpoint_id);
+        let members: Vec<Vec<u8>> = self
+            .pool
+            .lrange::<Vec<Vec<u8>>, String>(key.clone(), 0, -1)
+            .await?;
+        self.pool.del::<(), String>(key).await?;
+
+        members
+            .into_iter()
+            .rev()
+            .map(|x| T::from_bytes(&x))
+            .collect()
     }
 }

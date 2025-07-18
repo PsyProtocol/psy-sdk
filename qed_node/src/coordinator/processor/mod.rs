@@ -20,8 +20,8 @@ use qed_store::node::coordinator::{
     QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
 };
 use qed_store::queue::new_redis_async_pool;
-use qed_store::queue::proof_store_fred::ProofStoreFred;
-use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::queue::ProofStoreFred;
+use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::queue::worker_queue_redis::redis_queue::{
     CEQueueNotification, RedisQueue, CE_NOTIFICATIONS,
 };

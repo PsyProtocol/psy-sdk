@@ -47,7 +47,7 @@ use qed_data::qdata::checkpoint::{
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_rollup_utils::generate_jwt_token;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
-use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::queue::ProofStoreRedisAsync;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info, warn};

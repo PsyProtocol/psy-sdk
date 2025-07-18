@@ -276,7 +276,7 @@ return-back3:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 500
 
 balance-of:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}, ${CONTRACT_STATE_HEIGHT}, ${SLOT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
 
 build-block:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
@@ -285,109 +285,109 @@ latest-checkpoint:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_checkpoint", "params": [], "id": 1 }' | jq .
 
 get-contract-leaf-data:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_leaf_data", "params": [${CONTRACT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-contract-leaf-data --contract-id ${CONTRACT_ID}
 
 qed-get-checkpoint-leaf-data:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_leaf_data", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-leaf-data --checkpoint-id ${CHECKPOINT_ID}
 
 get-checkpoint-global-state-roots:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_global_state_roots", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@echo "Note: qed_get_checkpoint_global_state_roots is not implemented in the CLI yet"
 
 qed-get-checkpoint-tree-root:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
 qed-get-latest-checkpoint-tree-root:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_checkpoint_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-latest-checkpoint-tree-root
 
 qed-get-checkpoint-tree-leaf-hash:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_leaf_hash", "params": [${CHECKPOINT_ID}, ${LEAF_CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
 
 qed-get-checkpoint-tree-merkle-proof:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${LEAF_CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
 
 qed-get-contract-code-definition:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_contract_code_definition", "params": [${CONTRACT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-contract-code-definition --contract-id ${CONTRACT_ID}
 
 get-latest-l2-block-state:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_l2_block_state", "params": [], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-latest-l2-block-state
 
 get-l2-block-state:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-l2-block-state --checkpoint-id ${CHECKPOINT_ID}
 
 get-user-leaf-data:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-leaf --checkpoint-id ${CHECKPOINT_ID} --pub-key $(shell ./target/${PROFILE}/qed_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY} | jq -r .hash)
 
 get-realm-user-tree-root:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
 get-realm-user-tree-merkle-proof:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_sub_tree_merkle_proof", "params": [${CHECKPOINT_ID}, 0, 15, ${REALM_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-sub-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --root-level 0 --leaf-level 15 --leaf-index ${REALM_ID}
 
 get-user-tree-merkle-proof:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
 realm-check-user-id:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_check_user_id_in_realm", "params": [${USER_ID}], "id": 1 }' | jq .
 
 realm-get-latest-l2-block-state:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_l2_block_state", "params": [], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-latest-l2-block-state
 
 realm-get-l2-block-state:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_l2_block_state", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-l2-block-state --checkpoint-id ${CHECKPOINT_ID}
 
 realm-get-checkpoint-leaf-data:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_leaf_data", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-leaf-data --checkpoint-id ${CHECKPOINT_ID}
 
 realm-get-latest-checkpoint-tree-root:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_latest_checkpoint_tree_root", "params": [], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-latest-checkpoint-tree-root
 
 realm-checkpoint-global-state-roots:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_global_state_roots", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@echo "Note: qed_get_checkpoint_global_state_roots is not implemented in the CLI yet"
 
 realm-get-checkpoint-tree-root:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
 realm-get-checkpoint-tree-leaf-hash:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_leaf_hash", "params": [${CHECKPOINT_ID}, ${LEAF_CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
 
 realm-get-checkpoint-tree-merkle-proof:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${LEAF_CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
 
 realm-get-user-leaf-data:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_leaf_data", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-leaf --checkpoint-id ${CHECKPOINT_ID} --pub-key $(shell ./target/${PROFILE}/qed_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY} | jq -r .hash)
 
 realm-get-user-leaf-hash:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_leaf_hash", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
 realm-get-user-tree-root:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
 realm-get-realm-user-tree-merkle-proof:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_sub_tree_merkle_proof", "params": [${CHECKPOINT_ID}, 15, 30, ${USER_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-sub-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --root-level 15 --leaf-level 30 --leaf-index ${USER_ID}
 
 realm-get-user-tree-merkle-proof:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
 realm-get-user-registration-tree-root:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_registration_tree_root", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-registration-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
 realm-get-user-bottom-tree-merkle-proof:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_bottom_tree_merkle_proof", "params": [15, ${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
+	@echo "Note: qed_get_user_bottom_tree_merkle_proof is not implemented in the CLI yet"
 
 realm-get-user-contract-tree-root:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_root", "params": [${CHECKPOINT_ID}, ${USER_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-contract-tree-root --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
 realm-get-user-contract-state-tree-root:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_root", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-root --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID}
 
 realm-get-user-contract-tree-merkle-proof:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-contract-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID}
 
 realm-get-user-contract-state-tree-merkle-proof:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_user_contract_state_tree_merkle_proof", "params": [${CHECKPOINT_ID}, ${USER_ID}, ${CONTRACT_ID}, ${CONTRACT_STATE_HEIGHT}, ${SLOT_ID}], "id": 1 }' | jq .
+	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
 
 realm-get-checkpoint-global-state-roots:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_checkpoint_global_state_roots", "params": [${CHECKPOINT_ID}], "id": 1 }' | jq .
+	@echo "Note: qed_get_checkpoint_global_state_roots is not implemented in the CLI yet"
 
 get-user-id-from-registration-id:
 	@./target/${PROFILE}/qed_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY}

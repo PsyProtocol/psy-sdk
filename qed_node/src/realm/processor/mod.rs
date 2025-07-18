@@ -17,7 +17,7 @@ use tracing::{error, info, warn};
 use qed_store::queue::new_redis_async_pool;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
-use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<

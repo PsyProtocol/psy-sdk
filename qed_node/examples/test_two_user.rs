@@ -7,15 +7,13 @@ use qed_crypto::{
     common::simple_circuit_library::SimpleCircuitLibrary, signature::zk::data::ZKPublicKeyInfo,
 };
 use qed_node::{
-    coordinator::{
-        state::{
-            edge::CoordinatorEdgeContext,
-            processor::{CoordinatorConfig, CoordinatorProcessorContext},
-        },
+    coordinator::state::{
+        edge::CoordinatorEdgeContext,
+        processor::{CoordinatorConfig, CoordinatorProcessorContext},
     },
     worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
 };
-use qed_store::queue::proof_store_fred::ProofStoreFred;
+use qed_store::queue::ProofStoreFred;
 use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;

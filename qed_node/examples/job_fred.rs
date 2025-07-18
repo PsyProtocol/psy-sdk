@@ -3,7 +3,7 @@ use qed_core::{
     job::{id::QProvingJobDataID, traits::QProofStoreWriterAsyncImm, worker_queue::WorkerEventTransmitterAsyncImm},
     utils::debug_timer::DebugTimer,
 };
-use qed_store::queue::proof_store_fred::ProofStoreFred;
+use qed_store::queue::ProofStoreFred;
 use std::time::Duration;
 use qed_store::queue::new_fred_pool;
 

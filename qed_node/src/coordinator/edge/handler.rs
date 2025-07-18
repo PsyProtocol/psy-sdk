@@ -51,7 +51,7 @@ use crate::coordinator::args::CoordinatorEdgeArgs;
 use crate::coordinator::state::edge::CoordinatorEdgeContext;
 use crate::coordinator::error::CoordinatorError;
 use qed_store::queue::new_redis_async_pool;
-use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::queue::ProofStoreRedisAsync;
 use crate::common::verifier::get_cached_generic_verifier;
 use qed_store::store::{QEDStore, Backend};
 

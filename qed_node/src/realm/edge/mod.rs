@@ -18,8 +18,8 @@ use crate::common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use tracing::{debug, info};
 use qed_store::queue::new_redis_async_pool;
-use qed_store::queue::proof_store_fred::ProofStoreFred;
-use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::queue::ProofStoreFred;
+use qed_store::queue::ProofStoreRedisAsync;
 use hyper::Method;
 use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 

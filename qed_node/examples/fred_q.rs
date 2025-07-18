@@ -7,7 +7,7 @@ use qed_core::{
     },
     utils::debug_timer::DebugTimer,
 };
-use qed_store::queue::drain_queue_fred::DrainQueueFred;
+use qed_store::queue::DrainQueueFred;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 
