@@ -1,10 +1,15 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::hash_types::RichField;
+use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
+use qed_core::data::alt::AltVerifierOnlyCircuitData;
 use qed_core::data::base_types::hash160::Hash160;
 use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
+use qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader;
+use qed_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType;
+use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
@@ -15,6 +20,11 @@ use qed_data::qdata::checkpoint::QEDL2BlockState;
 use qed_data::qdata::contract::ContractCodeDefinition;
 use qed_data::qdata::contract::QEDContractLeaf;
 use qed_data::qdata::user::QEDUserLeaf;
+use qed_data::ups::start_step::UPSStartStepInput;
+use qed_data::ups::ups_cfc_standard_step::UPSCFCDeferredTransactionCircuitInput;
+use qed_data::ups::ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput;
+use qed_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
+use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -225,6 +235,63 @@ pub enum RequestParams<F: RichField> {
     GetL2BlockState(QL2BlockStateRPCRequest),
     #[serde(rename = "qed_get_l2_block_state_f")]
     GetL2BlockStateF(QL2BlockStateFRPCRequest<F>),
+
+    /// generate proof
+    #[serde(rename = "qed_get_circuits_data")]
+    GetCircuitsData(),
+    #[serde(rename = "qed_prove_ups_start")]
+    ProveUpsStart(QProveUpsStartRPCRequest<F>),
+    #[serde(rename = "qed_register_contract_circuits")]
+    RegisterCircuits(QRegisterCircuitsRPCRequest),
+    #[serde(rename = "qed_get_method_id")]
+    GetMethodId(QGetMethodIdRPCRequest),
+    #[serde(rename = "qed_get_contract_method_common_data")]
+    GetContractMethodCommonData(QGetContractMethodCommonDataRPCRequest),
+    #[serde(rename = "qed_prove_contract_call")]
+    ProveContractCall(QProveContractCallRPCRequest<F>),
+    #[serde(rename = "qed_prove_ups_cfc_standard_tx")]
+    UpsCfcStandardTx(QUpsCfcStandardTxRPCRequest<F>),
+    #[serde(rename = "qed_prove_ups_cfc_deferred_tx")]
+    UpsCfcDeferredTx(QUpsCfcDeferredTxRPCRequest<F>),
+    #[serde(rename = "qed_signature_proof")]
+    SignatureProof(QSignatureProofRPCRequest<F>),
+    // #[serde(rename = "qed_finalize_tree")]
+    // FinalizeTree,
+    // #[serde(rename = "qed_prove_ups_end_cap")]
+    // UpsEndCap(QUpsEndCapRPCRequest<F>),
+
+    // tree proof
+    // #[serde(rename = "qed_prove_single_leaf_circuit")]
+    // SingleLeaf(QSingleLeafRpcRequest<F>),
+    // #[serde(rename = "qed_prove_two_leaf_circuit")]
+    // TwoLeaf(QTwoLeafRpcRequest<F>),
+    // #[serde(rename = "qed_prove_two_agg_circuit")]
+    // TwoAgg(QTwoAggRpcRequset<F>),
+    // #[serde(rename = "qed_prove_left_leaf_right_agg_circuit")]
+    // LeftLeafRightAgg(QLeftLeafRightAggRpcRequest<F>),
+    // #[serde(rename = "qed_prove_left_agg_right_leaf_circuit")]
+    // LeftAggRightLeaf(QLeftAggRightLeafRpcRequest<F>),
+}
+
+#[serde_as]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(bound = "")]
+#[serde(tag = "method", content = "params")]
+pub enum RequestParamsV2<C: GenericConfig<D>, const D: usize> {
+    #[serde(rename = "qed_prove_ups_end_cap")]
+    UpsEndCap(QUpsEndCapRPCRequestV2<C, D>),
+
+    // tree proof
+    #[serde(rename = "qed_prove_single_leaf_circuit")]
+    SingleLeaf(QSingleLeafRpcRequestV2<C, D>),
+    #[serde(rename = "qed_prove_two_leaf_circuit")]
+    TwoLeaf(QTwoLeafRpcRequestV2<C, D>),
+    #[serde(rename = "qed_prove_two_agg_circuit")]
+    TwoAgg(QTwoAggRpcRequsetV2<C, D>),
+    #[serde(rename = "qed_prove_left_leaf_right_agg_circuit")]
+    LeftLeafRightAgg(QLeftLeafRightAggRpcRequestV2<C, D>),
+    #[serde(rename = "qed_prove_left_agg_right_leaf_circuit")]
+    LeftAggRightLeaf(QLeftAggRightLeafRpcRequestV2<C, D>),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -281,6 +348,12 @@ pub enum LPSResponse {
     GetL2BlockState(QEDL2BlockState),
     // GetLatestL2BlockState(QEDL2BlockState),
     GetUserId(u64),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub enum ProofGeneratorResponse {
+    GetProof(ProofWithPublicInputs<F, C, D>),
 }
 
 /// Represents a JSON-RPC error
@@ -380,7 +453,7 @@ impl From<ErrorCode> for RpcError {
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct QTokenTransferRPCRequest {
     pub user_id: u64,
@@ -394,7 +467,7 @@ pub struct QTokenTransferRPCRequest {
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct QClaimDepositRPCRequest {
     pub user_id: u64,
@@ -414,7 +487,7 @@ pub struct QClaimDepositRPCRequest {
 }
 
 #[serde_as]
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct QAddWithdrawalRPCRequest {
     pub user_id: u64,
@@ -431,7 +504,7 @@ pub struct QAddWithdrawalRPCRequest {
     pub signature_proof: Vec<u8>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QRegisterUserRPCRequest<F: RichField> {
@@ -447,19 +520,19 @@ impl<F: RichField> QRegisterUserRPCRequest<F> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QDeployContractRPCRequest<F: RichField> {
     pub deploy_contract: QBCDeployContract<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QSubmitEndCapRPCRequest<F: RichField> {
     pub user_ec_input: SubmitUserEndCapNonProofInput<F>,
-    #[ts(type  = "any")]
+    #[ts(type = "any")]
     pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
 }
 
@@ -494,7 +567,7 @@ pub struct QGetCheckpointSyncInfoCompactRPCRequest {
 
 // lps
 // QTreeDataStoreReaderSync
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QUserContractStateTreeRootRPCRequest {
@@ -502,7 +575,7 @@ pub struct QUserContractStateTreeRootRPCRequest {
     pub user_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractStateTreeRootFRPCRequest<F: RichField> {
@@ -511,7 +584,7 @@ pub struct QUserContractStateTreeRootFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(bound = "")]
 pub struct QUserContractStateTreeLeafHashRPCRequest {
@@ -521,7 +594,7 @@ pub struct QUserContractStateTreeLeafHashRPCRequest {
     pub height: u8,
     pub leaf_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractStateTreeLeafHashFRPCRequest<F: RichField> {
@@ -532,7 +605,7 @@ pub struct QUserContractStateTreeLeafHashFRPCRequest<F: RichField> {
     pub leaf_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(bound = "")]
 pub struct QUserContractStateTreeMerkleProofRPCRequest {
@@ -542,7 +615,7 @@ pub struct QUserContractStateTreeMerkleProofRPCRequest {
     pub height: u8,
     pub leaf_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractStateTreeMerkleProofFRPCRequest<F: RichField> {
@@ -553,14 +626,14 @@ pub struct QUserContractStateTreeMerkleProofFRPCRequest<F: RichField> {
     pub leaf_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractTreeRootRPCRequest {
     pub checkpoint_id: u64,
     pub user_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractTreeRootFRPCRequest<F: RichField> {
@@ -568,7 +641,7 @@ pub struct QUserContractTreeRootFRPCRequest<F: RichField> {
     pub user_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(bound = "")]
 pub struct QUserContractTreeLeafHashRPCRequest {
@@ -576,7 +649,7 @@ pub struct QUserContractTreeLeafHashRPCRequest {
     pub user_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractTreeLeafHashFRPCRequest<F: RichField> {
@@ -585,7 +658,7 @@ pub struct QUserContractTreeLeafHashFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(bound = "")]
 pub struct QUserContractTreeMerkleProofRPCRequest {
@@ -593,7 +666,7 @@ pub struct QUserContractTreeMerkleProofRPCRequest {
     pub user_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserContractTreeMerkleProofFRPCRequest<F: RichField> {
@@ -602,27 +675,27 @@ pub struct QUserContractTreeMerkleProofFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub leaf_index: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeLeafHashFRPCRequest<F: RichField> {
@@ -630,14 +703,14 @@ pub struct QUserRegistrationTreeLeafHashFRPCRequest<F: RichField> {
     pub leaf_index: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub leaf_index: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
 pub struct QUserRegistrationTreeMerkleProofFRPCRequest<F: RichField> {
@@ -645,27 +718,27 @@ pub struct QUserRegistrationTreeMerkleProofFRPCRequest<F: RichField> {
     pub leaf_index: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QUserTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QUserTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QUserTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub user_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QUserTreeLeafHashFRPCRequest<F: RichField> {
@@ -673,14 +746,14 @@ pub struct QUserTreeLeafHashFRPCRequest<F: RichField> {
     pub user_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QUserTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub user_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QUserTreeMerkleProofFRPCRequest<F: RichField> {
@@ -688,7 +761,7 @@ pub struct QUserTreeMerkleProofFRPCRequest<F: RichField> {
     pub user_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QUserSubTreeMerkleProofRPCRequest {
@@ -698,14 +771,14 @@ pub struct QUserSubTreeMerkleProofRPCRequest {
     pub leaf_index: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QContractFunctionTreeRootRPCRequest {
     pub checkpoint_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractFunctionTreeRootFRPCRequest<F: RichField> {
@@ -713,7 +786,7 @@ pub struct QContractFunctionTreeRootFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QContractFunctionTreeLeafHashRPCRequest {
@@ -721,7 +794,7 @@ pub struct QContractFunctionTreeLeafHashRPCRequest {
     pub contract_id: u32,
     pub function_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractFunctionTreeLeafHashFRPCRequest<F: RichField> {
@@ -730,7 +803,7 @@ pub struct QContractFunctionTreeLeafHashFRPCRequest<F: RichField> {
     pub function_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QContractFunctionTreeMerkleProofRPCRequest {
@@ -738,7 +811,7 @@ pub struct QContractFunctionTreeMerkleProofRPCRequest {
     pub contract_id: u32,
     pub function_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractFunctionTreeMerkleProofFRPCRequest<F: RichField> {
@@ -747,27 +820,27 @@ pub struct QContractFunctionTreeMerkleProofFRPCRequest<F: RichField> {
     pub function_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QContractTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QContractTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractTreeLeafHashFRPCRequest<F: RichField> {
@@ -775,14 +848,14 @@ pub struct QContractTreeLeafHashFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QContractTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub contract_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractTreeMerkleProofFRPCRequest<F: RichField> {
@@ -790,27 +863,27 @@ pub struct QContractTreeMerkleProofFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QDepositTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QDepositTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QDepositTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub deposit_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QDepositTreeLeafHashFRPCRequest<F: RichField> {
@@ -818,14 +891,14 @@ pub struct QDepositTreeLeafHashFRPCRequest<F: RichField> {
     pub deposit_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QDepositTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub deposit_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QDepositTreeMerkleProofFRPCRequest<F: RichField> {
@@ -833,27 +906,27 @@ pub struct QDepositTreeMerkleProofFRPCRequest<F: RichField> {
     pub deposit_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QWithdrawalTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QWithdrawalTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QWithdrawalTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub withdrawal_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QWithdrawalTreeLeafHashFRPCRequest<F: RichField> {
@@ -861,14 +934,14 @@ pub struct QWithdrawalTreeLeafHashFRPCRequest<F: RichField> {
     pub withdrawal_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QWithdrawalTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub withdrawal_id: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QWithdrawalTreeMerkleProofFRPCRequest<F: RichField> {
@@ -876,32 +949,32 @@ pub struct QWithdrawalTreeMerkleProofFRPCRequest<F: RichField> {
     pub withdrawal_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QLatestCheckpointTreeRootRPCRequest {}
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QCheckpointTreeRootRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QCheckpointTreeRootFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QCheckpointTreeLeafHashRPCRequest {
     pub checkpoint_id: u64,
     pub leaf_checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QCheckpointTreeLeafHashFRPCRequest<F: RichField> {
@@ -909,14 +982,14 @@ pub struct QCheckpointTreeLeafHashFRPCRequest<F: RichField> {
     pub leaf_checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QCheckpointTreeMerkleProofRPCRequest {
     pub checkpoint_id: u64,
     pub leaf_checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QCheckpointTreeMerkleProofFRPCRequest<F: RichField> {
@@ -924,7 +997,7 @@ pub struct QCheckpointTreeMerkleProofFRPCRequest<F: RichField> {
     pub leaf_checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QCheckpointGlobalStateRootsRPCRequest {
@@ -932,7 +1005,7 @@ pub struct QCheckpointGlobalStateRootsRPCRequest {
 }
 
 // QMetaDataStoreReaderSync
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QUserLeafDataRPCRequest {
@@ -940,7 +1013,7 @@ pub struct QUserLeafDataRPCRequest {
     pub user_id: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QUserLeafDataFRPCRequest<F: RichField> {
@@ -948,66 +1021,291 @@ pub struct QUserLeafDataFRPCRequest<F: RichField> {
     pub user_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QContractLeafDataRPCRequest {
     pub contract_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractLeafDataFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QCheckpointLeafDataRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QCheckpointLeafDataFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QContractCodeDefinitionRPCRequest {
     pub contract_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QContractCodeDefinitionFRPCRequest<F: RichField> {
     pub contract_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QLatestL2BlockStateRPCRequest {}
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
 pub struct QL2BlockStateRPCRequest {
     pub checkpoint_id: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QL2BlockStateFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,TS)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QProveUpsStartRPCRequest<F: RichField> {
+    pub input: UPSStartStepInput<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export)]
+pub struct QRegisterCircuitsRPCRequest {
+    pub contract_id: u64,
+    pub contract_code: ContractCodeDefinition,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export)]
+pub struct QGetMethodIdRPCRequest {
+    pub contract_id: u64,
+    pub method_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export)]
+pub struct QGetContractMethodCommonDataRPCRequest {
+    pub contract_id: u64,
+    pub method_id: u32,
+    // pub fingerprint: QHashOut<F>,
+    // pub method_name: AltVerifierOnlyCircuitData<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QProveContractCallRPCRequest<F: RichField> {
+    pub contract_id: u64,
+    pub method_id: u32,
+    pub input: DapenContractFunctionCircuitInput<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QUpsCfcStandardTxRPCRequest<F: RichField> {
+    pub input: UPSCFCStandardTransactionCircuitInput<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QUpsCfcDeferredTxRPCRequest<F: RichField> {
+    pub input: UPSCFCDeferredTransactionCircuitInput<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
+pub struct QSignatureProofRPCRequest<F: RichField> {
+    pub private_key: QHashOut<F>,
+    pub sig_hash: QHashOut<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QAggProofRecord<F: RichField> {
+    pub circuit_type: QStandardBinaryTreeCircuitType,
+    pub fingerprint: QHashOut<F>,
+    pub agg_header: QRecursionAggStandardHeader<F>,
+    pub proof: String,
+}
+
+use qed_crypto::common::witnesses::qrecursion::proof_data::AggProofRecord;
+impl<C: GenericConfig<D>, const D: usize> From<AggProofRecord<C, D>> for QAggProofRecord<C::F> {
+    fn from(agg_proof_record: AggProofRecord<C, D>) -> Self {
+        Self {
+            circuit_type: agg_proof_record.circuit_type,
+            fingerprint: agg_proof_record.fingerprint,
+            agg_header: agg_proof_record.agg_header,
+            proof: serde_json::to_string(&agg_proof_record.proof).unwrap(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QUpsEndCapRPCRequest<F: RichField> {
+    pub end_cap_from_proof_tree_input: UPSEndCapFromProofTreeGadgetInput<F>,
+    pub agg_proof_record: QAggProofRecord<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct QUpsEndCapRPCRequestV2<C: GenericConfig<D>, const D: usize> {
+    pub end_cap_from_proof_tree_input: UPSEndCapFromProofTreeGadgetInput<C::F>,
+    // AggProofRecord
+    pub circuit_type: QStandardBinaryTreeCircuitType,
+    pub fingerprint: QHashOut<C::F>,
+    pub agg_header: QRecursionAggStandardHeader<C::F>,
+    pub proof: ProofWithPublicInputs<C::F, C, D>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QSingleLeafRpcRequest<F: RichField> {
+    pub agg_circuit_whitelist_root: QHashOut<F>,
+    pub single_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<F>>,
+    pub single_proof: String,
+    pub single_verifier_data: AltVerifierOnlyCircuitData<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct QSingleLeafRpcRequestV2<C: GenericConfig<D>, const D: usize> {
+    pub agg_circuit_whitelist_root: QHashOut<C::F>,
+    pub single_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<C::F>>,
+    pub single_proof: ProofWithPublicInputs<C::F, C, D>,
+    pub single_verifier_data: AltVerifierOnlyCircuitData<C::F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QTwoLeafRpcRequest<F: RichField> {
+    pub agg_circuit_whitelist_root: QHashOut<F>,
+    pub left_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<F>>,
+    pub left_proof: String,
+    pub left_verifier_data: AltVerifierOnlyCircuitData<F>,
+    pub right_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<F>>,
+    pub right_proof: String,
+    pub right_verifier_data: AltVerifierOnlyCircuitData<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct QTwoLeafRpcRequestV2<C: GenericConfig<D>, const D: usize> {
+    pub agg_circuit_whitelist_root: QHashOut<C::F>,
+    pub left_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<C::F>>,
+    pub left_proof: ProofWithPublicInputs<C::F, C, D>,
+    pub left_verifier_data: AltVerifierOnlyCircuitData<C::F>,
+    pub right_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<C::F>>,
+    pub right_proof: ProofWithPublicInputs<C::F, C, D>,
+    pub right_verifier_data: AltVerifierOnlyCircuitData<C::F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QTwoAggRpcRequset<F: RichField> {
+    pub left_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<F>>,
+    pub left_agg_proof_header: QRecursionAggStandardHeader<F>,
+    pub left_proof: String,
+    pub left_verifier_data: AltVerifierOnlyCircuitData<F>,
+    pub right_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<F>>,
+    pub right_agg_proof_header: QRecursionAggStandardHeader<F>,
+    pub right_proof: String,
+    pub right_verifier_data: AltVerifierOnlyCircuitData<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct QTwoAggRpcRequsetV2<C: GenericConfig<D>, const D: usize> {
+    pub left_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<C::F>>,
+    pub left_agg_proof_header: QRecursionAggStandardHeader<C::F>,
+    pub left_proof: ProofWithPublicInputs<C::F, C, D>,
+    pub left_verifier_data: AltVerifierOnlyCircuitData<C::F>,
+    pub right_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<C::F>>,
+    pub right_agg_proof_header: QRecursionAggStandardHeader<C::F>,
+    pub right_proof: ProofWithPublicInputs<C::F, C, D>,
+    pub right_verifier_data: AltVerifierOnlyCircuitData<C::F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QLeftLeafRightAggRpcRequest<F: RichField> {
+    pub left_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<F>>,
+    pub left_proof: String,
+    pub left_verifier_data: AltVerifierOnlyCircuitData<F>,
+    pub right_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<F>>,
+    pub right_agg_proof_header: QRecursionAggStandardHeader<F>,
+    pub right_proof: String,
+    pub right_verifier_data: AltVerifierOnlyCircuitData<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct QLeftLeafRightAggRpcRequestV2<C: GenericConfig<D>, const D: usize> {
+    pub left_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<C::F>>,
+    pub left_proof: ProofWithPublicInputs<C::F, C, D>,
+    pub left_verifier_data: AltVerifierOnlyCircuitData<C::F>,
+    pub right_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<C::F>>,
+    pub right_agg_proof_header: QRecursionAggStandardHeader<C::F>,
+    pub right_proof: ProofWithPublicInputs<C::F, C, D>,
+    pub right_verifier_data: AltVerifierOnlyCircuitData<C::F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QLeftAggRightLeafRpcRequest<F: RichField> {
+    pub left_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<F>>,
+    pub left_agg_proof_header: QRecursionAggStandardHeader<F>,
+    pub left_proof: String,
+    pub left_verifier_data: AltVerifierOnlyCircuitData<F>,
+    pub right_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<F>>,
+    pub right_proof: String,
+    pub right_verifier_data: AltVerifierOnlyCircuitData<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct QLeftAggRightLeafRpcRequestV2<C: GenericConfig<D>, const D: usize> {
+    pub left_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<C::F>>,
+    pub left_agg_proof_header: QRecursionAggStandardHeader<C::F>,
+    pub left_proof: ProofWithPublicInputs<C::F, C, D>,
+    pub left_verifier_data: AltVerifierOnlyCircuitData<C::F>,
+    pub right_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<C::F>>,
+    pub right_proof: ProofWithPublicInputs<C::F, C, D>,
+    pub right_verifier_data: AltVerifierOnlyCircuitData<C::F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
 #[serde(untagged)]
 pub enum QRPCRequest<F: RichField> {
     QTokenTransferRPCRequest((u32, QTokenTransferRPCRequest)),
@@ -1095,4 +1393,18 @@ pub enum QRPCRequest<F: RichField> {
     QLatestL2BlockStateRPCRequest((u32, QLatestL2BlockStateRPCRequest)),
     QL2BlockStateRPCRequest((u32, QL2BlockStateRPCRequest)),
     QL2BlockStateFRPCRequest((u32, QL2BlockStateFRPCRequest<F>)),
+
+    // genetate proof
+    QProveUpsStartRPCRequest((u32, QProveUpsStartRPCRequest<F>)),
+    QProveContractCallRPCRequest((u32, QProveContractCallRPCRequest<F>)),
+    QUpsCfcStandardTxRPCRequest((u32, QUpsCfcStandardTxRPCRequest<F>)),
+    QSignatureProofRPCRequest((u32, QSignatureProofRPCRequest<F>)),
+    QUpsEndCapRPCRequest((u32, QUpsEndCapRPCRequest<F>)),
+
+    // tree proof
+    QSingleLeafRpcRequest((u32, QSingleLeafRpcRequest<F>)),
+    QTwoLeafRpcRequest((u32, QTwoLeafRpcRequest<F>)),
+    QTwoAggRpcRequset((u32, QTwoAggRpcRequset<F>)),
+    QLeftLeafRightAggRpcRequest((u32, QLeftLeafRightAggRpcRequest<F>)),
+    QLeftAggRightLeafRpcRequest((u32, QLeftAggRightLeafRpcRequest<F>)),
 }

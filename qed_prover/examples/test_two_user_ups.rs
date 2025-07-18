@@ -10,7 +10,7 @@ use qed_data::{
         core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
     }, qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}
 };
-use qed_prover::{api::simple::SimpleAPI, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager}};
+use qed_prover::{api::simple::SimpleAPI, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_rollup_circuit::guta::guta_helper::QEDGUTACircuitManager;
 use qed_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
@@ -431,7 +431,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
 
     timer.lap("start: init QEDUPSStepCircuitManager");
 
-    let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+    let main_circuits = QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST));
     //main_circuits.print_common_config();
 
     timer.lap("end: init QEDUPSStepCircuitManager");
@@ -509,7 +509,6 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
         &main_circuits,
         contract_id,
         0,
-        &simple_mint_debug_circuit,
         &simple_mint_debug_def,
         vec![
             GoldilocksField::from_noncanonical_u64(1000)
@@ -523,7 +522,6 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
         &main_circuits,
         contract_id,
         1,
-        &simple_transfer_circuit,
         &simple_transfer_def,
         vec![
             GoldilocksField::from_noncanonical_u64(2),
@@ -537,7 +535,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
+    mgr.proof_tree_state.finalize_tree(&main_circuits)?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param =SimpleQEDPrivateKey::new(priv_key_0).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(
@@ -575,7 +573,6 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
         &main_circuits,
         contract_id,
         0,
-        &simple_mint_debug_circuit,
         &simple_mint_debug_def,
         vec![
             GoldilocksField::from_noncanonical_u64(10000)
@@ -589,7 +586,6 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
         &main_circuits,
         contract_id,
         1,
-        &simple_transfer_circuit,
         &simple_transfer_def,
         vec![
             GoldilocksField::from_noncanonical_u64(3),
@@ -603,7 +599,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_1, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
+    mgr.proof_tree_state.finalize_tree(&main_circuits)?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param =SimpleQEDPrivateKey::new(priv_key_1).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(

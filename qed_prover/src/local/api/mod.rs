@@ -1,3 +1,5 @@
+pub mod prove_proxy;
+
 cfg_if::cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
         use jsonrpsee::core::async_trait;
