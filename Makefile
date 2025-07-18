@@ -15,7 +15,7 @@ fix:
 	# @cargo machete --fix
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
-build: common_config_generator
+build: config_gen_v2
 	@cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server
 
 fmt:
@@ -83,14 +83,14 @@ ci:
 update-snapshots:
 	@cargo insta review
 
-WATCHED_DIRS := qed_rollup_circuit qed_common_circuit qed_prover qed_core/src/config/network_constants.rs qed_crypto/src/common/user_id.rs
+WATCHED_DIRS := qed_rollup_circuit qed_common_circuit qed_prover/src/dpn qed_prover/src/ups qed_core/src/config/network_constants.rs qed_crypto/src/common/user_id.rs
 
-common_config_generator:
+config_gen_v2:
 	@if git diff --name-only --diff-filter=M | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \
-		echo "Changes detected in watched directories. Running common_config_generator..."; \
+		echo "Changes detected in watched directories. Running config_gen_v2..."; \
 		RUST_LOG=${RUST_LOG} cargo run --profile ${PROFILE} --package qed_prover --example config_gen_v2; \
 	else \
-		echo "No changes detected in watched directories. Skipping common_config_generator."; \
+		echo "No changes detected in watched directories. Skipping config_gen_v2."; \
 	fi
 
 .PHONY: check fix build format run test update-snapshots

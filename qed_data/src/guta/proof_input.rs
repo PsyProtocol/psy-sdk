@@ -15,6 +15,7 @@ use super::{header::GlobalUserTreeAggregatorHeader, stats::GUTAStats};
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct VerifyTwoGUTAProofGadgetStandardInputSimple<F: RichField> {
     pub checkpoint_tree_root: QHashOut<F>,
+    pub b_checkpoint_tree_root: QHashOut<F>,
     pub stats_a: GUTAStats<F>,
     pub stats_b: GUTAStats<F>,
     pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
@@ -29,6 +30,7 @@ impl<F: RichField> VerifyTwoGUTAProofGadgetStandardInputSimple<F> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct VerifyTwoGUTAProofGadgetStandardInput<F: RichField> {
     pub checkpoint_tree_root: QHashOut<F>,
+    pub b_checkpoint_tree_root: QHashOut<F>,
     pub stats_a: GUTAStats<F>,
     pub stats_b: GUTAStats<F>,
     pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
@@ -66,7 +68,7 @@ impl<F: RichField> VerifyTwoGUTAProofGadgetStandardInput<F> {
     pub fn get_guta_header_b(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_b.root,
-            checkpoint_tree_root: self.checkpoint_tree_root,
+            checkpoint_tree_root: self.b_checkpoint_tree_root,
             state_transition: SubTreeNodeStateTransition {
                 old_node_value: self.nca_proof.child_b.old_value,
                 new_node_value: self.nca_proof.child_b.new_value,

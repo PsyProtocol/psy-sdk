@@ -20,6 +20,48 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCached<S> {
             proper_delete_return: false,
         }
     }
+
+    fn get_leq_from_cache(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Option<KVQPair<Vec<u8>, Vec<u8>>> {
+        let map = self.map.read();
+
+        if fuzzy_bytes == 0 {
+            for (k, v) in map.range(..=key.clone()).rev() {
+                match v {
+                    CacheValueType::Bytes(b) => {
+                        return Some(KVQPair {
+                            key: k.clone(),
+                            value: b.clone(),
+                        });
+                    }
+                    CacheValueType::Removed => {
+                    }
+                }
+            }
+        } else {
+            let key_end = key.to_vec();
+            let mut base_key = key.to_vec();
+            let key_len = base_key.len();
+
+            for i in 0..fuzzy_bytes {
+                base_key[key_len - i - 1] = 0;
+            }
+
+            for (k, v) in map.range((Included(base_key), Included(key_end))).rev() {
+                match v {
+                    CacheValueType::Bytes(b) => {
+                        return Some(KVQPair {
+                            key: k.clone(),
+                            value: b.clone(),
+                        });
+                    }
+                    CacheValueType::Removed => {
+                    }
+                }
+            }
+        }
+
+        None
+    }
 }
 impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
     fn is_removed(&self, key: &Vec<u8>) -> bool {
@@ -120,7 +162,6 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
             (keys_to_set, removed_keys)
         };
 
-        // Convert Vec<KVQPair<Vec<u8>, Vec<u8>>> to Vec<KVQPair<&Vec<u8>, &Vec<u8>>>
         let keys_to_set_ref: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = keys_to_set
             .iter()
             .map(|kv| KVQPair {
@@ -157,63 +198,31 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
     }
 
     fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<Vec<u8>>> {
-        let key_end = key.to_vec();
-        let mut base_key = key.to_vec();
-        let key_len = base_key.len();
-        if fuzzy_bytes > key_len {
+        if fuzzy_bytes > key.len() {
             return Err(anyhow::anyhow!(
                 "Fuzzy bytes must be less than or equal to key length"
             ));
         }
 
-        let mut sum_end = 0u32;
-        for i in 0..fuzzy_bytes {
-            sum_end += key_end[key_len - i - 1] as u32;
-            base_key[key_len - i - 1] = 0;
-        }
+        let cache_candidate = self.get_leq_from_cache(key, fuzzy_bytes);
+        let store_candidate = self.store.get_leq_kv(key, fuzzy_bytes)?;
 
-        if sum_end == 0 {
-            match self.map.read().get(key) {
-                Some(v) => match v {
-                    CacheValueType::Bytes(b) => Ok(Some(b.to_owned())),
-                    CacheValueType::Removed => Ok(None),
-                },
-                None => self.store.get_leq(key, fuzzy_bytes),
-            }
-        } else {
-            let map = self.map.read();
-            let rq = map
-                .range((Included(base_key.clone()), Included(key_end)))
-                .enumerate();
-            let mut real_op_key: Option<KVQPair<Vec<u8>, Vec<u8>>> = None;
-            for (_, (k, v)) in rq {
-                let r = match v {
-                    CacheValueType::Bytes(b) => Some(KVQPair {
-                        key: k.to_owned(),
-                        value: b.to_owned(),
-                    }),
-                    CacheValueType::Removed => None,
-                };
-                if r.is_some() {
-                    real_op_key = r;
-                    break;
-                }
-            }
-            if real_op_key.is_some() {
-                let rok = real_op_key.unwrap();
-                let d1_leq = self.store.get_leq_kv(key, fuzzy_bytes)?;
-                if d1_leq.is_some() {
-                    let rnt = d1_leq.unwrap();
-                    Ok(Some(if rnt.key > rok.key {
-                        rnt.value
-                    } else {
-                        rok.value
-                    }))
+        match (cache_candidate, store_candidate) {
+            (None, None) => Ok(None),
+            (Some(c), None) => Ok(Some(c.value)),
+            (None, Some(s)) => {
+                if self.map.read().get(&s.key).map_or(false, |v| matches!(v, CacheValueType::Removed)) {
+                    Ok(None)
                 } else {
-                    Ok(Some(rok.value))
+                    Ok(Some(s.value))
                 }
-            } else {
-                self.store.get_leq(key, fuzzy_bytes)
+            }
+            (Some(c), Some(s)) => {
+                if self.map.read().get(&s.key).map_or(false, |v| matches!(v, CacheValueType::Removed)) {
+                    Ok(Some(c.value))
+                } else {
+                    Ok(Some(if c.key >= s.key { c.value } else { s.value }))
+                }
             }
         }
     }
@@ -223,62 +232,31 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
         key: &Vec<u8>,
         fuzzy_bytes: usize,
     ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
-        let key_end = key.to_vec();
-        let mut base_key = key.to_vec();
-        let key_len = base_key.len();
-        if fuzzy_bytes > key_len {
+        if fuzzy_bytes > key.len() {
             return Err(anyhow::anyhow!(
                 "Fuzzy bytes must be less than or equal to key length"
             ));
         }
 
-        let mut sum_end = 0u32;
-        for i in 0..fuzzy_bytes {
-            sum_end += key_end[key_len - i - 1] as u32;
-            base_key[key_len - i - 1] = 0;
-        }
+        let cache_candidate = self.get_leq_from_cache(key, fuzzy_bytes);
+        let store_candidate = self.store.get_leq_kv(key, fuzzy_bytes)?;
 
-        if sum_end == 0 {
-            match self.map.read().get(key) {
-                Some(v) => match v {
-                    CacheValueType::Bytes(b) => Ok(Some(KVQPair {
-                        key: key.clone(),
-                        value: b.to_owned(),
-                    })),
-                    CacheValueType::Removed => Ok(None),
-                },
-                None => self.store.get_leq_kv(key, fuzzy_bytes),
-            }
-        } else {
-            let map = self.map.read();
-            let rq = map
-                .range((Included(base_key.clone()), Included(key_end)))
-                .enumerate();
-            let mut real_op_key: Option<KVQPair<Vec<u8>, Vec<u8>>> = None;
-            for (_, (k, v)) in rq {
-                let r = match v {
-                    CacheValueType::Bytes(b) => Some(KVQPair {
-                        key: k.to_owned(),
-                        value: b.to_owned(),
-                    }),
-                    CacheValueType::Removed => None,
-                };
-                if r.is_some() {
-                    real_op_key = r;
-                    break;
-                }
-            }
-            if real_op_key.is_some() {
-                let rok = real_op_key.unwrap();
-                let d1_leq = self.store.get_leq_kv(key, fuzzy_bytes)?;
-                if d1_leq.is_some() {
-                    let rnt = d1_leq.unwrap();
-                    Ok(Some(if rnt.key > rok.key { rnt } else { rok }))
+        match (cache_candidate, store_candidate) {
+            (None, None) => Ok(None),
+            (Some(c), None) => Ok(Some(c)),
+            (None, Some(s)) => {
+                if self.map.read().get(&s.key).map_or(false, |v| matches!(v, CacheValueType::Removed)) {
+                    Ok(None)
                 } else {
-                    Ok(Some(rok))
+                    Ok(Some(s))
                 }
-            } else {
-                self.store.get_leq_kv(key, fuzzy_bytes)
+            }
+            (Some(c), Some(s)) => {
+                if self.map.read().get(&s.key).map_or(false, |v| matches!(v, CacheValueType::Removed)) {
+                    Ok(Some(c))
+                } else {
+                    Ok(Some(if c.key >= s.key { c } else { s }))
+                }
             }
         }
     }
@@ -337,29 +315,29 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
         }
 
         let map = self.map.read();
-        Ok(map
-            .range((Included(base_key), Included(key_end)))
-            .filter(|x| match x.1 {
-                CacheValueType::Bytes(_) => true,
-                CacheValueType::Removed => false,
-            })
-            .map(|(k, v)| KVQPair {
-                key: k.to_owned(),
-                value: match v {
-                    CacheValueType::Bytes(b) => b.to_owned(),
-                    CacheValueType::Removed => Vec::new(),
-                },
-            })
-            .chain(
-                self.store
-                    .get_fuzzy_range_leq_kv(key, fuzzy_bytes)?
-                    .into_iter()
-                    .filter(|x| !map.contains_key(&x.key)),
-            )
-            .collect::<Vec<_>>())
+        let mut results = BTreeMap::new();
+
+        for item in self.store.get_fuzzy_range_leq_kv(key, fuzzy_bytes)? {
+            results.insert(item.key.clone(), item);
+        }
+
+        for (k, v) in map.range((Included(base_key), Included(key_end))) {
+            match v {
+                CacheValueType::Bytes(b) => {
+                    results.insert(k.clone(), KVQPair {
+                        key: k.clone(),
+                        value: b.clone(),
+                    });
+                }
+                CacheValueType::Removed => {
+                    results.remove(k);
+                }
+            }
+        }
+
+        Ok(results.into_values().collect())
     }
 
-    // Write operations
     fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()> {
         self.map.write().insert(key, CacheValueType::Bytes(value));
         Ok(())

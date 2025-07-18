@@ -6,6 +6,13 @@ pub use async_cache::*;
 pub mod sync_cache;
 pub use sync_cache::*;
 
+
+#[cfg(test)]
+mod cache_tests;
+
+#[cfg(test)]
+mod test_helpers;
+
 use auto_impl::auto_impl;
 use crate::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 

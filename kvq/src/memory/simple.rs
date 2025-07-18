@@ -38,32 +38,29 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
     }
 
     fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<Vec<u8>>> {
-        let key_end = key.to_vec();
-        let mut base_key = key.to_vec();
-        let key_len = base_key.len();
-        if fuzzy_bytes > key_len {
+        if fuzzy_bytes > key.len() {
             return Err(anyhow::anyhow!(
                 "Fuzzy bytes must be less than or equal to key length"
             ));
         }
 
-        let mut sum_end = 0u32;
-        for i in 0..fuzzy_bytes {
-            sum_end += key_end[key_len - i - 1] as u32;
-            base_key[key_len - i - 1] = 0;
-        }
-
         let map = self.map.read().unwrap();
-        if sum_end == 0 {
-            let res = map.get(key);
-            if res.is_none() {
-                Ok(None)
-            } else {
-                Ok(Some(res.unwrap().to_owned()))
+        
+        if fuzzy_bytes == 0 {
+            let result = map.range(..=key.clone()).next_back();
+            match result {
+                Some((_, v)) => Ok(Some(v.clone())),
+                None => Ok(None),
             }
         } else {
+            let mut base_key = key.clone();
+            let key_len = base_key.len();
+            for i in 0..fuzzy_bytes {
+                base_key[key_len - i - 1] = 0;
+            }
+            
             let rq = map
-                .range((Included(base_key), Included(key_end)))
+                .range((Included(base_key), Included(key.clone())))
                 .next_back();
 
             if let Some((_, p)) = rq {
@@ -79,30 +76,42 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         key: &Vec<u8>,
         fuzzy_bytes: usize,
     ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
-        let key_end = key.to_vec();
-        let mut base_key = key.to_vec();
-        let key_len = base_key.len();
-        if fuzzy_bytes > key_len {
+        if fuzzy_bytes > key.len() {
             return Err(anyhow::anyhow!(
                 "Fuzzy bytes must be less than or equal to key length"
             ));
         }
 
-        for i in 0..fuzzy_bytes {
-            base_key[key_len - i - 1] = 0;
-        }
         let map = self.map.read().unwrap();
-        let rq = map
-            .range((Included(base_key), Included(key_end)))
-            .next_back();
-
-        if let Some((k, v)) = rq {
-            Ok(Some(KVQPair {
-                key: k.to_owned(),
-                value: v.to_owned(),
-            }))
+        
+        if fuzzy_bytes == 0 {
+            let result = map.range(..=key.clone()).next_back();
+            match result {
+                Some((k, v)) => Ok(Some(KVQPair {
+                    key: k.clone(),
+                    value: v.clone(),
+                })),
+                None => Ok(None),
+            }
         } else {
-            Ok(None)
+            let mut base_key = key.clone();
+            let key_len = base_key.len();
+            for i in 0..fuzzy_bytes {
+                base_key[key_len - i - 1] = 0;
+            }
+            
+            let rq = map
+                .range((Included(base_key), Included(key.clone())))
+                .next_back();
+
+            if let Some((k, v)) = rq {
+                Ok(Some(KVQPair {
+                    key: k.to_owned(),
+                    value: v.to_owned(),
+                }))
+            } else {
+                Ok(None)
+            }
         }
     }
 

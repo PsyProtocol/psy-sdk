@@ -1,5 +1,3 @@
-pub mod communicate;
-pub mod context;
 pub mod handler;
 pub mod jwt;
 pub mod types;
@@ -17,12 +15,18 @@ use std::net::SocketAddr;
 use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 use tracing::info;
 
+use qed_store::store::QEDStore;
+use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+
+pub type StoreReader = QEDStore;
+pub type DrainQueue = ProofStoreRedisAsync;
+pub type ProofStore = ProofStoreRedisAsync;
+
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");
     info!("✅ Loaded config: {:#?}", config);
 
     let handler = handler::CoordinatorEdgeHandler::new(config.clone()).await?;
-    handler.spawn_cp_sync_listener().await?;
     let rpc_module = handler.clone().into_rpc();
 
     let addr: SocketAddr = config.listen_addr.parse()?;

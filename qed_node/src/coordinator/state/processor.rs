@@ -142,7 +142,6 @@ pub struct CoordinatorProcessorContext<
     pub prover_queue: Arc<WQ>,
     pub proof_store: Arc<PS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub latest_block_state: QEDL2BlockState,
     pub coordinator_config: CoordinatorConfig,
 }
 
@@ -163,7 +162,6 @@ impl<
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
-        let latest_block_state: QEDL2BlockState = store.get_latest_l2_block_state().await?;
         Ok(Self {
             coordinator_config,
             store,
@@ -172,7 +170,6 @@ impl<
             sync_queue,
             proof_store,
             proof_verifier,
-            latest_block_state,
         })
     }
 
@@ -602,6 +599,7 @@ impl<
                 eprintln!("DEBUGPRINT[560]: processor.rs:589 (after if l_dep_ind == -1 && r_dep_ind == -1 )");
                 let input = VerifyTwoGUTAProofGadgetStandardInputSimple {
                     checkpoint_tree_root: guta_queue_items[i * 2].checkpoint_tree_root,
+                    b_checkpoint_tree_root: guta_queue_items[i * 2 + 1].checkpoint_tree_root,
                     stats_a: guta_queue_items[i * 2].guta_stats,
                     stats_b: guta_queue_items[i * 2 + 1].guta_stats,
                     nca_proof: res.nca_proofs[i].to_partial(),
@@ -635,6 +633,7 @@ impl<
                             .1
                             .input
                             .checkpoint_tree_root,
+                        b_checkpoint_tree_root: witnesses[r_dep_ind as usize].1.input.checkpoint_tree_root,
                         stats_a: witnesses[l_dep_ind as usize].1.input.get_combined_stats(),
                         stats_b: witnesses[r_dep_ind as usize].1.input.get_combined_stats(),
                         nca_proof: res.nca_proofs[i].to_partial(),
@@ -664,6 +663,7 @@ impl<
                             .1
                             .input
                             .checkpoint_tree_root,
+                        b_checkpoint_tree_root: guta_queue_items.last().as_ref().unwrap().checkpoint_tree_root,
                         stats_a: witnesses[l_dep_ind as usize].1.input.get_combined_stats(),
                         stats_b: guta_queue_items.last().as_ref().unwrap().guta_stats.clone(),
                         nca_proof: res.nca_proofs[i].to_partial(),
@@ -1040,13 +1040,12 @@ impl<
         //todo! mark, should commit the txn
         self.sync_queue.chq_push_imm(l2_sync).await?;
 
-        self.latest_block_state = new_l2_block_state;
         tracing::info!(
             "lastest block state: {:?}",
-            self.latest_block_state,
+            new_l2_block_state,
         );
 
-        info!("coordinator FINISHED block {} in {}ms", self.latest_block_state.checkpoint_id, start.elapsed().as_millis());
+        info!("coordinator FINISHED block {} in {}ms", new_l2_block_state.checkpoint_id, start.elapsed().as_millis());
 
         Ok(())
     }

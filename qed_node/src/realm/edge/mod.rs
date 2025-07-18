@@ -1,11 +1,10 @@
-pub mod context;
+pub mod handler;
 pub mod error;
-pub mod request;
 pub mod rpc;
 mod sync;
 
 use std::clone;
-use super::context::spawn_realm_job_update_task;
+use super::handler::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
 use super::Queue;
 use super::{config::RealmEdgeConfig, C, D};
@@ -18,31 +17,11 @@ use sync::spawn_active_checkpoint_sync_task;
 use crate::common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use tracing::{debug, info};
-use qed_store::queue::{new_fred_pool, new_redis_async_pool};
+use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::proof_store_fred::ProofStoreFred;
 use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
 use hyper::Method;
 use tower_http::cors::{AllowHeaders, Any, CorsLayer};
-
-pub async fn creat_fred_store(config: RealmEdgeConfig) -> Result<ProofStoreFred> {
-    // Create storage and queues
-    let pool = new_fred_pool(
-        &config.redis.redis_uri,
-        config.redis.pool_size.unwrap_or(10),
-    )
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to create Redis pool: {}", e))?;
-    debug!("created redis pool successfully!");
-    let proof_store = ProofStoreFred::new2(
-        pool,
-        &config.queue.worker_queue_suffix,
-        &config.queue.notifications_queue_suffix,
-        &config.queue.proof_store_key_suffix.as_str(),
-        &config.queue.proof_store_key_suffix.as_str(),
-    );
-    debug!("created proof store successfully!");
-    Ok(proof_store)
-}
 
 pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedisAsync> {
     let pool = new_redis_async_pool(
