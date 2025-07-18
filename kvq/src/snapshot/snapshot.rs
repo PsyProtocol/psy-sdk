@@ -9,6 +9,24 @@ pub struct SnapshotEntry {
     pub old_values: HashMap<Vec<u8>, Option<Vec<u8>>>,
 }
 
+impl SnapshotEntry {
+    pub fn part_snapshot_entry(&self, affected_keys: Vec<Vec<u8>>) -> Self {
+        let mut entry = SnapshotEntry{
+            snapshot_id: self.snapshot_id.clone(),
+            affected_keys: Vec::with_capacity(affected_keys.len()),
+            old_values: HashMap::new(),
+        };
+
+        for key in affected_keys {
+            if let Some(value) = self.old_values.get(&key) {
+                entry.old_values.insert(key.clone(), value.clone());
+                entry.affected_keys.push(key);
+            }
+        }
+        entry
+    }
+}
+
 pub trait Snapshot {
     fn create_snapshot(&self, keys: Vec<Vec<u8>>) -> anyhow::Result<SnapshotEntry>;
     fn restore_from_snapshot(&self, snapshot: SnapshotEntry) -> anyhow::Result<()>;
