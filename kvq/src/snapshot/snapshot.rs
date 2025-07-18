@@ -110,3 +110,66 @@ impl<T: KVQBinaryStoreAsync + Sync> SnapshotAsync for T {
         Ok(())
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use crate::memory::simple::KVQSimpleMemoryBackingStore;
+    use crate::snapshot::Snapshot;
+    use crate::traits::{KVQBinaryStore, KVQPair};
+
+    #[test]
+    fn test_snapshot() {
+        let store = KVQSimpleMemoryBackingStore::new();
+        store.set_many_vec(vec![
+            KVQPair{ key: vec![1,2,3], value: vec![4,5,6]},
+            KVQPair{ key: vec![1,2,2,3,3], value: vec![4,5,6]},
+            KVQPair{ key: vec![1,2,2,3,6], value: vec![7,8,9]},
+            KVQPair{ key: vec![2,2,2,3,9], value: vec![1,7,8,9]},
+        ]).unwrap();
+        let result = store.get_exact(&vec![1, 2, 3]).unwrap();
+        assert_eq!(result, vec![4, 5, 6]);
+
+        let keys = vec![
+            vec![1, 2, 3],
+            vec![1, 2, 2, 3, 3],
+            vec![1, 2, 2, 3, 6],
+            vec![1, 2, 2, 3, 6],
+            vec![2, 2, 2, 3, 0],
+        ];
+        let snapshot = store.create_snapshot(keys.clone()).unwrap();
+        dbg!("snapshot: {:?}", snapshot.clone());
+        assert_eq!(snapshot.affected_keys, keys);
+        assert_eq!(snapshot.old_values.get(&vec![1, 2, 3]).unwrap().clone().unwrap(), vec![4,5,6]);
+        assert_eq!(snapshot.old_values.get(&vec![1, 2, 2, 3, 3]).unwrap().clone().unwrap(), vec![4,5,6]);
+        assert_eq!(snapshot.old_values.get(&vec![1, 2, 2, 3, 6]).unwrap().clone().unwrap(), vec![7,8,9]);
+        assert_eq!(snapshot.old_values.get(&vec![1, 2, 2, 3, 6]).unwrap().clone().unwrap(), vec![7,8,9]);
+        assert_eq!(snapshot.old_values.get(&vec![2, 2, 2, 3, 0]).unwrap().clone(), None);
+
+        // delete key
+        store.delete(&vec![1, 2, 2, 3, 6]).unwrap();
+        assert_eq!(store.get_exact_if_exists(&vec![1, 2, 2, 3, 6]).unwrap(), None);
+        
+        let part_snapshot = snapshot.part_snapshot_entry(vec![vec![1, 2, 2, 3, 6]]);
+        dbg!("part_snoapshot: {:?}", part_snapshot.clone());
+        assert_eq!(part_snapshot.old_values.get(&vec![1, 2, 2, 3, 6]).unwrap().clone().unwrap(), vec![7, 8, 9]);
+
+        // restore part snapshot entry
+        store.restore_from_snapshot(part_snapshot).unwrap();
+        assert_eq!(store.get_exact_if_exists(&vec![1, 2, 2, 3, 6]).unwrap().clone().unwrap(), vec![7, 8, 9]);
+
+        // delete all
+        store.delete_many(&keys).unwrap();
+        assert_eq!(store.get_exact_if_exists(&vec![1, 2, 2, 3, 6]).unwrap(), None);
+        assert_eq!(store.get_exact_if_exists(&vec![2, 2, 2, 3, 0]).unwrap(), None);
+        assert_eq!(store.get_exact_if_exists(&vec![1, 2, 3]).unwrap(), None);
+
+        store.clear();
+
+        // restore all snapshot entry
+        store.restore_from_snapshot(snapshot).unwrap();
+        assert_eq!(store.get_exact_if_exists(&vec![1, 2, 2, 3, 6]).unwrap().clone().unwrap(), vec![7, 8, 9]);
+        assert_eq!(store.get_exact_if_exists(&vec![2, 2, 2, 3, 0]).unwrap().clone(), None);
+        assert_eq!(store.get_exact_if_exists(&vec![1, 2, 3]).unwrap().clone().unwrap(), vec![4,5,6]);
+    }
+}
