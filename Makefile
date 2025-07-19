@@ -119,8 +119,8 @@ REALM_ID                 := 0
 REGISTRATION_ID          := 1
 STRATEGY                 := 2
 
-COORDINATOR_RPC_URL      := $(shell jq -r '.coordinator_configs[].rpc_url[]' rpc.config)
-REALM_RPC_URL            := $(shell jq -r '.realm_configs[0].rpc_url[]' rpc.config)
+COORDINATOR_RPC_URL      := $(shell jq -r '.network.coordinator_configs[].rpc_url[]' config.json)
+REALM_RPC_URL            := $(shell jq -r '.network.realm_configs[0].rpc_url[]' config.json)
 
 init:
 	@./target/${PROFILE}/dargo new ${PROJECT_DIR}

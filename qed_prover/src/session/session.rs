@@ -25,7 +25,7 @@ use qed_data::{
     guta::end_cap_input::SubmitUserEndCapNonProofInput,
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
-use crate::{api::args::ContractCallArgs, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}}, ups::{
+use crate::{local::args::ContractCallArgs, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}}, ups::{
     circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
 }};
 use qed_data::{
@@ -40,11 +40,11 @@ use qed_store::controllers::local::{
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 
-use crate::api::{
+use crate::local::{
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
+    args::WalletSessionArgs,
 };
-use crate::api::args::WalletSessionArgs;
 
 pub fn gen_contract_deploy_and_circuits_for_functions(
     deployer: QHashOut<GoldilocksField>,
@@ -600,7 +600,9 @@ pub struct WalletKeyPair {
 #[cfg(feature = "is_sync")]
 pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
 
-    let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(args.rpc_config)?)?;
+    let config_str = std::fs::read_to_string(&args.rpc_config)?;
+    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
     let private_key = QHashOut::<F>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
     let contract_call_args: Vec<ContractCallArgs> =
@@ -635,9 +637,11 @@ mod tests {
             "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d",
         )?;
 
-        let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(
-            Path::new(&project_path).join("../rpc.config"),
-        )?)?;
+        let config_str = std::fs::read_to_string(
+            Path::new(&project_path).join("../config.json"),
+        )?;
+        let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+        let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 
         let circuit_defs =
             serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(
@@ -743,9 +747,11 @@ mod tests {
             "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d",
         )?;
 
-        let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(
-            Path::new(&project_path).join("../rpc.config"),
-        )?)?;
+        let config_str = std::fs::read_to_string(
+            Path::new(&project_path).join("../config.json"),
+        )?;
+        let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+        let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 
         let circuit_defs =
             serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(

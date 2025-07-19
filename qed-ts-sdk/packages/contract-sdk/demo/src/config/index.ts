@@ -1,5 +1,6 @@
 // src/config/index.ts
 import dotenv from 'dotenv';
+import * as rootConfig from '../../../../../../config.json';
 
 // Load environment variables
 dotenv.config();
@@ -104,7 +105,7 @@ export const config = {
             ),
             user32_0: createKeyPairInfo(
                 process.env.USER32_0_PRIVATE_KEY || 'f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d',
-                8388608n, // User ID in realm 1
+                BigInt(rootConfig.network.users_per_realm), // User ID in realm 1 (from root config)
                 32
             ),
             user32_1: createKeyPairInfo(

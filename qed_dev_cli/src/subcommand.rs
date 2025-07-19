@@ -131,13 +131,13 @@ pub struct GenerateTokenArgs {
 
 #[derive(Parser)]
 pub struct ProduceBlockArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
 }
 
 #[derive(Parser)]
 pub struct BlockStateArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, default_value = "0", env)]
     pub checkpoint_id: u64,
@@ -145,13 +145,13 @@ pub struct BlockStateArgs {
 
 #[derive(Parser)]
 pub struct LatestBlockStateArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
 }
 
 #[derive(Parser)]
 pub struct RegisterUserArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[clap(
         long,
@@ -163,7 +163,7 @@ pub struct RegisterUserArgs {
 
 #[derive(Parser)]
 pub struct RandomArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[clap(long, default_value = "128", env)]
     pub user_per_block: u64,

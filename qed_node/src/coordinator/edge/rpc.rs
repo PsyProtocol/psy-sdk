@@ -15,7 +15,7 @@ use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_data::config::store_config::QCheckpointSyncInfoCompact;
 
 // Import the request types from qed_prover
-use qed_prover::api::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
 use super::types::LatestCheckpointResponse;
 
 type F = QEDFelt;

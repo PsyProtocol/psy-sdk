@@ -30,17 +30,13 @@ use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::HashOu
 
 use crate::data::qhashout::QHashOut;
 
+// Include the generated constants from build.rs
+include!(concat!(env!("OUT_DIR"), "/generated_constants.rs"));
 
 // Network Magic
 pub const QED_NETWORK_MAGIC_MAINNET: u64 = 0x1337CF514544C069u64;
 pub const QED_NETWORK_MAGIC_TESTNET: u64 = 0x1337CF514544C169u64;
 pub const QED_NETWORK_MAGIC_REGTEST: u64 = 0x1337CF514544CF69u64;
-
-
-
-pub const GLOBAL_USER_TREE_HEIGHT: u8 = 24;
-pub const COORDINATOR_USER_TREE_HEIGHT: u8 = GLOBAL_USER_TREE_HEIGHT - REALM_USER_TREE_HEIGHT;
-pub const REALM_USER_TREE_HEIGHT: u8 = 23;
 
 pub const CHECKPOINT_TREE_HEIGHT: u8 = 32;
 pub const GLOBAL_CONTRACT_TREE_HEIGHT: u8 = 24;

@@ -881,7 +881,7 @@ use jsonrpsee::core::RpcResult;
 use super::rpc::CoordinatorEdgeRpcServer;
 use super::error::RpcError;
 use super::types::LatestCheckpointResponse;
-use qed_prover::api::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {

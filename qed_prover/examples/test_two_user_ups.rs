@@ -10,7 +10,7 @@ use qed_data::{
         core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
     }, qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}
 };
-use qed_prover::{api::simple::SimpleAPI, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager}};
+use qed_prover::{local::simple::SimpleAPI, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager}};
 use qed_rollup_circuit::guta::guta_helper::QEDGUTACircuitManager;
 use qed_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}

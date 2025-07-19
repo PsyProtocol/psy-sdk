@@ -1,7 +1,7 @@
 use clap::{Args, Parser};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
-use qed_prover::api::provider::RpcConfig;
+use qed_prover::local::provider::RpcConfig;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 #[derive(Clone, Args)]
@@ -17,7 +17,7 @@ pub struct GetPublicKeyArgs {
 
 #[derive(Clone, Args)]
 pub struct DeployContractArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[clap(long, env)]
     pub private_key: String,
@@ -27,7 +27,7 @@ pub struct DeployContractArgs {
 
 #[derive(Clone, Args, Serialize, Deserialize)]
 pub struct SubmitEndCapArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[clap(long, short)]
     pub private_key: String,
@@ -42,7 +42,7 @@ pub struct SubmitEndCapArgs {
 
 #[derive(Clone, Args)]
 pub struct UserIdArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(
         long,
@@ -54,7 +54,7 @@ pub struct UserIdArgs {
 
 #[derive(Clone, Args)]
 pub struct UserLeafArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(
         long,
@@ -69,7 +69,7 @@ pub struct UserLeafArgs {
 // Tree-related args
 #[derive(Clone, Args)]
 pub struct UserContractStateTreeRootArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -81,7 +81,7 @@ pub struct UserContractStateTreeRootArgs {
 
 #[derive(Clone, Args)]
 pub struct UserContractStateTreeLeafHashArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -97,7 +97,7 @@ pub struct UserContractStateTreeLeafHashArgs {
 
 #[derive(Clone, Args)]
 pub struct UserContractStateTreeMerkleProofArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -113,7 +113,7 @@ pub struct UserContractStateTreeMerkleProofArgs {
 
 #[derive(Clone, Args)]
 pub struct UserContractTreeRootArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -123,7 +123,7 @@ pub struct UserContractTreeRootArgs {
 
 #[derive(Clone, Args)]
 pub struct UserContractTreeLeafHashArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -135,7 +135,7 @@ pub struct UserContractTreeLeafHashArgs {
 
 #[derive(Clone, Args)]
 pub struct UserContractTreeMerkleProofArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -147,7 +147,7 @@ pub struct UserContractTreeMerkleProofArgs {
 
 #[derive(Clone, Args)]
 pub struct UserRegistrationTreeRootArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -155,7 +155,7 @@ pub struct UserRegistrationTreeRootArgs {
 
 #[derive(Clone, Args)]
 pub struct UserRegistrationTreeLeafHashArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -165,7 +165,7 @@ pub struct UserRegistrationTreeLeafHashArgs {
 
 #[derive(Clone, Args)]
 pub struct UserRegistrationTreeMerkleProofArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -175,7 +175,7 @@ pub struct UserRegistrationTreeMerkleProofArgs {
 
 #[derive(Clone, Args)]
 pub struct UserTreeRootArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -183,7 +183,7 @@ pub struct UserTreeRootArgs {
 
 #[derive(Clone, Args)]
 pub struct UserTreeLeafHashArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -193,7 +193,7 @@ pub struct UserTreeLeafHashArgs {
 
 #[derive(Clone, Args)]
 pub struct UserTreeMerkleProofArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -203,7 +203,7 @@ pub struct UserTreeMerkleProofArgs {
 
 #[derive(Clone, Args)]
 pub struct UserSubTreeMerkleProofArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -217,7 +217,7 @@ pub struct UserSubTreeMerkleProofArgs {
 
 #[derive(Clone, Args)]
 pub struct ContractFunctionTreeRootArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -227,7 +227,7 @@ pub struct ContractFunctionTreeRootArgs {
 
 #[derive(Clone, Args)]
 pub struct ContractFunctionTreeLeafHashArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -239,7 +239,7 @@ pub struct ContractFunctionTreeLeafHashArgs {
 
 #[derive(Clone, Args)]
 pub struct ContractFunctionTreeMerkleProofArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -251,7 +251,7 @@ pub struct ContractFunctionTreeMerkleProofArgs {
 
 #[derive(Clone, Args)]
 pub struct ContractTreeRootArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -259,7 +259,7 @@ pub struct ContractTreeRootArgs {
 
 #[derive(Clone, Args)]
 pub struct ContractTreeLeafHashArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -269,7 +269,7 @@ pub struct ContractTreeLeafHashArgs {
 
 #[derive(Clone, Args)]
 pub struct ContractTreeMerkleProofArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -279,7 +279,7 @@ pub struct ContractTreeMerkleProofArgs {
 
 #[derive(Clone, Args)]
 pub struct DepositTreeRootArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -287,7 +287,7 @@ pub struct DepositTreeRootArgs {
 
 #[derive(Clone, Args)]
 pub struct DepositTreeLeafHashArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -297,7 +297,7 @@ pub struct DepositTreeLeafHashArgs {
 
 #[derive(Clone, Args)]
 pub struct DepositTreeMerkleProofArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -307,7 +307,7 @@ pub struct DepositTreeMerkleProofArgs {
 
 #[derive(Clone, Args)]
 pub struct WithdrawalTreeRootArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -315,7 +315,7 @@ pub struct WithdrawalTreeRootArgs {
 
 #[derive(Clone, Args)]
 pub struct WithdrawalTreeLeafHashArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -325,7 +325,7 @@ pub struct WithdrawalTreeLeafHashArgs {
 
 #[derive(Clone, Args)]
 pub struct WithdrawalTreeMerkleProofArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -335,13 +335,13 @@ pub struct WithdrawalTreeMerkleProofArgs {
 
 #[derive(Clone, Args)]
 pub struct LatestCheckpointTreeRootArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
 }
 
 #[derive(Clone, Args)]
 pub struct CheckpointTreeRootArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -349,7 +349,7 @@ pub struct CheckpointTreeRootArgs {
 
 #[derive(Clone, Args)]
 pub struct CheckpointTreeLeafHashArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -359,7 +359,7 @@ pub struct CheckpointTreeLeafHashArgs {
 
 #[derive(Clone, Args)]
 pub struct CheckpointTreeMerkleProofArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -370,7 +370,7 @@ pub struct CheckpointTreeMerkleProofArgs {
 // Metadata-related args
 #[derive(Clone, Args)]
 pub struct ContractLeafDataArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub contract_id: u64,
@@ -378,7 +378,7 @@ pub struct ContractLeafDataArgs {
 
 #[derive(Clone, Args)]
 pub struct CheckpointLeafDataArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,
@@ -386,7 +386,7 @@ pub struct CheckpointLeafDataArgs {
 
 #[derive(Clone, Args)]
 pub struct ContractCodeDefinitionArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub contract_id: u64,
@@ -394,13 +394,13 @@ pub struct ContractCodeDefinitionArgs {
 
 #[derive(Clone, Args)]
 pub struct LatestL2BlockStateArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
 }
 
 #[derive(Clone, Args)]
 pub struct L2BlockStateArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]
     pub checkpoint_id: u64,

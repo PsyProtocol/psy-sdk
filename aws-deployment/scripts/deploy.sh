@@ -957,9 +957,9 @@ deploy_ecs_services() {
     update_rpc_config
 }
 
-# Function to update rpc.config with deployed ALB URL
+# Function to update config.json with deployed ALB URL
 update_rpc_config() {
-    log_info "Updating rpc.config with deployed endpoints..."
+    log_info "Updating config.json with deployed endpoints..."
     
     # Get ALB DNS name
     ALB_DNS=$(aws cloudformation describe-stacks \
@@ -973,36 +973,59 @@ update_rpc_config() {
         return
     fi
     
-    # Create new rpc.config
-    cat > rpc.config << EOF
+    # Create new config.json
+    cat > config.json << EOF
 {
-	"users_per_realm": 8388608,
-	"realm_configs": [
-		{
-			"id": 0,
-			"rpc_url": [
-				"http://${ALB_DNS}:8546"
-			]
-		},
-		{
-			"id": 32,
-			"rpc_url": [
-				"http://${ALB_DNS}:8547"
-			]
-		}
-	],
-	"coordinator_configs": [
-		{
-			"id": 0,
-			"rpc_url": [
-				"http://${ALB_DNS}:8545"
-			]
-		}
-	]
+  "network": {
+    "users_per_realm": 8388608,
+    "global_user_tree_height": 24,
+    "realm_user_tree_height": 23,
+    "realm_configs": [
+      {
+        "id": 0,
+        "rpc_url": ["http://${ALB_DNS}:8546"]
+      },
+      {
+        "id": 32,
+        "rpc_url": ["http://${ALB_DNS}:8547"]
+      }
+    ],
+    "coordinator_configs": [
+      {
+        "id": 0,
+        "rpc_url": ["http://${ALB_DNS}:8545"]
+      }
+    ],
+    "prover_url": "http://127.0.0.1:8888",
+    "native_currency": "0"
+  },
+  "wallet": {
+    "default_wallet_name": "0",
+    "enable_auto_refresh": true,
+    "refresh_interval": 30000,
+    "theme": {
+      "colors": {
+        "background": "#ffffff",
+        "text": "#73e7ff",
+        "primary": "#73e7ff",
+        "primary_text": "#ffffff",
+        "border": "#73e7ff",
+        "accent": "#73e7ff",
+        "success": "#00C851",
+        "error": "#ff6b6b",
+        "text_secondary": "#666666"
+      }
+    },
+    "extension": {
+      "width": 375,
+      "height": 600,
+      "title": "Psy: The Internet Unchained"
+    }
+  }
 }
 EOF
     
-    log_info "✅ Updated rpc.config with ALB URL: ${ALB_DNS}"
+    log_info "✅ Updated config.json with ALB URL: ${ALB_DNS}"
     
     # Print helpful log commands
     print_log_commands

@@ -2,13 +2,14 @@ use std::{collections::HashMap, fs, sync::Arc};
 use plonky2::hash::hash_types::RichField;
 use serde::{Deserialize, Serialize};
 
-use crate::api::request::{
+use super::request::{
     Id, QRegisterUserRPCRequest, RequestParams, ResponseResult, RpcRequest,
     RpcResponse, Version,
 };
 use serde_json;
 
 use anyhow::Ok;
+#[cfg(not(target_arch = "wasm32"))]
 use rand::Rng;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -40,8 +41,10 @@ impl RpcProvider {
         Self::new_with_config(&Default::default())
     }
 
-    pub fn new_with_config_path(config: &str) -> anyhow::Result<Self> {
-        let config: RpcConfig = serde_json::from_str(&fs::read_to_string(config)?)?;
+    pub fn new_with_config_path(config_path: &str) -> anyhow::Result<Self> {
+        let config_str = fs::read_to_string(config_path)?;
+        let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+        let config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
         Self::new_with_config(&config)
     }
 
@@ -298,6 +301,8 @@ impl RpcProvider {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RpcConfig {
     pub users_per_realm: u64,
+    pub global_user_tree_height: u8,
+    pub realm_user_tree_height: u8,
     pub realm_configs: Vec<RealmRpcConfig>,
     pub coordinator_configs: Vec<CoordinatorRpcConfig>,
 }
@@ -305,7 +310,9 @@ pub struct RpcConfig {
 impl Default for RpcConfig {
     fn default() -> Self {
         Self {
-            users_per_realm: 1u64 << (REALM_USER_TREE_HEIGHT as u64),
+            users_per_realm: 8388608,  // 1 << 23
+            global_user_tree_height: 24,
+            realm_user_tree_height: 23,
             realm_configs: vec![
                 RealmRpcConfig {
                     id: 0,

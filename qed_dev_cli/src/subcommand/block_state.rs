@@ -1,4 +1,4 @@
-use qed_prover::api::provider::RpcProvider;
+use qed_prover::local::provider::RpcProvider;
 use anyhow::{Ok, Result};
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_data::{
