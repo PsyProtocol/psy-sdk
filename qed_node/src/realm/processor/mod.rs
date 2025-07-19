@@ -1,10 +1,10 @@
 use crate::realm::config::RealmNodeConfig;
-use crate::realm::{SyncProofQueue, C, D, F};
+use crate::realm::{C, D, F};
 use fred::prelude::KeysInterface;
 use kvq::traits::KVQSerializable;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
-use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
+use qed_core::job::history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm};
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_store::store::QEDStore;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
@@ -119,7 +119,7 @@ impl RealmProcessor {
                 }
             };
             info!("Pushing job id to queue: {:?}", proving_data_job_id);
-            self.sync_proof.produce_proof(proving_data_job_id).await?;
+            self.sync_proof.chq_push_imm(proving_data_job_id).await?;
             // Send the job id to the channel for the next step
             // if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
             //     error!("Error chq_push_imm: {:?}", err);

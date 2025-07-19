@@ -1,1 +1,0 @@
-pub use qed_store::queue::SyncProofQueue;

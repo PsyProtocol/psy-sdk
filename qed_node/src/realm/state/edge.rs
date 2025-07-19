@@ -6,7 +6,7 @@ use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash:
 use qed_data::{config::store_config::QCheckpointSyncInfoCompact, guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use tracing::debug;
-use crate::realm::{SyncProofQueue, C, D, F, H};
+use crate::realm::{C, D, F, H};
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
 
 use super::processor::RealmConfig;

@@ -9,10 +9,8 @@ pub type H = QEDHasher;
 pub mod config;
 pub mod edge;
 pub mod processor;
-pub mod queue;
 pub mod state;
 
 pub use config::*;
 pub use edge::*;
 pub use processor::*;
-pub use queue::*;
