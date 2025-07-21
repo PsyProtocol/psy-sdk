@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
@@ -76,7 +77,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
     }
 }
 
-fn prepare_environment_with_contract(
+async fn prepare_environment_with_contract(
     state_tree_height: u8,
     whitelist: &[QHashOut<GoldilocksField>],
 ) -> anyhow::Result<
@@ -86,7 +87,7 @@ fn prepare_environment_with_contract(
     >,
 > {
     let st = KVQSimpleMemoryBackingStore::new();
-    st.initialize_store()?;
+    st.initialize_store().await?;
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
         &st,
@@ -172,7 +173,8 @@ fn test_compile_contract() -> anyhow::Result<DPNFunctionCircuitDefinition> {
 
     Ok(fn_circuit_def)
 }
-fn main() {
+#[tokio::main]
+async fn main() {
     let compiled = test_compile_contract().unwrap();
     let contract_id = GoldilocksField::ONE;
 
@@ -185,6 +187,7 @@ fn main() {
             QHashOut::rand(),
         ],
     )
+    .await
     .unwrap();
 
     let result = test_run_contract_fn(

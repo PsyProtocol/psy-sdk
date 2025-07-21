@@ -1,0 +1,749 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'QED Protocol ECS Services - Generated from config.json'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: qed-protocol
+  
+  Environment:
+    Type: String
+    Default: dev
+  
+  VPCId:
+    Type: String
+    Description: VPC ID from main stack
+  
+  ECSClusterName:
+    Type: String
+    Description: ECS Cluster name from main stack
+  
+  ECRRepositoryURI:
+    Type: String
+    Description: ECR Repository URI from main stack
+  
+  ALBTargetGroupCoordinatorArn:
+    Type: String
+    Description: ALB Target Group ARN for Coordinator
+  
+  
+  ALBTargetGroupRealm0Arn:
+    Type: String
+    Description: ALB Target Group ARN for Realm 0
+  
+  ALBTargetGroupRealm1Arn:
+    Type: String
+    Description: ALB Target Group ARN for Realm 1
+  
+  
+  TaskExecutionRoleArn:
+    Type: String
+    Description: ECS Task Execution Role ARN
+  
+  TaskRoleArn:
+    Type: String
+    Description: ECS Task Role ARN
+  
+  PrivateSubnetIds:
+    Type: CommaDelimitedList
+    Description: Private subnet IDs for services
+  
+  ECSSecurityGroupId:
+    Type: String
+    Description: Security group ID for ECS tasks
+  
+  ServiceDiscoveryNamespaceId:
+    Type: String
+    Description: Service Discovery Namespace ID from main stack
+  
+  
+  EFSFileSystemId:
+    Type: String
+    Description: EFS File System ID for LMDBX storage
+  
+
+Resources:
+  # Coordinator Services
+  
+  CoordinatorProcessorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-coordinator-processor'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '2048'
+      Memory: '4096'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: coordinator-processor
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_rollup_cli
+            - coordinator-processor
+            - --database
+            - lmdbx
+            
+            - --lmdbx-path
+            - /data/coordinator
+            
+            - --redis-uri
+            - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
+            
+            - --log-level
+            - 'info'
+            
+          Environment:
+            
+            - Name: RUST_LOG
+              Value: 'qed_node=info,plonky2=error'
+            
+          
+          MountPoints:
+            - SourceVolume: efs-storage
+              ContainerPath: /data
+          
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/qed-protocol
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: coordinator-processor
+
+  CoordinatorProcessorService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-coordinator-processor'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref CoordinatorProcessorTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+  
+
+  
+  CoordinatorEdgeTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-coordinator-edge'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '1024'
+      Memory: '2048'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: coordinator-edge
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_rollup_cli
+            - coordinator-edge
+            
+            - --redis-uri
+            - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
+            
+            - --listen-addr
+            - '0.0.0.0:8545'
+            
+            - --log-level
+            - 'info'
+            
+          Environment:
+            
+            - Name: RUST_LOG
+              Value: 'qed_node=info'
+            
+          PortMappings:
+            - ContainerPort: 8545
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://localhost:8545/health || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/qed-protocol
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: coordinator-edge
+
+  CoordinatorEdgeService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-coordinator-edge'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref CoordinatorEdgeTaskDefinition
+      DesiredCount: 2
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+      LoadBalancers:
+        - ContainerName: coordinator-edge
+          ContainerPort: 8545
+          TargetGroupArn: !Ref ALBTargetGroupCoordinatorArn
+      HealthCheckGracePeriodSeconds: 120
+      ServiceRegistries:
+        - RegistryArn: !GetAtt CoordinatorEdgeServiceDiscovery.Arn
+  
+  CoordinatorEdgeServiceDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: coordinator-edge
+      DnsConfig:
+        DnsRecords:
+          - Type: A
+            TTL: 10
+        NamespaceId: !Ref ServiceDiscoveryNamespaceId
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+  
+
+  
+  CoordinatorWorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-coordinator-worker'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '4096'
+      Memory: '8192'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: coordinator-worker
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_rollup_cli
+            - coordinator-worker
+            - --redis-uri
+            - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
+            
+            - --log-level
+            - 'info'
+            
+          Environment:
+            
+            - Name: RUST_LOG
+              Value: 'qed_node=info'
+            
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/qed-protocol
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: coordinator-worker
+
+  CoordinatorWorkerService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-coordinator-worker'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref CoordinatorWorkerTaskDefinition
+      DesiredCount: 3
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+  
+
+  # Realm Services
+  
+  # Realm 0 Services
+  
+  Realm0ProcessorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-realm-0-processor'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '2048'
+      Memory: '4096'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: realm-0-processor
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_rollup_cli
+            - realm-processor
+            
+            - --redis-uri
+            - !Sub 'redis://${RedisRealm0Endpoint}:6379'
+            - --node-id
+            - '1'
+            - --realm-id
+            - '0'
+            
+            - --log-level
+            - 'info'
+            
+          Environment:
+            
+            - Name: RUST_LOG
+              Value: 'qed_node=info,plonky2=error'
+            
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/qed-protocol
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-0-processor
+
+  Realm0ProcessorService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-0-processor'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref Realm0ProcessorTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+  
+
+  
+  Realm0EdgeTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-realm-0-edge'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '1024'
+      Memory: '2048'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: realm-0-edge
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_rollup_cli
+            - realm-edge
+            
+            - --redis-uri
+            - !Sub 'redis://${RedisRealm0Endpoint}:6379'
+            - --node-id
+            - '1'
+            - --realm-id
+            - '0'
+            - --coordinator-addr
+            
+            - 'http://coordinator-edge.qed.local:8545'
+            
+            
+            
+            
+            
+            - --listen-addr
+            - '0.0.0.0:8546'
+            
+            
+            
+            - --log-level
+            - 'info'
+            
+            
+          Environment:
+            
+            - Name: RUST_LOG
+              Value: 'qed_node=info'
+            
+          PortMappings:
+            - ContainerPort: 8546
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://localhost:8546/health || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/qed-protocol
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-0-edge
+
+  Realm0EdgeService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-0-edge'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref Realm0EdgeTaskDefinition
+      DesiredCount: 2
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+      LoadBalancers:
+        - ContainerName: realm-0-edge
+          ContainerPort: 8546
+          TargetGroupArn: !Ref ALBTargetGroupRealm0Arn
+      HealthCheckGracePeriodSeconds: 120
+  
+
+  
+  Realm0WorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-realm-0-worker'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '4096'
+      Memory: '8192'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: realm-0-worker
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_rollup_cli
+            - realm-worker
+            - --redis-uri
+            - !Sub 'redis://${RedisRealm0Endpoint}:6379'
+            
+            - --log-level
+            - 'info'
+            
+            - --notifications-queue-suffix
+            - 'rnq0'
+            
+            - --proof-store-key-suffix
+            - 'RP0'
+            
+            - --worker-queue-suffix
+            - 'rwq0'
+            
+          Environment:
+            
+            - Name: RUST_LOG
+              Value: 'qed_node=info'
+            
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/qed-protocol
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-0-worker
+
+  Realm0WorkerService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-0-worker'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref Realm0WorkerTaskDefinition
+      DesiredCount: 3
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+  
+  
+  # Realm 1 Services
+  
+  Realm1ProcessorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-realm-1-processor'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '2048'
+      Memory: '4096'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: realm-1-processor
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_rollup_cli
+            - realm-processor
+            
+            - --redis-uri
+            - !Sub 'redis://${RedisRealm1Endpoint}:6379'
+            - --node-id
+            - '2'
+            - --realm-id
+            - '1'
+            
+            - --log-level
+            - 'info'
+            
+          Environment:
+            
+            - Name: RUST_LOG
+              Value: 'qed_node=info,plonky2=error'
+            
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/qed-protocol
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-1-processor
+
+  Realm1ProcessorService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-1-processor'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref Realm1ProcessorTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+  
+
+  
+  Realm1EdgeTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-realm-1-edge'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '1024'
+      Memory: '2048'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: realm-1-edge
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_rollup_cli
+            - realm-edge
+            
+            - --redis-uri
+            - !Sub 'redis://${RedisRealm1Endpoint}:6379'
+            - --node-id
+            - '2'
+            - --realm-id
+            - '1'
+            - --coordinator-addr
+            
+            - 'http://coordinator-edge.qed.local:8545'
+            
+            
+            
+            
+            
+            - --listen-addr
+            - '0.0.0.0:8547'
+            
+            
+            
+            - --log-level
+            - 'info'
+            
+            
+          Environment:
+            
+            - Name: RUST_LOG
+              Value: 'qed_node=info'
+            
+          PortMappings:
+            - ContainerPort: 8547
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://localhost:8547/health || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/qed-protocol
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-1-edge
+
+  Realm1EdgeService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-1-edge'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref Realm1EdgeTaskDefinition
+      DesiredCount: 2
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+      LoadBalancers:
+        - ContainerName: realm-1-edge
+          ContainerPort: 8547
+          TargetGroupArn: !Ref ALBTargetGroupRealm1Arn
+      HealthCheckGracePeriodSeconds: 120
+  
+
+  
+  Realm1WorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-realm-1-worker'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '4096'
+      Memory: '8192'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: realm-1-worker
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_rollup_cli
+            - realm-worker
+            - --redis-uri
+            - !Sub 'redis://${RedisRealm1Endpoint}:6379'
+            
+            - --log-level
+            - 'info'
+            
+            - --notifications-queue-suffix
+            - 'rnq1'
+            
+            - --proof-store-key-suffix
+            - 'RP1'
+            
+            - --worker-queue-suffix
+            - 'rwq1'
+            
+          Environment:
+            
+            - Name: RUST_LOG
+              Value: 'qed_node=info'
+            
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/qed-protocol
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-1-worker
+
+  Realm1WorkerService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-1-worker'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref Realm1WorkerTaskDefinition
+      DesiredCount: 3
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+  
+  
+
+  # Parameter Store entries for service discovery
+  CoordinatorEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Environment}/coordinator/endpoint'
+      Type: String
+      Value: !Sub 'http://${ALBDNSName}:8545'
+      Description: Coordinator RPC endpoint
+
+  
+  Realm0EndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Environment}/realm0/endpoint'
+      Type: String
+      Value: !Sub 'http://${ALBDNSName}:8546'
+      Description: Realm 0 RPC endpoint
+  
+  Realm1EndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Environment}/realm1/endpoint'
+      Type: String
+      Value: !Sub 'http://${ALBDNSName}:8547'
+      Description: Realm 1 RPC endpoint
+  
+
+Parameters:
+  # These parameters need to be passed from external sources
+  ScyllaEndpoint:
+    Type: String
+    Default: '10.0.10.5:9042'
+    Description: ScyllaDB endpoint
+  
+  RedisCoordinatorEndpoint:
+    Type: String
+    Description: Redis Coordinator endpoint
+  
+  
+  RedisRealm0Endpoint:
+    Type: String
+    Description: Redis Realm 0 endpoint
+  
+  RedisRealm1Endpoint:
+    Type: String
+    Description: Redis Realm 1 endpoint
+  
+  
+  ALBDNSName:
+    Type: String
+    Description: Application Load Balancer DNS name
+
+Outputs:
+  CoordinatorEndpoint:
+    Value: !Sub 'http://${ALBDNSName}:8545'
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-coordinator-endpoint'
+  
+  
+  Realm0Endpoint:
+    Value: !Sub 'http://${ALBDNSName}:8546'
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-realm-0-endpoint'
+  
+  Realm1Endpoint:
+    Value: !Sub 'http://${ALBDNSName}:8547'
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-realm-1-endpoint'
+  

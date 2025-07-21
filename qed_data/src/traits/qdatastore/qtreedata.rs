@@ -366,37 +366,4 @@ pub trait QEDComboDataStoreWriterSync<F: RichField>: QMetaDataStoreWriterSync<F>
 
 #[maybe_async::maybe_async(?Send)]
 pub trait QEDComboDataStoreReaderWriterSync<F: RichField>: QEDComboDataStoreReaderSync<F> + QEDComboDataStoreWriterSync<F> {
-    async fn initialize_store(&self) -> anyhow::Result<u64> {
-
-        let latest_l2_block_state_or_err = <Self as QMetaDataStoreReaderSync<F>>::get_latest_l2_block_state(self).await;
-        if let Ok(v) = latest_l2_block_state_or_err {
-            Ok(v.checkpoint_id)
-        }else{
-            // database not initialized with data for the genesis block
-
-            let genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
-
-            let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
-            let stats_hash = genesis_checkpoint_stats.qfhash::<QEDHasher>();
-            let genesis_global_state_roots = <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_global_state_roots(self, 1).await?;
-            let genesis_checkpoint_leaf = QEDCheckpointLeaf{
-                global_chain_root: genesis_global_state_roots.qfhash::<QEDHasher>(),
-                stats: genesis_checkpoint_stats,
-            };
-
-
-            println!("genesis_stats_hash: {:?} ({})",stats_hash, serde_json::to_string_pretty(&stats_hash).unwrap());
-
-            println!("genesis_global_state_roots: {}",serde_json::to_string_pretty(&genesis_global_state_roots).unwrap());
-            println!("genesis_checkpoint_leaf: {}",serde_json::to_string_pretty(&genesis_checkpoint_leaf).unwrap());
-
-            <Self as QMetaDataStoreWriterSync<F>>::set_l2_block_state(self, &genesis_l2_block_state)?;
-            <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data(self, 0, &genesis_checkpoint_leaf)?;
-            <Self as QTreeDataStoreWriterSync<F>>::set_checkpoint_tree_leaf_hash(self, 0, genesis_checkpoint_leaf.qfhash::<QEDHasher>())?;
-
-            Ok(0)
-
-        }
-
-    }
 }

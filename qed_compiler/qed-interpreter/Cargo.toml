@@ -24,6 +24,7 @@ ariadne = { workspace = true }
 
 [dev-dependencies]
 kvq = { workspace = true }
+tokio = { workspace = true }
 qed_data = { workspace = true }
 qed_core = { workspace = true }
 qed_prover = { workspace = true }

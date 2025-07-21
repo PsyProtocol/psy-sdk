@@ -277,7 +277,7 @@ impl Deref for FunctionNode {
     }
 }
 
-pub(crate) fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate::errors::Result<()> {
+pub(crate) async fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate::errors::Result<()> {
     // Compile the full workspace in order to generate any build artifacts.
     let compilation_result = compile_workspace_full(&workspace, &args.compile_options)?;
     let mut comment_input_parameters =
@@ -329,7 +329,7 @@ pub(crate) fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate::erro
     let mut lps = prepare_environment_with_real_contract(
         QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
         deploy_cmd,
-    )?;
+    ).await?;
 
     for (def, circuit) in compilation_result
         .circuit_definitions
@@ -422,8 +422,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_doc() {
+    #[tokio::test]
+    async fn test_doc() {
         unsafe {
             std::env::set_var("DARGO_STD_PATH", "../../../qed-std/std.qed");
         }
@@ -449,7 +449,9 @@ mod tests {
                 parameters: vec![],
                 doc: true,
             };
-            if let Err(err) = run_doc(args, workspace) {
+            if let Err(err) = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(run_doc(args, workspace))
+            }) {
                 panic!("file: {:?}, {:?}", path, err);
             }
             #[allow(static_mut_refs)]

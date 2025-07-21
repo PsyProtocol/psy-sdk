@@ -1,0 +1,736 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'QED Protocol ECS Services - Generated from config.json'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: {{ config.nodes.deployment.aws.project_name }}
+  
+  Environment:
+    Type: String
+    Default: dev
+  
+  VPCId:
+    Type: String
+    Description: VPC ID from main stack
+  
+  ECSClusterName:
+    Type: String
+    Description: ECS Cluster name from main stack
+  
+  ECRRepositoryURI:
+    Type: String
+    Description: ECR Repository URI from main stack
+  
+  ALBTargetGroupCoordinatorArn:
+    Type: String
+    Description: ALB Target Group ARN for Coordinator
+  
+  {% for realm in config.nodes.realms %}
+  ALBTargetGroupRealm{{ realm.id }}Arn:
+    Type: String
+    Description: ALB Target Group ARN for Realm {{ realm.id }}
+  {% endfor %}
+  
+  TaskExecutionRoleArn:
+    Type: String
+    Description: ECS Task Execution Role ARN
+  
+  TaskRoleArn:
+    Type: String
+    Description: ECS Task Role ARN
+  
+  PrivateSubnetIds:
+    Type: CommaDelimitedList
+    Description: Private subnet IDs for services
+  
+  ECSSecurityGroupId:
+    Type: String
+    Description: Security group ID for ECS tasks
+  
+  ServiceDiscoveryNamespaceId:
+    Type: String
+    Description: Service Discovery Namespace ID from main stack
+  
+  {% if config.nodes.backend.type == "scylla" %}
+  ScyllaEndpoint:
+    Type: String
+    Default: '10.0.10.5:9042'
+    Description: ScyllaDB endpoint
+  {% endif %}
+  
+  RedisCoordinatorEndpoint:
+    Type: String
+    Description: Redis Coordinator endpoint
+  
+  {% for realm in config.nodes.realms %}
+  RedisRealm{{ realm.id }}Endpoint:
+    Type: String
+    Description: Redis Realm {{ realm.id }} endpoint
+  {% endfor %}
+  
+  ALBDNSName:
+    Type: String
+    Description: Application Load Balancer DNS name
+
+Resources:
+  # Coordinator Services
+  {% if config.nodes.coordinator.processor.enabled %}
+  CoordinatorProcessorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-coordinator-processor'
+      NetworkMode: bridge
+      PidMode: host
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      {% if config.nodes.backend.type == "lmdbx" %}
+      Volumes:
+        - Name: coordinator-data
+          Host:
+            SourcePath: /data/coordinator
+      {% endif %}
+      ContainerDefinitions:
+        - Name: coordinator-processor
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Memory: {{ config.nodes.coordinator.processor.aws.memory }}
+          MemoryReservation: {{ (config.nodes.coordinator.processor.aws.memory * 0.75) | int }}
+          Cpu: {{ config.nodes.coordinator.processor.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
+          Command:
+            - coordinator-processor
+            {% if config.nodes.coordinator.backend %}
+            {% set coord_backend = config.nodes.coordinator.backend %}
+            {% else %}
+            {% set coord_backend = config.nodes.backend %}
+            {% endif %}
+            - --database
+            - {{ coord_backend.type }}
+            {% if coord_backend.type == "scylla" %}
+            - --scylla-uri
+            - !Sub '${ScyllaEndpoint}'
+            - --scylla-keyspace
+            - qed_coordinator
+            {% elif coord_backend.type == "lmdbx" %}
+            - --lmdbx-path
+            - /data/coordinator
+            {% endif %}
+            - --redis-uri
+            - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
+            {% for key, value in config.nodes.coordinator.processor.args | items %}
+            - --{{ key | replace('_', '-') }}
+            - '{{ value }}'
+            {% endfor %}
+          Environment:
+            {% for key, value in config.nodes.coordinator.processor.env | items %}
+            - Name: {{ key }}
+              Value: '{{ value }}'
+            {% endfor %}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: coordinator-processor
+          Essential: true
+          {% if config.nodes.backend.type == "lmdbx" %}
+          MountPoints:
+            - SourceVolume: coordinator-data
+              ContainerPath: /data
+          {% endif %}
+
+  CoordinatorProcessorService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-coordinator-processor'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref CoordinatorProcessorTaskDefinition
+      DesiredCount: {{ config.nodes.coordinator.processor.aws.task_count }}
+      LaunchType: EC2
+  {% endif %}
+
+  {% if config.nodes.coordinator.edge.enabled %}
+  CoordinatorEdgeTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-coordinator-edge'
+      NetworkMode: bridge
+      PidMode: host
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      {% if config.nodes.backend.type == "lmdbx" %}
+      Volumes:
+        - Name: coordinator-data
+          Host:
+            SourcePath: /data/coordinator
+      {% endif %}
+      ContainerDefinitions:
+        - Name: coordinator-edge
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            
+            - coordinator-edge
+            {% if config.nodes.coordinator.backend %}
+            {% set coord_backend = config.nodes.coordinator.backend %}
+            {% else %}
+            {% set coord_backend = config.nodes.backend %}
+            {% endif %}
+            {% if coord_backend.type == "scylla" %}
+            - --database
+            - scylla
+            - --scylla-uri
+            - !Sub '${ScyllaEndpoint}'
+            - --scylla-keyspace
+            - qed_coordinator
+            {% elif coord_backend.type == "lmdbx" %}
+            - --database
+            - lmdbx
+            - --lmdbx-path
+            - /data/coordinator
+            {% endif %}
+            - --redis-uri
+            - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
+            {% for key, value in config.nodes.coordinator.edge.args | items %}
+            - --{{ key | replace('_', '-') }}
+            - '{{ value }}'
+            {% endfor %}
+          Environment:
+            {% for key, value in config.nodes.coordinator.edge.env | items %}
+            - Name: {{ key }}
+              Value: '{{ value }}'
+            {% endfor %}
+          Memory: {{ config.nodes.coordinator.edge.aws.memory }}
+          MemoryReservation: {{ (config.nodes.coordinator.edge.aws.memory * 0.75) | int }}
+          Cpu: {{ config.nodes.coordinator.edge.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
+          PortMappings:
+            - ContainerPort: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
+              HostPort: 0
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://localhost:{{ config.nodes.coordinator.edge.aws.load_balancer.port }}{{ config.nodes.coordinator.edge.aws.load_balancer.health_check_path }} || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: coordinator-edge
+          Essential: true
+          {% if config.nodes.backend.type == "lmdbx" %}
+          MountPoints:
+            - SourceVolume: coordinator-data
+              ContainerPath: /data
+          {% endif %}
+
+  CoordinatorEdgeService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-coordinator-edge'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref CoordinatorEdgeTaskDefinition
+      DesiredCount: {{ config.nodes.coordinator.edge.aws.task_count }}
+      LaunchType: EC2
+      LoadBalancers:
+        - ContainerName: coordinator-edge
+          ContainerPort: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
+          TargetGroupArn: !Ref ALBTargetGroupCoordinatorArn
+      HealthCheckGracePeriodSeconds: 60
+      ServiceRegistries:
+        - RegistryArn: !GetAtt CoordinatorEdgeServiceDiscovery.Arn
+          ContainerName: coordinator-edge
+          ContainerPort: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
+  
+  CoordinatorEdgeServiceDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: coordinator-edge
+      DnsConfig:
+        DnsRecords:
+          - Type: SRV
+            TTL: 10
+        NamespaceId: !Ref ServiceDiscoveryNamespaceId
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+
+  # Auto Scaling for Coordinator Edge
+  CoordinatorEdgeScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: {{ config.nodes.coordinator.edge.aws.task_count }}
+      ResourceId: !Sub 'service/${ECSClusterName}/${CoordinatorEdgeService.Name}'
+      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  CoordinatorEdgeScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub '${ProjectName}-${Environment}-coordinator-edge-scaling'
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref CoordinatorEdgeScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
+        TargetValue: 70.0
+  {% endif %}
+
+  {% if config.nodes.coordinator.worker.enabled %}
+  CoordinatorWorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-coordinator-worker'
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: coordinator-worker
+          Memory: {{ config.nodes.coordinator.worker.aws.memory }}
+          MemoryReservation: {{ (config.nodes.coordinator.worker.aws.memory * 0.75) | int }}
+          Cpu: {{ config.nodes.coordinator.worker.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            
+            - coordinator-worker
+            - --redis-uri
+            - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
+            {% for key, value in config.nodes.coordinator.worker.args | items %}
+            - --{{ key | replace('_', '-') }}
+            - '{{ value }}'
+            {% endfor %}
+          Environment:
+            {% for key, value in config.nodes.coordinator.worker.env | items %}
+            - Name: {{ key }}
+              Value: '{{ value }}'
+            {% endfor %}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: coordinator-worker
+          Essential: true
+
+  CoordinatorWorkerService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-coordinator-worker'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref CoordinatorWorkerTaskDefinition
+      DesiredCount: {{ config.nodes.coordinator.worker.aws.task_count }}
+      LaunchType: EC2
+
+  # Auto Scaling for Coordinator Worker
+  CoordinatorWorkerScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: {{ config.nodes.coordinator.worker.aws.task_count }}
+      ResourceId: !Sub 'service/${ECSClusterName}/${CoordinatorWorkerService.Name}'
+      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  CoordinatorWorkerScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub '${ProjectName}-${Environment}-coordinator-worker-scaling'
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref CoordinatorWorkerScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 70.0
+  {% endif %}
+
+  # Realm Services
+  {% for realm in config.nodes.realms %}
+  # Realm {{ realm.id }} Services
+  {% if realm.processor.enabled %}
+  Realm{{ realm.id }}ProcessorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      Cpu: '{{ realm.processor.aws.cpu }}'
+      Memory: '{{ realm.processor.aws.memory }}'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: realm-{{ realm.id }}-processor
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            
+            - realm-processor
+            {% if realm.backend %}
+            {% set realm_backend = realm.backend %}
+            {% else %}
+            {% set realm_backend = config.nodes.backend %}
+            {% endif %}
+            - --database
+            - {{ realm_backend.type }}
+            {% if realm_backend.type == "scylla" %}
+            - --scylla-uri
+            - !Sub '${ScyllaEndpoint}'
+            - --scylla-keyspace
+            - qed_realm_{{ realm.id }}
+            {% elif realm_backend.type == "lmdbx" %}
+            - --lmdbx-path
+            - /data/realm{{ realm.id }}
+            {% endif %}
+            - --redis-uri
+            - !Sub 'redis://${RedisRealm{{ realm.id }}Endpoint}:6379'
+            - --node-id
+            - '{{ realm.node_id }}'
+            - --realm-id
+            - '{{ realm.id }}'
+            {% for key, value in realm.processor.args | items %}
+            - --{{ key | replace('_', '-') }}
+            - '{{ value }}'
+            {% endfor %}
+          Environment:
+            {% for key, value in realm.processor.env | items %}
+            - Name: {{ key }}
+              Value: '{{ value }}'
+            {% endfor %}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-{{ realm.id }}-processor
+
+  Realm{{ realm.id }}ProcessorService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref Realm{{ realm.id }}ProcessorTaskDefinition
+      DesiredCount: {{ realm.processor.aws.task_count }}
+      LaunchType: EC2
+  {% endif %}
+
+  {% if realm.edge.enabled %}
+  Realm{{ realm.id }}EdgeTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge'
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      Cpu: '{{ realm.edge.aws.cpu }}'
+      Memory: '{{ realm.edge.aws.memory }}'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: realm-{{ realm.id }}-edge
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            
+            - realm-edge
+            {% if realm.backend %}
+            {% set realm_backend = realm.backend %}
+            {% else %}
+            {% set realm_backend = config.nodes.backend %}
+            {% endif %}
+            - --database
+            - {{ realm_backend.type }}
+            {% if realm_backend.type == "scylla" %}
+            - --scylla-uri
+            - !Sub '${ScyllaEndpoint}'
+            - --scylla-keyspace
+            - qed_realm_{{ realm.id }}
+            {% elif realm_backend.type == "lmdbx" %}
+            - --lmdbx-path
+            - /data/realm{{ realm.id }}
+            {% endif %}
+            - --redis-uri
+            - !Sub 'redis://${RedisRealm{{ realm.id }}Endpoint}:6379'
+            - --node-id
+            - '{{ realm.node_id }}'
+            - --realm-id
+            - '{{ realm.id }}'
+            - --coordinator-addr
+            {% if realm.edge.aws is defined and realm.edge.aws.internal_coordinator_url is defined %}
+            - '{{ realm.edge.aws.internal_coordinator_url }}'
+            {% else %}
+            - 'http://coordinator-edge.qed.local:{{ config.nodes.coordinator.edge.aws.load_balancer.port }}'
+            {% endif %}
+            {% for key, value in realm.edge.args | items %}
+            {% if key != 'coordinator_addr' %}
+            - --{{ key | replace('_', '-') }}
+            - '{{ value }}'
+            {% endif %}
+            {% endfor %}
+          Environment:
+            {% for key, value in realm.edge.env | items %}
+            - Name: {{ key }}
+              Value: '{{ value }}'
+            {% endfor %}
+          PortMappings:
+            - ContainerPort: {{ realm.edge.aws.load_balancer.port }}
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://localhost:{{ realm.edge.aws.load_balancer.port }}{{ realm.edge.aws.load_balancer.health_check_path }} || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-{{ realm.id }}-edge
+
+  Realm{{ realm.id }}EdgeService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref Realm{{ realm.id }}EdgeTaskDefinition
+      DesiredCount: {{ realm.edge.aws.task_count }}
+      LaunchType: EC2
+      LoadBalancers:
+        - ContainerName: realm-{{ realm.id }}-edge
+          ContainerPort: {{ realm.edge.aws.load_balancer.port }}
+          TargetGroupArn: !Ref ALBTargetGroupRealm{{ realm.id }}Arn
+      HealthCheckGracePeriodSeconds: 120
+
+  # Auto Scaling for Realm {{ realm.id }} Edge
+  Realm{{ realm.id }}EdgeScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: {{ realm.edge.aws.task_count }}
+      ResourceId: !Sub 'service/${ECSClusterName}/${Realm{{ realm.id }}EdgeService.Name}'
+      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  Realm{{ realm.id }}EdgeScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge-scaling'
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref Realm{{ realm.id }}EdgeScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
+        TargetValue: 70.0
+  {% endif %}
+
+  {% if realm.worker.enabled %}
+  Realm{{ realm.id }}WorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker'
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      Cpu: '{{ realm.worker.aws.cpu }}'
+      Memory: '{{ realm.worker.aws.memory }}'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: realm-{{ realm.id }}-worker
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            
+            - realm-worker
+            - --redis-uri
+            - !Sub 'redis://${RedisRealm{{ realm.id }}Endpoint}:6379'
+            {% for key, value in realm.worker.args | items %}
+            - --{{ key | replace('_', '-') }}
+            - '{{ value }}'
+            {% endfor %}
+          Environment:
+            {% for key, value in realm.worker.env | items %}
+            - Name: {{ key }}
+              Value: '{{ value }}'
+            {% endfor %}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-{{ realm.id }}-worker
+
+  Realm{{ realm.id }}WorkerService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref Realm{{ realm.id }}WorkerTaskDefinition
+      DesiredCount: {{ realm.worker.aws.task_count }}
+      LaunchType: EC2
+
+  # Auto Scaling for Realm {{ realm.id }} Worker
+  Realm{{ realm.id }}WorkerScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 20
+      MinCapacity: {{ realm.worker.aws.task_count }}
+      ResourceId: !Sub 'service/${ECSClusterName}/${Realm{{ realm.id }}WorkerService.Name}'
+      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  Realm{{ realm.id }}WorkerScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker-scaling'
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref Realm{{ realm.id }}WorkerScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 70.0
+  {% endif %}
+  {% endfor %}
+
+  # Parameter Store entries for service discovery
+  CoordinatorEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Environment}/coordinator/endpoint'
+      Type: String
+      Value: !Sub 'http://${ALBDNSName}:{{ config.nodes.coordinator.edge.aws.load_balancer.port }}'
+      Description: Coordinator RPC endpoint
+
+  {% for realm in config.nodes.realms %}
+  Realm{{ realm.id }}EndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Environment}/realm{{ realm.id }}/endpoint'
+      Type: String
+      Value: !Sub 'http://${ALBDNSName}:{{ realm.edge.aws.load_balancer.port }}'
+      Description: Realm {{ realm.id }} RPC endpoint
+  {% endfor %}
+
+  # Local Prover Service
+  {% if config.nodes.prover and config.nodes.prover.enabled %}
+  ProverTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-prover'
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      Cpu: '{{ config.nodes.prover.aws.cpu }}'
+      Memory: '{{ config.nodes.prover.aws.memory }}'
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: prover
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_user_cli
+            - local-prover
+            {% for key, value in config.nodes.prover.args | items %}
+            - --{{ key | replace('_', '-') }}
+            - '{{ value }}'
+            {% endfor %}
+          Environment:
+            {% for key, value in config.nodes.prover.env | items %}
+            - Name: {{ key }}
+              Value: '{{ value }}'
+            {% endfor %}
+          PortMappings:
+            - ContainerPort: 8888
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://localhost:8888/health || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: prover
+
+  ProverService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-prover'
+      Cluster: !Ref ECSClusterName
+      TaskDefinition: !Ref ProverTaskDefinition
+      DesiredCount: {{ config.nodes.prover.aws.task_count }}
+      LaunchType: EC2
+      ServiceRegistries:
+        - RegistryArn: !GetAtt ProverServiceDiscovery.Arn
+          ContainerName: prover
+          ContainerPort: 8888
+  
+  ProverServiceDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: prover
+      DnsConfig:
+        DnsRecords:
+          - Type: SRV
+            TTL: 10
+        NamespaceId: !Ref ServiceDiscoveryNamespaceId
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+
+  # Auto Scaling for Prover
+  ProverScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: 1
+      ResourceId: !Sub 'service/${ECSClusterName}/${ProverService.Name}'
+      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  ProverScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub '${ProjectName}-${Environment}-prover-scaling'
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ProverScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 70.0
+  {% endif %}
+
+Outputs:
+  CoordinatorEndpoint:
+    Value: !Sub 'http://${ALBDNSName}:{{ config.nodes.coordinator.edge.aws.load_balancer.port }}'
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-coordinator-endpoint'
+  
+  {% for realm in config.nodes.realms %}
+  Realm{{ realm.id }}Endpoint:
+    Value: !Sub 'http://${ALBDNSName}:{{ realm.edge.aws.load_balancer.port }}'
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-endpoint'
+  {% endfor %}

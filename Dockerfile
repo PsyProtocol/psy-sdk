@@ -8,6 +8,8 @@ RUN apt update -y \
 WORKDIR /qed-rollup
 
 COPY ./target/${PROFILE}/qed_rollup_cli /qed-rollup
+COPY ./target/${PROFILE}/qed_user_cli /qed-rollup
+COPY ./target/${PROFILE}/qed_dev_cli /qed-rollup
 
 RUN echo '#!/bin/bash\n/qed-rollup/qed_rollup_cli $@' > /qed-rollup/.entrypoint.sh
 RUN chmod u+x /qed-rollup/.entrypoint.sh

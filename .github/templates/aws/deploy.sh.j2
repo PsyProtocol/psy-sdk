@@ -1,0 +1,272 @@
+#!/bin/bash
+set -e
+
+# AWS Deployment Script for QED Protocol
+# Generated from config.json
+
+PROJECT_NAME="{{ config.nodes.deployment.aws.project_name }}"
+REGION="{{ config.nodes.deployment.aws.region }}"
+ECR_REPOSITORY="{{ config.nodes.deployment.aws.ecr.repository_name }}"
+CLUSTER_NAME="{{ config.nodes.deployment.aws.ecs.cluster_name }}"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_status() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Check if AWS CLI is installed
+if ! command -v aws &> /dev/null; then
+    print_error "AWS CLI is not installed. Please install it first."
+    exit 1
+fi
+
+# Check if Docker is installed
+if ! command -v docker &> /dev/null; then
+    print_error "Docker is not installed. Please install it first."
+    exit 1
+fi
+
+# Get AWS account ID
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+if [ -z "$AWS_ACCOUNT_ID" ]; then
+    print_error "Failed to get AWS account ID. Make sure you're logged in to AWS."
+    exit 1
+fi
+
+ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${ECR_REPOSITORY}"
+
+# Function to deploy CloudFormation stack
+deploy_stack() {
+    local stack_name=$1
+    local template_file=$2
+    local parameters=$3
+    
+    print_status "Deploying CloudFormation stack: ${stack_name}"
+    
+    if [ -n "$parameters" ]; then
+        aws cloudformation deploy \
+            --template-file "${template_file}" \
+            --stack-name "${stack_name}" \
+            --parameter-overrides ${parameters} \
+            --capabilities CAPABILITY_IAM \
+            --region "${REGION}" \
+            --no-fail-on-empty-changeset
+    else
+        aws cloudformation deploy \
+            --template-file "${template_file}" \
+            --stack-name "${stack_name}" \
+            --capabilities CAPABILITY_IAM \
+            --region "${REGION}" \
+            --no-fail-on-empty-changeset
+    fi
+    
+    if [ $? -eq 0 ]; then
+        print_status "Stack ${stack_name} deployed successfully"
+    else
+        print_error "Failed to deploy stack ${stack_name}"
+        exit 1
+    fi
+}
+
+# Function to build and push Docker image
+build_and_push_image() {
+    local tag=$1
+    
+    print_status "Building Docker image..."
+    # Use Dockerfile from project root
+    docker build -f "../Dockerfile" -t "${ECR_URI}:${tag}" ".."
+    
+    if [ $? -ne 0 ]; then
+        print_error "Failed to build Docker image"
+        exit 1
+    fi
+    
+    print_status "Logging in to ECR..."
+    aws ecr get-login-password --region "${REGION}" | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
+    
+    print_status "Pushing Docker image to ECR..."
+    docker push "${ECR_URI}:${tag}"
+    
+    if [ $? -eq 0 ]; then
+        print_status "Docker image pushed successfully"
+    else
+        print_error "Failed to push Docker image"
+        exit 1
+    fi
+}
+
+# Main deployment process
+main() {
+    print_status "Starting QED Protocol AWS deployment"
+    print_status "Project: ${PROJECT_NAME}"
+    print_status "Region: ${REGION}"
+    print_status "AWS Account: ${AWS_ACCOUNT_ID}"
+    
+    # Step 1: Deploy main infrastructure stack
+    print_status "Step 1: Deploying main infrastructure..."
+    deploy_stack "${PROJECT_NAME}-main" "cloudformation/main.yaml" ""
+    
+    # Get outputs from main stack
+    print_status "Getting outputs from main stack..."
+    VPC_ID=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='VPCId'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    ECS_CLUSTER=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ECSClusterName'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    ALB_DNS=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    ECR_URI=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ECRRepositoryURI'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    TASK_EXEC_ROLE=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='TaskExecutionRoleArn'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    TASK_ROLE=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='TaskRoleArn'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    ECS_SG=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ECSSecurityGroupId'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    PRIVATE_SUBNETS=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='PrivateSubnetIds'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    SD_NAMESPACE=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ServiceDiscoveryNamespaceId'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    TG_COORDINATOR=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ALBTargetGroupCoordinatorArn'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    {% for realm in config.nodes.realms %}
+    TG_REALM{{ realm.id }}=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ALBTargetGroupRealm{{ realm.id }}Arn'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    {% endfor %}
+    
+    # Step 2: Build and push Docker image
+    print_status "Step 2: Building and pushing Docker image..."
+    build_and_push_image "latest"
+    
+    # Step 3: Deploy ECS services
+    print_status "Step 3: Deploying ECS services..."
+    
+    # Get Redis endpoints from ElastiCache
+    print_status "Getting Redis endpoints..."
+    REDIS_COORD=$(aws elasticache describe-cache-clusters \
+        --cache-cluster-id "${PROJECT_NAME}-dev-redis-coordinator" \
+        --show-cache-node-info \
+        --region "${REGION}" \
+        --query "CacheClusters[0].CacheNodes[0].Endpoint.Address" \
+        --output text 2>/dev/null || echo "redis-coordinator.${VPC_ID}.cache.amazonaws.com")
+    
+    {% for realm in config.nodes.realms %}
+    REDIS_REALM{{ realm.id }}=$(aws elasticache describe-cache-clusters \
+        --cache-cluster-id "${PROJECT_NAME}-dev-redis-realm-{{ realm.id }}" \
+        --show-cache-node-info \
+        --region "${REGION}" \
+        --query "CacheClusters[0].CacheNodes[0].Endpoint.Address" \
+        --output text 2>/dev/null || echo "redis-realm{{ realm.id }}.${VPC_ID}.cache.amazonaws.com")
+    {% endfor %}
+    
+    # Prepare parameters for ECS services stack
+    ECS_PARAMS="VPCId=${VPC_ID} ECSClusterName=${ECS_CLUSTER} ECRRepositoryURI=${ECR_URI}"
+    ECS_PARAMS="${ECS_PARAMS} ALBDNSName=${ALB_DNS}"
+    ECS_PARAMS="${ECS_PARAMS} TaskExecutionRoleArn=${TASK_EXEC_ROLE}"
+    ECS_PARAMS="${ECS_PARAMS} TaskRoleArn=${TASK_ROLE}"
+    ECS_PARAMS="${ECS_PARAMS} ECSSecurityGroupId=${ECS_SG}"
+    ECS_PARAMS="${ECS_PARAMS} PrivateSubnetIds=${PRIVATE_SUBNETS}"
+    ECS_PARAMS="${ECS_PARAMS} ServiceDiscoveryNamespaceId=${SD_NAMESPACE}"
+    ECS_PARAMS="${ECS_PARAMS} ALBTargetGroupCoordinatorArn=${TG_COORDINATOR}"
+    {% for realm in config.nodes.realms %}
+    ECS_PARAMS="${ECS_PARAMS} ALBTargetGroupRealm{{ realm.id }}Arn=${TG_REALM{{ realm.id }}}"
+    {% endfor %}
+    ECS_PARAMS="${ECS_PARAMS} RedisCoordinatorEndpoint=${REDIS_COORD}"
+    {% for realm in config.nodes.realms %}
+    ECS_PARAMS="${ECS_PARAMS} RedisRealm{{ realm.id }}Endpoint=${REDIS_REALM{{ realm.id }}}"
+    {% endfor %}
+    
+    deploy_stack "${PROJECT_NAME}-services" "cloudformation/ecs-services.yaml" "${ECS_PARAMS}"
+    
+    print_status "Deployment completed successfully!"
+    
+    # Display endpoints
+    print_status "Service endpoints:"
+    ALB_DNS=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+        --output text \
+        --region "${REGION}")
+    
+    if [ -n "$ALB_DNS" ]; then
+        print_status "Coordinator endpoint: http://${ALB_DNS}:{{ config.nodes.coordinator.edge.aws.load_balancer.port }}"
+        {% for realm in config.nodes.realms %}
+        print_status "Realm {{ realm.id }} endpoint: http://${ALB_DNS}:{{ realm.edge.aws.load_balancer.port }}"
+        {% endfor %}
+    fi
+}
+
+# Parse command line arguments
+case "$1" in
+    deploy)
+        main
+        ;;
+    destroy)
+        print_warning "Destroying all stacks..."
+        aws cloudformation delete-stack --stack-name "${PROJECT_NAME}-services" --region "${REGION}"
+        aws cloudformation wait stack-delete-complete --stack-name "${PROJECT_NAME}-services" --region "${REGION}"
+        aws cloudformation delete-stack --stack-name "${PROJECT_NAME}-main" --region "${REGION}"
+        aws cloudformation wait stack-delete-complete --stack-name "${PROJECT_NAME}-main" --region "${REGION}"
+        print_status "All stacks destroyed"
+        ;;
+    *)
+        echo "Usage: $0 {deploy|destroy}"
+        exit 1
+        ;;
+esac

@@ -33,6 +33,7 @@ qedlang_macros = { workspace = true }
 # Additional dependencies
 fred = { workspace = true }
 bincode = { workspace = true }
+minijinja = { workspace = true }
 
 # Plonky2
 plonky2 = { workspace = true }

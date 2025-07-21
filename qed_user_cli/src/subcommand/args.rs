@@ -14,6 +14,18 @@ pub struct GetPublicKeyArgs {
     pub private_key: String,
 }
 
+#[derive(Clone, Args)]
+pub struct RegisterUserArgs {
+    #[clap(env, long, default_value = "config.json", env)]
+    pub rpc_config: String,
+    /// user private key
+    #[clap(long, short)]
+    pub private_key: String,
+    /// optional fingerprint (defaults to standard circuit fingerprint)
+    #[clap(long)]
+    pub fingerprint: Option<String>,
+}
+
 
 #[derive(Clone, Args)]
 pub struct DeployContractArgs {

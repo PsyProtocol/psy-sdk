@@ -22,7 +22,7 @@ impl QEDStore {
     pub async fn new(backend: &Backend) -> anyhow::Result<Self> {
         Self::from_backend(backend.clone()).await
     }
-    
+
     pub async fn from_backend(backend: Backend) -> anyhow::Result<Self> {
         match backend {
             Backend::Scylla(config) => {
@@ -30,7 +30,7 @@ impl QEDStore {
                 Ok(QEDStore::Scylla(Arc::new(store)))
             }
             Backend::Lmdbx(config) => {
-                let store = KVQlibmdbxStore::new_write_with_size(&config.path, config.size_gb)?;
+                let store = KVQlibmdbxStore::new_write_with_size(&config.lmdbx_path, config.lmdbx_size_gb)?;
                 Ok(QEDStore::Lmdbx(Arc::new(store)))
             }
         }

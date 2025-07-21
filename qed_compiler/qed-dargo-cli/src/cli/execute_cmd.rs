@@ -33,9 +33,9 @@ fn parse_vec_u64(s: &str) -> Result<Vec<u64>, String> {
         .collect()
 }
 
-pub(crate) fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate::errors::Result<()> {
+pub(crate) async fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate::errors::Result<()> {
     if args.doc {
-        return run_doc(args, workspace);
+        return run_doc(args, workspace).await;
     }
 
     args.parameters
@@ -60,7 +60,7 @@ pub(crate) fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate::erro
     let mut lps = prepare_environment_with_real_contract(
         QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
         deploy_cmd,
-    )?;
+    ).await?;
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
     for ((def, parameters), circuit) in compile_results

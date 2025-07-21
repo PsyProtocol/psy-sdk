@@ -18,14 +18,14 @@ use qed_dargo_toml::resolve_workspace_from_toml;
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
-pub(crate) fn start_cli() -> Result<()> {
+pub(crate) async fn start_cli() -> Result<()> {
     let DargoCli { command, config } = DargoCli::parse();
     match command {
         DargoCommand::New(args) => new_cmd::run(args, config),
         DargoCommand::Init(args) => init_cmd::run(args, config),
         DargoCommand::Compile(args) => with_workspace(args, config, compile_cmd::run),
-        DargoCommand::Execute(args) => with_workspace(args, config, execute_cmd::run),
-        DargoCommand::Test(args) => test_cmd::run(args),
+        DargoCommand::Execute(args) => with_workspace_async(args, config, execute_cmd::run).await,
+        DargoCommand::Test(args) => test_cmd::run(args).await,
         DargoCommand::Fmt(args) => fmt_cmd::run(args),
         DargoCommand::Complete(args) => complete_cmd::run(args),
         DargoCommand::GenerateAbi(args) => with_workspace(args, config, generate_abi_cmd::run),
@@ -93,6 +93,22 @@ where
         workspace.target_dir = target_dir.clone();
     }
     run(cmd, workspace)
+}
+
+async fn with_workspace_async<C, R, Fut>(cmd: C, config: DargoConfig, run: R) -> Result<()>
+where
+    R: FnOnce(C, Workspace) -> Fut,
+    Fut: std::future::Future<Output = Result<()>>,
+{
+    // All commands need to run on the workspace level, because that's where the `target` directory is.
+    let package_dir = find_file_manifest_root(&config.program_dir)?;
+    let toml_path = get_package_manifest(&package_dir)?;
+    // Resolve the workspace from the toml file. It will download dependencies as well.
+    let mut workspace = resolve_workspace_from_toml(&toml_path)?;
+    if let Some(target_dir) = &config.target_dir {
+        workspace.target_dir = target_dir.clone();
+    }
+    run(cmd, workspace).await
 }
 
 pub fn resolve_crate_path_graph(

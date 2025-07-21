@@ -1,6 +1,7 @@
 use fred::prelude::*;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use std::sync::Arc;
+use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use qed_core::{config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync}, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer}
 ;
@@ -51,7 +52,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let store_reader: Arc<KVQSimpleMemoryBackingStore> =
         Arc::new(KVQSimpleMemoryBackingStore::new());
 
-    store_reader.initialize_store()?;
+    store_reader.initialize_store().await?;
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 

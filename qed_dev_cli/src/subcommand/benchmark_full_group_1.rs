@@ -20,7 +20,7 @@ use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
-use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::ProofStoreFred};
+use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm}, queue::ProofStoreFred};
 use super::super::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
 use std::time::Duration;
 
@@ -61,7 +61,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let store_reader: Arc<KVQSimpleMemoryBackingStore> =
         Arc::new(KVQSimpleMemoryBackingStore::new());
 
-    store_reader.initialize_store()?;
+    store_reader.initialize_store().await?;
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 

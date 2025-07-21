@@ -6,6 +6,7 @@ version = "0.1.0"
 [dependencies]
 clap = { workspace = true }
 anyhow = { workspace = true }
+tokio = { workspace = true }
 qed-utils = { workspace = true }
 dotenv = { workspace = true }
 qed-interpreter = { workspace = true }

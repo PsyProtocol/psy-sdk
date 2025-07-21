@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer};
@@ -215,7 +216,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
 
     Ok((circuits, deploy))
 }
-fn prepare_environment_with_real_contract(
+async fn prepare_environment_with_real_contract(
     new_user_public_key: QBCRegisterUser<GoldilocksField>,
     deploy_contract: QBCDeployContract<GoldilocksField>,
 ) -> anyhow::Result<
@@ -231,7 +232,7 @@ fn prepare_environment_with_real_contract(
         QHashOut::rand(),
     ];
     let st = KVQSimpleMemoryBackingStore::new();
-    st.initialize_store()?;
+    st.initialize_store().await?;
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
         &st,
@@ -396,7 +397,7 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     Ok(fn_circuit_def)
 }
 
-fn test_prove_simple() -> anyhow::Result<()> {
+async fn test_prove_simple() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("test_prove_simple");
 
     timer.lap("start");
@@ -472,7 +473,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     let lps = prepare_environment_with_real_contract(
         QBCRegisterUser::new(fingerprint, pub_param),
         deploy_cmd,
-    )?;
+    ).await?;
     let mut circuit_info = SessionCircuitInfoStore::new();
 
     circuit_info.register_circuit(
@@ -578,6 +579,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn main() {
-    test_prove_simple().unwrap();
+#[tokio::main]
+async fn main() {
+    test_prove_simple().await.unwrap();
 }

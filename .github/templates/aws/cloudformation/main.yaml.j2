@@ -1,0 +1,854 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'QED Protocol Infrastructure - Generated from config.json'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: {{ config.nodes.deployment.aws.project_name }}
+    Description: Project name for resource naming
+  
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Environment name
+
+Resources:
+  # VPC Configuration
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: {{ config.nodes.deployment.aws.vpc.cidr }}
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-vpc'
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-igw'
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Subnets
+  {% for i in range(config.nodes.deployment.aws.vpc.availability_zones) %}
+  PublicSubnet{{ i + 1 }}:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [{{ i }}, !Cidr [!GetAtt VPC.CidrBlock, 4, 8]]
+      AvailabilityZone: !Select [{{ i }}, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-public-{{ i + 1 }}'
+  {% endfor %}
+
+  # Private Subnets
+  {% for i in range(config.nodes.deployment.aws.vpc.availability_zones) %}
+  PrivateSubnet{{ i + 1 }}:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [{{ i + 2 }}, !Cidr [!GetAtt VPC.CidrBlock, 4, 8]]
+      AvailabilityZone: !Select [{{ i }}, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-private-{{ i + 1 }}'
+  {% endfor %}
+
+  # Route Tables
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-public-rt'
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Route Table Associations
+  {% for i in range(config.nodes.deployment.aws.vpc.availability_zones) %}
+  PublicSubnet{{ i + 1 }}RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet{{ i + 1 }}
+      RouteTableId: !Ref PublicRouteTable
+  {% endfor %}
+
+  # ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: {{ config.nodes.deployment.aws.ecs.cluster_name }}
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  # Service Discovery Namespace
+  ServiceDiscoveryNamespace:
+    Type: AWS::ServiceDiscovery::PrivateDnsNamespace
+    Properties:
+      Name: qed.local
+      Vpc: !Ref VPC
+      Description: Private namespace for QED services
+
+  # CloudWatch Log Group
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: {{ config.nodes.deployment.aws.ecs.log_group }}
+      RetentionInDays: 7
+
+  # ECR Repository - commented out as it may already exist
+  # ECRRepository:
+  #   Type: AWS::ECR::Repository
+  #   Properties:
+  #     RepositoryName: {{ config.nodes.deployment.aws.ecr.repository_name }}
+  #     ImageScanningConfiguration:
+  #       ScanOnPush: true
+
+  # S3 Bucket for artifacts
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '{{ config.nodes.deployment.aws.s3.bucket_prefix }}-${AWS::AccountId}-${AWS::Region}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Security Groups
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Application Load Balancer
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        {% for realm in config.nodes.realms %}
+        - IpProtocol: tcp
+          FromPort: {{ realm.edge.aws.load_balancer.port }}
+          ToPort: {{ realm.edge.aws.load_balancer.port }}
+          CidrIp: 0.0.0.0/0
+          Description: Realm {{ realm.id }} Edge RPC
+        {% endfor %}
+        - IpProtocol: tcp
+          FromPort: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
+          ToPort: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
+          CidrIp: 0.0.0.0/0
+          Description: Coordinator Edge RPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-alb-sg'
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECS tasks
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+          Description: Allow traffic from ALB
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-ecs-sg'
+
+  # Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${ProjectName}-${Environment}-alb'
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets:
+        {% for i in range(config.nodes.deployment.aws.vpc.availability_zones) %}
+        - !Ref PublicSubnet{{ i + 1 }}
+        {% endfor %}
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-alb'
+
+  # ALB Target Groups
+  ALBTargetGroupCoordinator:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${ProjectName}-${Environment}-coord-tg'
+      Port: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
+      Protocol: HTTP
+      VpcId: !Ref VPC
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: "200,404"
+
+  {% for realm in config.nodes.realms %}
+  ALBTargetGroupRealm{{ realm.id }}:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${ProjectName}-${Environment}-realm{{ realm.id }}-tg'
+      Port: {{ realm.edge.aws.load_balancer.port }}
+      Protocol: HTTP
+      VpcId: !Ref VPC
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: "200,404"
+  {% endfor %}
+
+  # ALB Listeners
+  ALBListenerCoordinator:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroupCoordinator
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
+      Protocol: HTTP
+
+  {% for realm in config.nodes.realms %}
+  ALBListenerRealm{{ realm.id }}:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroupRealm{{ realm.id }}
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: {{ realm.edge.aws.load_balancer.port }}
+      Protocol: HTTP
+  {% endfor %}
+
+  {% if config.nodes.backend.type == "scylla" %}
+  # ScyllaDB EC2 Instances and Configuration
+  ScyllaDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ScyllaDB instances
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        # CQL port from ECS tasks
+        - IpProtocol: tcp
+          FromPort: 9042
+          ToPort: 9042
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
+          Description: CQL port
+        # JMX port
+        - IpProtocol: tcp
+          FromPort: 7199
+          ToPort: 7199
+          CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
+          Description: JMX port
+        # REST API
+        - IpProtocol: tcp
+          FromPort: 10000
+          ToPort: 10000
+          CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
+          Description: REST API
+        # Prometheus metrics
+        - IpProtocol: tcp
+          FromPort: 9180
+          ToPort: 9180
+          CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
+          Description: Prometheus metrics
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-scylla-sg'
+
+  # Self-referencing ingress rule for ScyllaDB inter-node communication
+  ScyllaDBInterNodeIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref ScyllaDBSecurityGroup
+      IpProtocol: tcp
+      FromPort: 7000
+      ToPort: 7001
+      SourceSecurityGroupId: !Ref ScyllaDBSecurityGroup
+      Description: Inter-node communication
+
+  # ScyllaDB Instance Profile
+  ScyllaDBInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ScyllaDBPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - autoscaling:DescribeAutoScalingGroups
+                  - ec2:DescribeInstances
+                  - ssm:PutParameter
+                  - ssm:GetParameter
+                Resource: '*'
+
+  ScyllaDBInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref ScyllaDBInstanceRole
+
+  # ScyllaDB Launch Template
+  ScyllaDBLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-scylla-lt'
+      LaunchTemplateData:
+        ImageId: !Sub '{{ "{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}" }}'
+        InstanceType: {{ config.nodes.backend.scylla.instance_type | default('r6i.xlarge') }}
+        IamInstanceProfile:
+          Name: !Ref ScyllaDBInstanceProfile
+        SecurityGroupIds:
+          - !Ref ScyllaDBSecurityGroup
+        BlockDeviceMappings:
+          # Root volume
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              DeleteOnTermination: true
+          # Data volume
+          - DeviceName: /dev/xvdb
+            Ebs:
+              VolumeSize: {{ config.nodes.backend.scylla.data_volume_size | default(500) }}
+              VolumeType: gp3
+              Iops: 16000
+              Throughput: 1000
+              DeleteOnTermination: true
+              Encrypted: true
+          # Commit log volume
+          - DeviceName: /dev/xvdc
+            Ebs:
+              VolumeSize: {{ config.nodes.backend.scylla.commitlog_volume_size | default(100) }}
+              VolumeType: gp3
+              Iops: 16000
+              Throughput: 1000
+              DeleteOnTermination: true
+              Encrypted: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-scylla'
+              - Key: Component
+                Value: scylladb
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            exec > /var/log/user-data.log 2>&1
+            
+            # Install dependencies
+            apt-get update -y
+            apt-get install -y docker.io awscli jq xfsprogs python3-pip
+            pip3 install cassandra-driver cqlsh
+            
+            # Configure system settings
+            sysctl -w fs.aio-max-nr=5029568
+            echo "fs.aio-max-nr=5029568" >> /etc/sysctl.conf
+            swapoff -a
+            sed -i '/ swap / s/^/#/' /etc/fstab
+            
+            # Setup storage
+            mkfs.xfs -f /dev/xvdb
+            mkfs.xfs -f /dev/xvdc
+            mkdir -p /var/lib/scylla/data /var/lib/scylla/commitlog
+            mount /dev/xvdb /var/lib/scylla/data
+            mount /dev/xvdc /var/lib/scylla/commitlog
+            echo "/dev/xvdb /var/lib/scylla/data xfs defaults,noatime 0 0" >> /etc/fstab
+            echo "/dev/xvdc /var/lib/scylla/commitlog xfs defaults,noatime 0 0" >> /etc/fstab
+            
+            # Get instance metadata
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+            AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+            
+            # Start Docker
+            systemctl enable docker
+            systemctl start docker
+            
+            # Pull and run ScyllaDB
+            docker pull scylladb/scylla:5.2
+            docker run --name scylladb -d \
+              --restart always \
+              -p 9042:9042 \
+              -p 9180:9180 \
+              -p 7000:7000 \
+              -p 7001:7001 \
+              -p 7199:7199 \
+              -p 10000:10000 \
+              -v /var/lib/scylla/data:/var/lib/scylla \
+              -v /var/lib/scylla/commitlog:/var/lib/scylla/commitlog \
+              scylladb/scylla:5.2 \
+              --overprovisioned 1 \
+              --smp 4
+            
+            # Wait for ScyllaDB to start
+            echo "Waiting for ScyllaDB to start..."
+            while ! cqlsh -e "DESC KEYSPACES" $INSTANCE_IP 9042 > /dev/null 2>&1; do
+              sleep 5
+            done
+            
+            # Create keyspaces
+            cqlsh $INSTANCE_IP 9042 <<EOF
+            CREATE KEYSPACE IF NOT EXISTS qed_coordinator WITH replication = {
+              'class': 'SimpleStrategy',
+              'replication_factor': {{ config.nodes.backend.scylla.replication_factor | default(3) }}
+            };
+            CREATE KEYSPACE IF NOT EXISTS qed_realm0 WITH replication = {
+              'class': 'SimpleStrategy',
+              'replication_factor': {{ config.nodes.backend.scylla.replication_factor | default(3) }}
+            };
+            CREATE KEYSPACE IF NOT EXISTS qed_realm1 WITH replication = {
+              'class': 'SimpleStrategy',
+              'replication_factor': {{ config.nodes.backend.scylla.replication_factor | default(3) }}
+            };
+            EOF
+            
+            # Store endpoint in SSM
+            aws ssm put-parameter \
+              --name "/${ProjectName}/scylladb/node-$INSTANCE_ID/endpoint" \
+              --value "$INSTANCE_IP:9042" \
+              --type String \
+              --overwrite \
+              --region ${AWS::Region}
+            
+            echo "ScyllaDB setup completed successfully"
+
+  # ScyllaDB Auto Scaling Group
+  ScyllaDBAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-scylla-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ScyllaDBLaunchTemplate
+        Version: !GetAtt ScyllaDBLaunchTemplate.LatestVersionNumber
+      MinSize: {{ config.nodes.backend.scylla.cluster_size | default(3) }}
+      MaxSize: {{ config.nodes.backend.scylla.cluster_size | default(3) }}
+      DesiredCapacity: {{ config.nodes.backend.scylla.cluster_size | default(3) }}
+      VPCZoneIdentifier:
+        {% for i in range(config.nodes.deployment.aws.vpc.availability_zones) %}
+        - !Ref PrivateSubnet{{ i + 1 }}
+        {% endfor %}
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 600
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-scylla'
+          PropagateAtLaunch: true
+        - Key: Component
+          Value: scylladb
+          PropagateAtLaunch: true
+  {% endif %}
+
+  # EC2 Configuration for ECS Container Instances
+  # Using EC2 launch type for all backends to support both LMDBX (requires file locks) and ScyllaDB
+  
+  # Security Group for ECS Container Instances
+  ECSInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECS container instances
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
+          Description: Allow all traffic from ECS tasks
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-ecs-instance-sg'
+
+  # IAM Role for ECS Container Instances
+  ECSInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ECSInstancePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:RegisterContainerInstance
+                  - ecs:DeregisterContainerInstance
+                  - ecs:DiscoverPollEndpoint
+                  - ecs:Submit*
+                  - ecs:Poll
+                  - ecs:StartTelemetrySession
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  ECSInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref ECSInstanceRole
+
+  # Launch Template for ECS Container Instances
+  ECSLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-ecs-lt'
+      LaunchTemplateData:
+        ImageId: !Sub '{{ "{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}" }}'
+        InstanceType: {{ config.nodes.deployment.aws.ecs.instance_type | default('m5.xlarge') }}
+        IamInstanceProfile:
+          Name: !Ref ECSInstanceProfile
+        SecurityGroupIds:
+          - !Ref ECSInstanceSecurityGroup
+        BlockDeviceMappings:
+          # Root volume
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              DeleteOnTermination: true
+          # Data volume for LMDBX
+          - DeviceName: /dev/xvdb
+            Ebs:
+              VolumeSize: {{ config.nodes.backend.lmdbx.volume_size | default(200) }}
+              VolumeType: gp3
+              Iops: 3000
+              DeleteOnTermination: true
+              Encrypted: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-ecs-instance'
+              - Key: Component
+                Value: ecs-container-instance
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            exec > /var/log/user-data.log 2>&1
+            echo "Starting user data script at $(date)"
+            
+            # Update system
+            apt-get update -y || { echo "apt-get update failed"; exit 1; }
+            apt-get upgrade -y || { echo "apt-get upgrade failed"; exit 1; }
+            
+            # Install required packages
+            apt-get install -y docker.io awscli || { echo "Package installation failed"; exit 1; }
+            
+            # Enable and start Docker
+            systemctl enable docker || { echo "Failed to enable docker"; exit 1; }
+            systemctl start docker || { echo "Failed to start docker"; exit 1; }
+            usermod -aG docker ubuntu || echo "Failed to add ubuntu to docker group"
+            
+            # Wait for Docker to be ready
+            sleep 10
+            
+            # Setup data volume for LMDBX
+            mkfs.ext4 /dev/xvdb || { echo "Failed to format /dev/xvdb"; exit 1; }
+            mkdir -p /data
+            mount /dev/xvdb /data || { echo "Failed to mount /dev/xvdb"; exit 1; }
+            echo "/dev/xvdb /data ext4 defaults,noatime 0 0" >> /etc/fstab
+            
+            # Create directories for each service
+            mkdir -p /data/coordinator /data/realm0 /data/realm1
+            chmod 755 /data/*
+            chown -R 1000:1000 /data/*
+            
+            # Install ECS agent
+            echo "Installing ECS agent..."
+            curl -O https://s3.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.amd64.deb || { echo "Failed to download ECS agent"; exit 1; }
+            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
+            
+            # Configure ECS
+            mkdir -p /etc/ecs
+            echo ECS_CLUSTER={{ config.nodes.deployment.aws.ecs.cluster_name }} >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
+            echo ECS_AVAILABLE_LOGGING_DRIVERS='["json-file","awslogs"]' >> /etc/ecs/ecs.config
+            
+            # Start ECS agent
+            echo "Starting ECS agent..."
+            systemctl enable ecs || { echo "Failed to enable ECS"; exit 1; }
+            systemctl start ecs || { echo "Failed to start ECS"; exit 1; }
+            
+            # Wait and verify ECS agent is running
+            sleep 30
+            systemctl status ecs || { echo "ECS agent is not running"; exit 1; }
+            
+            echo "User data script completed successfully at $(date)"
+
+  # Auto Scaling Group for ECS Container Instances
+  ECSAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-ecs-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ECSLaunchTemplate
+        Version: !GetAtt ECSLaunchTemplate.LatestVersionNumber
+      MinSize: {{ config.nodes.deployment.aws.ecs.min_instances | default(2) }}
+      MaxSize: {{ config.nodes.deployment.aws.ecs.max_instances | default(10) }}
+      DesiredCapacity: {{ config.nodes.deployment.aws.ecs.desired_instances | default(3) }}
+      VPCZoneIdentifier:
+        {% for i in range(config.nodes.deployment.aws.vpc.availability_zones) %}
+        - !Ref PrivateSubnet{{ i + 1 }}
+        {% endfor %}
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-ecs-instance'
+          PropagateAtLaunch: true
+        - Key: Component
+          Value: ecs-container-instance
+          PropagateAtLaunch: true
+
+  # ECS Capacity Provider
+  ECSCapacityProvider:
+    Type: AWS::ECS::CapacityProvider
+    Properties:
+      Name: !Sub '${ProjectName}-${Environment}-cp'
+      AutoScalingGroupProvider:
+        AutoScalingGroupArn: !Ref ECSAutoScalingGroup
+        ManagedScaling:
+          Status: ENABLED
+          TargetCapacity: 100
+          MinimumScalingStepSize: 1
+          MaximumScalingStepSize: 10
+        ManagedTerminationProtection: DISABLED
+
+  # Associate Capacity Provider with Cluster
+  ECSClusterCapacityProviderAssociation:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      Cluster: !Ref ECSCluster
+      CapacityProviders:
+        - !Ref ECSCapacityProvider
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: !Ref ECSCapacityProvider
+          Base: 0
+          Weight: 1
+
+  # ElastiCache for Redis
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for Redis clusters
+      SubnetIds:
+        {% for i in range(config.nodes.deployment.aws.vpc.availability_zones) %}
+        - !Ref PrivateSubnet{{ i + 1 }}
+        {% endfor %}
+
+  # Redis instances
+  RedisCoordinator:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheNodeType: cache.t3.micro
+      Engine: redis
+      NumCacheNodes: 1
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref ECSSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-redis-coordinator'
+
+  {% for realm_redis in config.nodes.redis.realms %}
+  RedisRealm{{ realm_redis.id }}:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheNodeType: cache.t3.micro
+      Engine: redis
+      NumCacheNodes: 1
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref ECSSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-redis-realm-{{ realm_redis.id }}'
+  {% endfor %}
+
+  # IAM Roles
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: ECRAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: '*'
+
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub '${ArtifactsBucket.Arn}/*'
+                  - !GetAtt ArtifactsBucket.Arn
+
+Outputs:
+  VPCId:
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-vpc-id'
+  
+  ECSClusterName:
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-ecs-cluster'
+  
+  ALBDNSName:
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-alb-dns'
+  
+  ECRRepositoryURI:
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}'
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-ecr-uri'
+  
+  ServiceDiscoveryNamespaceId:
+    Value: !Ref ServiceDiscoveryNamespace
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-sd-namespace-id'
+  
+  ALBTargetGroupCoordinatorArn:
+    Value: !Ref ALBTargetGroupCoordinator
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-tg-coordinator-arn'
+  
+  {% for realm in config.nodes.realms %}
+  ALBTargetGroupRealm{{ realm.id }}Arn:
+    Value: !Ref ALBTargetGroupRealm{{ realm.id }}
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-tg-realm{{ realm.id }}-arn'
+  {% endfor %}
+  
+  TaskExecutionRoleArn:
+    Value: !GetAtt ECSTaskExecutionRole.Arn
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-task-execution-role-arn'
+  
+  TaskRoleArn:
+    Value: !GetAtt ECSTaskRole.Arn
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-task-role-arn'
+  
+  ECSSecurityGroupId:
+    Value: !Ref ECSSecurityGroup
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-ecs-sg-id'
+  
+  PrivateSubnetIds:
+    Value: !Join
+      - ','
+      - {% for i in range(config.nodes.deployment.aws.vpc.availability_zones) %}
+        - !Ref PrivateSubnet{{ i + 1 }}
+        {% endfor %}
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-private-subnet-ids'
+  
+  {% if config.nodes.backend.type == "scylla" %}
+  ScyllaDBAutoScalingGroupName:
+    Value: !Ref ScyllaDBAutoScalingGroup
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-scylla-asg'
+    Description: ScyllaDB Auto Scaling Group name
+  
+  ScyllaDBSecurityGroupId:
+    Value: !Ref ScyllaDBSecurityGroup
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-scylla-sg'
+    Description: ScyllaDB Security Group ID
+  {% endif %}

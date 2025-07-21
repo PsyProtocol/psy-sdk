@@ -6,7 +6,8 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::EnvFilter;
 const PANIC_MESSAGE: &str = "Program panic. This is a bug to be fixed.";
 
-fn main() {
+#[tokio::main]
+async fn main() {
     setup_tracing();
 
     // Register a panic hook to display more readable panic messages to end-users
@@ -16,7 +17,7 @@ fn main() {
         .into_hooks();
     panic_hook.install();
 
-    if let Err(report) = cli::start_cli() {
+    if let Err(report) = cli::start_cli().await {
         eprintln!("{report:#}");
         std::process::exit(1);
     }

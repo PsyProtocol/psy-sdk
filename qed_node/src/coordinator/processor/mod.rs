@@ -162,7 +162,7 @@ impl
         let qed_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
         let qed_store = JournalStore::new(qed_store);
 
-        match QEDComboDataStoreReaderWriterSync::initialize_store(&qed_store) {
+        match qed_store.initialize_store().await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
                 qed_store.commit(0)?;
             }

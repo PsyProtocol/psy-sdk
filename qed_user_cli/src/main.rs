@@ -14,6 +14,7 @@ use error::Result;
 use crate::subcommand::deploy_contract;
 use crate::subcommand::get_public_key;
 use crate::subcommand::random_wallet;
+use crate::subcommand::register_user;
 use crate::subcommand::submit_end_cap_proof;
 use crate::subcommand::Cli;
 use crate::subcommand::Commands;
@@ -29,6 +30,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::GetPublicKey(args) => get_public_key::run(args)?,
         Commands::RandomWallet(args) => random_wallet::run(args)?,
+        Commands::RegisterUser(args) => register_user::run(args)?,
         Commands::DeployContract(args) => deploy_contract::run(args)?,
         Commands::SubmitEndCaproof(args) => submit_end_cap_proof::run(args)?,
 

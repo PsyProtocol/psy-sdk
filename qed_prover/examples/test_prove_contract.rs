@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
@@ -83,7 +84,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     }
 }
 
-fn prepare_environment_with_contract(
+async fn prepare_environment_with_contract(
     state_tree_height: u8,
     session_proof_tree_height: usize,
     whitelist: &[QHashOut<GoldilocksField>],
@@ -94,7 +95,7 @@ fn prepare_environment_with_contract(
     >,
 > {
     let st = KVQSimpleMemoryBackingStore::new();
-    st.initialize_store()?;
+    st.initialize_store().await?;
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
         &st,
@@ -177,7 +178,7 @@ fn test_compile_contract() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     Ok(fn_circuit_def)
 }
 
-fn test_prove_simple() -> anyhow::Result<()> {
+async fn test_prove_simple() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("test_prove_simple");
 
     timer.lap("start");
@@ -206,7 +207,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
             QHashOut::rand(),
             QHashOut::rand(),
         ],
-    )?;
+    ).await?;
     timer.lap("prepared environement");
 
     let result = test_run_contract_fn(
@@ -232,6 +233,7 @@ fn test_prove_simple() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn main() {
-    test_prove_simple().unwrap();
+#[tokio::main]
+async fn main() {
+    test_prove_simple().await.unwrap();
 }

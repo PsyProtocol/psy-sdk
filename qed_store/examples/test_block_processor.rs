@@ -5,15 +5,16 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_data::{protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints, qblock::cmds::{core::QEDBlockCommands, register_user::QBCRegisterUser}};
 use qed_data::{qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}};
+use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 
 type GF = GoldilocksField;
 
 
-fn test_simple_block_processor() -> anyhow::Result<()> {
+async fn test_simple_block_processor() -> anyhow::Result<()> {
     let mut t = DebugTimer::new("test_kvq_simple_store_arc");
     t.lap("start");
     let st = Arc::new(KVQSimpleMemoryBackingStore::new());
-    let cur_checkpoint = st.initialize_store()?;
+    let cur_checkpoint = st.initialize_store().await?;
     t.event(format!("current_checkpoint: {}", cur_checkpoint));
 
     let circuit_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
@@ -37,16 +38,17 @@ fn test_simple_block_processor() -> anyhow::Result<()> {
 }
 
 
-fn test_block_combos() -> anyhow::Result<()>{
-    test_simple_block_processor()?;
+async fn test_block_combos() -> anyhow::Result<()>{
+    test_simple_block_processor().await?;
     Ok(())
 
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
 
 
-    test_block_combos().unwrap_or_else(|e| {
+    test_block_combos().await.unwrap_or_else(|e| {
         eprintln!("Error: {:?}", e);
     })
 
