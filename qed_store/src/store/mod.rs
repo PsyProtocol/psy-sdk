@@ -2,6 +2,7 @@
 
 pub mod scylla;
 pub mod lmdbx;
+pub mod tikv;
 pub mod backend;
 pub mod journal;
 
@@ -10,12 +11,14 @@ use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 
 use self::scylla::ScyllaStore;
 use self::lmdbx::KVQlibmdbxStore;
+use self::tikv::TiKVStore;
 pub use self::backend::{Backend, BackendConfig};
 
 #[derive(Clone, Debug)]
 pub enum QEDStore {
     Scylla(Arc<ScyllaStore>),
     Lmdbx(Arc<KVQlibmdbxStore>),
+    TiKV(Arc<TiKVStore>),
 }
 
 impl QEDStore {
@@ -33,6 +36,10 @@ impl QEDStore {
                 let store = KVQlibmdbxStore::new_write_with_size(&config.path, config.size_gb)?;
                 Ok(QEDStore::Lmdbx(Arc::new(store)))
             }
+            Backend::TiKV(config) => {
+                let store = TiKVStore::new(config).await?;
+                Ok(QEDStore::TiKV(Arc::new(store)))
+            }
         }
     }
 }
@@ -42,6 +49,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.get_exact_if_exists(key),
             QEDStore::Lmdbx(store) => store.get_exact_if_exists(key),
+            QEDStore::TiKV(store) => store.get_exact_if_exists(key),
         }
     }
 
@@ -49,6 +57,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.get_exact(key),
             QEDStore::Lmdbx(store) => store.get_exact(key),
+            QEDStore::TiKV(store) => store.get_exact(key),
         }
     }
 
@@ -56,6 +65,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.get_many_exact(keys),
             QEDStore::Lmdbx(store) => store.get_many_exact(keys),
+            QEDStore::TiKV(store) => store.get_many_exact(keys),
         }
     }
 
@@ -63,6 +73,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.get_leq(key, fuzzy_bytes),
             QEDStore::Lmdbx(store) => store.get_leq(key, fuzzy_bytes),
+            QEDStore::TiKV(store) => store.get_leq(key, fuzzy_bytes),
         }
     }
 
@@ -70,6 +81,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.get_fuzzy_range_leq_kv(key, fuzzy_bytes),
             QEDStore::Lmdbx(store) => store.get_fuzzy_range_leq_kv(key, fuzzy_bytes),
+            QEDStore::TiKV(store) => store.get_fuzzy_range_leq_kv(key, fuzzy_bytes),
         }
     }
 
@@ -77,6 +89,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.get_leq_kv(key, fuzzy_bytes),
             QEDStore::Lmdbx(store) => store.get_leq_kv(key, fuzzy_bytes),
+            QEDStore::TiKV(store) => store.get_leq_kv(key, fuzzy_bytes),
         }
     }
 
@@ -84,6 +97,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.get_many_leq(keys, fuzzy_bytes),
             QEDStore::Lmdbx(store) => store.get_many_leq(keys, fuzzy_bytes),
+            QEDStore::TiKV(store) => store.get_many_leq(keys, fuzzy_bytes),
         }
     }
 
@@ -91,6 +105,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.get_many_leq_kv(keys, fuzzy_bytes),
             QEDStore::Lmdbx(store) => store.get_many_leq_kv(keys, fuzzy_bytes),
+            QEDStore::TiKV(store) => store.get_many_leq_kv(keys, fuzzy_bytes),
         }
     }
 
@@ -98,6 +113,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.set(key, value),
             QEDStore::Lmdbx(store) => store.set(key, value),
+            QEDStore::TiKV(store) => store.set(key, value),
         }
     }
 
@@ -105,6 +121,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.set_ref(key, value),
             QEDStore::Lmdbx(store) => store.set_ref(key, value),
+            QEDStore::TiKV(store) => store.set_ref(key, value),
         }
     }
 
@@ -112,6 +129,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.set_many_ref(items),
             QEDStore::Lmdbx(store) => store.set_many_ref(items),
+            QEDStore::TiKV(store) => store.set_many_ref(items),
         }
     }
 
@@ -119,6 +137,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.set_many_vec(items),
             QEDStore::Lmdbx(store) => store.set_many_vec(items),
+            QEDStore::TiKV(store) => store.set_many_vec(items),
         }
     }
 
@@ -126,6 +145,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.delete(key),
             QEDStore::Lmdbx(store) => store.delete(key),
+            QEDStore::TiKV(store) => store.delete(key),
         }
     }
 
@@ -133,6 +153,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.delete_many(keys),
             QEDStore::Lmdbx(store) => store.delete_many(keys),
+            QEDStore::TiKV(store) => store.delete_many(keys),
         }
     }
 
@@ -140,6 +161,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.set_many_split_ref(keys, values),
             QEDStore::Lmdbx(store) => store.set_many_split_ref(keys, values),
+            QEDStore::TiKV(store) => store.set_many_split_ref(keys, values),
         }
     }
 
@@ -151,6 +173,7 @@ impl KVQBinaryStore for QEDStore {
         match self {
             QEDStore::Scylla(store) => store.set_and_delete_many(keys_to_set, keys_to_delete),
             QEDStore::Lmdbx(store) => store.set_and_delete_many(keys_to_set, keys_to_delete),
+            QEDStore::TiKV(store) => store.set_and_delete_many(keys_to_set, keys_to_delete),
         }
     }
 
@@ -165,6 +188,10 @@ impl KVQBinaryStoreAsync for QEDStore {
                 let result = store.get_exact_if_exists(key)?;
                 Ok(result)
             }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::get_exact_if_exists(store, key).await?;
+                Ok(result)
+            }
         }
     }
 
@@ -173,6 +200,10 @@ impl KVQBinaryStoreAsync for QEDStore {
             QEDStore::Scylla(store) => <ScyllaStore as KVQBinaryStoreAsync>::get_exact(store, key).await,
             QEDStore::Lmdbx(store) => {
                 let result = store.get_exact(key)?;
+                Ok(result)
+            }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::get_exact(store, key).await?;
                 Ok(result)
             }
         }
@@ -185,6 +216,10 @@ impl KVQBinaryStoreAsync for QEDStore {
                 let result = store.get_many_exact(keys)?;
                 Ok(result)
             }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::get_many_exact(store, keys).await?;
+                Ok(result)
+            }
         }
     }
 
@@ -193,6 +228,10 @@ impl KVQBinaryStoreAsync for QEDStore {
             QEDStore::Scylla(store) => <ScyllaStore as KVQBinaryStoreAsync>::get_leq(store, key, fuzzy_bytes).await,
             QEDStore::Lmdbx(store) => {
                 let result = store.get_leq(key, fuzzy_bytes)?;
+                Ok(result)
+            }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::get_leq(store, key, fuzzy_bytes).await?;
                 Ok(result)
             }
         }
@@ -205,6 +244,10 @@ impl KVQBinaryStoreAsync for QEDStore {
                 let result = store.get_fuzzy_range_leq_kv(key, fuzzy_bytes)?;
                 Ok(result)
             }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(store, key, fuzzy_bytes).await?;
+                Ok(result)
+            }
         }
     }
 
@@ -213,6 +256,10 @@ impl KVQBinaryStoreAsync for QEDStore {
             QEDStore::Scylla(store) => <ScyllaStore as KVQBinaryStoreAsync>::get_leq_kv(store, key, fuzzy_bytes).await,
             QEDStore::Lmdbx(store) => {
                 let result = store.get_leq_kv(key, fuzzy_bytes)?;
+                Ok(result)
+            }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::get_leq_kv(store, key, fuzzy_bytes).await?;
                 Ok(result)
             }
         }
@@ -225,6 +272,10 @@ impl KVQBinaryStoreAsync for QEDStore {
                 let result = store.get_many_leq(keys, fuzzy_bytes)?;
                 Ok(result)
             }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::get_many_leq(store, keys, fuzzy_bytes).await?;
+                Ok(result)
+            }
         }
     }
 
@@ -233,6 +284,10 @@ impl KVQBinaryStoreAsync for QEDStore {
             QEDStore::Scylla(store) => <ScyllaStore as KVQBinaryStoreAsync>::get_many_leq_kv(store, keys, fuzzy_bytes).await,
             QEDStore::Lmdbx(store) => {
                 let result = store.get_many_leq_kv(keys, fuzzy_bytes)?;
+                Ok(result)
+            }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::get_many_leq_kv(store, keys, fuzzy_bytes).await?;
                 Ok(result)
             }
         }
@@ -245,6 +300,10 @@ impl KVQBinaryStoreAsync for QEDStore {
                 store.set(key, value)?;
                 Ok(())
             }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::set(store, key, value).await?;
+                Ok(result)
+            }
         }
     }
 
@@ -254,6 +313,10 @@ impl KVQBinaryStoreAsync for QEDStore {
             QEDStore::Lmdbx(store) => {
                 store.set_ref(key, value)?;
                 Ok(())
+            }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::set_ref(store, key, value).await?;
+                Ok(result)
             }
         }
     }
@@ -265,6 +328,10 @@ impl KVQBinaryStoreAsync for QEDStore {
                 store.set_many_ref(items)?;
                 Ok(())
             }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::set_many_ref(store, items).await?;
+                Ok(result)
+            }
         }
     }
 
@@ -275,6 +342,10 @@ impl KVQBinaryStoreAsync for QEDStore {
                 store.set_many_vec(items)?;
                 Ok(())
             }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::set_many_vec(store, items).await?;
+                Ok(result)
+            }
         }
     }
 
@@ -283,6 +354,10 @@ impl KVQBinaryStoreAsync for QEDStore {
             QEDStore::Scylla(store) => <ScyllaStore as KVQBinaryStoreAsync>::delete(store, key).await,
             QEDStore::Lmdbx(store) => {
                 let result = store.delete(key)?;
+                Ok(result)
+            }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::delete(store, key).await?;
                 Ok(result)
             }
         }
@@ -295,6 +370,10 @@ impl KVQBinaryStoreAsync for QEDStore {
                 let result = store.delete_many(keys)?;
                 Ok(result)
             }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::delete_many(store, keys).await?;
+                Ok(result)
+            }
         }
     }
 
@@ -304,6 +383,10 @@ impl KVQBinaryStoreAsync for QEDStore {
             QEDStore::Lmdbx(store) => {
                 store.set_many_split_ref(keys, values)?;
                 Ok(())
+            }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::set_many_split_ref(store, keys, values).await?;
+                Ok(result)
             }
         }
     }
@@ -318,6 +401,10 @@ impl KVQBinaryStoreAsync for QEDStore {
             QEDStore::Lmdbx(store) => {
                 store.set_and_delete_many(keys_to_set, keys_to_delete)?;
                 Ok(())
+            }
+            QEDStore::TiKV(store) => {
+                let result = <TiKVStore as KVQBinaryStoreAsync>::set_and_delete_many(store, keys_to_set, keys_to_delete).await?;
+                Ok(result)
             }
         }
     }

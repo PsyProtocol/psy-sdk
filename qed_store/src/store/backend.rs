@@ -2,6 +2,7 @@ use clap::{Args, Parser};
 use serde::{Deserialize, Serialize};
 
 use super::scylla::config::ScyllaDBConfig;
+use super::tikv::config::TiKVConfig;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct LmdbxConfig {
@@ -20,6 +21,9 @@ pub enum Backend {
     
     #[serde(rename = "lmdbx")]
     Lmdbx(LmdbxConfig),
+    
+    #[serde(rename = "tikv")]
+    TiKV(TiKVConfig),
 }
 
 #[derive(Clone, Debug, Args, Serialize, Deserialize)]
@@ -32,6 +36,9 @@ pub struct BackendConfig {
     
     #[clap(flatten)]
     pub lmdbx: LmdbxConfig,
+    
+    #[clap(flatten)]
+    pub tikv: TiKVConfig,
 }
 
 impl Default for Backend {
@@ -49,6 +56,7 @@ impl Default for BackendConfig {
                 path: "db".to_string(),
                 size_gb: 100,
             },
+            tikv: TiKVConfig::default(),
         }
     }
 }
@@ -58,6 +66,7 @@ impl BackendConfig {
         match self.backend_type.as_str() {
             "scylla" => Backend::Scylla(self.scylla.clone()),
             "lmdbx" => Backend::Lmdbx(self.lmdbx.clone()),
+            "tikv" => Backend::TiKV(self.tikv.clone()),
             _ => Backend::Lmdbx(self.lmdbx.clone()),
         }
     }
