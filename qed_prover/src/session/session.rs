@@ -9,7 +9,7 @@ use crate::{
         circuits::cfc::DapenContractFunctionCircuit,
         data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition},
     },
-    session::hash_no_pad_compressed_publicKey,
+    session::{hash_no_pad_compressed_publicKey, secp256k1_sign},
     ups::{
         circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
         session::UserProvingSessionManager,
@@ -39,7 +39,10 @@ use qed_core::{
 };
 use qed_crypto::{
     hash::traits::qhashable::QFieldHashable,
-    signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
+    signature::{
+        self,
+        zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
+    },
 };
 use qed_data::{
     config::store_config::QEDHasher,
@@ -588,7 +591,15 @@ impl WalletSession {
             .get_sighash(QED_NETWORK_MAGIC_REGTEST, user_session_mgr.nonce);
 
         let signature_proof = match sign_type {
-            SignType::ZKSign => self.wallet.zk_sign_for_public_key(pk_hash, sighash)?,
+            SignType::ZKSign => match &self.main_circuits {
+                QCircuitManager::Local(_) => {
+                    self.wallet.zk_sign_for_public_key(pk_hash, sighash)?
+                }
+                QCircuitManager::Rpc(provider) => {
+                    let private_key = self.wallet.zk_wallet.get_private_key(pk_hash)?.private_key;
+                    provider.prove_signature(private_key, sighash)?
+                }
+            },
             SignType::SECP256K1Sign => {
                 let compressed_pk =
                     self.wallet_secp256k1_keys_store
@@ -597,8 +608,20 @@ impl WalletSession {
                             "user {} not found, cannot get public key param",
                             user_session_mgr.user_id
                         ))?;
-                self.wallet
-                    .zk_sign_hash_secp256k1(*compressed_pk, sighash)?
+                match &self.main_circuits {
+                    QCircuitManager::Local(_) => self
+                        .wallet
+                        .zk_sign_hash_secp256k1(*compressed_pk, sighash)?,
+                    QCircuitManager::Rpc(provider) => {
+                        let private_key = self
+                            .wallet
+                            .secp256k1_wallet
+                            .get_private_key(*compressed_pk)?;
+                        let signature = secp256k1_sign(private_key, sighash)?;
+
+                        provider.prove_secp256k1_signature(signature)?
+                    }
+                }
             }
         };
 

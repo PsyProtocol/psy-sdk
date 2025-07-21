@@ -11,16 +11,23 @@ cfg_if::cfg_if! {
 
 #[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
+use k256::ecdsa::signature::hazmat::PrehashSigner;
 #[cfg(not(target_arch = "wasm32"))]
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
+use qed_common_circuit::circuits::l1_secp256k1_signature::L1Secp256K1SignatureCircuit;
 use qed_core::config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT;
 use qed_core::data::alt::AltVerifierOnlyCircuitData;
+use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
+use qed_core::data::secp256k1::CompressedPublicKey;
 use qed_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType;
 use qed_crypto::common::witnesses::qrecursion::proof_data::SimpleQTreeRecursionManagerInclusionProofs;
 use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
+use qed_crypto::signature;
+use qed_crypto::signature::secp256k1;
+use qed_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
 #[cfg(not(target_arch = "wasm32"))]
 use qed_data::qdata::contract::ContractCodeDefinition;
 
@@ -109,6 +116,12 @@ pub trait ProveProxyRpc {
         &self,
         private_key: QHashOut<F>,
         sig_hash: QHashOut<F>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+
+    #[method(name = "prove_secp256k1_signature")]
+    async fn prove_secp256k1_signature(
+        &self,
+        signature: QEDCompressedSecp256K1Signature,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     // #[method(name = "finalize_tree")]
@@ -221,6 +234,7 @@ pub struct ProveProxyServerProvider {
     pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
 
     pub signature_circuit: QEDBasicZKSignatureCircuit<C, D>,
+    pub secp256k1_circuit: L1Secp256K1SignatureCircuit<C, D>,
 
     pub circuit_manager: QEDUPSStepCircuitManager<C, D>,
     pub circuit_info: SessionCircuitInfoStore<F>,
@@ -234,6 +248,7 @@ impl ProveProxyServerProvider {
         use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
 
         let signature_circuit = QEDBasicZKSignatureCircuit::<C, D>::new();
+        let secp256k1_circuit = L1Secp256K1SignatureCircuit::new();
 
         let circuit_manager = QEDUPSStepCircuitManager::<C, D>::new_with_config(network_magic);
         let mut circuit_info = SessionCircuitInfoStore::new();
@@ -243,11 +258,17 @@ impl ProveProxyServerProvider {
             signature_circuit.get_fingerprint(),
             signature_circuit.get_verifier_config_ref().into(),
         );
+        circuit_info.register_circuit(
+            LocalCircuitType::SimpleSecp256K1.into(),
+            secp256k1_circuit.get_fingerprint(),
+            secp256k1_circuit.get_verifier_config_ref().into(),
+        );
 
         circuit_manager.register_info(&mut circuit_info);
         Self {
             contract_circuits: DashMap::new(),
             signature_circuit,
+            secp256k1_circuit,
             circuit_manager,
             circuit_info,
         }
@@ -455,7 +476,11 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         contract_id: u64,
         method_name: String,
     ) -> Result<u64, ErrorObjectOwned> {
-        tracing::info!("🔔 get_method_id contract_id: {}, method_name: {}", contract_id, method_name);
+        tracing::info!(
+            "🔔 get_method_id contract_id: {}, method_name: {}",
+            contract_id,
+            method_name
+        );
         if let Some(circuits) = self.contract_circuits.get(&contract_id) {
             for (id, circuit) in circuits.iter().enumerate() {
                 if circuit.fn_def.name == method_name {
@@ -478,7 +503,11 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         contract_id: u64,
         method_id: u32,
     ) -> Result<QCommonCircuitData<F>, ErrorObjectOwned> {
-        tracing::info!("🔔 get_contract_method_common_data contract_id: {}, method_id: {}", contract_id, method_id);
+        tracing::info!(
+            "🔔 get_contract_method_common_data contract_id: {}, method_id: {}",
+            contract_id,
+            method_id
+        );
         if let Some(circuits) = self.contract_circuits.get(&contract_id) {
             let circuit = circuits.get(method_id as usize).ok_or_else(|| {
                 ErrorObjectOwned::owned(
@@ -511,7 +540,11 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         method_id: u32,
         input: DapenContractFunctionCircuitInput<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
-        tracing::info!("🔔 prove_contract_call contract_id: {}, method_id: {}", contract_id, method_id);
+        tracing::info!(
+            "🔔 prove_contract_call contract_id: {}, method_id: {}",
+            contract_id,
+            method_id
+        );
         if let Some(fn_circuits) = &self.contract_circuits.get(&contract_id) {
             let fn_circuit = fn_circuits.get(method_id as usize).ok_or_else(|| {
                 ErrorObjectOwned::owned(
@@ -578,6 +611,21 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
             .map_err(|err| {
                 ErrorObjectOwned::owned(1, "signature proving error", Some(err.to_string()))
             })
+    }
+
+    async fn prove_secp256k1_signature(
+        &self,
+        signature: QEDCompressedSecp256K1Signature,
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
+        tracing::info!("🔔 prove_secp256k1_signature");
+
+        self.secp256k1_circuit.prove(&signature).map_err(|err| {
+            ErrorObjectOwned::owned(
+                1,
+                "secp256k1 signature proving error",
+                Some(err.to_string()),
+            )
+        })
     }
 
     async fn prove_ups_end_cap(

@@ -3689,6 +3689,7 @@ dependencies = [
  "hyper 1.6.0",
  "js-sys",
  "jsonrpsee",
+ "k256",
  "kvq",
  "maybe-async",
  "plonky2",

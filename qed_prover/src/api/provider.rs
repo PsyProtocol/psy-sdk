@@ -10,8 +10,11 @@ use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::cir
     PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
     PortableQTreeRecursionCircuitsTrait,
 };
-use qed_crypto::common::witnesses::qrecursion::proof_data::{
-    AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs,
+use qed_crypto::{
+    common::witnesses::qrecursion::proof_data::{
+        AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs,
+    },
+    signature::{self, secp256k1::core::QEDCompressedSecp256K1Signature},
 };
 use qed_crypto::{
     common::witnesses::qrecursion::{
@@ -41,9 +44,10 @@ use crate::api::request::{
     Id, QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest,
     QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest,
     QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterUserRPCRequest,
-    QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2,
-    QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
-    RequestParams, RequestParamsV2, ResponseResult, RpcRequest, RpcResponse, Version,
+    QSecpSignatureProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2,
+    QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest,
+    QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, RequestParams, RequestParamsV2,
+    ResponseResult, RpcRequest, RpcResponse, Version,
 };
 use serde_json;
 
@@ -58,8 +62,7 @@ use reqwest::Client;
 
 use super::request::{
     QAddWithdrawalRPCRequest, QClaimDepositRPCRequest, QDeployContractRPCRequest,
-    QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest,
-    QGetUserIdRPCRequest,
+    QGetUserIdRPCRequest, QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest,
 };
 
 use qed_core::{
@@ -76,7 +79,6 @@ pub struct RpcProvider {
     pub users_per_realm: u64,
     pub current_user_id: u64,
 }
-
 
 impl RpcProvider {
     pub fn new() -> anyhow::Result<Self> {
@@ -160,17 +162,18 @@ macro_rules! qed_rpc_call {
                 .json(&request)
                 .send()
                 .await?;
-            let json_response: RpcResponse<String> = response
-                .json()
-                .await?;
+            let json_response: RpcResponse<String> = response.json().await?;
             match json_response.result {
                 ResponseResult::Success(s) => {
                     tracing::info!("{:?}", s);
                     Ok(())
                 }
-                ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
+                ResponseResult::Error(e) => {
+                    Err(anyhow::format_err!("qed rpc call failed `{:?}`", e))
+                }
             }
-        }.await
+        }
+        .await
     }};
 }
 
@@ -211,19 +214,30 @@ macro_rules! qed_rpc_call_back {
                 .await?
                 .json::<RpcResponse<$ret_ty>>()
                 .await
-        }.await?
+        }
+        .await?
     }};
 }
 
 #[maybe_async::maybe_async(?Send)]
 pub trait QUserRpcProvider {
-    async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()>;
+    async fn register_user<F: RichField>(
+        &self,
+        req: QRegisterUserRPCRequest<F>,
+    ) -> anyhow::Result<()>;
     async fn produce_block<F: RichField>(&self) -> anyhow::Result<()>;
-    async fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()>;
+    async fn add_withdrawal<F: RichField>(
+        &self,
+        req: QAddWithdrawalRPCRequest,
+    ) -> anyhow::Result<()>;
 
-    async fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest) -> anyhow::Result<()>;
+    async fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest)
+        -> anyhow::Result<()>;
 
-    async fn token_transfer<F: RichField>(&self, req: QTokenTransferRPCRequest) -> anyhow::Result<()>;
+    async fn token_transfer<F: RichField>(
+        &self,
+        req: QTokenTransferRPCRequest,
+    ) -> anyhow::Result<()>;
 
     async fn deploy_contract<F: RichField>(
         &self,
@@ -238,33 +252,37 @@ pub trait QUserRpcProvider {
 
 #[maybe_async::maybe_async(?Send)]
 impl QUserRpcProvider for RpcProvider {
-    async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()> {
+    async fn register_user<F: RichField>(
+        &self,
+        req: QRegisterUserRPCRequest<F>,
+    ) -> anyhow::Result<()> {
         tracing::info!("register user: {:?}", req);
         let url = self.get_coordinator_url()?;
-        qed_rpc_call!(
-            self,
-            url,
-            RequestParams::<F>::RegisterUser(req)
-        )
+        qed_rpc_call!(self, url, RequestParams::<F>::RegisterUser(req))
     }
     async fn produce_block<F: RichField>(&self) -> anyhow::Result<()> {
         tracing::info!("produce block");
         let url = self.get_coordinator_url()?;
-        qed_rpc_call!(
-            self,
-            url,
-            RequestParams::<F>::ProduceBlock
-        )
+        qed_rpc_call!(self, url, RequestParams::<F>::ProduceBlock)
     }
-    async fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()> {
+    async fn add_withdrawal<F: RichField>(
+        &self,
+        req: QAddWithdrawalRPCRequest,
+    ) -> anyhow::Result<()> {
         unimplemented!()
     }
 
-    async fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest) -> anyhow::Result<()> {
+    async fn claim_deposit<F: RichField>(
+        &self,
+        req: QClaimDepositRPCRequest,
+    ) -> anyhow::Result<()> {
         unimplemented!()
     }
 
-    async fn token_transfer<F: RichField>(&self, req: QTokenTransferRPCRequest) -> anyhow::Result<()> {
+    async fn token_transfer<F: RichField>(
+        &self,
+        req: QTokenTransferRPCRequest,
+    ) -> anyhow::Result<()> {
         unimplemented!()
     }
 
@@ -273,11 +291,7 @@ impl QUserRpcProvider for RpcProvider {
         req: QDeployContractRPCRequest<F>,
     ) -> anyhow::Result<()> {
         let url = self.get_coordinator_url()?;
-        qed_rpc_call!(
-            self,
-            url,
-            RequestParams::<F>::DeployContract(req)
-        )
+        qed_rpc_call!(self, url, RequestParams::<F>::DeployContract(req))
     }
 
     async fn submit_end_cap_proof<F: RichField>(
@@ -433,6 +447,11 @@ pub trait ProveProxyRpcTrait<C: GenericConfig<D>, const D: usize> {
         &self,
         private_key: QHashOut<C::F>,
         sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+
+    async fn prove_secp256k1_signature(
+        &self,
+        signature: QEDCompressedSecp256K1Signature,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
     // async fn finalize_tree(&self) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
@@ -890,6 +909,34 @@ where
             RequestParams::<C::F>::SignatureProof(QSignatureProofRPCRequest {
                 private_key,
                 sig_hash,
+            }),
+            ProofWithPublicInputs<C::F, C, D>
+        );
+        match response.result {
+            ResponseResult::Success(proof) => {
+                tracing::info!(
+                    "get proof: {}",
+                    serde_json::to_string_pretty(&proof.public_inputs)?
+                );
+                Ok(proof)
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    async fn prove_secp256k1_signature(
+        &self,
+        signature: QEDCompressedSecp256K1Signature,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::info!(
+            "prove_secp256k1_signature: {}",
+            serde_json::to_string_pretty(&signature)?
+        );
+        let response = qed_rpc_call_back!(
+            self,
+            &self.proof_proxy_url,
+            RequestParams::<C::F>::SECPSignatureProof(QSecpSignatureProofRPCRequest {
+                signature,
             }),
             ProofWithPublicInputs<C::F, C, D>
         );

@@ -11,9 +11,10 @@ use qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHead
 use qed_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType;
 use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
+use qed_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
-use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
+use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
 use qed_data::qdata::checkpoint::QEDL2BlockState;
@@ -253,8 +254,10 @@ pub enum RequestParams<F: RichField> {
     UpsCfcStandardTx(QUpsCfcStandardTxRPCRequest<F>),
     #[serde(rename = "qed_prove_ups_cfc_deferred_tx")]
     UpsCfcDeferredTx(QUpsCfcDeferredTxRPCRequest<F>),
-    #[serde(rename = "qed_signature_proof")]
+    #[serde(rename = "qed_prove_signature")]
     SignatureProof(QSignatureProofRPCRequest<F>),
+    #[serde(rename = "qed_prove_secp256k1_signature")]
+    SECPSignatureProof(QSecpSignatureProofRPCRequest),
     // #[serde(rename = "qed_finalize_tree")]
     // FinalizeTree,
     // #[serde(rename = "qed_prove_ups_end_cap")]
@@ -1150,6 +1153,13 @@ pub struct QUpsCfcDeferredTxRPCRequest<F: RichField> {
 pub struct QSignatureProofRPCRequest<F: RichField> {
     pub private_key: QHashOut<F>,
     pub sig_hash: QHashOut<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QSecpSignatureProofRPCRequest {
+    pub signature: QEDCompressedSecp256K1Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

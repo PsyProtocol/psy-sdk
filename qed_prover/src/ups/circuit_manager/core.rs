@@ -32,7 +32,7 @@ use qed_crypto::{
     hash::{
         merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
         traits::hasher::MerkleZeroHasher,
-    },
+    }, signature::secp256k1::core::QEDCompressedSecp256K1Signature,
 };
 use qed_data::{
     qdata::contract::ContractCodeDefinition,
@@ -622,6 +622,13 @@ where
         &self,
         private_key: QHashOut<C::F>,
         sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        todo!()
+    }
+
+    async fn prove_secp256k1_signature(
+        &self,
+        signature: QEDCompressedSecp256K1Signature,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         todo!()
     }

@@ -122,4 +122,8 @@ impl MemorySecp256K1Wallet {
         let pub_compressed = CompressedPublicKey(compressed);
         Ok(pub_compressed)
     }
+
+    pub fn get_private_key(&self, public_key: CompressedPublicKey) -> anyhow::Result<k256::ecdsa::SigningKey> {
+        self.key_map.get(&public_key).cloned().ok_or(anyhow::format_err!("private key not found"))
+    }
 }
