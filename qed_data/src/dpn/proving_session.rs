@@ -1,5 +1,5 @@
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::{
     config::network_constants::{DEFERRED_CALL_MAGIC, SIGN_SIMPLE_TRANSACTION_MAGIC},
     data::qhashout::QHashOut,
@@ -14,6 +14,7 @@ use qed_crypto::hash::{
     utils::safe_hash_fixed_length,
 };
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::qdata::{
     checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf},
@@ -31,8 +32,9 @@ pub struct DPNProvingSessionCheckpointState<F: RichField> {
     pub session_start_user_leaf: QEDUserLeaf<F>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNProvingSessionCompactMethodCall<F: RichField> {
     pub contract_id: F,
     pub method_id: F,
@@ -115,8 +117,9 @@ impl<F: RichField> QFieldHashable<F> for DPNProvingSessionCompactMethodCall<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNProvingSessionSimpleMethodCall<F: RichField> {
     pub contract_id: F,
     pub method_id: F,

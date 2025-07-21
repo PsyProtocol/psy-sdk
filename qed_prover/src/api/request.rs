@@ -1091,9 +1091,9 @@ pub struct QL2BlockStateFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QProveUpsStartRPCRequest<F: RichField> {
     pub input: UPSStartStepInput<F>,
 }
@@ -1114,9 +1114,9 @@ pub struct QGetMethodIdRPCRequest {
     pub method_name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export)]
+#[ts(export)]
 pub struct QGetContractMethodCommonDataRPCRequest {
     pub contract_id: u64,
     pub method_id: u32,
@@ -1124,25 +1124,25 @@ pub struct QGetContractMethodCommonDataRPCRequest {
     // pub method_name: AltVerifierOnlyCircuitData<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QProveContractCallRPCRequest<F: RichField> {
     pub contract_id: u64,
     pub method_id: u32,
     pub input: DapenContractFunctionCircuitInput<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QUpsCfcStandardTxRPCRequest<F: RichField> {
     pub input: UPSCFCStandardTransactionCircuitInput<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QUpsCfcDeferredTxRPCRequest<F: RichField> {
     pub input: UPSCFCDeferredTransactionCircuitInput<F>,
 }
@@ -1155,16 +1155,16 @@ pub struct QSignatureProofRPCRequest<F: RichField> {
     pub sig_hash: QHashOut<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 // #[ts(export, concrete(F = GoldilocksField))]
 pub struct QSecpSignatureProofRPCRequest {
     pub signature: QEDCompressedSecp256K1Signature,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QAggProofRecord<F: RichField> {
     pub circuit_type: QStandardBinaryTreeCircuitType,
     pub fingerprint: QHashOut<F>,
@@ -1184,16 +1184,17 @@ impl<C: GenericConfig<D>, const D: usize> From<AggProofRecord<C, D>> for QAggPro
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QUpsEndCapRPCRequest<F: RichField> {
     pub end_cap_from_proof_tree_input: UPSEndCapFromProofTreeGadgetInput<F>,
     pub agg_proof_record: QAggProofRecord<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(C = PoseidonGoldilocksConfig, D = 2))]
 pub struct QUpsEndCapRPCRequestV2<C: GenericConfig<D>, const D: usize> {
     pub end_cap_from_proof_tree_input: UPSEndCapFromProofTreeGadgetInput<C::F>,
     // AggProofRecord
@@ -1203,9 +1204,9 @@ pub struct QUpsEndCapRPCRequestV2<C: GenericConfig<D>, const D: usize> {
     pub proof: ProofWithPublicInputs<C::F, C, D>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QSingleLeafRpcRequest<F: RichField> {
     pub agg_circuit_whitelist_root: QHashOut<F>,
     pub single_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<F>>,
@@ -1213,8 +1214,9 @@ pub struct QSingleLeafRpcRequest<F: RichField> {
     pub single_verifier_data: AltVerifierOnlyCircuitData<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(C = PoseidonGoldilocksConfig, D = 2))]
 pub struct QSingleLeafRpcRequestV2<C: GenericConfig<D>, const D: usize> {
     pub agg_circuit_whitelist_root: QHashOut<C::F>,
     pub single_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<C::F>>,
@@ -1222,9 +1224,9 @@ pub struct QSingleLeafRpcRequestV2<C: GenericConfig<D>, const D: usize> {
     pub single_verifier_data: AltVerifierOnlyCircuitData<C::F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QTwoLeafRpcRequest<F: RichField> {
     pub agg_circuit_whitelist_root: QHashOut<F>,
     pub left_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<F>>,
@@ -1235,8 +1237,9 @@ pub struct QTwoLeafRpcRequest<F: RichField> {
     pub right_verifier_data: AltVerifierOnlyCircuitData<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(C = PoseidonGoldilocksConfig, D = 2))]
 pub struct QTwoLeafRpcRequestV2<C: GenericConfig<D>, const D: usize> {
     pub agg_circuit_whitelist_root: QHashOut<C::F>,
     pub left_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<C::F>>,
@@ -1247,9 +1250,9 @@ pub struct QTwoLeafRpcRequestV2<C: GenericConfig<D>, const D: usize> {
     pub right_verifier_data: AltVerifierOnlyCircuitData<C::F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QTwoAggRpcRequset<F: RichField> {
     pub left_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<F>>,
     pub left_agg_proof_header: QRecursionAggStandardHeader<F>,
@@ -1261,8 +1264,9 @@ pub struct QTwoAggRpcRequset<F: RichField> {
     pub right_verifier_data: AltVerifierOnlyCircuitData<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(C = PoseidonGoldilocksConfig, D = 2))]
 pub struct QTwoAggRpcRequsetV2<C: GenericConfig<D>, const D: usize> {
     pub left_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<C::F>>,
     pub left_agg_proof_header: QRecursionAggStandardHeader<C::F>,
@@ -1274,9 +1278,9 @@ pub struct QTwoAggRpcRequsetV2<C: GenericConfig<D>, const D: usize> {
     pub right_verifier_data: AltVerifierOnlyCircuitData<C::F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QLeftLeafRightAggRpcRequest<F: RichField> {
     pub left_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<F>>,
     pub left_proof: String,
@@ -1287,8 +1291,9 @@ pub struct QLeftLeafRightAggRpcRequest<F: RichField> {
     pub right_verifier_data: AltVerifierOnlyCircuitData<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(C = PoseidonGoldilocksConfig, D = 2))]
 pub struct QLeftLeafRightAggRpcRequestV2<C: GenericConfig<D>, const D: usize> {
     pub left_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<C::F>>,
     pub left_proof: ProofWithPublicInputs<C::F, C, D>,
@@ -1299,9 +1304,9 @@ pub struct QLeftLeafRightAggRpcRequestV2<C: GenericConfig<D>, const D: usize> {
     pub right_verifier_data: AltVerifierOnlyCircuitData<C::F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
-// #[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QLeftAggRightLeafRpcRequest<F: RichField> {
     pub left_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<F>>,
     pub left_agg_proof_header: QRecursionAggStandardHeader<F>,
@@ -1312,8 +1317,9 @@ pub struct QLeftAggRightLeafRpcRequest<F: RichField> {
     pub right_verifier_data: AltVerifierOnlyCircuitData<F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
+#[ts(export, concrete(C = PoseidonGoldilocksConfig, D = 2))]
 pub struct QLeftAggRightLeafRpcRequestV2<C: GenericConfig<D>, const D: usize> {
     pub left_agg_whitelist_merkle_proof: MerkleProofCore<QHashOut<C::F>>,
     pub left_agg_proof_header: QRecursionAggStandardHeader<C::F>,
@@ -1324,9 +1330,10 @@ pub struct QLeftAggRightLeafRpcRequestV2<C: GenericConfig<D>, const D: usize> {
     pub right_verifier_data: AltVerifierOnlyCircuitData<C::F>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[serde(untagged)]
+#[ts(export, concrete(F = GoldilocksField))]
 pub enum QRPCRequest<F: RichField> {
     QTokenTransferRPCRequest((u32, QTokenTransferRPCRequest)),
     QClaimDepositRPCRequest((u32, QClaimDepositRPCRequest)),

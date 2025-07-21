@@ -6,12 +6,14 @@ use plonky2::{field::secp256k1_scalar::Secp256K1Scalar, hash::hash_types::RichFi
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use ts_rs::TS;
 
 use crate::data::qhashout::QHashOut;
 
 #[serde_as]
-#[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug, Eq, Hash, PartialOrd, Ord)]
-pub struct Hash256(#[serde_as(as = "serde_with::hex::Hex")] pub [u8; 32]);
+#[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug, Eq, Hash, PartialOrd, Ord, TS)]
+#[ts(export)]
+pub struct Hash256(#[serde_as(as = "serde_with::hex::Hex")] #[ts(as = "String")] pub [u8; 32]);
 impl Default for Hash256 {
     fn default() -> Self {
         Self([0u8; 32])
