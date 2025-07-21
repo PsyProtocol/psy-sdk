@@ -1,10 +1,9 @@
-use anyhow::Result;
-use scylla::{Session, SessionBuilder};
-use std::sync::Arc;
-
 use super::{
     clustering_store::ScyllaClusteringStore, config::ScyllaDBConfig, kvq_store::ScyllaKVQStore,
 };
+use anyhow::Result;
+use scylla::{Session, SessionBuilder};
+use std::sync::Arc;
 
 use qed_data::config::store_config::{
     CHECKPOINT_BLOCK_STATE_TABLE_TYPE, CHECKPOINT_HASH_HELPER_TABLE_TYPE,
@@ -15,7 +14,7 @@ use qed_data::config::store_config::{
     USER_REGISTRATION_TREE_TABLE_TYPE, USER_TREE_TABLE_TYPE, WITHDRAWAL_TREE_TABLE_TYPE,
 };
 
-use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair, ScyllaKey};
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 
 #[async_trait::async_trait]
 pub trait ScyllaStoreInstance: KVQBinaryStoreAsync + Send + Sync {
@@ -542,6 +541,21 @@ impl KVQBinaryStore for ScyllaStore {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 <Self as KVQBinaryStoreAsync>::set_many_split_ref(self, keys, values).await
+            })
+        })
+    }
+
+    fn set_and_delete_many(
+        &self,
+        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
+        keys_to_delete: &[Vec<u8>]
+    ) -> Result<()> {
+        let mut keys = keys_to_set.iter().map(|kvq| kvq.key.clone()).collect::<Vec<_>>();
+        let mut delete = keys_to_delete.to_vec();
+        keys.append(&mut delete);
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                <Self as KVQBinaryStoreAsync>::set_and_delete_many(self, keys_to_set, keys_to_delete).await
             })
         })
     }

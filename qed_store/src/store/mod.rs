@@ -6,7 +6,7 @@ pub mod backend;
 pub mod journal;
 
 use std::sync::Arc;
-use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 
 use self::scylla::ScyllaStore;
 use self::lmdbx::KVQlibmdbxStore;
@@ -142,6 +142,18 @@ impl KVQBinaryStore for QEDStore {
             QEDStore::Lmdbx(store) => store.set_many_split_ref(keys, values),
         }
     }
+
+    fn set_and_delete_many(
+        &self,
+        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
+        keys_to_delete: &[Vec<u8>]
+    ) -> anyhow::Result<()> {
+        match self {
+            QEDStore::Scylla(store) => store.set_and_delete_many(keys_to_set, keys_to_delete),
+            QEDStore::Lmdbx(store) => store.set_and_delete_many(keys_to_set, keys_to_delete),
+        }
+    }
+
 }
 
 #[async_trait::async_trait]
@@ -291,6 +303,20 @@ impl KVQBinaryStoreAsync for QEDStore {
             QEDStore::Scylla(store) => <ScyllaStore as KVQBinaryStoreAsync>::set_many_split_ref(store, keys, values).await,
             QEDStore::Lmdbx(store) => {
                 store.set_many_split_ref(keys, values)?;
+                Ok(())
+            }
+        }
+    }
+
+    async fn set_and_delete_many(
+        &self,
+        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
+        keys_to_delete: &[Vec<u8>]
+    ) -> anyhow::Result<()> {
+        match self {
+            QEDStore::Scylla(store) => <ScyllaStore as KVQBinaryStoreAsync>::set_and_delete_many(store, keys_to_set, keys_to_delete).await,
+            QEDStore::Lmdbx(store) => {
+                store.set_and_delete_many(keys_to_set, keys_to_delete)?;
                 Ok(())
             }
         }

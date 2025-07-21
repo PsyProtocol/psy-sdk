@@ -189,6 +189,18 @@ impl KVQBinaryStore for KVQlibmdbxStore {
     fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()> {
         self.with_write_txn(|txn| txn.set_many_split_ref(keys, values))
     }
+
+    fn set_and_delete_many(
+        &self,
+        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
+        keys_to_delete: &[Vec<u8>]
+    ) -> anyhow::Result<()> {
+        self.with_write_txn(|txn| {
+            txn.set_many_ref(keys_to_set)?;
+            txn.delete_many(keys_to_delete)?;
+            Ok(())
+        })
+    }
 }
 
 // Read-only transaction implementation
@@ -391,6 +403,16 @@ impl KVQBinaryStore for Transaction<RO> {
     }
 
     fn set_many_split_ref(&self, _keys: &[Vec<u8>], _values: &[Vec<u8>]) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!(
+            "Attempted to write using a read-only LMDB transaction"
+        ))
+    }
+
+    fn set_and_delete_many(
+        &self,
+        _keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
+        _keys_to_delete: &[Vec<u8>]
+    ) -> anyhow::Result<()> {
         Err(anyhow::anyhow!(
             "Attempted to write using a read-only LMDB transaction"
         ))

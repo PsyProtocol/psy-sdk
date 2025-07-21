@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{future::BoxFuture, stream::FuturesUnordered, StreamExt};
-use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
+use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
 use scylla::batch::{Batch, BatchType};
 use scylla::prepared_statement::PreparedStatement;
 use scylla::{Session, SessionBuilder};
@@ -9,7 +9,6 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 
 use super::config::ScyllaDBConfig;
-use serde::{Deserialize, Serialize};
 
 const BATCH_SIZE: usize = 15;
 const MAX_CONCURRENT_REQUESTS: usize = 30;
@@ -552,5 +551,15 @@ impl KVQBinaryStoreAsync for ScyllaKVQStore {
             .map(|(key, value)| KVQPair { key, value })
             .collect();
         self.set_many_ref(&items).await
+    }
+
+    async fn set_and_delete_many(
+        &self,
+        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
+        keys_to_delete: &[Vec<u8>],
+    ) -> Result<()> {
+        self.set_many_ref(keys_to_set).await?;
+        self.delete_many(keys_to_delete).await?;
+        Ok(())
     }
 }

@@ -2518,6 +2518,7 @@ dependencies = [
  "plonky2",
  "serde",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

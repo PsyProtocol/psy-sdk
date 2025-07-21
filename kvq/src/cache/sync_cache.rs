@@ -170,8 +170,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
             })
             .collect();
 
-        self.store.set_many_ref(&keys_to_set_ref)?;
-        self.store.delete_many(&removed_keys)?;
+        self.store.set_and_delete_many(&keys_to_set_ref,&removed_keys)?;
 
         self.map.write().clear();
         Ok(())
