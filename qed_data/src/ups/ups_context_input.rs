@@ -1,10 +1,11 @@
 
 
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::qdata::user::QEDUserLeaf;
 
@@ -45,8 +46,9 @@ impl<F: RichField> KVQSerializable for UserProvingSessionHeaderCompact<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct UserProvingSessionHeader<F: RichField> {
     pub ups_step_circuit_whitelist_root: QHashOut<F>,
     pub session_start_context: UserProvingSessionStartContext<F>,
@@ -92,8 +94,9 @@ impl<F: RichField> KVQSerializable for UserProvingSessionHeader<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct UserProvingSessionStartContext<F: RichField> {
     pub checkpoint_id: F,
     pub checkpoint_tree_root: QHashOut<F>,
@@ -137,8 +140,9 @@ impl<F: RichField> KVQSerializable for UserProvingSessionStartContext<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct UserProvingSessionCurrentState<F: RichField> {
     pub user_leaf: QEDUserLeaf<F>,
     

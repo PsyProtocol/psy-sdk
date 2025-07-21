@@ -12,7 +12,7 @@ cfg_if::cfg_if! {
 #[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
 use k256::ecdsa::signature::hazmat::PrehashSigner;
-#[cfg(not(target_arch = "wasm32"))]
+// #[cfg(not(target_arch = "wasm32"))]
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
@@ -57,7 +57,7 @@ type F = <C as GenericConfig<D>>::F;
 const D: usize = 2;
 
 // Only define RPC trait for non-WASM targets
-// #[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_arch = "wasm32"))]
 #[rpc(server, client, namespace = "qed")]
 pub trait ProveProxyRpc {
     /// local proving proof generate
@@ -275,7 +275,7 @@ impl ProveProxyServerProvider {
     }
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_arch = "wasm32"))]
 #[async_trait]
 impl ProveProxyRpcServer for ProveProxyServerProvider {
     async fn prove_ups_start(

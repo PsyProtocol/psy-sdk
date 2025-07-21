@@ -1,4 +1,4 @@
-#[cfg(not(target_arch = "wasm32"))]
+// #[cfg(not(target_arch = "wasm32"))]
 pub mod api;
 pub mod dpn;
 pub mod local;
@@ -10,6 +10,7 @@ use qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::local::api::prove_proxy::ProveProxyServerProvider;
 
 #[cfg(target_arch = "wasm32")]
@@ -87,6 +88,7 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     Ok(futures::future::pending::<()>().await)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn run_prove_proxy_server(
     args: crate::local::args::ProveProxyArgs,
 ) -> anyhow::Result<()> {

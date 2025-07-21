@@ -13,6 +13,7 @@ use qed_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use serde::{Deserialize, Serialize};
 
 use serde_with::serde_as;
+use ts_rs::TS;
 
 pub fn secp256k1_scalar_from_bytes(bytes: &[u8], offset: usize) -> Secp256K1Scalar {
     /*
@@ -47,12 +48,15 @@ pub fn secp256k1_base_from_bytes(bytes: &[u8], offset: usize) -> Secp256K1Base {
     Secp256K1Base(arr)
 }
 #[serde_as]
-#[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug, TS)]
+#[ts(export)]
 pub struct QEDCompressedSecp256K1Signature {
     #[serde_as(as = "serde_with::hex::Hex")]
+    #[ts(as = "String")]
     pub public_key: [u8; 33],
 
     #[serde_as(as = "serde_with::hex::Hex")]
+    #[ts(as = "String")]
     pub signature: [u8; 64],
 
     // HashOut<F> in little-endian byte form

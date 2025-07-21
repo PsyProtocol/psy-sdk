@@ -1,16 +1,18 @@
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::{
     merkle::core::MerkleProofCore,
     traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
 };
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use super::contract::QEDContractLeaf;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QEDContractInclusionProof<F: RichField> {
     pub contract_leaf: QEDContractLeaf<F>,
     pub contract_tree_merkle_proof: MerkleProofCore<QHashOut<F>>,
@@ -33,8 +35,9 @@ impl<F: RichField> KVQSerializable for QEDContractInclusionProof<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QEDContractFunctionInclusionProof<F: RichField> {
     pub contract_inclusion_proof: QEDContractInclusionProof<F>,
     pub contract_function_merkle_proof: MerkleProofCore<QHashOut<F>>,

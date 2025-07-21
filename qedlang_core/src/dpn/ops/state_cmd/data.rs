@@ -1,13 +1,16 @@
 use std::hash::Hash;
 
+use plonky2::field::goldilocks_field::GoldilocksField;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 
 use super::types::{DPNStateCmdCore, DPNStateCommandType};
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdSetContractStateSlotHash<T> {
     pub condition: T,
     pub slot_index: T,
@@ -35,7 +38,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdSetContract
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdSetContractStateSlotSingle<T> {
     pub condition: T,
     pub sub_slot_index: T,
@@ -61,7 +65,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdSetContract
 }
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdSetContractStateSlotRange<T> {
     pub condition: T,
     pub sub_slot_index: T,
@@ -87,7 +92,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdSetContract
 }
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdInvokeExternalContractFunctionSync<T> {
     pub condition: T,
     pub contract_id: T,
@@ -118,7 +124,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdInvokeExter
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdInvokeExternalContractFunctionDeferred<T> {
     pub condition: T,
     pub contract_id: T,
@@ -148,7 +155,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdInvokeExter
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdGetSelfUserCurrentContractStateSlotHash<T> {
     pub slot_index: T,
 }
@@ -174,7 +182,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdGetSelfUser
 }
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdGetSelfUserCurrentContractStateSlotSingle<T> {
     pub sub_slot_index: T,
 }
@@ -199,7 +208,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdGetSelfUser
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdGetSelfUserCurrentContractStateSlotRange<T> {
     pub sub_slot_index: T,
     pub length: u32,
@@ -228,7 +238,8 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdGetSelfUser
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdGetSelfUserExternalContractStateSlotHash<T> {
     pub contract_id: T,
     pub slot_index: T,
@@ -258,7 +269,8 @@ impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetSelfUser
 }
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdGetSelfUserExternalContractStateSlotSingle<T> {
     pub contract_id: T,
     pub sub_slot_index: T,
@@ -287,7 +299,8 @@ impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetSelfUser
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdGetSelfUserExternalContractStateSlotRange<T> {
     pub contract_id: T,
     pub sub_slot_index: T,
@@ -320,7 +333,8 @@ impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetSelfUser
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdGetOtherUserContractStateSlotHash<T> {
     pub user_id: T,
     pub contract_id: T,
@@ -352,7 +366,8 @@ impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetOtherUse
 }
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdGetOtherUserContractStateSlotSingle<T> {
     pub user_id: T,
     pub contract_id: T,
@@ -383,7 +398,8 @@ impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetOtherUse
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
 pub struct DPNStateCmdGetOtherUserContractStateSlotRange<T> {
     pub user_id: T,
     pub contract_id: T,
@@ -416,8 +432,9 @@ impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetOtherUse
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, TS)]
 #[serde(tag = "type")]
+#[ts(export, concrete(T = GoldilocksField))]
 pub enum DPNStateCmd<T> {
     SetContractStateSlotHash(DPNStateCmdSetContractStateSlotHash<T>),
     SetContractStateSlotSingle(DPNStateCmdSetContractStateSlotSingle<T>),

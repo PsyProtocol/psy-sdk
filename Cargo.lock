@@ -3625,6 +3625,7 @@ dependencies = [
  "qedlang_macros",
  "serde",
  "serde_json",
+ "ts-rs",
 ]
 
 [[package]]
@@ -3856,6 +3857,7 @@ dependencies = [
  "plonky2",
  "serde",
  "serde_repr",
+ "ts-rs",
  "twox-hash 1.6.3",
 ]
 

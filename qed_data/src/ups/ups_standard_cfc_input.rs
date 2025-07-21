@@ -3,17 +3,19 @@
 
 
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore}};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::{dpn::cfc_context_input::DapenCFCUserTransactionInputContext, qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, contract_inclusion::QEDContractFunctionInclusionProof}};
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct UPSCFCStandardStateDeltaInput<F: RichField> {
     pub cfc_transaction_input_context: DapenCFCUserTransactionInputContext<F>,
     pub user_contract_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
@@ -34,8 +36,9 @@ impl<F: RichField> KVQSerializable for UPSCFCStandardStateDeltaInput<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct UPSVerifyCFCStandardStepInput<F: RichField> {
     pub checkpoint_state: QEDCheckpointLeafCompactWithStateRoots<F>,
     pub verify_cfc_proof_input: AttestTreeAwareProofInTreeInput<F>,
@@ -58,8 +61,9 @@ impl<F: RichField> KVQSerializable for UPSVerifyCFCStandardStepInput<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct UPSVerifyPopDeferredTxStepInput<F: RichField> {
     pub standard_cfc_verify_input: UPSVerifyCFCStandardStepInput<F>,
     pub ups_pop_deferred_tx_proof: DeltaMerkleProofCore<QHashOut<F>>,
