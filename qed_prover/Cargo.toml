@@ -45,6 +45,9 @@ serde-wasm-bindgen = { workspace = true }
 
 k256 = { workspace = true }
 
+rand = { workspace = true }
+getrandom = { workspace = true }
+
 [features]
 default = ["is_sync"]
 is_sync = ["qed_exec/is_sync","qed_store/is_sync","maybe-async/is_sync"]
@@ -59,8 +62,6 @@ tower-http = { workspace = true }
 hyper = { workspace = true }
 jsonrpsee = { workspace = true }
 reqwest = { workspace = true }
-rand = { workspace = true }
-qed_store = { workspace = true }
 
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]

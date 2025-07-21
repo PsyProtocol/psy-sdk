@@ -1,10 +1,15 @@
-pub mod prove_proxy;
-
 cfg_if::cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
+        pub mod prove_proxy;
         use jsonrpsee::core::async_trait;
         use jsonrpsee::proc_macros::rpc;
         use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
+        use crate::api::args::ContractCallArgs;
+        use crate::session::{WalletKeyPair, WalletSession};
+        use crate::api::provider::RpcConfig;
+    } else {
+        use crate::local::types::{ContractCallArgs, WalletKeyPair, RpcConfig};
+        use crate::local::wallet_session::WalletSession;
     }
 }
 
@@ -17,17 +22,6 @@ use qed_core::data::u8bytes::U8Bytes;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::api::args::ContractCallArgs;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::session::{WalletKeyPair, WalletSession};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::api::provider::RpcConfig;
-
-#[cfg(target_arch = "wasm32")]
-use crate::local::types::{ContractCallArgs, WalletKeyPair, RpcConfig};
-#[cfg(target_arch = "wasm32")]
-use crate::local::wallet_session::WalletSession;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::str::FromStr;

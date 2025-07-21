@@ -1,4 +1,3 @@
-#[cfg(not(target_arch = "wasm32"))]
 pub mod api;
 pub mod dpn;
 pub mod local;
@@ -87,6 +86,8 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     Ok(futures::future::pending::<()>().await)
 }
 
+
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn run_prove_proxy_server(
     args: crate::local::args::ProveProxyArgs,
 ) -> anyhow::Result<()> {

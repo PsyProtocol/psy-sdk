@@ -244,7 +244,7 @@ impl<
 
         tracing::info!("circuit_mgr.ups_start.prove_base start");
         // let proof = circuit_mgr.ups_start.prove_base(&input)?;
-        let proof = circuit_mgr.prove_ups_start(&input)?;
+        let proof = circuit_mgr.prove_ups_start(&input).await?;
         timer.lap("circuit_mgr.ups_start.prove_base");
 
         timer.lap("prove_ups_start");

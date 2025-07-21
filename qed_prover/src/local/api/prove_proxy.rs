@@ -1,18 +1,11 @@
-cfg_if::cfg_if! {
-    if #[cfg(not(target_arch = "wasm32"))] {
-        use jsonrpsee::core::async_trait;
-        use jsonrpsee::proc_macros::rpc;
-        use jsonrpsee::types::ErrorObjectOwned;
-        use qed_common_circuit::circuits::zk_signature3::core::QEDBasicZKSignatureCircuit;
-        use crate::dpn::circuits::cfc::DapenContractFunctionCircuit;
-        use crate::ups::circuit_manager::core::QEDUPSStepCircuitManager;
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
+use jsonrpsee::core::async_trait;
+use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::types::ErrorObjectOwned;
+use qed_common_circuit::circuits::zk_signature3::core::QEDBasicZKSignatureCircuit;
+use crate::dpn::circuits::cfc::DapenContractFunctionCircuit;
+use crate::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use dashmap::DashMap;
 use k256::ecdsa::signature::hazmat::PrehashSigner;
-#[cfg(not(target_arch = "wasm32"))]
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
@@ -28,7 +21,6 @@ use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
 use qed_crypto::signature;
 use qed_crypto::signature::secp256k1;
 use qed_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
-#[cfg(not(target_arch = "wasm32"))]
 use qed_data::qdata::contract::ContractCodeDefinition;
 
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
@@ -40,7 +32,6 @@ use qed_data::ups::ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput;
 
 use qed_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
-#[cfg(not(target_arch = "wasm32"))]
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -50,14 +41,11 @@ use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 // use crate::api::provider::LocalCommonCircuitsData;
 use crate::api::provider::QCommonCircuitData;
 use crate::dpn::data::cfc_code_definition_to_dapen_fc;
-use crate::ups::circuit_manager::fingerprints;
 
 type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
 const D: usize = 2;
 
-// Only define RPC trait for non-WASM targets
-// #[cfg(not(target_arch = "wasm32"))]
 #[rpc(server, client, namespace = "qed")]
 pub trait ProveProxyRpc {
     /// local proving proof generate
@@ -227,8 +215,6 @@ pub struct LocalCommonCircuitsData {
 
     pub circuit_inclusion_proofs: SimpleQTreeRecursionManagerInclusionProofs<F>,
 }
-
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug)]
 pub struct ProveProxyServerProvider {
     pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
@@ -240,7 +226,6 @@ pub struct ProveProxyServerProvider {
     pub circuit_info: SessionCircuitInfoStore<F>,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl ProveProxyServerProvider {
     pub fn new_with_config(network_magic: u64) -> Self {
         use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
@@ -275,7 +260,6 @@ impl ProveProxyServerProvider {
     }
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
 #[async_trait]
 impl ProveProxyRpcServer for ProveProxyServerProvider {
     async fn prove_ups_start(

@@ -540,8 +540,8 @@ where
         input: &UPSStartStepInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self {
-            QCircuitManager::Local(manager) => manager.prove_ups_start(&input),
-            QCircuitManager::Rpc(provider) => provider.prove_ups_start(&input),
+            QCircuitManager::Local(manager) => manager.prove_ups_start(&input).await,
+            QCircuitManager::Rpc(provider) => provider.prove_ups_start(&input).await,
         }
     }
 
@@ -552,18 +552,18 @@ where
     ) -> anyhow::Result<()> {
         match self {
             QCircuitManager::Local(manager) => {
-                manager.register_contract_circuits(contract_id, &contract_code)
+                manager.register_contract_circuits(contract_id, &contract_code).await
             }
             QCircuitManager::Rpc(provider) => {
-                provider.register_contract_circuits(contract_id, &contract_code)
+                provider.register_contract_circuits(contract_id, &contract_code).await
             }
         }
     }
 
     async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
         match self {
-            QCircuitManager::Local(manager) => manager.get_method_id(contract_id, method_name),
-            QCircuitManager::Rpc(provider) => provider.get_method_id(contract_id, method_name),
+            QCircuitManager::Local(manager) => manager.get_method_id(contract_id, method_name).await,
+            QCircuitManager::Rpc(provider) => provider.get_method_id(contract_id, method_name).await,
         }
     }
 
@@ -574,10 +574,10 @@ where
     ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
         match self {
             QCircuitManager::Local(manager) => {
-                manager.get_contract_method_common_data(contract_id, method_id)
+                manager.get_contract_method_common_data(contract_id, method_id).await
             }
             QCircuitManager::Rpc(provider) => {
-                provider.get_contract_method_common_data(contract_id, method_id)
+                provider.get_contract_method_common_data(contract_id, method_id).await
             }
         }
     }
@@ -590,10 +590,10 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self {
             QCircuitManager::Local(manager) => {
-                manager.prove_contract_call(contract_id, method_id, &input)
+                manager.prove_contract_call(contract_id, method_id, &input).await
             }
             QCircuitManager::Rpc(provider) => {
-                provider.prove_contract_call(contract_id, method_id, &input)
+                provider.prove_contract_call(contract_id, method_id, &input).await
             }
         }
     }
@@ -603,8 +603,8 @@ where
         input: &UPSCFCStandardTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self {
-            QCircuitManager::Local(manager) => manager.ups_cfc_standard_tx(&input),
-            QCircuitManager::Rpc(provider) => provider.prove_ups_cfc_standard_tx(&input),
+            QCircuitManager::Local(manager) => manager.ups_cfc_standard_tx(&input).await,
+            QCircuitManager::Rpc(provider) => provider.prove_ups_cfc_standard_tx(&input).await,
         }
     }
 
@@ -613,8 +613,8 @@ where
         input: &UPSCFCDeferredTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self {
-            QCircuitManager::Local(manager) => manager.ups_cfc_deferred_tx(&input),
-            QCircuitManager::Rpc(provider) => provider.prove_ups_cfc_deferred_tx(&input),
+            QCircuitManager::Local(manager) => manager.ups_cfc_deferred_tx(&input).await,
+            QCircuitManager::Rpc(provider) => provider.prove_ups_cfc_deferred_tx(&input).await,
         }
     }
 
@@ -661,14 +661,14 @@ where
                 &circuit_info,
                 &end_cap_from_proof_tree_input,
                 &agg_proof_record,
-            ),
+            ).await,
         }
     }
 
     async fn ups_start_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         match self {
             QCircuitManager::Local(manager) => Ok(manager.ups_start.get_fingerprint()),
-            QCircuitManager::Rpc(provider) => provider.ups_start_circuit_fingerprint(),
+            QCircuitManager::Rpc(provider) => provider.ups_start_circuit_fingerprint().await,
         }
     }
 
@@ -679,14 +679,14 @@ where
             QCircuitManager::Local(manager) => {
                 Ok(manager.ups_start.get_verifier_config_ref().clone().into())
             }
-            QCircuitManager::Rpc(provider) => provider.ups_start_circuit_verifier_config(),
+            QCircuitManager::Rpc(provider) => provider.ups_start_circuit_verifier_config().await,
         }
     }
 
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         match self {
             QCircuitManager::Local(manager) => Ok(manager.ups_cfc_standard_tx.get_fingerprint()),
-            QCircuitManager::Rpc(provider) => provider.ups_cfc_standard_tx_circuit_fingerprint(),
+            QCircuitManager::Rpc(provider) => provider.ups_cfc_standard_tx_circuit_fingerprint().await,
         }
     }
 
@@ -700,7 +700,7 @@ where
                 .clone()
                 .into()),
             QCircuitManager::Rpc(provider) => {
-                provider.ups_cfc_standard_tx_circuit_verifier_config()
+                provider.ups_cfc_standard_tx_circuit_verifier_config().await
             }
         }
     }
@@ -708,7 +708,7 @@ where
     async fn ups_cfc_deferred_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         match self {
             QCircuitManager::Local(manager) => Ok(manager.ups_cfc_deferred_tx.get_fingerprint()),
-            QCircuitManager::Rpc(provider) => provider.ups_cfc_deferred_tx_circuit_fingerprint(),
+            QCircuitManager::Rpc(provider) => provider.ups_cfc_deferred_tx_circuit_fingerprint().await,
         }
     }
 
@@ -722,7 +722,7 @@ where
                 .clone()
                 .into()),
             QCircuitManager::Rpc(provider) => {
-                provider.ups_cfc_deferred_tx_circuit_verifier_config()
+                provider.ups_cfc_deferred_tx_circuit_verifier_config().await
             }
         }
     }
@@ -730,7 +730,7 @@ where
     async fn ups_end_cap_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         match self {
             QCircuitManager::Local(manager) => Ok(manager.ups_end_cap.get_fingerprint()),
-            QCircuitManager::Rpc(provider) => provider.ups_end_cap_circuit_fingerprint(),
+            QCircuitManager::Rpc(provider) => provider.ups_end_cap_circuit_fingerprint().await,
         }
     }
 
@@ -741,14 +741,14 @@ where
             QCircuitManager::Local(manager) => {
                 Ok(manager.ups_end_cap.get_verifier_config_ref().clone().into())
             }
-            QCircuitManager::Rpc(provider) => provider.ups_end_cap_circuit_verifier_config(),
+            QCircuitManager::Rpc(provider) => provider.ups_end_cap_circuit_verifier_config().await,
         }
     }
 
     async fn ups_circuit_whitelist_root(&self) -> anyhow::Result<QHashOut<C::F>> {
         match self {
             QCircuitManager::Local(manager) => Ok(manager.ups_circuit_whitelist_root),
-            QCircuitManager::Rpc(provider) => provider.ups_circuit_whitelist_root(),
+            QCircuitManager::Rpc(provider) => provider.ups_circuit_whitelist_root().await,
         }
     }
 }

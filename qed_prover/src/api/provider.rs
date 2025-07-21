@@ -536,6 +536,7 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
     pub fn new_with_config(proof_proxy_url: String) -> anyhow::Result<Self> {
         let client = Client::new();
 
+        // todo fix bug
         let response = client
             .post(&proof_proxy_url)
             .json(&RpcRequest {
@@ -1172,6 +1173,7 @@ where
             "prove single leaf circuit: {}",
             serde_json::to_string_pretty(&agg_circuit_whitelist_root)?
         );
+        // todo fix bug
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,

@@ -3686,6 +3686,7 @@ dependencies = [
  "console_error_panic_hook",
  "dashmap 6.1.0",
  "futures",
+ "getrandom 0.2.16",
  "hyper 1.6.0",
  "js-sys",
  "jsonrpsee",
