@@ -1,10 +1,9 @@
-use anyhow::Result;
-use scylla::{Session, SessionBuilder};
-use std::sync::Arc;
-use kvq::snapshot::SnapshotAsync;
 use super::{
     clustering_store::ScyllaClusteringStore, config::ScyllaDBConfig, kvq_store::ScyllaKVQStore,
 };
+use anyhow::Result;
+use scylla::{Session, SessionBuilder};
+use std::sync::Arc;
 
 use qed_data::config::store_config::{
     CHECKPOINT_BLOCK_STATE_TABLE_TYPE, CHECKPOINT_HASH_HELPER_TABLE_TYPE,
@@ -15,7 +14,7 @@ use qed_data::config::store_config::{
     USER_REGISTRATION_TREE_TABLE_TYPE, USER_TREE_TABLE_TYPE, WITHDRAWAL_TREE_TABLE_TYPE,
 };
 
-use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair, ScyllaKey};
+use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 
 #[async_trait::async_trait]
 pub trait ScyllaStoreInstance: KVQBinaryStoreAsync + Send + Sync {
@@ -417,46 +416,6 @@ impl KVQBinaryStoreAsync for ScyllaStore {
         for (key, value) in keys.iter().zip(values.iter()) {
             <Self as KVQBinaryStoreAsync>::set_ref(self, key, value).await?;
         }
-        Ok(())
-    }
-    async fn set_and_delete_many(
-        &self,
-        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
-        keys_to_delete: &[Vec<u8>]
-    ) -> Result<()> {
-        let mut keys = keys_to_set.iter().map(|kvq| kvq.key.clone()).collect::<Vec<_>>();
-        let mut delete = keys_to_delete.to_vec();
-        keys.append(&mut delete);
-        let key_len = keys.len();
-        // Copy-on-Write
-        let snapshot = self.create_snapshot(keys).await?;
-        // set_many_ref
-        let mut completed_keys = Vec::with_capacity(key_len);
-        for item in keys_to_set {
-            completed_keys.push(item.key.clone());
-            if let Err(err) = <Self as KVQBinaryStoreAsync>::set_ref(self, item.key, item.value).await {
-                let snapshot = snapshot.part_snapshot_entry(completed_keys)
-;               self.restore_from_snapshot(snapshot).await?;
-                return Err(err);
-            }
-        }
-        // delete_many
-        for item in keys_to_delete {
-            completed_keys.push(item.clone());
-            if let Err(err) = <Self as KVQBinaryStoreAsync>::delete(self, item).await {
-                let snapshot = snapshot.part_snapshot_entry(completed_keys.clone());
-                self.restore_from_snapshot(snapshot).await?;
-            }
-        }
-
-        // if let Err(err) = <Self as KVQBinaryStoreAsync>::set_many_ref(self, keys_to_set).await {
-        //     self.restore_from_snapshot(snapshot).await?;
-        //     return Err(err);
-        // }
-        // if let Err(err) = <Self as KVQBinaryStoreAsync>::delete_many(self, keys_to_delete).await {
-        //     self.restore_from_snapshot(snapshot).await?;
-        //     return Err(err);
-        // }
         Ok(())
     }
 }

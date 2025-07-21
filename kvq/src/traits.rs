@@ -341,21 +341,3 @@ pub trait KVQBinaryStoreAsync {
         Ok(())
     }
 }
-
-pub enum Operation {
-    Set(Vec<u8>, Vec<u8>),
-    SetMany(Vec<KVQPair<Vec<u8>, Vec<u8>>>),
-    Delete(Vec<u8>),
-    DeleteMany(Vec<Vec<u8>>),
-}
-
-#[async_trait::async_trait]
-pub trait KVQBinaryStoreBatchWriter {
-    fn batch_operation(&self, operations: &[Operation]) -> anyhow::Result<()>;
-}
-
-#[async_trait::async_trait]
-pub trait KVQBinaryStoreBatchWriterAsync {
-   async fn batch_operation(&self,operations: &[Operation]) -> anyhow::Result<()>;
-}
-
