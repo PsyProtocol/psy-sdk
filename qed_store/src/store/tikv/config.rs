@@ -4,13 +4,13 @@ use std::time::Duration;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct TiKVConfig {
-    #[clap(long, env = "TIKV_PD_ENDPOINTS", default_value = "127.0.0.1:2379")]
+    #[clap(long = "tikv-pd-endpoints", env = "TIKV_PD_ENDPOINTS", default_value = "127.0.0.1:2379")]
     pub pd_endpoints: Vec<String>,
     
-    #[clap(long, env = "TIKV_NAMESPACE", default_value = "qed")]
+    #[clap(long = "tikv-namespace", env = "TIKV_NAMESPACE", default_value = "qed")]
     pub namespace: String,
     
-    #[clap(long, env = "TIKV_TIMEOUT_MS", default_value_t = 30000)]
+    #[clap(long = "tikv-timeout-ms", env = "TIKV_TIMEOUT_MS", default_value_t = 30000)]
     pub timeout_ms: u64,
 }
 
