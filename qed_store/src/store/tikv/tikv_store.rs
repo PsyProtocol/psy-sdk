@@ -2,8 +2,8 @@ use super::config::TiKVConfig;
 use anyhow::Result;
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
-use std::{fmt::Debug, sync::Arc};
 use std::collections::HashMap;
+use std::{fmt::Debug, sync::Arc};
 use tikv_client::proto::kvrpcpb::{Mutation, Op};
 use tikv_client::{Key, Snapshot, Transaction, TransactionClient, TransactionOptions, Value};
 
@@ -17,6 +17,12 @@ pub struct TiKVStore {
     config: TiKVConfig,
 }
 
+pub fn prefix_key(prefix: &[u8], key: &[u8]) -> Key {
+    let mut full_key = prefix.to_vec();
+    full_key.extend_from_slice(key);
+    full_key.into()
+}
+
 impl Debug for TiKVStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "TiKVStore {{ connection: {:?}, namespace: {:?} }}", self.config.pd_endpoints, self.config.namespace)
@@ -25,7 +31,8 @@ impl Debug for TiKVStore {
 
 impl TiKVStore {
     pub async fn new(config: TiKVConfig) -> Result<Self> {
-        let connection = TransactionClient::new(config.pd_endpoints.clone()).await?;
+        let pd_endpoints = config.get_pd_endpoints();
+        let connection = TransactionClient::new(pd_endpoints).await?;
         let namespace_bytes = config.namespace.as_bytes().to_vec();
         
         Ok(Self {
@@ -36,20 +43,12 @@ impl TiKVStore {
     }
 
     fn make_key(&self, key: &[u8]) -> Key {
-        let mut full_key = self.namespace_bytes.clone();
-        full_key.extend_from_slice(key);
-        Key::from(full_key)
+        prefix_key(self.namespace_bytes.as_slice(), key)
     }
 
     // Helper method to create scan range with namespace
     fn make_scan_range(&self, start_key: &[u8], end_key: &[u8]) -> (Key, Key) {
-        let mut scan_start = self.namespace_bytes.clone();
-        scan_start.extend_from_slice(start_key);
-        
-        let mut scan_end = self.namespace_bytes.clone();
-        scan_end.extend_from_slice(end_key);
-        
-        (Key::from(scan_start), Key::from(scan_end))
+        (self.make_key(start_key), self.make_key(end_key))
     }
 
     async fn execute_read_transaction<F, Fut, R>(&self, f: F) -> Result<R>
@@ -116,17 +115,10 @@ impl KVQBinaryStoreAsync for TiKVStore {
         let namespace_bytes = self.namespace_bytes.clone();
         
         self.execute_read_snapshot(|mut txn| async move {
-            let tikv_keys: Vec<Key> = keys.iter().map(|key| {
-                let mut full_key = namespace_bytes.clone();
-                full_key.extend_from_slice(key);
-                Key::from(full_key)
-            }).collect();
-
+            let tikv_keys: Vec<Key> = keys.iter().map(|key| prefix_key(&namespace_bytes, key)).collect();
             let batch_result = txn.batch_get(tikv_keys.clone()).await?;
-            
             // Collect batch_result into a Vec for reuse
             let batch_vec: Vec<_> = batch_result.collect();
-
             // Use Vec instead of HashMap for better performance with small datasets
             let mut results = Vec::with_capacity(keys.len());
             for tikv_key in tikv_keys {
@@ -146,14 +138,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         
         self.execute_read_snapshot(|mut txn| async move {
             // First try exact match
-            let exact_key = {
-                let mut full_key = Vec::with_capacity(namespace_bytes.len() + key.len());
-                full_key.extend_from_slice(namespace_bytes);
-                full_key.extend_from_slice(key);
-                Key::from(full_key)
-            };
-            
-            if let Some(value) = txn.get(exact_key).await? {
+            if let Some(value) = txn.get(prefix_key(namespace_bytes, key)).await? {
                 return Ok(Some(value.to_vec()));
             }
             
@@ -168,9 +153,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
             
             // Create tighter scan range for better performance
             let (scan_start, scan_end) = {
-                let mut start = Vec::with_capacity(namespace_bytes.len() + base_key.len());
-                start.extend_from_slice(namespace_bytes);
-                start.extend_from_slice(base_key);
+                let start = prefix_key(namespace_bytes,base_key);
                 
                 let mut end = Vec::with_capacity(namespace_bytes.len() + key.len() + 1);
                 end.extend_from_slice(namespace_bytes);
@@ -363,7 +346,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
             }).collect();
             
             let batch_result = txn.batch_get(exact_keys).await?;
-            let exact_matches: std::collections::HashMap<Vec<u8>, Vec<u8>> = batch_result
+            let exact_matches: HashMap<Vec<u8>, Vec<u8>> = batch_result
                 .map(|kv| (kv.key().clone().into(), kv.value().to_vec()))
                 .collect();
             
