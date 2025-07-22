@@ -1,5 +1,6 @@
 // src/config/index.ts
 import dotenv from 'dotenv';
+import * as rootConfig from '../../../../../../config.json';
 
 // Load environment variables
 dotenv.config();
@@ -49,7 +50,7 @@ export const config = {
                 // Additional realm endpoints for different realm IDs
                 realms: {
                     0: 'http://127.0.0.1:8546',        // Default realm (0)
-                    32: 'http://127.0.0.1:8547',    // Realm 32
+                    32: 'http://127.0.0.1:8547',    // Realm 1
                     // 8192: 'http://127.0.0.1:8548',  // Realm 8192 (commented in Makefile)
                 }
             },
@@ -104,12 +105,12 @@ export const config = {
             ),
             user32_0: createKeyPairInfo(
                 process.env.USER32_0_PRIVATE_KEY || 'f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d',
-                134217728n, // User ID in realm 32
+                BigInt(rootConfig.network.users_per_realm), // User ID in realm 1 (from root config)
                 32
             ),
             user32_1: createKeyPairInfo(
                 process.env.USER32_1_PRIVATE_KEY || '88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d',
-                536870913n, // User ID in realm 32
+                536870913n, // User ID in realm 1
                 32
             ),
         },
@@ -160,10 +161,10 @@ export const config = {
         configs: {
             32: {
                 nodeId: 2,
-                workerQueueSuffix: 'rwq32',
-                notificationsQueueSuffix: 'rnq32',
-                proofStoreKeySuffix: 'RP32',
-                dbPath: './db/realm32',
+                workerQueueSuffix: 'rwq1',
+                notificationsQueueSuffix: 'rnq1',
+                proofStoreKeySuffix: 'RP1',
+                dbPath: './db/realm1',
                 redisUri: 'redis://127.0.0.1:6381',
             },
             // 8192: {

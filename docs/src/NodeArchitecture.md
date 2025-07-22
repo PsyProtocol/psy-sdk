@@ -172,6 +172,118 @@ Supporting this massive parallelism requires a high-performance, shared backend 
     *   **Concurrency:** Redis handles concurrent connections from numerous DPN nodes.
     *   **Decoupling:** Proving computation (Workers) is separated from state storage and coordination (Redis + Control Nodes), allowing independent scaling.
 
+```mermaid
+graph TB
+    %% External Network
+    Internet[🌐 Internet] --> IGW[Internet Gateway]
+    
+    %% VPC Container
+    subgraph VPC["🏢 VPC (10.0.0.0/16)"]
+        IGW --> ALB[🔀 Application Load Balancer<br/>Ports: 8545, 8546, 8547]
+        
+        %% Availability Zone A
+        subgraph AZ1["🏛️ Availability Zone A"]
+            subgraph PubSub1["🌍 Public Subnet 1<br/>(10.0.0.0/24)"]
+                ALB
+            end
+            
+            subgraph PrivSub1["🔒 Private Subnet 1<br/>(10.0.2.0/24)"]
+                ECS_Coord[🐳 ECS Task<br/>Coordinator]
+                ECS_R0[🐳 ECS Task<br/>Realm 0]
+                ECS_R1[🐳 ECS Task<br/>Realm 1]
+                
+                Redis_Coord[🔴 Redis<br/>Coordinator]
+                Redis_R0[🔴 Redis<br/>Realm 0]
+                Redis_R1[🔴 Redis<br/>Realm 1]
+                
+                EFS_Mount1[📁 EFS Mount Target 1]
+            end
+        end
+        
+        %% Availability Zone B
+        subgraph AZ2["🏛️ Availability Zone B"]
+            subgraph PubSub2["🌍 Public Subnet 2<br/>(10.0.1.0/24)"]
+                ALB_HA[🔀 ALB HA Deployment]
+            end
+            
+            subgraph PrivSub2["🔒 Private Subnet 2<br/>(10.0.3.0/24)"]
+                EFS_Mount2[📁 EFS Mount Target 2]
+            end
+        end
+        
+        ALB -.-> ALB_HA
+    end
+    
+    %% External AWS Services
+    subgraph AWS_Services["☁️ AWS Services"]
+        ECR[📦 ECR Repository<br/>qed-protocol]
+        S3[🪣 S3 Bucket<br/>Artifacts Storage]
+        CloudWatch[📊 CloudWatch Logs<br/>/ecs/qed-protocol]
+        EFS[💾 EFS FileSystem<br/>LMDBX Storage]
+        ServiceDiscovery[🔍 Service Discovery<br/>qed.local]
+    end
+    
+    %% ECS Cluster
+    subgraph ECS_Cluster["🚢 ECS Cluster qed-cluster"]
+        ECS_Coord
+        ECS_R0
+        ECS_R1
+    end
+    
+    %% Connection Relationships - ALB to ECS
+    ALB -->|Port 8545| ECS_Coord
+    ALB -->|Port 8546| ECS_R0
+    ALB -->|Port 8547| ECS_R1
+    
+    %% ECS to Redis Connections
+    ECS_Coord <--> Redis_Coord
+    ECS_R0 <--> Redis_R0
+    ECS_R1 <--> Redis_R1
+    
+    %% EFS Connections
+    EFS --> EFS_Mount1
+    EFS --> EFS_Mount2
+    ECS_Coord <--> EFS_Mount1
+    ECS_R0 <--> EFS_Mount1
+    ECS_R1 <--> EFS_Mount1
+    
+    %% ECS to External Services
+    ECS_Coord <--> S3
+    ECS_R0 <--> S3
+    ECS_R1 <--> S3
+    
+    ECR --> ECS_Coord
+    ECR --> ECS_R0
+    ECR --> ECS_R1
+    
+    ECS_Coord --> CloudWatch
+    ECS_R0 --> CloudWatch
+    ECS_R1 --> CloudWatch
+    
+    ServiceDiscovery <--> ECS_Coord
+    ServiceDiscovery <--> ECS_R0
+    ServiceDiscovery <--> ECS_R1
+    
+    %% Style Definitions
+    classDef vpc fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef publicSubnet fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef privateSubnet fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef ecs fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    classDef redis fill:#ffcdd2,stroke:#d32f2f,stroke-width:2px
+    classDef storage fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef loadbalancer fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef external fill:#f5f5f5,stroke:#424242,stroke-width:2px
+    
+    class VPC vpc
+    class PubSub1,PubSub2 publicSubnet
+    class PrivSub1,PrivSub2 privateSubnet
+    class ECS_Coord,ECS_R0,ECS_R1 ecs
+    class Redis_Coord,Redis_R0,Redis_R1 redis
+    class EFS,EFS_Mount1,EFS_Mount2,S3 storage
+    class ALB,ALB_HA loadbalancer
+    class ECR,CloudWatch,ServiceDiscovery external
+```
+
 ## 5. Security Guarantees
 
 QED's security rests on multiple pillars:

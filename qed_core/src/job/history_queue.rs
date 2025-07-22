@@ -124,6 +124,7 @@ pub trait CheckpointHistoryQueueConsumerAsyncImm {
         channel_id: u64,
         start_checkpoint_id: u64,
     ) -> anyhow::Result<T>;
+    async fn is_empty(&self) -> anyhow::Result<bool>;
 }
 
 #[async_trait]

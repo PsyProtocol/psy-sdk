@@ -24,13 +24,13 @@ use qed_data::{
         qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync,
     },
 };
-use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
+use qed_store::{controllers::local::proving_session::QEDLocalProvingSessionStore, node::coordinator::QEDCoordinatorStoreWriterAsyncImm};
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 pub const D: usize = 2;
 pub type C = PoseidonGoldilocksConfig;
 
-pub fn prepare_environment_with_real_contract(
+pub async fn prepare_environment_with_real_contract(
     new_user_public_key: QBCRegisterUser<GoldilocksField>,
     deploy_contract: QBCDeployContract<GoldilocksField>,
 ) -> anyhow::Result<
@@ -46,7 +46,7 @@ pub fn prepare_environment_with_real_contract(
         QHashOut::rand(),
     ];
     let st = KVQSimpleMemoryBackingStore::new();
-    st.initialize_store()?;
+    st.initialize_store().await?;
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
         &st,

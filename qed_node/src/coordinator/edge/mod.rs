@@ -16,7 +16,7 @@ use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 use tracing::info;
 
 use qed_store::store::QEDStore;
-use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::queue::ProofStoreRedisAsync;
 
 pub type StoreReader = QEDStore;
 pub type DrainQueue = ProofStoreRedisAsync;

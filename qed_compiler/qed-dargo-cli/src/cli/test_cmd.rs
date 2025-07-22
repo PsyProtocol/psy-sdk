@@ -22,7 +22,7 @@ pub(crate) struct TestCommand {
     #[clap(short, env, long)]
     pub file: PathBuf,
 }
-pub(crate) fn run(args: TestCommand) -> crate::errors::Result<()> {
+pub(crate) async fn run(args: TestCommand) -> crate::errors::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) = interpreter.typecheck_single(args.file.clone())?;
     let compile_results = interpreter.test(
@@ -56,7 +56,7 @@ pub(crate) fn run(args: TestCommand) -> crate::errors::Result<()> {
     let mut lps = prepare_environment_with_real_contract(
         QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
         deploy_cmd,
-    )?;
+    ).await?;
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
     for (def, circuit) in compile_results.into_iter().zip(circuits.into_iter()) {
@@ -74,14 +74,16 @@ pub(crate) fn run(args: TestCommand) -> crate::errors::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn qed_unit_test() {
+    #[tokio::test]
+    async fn qed_unit_test() {
         unsafe {
             std::env::set_var("DARGO_STD_PATH", "../../../qed-std/std.qed");
         }
         insta::glob!("../../../tests", "*_test.qed", |path| {
             let args = TestCommand { file: path.into() };
-            run(args).unwrap();
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(run(args))
+            }).unwrap();
             #[allow(static_mut_refs)]
             unsafe {
                 qed_sema::STD_PRIMITIVE_SCOPE_ID.take()

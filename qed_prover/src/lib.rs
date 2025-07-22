@@ -1,10 +1,21 @@
 pub mod dpn;
 pub mod ups;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod api;
+pub mod local;
+
+// Session module is only available for native builds
 #[cfg(not(target_arch = "wasm32"))]
 pub mod session;
-pub mod local;
+
+// Re-export the appropriate session module based on target
+#[cfg(not(target_arch = "wasm32"))]
+pub use session::WalletSession;
+#[cfg(not(target_arch = "wasm32"))]
+pub use session::WalletKeyPair;
+
+#[cfg(target_arch = "wasm32")]
+pub use local::wasm::wallet_session::WalletSession;
+#[cfg(target_arch = "wasm32")]
+pub use local::types::WalletKeyPair;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -41,13 +52,13 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     use jsonrpsee::server::Server;
     use crate::local::UserProverWorkerStore;
     use qed_core::data::base_types::hash256::Hash256;
-    use crate::api::provider::RpcConfig;
+    use crate::local::provider::RpcConfig;
     use crate::session::WalletSession;
     use std::net::SocketAddr;
     use std::sync::{Arc, Mutex, RwLock};
     use tower_http::cors::{Any, CorsLayer};
 
-    use crate::local::api::{RpcServer, RpcServerImpl};
+    use crate::local::native::{RpcServer, RpcServerImpl};
     use crate::local::common::enc::SimpleZeroPadEncryptionHelper;
 
     let api_key = Hash256::from_hex_string(&args.api_key)?;
@@ -70,7 +81,9 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
         .build(server_addr)
         .await?;
 
-    let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(args.rpc_config)?)?;
+    let config_str = std::fs::read_to_string(&args.rpc_config)?;
+    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 
     let store = Arc::new(Mutex::new(UserProverWorkerStore::new()));
     let wallet_session = Arc::new(RwLock::new(WalletSession::new(&rpc_config)?));

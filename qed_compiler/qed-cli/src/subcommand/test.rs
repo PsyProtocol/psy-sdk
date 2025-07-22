@@ -15,7 +15,7 @@ use qedlang_core::dpn::{
     vm::compile::QEDCompileResult,
 };
 
-pub fn run(args: TestArgs) -> anyhow::Result<()> {
+pub async fn run(args: TestArgs) -> anyhow::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) = interpreter.typecheck_single(args.file.into())?;
     let compile_results = interpreter.test(
@@ -50,7 +50,7 @@ pub fn run(args: TestArgs) -> anyhow::Result<()> {
     let mut lps = prepare_environment_with_real_contract(
         QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
         deploy_cmd,
-    )?;
+    ).await?;
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
     for (def, circuit) in compile_results.into_iter().zip(circuits.into_iter()) {

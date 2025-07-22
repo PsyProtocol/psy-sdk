@@ -40,7 +40,12 @@ pub trait QEDCheckpointSyncInfoModelReaderCore<
         checkpoint_id: u64,
     ) -> anyhow::Result<QCheckpointSyncInfoCompact> {
         //tracing::info!("get block state: {}", checkpoint_id);
-        Ok(KVA::get_leq(store, &U64TableKey(checkpoint_id), CHECKPOINT_ID_FUZZY_SIZE)?.unwrap())
+        let result = KVA::get_leq(store, &U64TableKey(checkpoint_id), CHECKPOINT_ID_FUZZY_SIZE)?;
+        if result.is_some() {
+            Ok(result.unwrap())
+        } else {
+            Err(CheckpointError::NotFound.into())
+        }
     }
     fn get_latest_checkpoint_sync_info_compact(
         store: &S,

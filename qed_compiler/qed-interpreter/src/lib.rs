@@ -1704,9 +1704,9 @@ mod tests {
         };
     }
 
-    #[test]
+    #[tokio::test]
     #[serial]
-    fn test_interpreter() {
+    async fn test_interpreter() {
         qed_utils::setup_env_logger();
 
         insta::glob!(
@@ -1748,10 +1748,16 @@ mod tests {
                 )
                 .unwrap();
 
-                let mut lps = prepare_environment_with_real_contract(
-                    QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
-                    deploy_cmd,
-                )
+                let mut lps = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current()
+                        .block_on(async {
+                            prepare_environment_with_real_contract(
+                                QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
+                                deploy_cmd,
+                            )
+                            .await
+                        })
+                })
                 .unwrap();
                 let contract_id = GoldilocksField::from_canonical_u64(2);
 

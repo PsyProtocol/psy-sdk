@@ -20,8 +20,9 @@ use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
-use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::proof_store_fred::ProofStoreFred};
+use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::ProofStoreFred};
 use super::super::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
+use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use std::time::Duration;
 
 
@@ -60,7 +61,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let store_reader: Arc<KVQSimpleMemoryBackingStore> =
         Arc::new(KVQSimpleMemoryBackingStore::new());
 
-    store_reader.initialize_store()?;
+    store_reader.initialize_store().await?;
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 
@@ -170,7 +171,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     ).await?;
 
 
-    let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
+    let realm_result: GUTARealmCheckpointResult<QEDFelt>  = { let bytes = realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?; bincode::deserialize(&bytes) }.map_err(|e| anyhow::anyhow!("{:?}",e))?;
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id).await?;
 
     coordinator_edge_node.handle_recv_guta_from_realm(SubmitGUTARealmResultAPINoProofInput{
@@ -294,7 +295,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     ).await?;
 
 
-    let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
+    let realm_result: GUTARealmCheckpointResult<QEDFelt>  = { let bytes = realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?; bincode::deserialize(&bytes) }.map_err(|e| anyhow::anyhow!("{:?}",e))?;
     println!("rr: {:?}",realm_result);
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
 
@@ -351,7 +352,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     ).await?;
 
 
-    let realm_result: GUTARealmCheckpointResult<QEDFelt>  = bincode::deserialize(&realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?).map_err(|e| anyhow::anyhow!("{:?}",e))?;
+    let realm_result: GUTARealmCheckpointResult<QEDFelt>  = { let bytes = realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?; bincode::deserialize(&bytes) }.map_err(|e| anyhow::anyhow!("{:?}",e))?;
     println!("rr: {:?}",realm_result);
     let realm_proof = realm_qps.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
 

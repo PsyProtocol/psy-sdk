@@ -2,7 +2,9 @@ use super::error::RpcError;
 use super::rpc::RealmEdgeRpcServer;
 use crate::realm::state::edge::RealmEdgeContext;
 use crate::realm::state::processor::RealmConfig;
-use crate::realm::{SyncCheckpointQueue, SyncProofQueue, C, D, F, H};
+use crate::realm::{C, D, F, H};
+use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
+use qed_core::config::network_constants::REALM_PROOF_SYNC_CHANNEL;
 use std::env;
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
@@ -47,7 +49,7 @@ use qed_data::qdata::checkpoint::{
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_rollup_utils::generate_jwt_token;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
-use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::queue::ProofStoreRedisAsync;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info, warn};
@@ -562,21 +564,27 @@ pub async fn spawn_realm_job_update_task(
 ) -> anyhow::Result<()> {
     info!("realm job listener spawned");
     tokio::spawn(async move {
+        let mut last_checkpoint = 0u64;
         loop {
-            match proof_store.consume_proof().await {
+            // Listen for new proof job IDs from the history queue
+            match proof_store.wait_for_next_item_imm::<ProvingJobDataId>(
+                REALM_PROOF_SYNC_CHANNEL,
+                last_checkpoint
+            ).await {
                 Ok(job_id) => {
                     info!(?job_id, "Received proof from realm processor");
+                    last_checkpoint = job_id.checkpoint_id + 1;
                     // if job_id.job_id.circuit_type != GUTANoChange {
                     send_realm_proof(proof_store.clone(), job_id, realm_id, &coordinator_addr)
                         .await;
                     // }
                 }
                 Err(err) => {
-                    error!("Error getting job_id from redis: {:?}", err);
+                    error!("Error getting job_id from history queue: {:?}", err);
+                    // Avoid busy waiting on error
+                    tokio::time::sleep(Duration::from_millis(500)).await;
                 }
             }
-            // Avoid busy waiting
-            tokio::time::sleep(Duration::from_millis(500)).await;
         }
     });
     Ok(())

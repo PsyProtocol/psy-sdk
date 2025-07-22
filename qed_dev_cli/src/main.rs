@@ -1,4 +1,5 @@
 mod subcommand;
+mod aws;
 use qed_dev_cli::test_helpers;
 
 use clap::Parser;
@@ -36,12 +37,6 @@ async fn main() -> anyhow::Result<()> {
         Commands::ProduceBlock(args) => {
             subcommand::produce_block::run(args)?;
         }
-        Commands::GetBlockState(args) => {
-            subcommand::block_state::get_l2_block_state(args)?;
-        }
-        Commands::GetLatestBlockState(args) => {
-            subcommand::block_state::get_latest_block_state(args)?;
-        }
         Commands::RegisterUser(args) => {
             subcommand::register_user::run(args)?;
         }
@@ -50,6 +45,15 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::GetUserIdFromRegistrationId(args) => {
             subcommand::get_user_id_from_registration_id::run(args).await?;
+        }
+        Commands::Generate(args) => {
+            subcommand::generate::run(args).await?;
+        }
+        Commands::Run(args) => {
+            subcommand::generate::run_deployment(args).await?;
+        }
+        Commands::Launch(args) => {
+            subcommand::launch::run(args).await?;
         }
     }
     

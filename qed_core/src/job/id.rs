@@ -3,7 +3,7 @@ use kvq::traits::KVQSerializable;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
-use crate::config::network_constants::QED_CHECKPOINT_JOB_ID_CHANNEL;
+use crate::config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROOF_SYNC_CHANNEL};
 use crate::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
 use crate::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged};
 use super::mode::QWorkerMode;
@@ -857,6 +857,15 @@ impl ProvingJobDataId {
 //         }
 //     }
 // }
+impl HistoryQueueMetadataTagged for ProvingJobDataId {
+    fn get_hq_metadata(&self) -> HistoryQueueMetadata {
+        HistoryQueueMetadata {
+            channel_id: REALM_PROOF_SYNC_CHANNEL,
+            checkpoint_id: self.checkpoint_id,
+            item_id: self.job_id.task_index as u64, // Use task_index as item_id
+        }
+    }
+}
 impl DrainQueueMetadataTagged for ProvingJobDataId {
     fn get_dq_metadata(&self) -> DrainQueueMetadata {
         DrainQueueMetadata {

@@ -9,9 +9,10 @@ pub mod benchmark_full_group_3;
 pub mod benchmark_register_v2;
 pub mod generate_token;
 pub mod produce_block;
-pub mod block_state;
 pub mod register_user;
 pub mod get_user_id_from_registration_id;
+pub mod generate;
+pub mod launch;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -51,12 +52,6 @@ pub enum Commands {
     #[command(about = "Produce a new block")]
     ProduceBlock(ProduceBlockArgs),
     
-    #[command(about = "Get block state information")]
-    GetBlockState(BlockStateArgs),
-    
-    #[command(about = "Get latest block state")]
-    GetLatestBlockState(LatestBlockStateArgs),
-    
     #[command(about = "Register a new user")]
     RegisterUser(RegisterUserArgs),
     
@@ -65,6 +60,15 @@ pub enum Commands {
     
     #[command(about = "Get user ID and realm from registration ID")]
     GetUserIdFromRegistrationId(GetUserIdFromRegistrationIdArgs),
+    
+    #[command(about = "Generate deployment configurations from config.json")]
+    Generate(GenerateArgs),
+    
+    #[command(about = "Run the entire QED network locally")]
+    Run(RunArgs),
+    
+    #[command(about = "Launch QED network for development (inspired by polkadot-launch)")]
+    Launch(LaunchArgs),
 }
 
 #[derive(Parser)]
@@ -131,27 +135,14 @@ pub struct GenerateTokenArgs {
 
 #[derive(Parser)]
 pub struct ProduceBlockArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
 }
 
-#[derive(Parser)]
-pub struct BlockStateArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
-    pub rpc_config: String,
-    #[arg(long, default_value = "0", env)]
-    pub checkpoint_id: u64,
-}
-
-#[derive(Parser)]
-pub struct LatestBlockStateArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
-    pub rpc_config: String,
-}
 
 #[derive(Parser)]
 pub struct RegisterUserArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[clap(
         long,
@@ -163,7 +154,7 @@ pub struct RegisterUserArgs {
 
 #[derive(Parser)]
 pub struct RandomArgs {
-    #[clap(env, long, default_value = "rpc.config", env)]
+    #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[clap(long, default_value = "128", env)]
     pub user_per_block: u64,
@@ -171,4 +162,72 @@ pub struct RandomArgs {
     pub total_user: u64,
     #[clap(long, default_value = "3", env)]
     pub interval: u64,
+}
+
+#[derive(Parser)]
+pub struct GenerateArgs {
+    #[clap(env, long, default_value = "config.json", env)]
+    pub config: String,
+    #[command(subcommand)]
+    pub command: GenerateCommands,
+}
+
+#[derive(Subcommand)]
+pub enum GenerateCommands {
+    #[command(about = "Generate docker-compose.yml from config.json")]
+    DockerCompose(GenerateDockerComposeArgs),
+    
+    #[command(about = "Generate AWS CloudFormation templates from config.json")]
+    Aws(GenerateAwsArgs),
+}
+
+#[derive(Parser)]
+pub struct RunArgs {
+    #[clap(env, long, default_value = "config.json", env)]
+    pub config: String,
+    
+    #[arg(long, help = "Backend type (lmdbx or scylla)")]
+    pub backend: Option<String>,
+    
+    #[arg(long, help = "Run in detached mode")]
+    pub detach: bool,
+    
+    #[arg(long, help = "Stop all running services")]
+    pub stop: bool,
+    
+    #[arg(long, help = "Override log level for all services")]
+    pub log_level: Option<String>,
+}
+
+#[derive(Parser)]
+pub struct GenerateDockerComposeArgs {
+    #[arg(long, default_value = "docker-compose.yml", help = "Output file path")]
+    pub output: String,
+    
+    #[arg(long, help = "Backend type (lmdbx or scylla)")]
+    pub backend: Option<String>,
+}
+
+#[derive(Parser)]
+pub struct GenerateAwsArgs {
+    #[arg(long, default_value = "./aws", help = "Output directory for AWS deployment files")]
+    pub output_dir: String,
+    
+    #[arg(long, help = "Force overwrite existing files")]
+    pub force: bool,
+    
+    #[arg(long, default_value = "balanced", help = "Instance optimization strategy: cost-optimized, performance-optimized, or balanced")]
+    pub optimization_strategy: String,
+    
+    #[arg(long, help = "Automatically set EC2 instance types based on recommendations")]
+    pub auto_instance_types: bool,
+}
+
+#[derive(Parser)]
+pub struct LaunchArgs {
+    #[arg(long, short = 'c', help = "Path to config.json file (default: config.json)")]
+    pub config: Option<String>,
+    
+    #[arg(long, short = 'v', help = "Verbose output")]
+    pub verbose: bool,
 }

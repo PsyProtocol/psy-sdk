@@ -30,20 +30,13 @@ use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::HashOu
 
 use crate::data::qhashout::QHashOut;
 
+// Include the generated constants from build.rs
+include!(concat!(env!("OUT_DIR"), "/generated_constants.rs"));
 
 // Network Magic
 pub const QED_NETWORK_MAGIC_MAINNET: u64 = 0x1337CF514544C069u64;
 pub const QED_NETWORK_MAGIC_TESTNET: u64 = 0x1337CF514544C169u64;
 pub const QED_NETWORK_MAGIC_REGTEST: u64 = 0x1337CF514544CF69u64;
-
-
-
-pub const GLOBAL_USER_TREE_HEIGHT: u8 = 28;
-pub const COORDINATOR_USER_TREE_HEIGHT: u8 = GLOBAL_USER_TREE_HEIGHT - REALM_USER_TREE_HEIGHT;
-pub const REALM_USER_TREE_HEIGHT: u8 = 22;
-
-pub const GUTA_PROOF_MAX_TREE_HEIGHT: u8 = 23;
-
 
 pub const CHECKPOINT_TREE_HEIGHT: u8 = 32;
 pub const GLOBAL_CONTRACT_TREE_HEIGHT: u8 = 24;
@@ -120,3 +113,8 @@ pub const REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID: u64 = 0x2243535455504
 pub const QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL: u64 = 0x901337123;
 pub const QED_CHECKPOINT_JOB_ID_CHANNEL: u64 = 0x901337124;
 pub const CST_USER_UPDATE_CHANNEL_ID: u64 = 0x101337;
+
+pub const COORDINATOR_TO_REALM_CHANNEL: u64 = 0xCC544F5245414C4D;
+pub const REALM_TO_COORDINATOR_CHANNEL: u64 = 0x5245414C4D544F43;
+
+pub const REALM_PROOF_SYNC_CHANNEL: u64 = 0x524C4D50524F4F46;

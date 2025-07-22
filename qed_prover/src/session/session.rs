@@ -25,7 +25,7 @@ use qed_data::{
     guta::end_cap_input::SubmitUserEndCapNonProofInput,
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
-use crate::{api::args::ContractCallArgs, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}}, ups::{
+use crate::{local::args::ContractCallArgs, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}}, ups::{
     circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
 }};
 use qed_data::{
@@ -40,11 +40,11 @@ use qed_store::controllers::local::{
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 
-use crate::api::{
+use crate::local::{
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
+    args::WalletSessionArgs,
 };
-use crate::api::args::WalletSessionArgs;
 
 pub fn gen_contract_deploy_and_circuits_for_functions(
     deployer: QHashOut<GoldilocksField>,
@@ -600,7 +600,9 @@ pub struct WalletKeyPair {
 #[cfg(feature = "is_sync")]
 pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
 
-    let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(args.rpc_config)?)?;
+    let config_str = std::fs::read_to_string(&args.rpc_config)?;
+    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
     let private_key = QHashOut::<F>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
     let contract_call_args: Vec<ContractCallArgs> =
@@ -631,13 +633,15 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str(
             "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
         )?;
-        let private_key134217728 = QHashOut::<GoldilocksField>::from_str(
+        let private_key8388608 = QHashOut::<GoldilocksField>::from_str(
             "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d",
         )?;
 
-        let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(
-            Path::new(&project_path).join("../rpc.config"),
-        )?)?;
+        let config_str = std::fs::read_to_string(
+            Path::new(&project_path).join("../config.json"),
+        )?;
+        let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+        let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 
         let circuit_defs =
             serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(
@@ -650,7 +654,7 @@ mod tests {
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
-        let user134217728 = wallet_session.register_user(private_key134217728)?;
+        let user8388608 = wallet_session.register_user(private_key8388608)?;
 
         wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(10));
@@ -663,8 +667,8 @@ mod tests {
         // add user0
         wallet_session.add_user(private_key0)?;
 
-        // add user134217728
-        wallet_session.add_user(private_key134217728)?;
+        // add user8388608
+        wallet_session.add_user(private_key8388608)?;
 
         // user0 mint 1000
         wallet_session.exec_contract_call(
@@ -681,13 +685,13 @@ mod tests {
         wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(10));
 
-        // user0 transfer 500 to user134217728
+        // user0 transfer 500 to user8388608
         wallet_session.exec_contract_call(
             user0,
             vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
-                inputs: vec![134217728, 500],
+                inputs: vec![8388608, 500],
             }],
         )?;
 
@@ -696,9 +700,9 @@ mod tests {
         wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(10));
 
-        // user134217728 claim
+        // user8388608 claim
         wallet_session.exec_contract_call(
-            user134217728,
+            user8388608,
             vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
@@ -711,9 +715,9 @@ mod tests {
         wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(10));
 
-        // user134217728 transfer 500 to user0
+        // user8388608 transfer 500 to user0
         wallet_session.exec_contract_call(
-            user134217728,
+            user8388608,
             vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
@@ -739,13 +743,15 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str(
             "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
         )?;
-        let private_key134217728 = QHashOut::<GoldilocksField>::from_str(
+        let private_key8388608 = QHashOut::<GoldilocksField>::from_str(
             "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d",
         )?;
 
-        let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(
-            Path::new(&project_path).join("../rpc.config"),
-        )?)?;
+        let config_str = std::fs::read_to_string(
+            Path::new(&project_path).join("../config.json"),
+        )?;
+        let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+        let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 
         let circuit_defs =
             serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(
@@ -759,7 +765,7 @@ mod tests {
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
-        let user134217728 = wallet_session.register_user(private_key134217728)?;
+        let user8388608 = wallet_session.register_user(private_key8388608)?;
 
         wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(10));
@@ -772,8 +778,8 @@ mod tests {
         // add user0
         wallet_session.add_user(private_key0)?;
 
-        // add user134217728
-        wallet_session.add_user(private_key134217728)?;
+        // add user8388608
+        wallet_session.add_user(private_key8388608)?;
 
         // user0 mint 1000 contract 0
         wallet_session.exec_contract_call(

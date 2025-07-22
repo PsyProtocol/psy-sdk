@@ -21,7 +21,7 @@ use qed_prover::dpn::{
 use qed_data::config::store_config::QEDHasher;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
-use qed_prover::api::{
+use qed_prover::local::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QDeployContractRPCRequest,
 };

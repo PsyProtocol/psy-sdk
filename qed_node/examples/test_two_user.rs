@@ -1,5 +1,6 @@
 use fred::prelude::*;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use qed_core::
     utils::debug_timer::DebugTimer
 ;
@@ -7,15 +8,13 @@ use qed_crypto::{
     common::simple_circuit_library::SimpleCircuitLibrary, signature::zk::data::ZKPublicKeyInfo,
 };
 use qed_node::{
-    coordinator::{
-        state::{
-            edge::CoordinatorEdgeContext,
-            processor::{CoordinatorConfig, CoordinatorProcessorContext},
-        },
+    coordinator::state::{
+        edge::CoordinatorEdgeContext,
+        processor::{CoordinatorConfig, CoordinatorProcessorContext},
     },
     worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
 };
-use qed_store::queue::proof_store_fred::ProofStoreFred;
+use qed_store::queue::ProofStoreFred;
 use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
@@ -46,7 +45,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let store_reader = Arc::new(KVQSimpleMemoryBackingStore::new());
 
-    store_reader.initialize_store()?;
+    store_reader.initialize_store().await?;
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 

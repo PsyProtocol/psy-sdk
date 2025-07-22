@@ -1,9 +1,10 @@
 use crate::realm::config::RealmNodeConfig;
-use crate::realm::{Queue, SyncCheckpointQueue, SyncProofQueue, C, D, F};
+use crate::realm::{C, D, F};
 use fred::prelude::KeysInterface;
 use kvq::traits::KVQSerializable;
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
+use qed_core::job::history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm};
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_store::store::QEDStore;
 use qed_data::qsync::coordinator::QEDCheckpointSyncInfoCompact;
@@ -17,7 +18,7 @@ use tracing::{error, info, warn};
 use qed_store::queue::new_redis_async_pool;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
-use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
@@ -31,7 +32,7 @@ type ConcreteRealmProcessorContext = RealmProcessorContext<
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub sync_proof: ProofStoreRedisAsync,
-    pub sync_checkpoint: Queue,
+    pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
     pub store: Arc<JournalStore<QEDStore>>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
 }
@@ -62,11 +63,12 @@ impl RealmProcessor {
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
-        let sync_info = Queue::new(config.redis.redis_uri.as_str(), 10, config.queue.worker_queue_suffix).await?;
+        // Use the same ProofStoreRedisAsync for checkpoint sync
+        let sync_checkpoint = Arc::new(realm_qps.clone());
         let processor = RealmProcessor {
             realm_config,
             sync_proof: realm_qps,
-            sync_checkpoint: sync_info,
+            sync_checkpoint,
             store: store_reader,
             proof_verifier,
         };
@@ -117,7 +119,7 @@ impl RealmProcessor {
                 }
             };
             info!("Pushing job id to queue: {:?}", proving_data_job_id);
-            self.sync_proof.produce_proof(proving_data_job_id).await?;
+            self.sync_proof.chq_push_imm(proving_data_job_id).await?;
             // Send the job id to the channel for the next step
             // if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
             //     error!("Error chq_push_imm: {:?}", err);
@@ -197,7 +199,15 @@ impl RealmProcessor {
     pub async fn wait_latest_checkpoint(
         &self,
     ) -> anyhow::Result<CheckpointSyncInfo<F>> {
-        self.sync_checkpoint.consume_checkpoint_async_info().await
+        // Get the next expected checkpoint
+        let current_checkpoint = self.get_local_latest_l2_block_state().await;
+        let expected_checkpoint = current_checkpoint + 1;
+        
+        // Wait for the next checkpoint sync info
+        self.sync_checkpoint.wait_for_next_item_imm::<CheckpointSyncInfo<F>>(
+            qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            expected_checkpoint
+        ).await
     }
 
     pub async fn get_local_latest_l2_block_state(&self) -> u64 {

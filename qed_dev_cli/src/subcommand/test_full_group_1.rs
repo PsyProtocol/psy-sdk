@@ -1,6 +1,7 @@
 use fred::prelude::*;
 use std::sync::Arc;
 use qed_store::store::lmdbx::KVQlibmdbxStore;
+use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use qed_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
 };
@@ -47,7 +48,7 @@ use qed_store::{controllers::local::{
         proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
     },
     node::coordinator::QEDCoordinatorStoreReaderAsync,
-    queue::proof_store_fred::ProofStoreFred,
+    queue::ProofStoreFred,
 };
 
 use super::super::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
@@ -76,7 +77,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let store_reader =
         Arc::new(KVQlibmdbxStore::new_write("db")?);
 
-    store_reader.initialize_store()?;
+    store_reader.initialize_store().await?;
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 

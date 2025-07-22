@@ -74,7 +74,7 @@ use qed_store::{
         },
         realm::QEDRealmStoreReaderAsync,
     },
-    queue::proof_store_fred::ProofStoreFred,
+    queue::ProofStoreFred,
 };
 
 use std::time::Duration;

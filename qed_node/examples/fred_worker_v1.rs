@@ -3,7 +3,7 @@ use qed_core::{
     job::{id::QProvingJobDataID, traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QWorkerGenericProverAsyncMut}, worker_queue::WorkerEventReceiverAsyncImm},
     utils::debug_timer::DebugTimer,
 };
-use qed_store::queue::proof_store_fred::ProofStoreFred;
+use qed_store::queue::ProofStoreFred;
 use std::time::Duration;
 
 use async_trait::async_trait;

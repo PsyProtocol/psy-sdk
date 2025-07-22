@@ -1,6 +1,7 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer};
@@ -10,7 +11,7 @@ use qed_data::{
         core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
     }, qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}
 };
-use qed_prover::{api::simple::SimpleAPI, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager}};
+use qed_prover::{local::simple::SimpleAPI, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager}};
 use qed_rollup_circuit::guta::guta_helper::QEDGUTACircuitManager;
 use qed_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
@@ -181,7 +182,7 @@ fn gen_contract_deploy_and_circuits_for_functions(
 
     Ok((circuits, deploy))
 }
-fn prepare_environment_with_real_contract(
+async fn prepare_environment_with_real_contract(
     new_user_public_keys: Vec<QBCRegisterUser<GoldilocksField>>,
     deploy_contract: QBCDeployContract<GoldilocksField>,
 ) -> anyhow::Result<
@@ -200,7 +201,7 @@ fn prepare_environment_with_real_contract(
     ];
     let st = Arc::new(KVQSimpleMemoryBackingStore::new());
 
-    st.initialize_store()?;
+    st.initialize_store().await?;
 
 
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
@@ -366,7 +367,7 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     Ok(fn_circuit_def)
 }
 
-fn demo_user_proving_session() -> anyhow::Result<()> {
+async fn demo_user_proving_session() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("demo_user_proving_session");
 
     timer.lap("start");
@@ -441,7 +442,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     let (lps, st) = prepare_environment_with_real_contract(
         vec![pub_key_0.into(), pub_key_1.into()],
         deploy_cmd,
-    )?;
+    ).await?;
 
     timer.lap("start build guta circuits");
 
@@ -655,6 +656,7 @@ fn demo_user_proving_session() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn main() {
-    demo_user_proving_session().unwrap();
+#[tokio::main]
+async fn main() {
+    demo_user_proving_session().await.unwrap();
 }

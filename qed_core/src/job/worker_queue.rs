@@ -58,28 +58,3 @@ pub trait WorkerEventTransmitterSyncImm {
     fn wait_for_block_proving_jobs_imm(&self, checkpoint_id: u64) -> anyhow::Result<bool>;
 }
 
-pub trait ProvingDispatcher {
-    fn dispatch(
-        &mut self,
-        topic: &'static str,
-        value: impl Serialize + Send + 'static,
-    ) -> anyhow::Result<()>;
-}
-
-pub trait ProvingWorkerListener: ProvingDispatcher {
-    fn subscribe(&mut self, topic: &'static str) -> anyhow::Result<()>;
-    fn receive_one(
-        &mut self,
-        topic: &'static str,
-        hidden: Option<Duration>,
-    ) -> anyhow::Result<Option<(String, Vec<u8>)>>;
-    fn pop_one(&mut self, topic: &'static str) -> anyhow::Result<Option<Vec<u8>>>;
-    fn receive_all(
-        &mut self,
-        topic: &'static str,
-        hidden: Option<Duration>,
-    ) -> anyhow::Result<Vec<(String, Vec<u8>)>>;
-    fn pop_all(&mut self, topic: &'static str) -> anyhow::Result<Vec<Vec<u8>>>;
-    fn delete_message(&mut self, topic: &'static str, id: String) -> anyhow::Result<bool>;
-    fn is_empty(&mut self) -> bool;
-}

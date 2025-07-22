@@ -1,4 +1,5 @@
 import React from 'react';
+import * as rootConfig from '../../../../../config.json';
 
 // Configuration interfaces
 export interface RealmConfig {
@@ -48,55 +49,37 @@ export interface WalletConfig {
   };
 }
 
-// Default configuration
+// Default configuration from root config.json
 export const defaultConfig: WalletConfig = {
   theme: {
     colors: {
-      background: '#ffffff',
-      text: '#73e7ff',
-      primary: '#73e7ff',
-      primaryText: '#ffffff',
-      border: '#73e7ff',
-      accent: '#73e7ff',
-      success: '#00C851',
-      error: '#ff6b6b',
-      textSecondary: '#666666',
+      background: rootConfig.wallet.theme.colors.background,
+      text: rootConfig.wallet.theme.colors.text,
+      primary: rootConfig.wallet.theme.colors.primary,
+      primaryText: rootConfig.wallet.theme.colors.primary_text,
+      border: rootConfig.wallet.theme.colors.border,
+      accent: rootConfig.wallet.theme.colors.accent,
+      success: rootConfig.wallet.theme.colors.success,
+      error: rootConfig.wallet.theme.colors.error,
+      textSecondary: rootConfig.wallet.theme.colors.text_secondary,
     },
   },
   network: {
-    users_per_realm: 4194304,
-    realm_configs: [
-      {
-        id: 0,
-        rpc_url: ["http://127.0.0.1:8546"]
-      },
-      {
-        id: 32,
-        rpc_url: ["http://127.0.0.1:8547"]
-      },
-      {
-        id: 8192,
-        rpc_url: ["http://127.0.0.1:8548"]
-      }
-    ],
-    coordinator_configs: [
-      {
-        id: 0,
-        rpc_url: ["http://127.0.0.1:8545"]
-      }
-    ],
-    prover_url: "http://127.0.0.1:8888",
-    nativeCurrency: "0"
+    users_per_realm: rootConfig.network.users_per_realm,
+    realm_configs: rootConfig.network.realm_configs,
+    coordinator_configs: rootConfig.network.coordinator_configs,
+    prover_url: rootConfig.network.prover_url,
+    nativeCurrency: rootConfig.network.native_currency,
   },
   wallet: {
-    defaultWalletName: '0',
-    enableAutoRefresh: true,
-    refreshInterval: 30000, // 30 seconds
+    defaultWalletName: rootConfig.wallet.default_wallet_name,
+    enableAutoRefresh: rootConfig.wallet.enable_auto_refresh,
+    refreshInterval: rootConfig.wallet.refresh_interval,
   },
   extension: {
-    width: 375,
-    height: 600,
-    title: 'Psy: The Internet Unchained',
+    width: rootConfig.wallet.extension.width,
+    height: rootConfig.wallet.extension.height,
+    title: rootConfig.wallet.extension.title,
   },
 };
 

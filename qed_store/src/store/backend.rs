@@ -6,10 +6,10 @@ use super::scylla::config::ScyllaDBConfig;
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct LmdbxConfig {
     #[clap(long, env = "LMDBX_PATH", default_value = "db")]
-    pub path: String,
-    
-    #[clap(long, env = "LMDBX_SIZE_GB", default_value = "100")]
-    pub size_gb: usize,
+    pub lmdbx_path: String,
+
+    #[clap(long, env = "LMDBX_MMAP_SIZE_GB", default_value = "100")]
+    pub lmdbx_mmap_size_gb: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
@@ -17,19 +17,35 @@ pub struct LmdbxConfig {
 pub enum Backend {
     #[serde(rename = "scylla")]
     Scylla(ScyllaDBConfig),
-    
+
     #[serde(rename = "lmdbx")]
     Lmdbx(LmdbxConfig),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, clap::ValueEnum, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum DatabaseKind {
+    Scylla,
+    Lmdbx,
+}
+
+impl DatabaseKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DatabaseKind::Scylla => "scylla",
+            DatabaseKind::Lmdbx => "lmdbx",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Args, Serialize, Deserialize)]
 pub struct BackendConfig {
-    #[clap(long, env = "BACKEND_TYPE", default_value = "scylla")]
-    pub backend_type: String,
-    
+    #[clap(long, env = "DATABASE_KIND", default_value = "scylla", value_enum)]
+    pub database: DatabaseKind,
+
     #[clap(flatten)]
     pub scylla: ScyllaDBConfig,
-    
+
     #[clap(flatten)]
     pub lmdbx: LmdbxConfig,
 }
@@ -43,11 +59,11 @@ impl Default for Backend {
 impl Default for BackendConfig {
     fn default() -> Self {
         Self {
-            backend_type: "scylla".to_string(),
+            database: DatabaseKind::Scylla,
             scylla: ScyllaDBConfig::default(),
             lmdbx: LmdbxConfig {
-                path: "db".to_string(),
-                size_gb: 100,
+                lmdbx_path: "db".to_string(),
+                lmdbx_mmap_size_gb: 100,
             },
         }
     }
@@ -55,7 +71,7 @@ impl Default for BackendConfig {
 
 impl BackendConfig {
     pub fn to_backend(&self) -> Backend {
-        match self.backend_type.as_str() {
+        match self.database.as_str() {
             "scylla" => Backend::Scylla(self.scylla.clone()),
             "lmdbx" => Backend::Lmdbx(self.lmdbx.clone()),
             _ => Backend::Lmdbx(self.lmdbx.clone()),

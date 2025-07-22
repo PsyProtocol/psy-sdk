@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use qed_prover::api::{args::ContractCallArgs, provider::RpcConfig};
+use qed_prover::local::{args::ContractCallArgs, provider::RpcConfig};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
 use qed_prover::session::WalletSession;
@@ -18,7 +18,9 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         inputs: args.inputs,
     }];
 
-    let rpc_config: RpcConfig = serde_json::from_str(&std::fs::read_to_string(args.rpc_config)?)?;
+    let config_str = std::fs::read_to_string(&args.rpc_config)?;
+    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
 

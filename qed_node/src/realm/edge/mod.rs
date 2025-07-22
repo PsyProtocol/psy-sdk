@@ -6,7 +6,6 @@ mod sync;
 use std::clone;
 use super::handler::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
-use super::Queue;
 use super::{config::RealmEdgeConfig, C, D};
 use anyhow::Result;
 use jsonrpsee::server::ServerBuilder;
@@ -18,8 +17,8 @@ use crate::common::verifier::get_cached_generic_verifier;
 use std::sync::Arc;
 use tracing::{debug, info};
 use qed_store::queue::new_redis_async_pool;
-use qed_store::queue::proof_store_fred::ProofStoreFred;
-use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
+use qed_store::queue::ProofStoreFred;
+use qed_store::queue::ProofStoreRedisAsync;
 use hyper::Method;
 use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 
@@ -69,9 +68,8 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
     debug!("created realm config successfully!");
 
-    let queue = Queue::new(config.redis.redis_uri.as_str(), config.redis.pool_size.unwrap_or(10), config.queue.worker_queue_suffix.clone()).await?;
-
-    let queue = Arc::new(queue);
+    // Use the same ProofStoreRedisAsync for checkpoint sync
+    let sync_queue = proof_store.clone();
 
     // Create Edge node context
     let edge_ctx = RealmEdgeContext::new(
@@ -112,7 +110,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     .await?;
     spawn_active_checkpoint_sync_task(
         store_reader,
-        queue,
+        sync_queue,
         config.rpc.coordinator_addr,
     ).await?;
 

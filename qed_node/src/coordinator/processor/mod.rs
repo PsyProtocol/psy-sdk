@@ -7,9 +7,9 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 use qed_core::job::{
     drain_queue::CheckpointDrainQueueConsumerAsyncImm,
-    history_queue::CheckpointHistoryQueueEmitterAsyncImm,
+    history_queue::{CheckpointHistoryQueueEmitterAsyncImm, CheckpointHistoryQueueConsumerAsyncImm},
     traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
-    worker_queue::{ProvingDispatcher, ProvingWorkerListener, WorkerEventTransmitterAsyncImm},
+    worker_queue::WorkerEventTransmitterAsyncImm,
 };
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::{
@@ -20,11 +20,10 @@ use qed_store::node::coordinator::{
     QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
 };
 use qed_store::queue::new_redis_async_pool;
-use qed_store::queue::proof_store_fred::ProofStoreFred;
-use qed_store::queue::proof_store_redis_async::ProofStoreRedisAsync;
-use qed_store::queue::worker_queue_redis::redis_queue::{
-    CEQueueNotification, RedisQueue, CE_NOTIFICATIONS,
-};
+use qed_store::queue::ProofStoreFred;
+use qed_store::queue::ProofStoreRedisAsync;
+use qed_store::queue::rsmq_queue::CEQueueNotification;
+use qed_core::config::network_constants::COORDINATOR_TO_REALM_CHANNEL;
 use qed_store::store::QEDStore;
 use std::time::Duration;
 
@@ -40,14 +39,14 @@ pub struct CoordinatorProcessNode<
     JL: Journal,
     SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
     DQ: CheckpointDrainQueueConsumerAsyncImm,
-    HQ: CheckpointHistoryQueueEmitterAsyncImm,
+    HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     ER: WorkerEventReceiverAsyncImm,
 > {
     pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
     pub journal_store: JL,
-    pub edge_command_queue: RedisQueue,
+    pub edge_command_queue: Arc<HQ>,
     pub proof_store: PS,
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
@@ -58,7 +57,7 @@ impl<
         JL: Journal,
         SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
         DQ: CheckpointDrainQueueConsumerAsyncImm,
-        HQ: CheckpointHistoryQueueEmitterAsyncImm,
+        HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
@@ -67,7 +66,7 @@ impl<
     pub fn new(
         ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
         journal_store: JL,
-        edge_command_queue: RedisQueue,
+        edge_command_queue: Arc<HQ>,
         proof_store: PS,
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
@@ -85,14 +84,22 @@ impl<
     }
 
     pub async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
-        let Some((id, message)) = self
-            .edge_command_queue
-            .receive_one(CE_NOTIFICATIONS, None)?
-        else {
+        // Get current checkpoint to listen from
+        let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
+        let start_checkpoint = latest_l2_block_state.checkpoint_id + 1; // Listen for the next checkpoint
+        
+        // Try to get messages from the history queue
+        let messages = self.edge_command_queue.chq_listen_from_imm::<CEQueueNotification>(
+            COORDINATOR_TO_REALM_CHANNEL,
+            start_checkpoint
+        ).await?;
+        
+        if messages.is_empty() {
             return Ok(false);
-        };
-
-        let notify_message = serde_json::from_slice::<CEQueueNotification>(&message)?;
+        }
+        
+        // Process the first message
+        let notify_message = messages.into_iter().next().unwrap();
 
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
 
@@ -101,8 +108,7 @@ impl<
         match next_checkpoint.cmp(&latest_l2_block_state.checkpoint_id) {
             std::cmp::Ordering::Equal => {
                 info!("✅ Building new block for checkpoint {}", next_checkpoint);
-                self.edge_command_queue
-                    .delete_message(CE_NOTIFICATIONS, id)?;
+                // No need to delete from history queue, it's already processed
                 return Ok(false);
             }
             std::cmp::Ordering::Less => {
@@ -110,8 +116,7 @@ impl<
                     "⚠️ Outdated checkpoint {}, current {}",
                     next_checkpoint, latest_l2_block_state.checkpoint_id
                 );
-                self.edge_command_queue
-                    .delete_message(CE_NOTIFICATIONS, id)?;
+                // No need to delete from history queue, it's already processed
                 return Ok(false);
             }
             std::cmp::Ordering::Greater
@@ -157,7 +162,7 @@ impl
         let qed_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
         let qed_store = JournalStore::new(qed_store);
 
-        match QEDComboDataStoreReaderWriterSync::initialize_store(&qed_store) {
+        match qed_store.initialize_store().await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
                 qed_store.commit(0)?;
             }
@@ -167,7 +172,8 @@ impl
             }
         }
 
-        let edge_command_queue = RedisQueue::new(&cp_config.redis_uri)?;
+        // Use the same ProofStoreRedisAsync instance for history queue
+        let edge_command_queue = Arc::new(q.clone());
 
         let coord_config = CoordinatorConfig::get_standard(0);
 
