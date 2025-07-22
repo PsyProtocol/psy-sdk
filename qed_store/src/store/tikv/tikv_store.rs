@@ -1,10 +1,11 @@
+use super::config::TiKVConfig;
 use anyhow::Result;
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use std::{fmt::Debug, sync::Arc};
-use tikv_client::{Key, Transaction, TransactionClient, Value};
+use std::collections::HashMap;
 use tikv_client::proto::kvrpcpb::{Mutation, Op};
-use super::config::TiKVConfig;
+use tikv_client::{Key, Snapshot, Transaction, TransactionClient, TransactionOptions, Value};
 
 // Maximum number of entries to scan in a single operation
 const MAX_SCAN_ENTRIES: u32 = 1000;
@@ -51,7 +52,6 @@ impl TiKVStore {
         (Key::from(scan_start), Key::from(scan_end))
     }
 
-    // Execute read-only transaction without commit/rollback management
     async fn execute_read_transaction<F, Fut, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(Transaction) -> Fut,
@@ -61,20 +61,34 @@ impl TiKVStore {
         f(txn).await
     }
 
-    // Execute batch operations with automatic commit/rollback
+    async fn execute_read_snapshot<F, Fut, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(Snapshot) -> Fut,
+        Fut: std::future::Future<Output = Result<R>>,
+    {
+        let snapshot = self.connection.snapshot(
+            self.connection.current_timestamp().await?,
+            TransactionOptions::default(),
+        );
+        f(snapshot).await
+    }
+
     async fn execute_write_transaction<F, Fut>(&self, f: F) -> Result<()>
     where
         F: FnOnce(Transaction) -> Fut,
         Fut: std::future::Future<Output = Result<Transaction>>,
     {
         let txn = self.connection.begin_optimistic().await?;
-        match f(txn).await {
-            Ok(mut txn) => {
-                txn.commit().await?;
-                Ok(())
-            }
-            Err(e) => {
-                Err(e)
+        let mut txn =  f(txn).await?;
+        match txn.commit().await {
+            Ok(_) => Ok(()),
+            Err(commit_err) => {
+                // Commit failed, need to rollback
+                if let Err(rollback_err) = txn.rollback().await {
+                    // Log rollback error but return original commit error
+                    eprintln!("Warning: Failed to rollback transaction after commit failure: {}", rollback_err);
+                }
+                Err(anyhow::anyhow!(commit_err))
             }
         }
     }
@@ -85,7 +99,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     async fn get_exact_if_exists(&self, key: &Vec<u8>) -> Result<Option<Vec<u8>>> {
         let tikv_key = self.make_key(key);
         
-        self.execute_read_transaction(|mut txn| async move {
+        self.execute_read_snapshot(|mut txn| async move {
             let value = txn.get(tikv_key).await?;
             Ok(value.map(|v| v.to_vec()))
         }).await
@@ -101,7 +115,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     async fn get_many_exact(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
         let namespace_bytes = self.namespace_bytes.clone();
         
-        self.execute_read_transaction(|mut txn| async move {
+        self.execute_read_snapshot(|mut txn| async move {
             let tikv_keys: Vec<Key> = keys.iter().map(|key| {
                 let mut full_key = namespace_bytes.clone();
                 full_key.extend_from_slice(key);
@@ -112,7 +126,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
             
             // Collect batch_result into a Vec for reuse
             let batch_vec: Vec<_> = batch_result.collect();
-            
+
             // Use Vec instead of HashMap for better performance with small datasets
             let mut results = Vec::with_capacity(keys.len());
             for tikv_key in tikv_keys {
@@ -130,7 +144,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     async fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<Vec<u8>>> {
         let namespace_bytes = &self.namespace_bytes;
         
-        self.execute_read_transaction(|mut txn| async move {
+        self.execute_read_snapshot(|mut txn| async move {
             // First try exact match
             let exact_key = {
                 let mut full_key = Vec::with_capacity(namespace_bytes.len() + key.len());
@@ -199,7 +213,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     ) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         let namespace_bytes = &self.namespace_bytes;
         
-        self.execute_read_transaction(|mut txn| async move {
+        self.execute_read_snapshot(|mut txn| async move {
             // Calculate optimized scan range
             let base_key_len = key.len().saturating_sub(fuzzy_bytes);
             let base_key = &key[..base_key_len];
@@ -257,7 +271,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     ) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
         let namespace_bytes = &self.namespace_bytes;
         
-        self.execute_read_transaction(|mut txn| async move {
+        self.execute_read_snapshot(|mut txn| async move {
             // First try exact match
             let exact_key = {
                 let mut full_key = Vec::with_capacity(namespace_bytes.len() + key.len());
@@ -337,7 +351,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         
         let namespace_bytes = &self.namespace_bytes;
         
-        self.execute_read_transaction(|mut txn| async move {
+        self.execute_read_snapshot(|mut txn| async move {
             let mut results = Vec::with_capacity(keys.len());
             
             // First, try exact matches in batch
@@ -432,7 +446,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         
         let namespace_bytes = &self.namespace_bytes;
         
-        self.execute_read_transaction(|mut txn| async move {
+        self.execute_read_snapshot(|mut txn| async move {
             let mut results = Vec::with_capacity(keys.len());
             
             // First, try exact matches in batch
@@ -444,7 +458,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
             }).collect();
             
             let batch_result = txn.batch_get(exact_keys).await?;
-            let exact_matches: std::collections::HashMap<Vec<u8>, Vec<u8>> = batch_result
+            let exact_matches: HashMap<Vec<u8>, Vec<u8>> = batch_result
                 .map(|kv| (kv.key().clone().into(), kv.value().to_vec()))
                 .collect();
             
