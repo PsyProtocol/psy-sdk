@@ -2,123 +2,95 @@ services:
   pd0:
     image: pingcap/pd:latest
     container_name: tikv-pd0
+    network_mode: host
     command:
       - --name=pd0
       - --client-urls=http://0.0.0.0:2379
       - --peer-urls=http://0.0.0.0:2380
-      - --advertise-client-urls=http://pd0:2379
-      - --advertise-peer-urls=http://pd0:2380
-      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
+      - --advertise-client-urls=http://127.0.0.1:2379
+      - --advertise-peer-urls=http://127.0.0.1:2380
+      - --initial-cluster=pd0=http://127.0.0.1:2380,pd1=http://127.0.0.1:2382,pd2=http://127.0.0.1:2384
       - --data-dir=/var/lib/pd
       - --log-file=/var/log/pd.log
-    ports:
-      - "2379:2379"
-      - "2380:2380"
     volumes:
       - pd0:/var/lib/pd
-    networks:
-      - tikv
+    restart: unless-stopped
 
   pd1:
     image: pingcap/pd:latest
     container_name: tikv-pd1
+    network_mode: host
     command:
       - --name=pd1
-      - --client-urls=http://0.0.0.0:2379
-      - --peer-urls=http://0.0.0.0:2380
-      - --advertise-client-urls=http://pd1:2379
-      - --advertise-peer-urls=http://pd1:2380
-      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
+      - --client-urls=http://0.0.0.0:2381
+      - --peer-urls=http://0.0.0.0:2382
+      - --advertise-client-urls=http://127.0.0.1:2381
+      - --advertise-peer-urls=http://127.0.0.1:2382
+      - --initial-cluster=pd0=http://127.0.0.1:2380,pd1=http://127.0.0.1:2382,pd2=http://127.0.0.1:2384
       - --data-dir=/var/lib/pd
       - --log-file=/var/log/pd.log
-    ports:
-      - "2381:2379"
-      - "2382:2380"
     volumes:
       - pd1:/var/lib/pd
-    networks:
-      - tikv
+    restart: unless-stopped
 
   pd2:
     image: pingcap/pd:latest
     container_name: tikv-pd2
+    network_mode: host
     command:
       - --name=pd2
-      - --client-urls=http://0.0.0.0:2379
-      - --peer-urls=http://0.0.0.0:2380
-      - --advertise-client-urls=http://pd2:2379
-      - --advertise-peer-urls=http://pd2:2380
-      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
+      - --client-urls=http://0.0.0.0:2383
+      - --peer-urls=http://0.0.0.0:2384
+      - --advertise-client-urls=http://127.0.0.1:2383
+      - --advertise-peer-urls=http://127.0.0.1:2384
+      - --initial-cluster=pd0=http://127.0.0.1:2380,pd1=http://127.0.0.1:2382,pd2=http://127.0.0.1:2384
       - --data-dir=/var/lib/pd
       - --log-file=/var/log/pd.log
-    
-    ports:
-      - "2383:2379"
-      - "2384:2380"
     volumes:
       - pd2:/var/lib/pd
-    networks:
-      - tikv
+    restart: unless-stopped
 
   tikv0:
     image: pingcap/tikv:latest
     container_name: tikv-server0
+    network_mode: host
     command:
       - --addr=0.0.0.0:20160
-      - --advertise-addr=tikv0:20160
+      - --advertise-addr=127.0.0.1:20160
       - --data-dir=/var/lib/tikv
-      - --pd-endpoints=pd0:2379,pd1:2379,pd2:2379
+      - --pd-endpoints=127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
       - --log-file=/var/log/tikv.log
-    ports:
-      - "20160:20160"
     volumes:
       - tikv0:/var/lib/tikv
-    networks:
-      - tikv
-    depends_on:
-      - pd0
-      - pd1
-      - pd2
+    restart: unless-stopped
 
   tikv1:
     image: pingcap/tikv:latest
     container_name: tikv-server1
+    network_mode: host
     command:
-      - --addr=0.0.0.0:20160
-      - --advertise-addr=tikv1:20160
+      - --addr=0.0.0.0:20161
+      - --advertise-addr=127.0.0.1:20161
       - --data-dir=/var/lib/tikv
-      - --pd-endpoints=pd0:2379,pd1:2379,pd2:2379
+      - --pd-endpoints=127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
       - --log-file=/var/log/tikv.log
-    ports:
-      - "20161:20160"
     volumes:
       - tikv1:/var/lib/tikv
-    networks:
-      - tikv
-    depends_on:
-      - pd0
-      - pd1
-      - pd2
+    restart: unless-stopped
 
   tikv2:
     image: pingcap/tikv:latest
     container_name: tikv-server2
+    network_mode: host
     command:
-      - --addr=0.0.0.0:20160
-      - --advertise-addr=tikv2:20160
+      - --addr=0.0.0.0:20162
+      - --advertise-addr=127.0.0.1:20162
       - --data-dir=/var/lib/tikv
-      - --pd-endpoints=pd0:2379,pd1:2379,pd2:2379
+      - --pd-endpoints=127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
       - --log-file=/var/log/tikv.log
-    ports:
-      - "20162:20160"
     volumes:
       - tikv2:/var/lib/tikv
-    networks:
-      - tikv
-    depends_on:
-      - pd0
-      - pd1
-      - pd2
+    restart: unless-stopped
 
 volumes:
   pd0:
@@ -127,7 +99,3 @@ volumes:
   tikv0:
   tikv1:
   tikv2:
-
-networks:
-  tikv:
-    driver: bridge
