@@ -407,7 +407,7 @@ pub struct StoreConfig {
 
 #[maybe_async::maybe_async(?Send)]
 pub trait ProveProxyRpcTrait<C: GenericConfig<D>, const D: usize> {
-    fn prove_ups_start(
+    async fn prove_ups_start(
         &self,
         input: &UPSStartStepInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
@@ -533,10 +533,27 @@ pub struct LocalCommonCircuitsData<F: RichField> {
 
 #[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
-    pub fn new_with_config(proof_proxy_url: String) -> anyhow::Result<Self> {
+    pub async fn new_with_config(proof_proxy_url: String) -> anyhow::Result<Self> {
         let client = Client::new();
 
         // todo fix bug
+        #[cfg(target_arch = "wasm32")]
+        let response = async move {
+            tracing::info!("qed rpc call: {}", &proof_proxy_url);
+            client
+                .post(&proof_proxy_url)
+                .json(&RpcRequest {
+                    jsonrpc: Version::V2,
+                    request: RequestParams::<C::F>::GetCircuitsData(),
+                    id: Id::Number(1),
+                })
+                .send()
+                .await?
+                .json::<RpcResponse<RpcResponse<String>>>()
+                .await
+        }
+        .await?;
+        #[cfg(not(target_arch = "wasm32"))]
         let response = client
             .post(&proof_proxy_url)
             .json(&RpcRequest {
@@ -555,6 +572,8 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
                 return Err(anyhow::format_err!("rpc call failed `{:?}`", e))
             }
         };
+        // let common_circuits_data = "";
+        // let common_circuits_data = serde_json::from_str(&common_circuits_data)?;
 
         Ok(Self {
             client: Arc::new(client),
@@ -1051,60 +1070,61 @@ where
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.common_circuits_data.single_leaf_circuit.fingerprint
     }
-    fn two_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn two_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.common_circuits_data.two_leaf_circuit.fingerprint
     }
-    fn two_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn two_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.common_circuits_data.two_agg_circuit.fingerprint
     }
-    fn left_leaf_right_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn left_leaf_right_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.common_circuits_data
             .left_leaf_right_agg_circuit
             .fingerprint
     }
-    fn left_agg_right_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn left_agg_right_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.common_circuits_data
             .left_agg_right_leaf_circuit
             .fingerprint
     }
-    fn single_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn single_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.common_circuits_data
             .single_leaf_circuit
             .verifier_config
             .clone()
             .to_verifier_data()
     }
-    fn two_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn two_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.common_circuits_data
             .two_leaf_circuit
             .verifier_config
             .clone()
             .to_verifier_data()
     }
-    fn two_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn two_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.common_circuits_data
             .two_agg_circuit
             .verifier_config
             .clone()
             .to_verifier_data()
     }
-    fn left_leaf_right_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn left_leaf_right_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.common_circuits_data
             .left_leaf_right_agg_circuit
             .verifier_config
             .clone()
             .to_verifier_data()
     }
-    fn left_agg_right_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn left_agg_right_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.common_circuits_data
             .left_agg_right_leaf_circuit
             .verifier_config
@@ -1113,13 +1133,14 @@ where
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn get_verifier_data_by_type(
+    async fn get_verifier_data_by_type(
         &self,
         circuit_type: QStandardBinaryTreeCircuitType,
     ) -> VerifierOnlyCircuitData<C, D> {
@@ -1162,7 +1183,7 @@ where
             }
         }
     }
-    fn prove_single_leaf_circuit(
+    async fn prove_single_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
         single_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
@@ -1196,7 +1217,7 @@ where
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
-    fn prove_two_leaf_circuit(
+    async fn prove_two_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
         left_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
@@ -1235,7 +1256,7 @@ where
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
-    fn prove_two_agg_circuit(
+    async fn prove_two_agg_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         left_agg_proof_header: &QRecursionAggStandardHeader<C::F>,
@@ -1273,7 +1294,7 @@ where
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
-    fn prove_left_leaf_right_agg_circuit(
+    async fn prove_left_leaf_right_agg_circuit(
         &self,
         left_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -1309,7 +1330,7 @@ where
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
-    fn prove_left_agg_right_leaf_circuit(
+    async fn prove_left_agg_right_leaf_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         left_agg_proof_header: &QRecursionAggStandardHeader<C::F>,
@@ -1347,13 +1368,14 @@ where
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
+    async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
         &self.common_circuits_data.circuit_inclusion_proofs
     }
 }

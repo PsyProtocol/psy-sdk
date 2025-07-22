@@ -3503,6 +3503,7 @@ dependencies = [
  "hex-literal",
  "itertools 0.14.0",
  "kvq",
+ "maybe-async",
  "num",
  "plonky2",
  "qed_core",

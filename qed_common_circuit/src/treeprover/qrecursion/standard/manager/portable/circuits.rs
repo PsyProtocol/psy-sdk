@@ -114,86 +114,89 @@ where
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 pub trait PortableQTreeRecursionCircuitsTrait<C: GenericConfig<D>, const D: usize>:
     PortableQTreeRecursionCircuitsDataTrait<C, D> + PortableQTreeRecursionCircuitsProveTrait<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F>;
+    async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F>;
 }
 
+#[maybe_async::maybe_async(?Send)]
 pub trait PortableQTreeRecursionCircuitsDataTrait<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F>;
-    fn two_leaf_circuit_fingerprint(&self) -> QHashOut<C::F>;
-    fn two_agg_circuit_fingerprint(&self) -> QHashOut<C::F>;
-    fn left_leaf_right_agg_circuit_fingerprint(&self) -> QHashOut<C::F>;
-    fn left_agg_right_leaf_circuit_fingerprint(&self) -> QHashOut<C::F>;
-    fn single_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
-    fn two_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
-    fn two_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
-    fn left_leaf_right_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
-    fn left_agg_right_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
+    async fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F>;
+    async fn two_leaf_circuit_fingerprint(&self) -> QHashOut<C::F>;
+    async fn two_agg_circuit_fingerprint(&self) -> QHashOut<C::F>;
+    async fn left_leaf_right_agg_circuit_fingerprint(&self) -> QHashOut<C::F>;
+    async fn left_agg_right_leaf_circuit_fingerprint(&self) -> QHashOut<C::F>;
+    async fn single_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
+    async fn two_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
+    async fn two_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
+    async fn left_leaf_right_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
+    async fn left_agg_right_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D>
     for PortableQTreeRecursionCircuits<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.circuit_set.single_leaf_circuit.get_fingerprint()
     }
-    fn two_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn two_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.circuit_set.two_leaf_circuit.get_fingerprint()
     }
-    fn two_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn two_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.circuit_set.two_agg_circuit.get_fingerprint()
     }
-    fn left_leaf_right_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn left_leaf_right_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.circuit_set
             .left_leaf_right_agg_circuit
             .get_fingerprint()
     }
-    fn left_agg_right_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn left_agg_right_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.circuit_set
             .left_agg_right_leaf_circuit
             .get_fingerprint()
     }
-    fn single_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn single_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.circuit_set
             .single_leaf_circuit
             .get_verifier_config_ref()
             .clone()
             .into()
     }
-    fn two_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn two_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.circuit_set
             .two_leaf_circuit
             .get_verifier_config_ref()
             .clone()
             .into()
     }
-    fn two_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn two_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.circuit_set
             .two_agg_circuit
             .get_verifier_config_ref()
             .clone()
             .into()
     }
-    fn left_leaf_right_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn left_leaf_right_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.circuit_set
             .left_leaf_right_agg_circuit
             .get_verifier_config_ref()
             .clone()
             .into()
     }
-    fn left_agg_right_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn left_agg_right_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.circuit_set
             .left_agg_right_leaf_circuit
             .get_verifier_config_ref()
@@ -202,23 +205,24 @@ where
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 pub trait PortableQTreeRecursionCircuitsProveTrait<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn get_verifier_data_by_type(
+    async fn get_verifier_data_by_type(
         &self,
         circuit_type: QStandardBinaryTreeCircuitType,
     ) -> VerifierOnlyCircuitData<C, D>;
-    fn prove_single_leaf_circuit(
+    async fn prove_single_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
         single_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
         single_proof: &ProofWithPublicInputs<C::F, C, D>,
         single_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
-    fn prove_two_leaf_circuit(
+    async fn prove_two_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
         left_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
@@ -228,7 +232,7 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
-    fn prove_two_agg_circuit(
+    async fn prove_two_agg_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         left_agg_proof_header: &QRecursionAggStandardHeader<C::F>,
@@ -239,7 +243,7 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
-    fn prove_left_leaf_right_agg_circuit(
+    async fn prove_left_leaf_right_agg_circuit(
         &self,
         left_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -249,7 +253,7 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
-    fn prove_left_agg_right_leaf_circuit(
+    async fn prove_left_agg_right_leaf_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         left_agg_proof_header: &QRecursionAggStandardHeader<C::F>,
@@ -261,13 +265,14 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
     for PortableQTreeRecursionCircuits<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn get_verifier_data_by_type(
+    async fn get_verifier_data_by_type(
         &self,
         circuit_type: QStandardBinaryTreeCircuitType,
     ) -> VerifierOnlyCircuitData<C, D> {
@@ -276,22 +281,22 @@ where
                 panic!("tried to get verifier data for a circuit with type None")
             }
             QStandardBinaryTreeCircuitType::SingleLeaf => {
-                self.single_leaf_circuit_verifier_config()
+                self.single_leaf_circuit_verifier_config().await
             }
-            QStandardBinaryTreeCircuitType::TwoLeaf => self.two_leaf_circuit_verifier_config(),
-            QStandardBinaryTreeCircuitType::TwoAgg => self.two_agg_circuit_verifier_config(),
+            QStandardBinaryTreeCircuitType::TwoLeaf => self.two_leaf_circuit_verifier_config().await,
+            QStandardBinaryTreeCircuitType::TwoAgg => self.two_agg_circuit_verifier_config().await,
             QStandardBinaryTreeCircuitType::LeftLeafRightAgg => {
-                self.left_leaf_right_agg_circuit_verifier_config()
+                self.left_leaf_right_agg_circuit_verifier_config().await
             }
             QStandardBinaryTreeCircuitType::LeftAggRightLeaf => {
-                self.left_agg_right_leaf_circuit_verifier_config()
+                self.left_agg_right_leaf_circuit_verifier_config().await
             }
             QStandardBinaryTreeCircuitType::Root => {
                 panic!("tried to get verifier data for a circuit with type Root")
             }
         }
     }
-    fn prove_single_leaf_circuit(
+    async fn prove_single_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
         single_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
@@ -306,7 +311,7 @@ where
         )
     }
 
-    fn prove_two_leaf_circuit(
+    async fn prove_two_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
         left_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
@@ -327,7 +332,7 @@ where
         )
     }
 
-    fn prove_two_agg_circuit(
+    async fn prove_two_agg_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         left_agg_proof_header: &QRecursionAggStandardHeader<C::F>,
@@ -350,7 +355,7 @@ where
         )
     }
 
-    fn prove_left_leaf_right_agg_circuit(
+    async fn prove_left_leaf_right_agg_circuit(
         &self,
         left_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -371,7 +376,7 @@ where
         )
     }
 
-    fn prove_left_agg_right_leaf_circuit(
+    async fn prove_left_agg_right_leaf_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         left_agg_proof_header: &QRecursionAggStandardHeader<C::F>,
@@ -393,13 +398,14 @@ where
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
     for PortableQTreeRecursionCircuits<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
+    async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
         &self.circuit_inclusion_proofs
     }
 }

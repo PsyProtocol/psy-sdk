@@ -21,6 +21,7 @@ qed_crypto = { workspace = true }
 qed_core = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
+maybe-async = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

@@ -255,8 +255,8 @@ impl<
             self.proof_tree_state
                 .injest_single_leaf_proof(InputLeafProof {
                     leaf_circuit_type: UPS_STEP_LEAF_TYPE,
-                    fingerprint: circuit_mgr.ups_start_circuit_fingerprint()?,
-                    verifier_data: circuit_mgr.ups_start_circuit_verifier_config()?,
+                    fingerprint: circuit_mgr.ups_start_circuit_fingerprint().await?,
+                    verifier_data: circuit_mgr.ups_start_circuit_verifier_config().await?,
                     proof,
                 });
         self.last_ups_step_proof_info = TreeAwareTreeProofRecord {
@@ -325,7 +325,7 @@ impl<
         let (fn_circuit_fingerprint, fn_circuit_verifier_data) = circuit_mgr.get_contract_method_common_data(contract_id.to_canonical_u64(), fn_id).await?;
         let cfc_proof_input = self.exec_contract_call(contract_id, fn_circuit_def, inputs).await?;
         // let cfc_proof = fn_circuit.prove_base(&cfc_proof_input)?;
-        let cfc_proof = circuit_mgr.prove_contract_call(contract_id.to_canonical_u64(), fn_id, &cfc_proof_input)?;
+        let cfc_proof = circuit_mgr.prove_contract_call(contract_id.to_canonical_u64(), fn_id, &cfc_proof_input).await?;
         let cfc_proof_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
             leaf_circuit_type: CFC_LEAF_TYPE,
             fingerprint: fn_circuit_fingerprint,
@@ -397,7 +397,7 @@ impl<
             standard_cfc_step: ups_cfc_standard_input,
         };
         // let ups_proof = circuit_mgr.ups_cfc_standard_tx.prove_base(&circuit_input)?;
-        let ups_proof = circuit_mgr.prove_ups_cfc_standard_tx(&circuit_input)?;
+        let ups_proof = circuit_mgr.prove_ups_cfc_standard_tx(&circuit_input).await?;
 
         self.last_ups_step_proof_info.circuit_id = LocalCircuitType::UPSCFCStandard.into();
         let new_ups_header = UserProvingSessionHeader {
@@ -407,8 +407,8 @@ impl<
         };
         let ups_step_proof_tree_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
             leaf_circuit_type: UPS_STEP_LEAF_TYPE,
-            fingerprint: circuit_mgr.ups_cfc_standard_tx_circuit_fingerprint()?,
-            verifier_data: circuit_mgr.ups_cfc_standard_tx_circuit_verifier_config()?,
+            fingerprint: circuit_mgr.ups_cfc_standard_tx_circuit_fingerprint().await?,
+            verifier_data: circuit_mgr.ups_cfc_standard_tx_circuit_verifier_config().await?,
             proof: ups_proof,
         });
         self.last_ups_step_proof_info = TreeAwareTreeProofRecord{
@@ -452,7 +452,7 @@ impl<
 
 
     }
-    pub fn prove_end_cap(
+    pub async fn prove_end_cap(
         &mut self,
         circuit_mgr: &QCircuitManager<C, D>,
         network_magic: u64,
@@ -499,7 +499,7 @@ impl<
 
         // compress all proofs into a sign tree proof
         tracing::info!("compress all proofs into a sign tree proof");
-        self.proof_tree_state.finalize_tree(circuit_mgr)?;
+        self.proof_tree_state.finalize_tree(circuit_mgr).await?;
 
         let zk_sig_leaf_proof = self.proof_tree_state.get_leaf_merkle_proof(zk_sig_proof_index);
         let end_cap_from_proof_tree_input = UPSEndCapFromProofTreeGadgetInput{
@@ -532,7 +532,7 @@ impl<
             &self.circuit_info,
             &end_cap_from_proof_tree_input,
             &finalized_proof_tree_record,
-        )?;
+        ).await?;
 
         /*
         let root_proof = self.proof_tree_state.get_root_verified_proof(&circuit_mgr.proof_tree_agg_circuits)?;
@@ -629,7 +629,7 @@ impl<
 
         let (fn_circuit_fingerprint, fn_circuit_verifier_data) = circuit_mgr.get_contract_method_common_data(deferred_tx.contract_id.to_canonical_u64(), fn_id as u32).await?;
         // let cfc_proof = fn_circuit.prove_base(&cfc_proof_input)?;
-        let cfc_proof = circuit_mgr.prove_contract_call(deferred_tx.contract_id.to_canonical_u64(), fn_id as u32, &cfc_proof_input)?;
+        let cfc_proof = circuit_mgr.prove_contract_call(deferred_tx.contract_id.to_canonical_u64(), fn_id as u32, &cfc_proof_input).await?;
         let cfc_proof_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
             leaf_circuit_type: CFC_LEAF_TYPE,
             fingerprint: fn_circuit_fingerprint,
@@ -679,7 +679,7 @@ impl<
                 ups_pop_deferred_tx_proof: debt_removal_proof,
             },
         };
-        let ups_proof = circuit_mgr.prove_ups_cfc_deferred_tx(&deferred_input)?;
+        let ups_proof = circuit_mgr.prove_ups_cfc_deferred_tx(&deferred_input).await?;
         self.last_ups_step_proof_info.circuit_id = LocalCircuitType::UPSCFCDeferred.into();
         let new_step_user_leaf = QEDUserLeaf {
             public_key: self.current_ups_header.current_state.user_leaf.public_key,
@@ -718,8 +718,8 @@ impl<
         };
         let ups_step_proof_tree_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
             leaf_circuit_type: UPS_STEP_LEAF_TYPE,
-            fingerprint: circuit_mgr.ups_cfc_deferred_tx_circuit_fingerprint()?,
-            verifier_data: circuit_mgr.ups_cfc_deferred_tx_circuit_verifier_config()?,
+            fingerprint: circuit_mgr.ups_cfc_deferred_tx_circuit_fingerprint().await?,
+            verifier_data: circuit_mgr.ups_cfc_deferred_tx_circuit_verifier_config().await?,
             proof: ups_proof,
         });
         self.last_ups_step_proof_info = TreeAwareTreeProofRecord{

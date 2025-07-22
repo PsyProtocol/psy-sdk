@@ -32,7 +32,8 @@ use qed_crypto::{
     hash::{
         merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
         traits::hasher::MerkleZeroHasher,
-    }, signature::secp256k1::core::QEDCompressedSecp256K1Signature,
+    },
+    signature::secp256k1::core::QEDCompressedSecp256K1Signature,
 };
 use qed_data::{
     qdata::contract::ContractCodeDefinition,
@@ -552,18 +553,26 @@ where
     ) -> anyhow::Result<()> {
         match self {
             QCircuitManager::Local(manager) => {
-                manager.register_contract_circuits(contract_id, &contract_code).await
+                manager
+                    .register_contract_circuits(contract_id, &contract_code)
+                    .await
             }
             QCircuitManager::Rpc(provider) => {
-                provider.register_contract_circuits(contract_id, &contract_code).await
+                provider
+                    .register_contract_circuits(contract_id, &contract_code)
+                    .await
             }
         }
     }
 
     async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
         match self {
-            QCircuitManager::Local(manager) => manager.get_method_id(contract_id, method_name).await,
-            QCircuitManager::Rpc(provider) => provider.get_method_id(contract_id, method_name).await,
+            QCircuitManager::Local(manager) => {
+                manager.get_method_id(contract_id, method_name).await
+            }
+            QCircuitManager::Rpc(provider) => {
+                provider.get_method_id(contract_id, method_name).await
+            }
         }
     }
 
@@ -574,10 +583,14 @@ where
     ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
         match self {
             QCircuitManager::Local(manager) => {
-                manager.get_contract_method_common_data(contract_id, method_id).await
+                manager
+                    .get_contract_method_common_data(contract_id, method_id)
+                    .await
             }
             QCircuitManager::Rpc(provider) => {
-                provider.get_contract_method_common_data(contract_id, method_id).await
+                provider
+                    .get_contract_method_common_data(contract_id, method_id)
+                    .await
             }
         }
     }
@@ -590,10 +603,14 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self {
             QCircuitManager::Local(manager) => {
-                manager.prove_contract_call(contract_id, method_id, &input).await
+                manager
+                    .prove_contract_call(contract_id, method_id, &input)
+                    .await
             }
             QCircuitManager::Rpc(provider) => {
-                provider.prove_contract_call(contract_id, method_id, &input).await
+                provider
+                    .prove_contract_call(contract_id, method_id, &input)
+                    .await
             }
         }
     }
@@ -657,11 +674,15 @@ where
                     &agg_root_verifier_data,
                 )
             }
-            QCircuitManager::Rpc(provider) => provider.prove_ups_end_cap(
-                &circuit_info,
-                &end_cap_from_proof_tree_input,
-                &agg_proof_record,
-            ).await,
+            QCircuitManager::Rpc(provider) => {
+                provider
+                    .prove_ups_end_cap(
+                        &circuit_info,
+                        &end_cap_from_proof_tree_input,
+                        &agg_proof_record,
+                    )
+                    .await
+            }
         }
     }
 
@@ -686,7 +707,9 @@ where
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         match self {
             QCircuitManager::Local(manager) => Ok(manager.ups_cfc_standard_tx.get_fingerprint()),
-            QCircuitManager::Rpc(provider) => provider.ups_cfc_standard_tx_circuit_fingerprint().await,
+            QCircuitManager::Rpc(provider) => {
+                provider.ups_cfc_standard_tx_circuit_fingerprint().await
+            }
         }
     }
 
@@ -708,7 +731,9 @@ where
     async fn ups_cfc_deferred_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         match self {
             QCircuitManager::Local(manager) => Ok(manager.ups_cfc_deferred_tx.get_fingerprint()),
-            QCircuitManager::Rpc(provider) => provider.ups_cfc_deferred_tx_circuit_fingerprint().await,
+            QCircuitManager::Rpc(provider) => {
+                provider.ups_cfc_deferred_tx_circuit_fingerprint().await
+            }
         }
     }
 
@@ -753,67 +778,68 @@ where
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D>
     for QCircuitManager<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .single_leaf_circuit_fingerprint(),
-            QCircuitManager::Rpc(provider) => provider.single_leaf_circuit_fingerprint(),
+                .single_leaf_circuit_fingerprint().await,
+            QCircuitManager::Rpc(provider) => provider.single_leaf_circuit_fingerprint().await,
         }
     }
 
-    fn two_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn two_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .two_leaf_circuit_fingerprint(),
-            QCircuitManager::Rpc(provider) => provider.two_leaf_circuit_fingerprint(),
+                .two_leaf_circuit_fingerprint().await,
+            QCircuitManager::Rpc(provider) => provider.two_leaf_circuit_fingerprint().await,
         }
     }
 
-    fn two_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn two_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .two_agg_circuit_fingerprint(),
-            QCircuitManager::Rpc(provider) => provider.two_agg_circuit_fingerprint(),
+                .two_agg_circuit_fingerprint().await,
+            QCircuitManager::Rpc(provider) => provider.two_agg_circuit_fingerprint().await,
         }
     }
 
-    fn left_leaf_right_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn left_leaf_right_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .left_leaf_right_agg_circuit_fingerprint(),
-            QCircuitManager::Rpc(provider) => provider.left_leaf_right_agg_circuit_fingerprint(),
+                .left_leaf_right_agg_circuit_fingerprint().await,
+            QCircuitManager::Rpc(provider) => provider.left_leaf_right_agg_circuit_fingerprint().await,
         }
     }
 
-    fn left_agg_right_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+    async fn left_agg_right_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .left_agg_right_leaf_circuit_fingerprint(),
-            QCircuitManager::Rpc(provider) => provider.left_agg_right_leaf_circuit_fingerprint(),
+                .left_agg_right_leaf_circuit_fingerprint().await,
+            QCircuitManager::Rpc(provider) => provider.left_agg_right_leaf_circuit_fingerprint().await,
         }
     }
 
-    fn single_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn single_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .single_leaf_circuit_verifier_config(),
-            QCircuitManager::Rpc(provider) => provider.single_leaf_circuit_verifier_config(),
+                .single_leaf_circuit_verifier_config().await,
+            QCircuitManager::Rpc(provider) => provider.single_leaf_circuit_verifier_config().await,
         }
     }
 
-    fn two_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn two_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
@@ -822,38 +848,39 @@ where
         }
     }
 
-    fn two_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn two_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .two_agg_circuit_verifier_config(),
-            QCircuitManager::Rpc(provider) => provider.two_agg_circuit_verifier_config(),
+                .two_agg_circuit_verifier_config().await,
+            QCircuitManager::Rpc(provider) => provider.two_agg_circuit_verifier_config().await,
         }
     }
 
-    fn left_leaf_right_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn left_leaf_right_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .left_leaf_right_agg_circuit_verifier_config(),
+                .left_leaf_right_agg_circuit_verifier_config().await,
             QCircuitManager::Rpc(provider) => {
-                provider.left_leaf_right_agg_circuit_verifier_config()
+                provider.left_leaf_right_agg_circuit_verifier_config().await
             }
         }
     }
 
-    fn left_agg_right_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+    async fn left_agg_right_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .left_agg_right_leaf_circuit_verifier_config(),
+                .left_agg_right_leaf_circuit_verifier_config().await,
             QCircuitManager::Rpc(provider) => {
-                provider.left_agg_right_leaf_circuit_verifier_config()
+                provider.left_agg_right_leaf_circuit_verifier_config().await
             }
         }
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
     for QCircuitManager<C, D>
 where
@@ -867,8 +894,8 @@ where
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .get_verifier_data_by_type(circuit_type),
-            QCircuitManager::Rpc(provider) => provider.get_verifier_data_by_type(circuit_type),
+                .get_verifier_data_by_type(circuit_type).await,
+            QCircuitManager::Rpc(provider) => provider.get_verifier_data_by_type(circuit_type).await,
         }
     }
 
@@ -888,14 +915,14 @@ where
                     single_insert_leaf_proof,
                     single_proof,
                     single_verifier_data,
-                )
+                ).await
             }
             QCircuitManager::Rpc(provider) => provider.prove_single_leaf_circuit(
                 agg_circuit_whitelist_root,
                 single_insert_leaf_proof,
                 single_proof,
                 single_verifier_data,
-            ),
+            ).await,
         }
     }
 
@@ -923,7 +950,7 @@ where
                     right_insert_leaf_proof,
                     right_proof,
                     right_verifier_data,
-                )
+                ).await
             }
             QCircuitManager::Rpc(provider) => provider.prove_two_leaf_circuit(
                 agg_circuit_whitelist_root,
@@ -933,7 +960,7 @@ where
                 right_insert_leaf_proof,
                 right_proof,
                 right_verifier_data,
-            ),
+            ).await,
         }
     }
 
@@ -959,7 +986,7 @@ where
                     right_agg_proof_header,
                     right_proof,
                     right_verifier_data,
-                )
+                ).await
             }
             QCircuitManager::Rpc(provider) => provider.prove_two_agg_circuit(
                 left_agg_whitelist_merkle_proof,
@@ -970,7 +997,7 @@ where
                 right_agg_proof_header,
                 right_proof,
                 right_verifier_data,
-            ),
+            ).await,
         }
     }
 
@@ -997,7 +1024,7 @@ where
                     right_agg_proof_header,
                     right_proof,
                     right_verifier_data,
-                ),
+                ).await,
             QCircuitManager::Rpc(provider) => provider.prove_left_leaf_right_agg_circuit(
                 left_insert_leaf_proof,
                 left_proof,
@@ -1006,7 +1033,7 @@ where
                 right_agg_proof_header,
                 right_proof,
                 right_verifier_data,
-            ),
+            ).await,
         }
     }
 
@@ -1033,7 +1060,7 @@ where
                     right_insert_leaf_proof,
                     right_proof,
                     right_verifier_data,
-                ),
+                ).await,
             QCircuitManager::Rpc(provider) => provider.prove_left_agg_right_leaf_circuit(
                 left_agg_whitelist_merkle_proof,
                 left_agg_proof_header,
@@ -1042,7 +1069,7 @@ where
                 right_insert_leaf_proof,
                 right_proof,
                 right_verifier_data,
-            ),
+            ).await,
         }
     }
 }

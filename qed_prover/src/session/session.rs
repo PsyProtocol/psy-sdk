@@ -134,9 +134,9 @@ pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         .resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })
         .await?;
 
-    circuit_mgr.register_contract_circuits(contract_id, &contract_code)?;
+    circuit_mgr.register_contract_circuits(contract_id, &contract_code).await?;
 
-    let method_id = circuit_mgr.get_method_id(contract_id, fn_name.to_string())?;
+    let method_id = circuit_mgr.get_method_id(contract_id, fn_name.to_string()).await?;
 
     let dapen_fc = cfc_code_definition_to_dapen_fc(&contract_code.functions[method_id as usize])?;
 
@@ -197,7 +197,7 @@ impl UserSessionStateManager {
         let mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new(
             lps,
             circuit_info,
-            main_circuits.ups_circuit_whitelist_root()?,
+            main_circuits.ups_circuit_whitelist_root().await?,
         )
         .await?;
 
@@ -597,7 +597,7 @@ impl WalletSession {
                 }
                 QCircuitManager::Rpc(provider) => {
                     let private_key = self.wallet.zk_wallet.get_private_key(pk_hash)?.private_key;
-                    provider.prove_signature(private_key, sighash)?
+                    provider.prove_signature(private_key, sighash).await?
                 }
             },
             SignType::SECP256K1Sign => {
@@ -619,7 +619,7 @@ impl WalletSession {
                             .get_private_key(*compressed_pk)?;
                         let signature = secp256k1_sign(private_key, sighash)?;
 
-                        provider.prove_secp256k1_signature(signature)?
+                        provider.prove_secp256k1_signature(signature).await?
                     }
                 }
             }
@@ -629,11 +629,11 @@ impl WalletSession {
             QCircuitManager::Local(manager) => user_session_mgr
                 .mgr
                 .proof_tree_state
-                .finalize_tree(&manager.proof_tree_agg_circuits)?,
+                .finalize_tree(&manager.proof_tree_agg_circuits).await?,
             QCircuitManager::Rpc(provider) => user_session_mgr
                 .mgr
                 .proof_tree_state
-                .finalize_tree(provider)?,
+                .finalize_tree(provider).await?,
         };
 
         let public_key_param = match sign_type {
@@ -664,7 +664,7 @@ impl WalletSession {
                         .get_user_leaf_data(
                             user_session_mgr.current_checkpoint_id,
                             user_session_mgr.user_id,
-                        )?
+                        ).await?
                         .secp256k1_public_key_hash
                 }
             }
@@ -708,7 +708,7 @@ impl WalletSession {
             public_key_param,
             signature_proof,
             circuit_verifier_config,
-        )?;
+        ).await?;
 
         let user_ec_input = user_session_mgr.mgr.get_api_input().await?;
         tracing::info!(
