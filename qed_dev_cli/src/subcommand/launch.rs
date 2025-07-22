@@ -172,7 +172,9 @@ async fn start_infrastructure(
     log_dir: &Path,
 ) -> Result<()> {
     // Extract Redis configuration
-    let coordinator_uri = &config.nodes.redis.coordinator.uri;
+    let coordinator_redis = config.nodes.coordinator.redis.as_ref()
+        .ok_or_else(|| anyhow::anyhow!("No Redis configuration found for coordinator"))?;
+    let coordinator_uri = &coordinator_redis.uri;
     let coordinator_port = extract_port(coordinator_uri)?;
     
     // Start Redis instances
@@ -183,11 +185,13 @@ async fn start_infrastructure(
         manager.spawn("redis-coordinator".to_string(), cmd, log_dir)?;
         
         // Realm Redis instances
-        for realm_redis in &config.nodes.redis.realms {
-            let port = extract_port(&realm_redis.uri)?;
-            let mut cmd = Command::new("redis-server");
-            cmd.arg("--port").arg(port.to_string());
-            manager.spawn(format!("redis-realm-{}", realm_redis.id), cmd, log_dir)?;
+        for realm in &config.nodes.realms {
+            if let Some(realm_redis) = &realm.redis {
+                let port = extract_port(&realm_redis.uri)?;
+                let mut cmd = Command::new("redis-server");
+                cmd.arg("--port").arg(port.to_string());
+                manager.spawn(format!("redis-realm-{}", realm.id), cmd, log_dir)?;
+            }
         }
     } else {
         // Use Docker as fallback
@@ -196,7 +200,13 @@ async fn start_infrastructure(
     }
     
     // Start ScyllaDB if needed
-    if config.nodes.backend.database == "scylla" {
+    // Check if any node is using scylla
+    let has_scylla = config.nodes.coordinator.backend.as_ref()
+        .map(|b| b.database == "scylla").unwrap_or(false) ||
+        config.nodes.realms.iter().any(|r| 
+            r.backend.as_ref().map(|b| b.database == "scylla").unwrap_or(false));
+    
+    if has_scylla {
         start_scylla_docker(config, manager, log_dir)?;
         // Wait for ScyllaDB to be ready
         info!("⏳ Waiting for ScyllaDB to initialize...");
@@ -204,12 +214,21 @@ async fn start_infrastructure(
         create_keyspaces(config)?;
     }
     
-    // Create LMDBX directories if needed
-    if config.nodes.backend.database == "lmdbx" {
-        if let Some(lmdbx_cfg) = &config.nodes.backend.lmdbx {
-            fs::create_dir_all(format!("{}/coordinator", lmdbx_cfg.base_path))?;
-            for realm in &config.nodes.realms {
-                fs::create_dir_all(format!("{}/realm{}", lmdbx_cfg.base_path, realm.id))?;
+    // Create LMDBX directories if needed for each component
+    if let Some(coord_backend) = &config.nodes.coordinator.backend {
+        if coord_backend.database == "lmdbx" {
+            if let Some(lmdbx_cfg) = &coord_backend.lmdbx {
+                fs::create_dir_all(&lmdbx_cfg.path)?;
+            }
+        }
+    }
+    
+    for realm in &config.nodes.realms {
+        if let Some(realm_backend) = &realm.backend {
+            if realm_backend.database == "lmdbx" {
+                if let Some(lmdbx_cfg) = &realm_backend.lmdbx {
+                    fs::create_dir_all(&lmdbx_cfg.path)?;
+                }
             }
         }
     }
@@ -227,7 +246,9 @@ async fn start_coordinator(
     log_dir: &Path,
 ) -> Result<()> {
     let binary = get_binary_path()?;
-    let redis_uri = &config.nodes.redis.coordinator.uri;
+    let coordinator_redis = config.nodes.coordinator.redis.as_ref()
+        .ok_or_else(|| anyhow::anyhow!("No Redis configuration found for coordinator"))?;
+    let redis_uri = &coordinator_redis.uri;
     let node_cfg = &config.nodes.coordinator;
     
     // Start processor
@@ -242,7 +263,13 @@ async fn start_coordinator(
     
     // Start workers
     if node_cfg.worker.enabled {
-        let worker_count = node_cfg.worker.instances.unwrap_or(1);
+        let worker_count = node_cfg.worker.aws.as_ref()
+            .and_then(|aws| match &aws.deployment_type {
+                Some(super::generate::DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances),
+                _ => aws.ecs.as_ref().and_then(|e| e.instances.or(Some(e.task_count)))
+            })
+            .or(node_cfg.worker.instances)
+            .unwrap_or(1);
         for i in 0..worker_count {
             let mut cmd = Command::new(&binary);
             cmd.arg("coordinator-worker");
@@ -301,8 +328,7 @@ async fn start_realms(
         info!("🌍 Starting realm {}...", realm_node.id);
         
         // Find corresponding Redis config
-        let realm_redis = config.nodes.redis.realms.iter()
-            .find(|r| r.id == realm_node.id)
+        let realm_redis = realm_node.redis.as_ref()
             .ok_or_else(|| anyhow::anyhow!("Redis config not found for realm {}", realm_node.id))?;
         
         let redis_uri = &realm_redis.uri;
@@ -327,7 +353,13 @@ async fn start_realms(
         
         // Start workers
         if realm_node.worker.enabled {
-            let worker_count = realm_node.worker.instances.unwrap_or(1);
+            let worker_count = realm_node.worker.aws.as_ref()
+                .and_then(|aws| match &aws.deployment_type {
+                    Some(super::generate::DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances),
+                    _ => aws.ecs.as_ref().and_then(|e| e.instances.or(Some(e.task_count)))
+                })
+                .or(realm_node.worker.instances)
+                .unwrap_or(1);
             for j in 0..worker_count {
                 let mut cmd = Command::new(&binary);
                 cmd.arg("realm-worker");
@@ -387,21 +419,26 @@ async fn start_realms(
 }
 
 fn add_backend_args(cmd: &mut Command, config: &Config, realm_id: Option<u64>) -> Result<()> {
-    match config.nodes.backend.database.as_str() {
+    let backend = if let Some(realm) = realm_id {
+        config.nodes.realms.iter()
+            .find(|r| r.id == realm)
+            .and_then(|r| r.backend.as_ref())
+            .ok_or_else(|| anyhow::anyhow!("No backend configuration found for realm {}", realm))?
+    } else {
+        config.nodes.coordinator.backend.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No backend configuration found for coordinator"))?
+    };
+
+    match backend.database.as_str() {
         "lmdbx" => {
             cmd.arg("--database").arg("lmdbx");
-            if let Some(lmdbx_cfg) = &config.nodes.backend.lmdbx {
-                let path = if let Some(realm) = realm_id {
-                    format!("{}/realm{}", lmdbx_cfg.base_path, realm)
-                } else {
-                    format!("{}/coordinator", lmdbx_cfg.base_path)
-                };
-                cmd.arg("--lmdbx-path").arg(path);
+            if let Some(lmdbx_cfg) = &backend.lmdbx {
+                cmd.arg("--lmdbx-path").arg(&lmdbx_cfg.path);
             }
         }
         "scylla" => {
             cmd.arg("--database").arg("scylla");
-            if let Some(scylla_cfg) = &config.nodes.backend.scylla {
+            if let Some(scylla_cfg) = &backend.scylla {
                 if let Some(endpoint) = scylla_cfg.endpoints.first() {
                     cmd.arg("--scylla-uri").arg(endpoint);
                 }
@@ -413,7 +450,7 @@ fn add_backend_args(cmd: &mut Command, config: &Config, realm_id: Option<u64>) -
                 cmd.arg("--scylla-keyspace").arg(keyspace);
             }
         }
-        _ => return Err(anyhow::anyhow!("Unknown backend type: {}", config.nodes.backend.database)),
+        _ => return Err(anyhow::anyhow!("Unknown backend type: {}", backend.database)),
     }
     Ok(())
 }
@@ -473,7 +510,9 @@ fn check_command_exists(cmd: &str) -> bool {
 
 fn start_redis_docker(config: &Config, manager: &ProcessManager, log_dir: &Path) -> Result<()> {
     // Coordinator Redis
-    let coordinator_port = extract_port(&config.nodes.redis.coordinator.uri)?;
+    let coordinator_redis = config.nodes.coordinator.redis.as_ref()
+        .ok_or_else(|| anyhow::anyhow!("No Redis configuration found for coordinator"))?;
+    let coordinator_port = extract_port(&coordinator_redis.uri)?;
     let mut cmd = Command::new("docker");
     cmd.args(&[
         "run", "--rm", "--name", "qed-redis-coordinator",
@@ -483,15 +522,17 @@ fn start_redis_docker(config: &Config, manager: &ProcessManager, log_dir: &Path)
     manager.spawn("docker-redis-coordinator".to_string(), cmd, log_dir)?;
     
     // Realm Redis instances
-    for realm_redis in &config.nodes.redis.realms {
-        let port = extract_port(&realm_redis.uri)?;
-        let mut cmd = Command::new("docker");
-        cmd.args(&[
-            "run", "--rm", "--name", &format!("qed-redis-realm-{}", realm_redis.id),
-            "-p", &format!("{}:6379", port),
-            "redis:7-alpine"
-        ]);
-        manager.spawn(format!("docker-redis-realm-{}", realm_redis.id), cmd, log_dir)?;
+    for realm in &config.nodes.realms {
+        if let Some(realm_redis) = &realm.redis {
+            let port = extract_port(&realm_redis.uri)?;
+            let mut cmd = Command::new("docker");
+            cmd.args(&[
+                "run", "--rm", "--name", &format!("qed-redis-realm-{}", realm.id),
+                "-p", &format!("{}:6379", port),
+                "redis:7-alpine"
+            ]);
+            manager.spawn(format!("docker-redis-realm-{}", realm.id), cmd, log_dir)?;
+        }
     }
     
     Ok(())

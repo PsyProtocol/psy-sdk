@@ -215,6 +215,12 @@ pub struct GenerateAwsArgs {
     
     #[arg(long, help = "Force overwrite existing files")]
     pub force: bool,
+    
+    #[arg(long, default_value = "balanced", help = "Instance optimization strategy: cost-optimized, performance-optimized, or balanced")]
+    pub optimization_strategy: String,
+    
+    #[arg(long, help = "Automatically set EC2 instance types based on recommendations")]
+    pub auto_instance_types: bool,
 }
 
 #[derive(Parser)]

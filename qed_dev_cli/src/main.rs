@@ -1,4 +1,5 @@
 mod subcommand;
+mod aws;
 use qed_dev_cli::test_helpers;
 
 use clap::Parser;

@@ -14,21 +14,13 @@ networks:
 
 volumes:
   # Check if coordinator uses lmdbx
-  {% if config.nodes.coordinator.backend -%}
   {% set coord_backend = config.nodes.coordinator.backend -%}
-  {% else -%}
-  {% set coord_backend = config.nodes.backend -%}
-  {% endif -%}
   {% if coord_backend.type == "lmdbx" -%}
   coordinator_data:
   {% endif -%}
   # Check each realm for lmdbx usage
   {% for realm in config.nodes.realms -%}
-  {% if realm.backend -%}
   {% set realm_backend = realm.backend -%}
-  {% else -%}
-  {% set realm_backend = config.nodes.backend -%}
-  {% endif -%}
   # Realm {{ realm.id }} backend type: {{ realm_backend.type if realm_backend else "None" }}
   {% if realm_backend.type == "lmdbx" -%}
   realm{{ realm.id }}_data:
@@ -36,20 +28,12 @@ volumes:
   {% endfor -%}
   # Include ScyllaDB volumes if any node uses it
   {% set ns = namespace(uses_scylla=false) -%}
-  {% if config.nodes.coordinator.backend -%}
   {% set coord_backend = config.nodes.coordinator.backend -%}
-  {% else -%}
-  {% set coord_backend = config.nodes.backend -%}
-  {% endif -%}
   {% if coord_backend.type == "scylla" -%}
   {% set ns.uses_scylla = true -%}
   {% endif -%}
   {% for realm in config.nodes.realms -%}
-  {% if realm.backend -%}
   {% set realm_backend = realm.backend -%}
-  {% else -%}
-  {% set realm_backend = config.nodes.backend -%}
-  {% endif -%}
   {% if realm_backend.type == "scylla" -%}
   {% set ns.uses_scylla = true -%}
   {% endif -%}
@@ -57,9 +41,7 @@ volumes:
   {% if ns.uses_scylla -%}
   # Coordinator ScyllaDB volumes
   {% if config.nodes.coordinator.backend and config.nodes.coordinator.backend.type == "scylla" -%}
-    {% set coordinator_cluster_size = config.nodes.coordinator.backend.scylla.cluster_size | default(1) -%}
-  {% elif config.nodes.backend.type == "scylla" -%}
-    {% set coordinator_cluster_size = config.nodes.backend.scylla.cluster_size | default(1) -%}
+    {% set coordinator_cluster_size = config.nodes.coordinator.backend.scylla.aws.ec2.desired_instances | default(1) -%}
   {% else -%}
     {% set coordinator_cluster_size = 0 -%}
   {% endif -%}
@@ -72,9 +54,7 @@ volumes:
   # Realm ScyllaDB volumes
   {% for realm in config.nodes.realms -%}
   {% if realm.backend and realm.backend.type == "scylla" -%}
-    {% set realm_cluster_size = realm.backend.scylla.cluster_size | default(1) -%}
-  {% elif config.nodes.backend.type == "scylla" -%}
-    {% set realm_cluster_size = config.nodes.backend.scylla.cluster_size | default(1) -%}
+    {% set realm_cluster_size = realm.backend.scylla.aws.ec2.desired_instances | default(1) -%}
   {% else -%}
     {% set realm_cluster_size = 0 -%}
   {% endif -%}
@@ -89,43 +69,39 @@ volumes:
 
 services:
   # Redis services
+  {% if config.nodes.coordinator.redis -%}
   redis-coordinator:
     image: redis:7-alpine
     container_name: qed-redis-coordinator
     ports:
-      - "{{ config.nodes.redis.coordinator.uri | split(':') | last }}:6379"
+      - "{{ config.nodes.coordinator.redis.uri | split(':') | last }}:6379"
     networks:
       - {{ config.nodes.deployment.docker.network_name }}
     restart: unless-stopped
 
-  {% for realm_redis in config.nodes.redis.realms -%}
-  redis-realm{{ realm_redis.id }}:
+  {% endif -%}
+  {% for realm in config.nodes.realms -%}
+  {% if realm.redis -%}
+  redis-realm{{ realm.id }}:
     image: redis:7-alpine
-    container_name: qed-redis-realm{{ realm_redis.id }}
+    container_name: qed-redis-realm{{ realm.id }}
     ports:
-      - "{{ realm_redis.uri | split(':') | last }}:6379"
+      - "{{ realm.redis.uri | split(':') | last }}:6379"
     networks:
       - {{ config.nodes.deployment.docker.network_name }}
     restart: unless-stopped
 
+  {% endif -%}
   {% endfor %}
 
   # ScyllaDB - only include if any node uses scylla backend
   {% set ns = namespace(uses_scylla=false) -%}
-  {% if config.nodes.coordinator.backend -%}
   {% set coord_backend = config.nodes.coordinator.backend -%}
-  {% else -%}
-  {% set coord_backend = config.nodes.backend -%}
-  {% endif -%}
   {% if coord_backend.type == "scylla" -%}
   {% set ns.uses_scylla = true -%}
   {% endif -%}
   {% for realm in config.nodes.realms -%}
-  {% if realm.backend -%}
   {% set realm_backend = realm.backend -%}
-  {% else -%}
-  {% set realm_backend = config.nodes.backend -%}
-  {% endif -%}
   {% if realm_backend.type == "scylla" -%}
   {% set ns.uses_scylla = true -%}
   {% endif -%}
@@ -135,9 +111,7 @@ services:
   
   # Coordinator ScyllaDB cluster
   {% if config.nodes.coordinator.backend and config.nodes.coordinator.backend.type == "scylla" -%}
-    {% set coordinator_cluster_size = config.nodes.coordinator.backend.scylla.cluster_size | default(1) -%}
-  {% elif config.nodes.backend.type == "scylla" -%}
-    {% set coordinator_cluster_size = config.nodes.backend.scylla.cluster_size | default(1) -%}
+    {% set coordinator_cluster_size = config.nodes.coordinator.backend.scylla.aws.ec2.desired_instances | default(1) -%}
   {% else -%}
     {% set coordinator_cluster_size = 0 -%}
   {% endif -%}
@@ -179,9 +153,7 @@ services:
   # Realm ScyllaDB clusters
   {% for realm in config.nodes.realms -%}
   {% if realm.backend and realm.backend.type == "scylla" -%}
-    {% set realm_cluster_size = realm.backend.scylla.cluster_size | default(1) -%}
-  {% elif config.nodes.backend.type == "scylla" -%}
-    {% set realm_cluster_size = config.nodes.backend.scylla.cluster_size | default(1) -%}
+    {% set realm_cluster_size = realm.backend.scylla.aws.ec2.desired_instances | default(1) -%}
   {% else -%}
     {% set realm_cluster_size = 0 -%}
   {% endif -%}
@@ -248,12 +220,8 @@ services:
       --lmdbx-path /data
       {% elif coord_backend.type == "scylla" -%}
       --database scylla
-      {% set coord_cluster_size = coord_backend.scylla.cluster_size | default(1) -%}
-      {% if coord_cluster_size > 1 -%}
-      --scylla-uri {% for i in range(1, coord_cluster_size + 1) %}scylla-coordinator-{{ i }}:9042{% if not loop.last %},{% endif %}{% endfor %}
-      {% else -%}
+      {% set coord_cluster_size = coord_backend.scylla.aws.ec2.desired_instances | default(1) -%}
       --scylla-uri scylla-coordinator-1:9042
-      {% endif -%}
       --scylla-keyspace qed_coordinator
       {% endif -%}
       --redis-uri redis://redis-coordinator:6379
@@ -283,6 +251,10 @@ services:
       {% set coord_backend = config.nodes.backend -%}
       {% endif -%}
       {% if coord_backend.type == "scylla" -%}
+      {% set coord_cluster_size = coord_backend.scylla.aws.ec2.desired_instances | default(1) -%}
+      {% for i in range(1, coord_cluster_size + 1) -%}
+      - scylla-coordinator-{{ i }}
+      {% endfor -%}
       {% endif %}
     restart: unless-stopped
     pid: host
@@ -311,12 +283,8 @@ services:
       --lmdbx-path /data
       {% elif coord_backend.type == "scylla" -%}
       --database scylla
-      {% set coord_cluster_size = coord_backend.scylla.cluster_size | default(1) -%}
-      {% if coord_cluster_size > 1 -%}
-      --scylla-uri {% for i in range(1, coord_cluster_size + 1) %}scylla-coordinator-{{ i }}:9042{% if not loop.last %},{% endif %}{% endfor %}
-      {% else -%}
+      {% set coord_cluster_size = coord_backend.scylla.aws.ec2.desired_instances | default(1) -%}
       --scylla-uri scylla-coordinator-1:9042
-      {% endif -%}
       --scylla-keyspace qed_coordinator
       {% endif -%}
       --redis-uri redis://redis-coordinator:6379
@@ -349,6 +317,10 @@ services:
       {% set coord_backend = config.nodes.backend -%}
       {% endif -%}
       {% if coord_backend.type == "scylla" -%}
+      {% set coord_cluster_size = coord_backend.scylla.aws.ec2.desired_instances | default(1) -%}
+      {% for i in range(1, coord_cluster_size + 1) -%}
+      - scylla-coordinator-{{ i }}
+      {% endfor -%}
       {% endif %}
     restart: unless-stopped
     pid: host
@@ -385,6 +357,10 @@ services:
       {% set coord_backend = config.nodes.backend -%}
       {% endif -%}
       {% if coord_backend.type == "scylla" -%}
+      {% set coord_cluster_size = coord_backend.scylla.aws.ec2.desired_instances | default(1) -%}
+      {% for i in range(1, coord_cluster_size + 1) -%}
+      - scylla-coordinator-{{ i }}
+      {% endfor -%}
       {% endif %}
     restart: unless-stopped
     pid: host
@@ -414,12 +390,8 @@ services:
       --lmdbx-path /data
       {% elif realm_backend.type == "scylla" -%}
       --database scylla
-      {% set realm_cluster_size = realm_backend.scylla.cluster_size | default(1) -%}
-      {% if realm_cluster_size > 1 -%}
-      --scylla-uri {% for i in range(1, realm_cluster_size + 1) %}scylla-realm{{ realm.id }}-{{ i }}:9042{% if not loop.last %},{% endif %}{% endfor %}
-      {% else -%}
+      {% set realm_cluster_size = realm_backend.scylla.aws.ec2.desired_instances | default(1) -%}
       --scylla-uri scylla-realm{{ realm.id }}-1:9042
-      {% endif -%}
       --scylla-keyspace qed_realm_{{ realm.id }}
       {% endif -%}
       --redis-uri redis://redis-realm{{ realm.id }}:6379
@@ -451,6 +423,10 @@ services:
       {% set realm_backend = config.nodes.backend -%}
       {% endif -%}
       {% if realm_backend.type == "scylla" -%}
+      {% set realm_cluster_size = realm_backend.scylla.aws.ec2.desired_instances | default(1) -%}
+      {% for i in range(1, realm_cluster_size + 1) -%}
+      - scylla-realm{{ realm.id }}-{{ i }}
+      {% endfor -%}
       {% endif %}
     restart: unless-stopped
     pid: host
@@ -479,12 +455,8 @@ services:
       --lmdbx-path /data
       {% elif realm_backend.type == "scylla" -%}
       --database scylla
-      {% set realm_cluster_size = realm_backend.scylla.cluster_size | default(1) -%}
-      {% if realm_cluster_size > 1 -%}
-      --scylla-uri {% for i in range(1, realm_cluster_size + 1) %}scylla-realm{{ realm.id }}-{{ i }}:9042{% if not loop.last %},{% endif %}{% endfor %}
-      {% else -%}
+      {% set realm_cluster_size = realm_backend.scylla.aws.ec2.desired_instances | default(1) -%}
       --scylla-uri scylla-realm{{ realm.id }}-1:9042
-      {% endif -%}
       --scylla-keyspace qed_realm_{{ realm.id }}
       {% endif -%}
       --redis-uri redis://redis-realm{{ realm.id }}:6379
@@ -520,6 +492,10 @@ services:
       {% set realm_backend = config.nodes.backend -%}
       {% endif -%}
       {% if realm_backend.type == "scylla" -%}
+      {% set realm_cluster_size = realm_backend.scylla.aws.ec2.desired_instances | default(1) -%}
+      {% for i in range(1, realm_cluster_size + 1) -%}
+      - scylla-realm{{ realm.id }}-{{ i }}
+      {% endfor -%}
       {% endif %}
     restart: unless-stopped
     pid: host

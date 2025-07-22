@@ -8,8 +8,8 @@ pub struct LmdbxConfig {
     #[clap(long, env = "LMDBX_PATH", default_value = "db")]
     pub lmdbx_path: String,
 
-    #[clap(long, env = "LMDBX_SIZE_GB", default_value = "100")]
-    pub lmdbx_size_gb: usize,
+    #[clap(long, env = "LMDBX_MMAP_SIZE_GB", default_value = "100")]
+    pub lmdbx_mmap_size_gb: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
@@ -40,7 +40,7 @@ impl DatabaseKind {
 
 #[derive(Clone, Debug, Args, Serialize, Deserialize)]
 pub struct BackendConfig {
-    #[clap(long, env = "BACKEND_TYPE", default_value = "scylla", value_enum)]
+    #[clap(long, env = "DATABASE_KIND", default_value = "scylla", value_enum)]
     pub database: DatabaseKind,
 
     #[clap(flatten)]
@@ -63,7 +63,7 @@ impl Default for BackendConfig {
             scylla: ScyllaDBConfig::default(),
             lmdbx: LmdbxConfig {
                 lmdbx_path: "db".to_string(),
-                lmdbx_size_gb: 100,
+                lmdbx_mmap_size_gb: 100,
             },
         }
     }

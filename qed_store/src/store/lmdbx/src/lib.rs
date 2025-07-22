@@ -57,7 +57,7 @@ impl KVQlibmdbxStore {
         Ok(Self { env })
     }
 
-    pub fn new_write_with_size(path: &str, size_gb: usize) -> anyhow::Result<Self> {
+    pub fn new_write_with_size(path: &str, mmap_size_gb: usize) -> anyhow::Result<Self> {
         let flags = EnvironmentFlags {
             no_sub_dir: false,
             mode: Mode::ReadWrite {
@@ -71,7 +71,7 @@ impl KVQlibmdbxStore {
             .set_max_dbs(1)
             .set_flags(flags)
             .set_geometry(Geometry {
-                size: Some(..=(size_gb * 1024 * 1024 * 1024)),
+                size: Some(..=(mmap_size_gb * 1024 * 1024 * 1024)),
                 ..Default::default()
             })
             .open(PathBuf::from(path).as_path())?;

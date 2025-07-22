@@ -30,7 +30,7 @@ impl QEDStore {
                 Ok(QEDStore::Scylla(Arc::new(store)))
             }
             Backend::Lmdbx(config) => {
-                let store = KVQlibmdbxStore::new_write_with_size(&config.lmdbx_path, config.lmdbx_size_gb)?;
+                let store = KVQlibmdbxStore::new_write_with_size(&config.lmdbx_path, config.lmdbx_mmap_size_gb)?;
                 Ok(QEDStore::Lmdbx(Arc::new(store)))
             }
         }
