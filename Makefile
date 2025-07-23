@@ -210,14 +210,14 @@ TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 
 init-tikv:
 	@echo "Starting TiKV cluster..."
-	@docker-compose -f docker-compose.tikv.yml up -d
+	@docker-compose -f ./scripts/docker-compose.tikv.yml up -d
 	@echo "Waiting for TiKV to be ready..."
 	@sleep 30
 	@echo "TiKV cluster is ready"
 
 shutdown-tikv:
 	@echo "Stopping TiKV cluster..."
-	@docker-compose -f docker-compose.tikv.yml down -v
+	@docker-compose -f ./scripts/docker-compose.tikv.yml down -v
 	@echo "TiKV cluster stopped"
 
 run-coordinator-processor-tikv:

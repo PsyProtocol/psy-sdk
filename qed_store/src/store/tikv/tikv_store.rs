@@ -125,7 +125,7 @@ impl TiKVStore {
         ))
     }
 
-    async fn execute_read_transaction<F, Fut, R>(&self, f: F) -> Result<R>
+    async fn with_read_txn<F, Fut, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(Transaction) -> Fut + Send,
         Fut: std::future::Future<Output = Result<(R, Transaction)>> + Send,
@@ -135,7 +135,7 @@ impl TiKVStore {
         Ok(result)
     }
 
-    async fn execute_read_snapshot<F, Fut, R>(&self, f: F) -> Result<R>
+    async fn with_snapshot<F, Fut, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(Snapshot) -> Fut,
         Fut: std::future::Future<Output = Result<R>>,
@@ -143,13 +143,31 @@ impl TiKVStore {
         f(self.snapshot().await?).await
     }
 
-    async fn execute_write_transaction<F, Fut>(&self, f: F) -> Result<()>
+    async fn with_pessimistic_txn<F, Fut>(&self, f: F) -> Result<()>
     where
         F: FnOnce(Transaction) -> Fut,
         Fut: std::future::Future<Output = Result<Transaction>>,
     {
-        // let txn = self.begin_optimistic().await?;
         let txn = self.begin_pessimistic().await?;
+        self.with_txn(txn, f).await
+
+    }
+
+    async fn with_optimistic_txn<F, Fut>(&self, f: F) -> Result<()>
+    where
+        F: FnOnce(Transaction) -> Fut,
+        Fut: std::future::Future<Output = Result<Transaction>>,
+    {
+        let txn = self.begin_optimistic().await?;
+        self.with_txn(txn, f).await
+    }
+
+
+    async fn with_txn<F, Fut>(&self, txn: Transaction, f: F) -> Result<()>
+    where
+        F: FnOnce(Transaction) -> Fut,
+        Fut: std::future::Future<Output = Result<Transaction>>,
+    {
         let mut txn = f(txn).await?;
         match txn.commit().await {
             Ok(_) => Ok(()),
@@ -173,7 +191,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     async fn get_exact_if_exists(&self, key: &Vec<u8>) -> Result<Option<Vec<u8>>> {
         let tikv_key = self.make_key(key);
 
-        self.execute_read_snapshot(|mut txn| async move {
+        self.with_snapshot(|mut txn| async move {
             let value = txn.get(tikv_key).await?;
             Ok(value.map(|v| v.to_vec()))
         })
@@ -190,7 +208,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     async fn get_many_exact(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
         let namespace_bytes = self.namespace_bytes.clone();
 
-        self.execute_read_snapshot(|mut txn| async move {
+        self.with_snapshot(|mut txn| async move {
             let tikv_keys: Vec<Key> = keys
                 .iter()
                 .map(|key| prefix_key(&namespace_bytes, key))
@@ -215,7 +233,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     }
 
     async fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<Vec<u8>>> {
-        self.execute_read_snapshot(|mut snapshot| async move {
+        self.with_snapshot(|mut snapshot| async move {
             // First try exact match
             if let Some(value) = snapshot.get(self.make_key(key)).await? {
                 return Ok(Some(value.to_vec()));
@@ -239,7 +257,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         key: &Vec<u8>,
         fuzzy_bytes: usize,
     ) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
-        self.execute_read_snapshot(|mut snapshot| async move {
+        self.with_snapshot(|mut snapshot| async move {
             let (mut scan_start, scan_end) = self.make_leq_scan_range(key, fuzzy_bytes);
             let mut results = Vec::with_capacity(64);
             while scan_start < scan_end {
@@ -280,7 +298,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         key: &Vec<u8>,
         fuzzy_bytes: usize,
     ) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
-        self.execute_read_snapshot(|mut snapshot| async move {
+        self.with_snapshot(|mut snapshot| async move {
             // First try exact match
             if let Some(value) = snapshot.get(self.make_key(key)).await? {
                 return Ok(Some(KVQPair {
@@ -318,7 +336,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
             return Ok(Vec::new());
         }
 
-        self.execute_read_snapshot(|mut snapshot| async move {
+        self.with_snapshot(|mut snapshot| async move {
             let mut results = Vec::with_capacity(keys.len());
 
             // Process each key individually since we're using snapshot
@@ -350,7 +368,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         keys: &[Vec<u8>],
         fuzzy_bytes: usize,
     ) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
-        self.execute_read_snapshot(|mut snapshot| async move {
+        self.with_snapshot(|mut snapshot| async move {
             let mut results = Vec::with_capacity(keys.len());
 
             // Process each key individually since we're using snapshot
@@ -393,7 +411,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         let tikv_key = self.make_key(&key);
         let tikv_value = Value::from(value);
 
-        self.execute_write_transaction(|mut txn| async move {
+        self.with_optimistic_txn(|mut txn| async move {
             txn.put(tikv_key, tikv_value).await?;
             Ok(txn)
         })
@@ -407,7 +425,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     async fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> Result<()> {
         let namespace_bytes = self.namespace_bytes.clone();
 
-        self.execute_write_transaction(|mut txn| async move {
+        self.with_optimistic_txn(|mut txn| async move {
             let mutations: Vec<Mutation> = items
                 .iter()
                 .map(|item| Mutation {
@@ -427,7 +445,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     async fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> Result<()> {
         let namespace_bytes = self.namespace_bytes.clone();
 
-        self.execute_write_transaction(|mut txn| async move {
+        self.with_optimistic_txn(|mut txn| async move {
             let mutations: Vec<Mutation> = items
                 .into_iter()
                 .map(|item| Mutation {
@@ -450,7 +468,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
 
         let namespace_bytes = self.namespace_bytes.clone();
 
-        self.execute_write_transaction(|mut txn| async move {
+        self.with_optimistic_txn(|mut txn| async move {
             let mutations: Vec<Mutation> = keys
                 .iter()
                 .zip(values.iter())
@@ -469,7 +487,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
 
     async fn delete(&self, key: &Vec<u8>) -> Result<bool> {
         let tikv_key = self.make_key(key);
-        self.execute_write_transaction(|mut txn| async move {
+        self.with_optimistic_txn(|mut txn| async move {
             txn.delete(tikv_key).await?;
             Ok(txn)
         })
@@ -480,7 +498,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     async fn delete_many(&self, keys: &[Vec<u8>]) -> Result<Vec<bool>> {
         let namespace_bytes = self.namespace_bytes.clone();
 
-        self.execute_write_transaction(|mut txn| async move {
+        self.with_optimistic_txn(|mut txn| async move {
             let mutations: Vec<Mutation> = keys
                 .iter()
                 .map(|key| Mutation {
@@ -504,7 +522,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
     ) -> Result<()> {
         let namespace_bytes = self.namespace_bytes.clone();
 
-        self.execute_write_transaction(|mut txn| async move {
+        self.with_pessimistic_txn(|mut txn| async move {
             let mut mutations = Vec::new();
             for item in keys_to_set {
                 mutations.push(Mutation {
