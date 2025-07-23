@@ -1,18 +1,17 @@
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_crypto::signature::secp256k1::core::{QEDCompressedSecp256K1Signature, QEDPreparedSecp256K1Signature};
 use plonky2::{
-    iop::witness::PartialWitness,
-    plonk::{
+    gates::gate::GateRef, iop::witness::PartialWitness, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    },
+    }
 };
 
 use crate::{
     crypto::secp256k1::gadget::DogeQEDSignatureGadget,
-    proof_minifier::pm_chain_dynamic::QEDProofMinifierDynamicChain,
+    proof_minifier::pm_chain::QEDProofMinifierChain, u32::gates::comparison::ComparisonGate,
 };
 
 use super::traits::qstandard::QStandardCircuit;
@@ -24,7 +23,7 @@ where
 {
     pub signature_gadget: DogeQEDSignatureGadget,
     pub base_circuit_data: CircuitData<C::F, C, D>,
-    pub minifier_chain: QEDProofMinifierDynamicChain<D, C::F, C>,
+    pub minifier_chain: QEDProofMinifierChain<D, C::F, C>,
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for L1Secp256K1SignatureCircuit<C, D>
 where
@@ -47,12 +46,14 @@ where
         builder.register_public_inputs(&signature_gadget.combined_hash.elements);
         let circuit_data = builder.build::<C>();
 
-        let minifier_chain =
-            QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
-                &circuit_data.verifier_only,
-                &circuit_data.common,
-                &[true, false],
-            );
+        let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
+
+        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new_add_gates(
+            &circuit_data.verifier_only,
+            &circuit_data.common,
+            2,
+            Some(&added_gates_for_minifier),
+        );
 
         Self {
             base_circuit_data: circuit_data,

@@ -1,6 +1,7 @@
 pub mod dpn;
 pub mod ups;
 pub mod local;
+pub mod wallet;
 
 // Session module is only available for native builds
 #[cfg(not(target_arch = "wasm32"))]

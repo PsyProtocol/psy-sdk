@@ -43,6 +43,8 @@ js-sys = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 serde-wasm-bindgen = { workspace = true }
 
+k256 = { workspace = true }
+
 [features]
 default = ["is_sync"]
 is_sync = ["qed_exec/is_sync","qed_store/is_sync","maybe-async/is_sync"]

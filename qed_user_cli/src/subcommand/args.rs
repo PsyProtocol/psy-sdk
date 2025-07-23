@@ -1,4 +1,4 @@
-use clap::{Args, Parser};
+use clap::{Args, Parser, ValueEnum};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
 use qed_prover::local::provider::RpcConfig;
@@ -14,13 +14,25 @@ pub struct GetPublicKeyArgs {
     pub private_key: String,
 }
 
-#[derive(Clone, Args)]
+#[derive(Debug, Clone, ValueEnum, Serialize, Deserialize)]
+pub enum KeyType {
+    #[clap(name = "zk")]
+    ZK,
+    #[clap(name = "secp256k1")]
+    SECP256K1,
+    #[clap(name = "software-defined")]
+    SoftwareDefined,
+}
+
+#[derive(Clone, Args, Serialize, Deserialize)]
 pub struct RegisterUserArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     /// user private key
     #[clap(long, short)]
     pub private_key: String,
+    #[clap(long, short, default_value = "zk")]
+    pub key_type: KeyType,
     /// optional fingerprint (defaults to standard circuit fingerprint)
     #[clap(long)]
     pub fingerprint: Option<String>,
