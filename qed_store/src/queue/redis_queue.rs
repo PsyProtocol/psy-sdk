@@ -289,6 +289,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
         Ok(())
     }
     async fn notify_core_goal_completed_imm(&self, job: QProvingJobDataID) -> anyhow::Result<()> {
+        tracing::info!("notifying core goal completed: notifications_queue_id = {}, job: {:?}", self.notifications_queue_id, job);
         let mut con = self.pool.get().await?;
         con.lpush(&self.notifications_queue_id, job.to_fixed_bytes().as_slice())
             .await?;
@@ -313,6 +314,7 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
         &self,
         _checkpoint_id: u64,
     ) -> anyhow::Result<QProvingJobDataID> {
+        tracing::info!("waiting for block proving, notifications_queue_id = {}, checkpoint_id = {}", self.notifications_queue_id, _checkpoint_id);
         loop {
             let mut con = self.pool.get().await?;
             let job_res: Option<Vec<u8>> = con.lpop(&self.notifications_queue_id, None).await?;

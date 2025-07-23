@@ -326,28 +326,28 @@ pub struct QWorkerJobBenchmark {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct JobDataIdGraph {
-    pub deps: HashMap<QProvingJobDataID, HashSet<QProvingJobDataID>>,
+    pub dep_graph: HashMap<QProvingJobDataID, HashSet<QProvingJobDataID>>,
 }
 
 impl JobDataIdGraph {
     pub fn new() -> Self {
         Self {
-            deps: HashMap::new(),
+            dep_graph: HashMap::new(),
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.deps.is_empty()
+        self.dep_graph.is_empty()
     }
 
     pub fn add_job(&mut self, job_id: QProvingJobDataID) {
-        self.deps.entry(job_id).or_default();
+        self.dep_graph.entry(job_id).or_default();
     }
 
     pub fn add_job_dep(&mut self, job_id: QProvingJobDataID, dep_id: QProvingJobDataID) {
         self.add_job(job_id);
         self.add_job(dep_id);
-        self.deps
+        self.dep_graph
             .entry(job_id)
             .or_insert(HashSet::new())
             .insert(dep_id);
@@ -355,7 +355,7 @@ impl JobDataIdGraph {
 
     pub fn get_ready_jobs(&self) -> Vec<QProvingJobDataID> {
         let mut ready_jobs = Vec::new();
-        for (&job_id, deps) in &self.deps {
+        for (&job_id, deps) in &self.dep_graph {
             if deps.is_empty() {
                 ready_jobs.push(job_id);
             }
@@ -366,7 +366,10 @@ impl JobDataIdGraph {
     pub fn take_ready_jobs(&mut self) -> Vec<QProvingJobDataID> {
         let ready_jobs = self.get_ready_jobs();
         for job_id in ready_jobs.iter() {
-            self.deps.remove(job_id);
+            self.dep_graph.remove(job_id);
+            for dep_graph in self.dep_graph.values_mut() {
+                dep_graph.remove(job_id);
+            }
         }
         ready_jobs
     }

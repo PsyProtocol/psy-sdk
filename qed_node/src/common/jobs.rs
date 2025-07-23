@@ -7,7 +7,7 @@ use qed_core::job::{
 };
 use serde::Serialize;
 use tokio::sync::Mutex;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 pub async fn run_jobs_listener<T: JobDataIdGraphReader + Send + Sync + 'static>(
     job_manager: Arc<Mutex<JobsGraphManager>>,
@@ -15,20 +15,35 @@ pub async fn run_jobs_listener<T: JobDataIdGraphReader + Send + Sync + 'static>(
 ) {
     tokio::spawn(async move {
         loop {
-            if let Ok((checkpoint_id, job_graph)) = job_graph_reader.wait_for_next_job_graph().await
-            {
-                let mut job_manager = job_manager.lock().await;
-                if job_manager.is_job_graph_empty() {
-                    job_manager.set_job_graph(job_graph, checkpoint_id);
-                } else {
-                    error!(
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            match job_graph_reader.wait_for_next_job_graph().await {
+                Ok((checkpoint_id, job_graph)) => {
+                    println!("Received job graph, checkpoint_id = {}", checkpoint_id);
+                    for job in job_graph.dep_graph.keys() {
+                        println!("Job: {:?}", job);
+                        for dep in job_graph.dep_graph.get(job).unwrap() {
+                            println!("- Dep: {:?}", dep);
+                        }
+                    }
+                    let mut job_manager = job_manager.lock().await;
+                    if job_manager.is_job_graph_empty() {
+                        job_manager.set_job_graph(job_graph, checkpoint_id);
+                    } else {
+                        error!(
                         "🔍 Job graph is not empty, skipping, checkpoint_id = {}, job_graph = {:?}",
                         checkpoint_id, job_graph
                     );
+                    }
                 }
-            } else {
-                warn!("Failed to read job graph");
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                Err(err) => {
+                    let err_message = err.to_string();
+                    if err_message.contains("unexpected end of file") {
+                        warn!("Job graph is empty, skipping");
+                    } else {
+                        warn!("Failed to read job graph: {:?}", err);
+                    }
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
             }
         }
     });
@@ -77,21 +92,35 @@ impl JobsGraphManager {
         }
     }
 
-    pub fn get_next_pending_job_to_process(&mut self) -> Option<QProvingJobDataID> {
+    fn get_pending_job(&self) -> Option<QProvingJobDataID> {
+        self.ready_jobs
+            .iter()
+            .find(|(_, &status)| status == JobStatus::Pending)
+            .map(|(&job_id, _)| job_id)
+    }
+
+    fn are_ready_jobs_all_done(&self) -> bool {
         if self.ready_jobs.is_empty() {
+            return true;
+        }
+        self.ready_jobs
+            .values()
+            .all(|&status| status == JobStatus::Done)
+    }
+
+    pub fn get_next_pending_job_to_process(&mut self) -> Option<QProvingJobDataID> {
+        if self.are_ready_jobs_all_done() {
             self.take_read_job();
         }
-        let pending_job = self
-            .ready_jobs
-            .iter()
-            .find(|(_, &status)| status == JobStatus::Pending);
-        if let Some((&job_id, _)) = pending_job {
+        let pending_job = self.get_pending_job();
+        if let Some(job_id) = pending_job {
             self.mark_job_status(job_id, JobStatus::Processing);
+            info!("Found pending job: {:?}", job_id);
             Some(job_id)
         } else {
             if let Some(job_graph) = self.job_graph.as_ref() {
                 if !job_graph.is_empty() {
-                    warn!("Job graph is not empty, but no pending job found");
+                    error!("Job graph is not empty, but no pending job found");
                 }
             }
             None
@@ -99,6 +128,7 @@ impl JobsGraphManager {
     }
 
     pub fn mark_job_done(&mut self, job_id: QProvingJobDataID) {
+        info!("Setting job done: {:?}", job_id);
         self.mark_job_status(job_id, JobStatus::Done);
     }
 

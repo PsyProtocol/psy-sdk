@@ -208,8 +208,11 @@ impl
     }
 
     pub async fn build_block_inner(&mut self, next_checkpoint_id: u64) -> anyhow::Result<()> {
+        info!("building block: {:?}", next_checkpoint_id);
         self.ctx.build_block().await?;
+        info!("writing job graph: {:?}", next_checkpoint_id);
         self.proof_store.write_job_graph(next_checkpoint_id).await?;
+        info!("waiting for block proving jobs: {:?}", next_checkpoint_id);
         self.ctx
             .prover_queue
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)
@@ -237,6 +240,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
     loop {
         loop {
+            info!("waiting for produce block");
             match coordinator_processor.wait_for_produce_block().await {
                 Ok(true) => break,
                 Ok(false) => {

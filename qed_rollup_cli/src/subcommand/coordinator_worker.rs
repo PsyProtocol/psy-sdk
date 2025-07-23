@@ -1,20 +1,35 @@
-use qed_node::coordinator::CoordinatorWorkerArgs;
-use tracing::info;
+use qed_node::{
+    coordinator::CoordinatorWorkerArgs,
+    worker::{run_coordinator_scheduler_worker, run_scheduler_worker},
+};
+use tracing::{error, info};
 
 use qed_node::worker::{CoordinatorWorker, Worker, WorkerState};
 
 async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
-    let state = WorkerState::new(
+    run_coordinator_scheduler_worker(
         args.redis_uri,
         args.redis_pool_size as usize,
         &args.queue_args.worker_queue_suffix,
         &args.queue_args.notifications_queue_suffix,
         &args.queue_args.proof_store_key_suffix,
         &args.queue_args.proof_store_key_suffix,
+        args.edge_url,
     )
     .await?;
-    let coordinator_worker = CoordinatorWorker::from(state);
-    coordinator_worker.run().await
+    error!("Coordinator worker exit.");
+    Ok(())
+    // let state = WorkerState::new(
+    //     args.redis_uri,
+    //     args.redis_pool_size as usize,
+    //     &args.queue_args.worker_queue_suffix,
+    //     &args.queue_args.notifications_queue_suffix,
+    //     &args.queue_args.proof_store_key_suffix,
+    //     &args.queue_args.proof_store_key_suffix,
+    // )
+    // .await?;
+    // let coordinator_worker = CoordinatorWorker::from(state);
+    // coordinator_worker.run().await
 }
 
 pub async fn run(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {

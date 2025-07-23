@@ -17,7 +17,7 @@ use qed_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
     WithDrainQueueMetadata,
 };
-use qed_core::job::id::{JobDataIdGraph, ProvingJobCircuitType, QProvingJobDataID};
+use qed_core::job::id::{JobDataIdGraph, ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
 use qed_core::job::traits::QProofStoreWriterAsyncImm;
 
 // qed_crypto
@@ -53,6 +53,7 @@ use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::ProofStoreRedisAsync;
 use crate::common::verifier::get_cached_generic_verifier;
 use qed_store::store::{QEDStore, Backend};
+use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 
@@ -126,7 +127,16 @@ impl CoordinatorEdgeHandler {
     }
 
     async fn get_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
-        let block_state = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await?;
+        info!("getting latest checkpoint id");
+        // let block_state = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await?;
+        let block_state =
+            match QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await {
+                Ok(block_state) => block_state,
+                Err(e) => {
+                    error!("❌ Failed to get latest l2 block state: {:?}", e);
+                    return Err(e);
+                }
+            };
         Ok(block_state.checkpoint_id)
     }
 
@@ -160,7 +170,9 @@ impl CoordinatorEdgeHandler {
         &self,
         contract: QBCDeployContract<QEDFelt>,
     ) -> anyhow::Result<()> {
+        info!("deploying contract");
         let latest = self.get_latest_checkpoint_id().await?;
+        info!("latest checkpoint id: {}", latest);
         let next_checkpoint_id = latest + 1;
 
         let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
@@ -1325,6 +1337,12 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: String) -> RpcResult<()> {
         let mut job_manager = self.job_manager.lock().await;
         job_manager.mark_job_done(job_id);
+        if job_id.topic == QJobTopic::NotifyOrchestratorComplete
+            || job_id.circuit_type == ProvingJobCircuitType::NotifyRealmComplete
+            {
+                info!("Notifying core goal completed: {:?}", job_id);
+                self.history_queue.notify_core_goal_completed_imm(job_id).await.map_err(RpcError::Anyhow)?;
+        }
         // TODO: send proof to processor redis queue
         // TODO: rpc for implementing QProofStoreReaderAsync and QProofStoreWriterAsync
         Ok(())

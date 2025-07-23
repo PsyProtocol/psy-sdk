@@ -11,6 +11,8 @@ pub struct CoordinatorWorkerArgs {
     pub redis_uri: String,
     #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
     pub redis_pool_size: u32,
+    #[clap(long = "edge-url", default_value = "http://localhost:8545")]
+    pub edge_url: String,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }

@@ -16,10 +16,35 @@ use qed_crypto::common::{
     circuit_library::CircuitInfoLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
 };
 
-use crate::common::{jobs::JobReceiver, verifier::get_cached_generic_verifier};
+use crate::{
+    common::{jobs::JobReceiver, verifier::get_cached_generic_verifier},
+    coordinator::edge::jobs::CoordinatorJobReceiver,
+};
 
 pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 pub const D: usize = 2;
+
+pub async fn run_coordinator_scheduler_worker(
+    redis_url: String,
+    pool_size: usize,
+    worker_queue_suffix: &str,
+    notifications_queue_suffix: &str,
+    proof_store_key_suffix: &str,
+    proof_store_counters_suffix: &str,
+    edge_url: String,
+) -> anyhow::Result<()> {
+    let job_receiver = CoordinatorJobReceiver::new(edge_url).await?;
+    run_scheduler_worker(
+        redis_url,
+        pool_size,
+        worker_queue_suffix,
+        notifications_queue_suffix,
+        proof_store_key_suffix,
+        proof_store_counters_suffix,
+        job_receiver,
+    )
+    .await
+}
 
 pub async fn run_scheduler_worker<JR: JobReceiver>(
     redis_url: String,
@@ -83,7 +108,14 @@ async fn run_scheduler_worker_inner<
                 job_receiver.submit_job_proof(job_id, proof).await?;
             }
             Err(e) => {
+                job_receiver
+                    .submit_job_proof(job_id, "".to_string())
+                    .await?;
+                if e.to_string().contains("unsupported circuit") {
+                    warn!("Unsupported circuit");
+                } else {
                 warn!("Failed to prove job: err={:?}, job_id={:?}", e, job_id);
+                }
             }
         };
     }
