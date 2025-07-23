@@ -1,9 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
+use async_trait::async_trait;
 use qed_core::job::{
     id::{JobDataIdGraph, QProvingJobDataID},
     traits::JobDataIdGraphReader,
 };
+use serde::Serialize;
 use tokio::sync::Mutex;
 use tracing::{error, warn};
 
@@ -107,4 +109,15 @@ impl JobsGraphManager {
             warn!("Job not found in ready_jobs: {:?}", job_id);
         }
     }
+}
+
+#[async_trait]
+pub trait JobReceiver {
+    async fn get_next_ready_job(&self) -> anyhow::Result<QProvingJobDataID>;
+
+    async fn submit_job_proof<T: Serialize + Send + Sync>(
+        &self,
+        job_id: QProvingJobDataID,
+        proof: T,
+    ) -> anyhow::Result<()>;
 }
