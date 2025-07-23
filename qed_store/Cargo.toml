@@ -42,6 +42,7 @@ bb8-redis = { workspace = true }
 bb8 = { workspace = true }
 rsmq = { workspace = true }
 url = { workspace = true }
+rand = { workspace = true }
 
 
 [features]

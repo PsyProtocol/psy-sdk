@@ -4075,6 +4075,7 @@ dependencies = [
  "qed_core",
  "qed_crypto",
  "qed_data",
+ "rand 0.8.5",
  "redis 0.30.0",
  "rsmq_async",
  "scylla",
