@@ -4,7 +4,11 @@ use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use std::{fmt::Debug, sync::Arc};
 use tikv_client::proto::kvrpcpb::{Mutation, Op};
-use tikv_client::{CheckLevel, Key, Snapshot, Transaction, TransactionClient, TransactionOptions, Value};
+use tikv_client::{
+    CheckLevel, Key, Snapshot, Transaction, TransactionClient, TransactionOptions, Value,
+};
+use tokio::runtime::Handle;
+use tokio::task::block_in_place;
 
 // Maximum number of entries to scan in a single operation
 const MAX_SCAN_ENTRIES: u32 = 1000;
@@ -20,6 +24,14 @@ pub fn prefix_key(prefix: &[u8], key: &[u8]) -> Key {
     let mut full_key = prefix.to_vec();
     full_key.extend_from_slice(key);
     full_key.into()
+}
+
+pub fn block_async<F, Fut, R>(f: F) -> Result<R>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<R>>,
+{
+    block_in_place(|| Handle::current().block_on(f()))
 }
 
 impl Debug for TiKVStore {
@@ -116,13 +128,12 @@ impl TiKVStore {
         self.connection.begin_with_options(new_optimistic).await
     }
 
-    async fn snapshot(&self) -> tikv_client::Result<Snapshot>{
+    async fn snapshot(&self) -> tikv_client::Result<Snapshot> {
         let options = TransactionOptions::default();
         let options = options.drop_check(CheckLevel::Warn);
-        Ok(self.connection.snapshot(
-            self.connection.current_timestamp().await?,
-            options,
-        ))
+        Ok(self
+            .connection
+            .snapshot(self.connection.current_timestamp().await?, options))
     }
 
     async fn with_read_txn<F, Fut, R>(&self, f: F) -> Result<R>
@@ -150,7 +161,6 @@ impl TiKVStore {
     {
         let txn = self.begin_pessimistic().await?;
         self.with_txn(txn, f).await
-
     }
 
     async fn with_optimistic_txn<F, Fut>(&self, f: F) -> Result<()>
@@ -161,7 +171,6 @@ impl TiKVStore {
         let txn = self.begin_optimistic().await?;
         self.with_txn(txn, f).await
     }
-
 
     async fn with_txn<F, Fut>(&self, txn: Transaction, f: F) -> Result<()>
     where
@@ -553,31 +562,19 @@ impl KVQBinaryStoreAsync for TiKVStore {
 
 impl KVQBinaryStore for TiKVStore {
     fn get_exact_if_exists(&self, key: &Vec<u8>) -> Result<Option<Vec<u8>>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::get_exact_if_exists(self, key).await })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::get_exact_if_exists(self, key).await })
     }
 
     fn get_exact(&self, key: &Vec<u8>) -> Result<Vec<u8>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::get_exact(self, key).await })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::get_exact(self, key).await })
     }
 
     fn get_many_exact(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::get_many_exact(self, keys).await })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::get_many_exact(self, keys).await })
     }
 
     fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<Vec<u8>>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::get_leq(self, key, fuzzy_bytes).await })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::get_leq(self, key, fuzzy_bytes).await })
     }
 
     fn get_fuzzy_range_leq_kv(
@@ -585,11 +582,7 @@ impl KVQBinaryStore for TiKVStore {
         key: &Vec<u8>,
         fuzzy_bytes: usize,
     ) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                KVQBinaryStoreAsync::get_fuzzy_range_leq_kv(self, key, fuzzy_bytes).await
-            })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::get_fuzzy_range_leq_kv(self, key, fuzzy_bytes).await })
     }
 
     fn get_leq_kv(
@@ -597,18 +590,11 @@ impl KVQBinaryStore for TiKVStore {
         key: &Vec<u8>,
         fuzzy_bytes: usize,
     ) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::get_leq_kv(self, key, fuzzy_bytes).await })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::get_leq_kv(self, key, fuzzy_bytes).await })
     }
 
     fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> Result<Vec<Option<Vec<u8>>>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                KVQBinaryStoreAsync::get_many_leq(self, keys, fuzzy_bytes).await
-            })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::get_many_leq(self, keys, fuzzy_bytes).await })
     }
 
     fn get_many_leq_kv(
@@ -616,61 +602,35 @@ impl KVQBinaryStore for TiKVStore {
         keys: &[Vec<u8>],
         fuzzy_bytes: usize,
     ) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                KVQBinaryStoreAsync::get_many_leq_kv(self, keys, fuzzy_bytes).await
-            })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::get_many_leq_kv(self, keys, fuzzy_bytes).await })
     }
 
     fn set(&self, key: Vec<u8>, value: Vec<u8>) -> Result<()> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::set(self, key, value).await })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::set(self, key, value).await })
     }
 
     fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> Result<()> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::set_ref(self, key, value).await })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::set_ref(self, key, value).await })
     }
 
     fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> Result<()> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::set_many_ref(self, items).await })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::set_many_ref(self, items).await })
     }
 
     fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> Result<()> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::set_many_vec(self, items).await })
-        })
-    }
-
-    fn delete(&self, key: &Vec<u8>) -> Result<bool> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::delete(self, key).await })
-        })
-    }
-
-    fn delete_many(&self, keys: &[Vec<u8>]) -> Result<Vec<bool>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { KVQBinaryStoreAsync::delete_many(self, keys).await })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::set_many_vec(self, items).await })
     }
 
     fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> Result<()> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                KVQBinaryStoreAsync::set_many_split_ref(self, keys, values).await
-            })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::set_many_split_ref(self, keys, values).await })
+    }
+
+    fn delete(&self, key: &Vec<u8>) -> Result<bool> {
+        block_async(|| async { KVQBinaryStoreAsync::delete(self, key).await })
+    }
+
+    fn delete_many(&self, keys: &[Vec<u8>]) -> Result<Vec<bool>> {
+        block_async(|| async { KVQBinaryStoreAsync::delete_many(self, keys).await })
     }
 
     fn set_and_delete_many(
@@ -678,10 +638,6 @@ impl KVQBinaryStore for TiKVStore {
         keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
         keys_to_delete: &[Vec<u8>],
     ) -> Result<()> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                KVQBinaryStoreAsync::set_and_delete_many(self, keys_to_set, keys_to_delete).await
-            })
-        })
+        block_async(|| async { KVQBinaryStoreAsync::set_and_delete_many(self, keys_to_set, keys_to_delete).await })
     }
 }
