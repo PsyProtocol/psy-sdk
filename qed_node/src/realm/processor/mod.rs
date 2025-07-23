@@ -3,6 +3,7 @@ use crate::realm::{C, D, F};
 use fred::prelude::KeysInterface;
 use kvq::traits::KVQSerializable;
 use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::traits::JobDataIdGraphWriter;
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_core::job::history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm};
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
@@ -111,7 +112,7 @@ impl RealmProcessor {
                 _ => {}
             }
             info!("Start building block");
-            let proving_data_job_id: ProvingJobDataId = match self.build_block(&mut context).await {
+            let proving_data_job_id: ProvingJobDataId = match self.build_block(&mut context, &realm_qps).await {
                 Ok(job_id) => job_id,
                 Err(err) => {
                     error!("Error building block: {:?}", err);
@@ -177,6 +178,7 @@ impl RealmProcessor {
     pub async fn build_block(
         &mut self,
         context: &mut ConcreteRealmProcessorContext,
+        realm_qps: &ProofStoreRedisAsync,
     ) -> anyhow::Result<ProvingJobDataId> {
         let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await;
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
@@ -190,6 +192,8 @@ impl RealmProcessor {
             .sync_proof
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)
             .await?;
+        realm_qps.write_job_graph(next_checkpoint_id).await?;
+
         Ok(ProvingJobDataId::new(
             next_checkpoint_id,
             realm_worker_output_job_id,
@@ -202,7 +206,7 @@ impl RealmProcessor {
         // Get the next expected checkpoint
         let current_checkpoint = self.get_local_latest_l2_block_state().await;
         let expected_checkpoint = current_checkpoint + 1;
-        
+
         // Wait for the next checkpoint sync info
         self.sync_checkpoint.wait_for_next_item_imm::<CheckpointSyncInfo<F>>(
             qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,

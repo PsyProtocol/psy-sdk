@@ -8,7 +8,7 @@ use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 use qed_core::job::{
     drain_queue::CheckpointDrainQueueConsumerAsyncImm,
     history_queue::{CheckpointHistoryQueueEmitterAsyncImm, CheckpointHistoryQueueConsumerAsyncImm},
-    traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
+    traits::{JobDataIdGraphWriter, QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
     worker_queue::WorkerEventTransmitterAsyncImm,
 };
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
@@ -87,17 +87,17 @@ impl<
         // Get current checkpoint to listen from
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let start_checkpoint = latest_l2_block_state.checkpoint_id + 1; // Listen for the next checkpoint
-        
+
         // Try to get messages from the history queue
         let messages = self.edge_command_queue.chq_listen_from_imm::<CEQueueNotification>(
             COORDINATOR_TO_REALM_CHANNEL,
             start_checkpoint
         ).await?;
-        
+
         if messages.is_empty() {
             return Ok(false);
         }
-        
+
         // Process the first message
         let notify_message = messages.into_iter().next().unwrap();
 
@@ -207,16 +207,21 @@ impl
         ))
     }
 
+    pub async fn build_block_inner(&mut self, next_checkpoint_id: u64) -> anyhow::Result<()> {
+        self.ctx.build_block().await?;
+        self.proof_store.write_job_graph(next_checkpoint_id).await?;
+        self.ctx
+            .prover_queue
+            .wait_for_block_proving_jobs_imm(next_checkpoint_id)
+            .await?;
+        Ok(())
+    }
+
     pub async fn build_block(&mut self) -> anyhow::Result<u64> {
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
 
-        if let Err(e) = self.ctx.build_block().await.and(
-            self.ctx
-                .prover_queue
-                .wait_for_block_proving_jobs_imm(next_checkpoint_id)
-                .await,
-        ) {
+        if let Err(e) = self.build_block_inner(next_checkpoint_id).await {
             self.journal_store.rollback(next_checkpoint_id)?;
             return Err(e);
         }
