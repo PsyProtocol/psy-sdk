@@ -48,8 +48,10 @@ impl JobScheduler {
             self.mark_job_status(job_id, JobIdStatus::Processing);
             Some(job_id)
         } else {
-            if let Some(job_graph) = self.job_graph.as_ref() && !job_graph.is_empty() {
-                warn!("Job graph is not empty, but no pending job found");
+            if let Some(job_graph) = self.job_graph.as_ref() {
+                if !job_graph.is_empty() {
+                    warn!("Job graph is not empty, but no pending job found");
+                }
             }
             None
         }
