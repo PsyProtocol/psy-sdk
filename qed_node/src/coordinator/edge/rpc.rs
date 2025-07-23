@@ -1,5 +1,6 @@
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
+use qed_core::job::id::QProvingJobDataID;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::config::store_config::QEDFelt;
 use qed_core::data::qhashout::QHashOut;
@@ -237,4 +238,16 @@ pub trait CoordinatorEdgeRpc {
 
     #[method(name = "get_checkpoint_tree_merkle_proof_f")]
     async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_pending_job")]
+    async fn get_pending_job(&self) -> RpcResult<QProvingJobDataID>;
+
+    #[method(name = "get_proof_by_id")]
+    async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String>;
+
+    #[method(name = "get_bytes_by_id")]
+    async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String>;
+
+    #[method(name = "set_proof_by_id")]
+    async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: String) -> RpcResult<()>;
 }

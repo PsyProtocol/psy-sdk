@@ -17,7 +17,7 @@ use qed_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
     WithDrainQueueMetadata,
 };
-use qed_core::job::id::ProvingJobCircuitType;
+use qed_core::job::id::{ProvingJobCircuitType, QProvingJobDataID};
 use qed_core::job::traits::QProofStoreWriterAsyncImm;
 
 // qed_crypto
@@ -108,7 +108,7 @@ impl CoordinatorEdgeHandler {
             store: store_reader,
         })
     }
-    
+
     async fn get_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
         let block_state = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await?;
         Ok(block_state.checkpoint_id)
@@ -146,7 +146,7 @@ impl CoordinatorEdgeHandler {
     ) -> anyhow::Result<()> {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = latest + 1;
-        
+
         let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
 
         let cd_for_queue = WithDrainQueueMetadata::new_params(
@@ -241,12 +241,12 @@ impl CoordinatorEdgeHandler {
     pub async fn build_block(&self) -> anyhow::Result<()> {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint = latest + 1;
-        
+
         // Use CheckpointHistoryQueue instead of RedisQueue
         self.history_queue.chq_push_imm(
             CEQueueNotification::StartProduceBlock { next_checkpoint }
         ).await?;
-        
+
         info!("☎️ build block {} cmd have send to CP", next_checkpoint);
         Ok(())
     }
@@ -266,7 +266,7 @@ impl CoordinatorEdgeHandler {
         }
 
         let compact = self.store.get_checkpoint_sync_info_compact(request_checkpoint_id).await?;
-        
+
         // Convert compact to full sync info with all required fields
         let sync_info = CheckpointSyncInfo {
             latest_checkpoint_id: latest,
@@ -891,27 +891,27 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .map(|_| "ok".to_string())
             .map_err(|e| RpcError::Anyhow(e.into()))
     }
-    
+
     async fn get_user_id(&self, public_key: QHashOut<F>) -> RpcResult<u64> {
         self.get_user_id(public_key)
             .await
             .map_err(|e| RpcError::Anyhow(e.into()))
     }
-    
+
     async fn deploy_contract(&self, deploy_contract: QBCDeployContract<F>) -> RpcResult<String> {
         self.deploy_contract(deploy_contract)
             .await
             .map(|_| "ok".to_string())
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn build_block(&self) -> RpcResult<String> {
         self.build_block()
             .await
             .map(|_| "ok".to_string())
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn submit_guta(
         &self,
         input: SubmitGUTARealmResultAPINoProofInput<F>,
@@ -922,371 +922,388 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .map(|_| "ok".to_string())
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_latest_checkpoint(&self) -> RpcResult<LatestCheckpointResponse> {
         let checkpoint_id = self.get_latest_checkpoint_id()
             .await
             .map_err(RpcError::Anyhow)?;
         Ok(LatestCheckpointResponse { checkpoint_id })
     }
-    
+
     async fn latest_checkpoint(&self) -> RpcResult<u64> {
         self.get_latest_checkpoint_id()
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_latest_checkpoint_id(&self) -> RpcResult<u64> {
         self.get_latest_checkpoint_id()
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_sync_info(&self, checkpoint_id: u64) -> RpcResult<CheckpointSyncInfo<F>> {
         self.get_checkpoint_sync_info(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> RpcResult<QCheckpointSyncInfoCompact> {
         self.get_checkpoint_sync_info_compact(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_leaf_data(&self, contract_id: u64) -> RpcResult<QEDContractLeaf<F>> {
         self.get_contract_leaf_data(contract_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_leaf_data_f(&self, contract_id: F) -> RpcResult<QEDContractLeaf<F>> {
         self.get_contract_leaf_data_f(contract_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_code_definition(&self, contract_id: u64) -> RpcResult<ContractCodeDefinition> {
         self.get_contract_code_definition(contract_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_code_definition_f(&self, contract_id: F) -> RpcResult<ContractCodeDefinition> {
         self.get_contract_code_definition_f(contract_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> RpcResult<QEDCheckpointLeaf<F>> {
         self.get_checkpoint_leaf_data(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> RpcResult<QEDCheckpointLeaf<F>> {
         self.get_checkpoint_leaf_data_f(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> RpcResult<QEDCheckpointGlobalStateRoots<F>> {
         self.get_checkpoint_global_state_roots(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_latest_l2_block_state(&self) -> RpcResult<QEDL2BlockState> {
         self.get_latest_l2_block_state()
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<QEDL2BlockState> {
         self.get_l2_block_state(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<QEDL2BlockState> {
         self.get_l2_block_state_f(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         self.get_user_registration_tree_root(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
         self.get_user_registration_tree_root_f(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_registration_tree_leaf_hash(&self, checkpoint_id: u64, leaf_index: u64) -> RpcResult<QHashOut<F>> {
         self.get_user_registration_tree_leaf_hash(checkpoint_id, leaf_index)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> RpcResult<QHashOut<F>> {
         self.get_user_registration_tree_leaf_hash_f(checkpoint_id, leaf_index)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_user_registration_tree_merkle_proof(checkpoint_id, leaf_index)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_user_registration_tree_merkle_proof_f(checkpoint_id, leaf_index)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         self.get_user_tree_root(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
         self.get_user_tree_root_f(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_sub_tree_merkle_proof(&self, checkpoint_id: u64, root_level: u8, leaf_level: u8, leaf_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_user_sub_tree_merkle_proof(checkpoint_id, root_level, leaf_level, leaf_index)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_top_tree_merkle_proof(&self, checkpoint_id: u64, leaf_level: u8, leaf_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_user_top_tree_merkle_proof(checkpoint_id, leaf_level, leaf_index)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_top_tree_cap_root(&self, checkpoint_id: u64, cap_level: u8, cap_index: u64) -> RpcResult<QHashOut<F>> {
         self.get_user_top_tree_cap_root(checkpoint_id, cap_level, cap_index)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_latest_top_tree_cap_root(&self, cap_level: u8, cap_index: u64) -> RpcResult<QHashOut<F>> {
         self.get_user_latest_top_tree_cap_root(cap_level, cap_index)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QEDUserLeaf<F>> {
         self.get_user_leaf_data(checkpoint_id, user_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_user_tree_merkle_proof(checkpoint_id, user_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_user_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_user_tree_merkle_proof_f(checkpoint_id, user_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_function_tree_root(&self, checkpoint_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>> {
         self.get_contract_function_tree_root(checkpoint_id, contract_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_function_tree_root_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<QHashOut<F>> {
         self.get_contract_function_tree_root_f(checkpoint_id, contract_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_function_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> RpcResult<QHashOut<F>> {
         self.get_contract_function_tree_leaf_hash(checkpoint_id, contract_id, function_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_function_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> RpcResult<QHashOut<F>> {
         self.get_contract_function_tree_leaf_hash_f(checkpoint_id, contract_id, function_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_function_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_contract_function_tree_merkle_proof(checkpoint_id, contract_id, function_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_function_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_contract_function_tree_merkle_proof_f(checkpoint_id, contract_id, function_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         self.get_contract_tree_root(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
         self.get_contract_tree_root_f(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>> {
         self.get_contract_tree_leaf_hash(checkpoint_id, contract_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<QHashOut<F>> {
         self.get_contract_tree_leaf_hash_f(checkpoint_id, contract_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_contract_tree_merkle_proof(checkpoint_id, contract_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_contract_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_contract_tree_merkle_proof_f(checkpoint_id, contract_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         self.get_deposit_tree_root(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
         self.get_deposit_tree_root_f(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_deposit_tree_leaf_hash(&self, checkpoint_id: u64, deposit_id: u32) -> RpcResult<QHashOut<F>> {
         self.get_deposit_tree_leaf_hash(checkpoint_id, deposit_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_deposit_tree_leaf_hash_f(&self, checkpoint_id: F, deposit_id: F) -> RpcResult<QHashOut<F>> {
         self.get_deposit_tree_leaf_hash_f(checkpoint_id, deposit_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_deposit_tree_merkle_proof(&self, checkpoint_id: u64, deposit_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_deposit_tree_merkle_proof(checkpoint_id, deposit_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_deposit_tree_merkle_proof_f(&self, checkpoint_id: F, deposit_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_deposit_tree_merkle_proof_f(checkpoint_id, deposit_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         self.get_withdrawal_tree_root(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_withdrawal_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
         self.get_withdrawal_tree_root_f(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u32) -> RpcResult<QHashOut<F>> {
         self.get_withdrawal_tree_leaf_hash(checkpoint_id, withdrawal_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_withdrawal_tree_leaf_hash_f(&self, checkpoint_id: F, withdrawal_id: F) -> RpcResult<QHashOut<F>> {
         self.get_withdrawal_tree_leaf_hash_f(checkpoint_id, withdrawal_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_withdrawal_tree_merkle_proof(&self, checkpoint_id: u64, withdrawal_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_withdrawal_tree_merkle_proof(checkpoint_id, withdrawal_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_withdrawal_tree_merkle_proof_f(&self, checkpoint_id: F, withdrawal_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_withdrawal_tree_merkle_proof_f(checkpoint_id, withdrawal_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_latest_checkpoint_tree_root(&self) -> RpcResult<QHashOut<F>> {
         self.get_latest_checkpoint_tree_root()
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         self.get_checkpoint_tree_root(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
         self.get_checkpoint_tree_root_f(checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_tree_leaf_hash(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         self.get_checkpoint_tree_leaf_hash(checkpoint_id, leaf_checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<QHashOut<F>> {
         self.get_checkpoint_tree_leaf_hash_f(checkpoint_id, leaf_checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_checkpoint_tree_merkle_proof(checkpoint_id, leaf_checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
-    
+
     async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         self.get_checkpoint_tree_merkle_proof_f(checkpoint_id, leaf_checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
+
+    async fn get_pending_job(&self) -> RpcResult<QProvingJobDataID> {
+        todo!()
+    }
+
+    async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String> {
+        todo!()
+    }
+
+    async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String> {
+        todo!()
+    }
+
+    async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: String) -> RpcResult<()> {
+        todo!()
+    }
+
 }
