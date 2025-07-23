@@ -1,7 +1,32 @@
 use std::collections::HashMap;
 
-use qed_core::job::id::{JobDataIdGraph, QProvingJobDataID};
-use tracing::warn;
+use qed_core::job::{
+    id::{JobDataIdGraph, QProvingJobDataID},
+    traits::JobDataIdGraphReader,
+};
+use tokio::sync::mpsc;
+use tracing::{error, warn};
+
+pub async fn run_jobs_listener<T: JobDataIdGraphReader + Send + Sync + 'static>(
+    job_graph_reader: T,
+) -> mpsc::Receiver<(u64, JobDataIdGraph)> {
+    let (tx, rx) = mpsc::channel(100);
+    tokio::spawn(async move {
+        loop {
+            if let Ok((checkpoint_id, job_graph)) = job_graph_reader.wait_for_next_job_graph().await
+            {
+                if let Err(e) = tx.send((checkpoint_id, job_graph)).await {
+                    error!("Job graph listener channel closed: {:?}", e);
+                    break;
+                }
+            } else {
+                warn!("Failed to read job graph");
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        }
+    });
+    rx
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum JobStatus {

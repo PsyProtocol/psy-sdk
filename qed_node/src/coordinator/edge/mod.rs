@@ -3,6 +3,7 @@ pub mod jwt;
 pub mod types;
 pub mod rpc;
 pub mod error;
+pub mod jobs;
 
 use super::args::CoordinatorEdgeArgs;
 use self::rpc::CoordinatorEdgeRpcServer;
