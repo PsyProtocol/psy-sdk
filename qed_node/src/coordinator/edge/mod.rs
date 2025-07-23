@@ -3,7 +3,6 @@ pub mod jwt;
 pub mod types;
 pub mod rpc;
 pub mod error;
-pub mod jobs;
 
 use super::args::CoordinatorEdgeArgs;
 use self::rpc::CoordinatorEdgeRpcServer;
@@ -28,7 +27,7 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("✅ Loaded config: {:#?}", config);
 
     let handler = handler::CoordinatorEdgeHandler::new(config.clone()).await?;
-    let rpc_module = handler.clone().into_rpc();
+    let rpc_module = handler.into_rpc();
 
     let addr: SocketAddr = config.listen_addr.parse()?;
 

@@ -240,7 +240,7 @@ pub trait CoordinatorEdgeRpc {
     async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "get_pending_job")]
-    async fn get_pending_job(&self) -> RpcResult<QProvingJobDataID>;
+    async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>>;
 
     #[method(name = "get_proof_by_id")]
     async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String>;

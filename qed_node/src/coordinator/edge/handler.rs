@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::bail;
 use chrono::Utc;
 use rand::RngCore;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, info};
 
 use kvq::traits::KVQSerializable;
@@ -17,7 +17,7 @@ use qed_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
     WithDrainQueueMetadata,
 };
-use qed_core::job::id::{ProvingJobCircuitType, QProvingJobDataID};
+use qed_core::job::id::{JobDataIdGraph, ProvingJobCircuitType, QProvingJobDataID};
 use qed_core::job::traits::QProofStoreWriterAsyncImm;
 
 // qed_crypto
@@ -43,6 +43,7 @@ use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
+use crate::common::jobs::{run_jobs_listener, JobsGraphManager};
 // crate inner
 use crate::coordinator::edge::{StoreReader, DrainQueue, ProofStore};
 use crate::coordinator::args::CoordinatorEdgeArgs;
@@ -59,11 +60,11 @@ type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
-#[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
     history_queue: Arc<ProofStore>,
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
+    job_manager: Arc<Mutex<JobsGraphManager>>,
 }
 
 impl CoordinatorEdgeHandler {
@@ -102,10 +103,25 @@ impl CoordinatorEdgeHandler {
         )
         .await?;
 
+        let job_graph_reader = ProofStoreRedisAsync::new2(
+            redis_pool.clone(),
+            &qe_args.worker_queue_suffix,
+            &qe_args.notifications_queue_suffix,
+            &qe_args.proof_store_key_suffix,
+            &qe_args.proof_store_key_suffix,
+        )
+        .await?;
+        let job_manager = Arc::new(Mutex::new(JobsGraphManager::new()));
+        run_jobs_listener(
+            Arc::clone(&job_manager),
+            Arc::new(job_graph_reader),
+        ).await;
+
         Ok(Self {
             history_queue: Arc::clone(&proof_store),
             ctx,
             store: store_reader,
+            job_manager,
         })
     }
 
@@ -1290,20 +1306,28 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .map_err(RpcError::Anyhow)
     }
 
-    async fn get_pending_job(&self) -> RpcResult<QProvingJobDataID> {
-        todo!()
+    async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>> {
+        let mut job_manager = self.job_manager.lock().await;
+        let job_id = job_manager.get_next_pending_job_to_process();
+        Ok(job_id)
     }
 
     async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String> {
+        // TODO: rpc for implementing QProofStoreReaderAsync and QProofStoreWriterAsync
         todo!()
     }
 
     async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String> {
+        // TODO: rpc for implementing QProofStoreReaderAsync and QProofStoreWriterAsync
         todo!()
     }
 
     async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: String) -> RpcResult<()> {
-        todo!()
+        let mut job_manager = self.job_manager.lock().await;
+        job_manager.mark_job_done(job_id);
+        // TODO: send proof to processor redis queue
+        // TODO: rpc for implementing QProofStoreReaderAsync and QProofStoreWriterAsync
+        Ok(())
     }
 
 }
