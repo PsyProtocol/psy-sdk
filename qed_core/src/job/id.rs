@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use hex::FromHexError;
 use kvq::traits::KVQSerializable;
 use serde::{Deserialize, Serialize};
@@ -320,6 +322,50 @@ pub struct QWorkerJobBenchmark {
 
 
   pub duration: u64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct JobDataIdGraph {
+    pub deps: HashMap<QProvingJobDataID, HashSet<QProvingJobDataID>>,
+}
+
+impl JobDataIdGraph {
+    pub fn new() -> Self {
+        Self {
+            deps: HashMap::new(),
+        }
+    }
+
+    pub fn add_job(&mut self, job_id: QProvingJobDataID) {
+        self.deps.entry(job_id).or_default();
+    }
+
+    pub fn add_job_dep(&mut self, job_id: QProvingJobDataID, dep_id: QProvingJobDataID) {
+        self.add_job(job_id);
+        self.add_job(dep_id);
+        self.deps
+            .entry(job_id)
+            .or_insert(HashSet::new())
+            .insert(dep_id);
+    }
+
+    pub fn get_ready_jobs(&self) -> Vec<QProvingJobDataID> {
+        let mut ready_jobs = Vec::new();
+        for (&job_id, deps) in &self.deps {
+            if deps.is_empty() {
+                ready_jobs.push(job_id);
+            }
+        }
+        ready_jobs
+    }
+
+    pub fn take_ready_jobs(&mut self) -> Vec<QProvingJobDataID> {
+        let ready_jobs = self.get_ready_jobs();
+        for job_id in ready_jobs.iter() {
+            self.deps.remove(job_id);
+        }
+        ready_jobs
+    }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]

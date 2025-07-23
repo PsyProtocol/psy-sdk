@@ -1,10 +1,10 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use redis::{AsyncCommands, RedisResult};
 use kvq::traits::KVQSerializable;
-use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::{id::{JobDataIdGraph, ProvingJobDataId}, traits::{JobDataIdGraphReader, JobDataIdGraphWriter}};
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use tracing::debug;
@@ -24,7 +24,7 @@ use qed_core::job::{
     traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
-use tokio::time::sleep;
+use tokio::{sync::Mutex, time::sleep};
 
 // Re-use constants from fred_queue
 use crate::queue::fred_queue::{
@@ -40,6 +40,7 @@ pub struct ProofStoreRedisAsync {
     notifications_queue_id: String,
     proof_store_key: String,
     proof_store_counters: String,
+    job_graph: Arc<Mutex<JobDataIdGraph>>
 }
 
 impl ProofStoreRedisAsync {
@@ -62,10 +63,35 @@ impl ProofStoreRedisAsync {
                 "{}-{}",
                 PROOF_STORE_COUNTERS_PREFIX_1, proof_store_counters_suffix
             ),
+            job_graph: Arc::new(Mutex::new(JobDataIdGraph::new())),
         })
     }
     pub fn pool(&self) -> &Pool<RedisConnectionManager> {
         &self.pool
+    }
+}
+
+#[async_trait]
+impl JobDataIdGraphWriter for ProofStoreRedisAsync {
+    async fn write_job_graph(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        let mut job_graph = self.job_graph.lock().await;
+        let job_graph = std::mem::take(&mut *job_graph);
+        let serialized = bincode::serialize(&(checkpoint_id, job_graph))?;
+        let mut con = self.pool.get().await?;
+        let job_graph_key = format!("job_graph-{}", self.worker_queue_id);
+        con.lpush(job_graph_key, serialized).await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl JobDataIdGraphReader for ProofStoreRedisAsync {
+    async fn wait_for_next_job_graph(&self) -> anyhow::Result<(u64, JobDataIdGraph)> {
+        let job_graph_key = format!("job_graph-{}", self.worker_queue_id);
+        let mut con = self.pool.get().await?;
+        let serialized: Vec<u8> = con.rpop(job_graph_key.clone(), None).await?;
+        let (checkpoint_id, job_graph) = bincode::deserialize::<(u64, JobDataIdGraph)>(&serialized)?;
+        Ok((checkpoint_id, job_graph))
     }
 }
 
@@ -151,7 +177,14 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         jobs: &[QProvingJobDataID],
         next_jobs: &[QProvingJobDataID],
     ) -> anyhow::Result<()> {
-        self.write_next_jobs_core(jobs, next_jobs).await
+        self.write_next_jobs_core(jobs, next_jobs).await?;
+        let mut job_graph = self.job_graph.lock().await;
+        for &next_job in next_jobs {
+            for &job in jobs {
+                job_graph.add_job_dep(next_job, job);
+            }
+        }
+        Ok(())
     }
 
     async fn write_multidimensional_jobs(
@@ -160,7 +193,24 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         next_jobs: &[QProvingJobDataID],
     ) -> anyhow::Result<()> {
         self.write_multidimensional_jobs_core(jobs_levels, next_jobs)
-            .await
+            .await?;
+        let mut job_graph = self.job_graph.lock().await;
+        let job_levels_count = jobs_levels.len();
+        for i in 0..job_levels_count {
+            // jobs_levels[0]'s next job is jobs_levels[1]
+            let current_next_jobs = if i == job_levels_count - 1 {
+                next_jobs
+            } else {
+                &jobs_levels[i + 1]
+            };
+            let current_jobs = &jobs_levels[i];
+            for &next_job in current_next_jobs {
+                for &job in current_jobs {
+                    job_graph.add_job_dep(next_job, job);
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -232,7 +282,10 @@ impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
             jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect::<Vec<Vec<u8>>>().as_slice(),
         )
         .await?;
-
+        let mut job_graph = self.job_graph.lock().await;
+        for &job in jobs {
+            job_graph.add_job(job);
+        }
         Ok(())
     }
     async fn notify_core_goal_completed_imm(&self, job: QProvingJobDataID) -> anyhow::Result<()> {
@@ -371,7 +424,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedisAsync {
             .await?;
         Ok(T::from_bytes(&result)?)
     }
-    
+
     async fn is_empty(&self) -> anyhow::Result<bool> {
         // Check if REALM_CHECKPOINT queue is empty
         let realm_checkpoint_key = format!("{}-REALM_CHECKPOINT", self.worker_queue_id);
@@ -438,7 +491,7 @@ impl Queue {
             .max_size(pool_size as u32)
             .build(manager).await?;
 
-        Ok(Self { 
+        Ok(Self {
             pool,
             worker_queue_id: format!("{}-{}", PS_SYNC_QUEUE_KEY_PREFIX, worker_queue_suffix),
         })

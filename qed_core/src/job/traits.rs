@@ -3,11 +3,20 @@ use kvq::traits::KVQPair;
 use plonky2::plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::GenericConfig, proof::ProofWithPublicInputs};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::data::qhashout::QHashOut;
+use crate::{data::qhashout::QHashOut, job::id::JobDataIdGraph};
 
 use super::id::{ProvingJobCircuitType, QProvingJobDataID};
 
 
+#[async_trait]
+pub trait JobDataIdGraphWriter {
+    async fn write_job_graph(&self, checkpoint_id: u64) -> anyhow::Result<()>;
+}
+
+#[async_trait]
+pub trait JobDataIdGraphReader {
+    async fn wait_for_next_job_graph(&self) -> anyhow::Result<(u64, JobDataIdGraph)>;
+}
 
 pub trait QProofStoreReaderSync {
     fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
@@ -186,7 +195,7 @@ pub trait QProofStoreReaderAsync {
         let next_jobs = self.get_bytes_by_id(next_jobs_id).await?;
         Ok(bincode::deserialize(&next_jobs)?)
     }
-    
+
 }
 
 #[async_trait]
