@@ -53,6 +53,10 @@ tempfile = { workspace = true }
 futures = { workspace = true }
 
 [[test]]
+name = "tikv_store_tests"
+path = "tests/tikv/tikv_store_tests.rs"
+
+[[test]]
 name = "kvq_store_tests"
 path = "tests/scylla/kvq_store_tests.rs"
 
