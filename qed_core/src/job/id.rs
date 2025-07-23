@@ -336,6 +336,10 @@ impl JobDataIdGraph {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.deps.is_empty()
+    }
+
     pub fn add_job(&mut self, job_id: QProvingJobDataID) {
         self.deps.entry(job_id).or_default();
     }

@@ -4,18 +4,18 @@ use qed_core::job::id::{JobDataIdGraph, QProvingJobDataID};
 use tracing::warn;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum JobIdStatus {
+pub enum JobStatus {
     Pending,
     Processing,
     Done,
 }
 
-pub struct JobScheduler {
+pub struct JobsGraphManager {
     pub job_graph: Option<JobDataIdGraph>,
-    pub ready_jobs: HashMap<QProvingJobDataID, JobIdStatus>,
+    pub ready_jobs: HashMap<QProvingJobDataID, JobStatus>,
 }
 
-impl JobScheduler {
+impl JobsGraphManager {
     pub fn new() -> Self {
         Self {
             job_graph: None,
@@ -31,7 +31,7 @@ impl JobScheduler {
         let ready_jobs = self.job_graph.as_mut().map(|graph| graph.take_ready_jobs());
         if let Some(ready_jobs) = ready_jobs.as_ref() {
             for &job_id in ready_jobs.iter() {
-                self.ready_jobs.insert(job_id, JobIdStatus::Pending);
+                self.ready_jobs.insert(job_id, JobStatus::Pending);
             }
         }
     }
@@ -43,9 +43,9 @@ impl JobScheduler {
         let pending_job = self
             .ready_jobs
             .iter()
-            .find(|(_, &status)| status == JobIdStatus::Pending);
+            .find(|(_, &status)| status == JobStatus::Pending);
         if let Some((&job_id, _)) = pending_job {
-            self.mark_job_status(job_id, JobIdStatus::Processing);
+            self.mark_job_status(job_id, JobStatus::Processing);
             Some(job_id)
         } else {
             if let Some(job_graph) = self.job_graph.as_ref() {
@@ -57,7 +57,7 @@ impl JobScheduler {
         }
     }
 
-    pub fn mark_job_status(&mut self, job_id: QProvingJobDataID, new_status: JobIdStatus) {
+    pub fn mark_job_status(&mut self, job_id: QProvingJobDataID, new_status: JobStatus) {
         if let Some(status) = self.ready_jobs.get_mut(&job_id) {
             *status = new_status;
         } else {
@@ -65,5 +65,3 @@ impl JobScheduler {
         }
     }
 }
-// processor写chain state
-//
