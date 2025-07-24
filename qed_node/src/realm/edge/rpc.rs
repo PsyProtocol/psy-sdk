@@ -1,8 +1,10 @@
+use crate::common::ConcreteProofWithPublicInputs;
 use crate::realm::{C, D, F};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use plonky2::field::types::PrimeField64;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::data::qhashout::QHashOut;
+use qed_core::job::id::QProvingJobDataID;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
@@ -271,4 +273,20 @@ pub trait RealmEdgeRpc {
         )
         .await
     }
+
+    #[method(name = "get_pending_job")]
+    async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>>;
+
+    #[method(name = "get_proof_by_id")]
+    async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
+
+    #[method(name = "get_bytes_by_id")]
+    async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
+
+    #[method(name = "set_proof_by_id")]
+    async fn set_proof_by_id(
+        &self,
+        job_id: QProvingJobDataID,
+        proof: Option<ConcreteProofWithPublicInputs>,
+    ) -> RpcResult<()>;
 }

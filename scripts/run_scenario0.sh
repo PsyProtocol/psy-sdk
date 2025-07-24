@@ -82,6 +82,7 @@ sleep 20
 
 get_user_token_info
 
+sleep 10
 run_make_command "make claim" "Claim"
 run_make_command "make build-block" "Build Block 7"
 sleep 20
@@ -90,6 +91,7 @@ sleep 20
 
 get_user_token_info
 
+sleep 10
 run_make_command "make return-back" "return-back"
 sleep 20
 run_make_command "make build-block" "Build Block 9"
