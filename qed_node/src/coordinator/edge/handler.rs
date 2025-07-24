@@ -127,16 +127,7 @@ impl CoordinatorEdgeHandler {
     }
 
     async fn get_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
-        info!("getting latest checkpoint id");
-        // let block_state = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await?;
-        let block_state =
-            match QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await {
-                Ok(block_state) => block_state,
-                Err(e) => {
-                    error!("❌ Failed to get latest l2 block state: {:?}", e);
-                    return Err(e);
-                }
-            };
+        let block_state = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await?;
         Ok(block_state.checkpoint_id)
     }
 
@@ -170,9 +161,7 @@ impl CoordinatorEdgeHandler {
         &self,
         contract: QBCDeployContract<QEDFelt>,
     ) -> anyhow::Result<()> {
-        info!("deploying contract");
         let latest = self.get_latest_checkpoint_id().await?;
-        info!("latest checkpoint id: {}", latest);
         let next_checkpoint_id = latest + 1;
 
         let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
