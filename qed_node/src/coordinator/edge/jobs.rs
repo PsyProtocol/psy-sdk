@@ -1,10 +1,11 @@
+use crate::{
+    common::{jobs::JobReceiver, ConcreteProofWithPublicInputs},
+    coordinator::edge::rpc::CoordinatorEdgeRpcClient,
+};
 use async_trait::async_trait;
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use qed_core::job::id::QProvingJobDataID;
-use serde::Serialize;
 use tracing::info;
-
-use crate::{common::jobs::JobReceiver, coordinator::edge::rpc::CoordinatorEdgeRpcClient};
 
 pub struct CoordinatorJobReceiver {
     pub rpc_client: HttpClient,
@@ -31,14 +32,26 @@ impl JobReceiver for CoordinatorJobReceiver {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
-    async fn submit_job_proof<T: Serialize + Send + Sync>(
+    async fn submit_job_proof(
         &self,
         job_id: QProvingJobDataID,
-        proof: T,
+        proof: Option<ConcreteProofWithPublicInputs>,
     ) -> anyhow::Result<()> {
         info!("Submitted job proof: {:?}", job_id);
-        let proof_str = serde_json::to_string(&proof)?;
-        CoordinatorEdgeRpcClient::set_proof_by_id(&self.rpc_client, job_id, proof_str).await?;
+        // let proof_str = proof.map(|p| serde_json::to_string(&p)).transpose()?;
+        CoordinatorEdgeRpcClient::set_proof_by_id(&self.rpc_client, job_id, proof).await?;
         Ok(())
     }
 }
+
+// impl QProofStoreReaderAsync for CoordinatorJobReceiver {
+//     async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
+//         &self,
+//         id: QProvingJobDataID,
+//     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+//         let proof_str = CoordinatorEdgeRpcClient::get_proof_by_id(&self.rpc_client, id).await?;
+//         let proof = serde_json::from_str(&proof_str)?;
+//         Ok(proof)
+//     }
+
+// }

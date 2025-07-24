@@ -44,6 +44,7 @@ use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
 use crate::common::jobs::{run_jobs_listener, JobsGraphManager};
+use crate::common::ConcreteProofWithPublicInputs;
 // crate inner
 use crate::coordinator::edge::{StoreReader, DrainQueue, ProofStore};
 use crate::coordinator::args::CoordinatorEdgeArgs;
@@ -63,6 +64,7 @@ const D: usize = 2;
 
 pub struct CoordinatorEdgeHandler {
     history_queue: Arc<ProofStore>,
+    proof_store: Arc<ProofStore>,
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
     job_manager: Arc<Mutex<JobsGraphManager>>,
@@ -120,6 +122,7 @@ impl CoordinatorEdgeHandler {
 
         Ok(Self {
             history_queue: Arc::clone(&proof_store),
+            proof_store: Arc::clone(&proof_store),
             ctx,
             store: store_reader,
             job_manager,
@@ -1323,17 +1326,21 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         todo!()
     }
 
-    async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: String) -> RpcResult<()> {
+    async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()> {
         let mut job_manager = self.job_manager.lock().await;
-        job_manager.mark_job_done(job_id);
+        if let Some(proof) = proof {
+            info!("Setting proof by id: {:?}", job_id);
+            // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
+            let output_id = job_id.get_output_id();
+            self.history_queue.set_proof_by_id(output_id, &proof).await.map_err(RpcError::Anyhow)?;
+        }
         if job_id.topic == QJobTopic::NotifyOrchestratorComplete
             || job_id.circuit_type == ProvingJobCircuitType::NotifyRealmComplete
             {
                 info!("Notifying core goal completed: {:?}", job_id);
                 self.history_queue.notify_core_goal_completed_imm(job_id).await.map_err(RpcError::Anyhow)?;
         }
-        // TODO: send proof to processor redis queue
-        // TODO: rpc for implementing QProofStoreReaderAsync and QProofStoreWriterAsync
+        job_manager.mark_job_done(job_id);
         Ok(())
     }
 

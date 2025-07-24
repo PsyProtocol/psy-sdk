@@ -3,29 +3,18 @@ pub mod simple_async_coord;
 pub mod simple_async_realm;
 pub mod worker_state;
 
+use qed_core::job::id::{QJobTopic, QProvingJobDataID};
+use qed_crypto::common::worker::QNextGenWorkerGenericProverAsyncMut;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_store::queue::{new_redis_async_pool, ProofStoreRedisAsync};
+use std::{sync::Arc, time::Duration};
 use tracing::{info, warn};
 pub use worker_state::*;
-
-use std::{sync::Arc, time::Duration};
-
-use plonky2::plonk::config::GenericConfig;
-use qed_core::job::{
-    id::{QJobTopic, QProvingJobDataID},
-    traits::QProofStoreAsyncImm,
-};
-use qed_crypto::common::{
-    circuit_library::CircuitInfoLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
-};
 
 use crate::{
     common::{jobs::JobReceiver, verifier::get_cached_generic_verifier},
     coordinator::edge::jobs::CoordinatorJobReceiver,
 };
-
-pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
-pub const D: usize = 2;
 
 pub async fn run_coordinator_scheduler_worker(
     redis_url: String,
@@ -69,31 +58,8 @@ async fn run_scheduler_worker<JR: JobReceiver>(
     )
     .await?;
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
-    let coordinator_worker_circuits =
-        QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
-    run_scheduler_worker_inner(
-        &store,
-        &job_receiver,
-        &coordinator_worker_circuits,
-        &proof_verifier.library,
-    )
-    .await?;
-    Ok(())
-}
-
-async fn run_scheduler_worker_inner<
-    PS: QProofStoreAsyncImm + Send + Sync,
-    JR: JobReceiver,
-    L: CircuitInfoLibrary<C, D> + Send + Sync,
-    G: QNextGenWorkerGenericProverAsyncMut<PS, L, C, D>,
-    C: GenericConfig<D> + 'static,
-    const D: usize,
->(
-    store: &PS,
-    job_receiver: &JR,
-    prover: &G,
-    library: &L,
-) -> anyhow::Result<()> {
+    let prover = QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
+    let library = &proof_verifier.library;
     loop {
         tokio::time::sleep(Duration::from_secs(1)).await;
         let job_id = match job_receiver.get_next_ready_job().await {
@@ -105,17 +71,13 @@ async fn run_scheduler_worker_inner<
         };
         if !should_prove_job(job_id) {
             info!("skipping job proving: {:?}", job_id);
-            job_receiver
-                .submit_job_proof(job_id, "".to_string())
-                .await?;
+            job_receiver.submit_job_proof(job_id, None).await?;
             continue;
         }
         match prover.worker_prove_mut_async(&store, library, job_id).await {
             Ok(proof) => {
                 info!("Proved job: job_id={:?}", job_id);
-                let output_id = job_id.get_output_id();
-                store.set_proof_by_id(output_id, &proof).await?;
-                job_receiver.submit_job_proof(job_id, proof).await?;
+                job_receiver.submit_job_proof(job_id, Some(proof)).await?;
             }
             Err(e) => {
                 warn!("Failed to prove job: err={:?}, job_id={:?}", e, job_id);

@@ -17,6 +17,8 @@ use qed_data::config::store_config::QCheckpointSyncInfoCompact;
 
 // Import the request types from qed_prover
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+use crate::common::ConcreteProofWithPublicInputs;
+
 use super::types::LatestCheckpointResponse;
 
 type F = QEDFelt;
@@ -249,5 +251,5 @@ pub trait CoordinatorEdgeRpc {
     async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String>;
 
     #[method(name = "set_proof_by_id")]
-    async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: String) -> RpcResult<()>;
+    async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()>;
 }

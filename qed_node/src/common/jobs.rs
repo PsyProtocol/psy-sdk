@@ -1,11 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
+use crate::common::ConcreteProofWithPublicInputs;
 use async_trait::async_trait;
 use qed_core::job::{
     id::{JobDataIdGraph, QProvingJobDataID},
     traits::JobDataIdGraphReader,
 };
-use serde::Serialize;
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
@@ -145,9 +145,9 @@ impl JobsGraphManager {
 pub trait JobReceiver {
     async fn get_next_ready_job(&self) -> anyhow::Result<QProvingJobDataID>;
 
-    async fn submit_job_proof<T: Serialize + Send + Sync>(
+    async fn submit_job_proof(
         &self,
         job_id: QProvingJobDataID,
-        proof: T,
+        proof: Option<ConcreteProofWithPublicInputs>,
     ) -> anyhow::Result<()>;
 }
