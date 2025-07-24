@@ -67,6 +67,8 @@ use crate::api::{
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
+use crate::local::api::prove_proxy::ProveProxyRpcClient;
+use crate::local::api::RpcClient;
 
 pub fn gen_contract_deploy_and_circuits_for_functions(
     deployer: QHashOut<GoldilocksField>,
@@ -211,7 +213,7 @@ impl UserSessionStateManager {
         })
     }
 
-    pub fn new_with_dummy_mgr(
+    pub async fn new_with_dummy_mgr(
         user_state: UserState,
         st_provider: RpcProvider,
         circuit_info: SessionCircuitInfoStore<F>,
@@ -226,7 +228,7 @@ impl UserSessionStateManager {
         );
 
         tracing::info!("create ups manager");
-        let mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new_dummy(lps, circuit_info)?;
+        let mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new_dummy(lps, circuit_info).await?;
 
         Ok(UserSessionStateManager {
             user_state,
@@ -252,16 +254,16 @@ pub struct WalletSession {
 
 #[maybe_async::maybe_async]
 impl WalletSession {
-    pub fn new(rpc_config: &RpcConfig) -> anyhow::Result<Self> {
-        Self::new_with_mode(rpc_config, false)
+    pub async fn new(rpc_config: &RpcConfig) -> anyhow::Result<Self> {
+        Self::new_with_mode(rpc_config, false).await
     }
 
-    pub fn new_fast_setup(rpc_config: &RpcConfig) -> anyhow::Result<Self> {
+    pub async fn new_fast_setup(rpc_config: &RpcConfig) -> anyhow::Result<Self> {
         tracing::info!("init fast setup wallet");
-        Self::new_with_mode(rpc_config, true)
+        Self::new_with_mode(rpc_config, true).await
     }
 
-    pub fn new_with_mode(rpc_config: &RpcConfig, is_fast_setup: bool) -> anyhow::Result<Self> {
+    pub async fn new_with_mode(rpc_config: &RpcConfig, is_fast_setup: bool) -> anyhow::Result<Self> {
         tracing::info!("init rpc provider");
         let st_provider = RpcProvider::new_with_config(rpc_config)?;
 
@@ -274,7 +276,7 @@ impl WalletSession {
         tracing::info!("init ups step circuit manager");
         let main_circuits = match &rpc_config.prove_proxy_url {
             Some(url) => {
-                QCircuitManager::Rpc(ProveProxyRpcProvider::new_with_config(url.to_string())?)
+                QCircuitManager::Rpc(ProveProxyRpcProvider::new_with_config(url.to_string()).await?)
             }
             None => QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(
                 QED_NETWORK_MAGIC_REGTEST,
@@ -404,7 +406,7 @@ impl WalletSession {
                             user_state,
                             self.st_provider.clone(),
                             self.circuit_info.clone(),
-                        )?,
+                        ).await?,
                     );
                 }
             }
@@ -425,7 +427,7 @@ impl WalletSession {
         pk_hash: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> anyhow::Result<()> {
-        self.exec_contract_call_with_sign_type(pk_hash, contract_call_args, SignType::ZKSign)
+        self.exec_contract_call_with_sign_type(pk_hash, contract_call_args, SignType::ZKSign).await
     }
 
     pub async fn exec_contract_call_with_sign_type(
@@ -799,7 +801,7 @@ pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
 mod tests {
     use super::*;
     use std::path::Path;
@@ -829,7 +831,7 @@ mod tests {
                 Path::new(&project_path).join("../examples/target/examples.json"),
             )?)?;
 
-        let mut wallet_session = super::WalletSession::new(&rpc_config)?;
+        let mut wallet_session = WalletSession::new(&rpc_config)?;
 
         let deployer_pk_info = wallet_session.get_zk_public_key(private_key0)?;
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;

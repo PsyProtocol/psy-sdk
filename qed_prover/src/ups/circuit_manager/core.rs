@@ -843,8 +843,8 @@ where
         match self {
             QCircuitManager::Local(manager) => manager
                 .proof_tree_agg_circuits
-                .two_leaf_circuit_verifier_config(),
-            QCircuitManager::Rpc(provider) => provider.two_leaf_circuit_verifier_config(),
+                .two_leaf_circuit_verifier_config().await,
+            QCircuitManager::Rpc(provider) => provider.two_leaf_circuit_verifier_config().await,
         }
     }
 
@@ -887,7 +887,7 @@ where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn get_verifier_data_by_type(
+    async fn get_verifier_data_by_type(
         &self,
         circuit_type: qed_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType,
     ) -> VerifierOnlyCircuitData<C, D> {
@@ -899,7 +899,7 @@ where
         }
     }
 
-    fn prove_single_leaf_circuit(
+    async fn prove_single_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
         single_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
@@ -926,7 +926,7 @@ where
         }
     }
 
-    fn prove_two_leaf_circuit(
+    async fn prove_two_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
         left_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
@@ -964,7 +964,7 @@ where
         }
     }
 
-    fn prove_two_agg_circuit(
+    async  fn prove_two_agg_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         left_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
@@ -1001,7 +1001,7 @@ where
         }
     }
 
-    fn prove_left_leaf_right_agg_circuit(
+    async  fn prove_left_leaf_right_agg_circuit(
         &self,
         left_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
@@ -1037,7 +1037,7 @@ where
         }
     }
 
-    fn prove_left_agg_right_leaf_circuit(
+    async fn prove_left_agg_right_leaf_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         left_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
@@ -1074,13 +1074,14 @@ where
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
     for QCircuitManager<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
+    async  fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
         match self {
             QCircuitManager::Local(manager) => {
                 &manager.proof_tree_agg_circuits.circuit_inclusion_proofs

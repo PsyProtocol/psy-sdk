@@ -133,7 +133,7 @@ where
         leaf: &LeafProofRecord<C, D>,
     ) -> anyhow::Result<AggProofRecord<C, D>> {
         let agg_circuit_whitelist_root = circuit_mgr
-            .circuit_inclusion_proofs()
+            .circuit_inclusion_proofs().await
             .circuit_whitelist_tree_root;
 
         let proof = circuit_mgr.prove_single_leaf_circuit(
@@ -165,7 +165,7 @@ where
     ) -> anyhow::Result<AggProofRecord<C, D>> {
         let proof = circuit_mgr.prove_left_agg_right_leaf_circuit(
             circuit_mgr
-                .circuit_inclusion_proofs()
+                .circuit_inclusion_proofs().await
                 .get_inclusion_proof_for_type(left.circuit_type),
             &left.agg_header,
             &left.proof,
@@ -175,7 +175,7 @@ where
             &right.verifier_data,
         ).await?;
         let agg_circuit_whitelist_root = circuit_mgr
-            .circuit_inclusion_proofs()
+            .circuit_inclusion_proofs().await
             .circuit_whitelist_tree_root;
 
         let record = AggProofRecord {
@@ -199,7 +199,7 @@ where
         right: &LeafProofRecord<C, D>,
     ) -> anyhow::Result<AggProofRecord<C, D>> {
         let agg_circuit_whitelist_root = circuit_mgr
-            .circuit_inclusion_proofs()
+            .circuit_inclusion_proofs().await
             .circuit_whitelist_tree_root;
 
         let proof = circuit_mgr.prove_two_leaf_circuit(
@@ -232,18 +232,18 @@ where
         right: &AggProofRecord<C, D>,
     ) -> anyhow::Result<AggProofRecord<C, D>> {
         let agg_circuit_whitelist_root = circuit_mgr
-            .circuit_inclusion_proofs()
+            .circuit_inclusion_proofs().await
             .circuit_whitelist_tree_root;
 
         let proof = circuit_mgr.prove_two_agg_circuit(
             circuit_mgr
-                .circuit_inclusion_proofs()
+                .circuit_inclusion_proofs().await
                 .get_inclusion_proof_for_type(left.circuit_type),
             &left.agg_header,
             &left.proof,
             &circuit_mgr.get_verifier_data_by_type(left.circuit_type).await,
             circuit_mgr
-                .circuit_inclusion_proofs()
+                .circuit_inclusion_proofs().await
                 .get_inclusion_proof_for_type(right.circuit_type),
             &right.agg_header,
             &right.proof,
@@ -273,19 +273,19 @@ where
         let result = if leaf_proofs_len >= 2 {
             let left = self.leaf_proofs.pop_front().unwrap();
             let right = self.leaf_proofs.pop_front().unwrap();
-            let record = self.prove_two_leaf(circuit_mgr, &left, &right)?;
+            let record = self.prove_two_leaf(circuit_mgr, &left, &right).await?;
             self.agg_proofs.push(record);
             true
         } else if agg_proofs_len >= 2 {
             let right = self.agg_proofs.pop().unwrap();
             let left = self.agg_proofs.pop().unwrap();
-            let record = self.prove_two_agg(circuit_mgr, &left, &right)?;
+            let record = self.prove_two_agg(circuit_mgr, &left, &right).await?;
             self.agg_proofs.push(record);
             true
         } else if agg_proofs_len != 0 && leaf_proofs_len != 0 {
             let left_agg = self.agg_proofs.pop().unwrap();
             let right_leaf = self.leaf_proofs.pop_front().unwrap();
-            let record = self.prove_left_agg_right_leaf(circuit_mgr, &left_agg, &right_leaf)?;
+            let record = self.prove_left_agg_right_leaf(circuit_mgr, &left_agg, &right_leaf).await?;
             self.agg_proofs.push(record);
             true
         } else {
@@ -300,7 +300,7 @@ where
 
         self.leaf_proofs.reserve(leaf_proofs.len());
         for lp in leaf_proofs.into_iter() {
-            inds.push(self.injest_single_leaf_proof(lp))
+            inds.push(self.injest_single_leaf_proof(lp).await)
         }
         inds
     }
@@ -309,7 +309,7 @@ where
         &mut self,
         circuit_mgr: &T,
     ) -> anyhow::Result<()> {
-        while self.prove_one_step_simple_serial(circuit_mgr)? {
+        while self.prove_one_step_simple_serial(circuit_mgr).await? {
             // prove remaining tasks (if any)
         }
 
@@ -321,7 +321,7 @@ where
             let dangling_leaf = self.leaf_proofs.pop_front().unwrap();
             println!("prove_single_leaf");
 
-            let record = self.prove_single_leaf(circuit_mgr, &dangling_leaf)?;
+            let record = self.prove_single_leaf(circuit_mgr, &dangling_leaf).await?;
             self.agg_proofs.push(record);
         }
 

@@ -84,7 +84,7 @@ impl<
     ) -> anyhow::Result<Self> {
         let proof_tree_state = PortableQTreeRecursionManager::<C, D>::new(
             UPS_SESSION_PROOF_TREE_HEIGHT as usize
-        );
+        ).await;
         let session_start_context = lps.get_ups_start_ctx().await?;
 
         let mut new_user = session_start_context.start_session_user_leaf.clone();
@@ -132,13 +132,13 @@ impl<
             tx_log: vec![],
         })
     }
-    pub fn new_dummy(
+    pub async fn new_dummy(
         lps: QEDLocalProvingSessionStore<F, R>,
         circuit_info: SessionCircuitInfoStore<F>,
     ) -> anyhow::Result<Self> {
         let proof_tree_state = PortableQTreeRecursionManager::<C, D>::new(
             UPS_SESSION_PROOF_TREE_HEIGHT as usize
-        );
+        ).await;
 
 
         Ok(Self {
@@ -248,7 +248,7 @@ impl<
         timer.lap("circuit_mgr.ups_start.prove_base");
 
         timer.lap("prove_ups_start");
-        let known_proof_tree_root = self.proof_tree_state.get_proof_tree_root();
+        let known_proof_tree_root = self.proof_tree_state.get_proof_tree_root().await;
         let inner_public_inputs_hash = input.ups_header.qfhash::<H>();
 
         let last_ups_step_proof_index =
@@ -258,7 +258,7 @@ impl<
                     fingerprint: circuit_mgr.ups_start_circuit_fingerprint().await?,
                     verifier_data: circuit_mgr.ups_start_circuit_verifier_config().await?,
                     proof,
-                });
+                }).await;
         self.last_ups_step_proof_info = TreeAwareTreeProofRecord {
             circuit_id: LocalCircuitType::UPSStart.into(),
             inner_public_inputs_hash,
@@ -279,16 +279,16 @@ impl<
         };
         Ok(x)
     }*/
-    pub fn get_verify_previous_ups_step_proof(&mut self) -> anyhow::Result<VerifyPreviousUPSStepProofInProofTreeInput<F>> {
+    pub async fn get_verify_previous_ups_step_proof(&mut self) -> anyhow::Result<VerifyPreviousUPSStepProofInProofTreeInput<F>> {
         let previous_step_header = self.current_ups_header.clone();
         let ups_circuit_whitelist_merkle_proof = self.circuit_info.get_whitelist_merkle_proof(
             self.last_ups_step_proof_info.circuit_id
         )?.to_owned();
-        let historical_root_proof = match self.proof_tree_state.find_zero_hash_proof_for_historical_root(self.last_ups_step_proof_info.known_proof_tree_root) {
+        let historical_root_proof = match self.proof_tree_state.find_zero_hash_proof_for_historical_root(self.last_ups_step_proof_info.known_proof_tree_root).await {
             Some(p) => p,
             None => anyhow::bail!("could not find historical root proof for root {:?}",self.last_ups_step_proof_info.known_proof_tree_root),
         };
-        let inclusion_proof = self.proof_tree_state.get_leaf_merkle_proof(self.last_ups_step_proof_info.proof_tree_index);
+        let inclusion_proof = self.proof_tree_state.get_leaf_merkle_proof(self.last_ups_step_proof_info.proof_tree_index).await;
 
 
         let proof_attestation_witness = AttestTreeAwareProofInTreeInput {
@@ -331,13 +331,13 @@ impl<
             fingerprint: fn_circuit_fingerprint,
             verifier_data: fn_circuit_verifier_data,
             proof: cfc_proof,
-        });
+        }).await;
         let cfc_inclusion_proof = self.lps.get_contract_function_inclusion_proof(
             contract_id.to_canonical_u64() as u32,
             fn_id,
         ).await?;
         //println!("cfc_proof_input.session_proof_tree_root: {:?}",&cfc_proof_input.session_proof_tree_root);
-        let historical_root_proof = match self.proof_tree_state.find_zero_hash_proof_for_historical_root(cfc_proof_input.session_proof_tree_root) {
+        let historical_root_proof = match self.proof_tree_state.find_zero_hash_proof_for_historical_root(cfc_proof_input.session_proof_tree_root).await {
             Some(mp) => mp,
             None => anyhow::bail!("error finding historical root proof in proof_tree_state"),
         };
@@ -348,7 +348,7 @@ impl<
         let inline_tx_debt_pivot_proof = self.lps.get_inline_tx_tree_leaf(inline_tx_pivot_index)?;
         let new_step_deferred_tx_debt_tree_root = deferred_tx_debt_pivot_proof.root;
         let new_step_inline_tx_debt_tree_root = inline_tx_debt_pivot_proof.root;
-        let proof_tree_inclusion_proof = self.proof_tree_state.get_leaf_merkle_proof(cfc_proof_index);
+        let proof_tree_inclusion_proof = self.proof_tree_state.get_leaf_merkle_proof(cfc_proof_index).await;
         let new_step_known_proof_tree_root = proof_tree_inclusion_proof.root;
         let verify_cfc_proof_input = AttestTreeAwareProofInTreeInput {
             fingerprint: fn_circuit_fingerprint,
@@ -391,7 +391,7 @@ impl<
             cfc_inclusion_proof,
             process_cfc_state_delta_input,
         };
-        let verify_previous_ups_step = self.get_verify_previous_ups_step_proof()?;
+        let verify_previous_ups_step = self.get_verify_previous_ups_step_proof().await?;
         let circuit_input = UPSCFCStandardTransactionCircuitInput {
             verify_previous_ups_step,
             standard_cfc_step: ups_cfc_standard_input,
@@ -410,7 +410,7 @@ impl<
             fingerprint: circuit_mgr.ups_cfc_standard_tx_circuit_fingerprint().await?,
             verifier_data: circuit_mgr.ups_cfc_standard_tx_circuit_verifier_config().await?,
             proof: ups_proof,
-        });
+        }).await;
         self.last_ups_step_proof_info = TreeAwareTreeProofRecord{
             inner_public_inputs_hash: new_ups_header.qfhash::<H>(),
             circuit_id: LocalCircuitType::UPSCFCStandard.into(),
@@ -494,16 +494,16 @@ impl<
             fingerprint: zk_sig_fingerprint,
             proof: signature_proof,
             verifier_data,
-        });
+        }).await;
 
 
         // compress all proofs into a sign tree proof
         tracing::info!("compress all proofs into a sign tree proof");
         self.proof_tree_state.finalize_tree(circuit_mgr).await?;
 
-        let zk_sig_leaf_proof = self.proof_tree_state.get_leaf_merkle_proof(zk_sig_proof_index);
+        let zk_sig_leaf_proof = self.proof_tree_state.get_leaf_merkle_proof(zk_sig_proof_index).await;
         let end_cap_from_proof_tree_input = UPSEndCapFromProofTreeGadgetInput{
-            verify_previous_ups_step_input: self.get_verify_previous_ups_step_proof()?,
+            verify_previous_ups_step_input: self.get_verify_previous_ups_step_proof().await?,
             verify_zk_signature_proof_input: AttestProofInTreeInput {
                 fingerprint: zk_sig_fingerprint,
                 public_inputs_hash: proof_public_inputs_hash,
@@ -517,7 +517,7 @@ impl<
         //println!("endcap_from_proof_tree: {:?}",end_cap_from_proof_tree_input);
 
         let finalized_proof_tree_record =
-            self.proof_tree_state.get_finalized_proot_tree_record()?;
+            self.proof_tree_state.get_finalized_proot_tree_record().await?;
         // let agg_whitelist_merkle_proof = circuit_mgr
         //     .proof_tree_agg_circuits
         //     .circuit_inclusion_proofs
@@ -557,7 +557,7 @@ impl<
         inputs: Vec<F>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
         self.lps.set_proof_tree_root(
-            self.proof_tree_state.get_proof_tree_root()
+            self.proof_tree_state.get_proof_tree_root().await
         );
         QEDEvalSessionResult::new()
             .exec_contract_call(
@@ -635,8 +635,8 @@ impl<
             fingerprint: fn_circuit_fingerprint,
             verifier_data: fn_circuit_verifier_data,
             proof: cfc_proof,
-        });
-        let historical_root_proof = match self.proof_tree_state.find_zero_hash_proof_for_historical_root(cfc_proof_input.session_proof_tree_root) {
+        }).await;
+        let historical_root_proof = match self.proof_tree_state.find_zero_hash_proof_for_historical_root(cfc_proof_input.session_proof_tree_root).await {
             Some(mp) => mp,
             None => anyhow::bail!("error finding historical root proof in proof_tree_state"),
         };
@@ -647,7 +647,7 @@ impl<
         let inline_tx_pivot_index = self.lps.get_inline_tx_debt_latest_index();
         let deferred_tx_debt_pivot_proof = self.lps.get_deferred_tx_tree_leaf(deferred_tx_pivot_index)?;
         let inline_tx_debt_pivot_proof = self.lps.get_inline_tx_tree_leaf(inline_tx_pivot_index)?;
-        let proof_tree_inclusion_proof = self.proof_tree_state.get_leaf_merkle_proof(cfc_proof_index);
+        let proof_tree_inclusion_proof = self.proof_tree_state.get_leaf_merkle_proof(cfc_proof_index).await;
         let new_step_known_proof_tree_root = proof_tree_inclusion_proof.root;
         let verify_cfc_proof_input = AttestTreeAwareProofInTreeInput {
             fingerprint: fn_circuit_fingerprint,
@@ -671,7 +671,7 @@ impl<
             cfc_inclusion_proof,
             process_cfc_state_delta_input: process_cfc_state_delta_input.clone(),
         };
-        let verify_previous_ups_step = self.get_verify_previous_ups_step_proof()?;
+        let verify_previous_ups_step = self.get_verify_previous_ups_step_proof().await?;
         let deferred_input = UPSCFCDeferredTransactionCircuitInput {
             verify_previous_ups_step,
             deferred_tx_cfc_step: UPSVerifyPopDeferredTxStepInput {
@@ -721,7 +721,7 @@ impl<
             fingerprint: circuit_mgr.ups_cfc_deferred_tx_circuit_fingerprint().await?,
             verifier_data: circuit_mgr.ups_cfc_deferred_tx_circuit_verifier_config().await?,
             proof: ups_proof,
-        });
+        }).await;
         self.last_ups_step_proof_info = TreeAwareTreeProofRecord{
             inner_public_inputs_hash: new_ups_header.qfhash::<H>(),
             circuit_id: LocalCircuitType::UPSCFCDeferred.into(),

@@ -9,6 +9,7 @@ use qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::local::api::prove_proxy::ProveProxyServerProvider;
 
 #[cfg(target_arch = "wasm32")]

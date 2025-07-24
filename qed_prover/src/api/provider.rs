@@ -124,6 +124,7 @@ impl RpcProvider {
 }
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
+#[macro_export]
 macro_rules! qed_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
         let response = $instance
@@ -147,7 +148,8 @@ macro_rules! qed_rpc_call {
     }};
 }
 
-#[cfg(any(target_arch = "wasm32", not(feature = "is_sync")))]
+#[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
+#[macro_export]
 macro_rules! qed_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
         async move {
@@ -168,12 +170,9 @@ macro_rules! qed_rpc_call {
                     tracing::info!("{:?}", s);
                     Ok(())
                 }
-                ResponseResult::Error(e) => {
-                    Err(anyhow::format_err!("qed rpc call failed `{:?}`", e))
-                }
+                ResponseResult::Error(e) => { Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)) }
             }
-        }
-        .await
+        }.await
     }};
 }
 
@@ -196,7 +195,7 @@ macro_rules! qed_rpc_call_back {
     }};
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
 #[macro_export]
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
@@ -214,8 +213,7 @@ macro_rules! qed_rpc_call_back {
                 .await?
                 .json::<RpcResponse<$ret_ty>>()
                 .await
-        }
-        .await?
+        }.await?
     }};
 }
 
@@ -538,9 +536,7 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
 
         // todo fix bug
         #[cfg(target_arch = "wasm32")]
-        let response = async move {
-            tracing::info!("qed rpc call: {}", &proof_proxy_url);
-            client
+        let response = client
                 .post(&proof_proxy_url)
                 .json(&RpcRequest {
                     jsonrpc: Version::V2,
@@ -549,10 +545,8 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
                 })
                 .send()
                 .await?
-                .json::<RpcResponse<RpcResponse<String>>>()
-                .await
-        }
-        .await?;
+                .json::<RpcResponse<String>>()
+                .await?;
         #[cfg(not(target_arch = "wasm32"))]
         let response = client
             .post(&proof_proxy_url)

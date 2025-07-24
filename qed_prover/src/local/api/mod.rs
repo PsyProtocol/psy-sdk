@@ -133,8 +133,8 @@ pub struct WasmRpcServer {
 }
 
 
+#[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
 #[maybe_async::maybe_async(?Send)]
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl WasmRpcServer {
     #[wasm_bindgen(constructor)]
@@ -334,7 +334,7 @@ impl RpcServerImpl {
 
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
 #[async_trait]
 impl RpcServer for RpcServerImpl {
     async fn exec_contract_call(
