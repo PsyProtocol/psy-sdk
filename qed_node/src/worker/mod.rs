@@ -3,60 +3,30 @@ pub mod simple_async_coord;
 pub mod simple_async_realm;
 pub mod worker_state;
 
-use qed_core::job::id::{QJobTopic, QProvingJobDataID};
+use qed_core::job::{
+    id::{QJobTopic, QProvingJobDataID},
+    traits::QProofStoreReaderAsync,
+};
 use qed_crypto::common::worker::QNextGenWorkerGenericProverAsyncMut;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::queue::{new_redis_async_pool, ProofStoreRedisAsync};
 use std::{sync::Arc, time::Duration};
 use tracing::{info, warn};
 pub use worker_state::*;
 
 use crate::{
     common::{jobs::JobReceiver, verifier::get_cached_generic_verifier},
-    coordinator::edge::jobs::CoordinatorJobReceiver,
+    coordinator::edge::jobs::CoordinatorJobClient,
 };
 
-pub async fn run_coordinator_scheduler_worker(
-    redis_url: String,
-    pool_size: usize,
-    worker_queue_suffix: &str,
-    notifications_queue_suffix: &str,
-    proof_store_key_suffix: &str,
-    proof_store_counters_suffix: &str,
-    edge_url: String,
-) -> anyhow::Result<()> {
-    let job_receiver = CoordinatorJobReceiver::new(edge_url).await?;
-    run_scheduler_worker(
-        redis_url,
-        pool_size,
-        worker_queue_suffix,
-        notifications_queue_suffix,
-        proof_store_key_suffix,
-        proof_store_counters_suffix,
-        job_receiver,
-    )
-    .await
+pub async fn run_coordinator_scheduler_worker(edge_url: String) -> anyhow::Result<()> {
+    let job_client = CoordinatorJobClient::new(edge_url).await?;
+    run_scheduler_worker(job_client.clone(), job_client).await
 }
 
-async fn run_scheduler_worker<JR: JobReceiver>(
-    redis_url: String,
-    pool_size: usize,
-    worker_queue_suffix: &str,
-    notifications_queue_suffix: &str,
-    proof_store_key_suffix: &str,
-    proof_store_counters_suffix: &str,
-    job_receiver: JR,
+async fn run_scheduler_worker(
+    job_receiver: impl JobReceiver,
+    store: impl QProofStoreReaderAsync + Send + Sync,
 ) -> anyhow::Result<()> {
-    let pool = new_redis_async_pool(redis_url.as_str(), pool_size).await?;
-    // Create storage and queues
-    let store = ProofStoreRedisAsync::new2(
-        pool,
-        &worker_queue_suffix,
-        &notifications_queue_suffix,
-        &proof_store_key_suffix,
-        &proof_store_counters_suffix,
-    )
-    .await?;
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     let prover = QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
     let library = &proof_verifier.library;

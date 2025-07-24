@@ -9,11 +9,11 @@ use qed_core::job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
 use tracing::info;
 
 #[derive(Clone)]
-pub struct CoordinatorJobReceiver {
+pub struct CoordinatorJobClient {
     pub rpc_client: HttpClient,
 }
 
-impl CoordinatorJobReceiver {
+impl CoordinatorJobClient {
     pub async fn new(rpc_url: String) -> anyhow::Result<Self> {
         info!("Creating coordinator job receiver: {}", rpc_url);
         let rpc_client = HttpClientBuilder::default().build(&rpc_url)?;
@@ -22,7 +22,7 @@ impl CoordinatorJobReceiver {
 }
 
 #[async_trait]
-impl JobReceiver for CoordinatorJobReceiver {
+impl JobReceiver for CoordinatorJobClient {
     async fn get_next_ready_job(&self) -> anyhow::Result<QProvingJobDataID> {
         loop {
             if let Some(job_id) =
@@ -39,16 +39,15 @@ impl JobReceiver for CoordinatorJobReceiver {
         job_id: QProvingJobDataID,
         proof: Option<ConcreteProofWithPublicInputs>,
     ) -> anyhow::Result<()> {
-        info!("Submitted job proof: {:?}", job_id);
-        // let proof_str = proof.map(|p| serde_json::to_string(&p)).transpose()?;
+        info!("Submitted job proof for job_id: {:?}", job_id);
         CoordinatorEdgeRpcClient::set_proof_by_id(&self.rpc_client, job_id, proof).await?;
         Ok(())
     }
 }
 
 #[async_trait]
-impl QProofStoreReaderAsync for CoordinatorJobReceiver {
-    async fn contains_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
+impl QProofStoreReaderAsync for CoordinatorJobClient {
+    async fn contains_id(&self, _id: QProvingJobDataID) -> anyhow::Result<bool> {
         unimplemented!()
     }
 

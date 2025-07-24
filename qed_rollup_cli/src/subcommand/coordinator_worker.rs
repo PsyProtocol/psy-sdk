@@ -2,16 +2,7 @@ use qed_node::{coordinator::CoordinatorWorkerArgs, worker::run_coordinator_sched
 use tracing::{error, info};
 
 async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
-    run_coordinator_scheduler_worker(
-        args.redis_uri,
-        args.redis_pool_size as usize,
-        &args.queue_args.worker_queue_suffix,
-        &args.queue_args.notifications_queue_suffix,
-        &args.queue_args.proof_store_key_suffix,
-        &args.queue_args.proof_store_key_suffix,
-        args.edge_url,
-    )
-    .await?;
+    run_coordinator_scheduler_worker(args.edge_url).await?;
     error!("Coordinator worker exit.");
     Ok(())
 }
