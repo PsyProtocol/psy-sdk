@@ -5,7 +5,7 @@ use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::config::store_config::QEDFelt;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::plonk::proof::ProofWithPublicInputs;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::{QEDCheckpointLeaf, QEDL2BlockState, QEDCheckpointGlobalStateRoots};
@@ -245,10 +245,10 @@ pub trait CoordinatorEdgeRpc {
     async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>>;
 
     #[method(name = "get_proof_by_id")]
-    async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String>;
+    async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
 
     #[method(name = "get_bytes_by_id")]
-    async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String>;
+    async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
 
     #[method(name = "set_proof_by_id")]
     async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()>;

@@ -4,9 +4,11 @@ use crate::{
 };
 use async_trait::async_trait;
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
-use qed_core::job::id::QProvingJobDataID;
+use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
+use qed_core::job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
 use tracing::info;
 
+#[derive(Clone)]
 pub struct CoordinatorJobReceiver {
     pub rpc_client: HttpClient,
 }
@@ -44,14 +46,23 @@ impl JobReceiver for CoordinatorJobReceiver {
     }
 }
 
-// impl QProofStoreReaderAsync for CoordinatorJobReceiver {
-//     async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
-//         &self,
-//         id: QProvingJobDataID,
-//     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-//         let proof_str = CoordinatorEdgeRpcClient::get_proof_by_id(&self.rpc_client, id).await?;
-//         let proof = serde_json::from_str(&proof_str)?;
-//         Ok(proof)
-//     }
+#[async_trait]
+impl QProofStoreReaderAsync for CoordinatorJobReceiver {
+    async fn contains_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
+        unimplemented!()
+    }
 
-// }
+    async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        let proof_bytes = CoordinatorEdgeRpcClient::get_proof_by_id(&self.rpc_client, id).await?;
+        let proof = bincode::deserialize(&proof_bytes).map_err(|e| anyhow::anyhow!(e))?;
+        Ok(proof)
+    }
+
+    async fn get_bytes_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
+        let bytes = CoordinatorEdgeRpcClient::get_bytes_by_id(&self.rpc_client, id).await?;
+        Ok(bytes)
+    }
+}

@@ -73,6 +73,7 @@ sleep 20
 
 get_user_token_info
 
+sleep 10
 run_make_command "make transfer" "Transfer"
 run_make_command "make build-block" "Build Block 5"
 sleep 20

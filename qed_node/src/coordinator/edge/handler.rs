@@ -18,7 +18,7 @@ use qed_core::job::drain_queue::{
     WithDrainQueueMetadata,
 };
 use qed_core::job::id::{JobDataIdGraph, ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
-use qed_core::job::traits::QProofStoreWriterAsyncImm;
+use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 
 // qed_crypto
 use qed_crypto::hash::merkle::core::MerkleProofCore;
@@ -1316,14 +1316,14 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         Ok(job_id)
     }
 
-    async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String> {
-        // TODO: rpc for implementing QProofStoreReaderAsync and QProofStoreWriterAsync
-        todo!()
+    async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>> {
+        let proof: ConcreteProofWithPublicInputs = self.proof_store.get_proof_by_id(job_id).await.map_err(|e| RpcError::Anyhow(e.into()))?;
+        let bytes = bincode::serialize(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
+        Ok(bytes)
     }
 
-    async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<String> {
-        // TODO: rpc for implementing QProofStoreReaderAsync and QProofStoreWriterAsync
-        todo!()
+    async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>> {
+        self.proof_store.get_bytes_by_id(job_id).await.map_err(|e| RpcError::Anyhow(e.into()))
     }
 
     async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()> {
@@ -1332,7 +1332,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             info!("Setting proof by id: {:?}", job_id);
             // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
             let output_id = job_id.get_output_id();
-            self.history_queue.set_proof_by_id(output_id, &proof).await.map_err(RpcError::Anyhow)?;
+            self.proof_store.set_proof_by_id(output_id, &proof).await.map_err(RpcError::Anyhow)?;
         }
         if job_id.topic == QJobTopic::NotifyOrchestratorComplete
             || job_id.circuit_type == ProvingJobCircuitType::NotifyRealmComplete
