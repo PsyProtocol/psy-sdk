@@ -347,10 +347,7 @@ impl JobDataIdGraph {
     pub fn add_job_dep(&mut self, job_id: QProvingJobDataID, dep_id: QProvingJobDataID) {
         self.add_job(job_id);
         self.add_job(dep_id);
-        self.dep_graph
-            .entry(job_id)
-            .or_insert(HashSet::new())
-            .insert(dep_id);
+        self.dep_graph.entry(job_id).or_default().insert(dep_id);
     }
 
     pub fn get_ready_jobs(&self) -> Vec<QProvingJobDataID> {

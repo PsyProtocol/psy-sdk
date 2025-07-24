@@ -11,7 +11,10 @@ pub use worker_state::*;
 use std::{sync::Arc, time::Duration};
 
 use plonky2::plonk::config::GenericConfig;
-use qed_core::job::traits::QProofStoreAsyncImm;
+use qed_core::job::{
+    id::{QJobTopic, QProvingJobDataID},
+    traits::QProofStoreAsyncImm,
+};
 use qed_crypto::common::{
     circuit_library::CircuitInfoLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
 };
@@ -46,7 +49,7 @@ pub async fn run_coordinator_scheduler_worker(
     .await
 }
 
-pub async fn run_scheduler_worker<JR: JobReceiver>(
+async fn run_scheduler_worker<JR: JobReceiver>(
     redis_url: String,
     pool_size: usize,
     worker_queue_suffix: &str,
@@ -100,6 +103,13 @@ async fn run_scheduler_worker_inner<
                 continue;
             }
         };
+        if !should_prove_job(job_id) {
+            info!("skipping job proving: {:?}", job_id);
+            job_receiver
+                .submit_job_proof(job_id, "".to_string())
+                .await?;
+            continue;
+        }
         match prover.worker_prove_mut_async(&store, library, job_id).await {
             Ok(proof) => {
                 info!("Proved job: job_id={:?}", job_id);
@@ -108,15 +118,12 @@ async fn run_scheduler_worker_inner<
                 job_receiver.submit_job_proof(job_id, proof).await?;
             }
             Err(e) => {
-                job_receiver
-                    .submit_job_proof(job_id, "".to_string())
-                    .await?;
-                if e.to_string().contains("unsupported circuit") {
-                    warn!("Unsupported circuit");
-                } else {
                 warn!("Failed to prove job: err={:?}, job_id={:?}", e, job_id);
-                }
             }
         };
     }
+}
+
+fn should_prove_job(job_id: QProvingJobDataID) -> bool {
+    job_id.topic == QJobTopic::GenerateStandardProof
 }
