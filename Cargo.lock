@@ -3614,6 +3614,7 @@ name = "qed_exec"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bincode",
  "kvq",
  "maybe-async",
@@ -3683,6 +3684,7 @@ name = "qed_prover"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "cfg-if",
  "clap",
  "console_error_panic_hook",
@@ -3820,7 +3822,6 @@ dependencies = [
  "hex",
  "js-sys",
  "kvq",
- "maybe-async",
  "plonky2",
  "qed_common_circuit",
  "qed_core",

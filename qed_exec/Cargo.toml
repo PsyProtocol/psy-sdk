@@ -16,12 +16,16 @@ ts-rs = { workspace = true }
 kvq = { workspace = true }
 qed_core = { workspace = true }
 qedlang_core = { workspace = true }
-qed_data = { workspace = true }
+qed_data = { workspace = true, default-features = false }
 qed_crypto = { workspace = true }
+async-trait = { workspace = true }
 maybe-async = {workspace = true}
-qed_store = { workspace = true }
+qed_store = { workspace = true, default-features = false }
 qedlang_macros = { workspace = true }
 
 [features]
 default = ["is_sync"]
-is_sync = ["maybe-async/is_sync", "qed_store/is_sync"]
+is_sync = [
+    "maybe-async/is_sync",
+    "qed_data/is_sync",
+    "qed_store/is_sync"]

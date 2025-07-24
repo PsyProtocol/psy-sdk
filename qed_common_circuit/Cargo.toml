@@ -27,3 +27,8 @@ maybe-async = { workspace = true }
 criterion = { workspace = true }
 rand_chacha = "0.3.1"
 hex-literal = { workspace = true }
+
+
+[features]
+default = ["is_sync"]
+is_sync = ["maybe-async/is_sync"]

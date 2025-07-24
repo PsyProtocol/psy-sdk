@@ -9,6 +9,8 @@ version = "0.1.0"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+maybe-async = { workspace = true }
+async-trait = { workspace = true }
 anyhow     = { workspace = true }
 serde      = { workspace = true }
 serde_json      = { workspace = true }
@@ -23,16 +25,15 @@ dashmap = { workspace = true }
 
 kvq = { workspace = true }
 qed_core = { workspace = true }
-qed_common_circuit = { workspace = true }
-qed_rollup_circuit = { workspace = true }
+qed_common_circuit = { workspace = true, default-features = false }
+qed_rollup_circuit = { workspace = true, default-features = false }
 qed_rollup_utils = { workspace = true }
 qedlang_core = { workspace = true }
-qed_data = { workspace = true }
+qed_data = { workspace = true, default-features = false }
 qed_crypto = { workspace = true }
-qed_exec = { workspace = true }
-qed_store = { workspace = true }
+qed_exec = { workspace = true, default-features = false }
+qed_store = { workspace = true, default-features = false }
 qedlang_macros = { workspace = true }
-maybe-async = { workspace = true }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
 wasm-logger = { workspace = true }
@@ -48,11 +49,6 @@ k256 = { workspace = true }
 rand = { workspace = true }
 getrandom = { workspace = true }
 
-[features]
-default = ["is_sync"]
-is_sync = ["qed_exec/is_sync","qed_store/is_sync","maybe-async/is_sync"]
-
-
 # Native-only dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 futures = { workspace = true }
@@ -66,3 +62,14 @@ reqwest = { workspace = true }
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
+
+[features]
+default = ["is_sync"]
+is_sync = [
+    "qed_data/is_sync",
+    "maybe-async/is_sync",
+    "qed_exec/is_sync",
+    "qed_store/is_sync",
+    "qed_common_circuit/is_sync", 
+    "qed_rollup_circuit/is_sync",
+]

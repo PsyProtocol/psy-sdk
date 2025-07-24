@@ -22,7 +22,7 @@ clap = { workspace = true }
 
 kvq = { workspace = true }
 qed_core = { workspace = true }
-qed_data = { workspace = true }
+qed_data = { workspace = true, default-features = false }
 qed_crypto = { workspace = true }
 thiserror = { workspace = true }
 maybe-async = { workspace = true }
@@ -45,7 +45,7 @@ url = { workspace = true }
 
 [features]
 default = ["is_sync"]
-is_sync = ["maybe-async/is_sync"]
+is_sync = ["maybe-async/is_sync", "qed_data/is_sync"]
 
 [dev-dependencies]
 tempfile = { workspace = true }
