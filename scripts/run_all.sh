@@ -12,15 +12,17 @@ mkdir -p "$LOG_DIR"
 
 # Define log files for each service
 COORDINATOR_PROCESSOR_LOG="$LOG_DIR/coordinator-processor.log"
-COORDINATOR_WORKER_LOG="$LOG_DIR/coordinator-worker.log"
+# COORDINATOR_WORKER_LOG="$LOG_DIR/coordinator-worker.log"
 REALM_PROCESSOR_LOG="$LOG_DIR/realm-processor.log"
-REALM_WORKER_LOG="$LOG_DIR/realm-worker.log"
+# REALM_WORKER_LOG="$LOG_DIR/realm-worker.log"
 COORDINATOR_EDGE_LOG="$LOG_DIR/coordinator-edge.log"
 REALM_EDGE_LOG="$LOG_DIR/realm-edge.log"
 
 REALM_PROCESSOR32_LOG="$LOG_DIR/realm-processor1.log"
-REALM_WORKER32_LOG="$LOG_DIR/realm-worker1.log"
+# REALM_WORKER32_LOG="$LOG_DIR/realm-worker1.log"
 REALM_EDGE32_LOG="$LOG_DIR/realm-edge1.log"
+
+WORKER_LOG="$LOG_DIR/worker.log"
 
 LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
 WEB_WALLET_LOG="$LOG_DIR/web_wallet.log"
@@ -28,16 +30,17 @@ WEB_WALLET_LOG="$LOG_DIR/web_wallet.log"
 # Clear log files at startup
 echo "Clearing log files..."
 : > "$COORDINATOR_PROCESSOR_LOG"
-: > "$COORDINATOR_WORKER_LOG"
+# : > "$COORDINATOR_WORKER_LOG"
 : > "$REALM_PROCESSOR_LOG"
-: > "$REALM_WORKER_LOG"
+# : > "$REALM_WORKER_LOG"
 : > "$COORDINATOR_EDGE_LOG"
 : > "$REALM_EDGE_LOG"
 : > "$REALM_PROCESSOR32_LOG"
-: > "$REALM_WORKER32_LOG"
+# : > "$REALM_WORKER32_LOG"
 : > "$REALM_EDGE32_LOG"
 : > "$LOCAL_USER_PROVER_LOG"
 : > "$WEB_WALLET_LOG"
+: > "$WORKER_LOG"
 
 # Array to store PIDs of background processes
 declare -a PIDS=()
@@ -78,15 +81,17 @@ run_service() {
 # Group 1: Start processor and worker services in background
 run_service "make run-coordinator-processor" "coordinator-processor" "$COORDINATOR_PROCESSOR_LOG" &
 PIDS+=($!)
-run_service "make run-coordinator-worker" "coordinator-worker" "$COORDINATOR_WORKER_LOG" &
-PIDS+=($!)
+# run_service "make run-coordinator-worker" "coordinator-worker" "$COORDINATOR_WORKER_LOG" &
+# PIDS+=($!)
 run_service "make run-realm-processor" "realm-processor" "$REALM_PROCESSOR_LOG" &
 PIDS+=($!)
 run_service "make run-realm-processor1" "realm-processor1" "$REALM_PROCESSOR32_LOG" &
 PIDS+=($!)
-run_service "make run-realm-worker" "realm-worker" "$REALM_WORKER_LOG" &
-PIDS+=($!)
-run_service "make run-realm-worker1" "realm-worker1" "$REALM_WORKER32_LOG" &
+# run_service "make run-realm-worker" "realm-worker" "$REALM_WORKER_LOG" &
+# PIDS+=($!)
+# run_service "make run-realm-worker1" "realm-worker1" "$REALM_WORKER32_LOG" &
+# PIDS+=($!)
+run_service "make run-worker" "worker" "$WORKER_LOG" &
 PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors/workers)

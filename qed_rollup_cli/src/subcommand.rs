@@ -1,4 +1,5 @@
 use clap::command;
+use clap::ArgAction;
 use clap::Parser;
 use clap::Subcommand;
 
@@ -8,6 +9,7 @@ pub mod coordinator_worker;
 pub mod realm_edge;
 pub mod realm_processor;
 pub mod realm_worker;
+pub mod worker;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -47,5 +49,10 @@ pub enum Commands {
         redis_config: qed_node::realm::RedisConfig,
         #[command(flatten)]
         queue_config: qed_node::realm::QueueConfig,
+    },
+    #[command(about = "Run the worker node")]
+    Worker {
+        #[arg(long = "edge-url", action = ArgAction::Append)]
+        edge_url: Vec<String>,
     },
 }

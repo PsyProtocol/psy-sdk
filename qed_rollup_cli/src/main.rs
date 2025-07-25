@@ -8,6 +8,7 @@ use crate::subcommand::coordinator_processor;
 use crate::subcommand::coordinator_worker;
 use crate::subcommand::realm_edge;
 use crate::subcommand::realm_processor;
+use crate::subcommand::worker;
 
 use crate::subcommand::Cli;
 use crate::subcommand::Commands;
@@ -40,6 +41,9 @@ async fn main() -> anyhow::Result<()> {
             queue_config,
         } => {
             realm_worker::run(redis_config, queue_config, edge_url).await?;
+        }
+        Commands::Worker { edge_url } => {
+            worker::run(edge_url).await?;
         }
     };
     Ok::<_, anyhow::Error>(())

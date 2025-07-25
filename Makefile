@@ -210,6 +210,12 @@ run-realm-worker1:
       --proof-store-key-suffix=RP1 \
       --edge-url=http://127.0.0.1:8547
 
+run-worker:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+		--edge-url=http://127.0.0.1:8545 \
+		--edge-url=http://127.0.0.1:8546 \
+		--edge-url=http://127.0.0.1:8547
+
 run-user-prover:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover
 
