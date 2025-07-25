@@ -1,9 +1,13 @@
 use std::str::FromStr;
 
-use qed_prover::local::{args::ContractCallArgs, provider::RpcConfig};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
+use qed_prover::local::{
+    args::{ContractCallArgs, SignType},
+    provider::RpcConfig,
+};
 use qed_prover::session::WalletSession;
+use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use super::args::SubmitEndCapArgs;
 
@@ -25,9 +29,22 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
 
     let mut wallet_session = WalletSession::new(&rpc_config)?;
-    let user_pk_hash = wallet_session.add_user(private_key)?;
+    if args.sign_type == SignType::SoftwareDefinedSignV2 {
+        let user_sdc: DPNFunctionCircuitDefinition =
+            serde_json::from_str(&std::fs::read_to_string("sdc.json")?)?;
 
-    wallet_session.exec_contract_call(user_pk_hash, contract_call_args)?;
+        wallet_session
+            .wallet
+            .register_software_defined_circuit(user_sdc)?;
+    }
+    let user_pk_hash = wallet_session.add_user_with_type(private_key, args.sign_type.clone())?;
+
+    wallet_session.exec_contract_call_with_sign_type(
+        user_pk_hash,
+        contract_call_args,
+        args.sign_type.clone(),
+        vec![],
+    )?;
 
     tracing::info!("local proving end");
 

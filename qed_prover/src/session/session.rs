@@ -5,7 +5,7 @@ use crate::{
         circuits::cfc::DapenContractFunctionCircuit,
         data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition},
     },
-    local::args::ContractCallArgs,
+    local::args::{ContractCallArgs, SignType},
     ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager},
     wallet::memory_wallet::QEDMemoryWallet,
 };
@@ -21,15 +21,19 @@ use qed_core::{
         MAX_CONTRACT_STATE_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT,
     },
     data::qhashout::QHashOut,
+    traits::to_qfelts::ToQFelts,
     ups::circuits::LocalCircuitType,
 };
 use qed_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};
 use qed_data::{
     config::store_config::QEDHasher,
+    qdata::user_contract_state::UserContractState,
     qstore::imm::{
         cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync,
     },
-    traits::qdatastore::qmetadata::QMetaDataStoreReaderSync,
+    traits::qdatastore::{
+        qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync,
+    },
 };
 use qed_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
@@ -140,13 +144,6 @@ pub enum UserState {
     Active,
     Registering,
     InActive,
-}
-
-#[derive(Debug, Clone)]
-pub enum SignType {
-    ZKSign,
-    SECP256K1Sign,
-    SoftwareDefinedSign,
 }
 
 pub struct UserSessionStateManager {
@@ -306,9 +303,12 @@ impl WalletSession {
         let pk_info = match sign_type {
             SignType::ZKSign => self.wallet.add_zk_private_key(private_key)?,
             SignType::SECP256K1Sign => self.wallet.add_secp_private_key(private_key)?,
-            SignType::SoftwareDefinedSign => {
-                unimplemented!("Software defined sign not supported yet")
-            }
+            SignType::SoftwareDefinedSign => self
+                .wallet
+                .add_simple_software_defined_private_key(private_key)?,
+            SignType::SoftwareDefinedSignV2 => self
+                .wallet
+                .add_simple_software_defined_private_key_v2(private_key)?,
         };
         let public_key = pk_info.qfhash::<QEDHasher>();
         tracing::info!(
@@ -395,7 +395,12 @@ impl WalletSession {
         pk_hash: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> anyhow::Result<()> {
-        self.exec_contract_call_with_sign_type(pk_hash, contract_call_args, SignType::ZKSign)
+        self.exec_contract_call_with_sign_type(
+            pk_hash,
+            contract_call_args,
+            SignType::ZKSign,
+            vec![],
+        )
     }
 
     pub async fn exec_contract_call_with_sign_type(
@@ -403,6 +408,7 @@ impl WalletSession {
         pk_hash: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
         sign_type: SignType,
+        sign_inputs: Vec<u64>,
     ) -> anyhow::Result<()> {
         tracing::info!(
             "exec contract call: {}",
@@ -414,7 +420,7 @@ impl WalletSession {
         self.prove_contract_calls(pk_hash, contract_call_args)
             .await?;
         tracing::info!("sign and submit");
-        self.sign_and_submit_with_sign_type(pk_hash, sign_type)
+        self.sign_and_submit_with_sign_type(pk_hash, sign_type, sign_inputs)
             .await?;
         Ok(())
     }
@@ -540,7 +546,7 @@ impl WalletSession {
     }
 
     pub async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
-        self.sign_and_submit_with_sign_type(pk_hash, SignType::ZKSign)
+        self.sign_and_submit_with_sign_type(pk_hash, SignType::ZKSign, vec![])
             .await
     }
 
@@ -548,6 +554,7 @@ impl WalletSession {
         &self,
         pk_hash: QHashOut<F>,
         sign_type: SignType,
+        sign_inputs: Vec<u64>,
     ) -> anyhow::Result<()> {
         tracing::info!("🔔sign and submit with sign type: {:?}", sign_type);
 
@@ -577,7 +584,57 @@ impl WalletSession {
                     .await?
             }
             SignType::SoftwareDefinedSign => {
-                unimplemented!("secp256k1 sign not supported")
+                let user_leaf = self
+                    .st_provider
+                    .get_user_leaf_data(
+                        user_session_mgr.current_checkpoint_id,
+                        user_session_mgr.user_id,
+                    )
+                    .await?;
+                let checkpoint_tree_root = self
+                    .st_provider
+                    .get_checkpoint_tree_root(user_session_mgr.current_checkpoint_id)
+                    .await?;
+                let contract_state_root = self
+                    .st_provider
+                    .get_user_contract_tree_root(
+                        user_session_mgr.current_checkpoint_id,
+                        user_session_mgr.user_id,
+                    )
+                    .await?;
+                let user_contract_state =
+                    UserContractState::new(checkpoint_tree_root, contract_state_root, user_leaf);
+                self.wallet
+                    .sdc_sign_for_public_key(user_contract_state, pk_info.public_key_param, sighash)
+                    .await?
+            }
+            SignType::SoftwareDefinedSignV2 => {
+                let sdc = self
+                    .wallet
+                    .software_defined_circuit
+                    .as_ref()
+                    .ok_or(anyhow::format_err!("register sdc first"))?;
+                let private_key = self.wallet
+                .software_defined_public_key_to_private_key_v2_store
+                .get(&pk_info.public_key_param)
+                .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", pk_info.public_key_param.to_string()))?;
+
+                let mut cfc_call_inputs = private_key.clone().to_qfelts();
+                cfc_call_inputs.extend_from_slice(
+                    &sign_inputs
+                        .iter()
+                        .map(|x| F::from_noncanonical_u64(*x))
+                        .collect::<Vec<_>>(),
+                );
+                let cfc_proof_input = user_session_mgr
+                    .mgr
+                    .exec_contract_call(
+                        F::from_noncanonical_u64(0),
+                        &sdc.inner_circuit.fn_def,
+                        cfc_call_inputs,
+                    )
+                    .await?;
+                sdc.prove(&cfc_proof_input, sighash)?
             }
         };
 
@@ -607,13 +664,30 @@ impl WalletSession {
                     .get_verifier_config_ref()
                     .to_owned(),
             ),
-            SignType::SoftwareDefinedSign => {
-                unimplemented!("secp256k1 sign not supported")
+            SignType::SoftwareDefinedSign => (
+                self.wallet
+                    .simple_software_defined_circuits
+                    .get_fingerprint(),
+                self.wallet
+                    .simple_software_defined_circuits
+                    .get_verifier_config_ref()
+                    .to_owned(),
+            ),
+            SignType::SoftwareDefinedSignV2 => {
+                let sdc = self
+                    .wallet
+                    .software_defined_circuit
+                    .as_ref()
+                    .ok_or_else(|| anyhow::format_err!("register sdc first"))?;
+                (
+                    sdc.get_fingerprint(),
+                    sdc.get_verifier_config_ref().to_owned(),
+                )
             }
         };
 
         tracing::info!(
-        "prove end cap with network magic {:x}, nonce {}, fingerprint {}, public key param {}, signature proof {:?}",
+            "prove end cap with network magic {:x}, nonce {}, fingerprint {}, public key param {}, signature proof {:?}",
             QED_NETWORK_MAGIC_REGTEST,
             user_session_mgr.nonce,
             circuit_fingerprint,
@@ -755,7 +829,7 @@ mod tests {
 
         let circuit_defs =
             serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(
-                Path::new(&project_path).join("../examples/target/examples.json"),
+                Path::new(&project_path).join("../examples/target/examples.json.bak"),
             )?)?;
 
         let mut wallet_session = super::WalletSession::new(&rpc_config)?;
@@ -861,10 +935,9 @@ mod tests {
         let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
         let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 
-        let circuit_defs =
-            serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(
-                Path::new(&project_path).join("../examples/target/examples.json"),
-            )?)?;
+        let circuit_defs = serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(
+            &std::fs::read_to_string(Path::new(&project_path).join("../examples/target/.bak"))?,
+        )?;
 
         let mut wallet_session = super::WalletSession::new(&rpc_config)?;
 

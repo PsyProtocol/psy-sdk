@@ -6,8 +6,8 @@ use qed_common_circuit::
 ;
 use qed_core::config::network_constants::CHECKPOINT_TREE_HEIGHT;
 
-use crate::{gadgets::qdata::
-    ups_context_input::UserProvingSessionHeaderGadget, guta::gadgets::guta_stats::GUTAStatsGadget}
+use crate::{gadgets::qdata::{
+    ups_context_input::UserProvingSessionHeaderGadget, user_contract_state::UserContractStateGadget}, guta::gadgets::guta_stats::GUTAStatsGadget}
 ;
 
 use super::{ups_end_cap_result::UPSEndCapResultCompactGadget, ups_signature_data::QEDUserProvingSessionSignatureDataCompactGadget};
@@ -37,6 +37,8 @@ impl UPSEndCapCoreGadget {
         network_magic: u64,
         empty_deferred_tx_debt_tree_root: HashOutTarget,
         empty_inline_tx_debt_tree_root: HashOutTarget,
+        user_contract_state: &UserContractStateGadget,
+        sig_inputs: Vec<Target>,
     ) -> Self {
 
         builder.connect(
@@ -92,6 +94,8 @@ impl UPSEndCapCoreGadget {
             network_magic,
             last_header_gadget.session_start_context.start_session_user_leaf.user_id,
             nonce,
+            &user_contract_state,
+            sig_inputs,
         ).sig_action_hash;
 
         let expected_public_inputs_hash = builder.hash_two_to_one::<H>(

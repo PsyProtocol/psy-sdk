@@ -10,6 +10,7 @@ use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INL
 use qed_crypto::{common::witnesses::qrecursion::header::AttestProofInTreeInput, hash::traits::hasher::MerkleZeroHasher};
 use qed_data::ups::{ups_end_cap::UPSEndCapFromProofTreeGadgetInput, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput};
 
+use crate::gadgets::qdata::user_contract_state::UserContractStateGadget;
 
 use super::{ups_end_cap::UPSEndCapCoreGadget, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeGadget};
 
@@ -68,7 +69,10 @@ impl UPSEndCapFromProofTreeGadget {
         let empty_deferred_tx_debt_tree_root = builder.constant_hash(H::get_zero_hash(DEFERRED_TRANSACTION_TREE_HEIGHT as usize));
         let empty_inline_tx_debt_tree_root = builder.constant_hash(H::get_zero_hash(INLINE_TRANSACTION_TREE_HEIGHT as usize));
         
-
+        let user_contract_state = UserContractStateGadget { 
+            checkpoint_tree_root: verify_previous_ups_step_gadget.previous_step_header_gadget.session_start_context.checkpoint_tree_root,
+            user_leaf: verify_previous_ups_step_gadget.previous_step_header_gadget.current_state.user_leaf,
+        };
 
         let end_cap_core_gadget = UPSEndCapCoreGadget::enforce_signature_constraints::<H,F,D>(
             builder, 
@@ -81,6 +85,8 @@ impl UPSEndCapFromProofTreeGadget {
             network_magic,
             empty_deferred_tx_debt_tree_root,
             empty_inline_tx_debt_tree_root,
+            &user_contract_state,
+            vec![],
         );
 
         Self {

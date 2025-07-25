@@ -127,6 +127,7 @@ impl CoordinatorEdgeHandler {
         }
 
         info!("🆕 User not found. Starting new registration.");
+        tracing::info!("✅ register user: {}", serde_json::to_string_pretty(&zk_user_info).unwrap());
         self.ctx.checkpoint_queue.cdq_push_imm(zk_user_info).await
             .map_err(|e| CoordinatorError::QueueError(e.to_string()))?;
         info!("✅ User pushed to checkpoint queue.");

@@ -1,0 +1,109 @@
+{
+    "name": "simple_sign",
+    "method_id": 4044591289,
+    "circuit_inputs": [
+        0,
+        1,
+        2,
+        3
+    ],
+    "circuit_outputs": [
+        0,
+        1,
+        2,
+        7
+    ],
+    "state_commands": [],
+    "state_command_resolution_indices": [],
+    "assertions": [
+        {
+            "left": 4294967296,
+            "right": 4294967297,
+            "message": "you can only sign two txns"
+        }
+    ],
+    "definitions": [
+        {
+            "data_type": 0,
+            "index": 0,
+            "op_type": 0,
+            "inputs": [
+                0
+            ]
+        },
+        {
+            "data_type": 0,
+            "index": 1,
+            "op_type": 0,
+            "inputs": [
+                1
+            ]
+        },
+        {
+            "data_type": 0,
+            "index": 2,
+            "op_type": 0,
+            "inputs": [
+                2
+            ]
+        },
+        {
+            "data_type": 0,
+            "index": 3,
+            "op_type": 0,
+            "inputs": [
+                3
+            ]
+        },
+        {
+            "data_type": 0,
+            "index": 4,
+            "op_type": 49,
+            "inputs": [
+                0
+            ]
+        },
+        {
+            "data_type": 0,
+            "index": 5,
+            "op_type": 1,
+            "inputs": [
+                2
+            ]
+        },
+        {
+            "data_type": 1,
+            "index": 0,
+            "op_type": 14,
+            "inputs": [
+                4,
+                5
+            ]
+        },
+        {
+            "data_type": 1,
+            "index": 1,
+            "op_type": 2,
+            "inputs": [
+                1
+            ]
+        },
+        {
+            "data_type": 0,
+            "index": 6,
+            "op_type": 1,
+            "inputs": [
+                1
+            ]
+        },
+        {
+            "data_type": 0,
+            "index": 7,
+            "op_type": 4,
+            "inputs": [
+                3,
+                6
+            ]
+        }
+    ]
+}
