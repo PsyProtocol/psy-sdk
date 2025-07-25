@@ -142,7 +142,11 @@ where
     }
 
     fn next_checkpoint_id(&self) -> u64 {
-        self.current_local_checkpoint_id + 1
+        if self.current_local_checkpoint_id == 0 {
+            0
+        } else {
+            self.current_local_checkpoint_id + 1
+        }
     }
 
     async fn sync_missing_checkpoints(&mut self) {
