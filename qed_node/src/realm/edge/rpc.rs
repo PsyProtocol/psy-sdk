@@ -273,20 +273,4 @@ pub trait RealmEdgeRpc {
         )
         .await
     }
-
-    #[method(name = "get_pending_job")]
-    async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>>;
-
-    #[method(name = "get_proof_by_id")]
-    async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
-
-    #[method(name = "get_bytes_by_id")]
-    async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
-
-    #[method(name = "set_proof_by_id")]
-    async fn set_proof_by_id(
-        &self,
-        job_id: QProvingJobDataID,
-        proof: Option<ConcreteProofWithPublicInputs>,
-    ) -> RpcResult<()>;
 }

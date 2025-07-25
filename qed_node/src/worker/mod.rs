@@ -14,18 +14,19 @@ use tracing::{error, info, warn};
 pub use worker_state::*;
 
 use crate::{
-    common::{jobs::JobReceiver, verifier::get_cached_generic_verifier},
-    coordinator::edge::jobs::CoordinatorJobClient,
-    realm::jobs::RealmJobClient,
+    common::{
+        jobs::{JobClient, JobReceiver},
+        verifier::get_cached_generic_verifier,
+    },
 };
 
 pub async fn run_realm_scheduler_worker(edge_url: String) -> anyhow::Result<()> {
-    let job_client = RealmJobClient::new(edge_url).await?;
+    let job_client = JobClient::new(edge_url).await?;
     run_scheduler_worker(job_client.clone(), job_client).await
 }
 
 pub async fn run_coordinator_scheduler_worker(edge_url: String) -> anyhow::Result<()> {
-    let job_client = CoordinatorJobClient::new(edge_url).await?;
+    let job_client = JobClient::new(edge_url).await?;
     run_scheduler_worker(job_client.clone(), job_client).await
 }
 

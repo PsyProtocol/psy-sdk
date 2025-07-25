@@ -1,6 +1,6 @@
-use crate::{
-    common::{jobs::JobReceiver, ConcreteProofWithPublicInputs},
-    realm::rpc::RealmEdgeRpcClient,
+use crate::common::{
+    jobs::{JobReceiver, JobSchedulerRpcClient},
+    ConcreteProofWithPublicInputs,
 };
 use async_trait::async_trait;
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
@@ -25,7 +25,7 @@ impl RealmJobClient {
 impl JobReceiver for RealmJobClient {
     async fn get_next_ready_job(&self) -> anyhow::Result<QProvingJobDataID> {
         loop {
-            if let Some(job_id) = RealmEdgeRpcClient::get_pending_job(&self.rpc_client).await? {
+            if let Some(job_id) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client).await? {
                 return Ok(job_id);
             }
             info!("No pending job found, sleeping for 1 second");
@@ -38,7 +38,7 @@ impl JobReceiver for RealmJobClient {
         proof: Option<ConcreteProofWithPublicInputs>,
     ) -> anyhow::Result<()> {
         info!("Submitted job proof for job_id: {:?}", job_id);
-        RealmEdgeRpcClient::set_proof_by_id(&self.rpc_client, job_id, proof).await?;
+        JobSchedulerRpcClient::set_proof_by_id(&self.rpc_client, job_id, proof).await?;
         Ok(())
     }
 }
@@ -53,13 +53,13 @@ impl QProofStoreReaderAsync for RealmJobClient {
         &self,
         id: QProvingJobDataID,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let proof_bytes = RealmEdgeRpcClient::get_proof_by_id(&self.rpc_client, id).await?;
+        let proof_bytes = JobSchedulerRpcClient::get_proof_by_id(&self.rpc_client, id).await?;
         let proof = bincode::deserialize(&proof_bytes).map_err(|e| anyhow::anyhow!(e))?;
         Ok(proof)
     }
 
     async fn get_bytes_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
-        let bytes = RealmEdgeRpcClient::get_bytes_by_id(&self.rpc_client, id).await?;
+        let bytes = JobSchedulerRpcClient::get_bytes_by_id(&self.rpc_client, id).await?;
         Ok(bytes)
     }
 }

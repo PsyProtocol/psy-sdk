@@ -43,7 +43,7 @@ use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
-use crate::common::jobs::{run_jobs_listener, JobsGraphManager};
+use crate::common::jobs::{run_jobs_listener, JobSchedulerRpcServer, JobsGraphManager};
 use crate::common::ConcreteProofWithPublicInputs;
 // crate inner
 use crate::coordinator::edge::{StoreReader, DrainQueue, ProofStore};
@@ -62,6 +62,7 @@ type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
+#[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
     history_queue: Arc<ProofStore>,
     proof_store: Arc<ProofStore>,
@@ -1309,6 +1310,10 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .await
             .map_err(RpcError::Anyhow)
     }
+}
+
+#[async_trait]
+impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
 
     async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>> {
         let mut job_manager = self.job_manager.lock().await;
@@ -1343,5 +1348,4 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         job_manager.mark_job_done(job_id);
         Ok(())
     }
-
 }

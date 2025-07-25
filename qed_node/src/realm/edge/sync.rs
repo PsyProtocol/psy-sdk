@@ -102,11 +102,15 @@ where
         match self.store_reader.get_latest_l2_block_state().await {
             Ok(state) => self.current_local_checkpoint_id = state.checkpoint_id,
             Err(e) => {
-                error!("Failed to get latest L2 block state: {:?}", e);
-                if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>(){
-                    self.current_local_checkpoint_id =  0;
-                } else {
-                    return false;
+                match e.downcast::<CheckpointError>() {
+                    Ok(CheckpointError::NotFound) => {
+                        self.current_local_checkpoint_id =  0;
+                        warn!("Latest L2 block state not found, setting current local checkpoint ID to 0");
+                    }
+                    Ok(CheckpointError::Other(e)) | Err(e) => {
+                        error!("Failed to get latest L2 block state: {:?}", e);
+                        return false;
+                    }
                 }
             }
         };

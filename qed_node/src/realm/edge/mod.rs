@@ -7,7 +7,7 @@ mod sync;
 use super::handler::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
 use super::{config::RealmEdgeConfig, C, D};
-use crate::common::jobs::{run_jobs_listener, JobsGraphManager};
+use crate::common::jobs::{run_jobs_listener, JobSchedulerRpcServer, JobsGraphManager};
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::realm::handler::RealmEdgeHandler;
 use crate::realm::state::edge::RealmEdgeContext;
@@ -102,7 +102,10 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     let job_notify_queue = proof_store.clone();
     let handler = RealmEdgeHandler::new(edge_ctx, job_manager, job_notify_queue);
-    let handle = server_handle.start(handler.into_rpc());
+    let mut rpc_module = RealmEdgeRpcServer::into_rpc(handler.clone());
+    let job_rpc_module = JobSchedulerRpcServer::into_rpc(handler);
+    rpc_module.merge(job_rpc_module)?;
+    let handle = server_handle.start(rpc_module);
 
     info!(
         "Realm Edge node started on {}",

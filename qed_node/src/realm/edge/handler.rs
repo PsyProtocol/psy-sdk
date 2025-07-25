@@ -1,6 +1,6 @@
 use super::error::RpcError;
 use super::rpc::RealmEdgeRpcServer;
-use crate::common::jobs::JobsGraphManager;
+use crate::common::jobs::{JobSchedulerRpcServer, JobsGraphManager};
 use crate::common::ConcreteProofWithPublicInputs;
 use crate::realm::state::edge::RealmEdgeContext;
 use crate::realm::{C, D, F, H};
@@ -39,6 +39,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
 
+#[derive(Clone)]
 pub struct RealmEdgeHandler<
     SR: QEDRealmStoreReaderAsync<F> + Sync,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
@@ -607,7 +608,15 @@ where
             .await
             .map_err(RpcError::Anyhow)?)
     }
+}
 
+#[async_trait]
+impl<SR, DQ, PS> JobSchedulerRpcServer for RealmEdgeHandler<SR, DQ, PS>
+where
+    SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+    DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
+    PS: QProofStoreAsyncImm + Sync + Send + 'static,
+{
     async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>> {
         let mut job_manager = self.job_manager.lock().await;
         let job_id = job_manager.get_next_pending_job_to_process();
