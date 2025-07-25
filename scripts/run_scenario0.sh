@@ -55,49 +55,49 @@ trap cleanup SIGINT SIGTERM
 
 # Execute the scenario commands
 log_message "Starting Scenario 0..."
-sleep 20
+sleep 30
 
 run_make_command "make deploy-contract" "Deploy Contract"
-sleep 20
+sleep 30
 run_make_command "make register-user" "Register User"
-sleep 20
+sleep 30
 run_make_command "make build-block" "Build Block 1"
-sleep 20
+sleep 30
 run_make_command "make build-block" "Build Block 2"
-sleep 20
+sleep 30
 run_make_command "make mint" "Mint"
+sleep 30
 run_make_command "make build-block" "Build Block 3"
-sleep 20
+sleep 30
 run_make_command "make build-block" "Build Block 4"
-sleep 20
+sleep 30
 
 get_user_token_info
 
-sleep 10
 run_make_command "make transfer" "Transfer"
+sleep 30
 run_make_command "make build-block" "Build Block 5"
-sleep 20
+sleep 30
 run_make_command "make build-block" "Build Block 6"
-sleep 20
+sleep 30
 
 get_user_token_info
 
 sleep 10
 run_make_command "make claim" "Claim"
 run_make_command "make build-block" "Build Block 7"
-sleep 20
+sleep 30
 run_make_command "make build-block" "Build Block 8"
-sleep 20
+sleep 30
 
 get_user_token_info
 
-sleep 10
 run_make_command "make return-back" "return-back"
-sleep 20
+sleep 30
 run_make_command "make build-block" "Build Block 9"
-sleep 20
+sleep 30
 run_make_command "make build-block" "Build Block 10"
-sleep 20
+sleep 30
 
 get_user_token_info
 

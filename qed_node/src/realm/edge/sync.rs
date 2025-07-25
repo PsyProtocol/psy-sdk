@@ -240,4 +240,3 @@ pub async fn spawn_active_checkpoint_sync_task<
 pub struct LatestCheckpointResponse {
     pub checkpoint_id: u64,
 }
-

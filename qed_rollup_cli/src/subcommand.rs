@@ -41,6 +41,8 @@ pub enum Commands {
     },
     #[command(about = "Run the realm worker node")]
     RealmWorker {
+        #[clap(long = "edge-url", default_value = "http://localhost:8546")]
+        edge_url: String,
         #[command(flatten)]
         redis_config: qed_node::realm::RedisConfig,
         #[command(flatten)]

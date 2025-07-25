@@ -643,7 +643,6 @@ where
         let mut job_manager = self.job_manager.lock().await;
         if let Some(proof) = proof {
             info!("Setting proof by id: {:?}", job_id);
-            // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
             let output_id = job_id.get_output_id();
             self.ctx
                 .proof_store

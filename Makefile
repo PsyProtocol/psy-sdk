@@ -176,7 +176,7 @@ run-realm-edge:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --database lmdbx --lmdbx-path ${PWD}/db/realm0
 
 run-realm-worker:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker --redis-uri=redis://127.0.0.1:6380
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker --redis-uri=redis://127.0.0.1:6380 --edge-url=http://127.0.0.1:8546
 
 run-realm-processor1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
@@ -207,7 +207,8 @@ run-realm-worker1:
       --redis-uri=redis://127.0.0.1:6381 \
       --worker-queue-suffix=rwq1 \
       --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1
+      --proof-store-key-suffix=RP1 \
+      --edge-url=http://127.0.0.1:8547
 
 run-user-prover:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover

@@ -1,5 +1,6 @@
 pub mod error;
 pub mod handler;
+pub mod jobs;
 pub mod rpc;
 mod sync;
 

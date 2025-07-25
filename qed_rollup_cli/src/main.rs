@@ -35,10 +35,11 @@ async fn main() -> anyhow::Result<()> {
             realm_processor::run(config).await?;
         }
         Commands::RealmWorker {
+            edge_url,
             redis_config,
             queue_config,
         } => {
-            realm_worker::run(redis_config, queue_config).await?;
+            realm_worker::run(redis_config, queue_config, edge_url).await?;
         }
     };
     Ok::<_, anyhow::Error>(())

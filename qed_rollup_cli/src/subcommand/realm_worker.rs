@@ -1,28 +1,18 @@
 use qed_node::realm::{QueueConfig, RedisConfig};
 
-use qed_node::worker::{RealmWorker, Worker, WorkerState};
+use qed_node::worker::run_realm_scheduler_worker;
 use tracing::info;
 
-async fn run_worker(redis_config: RedisConfig, queue_config: QueueConfig) -> anyhow::Result<()> {
-    let state = WorkerState::new(
-        redis_config.redis_uri,
-        redis_config.pool_size.unwrap_or(10),
-        &queue_config.worker_queue_suffix,
-        &queue_config.notifications_queue_suffix,
-        &queue_config.proof_store_key_suffix,
-        &queue_config.proof_store_key_suffix,
-    )
-    .await?;
-    let worker = RealmWorker::from(state);
-    worker.run().await
-}
-
-pub async fn run(redis_config: RedisConfig, queue_config: QueueConfig) -> anyhow::Result<()> {
+pub async fn run(
+    redis_config: RedisConfig,
+    queue_config: QueueConfig,
+    edge_url: String,
+) -> anyhow::Result<()> {
     info!("Realm worker starting...");
     info!("Realm worker args: {:?}, {:?}", redis_config, queue_config);
     let ctrl_c = tokio::signal::ctrl_c();
     tokio::select! {
-        result = run_worker(redis_config, queue_config) => {
+        result = run_realm_scheduler_worker(edge_url) => {
             match result {
                 Ok(()) => tracing::warn!("Realm worker exit."),
                 Err(e) => tracing::error!("Realm worker exit error: {:?}", e),

@@ -4,19 +4,25 @@ pub mod simple_async_realm;
 pub mod worker_state;
 
 use qed_core::job::{
-    id::{QJobTopic, QProvingJobDataID},
+    id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
     traits::QProofStoreReaderAsync,
 };
 use qed_crypto::common::worker::QNextGenWorkerGenericProverAsyncMut;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::{sync::Arc, time::Duration};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 pub use worker_state::*;
 
 use crate::{
     common::{jobs::JobReceiver, verifier::get_cached_generic_verifier},
     coordinator::edge::jobs::CoordinatorJobClient,
+    realm::jobs::RealmJobClient,
 };
+
+pub async fn run_realm_scheduler_worker(edge_url: String) -> anyhow::Result<()> {
+    let job_client = RealmJobClient::new(edge_url).await?;
+    run_scheduler_worker(job_client.clone(), job_client).await
+}
 
 pub async fn run_coordinator_scheduler_worker(edge_url: String) -> anyhow::Result<()> {
     let job_client = CoordinatorJobClient::new(edge_url).await?;
@@ -50,7 +56,7 @@ async fn run_scheduler_worker(
                 job_receiver.submit_job_proof(job_id, Some(proof)).await?;
             }
             Err(e) => {
-                warn!("Failed to prove job: err={:?}, job_id={:?}", e, job_id);
+                error!("Failed to prove job: err={:?}, job_id={:?}", e, job_id);
             }
         };
     }
@@ -58,4 +64,5 @@ async fn run_scheduler_worker(
 
 fn should_prove_job(job_id: QProvingJobDataID) -> bool {
     job_id.topic == QJobTopic::GenerateStandardProof
+        && job_id.circuit_type != ProvingJobCircuitType::NotifyRealmComplete
 }
