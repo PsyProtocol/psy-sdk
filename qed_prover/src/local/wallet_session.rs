@@ -15,7 +15,7 @@ pub struct WalletSession {
 
 #[maybe_async]
 impl WalletSession {
-    pub fn new(_rpc_config: &RpcConfig) -> anyhow::Result<Self> {
+    pub async fn new(_rpc_config: &RpcConfig) -> anyhow::Result<Self> {
         Ok(Self {})
     }
 

@@ -138,11 +138,11 @@ pub struct WasmRpcServer {
 #[wasm_bindgen]
 impl WasmRpcServer {
     #[wasm_bindgen(constructor)]
-    pub fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
+    pub async fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
         let rpc_config: RpcConfig = serde_json::from_str(rpc_config_json)
             .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
 
-        let wallet_session = WalletSession::new(&rpc_config)
+        let wallet_session = WalletSession::new(&rpc_config).await
             .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
 
         Ok(WasmRpcServer {
@@ -334,7 +334,7 @@ impl RpcServerImpl {
 
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
+#[cfg(not(target_arch = "wasm32"))]
 #[async_trait]
 impl RpcServer for RpcServerImpl {
     async fn exec_contract_call(

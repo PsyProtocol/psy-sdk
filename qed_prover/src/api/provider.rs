@@ -123,7 +123,7 @@ impl RpcProvider {
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
+#[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
 #[macro_export]
 macro_rules! qed_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
@@ -176,7 +176,7 @@ macro_rules! qed_rpc_call {
     }};
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
+#[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
 #[macro_export]
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
