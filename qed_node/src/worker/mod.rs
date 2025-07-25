@@ -31,16 +31,6 @@ pub async fn run_worker(edge_urls: Vec<String>) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn run_realm_scheduler_worker(edge_url: String) -> anyhow::Result<()> {
-    let job_client = JobClient::new(edge_url).await?;
-    run_scheduler_worker(job_client.clone(), job_client).await
-}
-
-pub async fn run_coordinator_scheduler_worker(edge_url: String) -> anyhow::Result<()> {
-    let job_client = JobClient::new(edge_url).await?;
-    run_scheduler_worker(job_client.clone(), job_client).await
-}
-
 async fn run_scheduler_worker(
     job_receiver: impl JobReceiver,
     store: impl QProofStoreReaderAsync + Send + Sync,

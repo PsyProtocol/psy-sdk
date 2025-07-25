@@ -1,11 +1,9 @@
 mod subcommand;
 
 use clap::Parser;
-use subcommand::realm_worker;
 
 use crate::subcommand::coordinator_edge;
 use crate::subcommand::coordinator_processor;
-use crate::subcommand::coordinator_worker;
 use crate::subcommand::realm_edge;
 use crate::subcommand::realm_processor;
 use crate::subcommand::worker;
@@ -23,9 +21,6 @@ async fn main() -> anyhow::Result<()> {
         Commands::CoordinatorEdge(args) => {
             coordinator_edge::run(args).await?;
         }
-        Commands::CoordinatorWorker(args) => {
-            coordinator_worker::run(args).await?;
-        }
         Commands::CoordinatorProcessor(args) => {
             coordinator_processor::run(args).await?;
         }
@@ -34,13 +29,6 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::RealmProcessor { config } => {
             realm_processor::run(config).await?;
-        }
-        Commands::RealmWorker {
-            edge_url,
-            redis_config,
-            queue_config,
-        } => {
-            realm_worker::run(redis_config, queue_config, edge_url).await?;
         }
         Commands::Worker { edge_url } => {
             worker::run(edge_url).await?;

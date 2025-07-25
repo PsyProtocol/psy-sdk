@@ -166,17 +166,11 @@ run-coordinator-processor:
 run-coordinator-edge:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --database lmdbx --lmdbx-path ${PWD}/db/coordinator
 
-run-coordinator-worker:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-worker --edge-url=http://127.0.0.1:8545
-
 run-realm-processor:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor --redis-uri=redis://127.0.0.1:6380 --database lmdbx --lmdbx-path ${PWD}/db/realm0
 
 run-realm-edge:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --database lmdbx --lmdbx-path ${PWD}/db/realm0
-
-run-realm-worker:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker --redis-uri=redis://127.0.0.1:6380 --edge-url=http://127.0.0.1:8546
 
 run-realm-processor1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
@@ -201,14 +195,6 @@ run-realm-edge1:
       --worker-queue-suffix=rwq1 \
       --notifications-queue-suffix=rnq1 \
       --proof-store-key-suffix=RP1
-
-run-realm-worker1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
-      --redis-uri=redis://127.0.0.1:6381 \
-      --worker-queue-suffix=rwq1 \
-      --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1 \
-      --edge-url=http://127.0.0.1:8547
 
 run-worker:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
