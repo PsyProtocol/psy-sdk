@@ -24,6 +24,7 @@ where
     client: HttpClient,
     current_local_checkpoint_id: u64,
     latest_checkpoint_id: u64,
+    is_genesis: bool,
 }
 
 impl<SR, IQ> CheckpointSyncManager<SR, IQ>
@@ -46,6 +47,7 @@ where
             client,
             current_local_checkpoint_id: 0,
             latest_checkpoint_id: 0,
+            is_genesis: false,
         })
     }
 
@@ -100,11 +102,15 @@ where
     async fn update_local_checkpoint(&mut self) -> bool {
         debug!("Starting active checkpoint sync cycle...");
         match self.store_reader.get_latest_l2_block_state().await {
-            Ok(state) => self.current_local_checkpoint_id = state.checkpoint_id,
+            Ok(state) => {
+                self.current_local_checkpoint_id = state.checkpoint_id;
+                self.is_genesis = true;
+            }
             Err(e) => {
                 error!("Failed to get latest L2 block state: {:?}", e);
                 if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>(){
-                    self.current_local_checkpoint_id =  0;
+                    self.current_local_checkpoint_id = 0;
+                    self.is_genesis = false;
                 } else {
                     return false;
                 }
@@ -139,10 +145,11 @@ where
 
     fn is_up_to_date(&self) -> bool {
         self.current_local_checkpoint_id >= self.latest_checkpoint_id
+        && self.is_genesis
     }
 
     fn next_checkpoint_id(&self) -> u64 {
-        if self.current_local_checkpoint_id == 0 {
+        if !self.is_genesis {
             0
         } else {
             self.current_local_checkpoint_id + 1
@@ -183,15 +190,13 @@ where
     ) -> bool {
         let latest_checkpoint_id = sync_info.latest_checkpoint_id;
         self.latest_checkpoint_id = latest_checkpoint_id;
-        if latest_checkpoint_id <= self.current_local_checkpoint_id {
-            if latest_checkpoint_id < self.current_local_checkpoint_id {
-                warn!(
-                    expected = next_checkpoint_id,
-                    received = sync_info.compact.l2_block_state.checkpoint_id,
-                    lastest = sync_info.latest_checkpoint_id,
-                    "Received out-of-order checkpoint sync info from coordinator. Retrying cycle."
-                );
-            }
+        if self.is_up_to_date() {
+            warn!(
+                expected = next_checkpoint_id,
+                received = sync_info.compact.l2_block_state.checkpoint_id,
+                lastest = sync_info.latest_checkpoint_id,
+                "Received out-of-order checkpoint sync info from coordinator. Retrying cycle."
+            );
             return false;
         }
 
