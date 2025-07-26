@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::common::ConcreteProofWithPublicInputs;
 use async_trait::async_trait;
+use chrono::{DateTime, Duration, Utc};
 use jsonrpsee::{
     core::RpcResult,
     http_client::{HttpClient, HttpClientBuilder},
@@ -133,7 +134,7 @@ pub async fn run_jobs_listener<T: JobDataIdGraphReader + Send + Sync + 'static>(
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum JobStatus {
     Pending,
-    Processing,
+    Processing(DateTime<Utc>),
     Done,
 }
 
@@ -173,11 +174,22 @@ impl JobsGraphManager {
         }
     }
 
-    fn get_pending_job(&self) -> Option<QProvingJobDataID> {
+    fn get_pending_or_timeout_job(&self) -> Option<QProvingJobDataID> {
+        let now = Utc::now();
+        let max_timeout = Duration::seconds(15);
         self.ready_jobs
             .iter()
-            .find(|(_, &status)| status == JobStatus::Pending)
-            .map(|(&job_id, _)| job_id)
+            .find(|(_, &status)| match status {
+                JobStatus::Pending => true,
+                JobStatus::Processing(start_time) => now - start_time > max_timeout,
+                JobStatus::Done => false,
+            })
+            .map(|(&job_id, status)| {
+                if matches!(status, JobStatus::Processing(_)) {
+                    info!("Found processing timeout job: {:?}", job_id);
+                }
+                job_id
+            })
     }
 
     fn are_ready_jobs_all_done(&self) -> bool {
@@ -193,12 +205,25 @@ impl JobsGraphManager {
         if self.are_ready_jobs_all_done() {
             self.take_read_job();
         }
-        let pending_job = self.get_pending_job();
-        if let Some(job_id) = pending_job {
-            self.mark_job_status(job_id, JobStatus::Processing);
+        let pending_or_timeout_job = self.get_pending_or_timeout_job();
+        if let Some(job_id) = pending_or_timeout_job {
+            let now = Utc::now();
+            self.mark_job_status(job_id, JobStatus::Processing(now));
             info!("Found pending job: {:?}", job_id);
             Some(job_id)
         } else {
+            let processing_jobs_count = self
+                .ready_jobs
+                .iter()
+                .filter(|(_, &status)| matches!(status, JobStatus::Processing(_)))
+                .count();
+            if processing_jobs_count != 0 {
+                info!(
+                    "No pending job found, waiting for {} processing jobs to finish",
+                    processing_jobs_count
+                );
+                return None;
+            }
             if let Some(job_graph) = self.job_graph.as_ref() {
                 if !job_graph.is_empty() {
                     error!("Job graph is not empty, but no pending job found");
