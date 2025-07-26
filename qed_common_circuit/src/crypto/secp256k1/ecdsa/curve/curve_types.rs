@@ -51,6 +51,8 @@ impl<C: Curve> AffinePoint<C> {
         y: C::BaseField::ZERO,
         zero: true,
     };
+    
+    pub const INFINITY: Self = Self::ZERO;
 
     pub fn nonzero(x: C::BaseField, y: C::BaseField) -> Self {
         let point = Self { x, y, zero: false };

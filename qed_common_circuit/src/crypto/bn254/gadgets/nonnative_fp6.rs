@@ -98,6 +98,12 @@ pub trait CircuitBuilderNonNativeExt6<F: RichField + Extendable<D>, const D: usi
         by: &NonNativeTargetExt2<FF>,
     ) -> NonNativeTargetExt6<FF>;
 
+    fn is_equal_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
+        &mut self,
+        x: &NonNativeTargetExt6<FF>,
+        y: &NonNativeTargetExt6<FF>,
+    ) -> plonky2::iop::target::BoolTarget;
+
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F, D>
@@ -474,6 +480,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
             c2: self.mul_nonnative_ext2(&x.c2, by),
             _phantom: PhantomData,
         }
+    }
+
+    fn is_equal_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
+        &mut self,
+        x: &NonNativeTargetExt6<FF>,
+        y: &NonNativeTargetExt6<FF>,
+    ) -> plonky2::iop::target::BoolTarget {
+        let c0_equal = self.is_equal_ext2(&x.c0, &y.c0);
+        let c1_equal = self.is_equal_ext2(&x.c1, &y.c1);
+        let c2_equal = self.is_equal_ext2(&x.c2, &y.c2);
+        
+        let c01_equal = self.and(c0_equal, c1_equal);
+        self.and(c01_equal, c2_equal)
     }
 
 }

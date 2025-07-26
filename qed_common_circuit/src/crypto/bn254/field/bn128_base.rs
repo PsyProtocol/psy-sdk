@@ -140,7 +140,6 @@ impl Field for Bn128Base {
         Self::order()
     }
 
-
     fn try_inverse(&self) -> Option<Self> {
         if self.is_zero() {
             return None;

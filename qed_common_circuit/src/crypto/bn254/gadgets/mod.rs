@@ -1,11 +1,19 @@
-mod biguint;
-mod g1;
-mod g2;
-mod gates;
-mod nonnative_fp;
-mod nonnative_fp12;
-mod nonnative_fp2;
-mod nonnative_fp6;
-mod pairing;
-mod split_nonnative;
-mod windowed_mul;
+pub mod biguint;
+pub mod g1;
+pub mod g2;
+pub mod gates;
+pub mod nonnative_fp;
+pub mod nonnative_fp12;
+pub mod nonnative_fp2;
+pub mod nonnative_fp6;
+pub mod pairing;
+pub mod split_nonnative;
+pub mod windowed_mul;
+
+// Re-export commonly used traits and types
+pub use g1::{CircuitBuilderG1, G1AffineTarget};
+pub use g2::{CircuitBuilderG2, G2AffineTarget};
+pub use nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget};
+pub use nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2};
+pub use nonnative_fp12::{CircuitBuilderNonNativeExt12, NonNativeTargetExt12};
+pub use pairing::{CircuitBuilderCurveG2, G2PreComputeTarget};

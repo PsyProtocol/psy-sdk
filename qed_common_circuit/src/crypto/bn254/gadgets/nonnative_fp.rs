@@ -166,6 +166,7 @@ pub trait CircuitBuilderNonNative<F: RichField + Extendable<D>, const D: usize> 
 
     /// Returns `x % |FF|` as a `NonNativeTarget`.
     fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF>;
+    
 
     /// Convert from biguint to nonnative
     fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF>;
@@ -204,14 +205,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
     }
 
     fn constant_nonnative<FF: PrimeField>(&mut self, value: FF) -> NonNativeTarget<FF> {
-        let biguint = value.to_canonical_biguint();
-        let mut limbs = biguint.to_u32_digits();
-        // Ensure we have exactly 8 limbs for custom gates
-        limbs.resize(8, 0u32);
-        let big_value = BigUintTarget {
-            limbs: limbs.into_iter().map(|x| self.constant_u32(x)).collect(),
-        };
-        NonNativeTarget::new(big_value)
+        let mut x_biguint = self.constant_biguint(&value.to_canonical_biguint());
+        let num_limbs = FF::BITS / 32;
+        for _ in 0..(num_limbs - x_biguint.num_limbs()) {
+            x_biguint.limbs.push(self.constant_u32(0));
+        }
+        self.biguint_to_nonnative(&x_biguint)
     }
 
     fn add_nonnative<FF: Field>(
@@ -583,6 +582,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
     fn num_nonnative_limbs<FF: Field>() -> usize {
         ceil_div_usize(FF::BITS, 32)
     }
+    
 }
 
 #[derive(Debug)]
