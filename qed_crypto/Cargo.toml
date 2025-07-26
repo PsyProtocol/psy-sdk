@@ -5,6 +5,10 @@ version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+bn254 = ["dep:static_assertions", "dep:env_logger", "dep:log"]
+
 [dependencies]
 anyhow     = { workspace = true }
 serde_json = { workspace = true }
@@ -34,3 +38,8 @@ sha2 = { workspace = true }
 k256 = { workspace = true }
 
 hashbrown = { workspace = true }
+
+# Optional dependencies for bn254
+static_assertions = { version = "1.1.0", optional = true }
+env_logger = { workspace = true, optional = true }
+log = { workspace = true, optional = true }
