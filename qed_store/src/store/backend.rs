@@ -31,15 +31,7 @@ pub enum Backend {
 pub enum DatabaseKind {
     Scylla,
     Lmdbx,
-}
-
-impl DatabaseKind {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            DatabaseKind::Scylla => "scylla",
-            DatabaseKind::Lmdbx => "lmdbx",
-        }
-    }
+    Tikv,
 }
 
 #[derive(Clone, Debug, Args, Serialize, Deserialize)]
@@ -79,11 +71,10 @@ impl Default for BackendConfig {
 
 impl BackendConfig {
     pub fn to_backend(&self) -> Backend {
-        match self.database.as_str() {
-            "scylla" => Backend::Scylla(self.scylla.clone()),
-            "lmdbx" => Backend::Lmdbx(self.lmdbx.clone()),
-            "tikv" => Backend::TiKV(self.tikv.clone()),
-            _ => Backend::Lmdbx(self.lmdbx.clone()),
+        match self.database {
+            DatabaseKind::Scylla => Backend::Scylla(self.scylla.clone()),
+            DatabaseKind::Lmdbx => Backend::Lmdbx(self.lmdbx.clone()),
+            DatabaseKind::Tikv => Backend::TiKV(self.tikv.clone()),
         }
     }
 }

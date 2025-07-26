@@ -226,55 +226,55 @@ shutdown-tikv:
 
 run-coordinator-processor-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor \
-		--backend-type tikv \
+		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace coordinator
 
 run-coordinator-edge-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge \
-		--backend-type tikv \
+		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace coordinator
 
 run-realm-processor-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
 		--redis-uri=redis://127.0.0.1:6380 \
-		--backend-type tikv \
+		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace realm0
 
 run-realm-edge-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
 		--redis-uri=redis://127.0.0.1:6380 \
-		--backend-type tikv \
+		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace realm0
 
-run-realm-processor32-tikv:
+run-realm-processor1-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
 		--redis-uri=redis://127.0.0.1:6381 \
-		--backend-type tikv \
+		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-		--tikv-namespace realm32 \
+		--tikv-namespace realm1 \
 		--node-id=2 \
-		--realm-id=32 \
-		--worker-queue-suffix=rwq32 \
-		--notifications-queue-suffix=rnq32 \
-		--proof-store-key-suffix=RP32
+		--realm-id=1 \
+		--worker-queue-suffix=rwq1 \
+		--notifications-queue-suffix=rnq1 \
+		--proof-store-key-suffix=RP1
 
-run-realm-edge32-tikv:
+run-realm-edge1-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
 		--listen-addr=0.0.0.0:8547 \
         --redis-uri=redis://127.0.0.1:6381 \
-        --backend-type tikv \
+        --database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-		--tikv-namespace realm32 \
+		--tikv-namespace realm1 \
         --coordinator-addr=http://127.0.0.1:8545 \
 		--node-id=2 \
-		--realm-id=32 \
-		--worker-queue-suffix=rwq32 \
-		--notifications-queue-suffix=rnq32 \
-		--proof-store-key-suffix=RP32
+		--realm-id=1 \
+		--worker-queue-suffix=rwq1 \
+		--notifications-queue-suffix=rnq1 \
+		--proof-store-key-suffix=RP1
 
 run-all-tikv: shutdown-tikv init-tikv
 	@./scripts/run_all_tikv.sh
