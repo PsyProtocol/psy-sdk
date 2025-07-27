@@ -172,6 +172,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderG2<F, D>
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;

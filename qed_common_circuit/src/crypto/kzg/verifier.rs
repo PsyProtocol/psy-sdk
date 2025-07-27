@@ -10,6 +10,7 @@ use plonky2::{
 };
 
 use crate::crypto::bn254::{
+    curve::g2::G2,
     field::{
         bn128_base::Bn128Base,
         bn128_scalar::Bn128Scalar,
@@ -81,7 +82,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KZGVerifier<F, D> for Circuit
         // Compute h^tau - z*h (right side of pairing equation)
         let z_h = self.scalar_mul_g2(&g2_gen, point);
         let neg_z_h = crate::crypto::bn254::gadgets::pairing::CircuitBuilderCurveG2::neg_g2(self, &z_h);
-        let right_g2 = crate::crypto::bn254::gadgets::pairing::CircuitBuilderCurveG2::add_g2(self, g2_tau, &neg_z_h);
+        let right_g2 = crate::crypto::bn254::gadgets::pairing::CircuitBuilderCurveG2::add_g2::<G2, Bn128Base>(self, g2_tau, &neg_z_h);
         
         // Compute pairings
         let left_pairing = self.pairing_bn254(&left_g1, &g2_gen);
@@ -155,7 +156,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KZGVerifier<F, D> for Circuit
         }
         let z_h = self.scalar_mul_g2(&g2_gen, &z_acc);
         let neg_z_h = crate::crypto::bn254::gadgets::pairing::CircuitBuilderCurveG2::neg_g2(self, &z_h);
-        let right_g2 = crate::crypto::bn254::gadgets::pairing::CircuitBuilderCurveG2::add_g2(self, g2_tau, &neg_z_h);
+        let right_g2 = crate::crypto::bn254::gadgets::pairing::CircuitBuilderCurveG2::add_g2::<G2, Bn128Base>(self, g2_tau, &neg_z_h);
         
         // Verify pairing equation
         let left_pairing = self.pairing_bn254(&left_acc, &g2_gen);
@@ -186,7 +187,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KZGVerifierHelpers<F, D> for 
         use crate::crypto::secp256k1::ecdsa::curve::curve_types::Curve;
         
         let g2_gen = G2::GENERATOR_AFFINE;
-        self.constant_affine_point_g2(g2_gen.x, g2_gen.y)
+        self.constant_affine_point_g2::<G2, Bn128Base>(g2_gen)
     }
     
     fn scalar_mul_g2(
@@ -257,7 +258,7 @@ mod tests {
         
         // Get G2 tau
         let (_, g2_tau_value) = params.get_g2_powers();
-        let g2_tau = builder.constant_affine_point_g2(g2_tau_value.x, g2_tau_value.y);
+        let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_value);
         
         println!("Step 1: Creating commitment...");
         // Commitment phase
@@ -315,7 +316,7 @@ mod tests {
         let g1_gen = builder.g1_generator();
         let powers_of_tau = vec![g1_gen.clone(), g1_gen.clone()];
         let (_, g2_tau_value) = params.get_g2_powers();
-        let g2_tau = builder.constant_affine_point_g2(g2_tau_value.x, g2_tau_value.y);
+        let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_value);
         
         // Create commitments
         let commitment1 = builder.kzg_commit(&poly1, &powers_of_tau);

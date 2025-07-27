@@ -528,7 +528,8 @@ mod tests {
         
         // Get G2 setup
         let (_, g2_tau) = params.get_g2_powers();
-        let g2_tau_target = builder.constant_affine_point_g2(g2_tau.x, g2_tau.y);
+        use crate::crypto::bn254::curve::g2::G2;
+        let g2_tau_target = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau);
         
         // Create commitment
         let commitment = builder.kzg_commit(&coeffs, &powers_of_tau);
