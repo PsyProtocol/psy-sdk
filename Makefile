@@ -141,6 +141,16 @@ init:
 	@echo "Waiting for databases to be ready..."
 	@sleep 10
 
+clear-db:
+	@echo "Clearing lmdbx databases..."
+	@rm -fr ${PWD}/db/coordinator/*
+	@rm -fr ${PWD}/db/realm0/*
+	@rm -fr ${PWD}/db/realm1/*
+	@echo "Clearing redis databases..."
+	@redis-cli -p 6379 FLUSHALL
+	@redis-cli -p 6380 FLUSHALL
+	@redis-cli -p 6381 FLUSHALL
+
 .PHONY: shutdown
 shutdown:
 	@echo "Stopping and removing database containers..."
