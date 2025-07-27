@@ -13,6 +13,9 @@ use super::user::QEDUserLeafGadget;
 pub struct UserContractStateGadget {
     pub checkpoint_tree_root: HashOutTarget,
     pub user_leaf: QEDUserLeafGadget,
+    pub start_contract_state_root: HashOutTarget,
+    pub contract_id: Target,
+    pub checkpoint_id: Target,
 }
 
 impl UserContractStateGadget {
@@ -21,11 +24,18 @@ impl UserContractStateGadget {
     ) -> Self {
         let checkpoint_tree_root = builder.add_virtual_hash();
         let user_leaf = QEDUserLeafGadget::create_virtual(builder);
+        let start_contract_state_root = builder.add_virtual_hash();
+        let contract_id = builder.add_virtual_target();
+        let checkpoint_id = builder.add_virtual_target();
+
         Self {
             // checkpoint_id: builder.add_virtual_target(),
             checkpoint_tree_root,
             // checkpoint_leaf_hash: builder.add_virtual_hash(),
             user_leaf,
+            start_contract_state_root,
+            contract_id,
+            checkpoint_id,
         }
     }
 
@@ -35,7 +45,13 @@ impl UserContractStateGadget {
         target: &UserContractState<F>,
     ) -> anyhow::Result<()> {
         witness.set_hash_target(self.checkpoint_tree_root, target.checkpoint_tree_root.0)?;
-        self.user_leaf.set_witness(witness, &target.user_leaf)
+        self.user_leaf.set_witness(witness, &target.user_leaf)?;
+        witness.set_hash_target(
+            self.start_contract_state_root,
+            target.start_contract_state_root.0,
+        )?;
+        witness.set_target(self.contract_id, target.contract_id)?;
+        witness.set_target(self.checkpoint_id, target.checkpoint_id)
     }
 
     pub fn to_targets(&self) -> Vec<Target> {
@@ -57,6 +73,12 @@ impl UserContractStateGadget {
             self.user_leaf.last_checkpoint_id,
             self.user_leaf.event_index,
             self.user_leaf.user_id,
+            self.start_contract_state_root.elements[0],
+            self.start_contract_state_root.elements[1],
+            self.start_contract_state_root.elements[2],
+            self.start_contract_state_root.elements[3],
+            self.contract_id,
+            self.checkpoint_id,
         ]
     }
 }

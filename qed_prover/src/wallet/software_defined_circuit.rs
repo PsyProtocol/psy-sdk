@@ -83,10 +83,13 @@ where
     }
     pub fn prove(
         &self,
+        private_key: QHashOut<C::F>,
         cfc_input: &DapenContractFunctionCircuitInput<C::F>,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let inner_proof = self.inner_circuit.prove_base(cfc_input, sig_hash)?;
+        let inner_proof = self
+            .inner_circuit
+            .prove_base(private_key, cfc_input, sig_hash)?;
         self.minifier_chain.prove(&inner_proof)
     }
 }

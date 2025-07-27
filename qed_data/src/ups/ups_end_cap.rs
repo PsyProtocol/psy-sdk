@@ -7,12 +7,14 @@ use qed_crypto::common::witnesses::qrecursion::header::AttestProofInTreeInput;
 use serde::{Deserialize, Serialize};
 
 
+use crate::qdata::user_contract_state::UserContractState;
 
 use super::verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct UPSEndCapFromProofTreeGadgetInput<F: RichField> {
+    pub user_contract_state: UserContractState<F>,
     pub verify_previous_ups_step_input: VerifyPreviousUPSStepProofInProofTreeInput<F>,
     pub verify_zk_signature_proof_input: AttestProofInTreeInput<F>,
     pub user_public_key_param: QHashOut<F>,

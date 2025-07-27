@@ -17,17 +17,25 @@ use crate::qdata::user::QEDUserLeaf;
 pub struct UserContractState<F: RichField> {
     pub checkpoint_tree_root: QHashOut<F>,
     pub user_leaf: QEDUserLeaf<F>,
+    pub start_contract_state_root: QHashOut<F>,
+    pub contract_id: F,
+    pub checkpoint_id: F,
 }
 
 impl<F: RichField> UserContractState<F> {
     pub fn new(
         checkpoint_tree_root: QHashOut<F>,
-        contract_state_root: QHashOut<F>,
         user_leaf: QEDUserLeaf<F>,
+        start_contract_state_root: QHashOut<F>,
+        contract_id: F,
+        checkpoint_id: F,
     ) -> Self {
         Self {
             checkpoint_tree_root,
             user_leaf,
+            start_contract_state_root,
+            contract_id,
+            checkpoint_id,
         }
     }
 }
@@ -43,7 +51,7 @@ impl<F: RichField> KVQSerializable for UserContractState<F> {
 
 impl<F: RichField> QFeltSized for UserContractState<F> {
     fn q_felt_size() -> usize {
-        13 + 4
+        13 + 4 + 4 + 1 + 1
     }
 }
 impl<F: RichField> ToQFelts<F> for UserContractState<F> {
@@ -66,6 +74,12 @@ impl<F: RichField> ToQFelts<F> for UserContractState<F> {
             self.user_leaf.last_checkpoint_id,
             self.user_leaf.event_index,
             self.user_leaf.user_id,
+            self.start_contract_state_root.0.elements[0],
+            self.start_contract_state_root.0.elements[1],
+            self.start_contract_state_root.0.elements[2],
+            self.start_contract_state_root.0.elements[3],
+            self.contract_id,
+            self.checkpoint_id,
         ]
     }
 
@@ -77,6 +91,9 @@ impl<F: RichField> ToQFelts<F> for UserContractState<F> {
         UserContractState {
             checkpoint_tree_root: QHashOut::from_qfelts(&felts[0..4]),
             user_leaf: QEDUserLeaf::from_qfelts(&felts[8..]),
+            start_contract_state_root: QHashOut::from_qfelts(&felts[13..17]),
+            contract_id: felts[17],
+            checkpoint_id: felts[18],
         }
     }
 }
@@ -101,6 +118,12 @@ impl<F: RichField> QFieldHashable<F> for UserContractState<F> {
             self.user_leaf.last_checkpoint_id,
             self.user_leaf.event_index,
             self.user_leaf.user_id,
+            self.start_contract_state_root.0.elements[0],
+            self.start_contract_state_root.0.elements[1],
+            self.start_contract_state_root.0.elements[2],
+            self.start_contract_state_root.0.elements[3],
+            self.contract_id,
+            self.checkpoint_id,
         ])
     }
 }
@@ -125,6 +148,12 @@ impl<F: RichField> UserContractState<F> {
             self.user_leaf.last_checkpoint_id,
             self.user_leaf.event_index,
             self.user_leaf.user_id,
+            self.start_contract_state_root.0.elements[0],
+            self.start_contract_state_root.0.elements[1],
+            self.start_contract_state_root.0.elements[2],
+            self.start_contract_state_root.0.elements[3],
+            self.contract_id,
+            self.checkpoint_id,
         ]))
     }
 }

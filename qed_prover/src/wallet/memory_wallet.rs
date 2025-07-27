@@ -19,11 +19,12 @@ use qed_crypto::signature::{
     zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
 use qed_data::qdata::user_contract_state::UserContractState;
+use qed_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::wallet::simple_sign::{
-    SimpleSoftwareDefinedCircuit, SoftwareDefinedSignGadget, SoftwareDefinedSignTrait,
+    SimpleSoftwareDefinedCircuit, SoftwareDefinedSignGadget, SoftwareDefinedSignTrait, StateReader,
 };
 use crate::wallet::software_defined_circuit::SoftwareDefinedCircuit;
 use crate::wallet::utils::hash_no_pad_compressed_public_key;
@@ -200,9 +201,9 @@ where
         self.zk_circuit.prove_base(private_key, sig_hash)
     }
 
-    pub fn sdc_sign_for_public_key(
+    pub fn sdc_sign_for_public_key<R: QEDReadCommandProcessorSync<C::F> + Send + Sync>(
         &self,
-        user_contract_state: UserContractState<C::F>,
+        state_reader: &mut StateReader<C::F, D, R>,
         public_key: QHashOut<C::F>,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
@@ -210,20 +211,17 @@ where
                 .software_defined_public_key_to_private_key_store
                 .get(&public_key)
                 .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", public_key.to_string()))?;
-        self.simple_software_defined_circuits.prove_base(
-            user_contract_state,
-            *private_key,
-            sig_hash,
-        )
+        self.simple_software_defined_circuits
+            .prove_base(state_reader, *private_key, sig_hash)
     }
-    pub fn sdc_sign_with_private_key(
+    pub fn sdc_sign_with_private_key<R: QEDReadCommandProcessorSync<C::F> + Send + Sync>(
         &self,
-        user_contract_state: UserContractState<C::F>,
+        state_reader: &mut StateReader<C::F, D, R>,
         private_key: QHashOut<C::F>,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.simple_software_defined_circuits
-            .prove_base(user_contract_state, private_key, sig_hash)
+            .prove_base(state_reader, private_key, sig_hash)
     }
 
     pub fn secp256k1_sign(
@@ -296,6 +294,7 @@ where
 
     pub fn software_defined_sign(
         &self,
+        private_key: QHashOut<C::F>,
         cfc_input: &DapenContractFunctionCircuitInput<C::F>,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
@@ -306,6 +305,6 @@ where
                 "software defined circuit is not registered"
             ))?;
 
-        circuit.prove(&cfc_input, sig_hash)
+        circuit.prove(private_key, &cfc_input, sig_hash)
     }
 }

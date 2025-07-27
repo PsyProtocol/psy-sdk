@@ -7,7 +7,7 @@ use crate::{
     },
     local::args::{ContractCallArgs, SignType},
     ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager},
-    wallet::memory_wallet::QEDMemoryWallet,
+    wallet::{memory_wallet::QEDMemoryWallet, simple_sign::StateReader},
 };
 use dashmap::DashMap;
 use plonky2::{
@@ -29,7 +29,11 @@ use qed_data::{
     config::store_config::QEDHasher,
     qdata::user_contract_state::UserContractState,
     qstore::imm::{
-        cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync,
+        cmd::{
+            QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd,
+            QSRHashCmdGetUserContractStateTreeRoot,
+        },
+        cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut},
     },
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync,
@@ -584,28 +588,61 @@ impl WalletSession {
                     .await?
             }
             SignType::SoftwareDefinedSign => {
-                let user_leaf = self
-                    .st_provider
-                    .get_user_leaf_data(
-                        user_session_mgr.current_checkpoint_id,
-                        user_session_mgr.user_id,
-                    )
-                    .await?;
+                let user_id = user_session_mgr.user_id;
+                let checkpoint_id = user_session_mgr.current_checkpoint_id;
+                let user_leaf = user_session_mgr
+                    .mgr
+                    .lps
+                    .cmd_store
+                    .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
+                        checkpoint_id: checkpoint_id,
+                        user_id,
+                    })?;
                 let checkpoint_tree_root = self
                     .st_provider
-                    .get_checkpoint_tree_root(user_session_mgr.current_checkpoint_id)
+                    .get_checkpoint_tree_root(checkpoint_id)
                     .await?;
-                let contract_state_root = self
-                    .st_provider
-                    .get_user_contract_tree_root(
-                        user_session_mgr.current_checkpoint_id,
-                        user_session_mgr.user_id,
-                    )
-                    .await?;
-                let user_contract_state =
-                    UserContractState::new(checkpoint_tree_root, contract_state_root, user_leaf);
+                let contract_state_root = user_session_mgr.mgr.lps.cmd_store.resolve_get_hash_mut(
+                    &QSRHashCmd::GetUserContractStateTreeRoot(
+                        QSRHashCmdGetUserContractStateTreeRoot {
+                            checkpoint_id,
+                            user_id,
+                            contract_id: 0,
+                        },
+                    ),
+                )?;
+                tracing::info!(
+                    "user contract state root: {}",
+                    contract_state_root.to_string()
+                );
+                println!(
+                    "user contract state root: {}",
+                    contract_state_root.to_string()
+                );
+
+                let user_contract_state = UserContractState::new(
+                    checkpoint_tree_root,
+                    user_leaf,
+                    contract_state_root,
+                    F::ZERO,
+                    F::from_canonical_u64(user_session_mgr.current_checkpoint_id),
+                );
+
+                tracing::info!(
+                    "user_contract_state: {}",
+                    serde_json::to_string_pretty(&user_contract_state)?
+                );
+                let mut user_contract_state_reader = StateReader::new(
+                    user_contract_state,
+                    user_session_mgr.mgr.lps.cmd_store.clone(),
+                );
+
                 self.wallet
-                    .sdc_sign_for_public_key(user_contract_state, pk_info.public_key_param, sighash)
+                    .sdc_sign_for_public_key(
+                        &mut user_contract_state_reader,
+                        pk_info.public_key_param,
+                        sighash,
+                    )
                     .await?
             }
             SignType::SoftwareDefinedSignV2 => {
@@ -619,13 +656,10 @@ impl WalletSession {
                 .get(&pk_info.public_key_param)
                 .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", pk_info.public_key_param.to_string()))?;
 
-                let mut cfc_call_inputs = private_key.clone().to_qfelts();
-                cfc_call_inputs.extend_from_slice(
-                    &sign_inputs
-                        .iter()
-                        .map(|x| F::from_noncanonical_u64(*x))
-                        .collect::<Vec<_>>(),
-                );
+                let cfc_call_inputs = sign_inputs
+                    .iter()
+                    .map(|x| F::from_noncanonical_u64(*x))
+                    .collect::<Vec<_>>();
                 let cfc_proof_input = user_session_mgr
                     .mgr
                     .exec_contract_call(
@@ -634,7 +668,7 @@ impl WalletSession {
                         cfc_call_inputs,
                     )
                     .await?;
-                sdc.prove(&cfc_proof_input, sighash)?
+                sdc.prove(*private_key, &cfc_proof_input, sighash)?
             }
         };
 

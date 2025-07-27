@@ -1,5 +1,5 @@
 use plonky2::{
-    field::{extension::Extendable, goldilocks_field::GoldilocksField, types::{Field, PrimeField64}},
+    field::{extension::Extendable, goldilocks_field::GoldilocksField, packed::PackedField, types::{Field, PrimeField64}},
     hash::hash_types::{HashOut, RichField},
     plonk::{circuit_data::VerifierOnlyCircuitData, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs},
 };
@@ -32,10 +32,10 @@ pub struct UserProvingSessionManager<
     C: GenericConfig<D, F = F, Hasher = H>,
     const D: usize,
 > {
-    lps: QEDLocalProvingSessionStore<F, R>,
+    pub lps: QEDLocalProvingSessionStore<F, R>,
     circuit_info: SessionCircuitInfoStore<F>,
     pub proof_tree_state: PortableQTreeRecursionManager<C, D>,
-    current_ups_header: UserProvingSessionHeader<F>,
+    pub current_ups_header: UserProvingSessionHeader<F>,
     current_checkpoint_leaf: QEDCheckpointLeaf<F>,
     current_global_state_roots: QEDCheckpointGlobalStateRoots<F>,
     last_ups_step_proof_info: TreeAwareTreeProofRecord<F>,
@@ -439,8 +439,18 @@ impl<
 
         // get checkpoint tree proof
         let user_current_state = UserContractState {
-            checkpoint_tree_root: self.current_ups_header.session_start_context.checkpoint_tree_root,
+            checkpoint_tree_root: self
+                .current_ups_header
+                .session_start_context
+                .checkpoint_tree_root,
             user_leaf: self.current_ups_header.current_state.user_leaf,
+            start_contract_state_root: self
+                .current_ups_header
+                .session_start_context
+                .start_session_user_leaf
+                .user_state_tree_root,
+            contract_id: F::ZERO,
+            checkpoint_id: self.current_ups_header.session_start_context.checkpoint_id,
         };
 
         let sig_action = sig_data.get_sig_action_for_user::<H>(network_magic, self.lps.get_current_user_id(), nonce, user_current_state, sig_inputs);
@@ -502,8 +512,17 @@ impl<
         tracing::info!("compress all proofs into a sign tree proof");
         self.proof_tree_state.finalize_tree(&circuit_mgr.proof_tree_agg_circuits)?;
 
+        let user_contract_state = UserContractState {
+            checkpoint_tree_root: self.current_ups_header.session_start_context.checkpoint_tree_root,
+            user_leaf: self.current_ups_header.current_state.user_leaf,
+            start_contract_state_root: self.current_ups_header.session_start_context.start_session_user_leaf.user_state_tree_root,
+            contract_id: F::ZERO,
+            checkpoint_id: self.current_ups_header.session_start_context.checkpoint_id,
+        };
+
         let zk_sig_leaf_proof = self.proof_tree_state.get_leaf_merkle_proof(zk_sig_proof_index);
         let end_cap_from_proof_tree_input = UPSEndCapFromProofTreeGadgetInput{
+            user_contract_state,
             verify_previous_ups_step_input: self.get_verify_previous_ups_step_proof()?,
             verify_zk_signature_proof_input: AttestProofInTreeInput {
                 fingerprint: zk_sig_fingerprint,
