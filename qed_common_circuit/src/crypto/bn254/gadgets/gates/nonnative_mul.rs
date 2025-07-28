@@ -21,7 +21,6 @@ use plonky2::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 
-// 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
 const NONNATIVE_BASE: [u32; 8] = [
     0xd87cfd47, 0x3c208c16, 0x6871ca8d, 0x97816a91, 0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
 ];
@@ -30,7 +29,6 @@ const NONNATIVE_BASE_28: [u32; 10] = [
     0x0644e72, 0x3,
 ];
 
-/// A gate to perform a addition of two nonnative with 8 limbs.
 #[derive(Copy, Clone, Debug)]
 pub struct NonnativeMulGate<F: RichField + Extendable<D>, const D: usize> {
     pub num_ops: usize,
@@ -90,23 +88,6 @@ impl<F: RichField + Extendable<D>, const D: usize> NonnativeMulGate<F, D> {
         debug_assert!(j != 9 || k < 2);
         30 * self.num_ops + 304 * i + 138 + 14 * j + k
     }
-    // pub fn wire_ith_output_jth_limb32_kth_limb2_bit(&self, i: usize, j: usize, k: usize) -> usize {
-    //     debug_assert!(i < self.num_ops);
-    //     debug_assert!(j < 8);
-    //     debug_assert!(k < 16);
-    //     30 * self.num_ops + 304 * i + 10 + 16 * j + k
-    // }
-    // pub fn wire_ith_quotient_jth_limb32_kth_limb2_bit(
-    //     &self,
-    //     i: usize,
-    //     j: usize,
-    //     k: usize,
-    // ) -> usize {
-    //     debug_assert!(i < self.num_ops);
-    //     debug_assert!(j < 8);
-    //     debug_assert!(k < 16);
-    //     30 * self.num_ops + 304 * i + 138 + 16 * j + k
-    // }
     pub fn wire_ith_carry_left(&self, i: usize, j: usize) -> usize {
         debug_assert!(i < self.num_ops);
         debug_assert!(j < 19);
@@ -121,7 +102,6 @@ impl<F: RichField + Extendable<D>, const D: usize> NonnativeMulGate<F, D> {
     pub fn limb_bits() -> usize {
         2
     }
-    // We have 14 2-bit limbs for a 28-bit limb.
     pub fn num_limbs() -> usize {
         28 / Self::limb_bits()
     }
@@ -168,7 +148,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NonnativeMulGa
                 carry_right[j] = vars.local_wires[self.wire_ith_carry_right(i, j)];
             }
 
-            // Range-check output_result and quotient to be at most 28 bits each limb.
             for j in 0..10 {
                 let limb_base = F::Extension::from_canonical_u64(1u64 << Self::limb_bits());
                 let num_limbs = if j == 9 { 2 } else { Self::num_limbs() };
@@ -205,8 +184,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NonnativeMulGa
             let mut last_carry_left = F::Extension::ZERO;
             let mut last_carry_right = F::Extension::ZERO;
             let base = F::Extension::from_canonical_u32(1 << 28);
-            // For each limb, checks input_x * input_y + last_carry_left ===
-            // output_result + quotient * NONNATIVE_BASE + last_carry_right.
             for j in 0..19 {
                 let mut left = F::Extension::ZERO;
                 let mut right = F::Extension::ZERO;
@@ -320,7 +297,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
                 carry_right[j] = vars.local_wires[self.wire_ith_carry_right(i, j)];
             }
 
-            // Range-check output_result and quotient to be at most 28 bits each limb.
             for j in 0..10 {
                 let limb_base = F::from_canonical_u64(1u64 << Self::limb_bits());
                 let num_limbs = if j == 9 { 2 } else { Self::num_limbs() };
@@ -357,8 +333,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
             let mut last_carry_left = P::ZEROS;
             let mut last_carry_right = P::ZEROS;
             let base = F::from_canonical_u32(1 << 28);
-            // For each limb, checks input_x * input_y + last_carry_left ===
-            // output_result + quotient * NONNATIVE_BASE + last_carry_right.
             for j in 0..19 {
                 let mut left = P::ZEROS;
                 let mut right = P::ZEROS;
@@ -470,16 +444,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
             };
         }
 
-        // dbg!(input_x_biguint.clone().to_u32_digits());
-        // dbg!(input_y_biguint.clone().to_u32_digits());
 
         let result_biguint = input_x_biguint * input_y_biguint;
         let output_biguint = result_biguint.clone() % BigUint::from_slice(&NONNATIVE_BASE);
         let quotient_biguint = result_biguint.clone() / BigUint::from_slice(&NONNATIVE_BASE);
 
-        // dbg!(result_biguint.clone().to_u32_digits());
-        // dbg!(output_biguint.clone().to_u32_digits());
-        // dbg!(quotient_biguint.clone().to_u32_digits());
 
         let mut output_u32s = vec![0u32; 10];
         let mut quotient_u32s = vec![0u32; 10];
@@ -504,8 +473,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
             );
         }
 
-        // dbg!(output_u32s.clone());
-        // dbg!(quotient_u32s.clone());
 
         for j in 0..10 {
             let num_limbs = if j == 9 { 2 } else { 14 };
@@ -545,8 +512,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         let mut last_carry_left = 0u64;
         let mut last_carry_right = 0u64;
         let base = 1 << 28u64;
-        // For each limb, checks input_x * input_y + last_carry_left ===
-        // output_result + quotient * NONNATIVE_BASE + last_carry_right.
         for j in 0..19 {
             let mut left = last_carry_left;
             let mut right = last_carry_right;

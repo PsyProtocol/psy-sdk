@@ -1,4 +1,3 @@
-/// BigUint gadget implementation
 use core::marker::PhantomData;
 
 use num::{BigUint, Integer, Zero};
@@ -46,16 +45,12 @@ pub trait CircuitBuilderBiguint<F: RichField + Extendable<D>, const D: usize> {
 
     fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget;
 
-    /// Add two `BigUintTarget`s.
     fn add_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 
-    /// Subtract two `BigUintTarget`s. We assume that the first is larger than the second.
     fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 
-    /// Multiply two `BigUintTarget`s.
     fn mul_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 
-    /// Multiply two `BigUintTarget`s and returns the low part.
     fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget;
 
     fn div_rem_biguint(
@@ -140,7 +135,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
             carry = new_carry;
         }
 
-        // Handle final carry
         result_limbs.push(carry);
 
         BigUintTarget {
@@ -189,8 +183,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
                 if i + j + 1 < result.limbs.len() {
                     let temp_sum = self.add_u32(result.limbs[i + j + 1], final_carry.1);
                     result.limbs[i + j + 1] = temp_sum.0;
-                    // Note: In circuits, we can't do runtime branching based on witness values
-                    // This is a simplified implementation
                     if i + j + 2 < result.limbs.len() {
                         let temp_sum2 = self.add_u32(result.limbs[i + j + 2], temp_sum.1);
                         result.limbs[i + j + 2] = temp_sum2.0;
@@ -238,12 +230,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
             _phantom: PhantomData,
         });
 
-        // Constraint: a = b * quotient + remainder
         let prod = self.mul_biguint(b, &quotient);
         let sum = self.add_biguint(&prod, &remainder);
         self.connect_biguint(a, &sum);
 
-        // Constraint: remainder < b
         let remainder_less_than_b = self.cmp_biguint(&remainder, b);
         self.assert_one(remainder_less_than_b.target);
 

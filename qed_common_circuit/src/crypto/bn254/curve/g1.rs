@@ -8,9 +8,6 @@ use crate::crypto::bn254::field::bn128_scalar::Bn128Scalar;
 #[derive(Debug, Copy, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct G1;
 
-// https://ethereum.github.io/yellowpaper/paper.pdf
-// E.1. zkSNARK Related Precompiled Contracts
-// Y^2 = X^3 + 3
 impl Curve for G1 {
     type BaseField = Bn128Base;
     type ScalarField = Bn128Scalar;
@@ -73,8 +70,6 @@ mod tests {
         );
     }
 
-    /// A simple, somewhat inefficient implementation of multiplication which is used as a reference
-    /// for correctness.
     fn mul_naive(lhs: Bn128Scalar, rhs: ProjectivePoint<G1>) -> ProjectivePoint<G1> {
         let mut g = rhs;
         let mut sum = ProjectivePoint::ZERO;

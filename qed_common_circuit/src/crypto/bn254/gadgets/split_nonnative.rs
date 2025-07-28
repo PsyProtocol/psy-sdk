@@ -1,4 +1,3 @@
-/// Split NonNative gadget implementation
 use core::marker::PhantomData;
 
 use crate::crypto::bn254::gadgets::biguint::BigUintTarget;
@@ -24,7 +23,6 @@ pub trait CircuitBuilderSplit<F: RichField + Extendable<D>, const D: usize> {
         val: &NonNativeTarget<FF>,
     ) -> Vec<Target>;
 
-    // Note: assumes its inputs are 4-bit limbs, and does not range-check.
     fn recombine_nonnative_4_bit_limbs<FF: Field>(
         &mut self,
         limbs: Vec<Target>,
@@ -63,13 +61,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSplit<F, D>
             .limbs
             .iter()
             .flat_map(|&l| {
-                // Each U32Target represents a 32-bit value, split into 16 2-bit chunks
                 self.split_le_base::<4>(l.0, 16)
             })
             .collect()
     }
 
-    // Note: assumes its inputs are 4-bit limbs, and does not range-check.
     fn recombine_nonnative_4_bit_limbs<FF: Field>(
         &mut self,
         limbs: Vec<Target>,

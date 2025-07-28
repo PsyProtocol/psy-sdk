@@ -21,7 +21,6 @@ use plonky2::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 
-/// A gate to perform conversion of a 256-bit number in 8 u32 limbs to 10 u28 limbs.
 #[derive(Copy, Clone, Debug)]
 pub struct U32ToU28Gate<F: RichField + Extendable<D>, const D: usize> {
     pub num_ops: usize,
@@ -69,7 +68,6 @@ impl<F: RichField + Extendable<D>, const D: usize> U32ToU28Gate<F, D> {
     pub fn limb_bits() -> usize {
         2
     }
-    // We have 14 2-bit limbs for a 28-bit limb.
     pub fn num_limbs() -> usize {
         28 / Self::limb_bits()
     }
@@ -109,7 +107,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ToU28Gate<F
                 output_result[j] = vars.local_wires[self.wire_ith_output_result(i, j)];
             }
 
-            // Range-check output_result to be at most 28 bits.
             for j in 0..10 {
                 let mut combined_limbs = F::Extension::ZERO;
                 let limb_base = F::Extension::from_canonical_u64(1u64 << Self::limb_bits());
@@ -128,7 +125,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ToU28Gate<F
                 constraints.push(combined_limbs - output_result[j]);
             }
 
-            // Check input can be reconstructed from these limbs.
             for j in 0..8 {
                 let mut combined_limbs = F::Extension::ZERO;
                 let limb_base = F::Extension::from_canonical_u64(1u64 << Self::limb_bits());
@@ -217,7 +213,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
                 output_result[j] = vars.local_wires[self.wire_ith_output_result(i, j)];
             }
 
-            // Range-check output_result to be at most 28 bits.
             for j in 0..10 {
                 let mut combined_limbs = P::ZEROS;
                 let limb_base = F::from_canonical_u64(1u64 << Self::limb_bits());
@@ -236,7 +231,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
                 yield_constr.one(combined_limbs - output_result[j]);
             }
 
-            // Range-check output_result to be at most 28 bits.
             for j in 0..8 {
                 let mut combined_limbs = P::ZEROS;
                 let limb_base = F::from_canonical_u64(1u64 << Self::limb_bits());
@@ -319,8 +313,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U32
             let this_limb: BigUint =
                 (input_biguint.clone() >> (j * 28)) & BigUint::from_u32(0xfffffff).unwrap();
             let output_result = F::from_canonical_u32(this_limb.to_u32().unwrap());
-            //dbg!(self.gate.wire_ith_output_result(self.i, j));
-            //dbg!(output_result.clone());
             out_buffer.set_wire(
                 local_wire(self.gate.wire_ith_output_result(self.i, j)),
                 output_result.clone(),
@@ -340,8 +332,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U32
 
             for k in 0..num_limbs {
                 let wire = local_wire(self.gate.wire_ith_input_jth_limb_kth_limb(self.i, j, k));
-                //dbg!(wire);
-                //dbg!(output_limbs[k].clone());
                 out_buffer.set_wire(wire, output_limbs[k].clone());
             }
         }

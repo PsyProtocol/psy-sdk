@@ -11,12 +11,6 @@ use serde::{Deserialize, Serialize};
 
 use plonky2::field::types::{Field, PrimeField, Sample};
 
-/// The base field of the bn128 elliptic curve.
-///
-/// Its order is
-/// P = 21888242871839275222246405745257275088696311157297823662689037894645226208583
-/// 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-/// ```
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Bn128Base(pub [u64; 4]);
 
@@ -94,7 +88,6 @@ impl Bn128Base {
     ]);
     
     pub fn mul_by_nonresidue(&self) -> Self {
-        // For BN128, the non-residue is -1
         -*self
     }
 }
@@ -122,10 +115,8 @@ impl Field for Bn128Base {
     const TWO_ADICITY: usize = 1;
     const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
-    // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([3, 0, 0, 0]);
 
-    // Sage: `g_2 = g^((p - 1) / 2)`
     const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
 
     const BITS: usize = 256;
@@ -144,7 +135,6 @@ impl Field for Bn128Base {
         if self.is_zero() {
             return None;
         }
-        // Fermat's Little Theorem
         Some(
             self.exp_biguint(&(Self::order() - BigUint::one() - BigUint::one()))
                 * Bn128Base::ONE

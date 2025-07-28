@@ -1,4 +1,3 @@
-/// BN254 scalar field implementation
 use core::fmt::{self, Debug, Display, Formatter};
 use core::hash::{Hash, Hasher};
 use core::iter::{Product, Sum};
@@ -9,10 +8,6 @@ use num::{Integer, One};
 use plonky2::field::types::{Field, PrimeField, Sample};
 use serde::{Deserialize, Serialize};
 
-/// BN254 scalar field element
-/// The order of the BN254 elliptic curve is
-/// P = 21888242871839275222246405745257275088548364400416034343698204186575808495617
-/// 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Bn128Scalar(pub [u64; 4]);
 
@@ -78,7 +73,6 @@ impl Bn128Scalar {
         todo!()
     }
 
-    /// Order of the scalar field
     pub const ORDER: [u64; 4] = [
         0x43e1f593f0000001,
         0x2833e84879b97091,
@@ -86,41 +80,32 @@ impl Bn128Scalar {
         0x30644e72e131a029,
     ];
 
-    /// Multiplicative generator
     pub const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
     
-    /// Power of two generator
     pub const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
     
-    /// Two-adicity
     pub const TWO_ADICITY: usize = 1;
 
-    /// Create from canonical u64
     pub fn from_canonical_u64(n: u64) -> Self {
         Self([n, 0, 0, 0])
     }
 
-    /// Create from canonical u128  
     pub fn from_canonical_u128(n: u128) -> Self {
         Self([n as u64, (n >> 64) as u64, 0, 0])
     }
 
-    /// Create from noncanonical u64
     pub fn from_noncanonical_u64(n: u64) -> Self {
         Self::from_canonical_u64(n)
     }
 
-    /// Create from noncanonical u96
     pub fn from_noncanonical_u96(n: (u64, u32)) -> Self {
         Self([n.0, n.1 as u64, 0, 0])
     }
 
-    /// Create from noncanonical u128
     pub fn from_noncanonical_u128(n: u128) -> Self {
         Self::from_canonical_u128(n)
     }
 
-    /// Create from noncanonical BigUint
     pub fn from_noncanonical_biguint(val: BigUint) -> Self {
         let digits = val.to_u64_digits();
         let mut result = [0u64; 4];
@@ -131,7 +116,6 @@ impl Bn128Scalar {
         Self(result).reduce()
     }
 
-    /// Convert to canonical BigUint
     pub fn to_canonical_biguint(&self) -> BigUint {
         let mut result = biguint_from_array(self.0);
         let order = Self::order();
@@ -141,7 +125,6 @@ impl Bn128Scalar {
         result
     }
 
-    /// Reduce modulo the field order
     fn reduce(self) -> Self {
         let order = Self::order();
         let value = biguint_from_array(self.0);
@@ -152,7 +135,6 @@ impl Bn128Scalar {
         }
     }
 
-    /// Field order
     pub fn order() -> BigUint {
         BigUint::from_slice(&[
             0xf0000001, 0x43e1f593, 0x79b97091, 0x2833e848, 
@@ -160,27 +142,22 @@ impl Bn128Scalar {
         ])
     }
 
-    /// Field characteristic
     pub fn characteristic() -> BigUint {
         Self::order()
     }
 
-    /// Number of bits
     pub const fn bits() -> usize {
         256
     }
 
-    /// Try to compute the inverse
     pub fn try_inverse(&self) -> Option<Self> {
         if self.is_zero() {
             return None;
         }
 
-        // Fermat's Little Theorem: a^(p-2) = a^(-1) mod p
         Some(self.exp_biguint(&(Self::order() - BigUint::one() - BigUint::one())))
     }
 
-    /// Compute a^exp using binary exponentiation
     pub fn exp_biguint(&self, exp: &BigUint) -> Self {
         use num::traits::Zero;
         
@@ -203,39 +180,32 @@ impl Bn128Scalar {
         result
     }
 
-    /// Check if this element is zero
     pub fn is_zero(&self) -> bool {
         *self == Self::ZERO
     }
 
-    /// Random element from specific RNG
     pub fn rand_from_rng<R: rand::Rng + ?Sized>(rng: &mut R) -> Self {
         use num::bigint::RandBigInt;
         Self::from_noncanonical_biguint(rng.gen_biguint_below(&Self::order()))
     }
 
-    /// Random element
     pub fn rand() -> Self {
         let mut rng = rand::thread_rng();
         Self::rand_from_rng(&mut rng)
     }
 
-    /// Check if this element is a quadratic residue
     pub fn is_quadratic_residue(&self) -> bool {
         if self.is_zero() {
             return true;
         }
         
-        // Compute Legendre symbol: a^((p-1)/2) mod p
         let exp = (Self::order() - BigUint::one()) / 2u32;
         self.exp_biguint(&exp) == Self::ONE
     }
 
-    /// Multiplicative group factors
     pub fn multiplicative_group_factors() -> Vec<(BigUint, usize)> {
         vec![
             (BigUint::from(2u32), Self::TWO_ADICITY),
-            // Additional prime factors would go here
         ]
     }
 }
@@ -308,7 +278,6 @@ impl PrimeField for Bn128Scalar {
     }
 }
 
-// Arithmetic implementations
 impl Add for Bn128Scalar {
     type Output = Self;
     
@@ -395,7 +364,6 @@ impl Product for Bn128Scalar {
     }
 }
 
-// Conversion traits
 impl From<u32> for Bn128Scalar {
     fn from(n: u32) -> Self {
         Self::from_canonical_u64(n as u64)
@@ -432,16 +400,12 @@ mod tests {
 
     #[test]
     fn test_constants() {
-        // Test ZERO
         assert_eq!(Bn128Scalar::ZERO.0, [0, 0, 0, 0]);
         
-        // Test ONE
         assert_eq!(Bn128Scalar::ONE.0, [1, 0, 0, 0]);
         
-        // Test TWO
         assert_eq!(Bn128Scalar::TWO.0, [2, 0, 0, 0]);
         
-        // Test characteristic (order of scalar field)
         let p = Bn128Scalar::characteristic();
         let expected_p = BigUint::parse_bytes(
             b"21888242871839275222246405745257275088548364400416034343698204186575808495617",
@@ -452,7 +416,6 @@ mod tests {
     
     #[test]
     fn test_scalar_vs_base_field() {
-        // Verify scalar field order is different from base field order
         let scalar_order = Bn128Scalar::characteristic();
         let base_order = BigUint::parse_bytes(
             b"21888242871839275222246405745257275088696311157297823662689037894645226208583",
@@ -466,16 +429,12 @@ mod tests {
         let a = Bn128Scalar::from(42u64);
         let b = Bn128Scalar::from(13u64);
         
-        // Addition
         assert_eq!(a + b, Bn128Scalar::from(55u64));
         
-        // Subtraction
         assert_eq!(a - b, Bn128Scalar::from(29u64));
         
-        // Multiplication
         assert_eq!(a * b, Bn128Scalar::from(546u64));
         
-        // Division
         let c = a / b;
         assert_eq!(c * b, a);
     }
@@ -486,29 +445,22 @@ mod tests {
         let y = Bn128Scalar::rand();
         let z = Bn128Scalar::rand();
         
-        // Additive identity
         assert_eq!(x + Bn128Scalar::ZERO, x);
         
-        // Multiplicative identity
         assert_eq!(x * Bn128Scalar::ONE, x);
         
-        // Additive inverse
         assert_eq!(x + (-x), Bn128Scalar::ZERO);
         
-        // Multiplicative inverse (for non-zero)
         if !x.is_zero() {
             assert_eq!(x * x.inverse(), Bn128Scalar::ONE);
         }
         
-        // Associativity
         assert_eq!((x + y) + z, x + (y + z));
         assert_eq!((x * y) * z, x * (y * z));
         
-        // Commutativity
         assert_eq!(x + y, y + x);
         assert_eq!(x * y, y * x);
         
-        // Distributivity
         assert_eq!(x * (y + z), x * y + x * z);
     }
     
@@ -516,28 +468,23 @@ mod tests {
     fn test_powers() {
         let base = Bn128Scalar::from(3u64);
         
-        // Test square
         assert_eq!(base.square(), Bn128Scalar::from(9u64));
         
-        // Test cube
         let base_cubed = base * base * base;
         assert_eq!(base_cubed, Bn128Scalar::from(27u64));
         
-        // Test higher powers
         let base4 = base.square().square();
         assert_eq!(base4, Bn128Scalar::from(81u64));
     }
     
     #[test]
     fn test_conversion_roundtrip() {
-        // Test BigUint conversion
         let x = Bn128Scalar::rand();
         let big = x.to_canonical_biguint();
         let y = Bn128Scalar::from_noncanonical_biguint(big.clone());
         assert_eq!(x, y);
         assert_eq!(y.to_canonical_biguint(), big);
         
-        // Test with values larger than modulus
         let large = Bn128Scalar::characteristic() + BigUint::from(12345u64);
         let reduced = Bn128Scalar::from_noncanonical_biguint(large);
         assert_eq!(reduced, Bn128Scalar::from(12345u64));
@@ -545,7 +492,6 @@ mod tests {
     
     #[test]
     fn test_sample_distribution() {
-        // Generate multiple random samples and verify they're in range
         let mut samples = Vec::new();
         for _ in 0..100 {
             let s = Bn128Scalar::rand();
@@ -554,7 +500,6 @@ mod tests {
             samples.push(s);
         }
         
-        // Verify samples are different (with high probability)
         let unique_samples: std::collections::HashSet<_> = samples.iter().collect();
         assert!(unique_samples.len() > 90); // Allow for some collisions
     }

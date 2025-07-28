@@ -29,7 +29,6 @@ pub trait CircuitBuilderNonNativeExt12<F: RichField + Extendable<D>, const D: us
         x: DodecicExtension<FF>,
     ) -> NonNativeTargetExt12<FF>;
 
-    // Assert that two NonNativeTarget's, both assumed to be in reduced form, are equal.
     fn connect_nonnative_ext12<FF: Field + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         lhs: &NonNativeTargetExt12<FF>,
@@ -48,7 +47,6 @@ pub trait CircuitBuilderNonNativeExt12<F: RichField + Extendable<D>, const D: us
         b: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF>;
 
-    // Subtract two `NonNativeTarget`s.
     fn sub_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         a: &NonNativeTargetExt12<FF>,
@@ -140,6 +138,12 @@ pub trait CircuitBuilderNonNativeExt12<F: RichField + Extendable<D>, const D: us
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF>;
+
+    fn is_equal_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
+        &mut self,
+        a: &NonNativeTargetExt12<FF>,
+        b: &NonNativeTargetExt12<FF>,
+    ) -> plonky2::iop::target::BoolTarget;
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<F, D>
@@ -472,12 +476,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
     ) -> NonNativeTargetExt2<FF> {
         use std::any::TypeId;
         
-        // Special handling for Bn128Base since that's what we're actually using
         if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
             match power % 12 {
                 0 => self.constant_nonnative_ext2(QuadraticExtension([FF::ONE, FF::ZERO])),
                 1 => {
-                    // FROBENIUS_COEFFS_EXT12_C1[1] from plonky2-pairing
                     let coeff = Bn128Base([
                         11683091849979440498,
                         14992204589386555739,
@@ -488,7 +490,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
                     self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
                 }
                 2 => {
-                    // FROBENIUS_COEFFS_EXT12_C1[2]
                     let coeff = Bn128Base([
                         14595462726357228530,
                         17349508522658994025,
@@ -499,11 +500,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
                     self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
                 }
                 3 => {
-                    // FROBENIUS_COEFFS_EXT12_C1[3]
                     self.constant_nonnative_ext2(QuadraticExtension([FF::ZERO, FF::ZERO]))
                 }
                 4 => {
-                    // FROBENIUS_COEFFS_EXT12_C1[4]
                     let coeff = Bn128Base([
                         3914496794763385213,
                         790120733010914719,
@@ -514,7 +513,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
                     self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
                 }
                 5 => {
-                    // FROBENIUS_COEFFS_EXT12_C1[5]
                     let coeff = Bn128Base([
                         12817045492518885689,
                         4440270538777280383,
@@ -646,6 +644,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
     ) -> NonNativeTargetExt12<FF> {
         let t = self.cyclotomic_pow_nonnative_ext12(&x);
         self.unitary_inverse_nonnative_ext12(&t)
+    }
+
+    fn is_equal_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
+        &mut self,
+        a: &NonNativeTargetExt12<FF>,
+        b: &NonNativeTargetExt12<FF>,
+    ) -> plonky2::iop::target::BoolTarget {
+        let c0_eq = self.is_equal_ext6(&a.c0, &b.c0);
+        let c1_eq = self.is_equal_ext6(&a.c1, &b.c1);
+        self.and(c0_eq, c1_eq)
     }
 }
 

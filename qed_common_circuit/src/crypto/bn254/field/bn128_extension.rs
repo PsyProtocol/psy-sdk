@@ -8,18 +8,14 @@ use plonky2::field::types::Field;
 impl Extendable<2> for Bn128Base {
     type Extension = QuadraticExtension<Self>;
 
-    // Verifiable in Sage with
     const W: Self = Bn128Base::NEG_ONE;
 
-    // DTH_ROOT = W^((ORDER - 1)/2)
     const DTH_ROOT: Self = Self(Bn128Base::NEG_ONE.0);
 
-    // Extension multiplicative group generator for Fp2
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 2] = [
         Self([3, 0, 0, 0]),  // 3 as base field element
         Self([0, 0, 0, 0]),  // 0 as base field element
     ];
-    // Extension power of two generator for Fp2
     const EXT_POWER_OF_TWO_GENERATOR: [Self; 2] = [
         Self([
             0x68c3488912edefaa,
@@ -31,7 +27,6 @@ impl Extendable<2> for Bn128Base {
     ];
 }
 
-// Additional trait implementations required for plonky2 version compatibility
 pub trait Bn128ExtConstants {
     const EXT_NONRESIDUE: [Bn128Base; 2];
     const FROBENIUS_COEFFS_EXT6_C1: [Bn128Base; 6];
@@ -124,7 +119,6 @@ impl Bn128ExtConstants for Bn128Base {
 impl Extendable<6> for Bn128Base {
     type Extension = SexticExtension<Self>;
 
-    // Constants for Fp6 extension
     const W: Self = Self([3, 0, 0, 0]);  // 3 is a 6th root primitive element
     const DTH_ROOT: Self = Self([
         0x68c3488912edefaa,
@@ -158,7 +152,6 @@ impl Extendable<6> for Bn128Base {
 impl Extendable<12> for Bn128Base {
     type Extension = DodecicExtension<Self>;
 
-    // Constants for Fp12 extension
     const W: Self = Self([3, 0, 0, 0]);
     const DTH_ROOT: Self = Self([
         0x68c3488912edefaa,

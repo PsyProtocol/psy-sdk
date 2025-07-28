@@ -1,4 +1,3 @@
-/// Dodecic (12th degree) field extension implementation (simplified)
 use core::fmt::{self, Debug, Display, Formatter};
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -11,7 +10,6 @@ use plonky2::field::types::{Field, PrimeField, Sample};
 
 use super::sextic::SexticExtension;
 
-/// Dodecic extension field F[x]/(x^12 - w)
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct DodecicExtension<F: Extendable<12> + Extendable<6> + Extendable<2>>(pub [F; 12]);
@@ -102,7 +100,6 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> DodecicExte
         F::ZERO,
     ]);
 
-    /// Random element from specific RNG
     pub fn rand_from_rng<R: rand::RngCore + ?Sized>(rng: &mut R) -> Self {
         Self::from_basefield_array([
             F::sample(rng),
@@ -120,49 +117,40 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> DodecicExte
         ])
     }
 
-    /// Random element
     pub fn rand() -> Self {
         let mut rng = rand::thread_rng();
         Self::rand_from_rng(&mut rng)
     }
 
-    /// Check if element is zero
     pub fn is_zero(&self) -> bool {
         self.0.iter().all(|x| x.is_zero())
     }
 
-    /// Double the element
     pub fn double(&self) -> Self {
         *self + *self
     }
 
-    /// Square the element
     pub fn square(&self) -> Self {
         *self * *self
     }
 
-    /// Cube the element
     pub fn cube(&self) -> Self {
         *self * self.square()
     }
 
-    /// Field order
     pub fn order() -> BigUint {
         use num::traits::Pow;
         F::order().pow(12u32)
     }
 
-    /// Field characteristic
     pub fn characteristic() -> BigUint {
         F::characteristic()
     }
 
-    /// Number of bits
     pub const fn bits() -> usize {
         F::BITS * 12
     }
 
-    /// Try to compute inverse (simplified implementation)
     pub fn try_inverse(&self) -> Option<Self> {
         if self.is_zero() {
             return None;
@@ -188,32 +176,26 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> DodecicExte
         ]))
     }
 
-    /// Compute inverse (panics if zero)
     pub fn inverse(&self) -> Self {
         self.try_inverse().expect("attempted to invert zero")
     }
 
-    /// From noncanonical BigUint
     pub fn from_noncanonical_biguint(n: BigUint) -> Self {
         F::from_noncanonical_biguint(n).into()
     }
 
-    /// From canonical u64
     pub fn from_canonical_u64(n: u64) -> Self {
         F::from_canonical_u64(n).into()
     }
 
-    /// From noncanonical u128
     pub fn from_noncanonical_u128(n: u128) -> Self {
         F::from_noncanonical_u128(n).into()
     }
 
-    /// To canonical BigUint (simplified)
     pub fn to_canonical_biguint(&self) -> BigUint {
         self.0[0].to_canonical_biguint()
     }
 
-    /// Multiplicative group factors
     pub fn multiplicative_group_factors() -> Vec<(BigUint, usize)> {
         vec![
             (BigUint::from(2u32), F::TWO_ADICITY),
@@ -382,7 +364,6 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> Mul for Dod
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        // Simplified multiplication using sextic components
         let l0 = SexticExtension([
             self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5],
         ]);
@@ -437,14 +418,10 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> OEF<12> for
 }
 
 impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> Frobenius<12> for DodecicExtension<F> {
-    // Simplified implementation - not optimized for pairing operations
     fn repeated_frobenius(&self, count: usize) -> Self {
-        // For proper implementation, this would need Frobenius coefficients
-        // For now, just return self for even counts
         if count % 12 == 0 {
             *self
         } else {
-            // This is a placeholder - proper implementation would use Frobenius coefficients
             *self
         }
     }

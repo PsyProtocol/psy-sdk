@@ -21,7 +21,6 @@ use plonky2::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 
-/// A gate to perform conversion of a 256-bit number in 10 u28 limbs to 8 u32 limbs.
 #[derive(Copy, Clone, Debug)]
 pub struct U28ToU32Gate<F: RichField + Extendable<D>, const D: usize> {
     pub num_ops: usize,
@@ -69,10 +68,6 @@ impl<F: RichField + Extendable<D>, const D: usize> U28ToU32Gate<F, D> {
     pub fn limb_bits() -> usize {
         2
     }
-    // We have 16 2-bit limbs for a 32-bit limb.
-    // pub fn num_limbs() -> usize {
-    //     32 / Self::limb_bits()
-    // }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U28ToU32Gate<F, D> {
@@ -109,7 +104,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U28ToU32Gate<F
                 output_result[j] = vars.local_wires[self.wire_ith_output_result(i, j)];
             }
 
-            // Range-check output_result to be at most 32 bits.
             for j in 0..8 {
                 let mut combined_limbs = F::Extension::ZERO;
                 let limb_base = F::Extension::from_canonical_u64(1u64 << Self::limb_bits());
@@ -128,7 +122,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U28ToU32Gate<F
                 constraints.push(combined_limbs - output_result[j]);
             }
 
-            // Check input can be reconstructed from these limbs.
             for j in 0..10 {
                 let mut combined_limbs = F::Extension::ZERO;
                 let limb_base = F::Extension::from_canonical_u64(1u64 << Self::limb_bits());
@@ -217,7 +210,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
                 output_result[j] = vars.local_wires[self.wire_ith_output_result(i, j)];
             }
 
-            // Range-check output_result to be at most 32 bits.
             for j in 0..8 {
                 let mut combined_limbs = P::ZEROS;
                 let limb_base = F::from_canonical_u64(1u64 << Self::limb_bits());
@@ -319,8 +311,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U28
         output_u32s.resize(8, 0);
         for j in 0..8 {
             let output_result = F::from_canonical_u32(output_u32s[j]);
-            //dbg!(output_result.clone());
-            //dbg!(self.gate.wire_ith_output_result(self.i, j));
             out_buffer.set_wire(
                 local_wire(self.gate.wire_ith_output_result(self.i, j)),
                 output_result.clone(),

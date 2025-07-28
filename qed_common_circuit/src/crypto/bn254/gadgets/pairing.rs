@@ -1,4 +1,3 @@
-/// Complete BN254 pairing gadgets for plonky2 circuits
 use std::marker::PhantomData;
 use std::any::TypeId;
 use num::BigUint;
@@ -30,7 +29,6 @@ use crate::crypto::bn254::{
 
 use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
 
-// BN254 ATE_LOOP_COUNT constant - from plonky2-pairing
 pub const ATE_LOOP_COUNT: [u64; 4] = [
     0x9d797039be763ba8,
     0x0000000000000001,
@@ -38,7 +36,6 @@ pub const ATE_LOOP_COUNT: [u64; 4] = [
     0x0000000000000000,
 ];
 
-/// Helper function to convert u64 array to BigUint
 fn biguint_from_array(arr: [u64; 4]) -> BigUint {
     BigUint::from_slice(&[
         arr[0] as u32,
@@ -52,14 +49,12 @@ fn biguint_from_array(arr: [u64; 4]) -> BigUint {
     ])
 }
 
-/// G2 affine point target - exactly as in plonky2-pairing
 #[derive(Clone, Debug)]
 pub struct AffinePointTargetG2<FF: Field> {
     pub x: NonNativeTargetExt2<FF>,
     pub y: NonNativeTargetExt2<FF>,
 }
 
-/// G2 jacobian point target for curve operations
 #[derive(Clone, Debug)]
 pub struct JacobianPointTargetG2<FF: Field> {
     pub x: NonNativeTargetExt2<FF>,
@@ -67,7 +62,6 @@ pub struct JacobianPointTargetG2<FF: Field> {
     pub z: NonNativeTargetExt2<FF>,
 }
 
-/// Elliptic curve line function coefficients for Miller loop
 #[derive(Clone, Debug)]
 pub struct EllCoefficientsTarget<FF: Field> {
     pub ell_0: NonNativeTargetExt2<FF>,
@@ -75,23 +69,19 @@ pub struct EllCoefficientsTarget<FF: Field> {
     pub ell_vv: NonNativeTargetExt2<FF>,
 }
 
-/// G2 precomputed data for pairing
 #[derive(Clone, Debug)]
 pub struct G2PreComputeTarget<FF: Field> {
     pub q: AffinePointTargetG2<FF>,
     pub coeffs: Vec<EllCoefficientsTarget<FF>>,
 }
 
-/// Circuit builder extension for complete BN254 pairing operations
 pub trait CircuitBuilderPairing<F: RichField + Extendable<D>, const D: usize> {
-    /// Main pairing function for BN254: e(P, Q) -> Fp12
     fn pairing_bn254(
         &mut self,
         p: &G1AffineTarget<F, D>,
         q: &AffinePointTargetG2<Bn128Base>,
     ) -> NonNativeTargetExt12<Bn128Base>;
     
-    /// BN254-specific pairing function: e(P, Q) -> Fp12
     fn pairing(
         &mut self,
         p: &G1AffineTarget<F, D>,
@@ -99,28 +89,23 @@ pub trait CircuitBuilderPairing<F: RichField + Extendable<D>, const D: usize> {
     ) -> NonNativeTargetExt12<Bn128Base>;
 }
 
-/// G2 curve operations trait - generic version
 pub trait CircuitBuilderCurveG2<F: RichField + Extendable<D>, const D: usize> {
-    /// Add two G2 points
     fn add_g2<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         a: &AffinePointTargetG2<FF>,
         b: &AffinePointTargetG2<FF>,
     ) -> AffinePointTargetG2<FF>;
     
-    /// Negate a G2 point (negate y-coordinate)
     fn neg_g2<FF: PrimeField + Extendable<2>>(
         &mut self,
         p: &AffinePointTargetG2<FF>,
     ) -> AffinePointTargetG2<FF>;
     
-    /// Precompute line coefficients for G2 point
     fn precompute<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         p: &AffinePointTargetG2<FF>,
     ) -> G2PreComputeTarget<FF>;
     
-    /// Miller loop computation
     fn miller_loop<
         C: Curve<BaseField = FF>,
         FF: PrimeField + Extendable<2> + Extendable<6> + Extendable<12>,
@@ -130,19 +115,16 @@ pub trait CircuitBuilderCurveG2<F: RichField + Extendable<D>, const D: usize> {
         precomp: &G2PreComputeTarget<FF>,
     ) -> NonNativeTargetExt12<FF>;
     
-    /// Convert affine G2 point to Jacobian
     fn to_jacobian_g2<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         p: &AffinePointTargetG2<FF>,
     ) -> JacobianPointTargetG2<FF>;
     
-    /// Convert Jacobian G2 point to affine
     fn to_affine_g2<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         p: &JacobianPointTargetG2<FF>,
     ) -> AffinePointTargetG2<FF>;
     
-    /// Doubling step for Miller loop
     fn doubling_step_for_flipped_miller_loop<
         C: Curve<BaseField = QuadraticExtension<FF>>,
         FF: PrimeField + Extendable<2>,
@@ -151,7 +133,6 @@ pub trait CircuitBuilderCurveG2<F: RichField + Extendable<D>, const D: usize> {
         p: &JacobianPointTargetG2<FF>,
     ) -> (JacobianPointTargetG2<FF>, EllCoefficientsTarget<FF>);
     
-    /// Mixed addition step for Miller loop
     fn mixed_addition_step_for_flipped_miller_loop<
         C: Curve<BaseField = QuadraticExtension<FF>>,
         FF: PrimeField + Extendable<2>,
@@ -161,13 +142,11 @@ pub trait CircuitBuilderCurveG2<F: RichField + Extendable<D>, const D: usize> {
         p: &AffinePointTargetG2<FF>,
     ) -> (JacobianPointTargetG2<FF>, EllCoefficientsTarget<FF>);
     
-    /// Multiply G2 point by Frobenius
     fn mul_by_q<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         p: &AffinePointTargetG2<FF>,
     ) -> AffinePointTargetG2<FF>;
     
-    /// Create constant G2 point  
     fn constant_affine_point_g2<
         C: Curve<BaseField = QuadraticExtension<FF>>,
         FF: PrimeField + Extendable<2>,
@@ -180,7 +159,6 @@ pub trait CircuitBuilderCurveG2<F: RichField + Extendable<D>, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPairing<F, D>
     for CircuitBuilder<F, D>
 {
-    /// Main pairing function for BN254: e(P, Q) -> Fp12
     fn pairing_bn254(
         &mut self,
         p: &G1AffineTarget<F, D>,
@@ -204,19 +182,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPairing<F, D>
         result
     }
     
-    /// BN254-specific pairing function: e(P, Q) -> Fp12
     fn pairing(
         &mut self,
         p: &G1AffineTarget<F, D>,
         q: &AffinePointTargetG2<Bn128Base>,
     ) -> NonNativeTargetExt12<Bn128Base> {
-        // Step 1: Precompute line coefficients for G2 point
         let pre = self.precompute::<G2, Bn128Base>(q);
         
-        // Step 2: Miller loop computation  
         let m = self.miller_loop::<G1, Bn128Base>(p, &pre);
         
-        // Step 3: Final exponentiation (two chunks)
         let res = self.final_exponentiation_first_chunk(&m);
         self.final_exponentiation_last_chunk(&res)
     }
@@ -258,7 +232,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         }
     }
     
-    /// Create constant G2 affine point
     fn constant_affine_point_g2<
         C: Curve<BaseField = QuadraticExtension<FF>>,
         FF: PrimeField + Extendable<2>,
@@ -273,7 +246,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         }
     }
     
-    /// Convert affine G2 point to Jacobian coordinates
     fn to_jacobian_g2<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         p: &AffinePointTargetG2<FF>,
@@ -285,7 +257,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         }
     }
     
-    /// Convert Jacobian G2 point to affine coordinates
     fn to_affine_g2<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         p: &JacobianPointTargetG2<FF>,
@@ -308,14 +279,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         let mut found_one = false;
         let mut bit_count = 0;
 
-        // Miller loop over ATE_LOOP_COUNT bits
         for (j_idx, j) in ATE_LOOP_COUNT.iter().rev().enumerate() {
             if j_idx == 0 {
                 println!("  Processing ATE_LOOP_COUNT[{}] = 0x{:x}", 3 - j_idx, j);
             }
             for i in (0..64).rev() {
                 if !found_one {
-                    // skips the first bit
                     found_one = (j >> i) & 1 == 1;
                     continue;
                 }
@@ -337,7 +306,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
             }
         }
 
-        // Final additions with Frobenius
         let q1 = self.mul_by_q::<C, FF>(p);
         let mul_by_q = self.mul_by_q::<C, FF>(&q1);
         let q2 = self.neg_g2::<FF>(&mul_by_q);
@@ -366,15 +334,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         let mut idx = 0;
         let mut found_one = false;
 
-        // Convert G1AffineTarget coordinates to match the expected type
         let g1_x: &NonNativeTarget<FF> = unsafe { std::mem::transmute(&g1.x) };
         let g1_y: &NonNativeTarget<FF> = unsafe { std::mem::transmute(&g1.y) };
 
-        // Main Miller loop
         for j in ATE_LOOP_COUNT.iter().rev() {
             for i in (0..64).rev() {
                 if !found_one {
-                    // skips the first bit
                     found_one = (j >> i) & 1 == 1;
                     continue;
                 }
@@ -396,7 +361,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
             }
         }
 
-        // Final two iterations
         let c = &precomp.coeffs[idx];
         idx += 1;
         let ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
@@ -418,7 +382,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         &mut self,
         p: &JacobianPointTargetG2<FF>,
     ) -> (JacobianPointTargetG2<FF>, EllCoefficientsTarget<FF>) {
-        // Constants for BN254 curve - exactly like plonky2-pairing
         let two_inv = self.constant_nonnative(FF::from_canonical_u64(2).inverse());
         
         let mut a = self.mul_nonnative_ext2(&p.x, &p.y);
@@ -428,7 +391,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         let mut d = self.add_nonnative_ext2(&c, &c);
         d = self.add_nonnative_ext2(&d, &c);
         
-        // BN254 curve parameter B = 3 in Fp2
         let mut e = self.constant_nonnative_ext2(QuadraticExtension([FF::from_canonical_u64(3), FF::ZERO]));
         e = self.mul_nonnative_ext2(&e, &d);
         let mut f = self.add_nonnative_ext2(&e, &e);
@@ -515,8 +477,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         let x_frobenius = self.frobenius_map_nonnative_ext2(&p.x, 1);
         let y_frobenius = self.frobenius_map_nonnative_ext2(&p.y, 1);
         
-        // BN254 specific Frobenius coefficients for G2 twist - from plonky2-pairing
-        // These are the actual constants from plonky2-pairing/src/curve/g2.rs
         let twist_mul_by_q_x = self.constant_nonnative_ext2(QuadraticExtension([
             FF::from_noncanonical_biguint(biguint_from_array([
                 13075984984163199792,
@@ -571,10 +531,8 @@ mod tests {
         let config = CircuitConfig::standard_ecc_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        // Create G1 point
         let g1_point = builder.g1_generator();
         
-        // Create G2 point using AffinePoint
         let g2_x = QuadraticExtension([Bn128Base::ONE, Bn128Base::ZERO]);
         let g2_y = QuadraticExtension([Bn128Base::from_canonical_u64(2), Bn128Base::ZERO]);
         let g2_affine_point = AffinePoint::<G2> {
@@ -609,17 +567,14 @@ mod tests {
         let start = Instant::now();
         println!("Starting pairing test...");
 
-        // Use generator points for G1 and G2
         let g1 = G1::GENERATOR_AFFINE;
         let g2 = G2::GENERATOR_AFFINE;
         
-        // Create targets
         let g1_target = builder.g1_generator();
         let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2);
         
         println!("Computing pairing e(G1, G2)...");
         
-        // Compute pairing e(G1, G2)
         let pairing_start = Instant::now();
         let pairing_result = builder.pairing_bn254(&g1_target, &g2_target);
         println!("Pairing computation took: {:?}", pairing_start.elapsed());
@@ -651,18 +606,15 @@ mod tests {
         use crate::crypto::bn254::curve::G2;
         use crate::crypto::secp256k1::ecdsa::curve::curve_types::Curve;
         
-        // Test individual pairing components
         let config = CircuitConfig {
             num_wires: 400,
             ..CircuitConfig::wide_ecc_config()
         };
         let mut builder = CircuitBuilder::<F, D>::new(config);
         
-        // Test G2 point creation
         let g2 = G2::GENERATOR_AFFINE;
         let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2);
         
-        // Test precompute
         let precomp = builder.precompute::<G2, Bn128Base>(&g2_target);
         
         println!("✅ Pairing components test passed");

@@ -67,21 +67,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         &mut self,
         p: &G1AffineTarget<F, D>,
     ) -> Vec<G1AffineTarget<F, D>> {
-        // Start with a random point to avoid special cases
         let g = G1::GENERATOR_AFFINE;
         let starting = self.constant_g1_affine(g);
         
         let mut multiples = vec![starting.clone()];
         
-        // Compute [p, 2p, 3p, ..., 15p]
         for i in 1..1 << WINDOW_SIZE {
-            multiples.push(self.add_g1_affine(p, &multiples[i - 1]));
+            multiples.push(self.add_or_double_g1_affine(p, &multiples[i - 1]));
         }
         
-        // Subtract starting point from all entries
         let neg_starting = self.neg_g1_affine(&starting);
         for i in 1..1 << WINDOW_SIZE {
-            multiples[i] = self.add_g1_affine(&multiples[i], &neg_starting);
+            multiples[i] = self.add_or_double_g1_affine(&multiples[i], &neg_starting);
         }
         
         multiples
@@ -95,7 +92,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         let num_limbs = 8; // BN128 base field has 256 bits = 8 * 32-bit limbs
         let zero = arithmetic_u32::U32Target(self.zero());
         
-        // Collect x-coordinate limbs
         let x_limbs: Vec<Vec<_>> = (0..num_limbs)
             .map(|i| {
                 v.iter()
@@ -104,7 +100,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
             })
             .collect();
             
-        // Collect y-coordinate limbs
         let y_limbs: Vec<Vec<_>> = (0..num_limbs)
             .map(|i| {
                 v.iter()
@@ -113,10 +108,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
             })
             .collect();
             
-        // Collect is_infinity flags
         let is_infinity_targets: Vec<_> = v.iter().map(|p| p.is_infinity.target).collect();
 
-        // Random access for each component
         let selected_x_limbs: Vec<_> = x_limbs
             .iter()
             .map(|limbs| arithmetic_u32::U32Target(self.random_access(access_index, limbs.clone())))
@@ -154,13 +147,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         p: &G1AffineTarget<F, D>,
         n: &NonNativeTarget<Bn128Scalar>,
     ) -> G1AffineTarget<F, D> {
-        // Use a deterministic starting point to avoid special cases
         let hash_0 = KeccakHash::<25>::hash_no_pad(&[F::ZERO]);
         let hash_0_scalar = Bn128Scalar::from_noncanonical_biguint(BigUint::from_bytes_le(
             &GenericHashOut::<F>::to_bytes(&hash_0),
         ));
         
-        // This starting point will be subtracted at the end
         let starting_scalar = hash_0_scalar;
         let starting_point_x = Bn128Base::from_canonical_u64(0x123456789abcdef0u64);
         let starting_point_y = Bn128Base::from_canonical_u64(0xfedcba9876543210u64);
@@ -170,12 +161,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         let precomputation = self.precompute_window_g1(p);
         let zero = self.zero();
         
-        // Split scalar into 4-bit windows
         let windows = self.split_nonnative_to_4_bit_limbs(n);
         
-        // Process each window from most significant to least significant
         for i in (0..windows.len()).rev() {
-            // Double 4 times
             for _ in 0..WINDOW_SIZE {
                 result = self.double_g1_affine(&result);
             }
@@ -183,12 +171,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
             let window = windows[i];
             let to_add = self.random_access_curve_points_g1(window, precomputation.clone());
             
-            // Add if window is non-zero
             let is_zero = self.is_equal(window, zero);
             let should_add = self.not(is_zero);
             
-            // Conditional addition
-            let new_result = self.add_g1_affine(&result, &to_add);
+            let new_result = self.add_or_double_g1_affine(&result, &to_add);
             result = G1AffineTarget {
                 x: self.select_nonnative(should_add, &new_result.x, &result.x),
                 y: self.select_nonnative(should_add, &new_result.y, &result.y),
@@ -209,7 +195,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         &mut self,
         p: &G2AffineTarget<F, D>,
     ) -> Vec<G2AffineTarget<F, D>> {
-        // Start with a known point
         let starting = G2AffineTarget {
             x: self.constant_nonnative_ext2(QuadraticExtension([
                 Bn128Base::from_canonical_u64(1),
@@ -225,12 +210,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         
         let mut multiples = vec![starting.clone()];
         
-        // Compute [p, 2p, 3p, ..., 15p]
         for i in 1..1 << WINDOW_SIZE {
             multiples.push(self.add_g2(p, &multiples[i - 1]));
         }
         
-        // Subtract starting point from all entries
         let neg_starting = self.neg_g2(&starting);
         for i in 1..1 << WINDOW_SIZE {
             multiples[i] = self.add_g2(&multiples[i], &neg_starting);
@@ -247,7 +230,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         let num_limbs = 8; // BN128 base field has 256 bits = 8 * 32-bit limbs
         let zero = arithmetic_u32::U32Target(self.zero());
         
-        // Collect x.c0 limbs
         let x_c0_limbs: Vec<Vec<_>> = (0..num_limbs)
             .map(|i| {
                 v.iter()
@@ -256,7 +238,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
             })
             .collect();
             
-        // Collect x.c1 limbs
         let x_c1_limbs: Vec<Vec<_>> = (0..num_limbs)
             .map(|i| {
                 v.iter()
@@ -265,7 +246,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
             })
             .collect();
             
-        // Collect y.c0 limbs
         let y_c0_limbs: Vec<Vec<_>> = (0..num_limbs)
             .map(|i| {
                 v.iter()
@@ -274,7 +254,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
             })
             .collect();
             
-        // Collect y.c1 limbs
         let y_c1_limbs: Vec<Vec<_>> = (0..num_limbs)
             .map(|i| {
                 v.iter()
@@ -283,7 +262,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
             })
             .collect();
 
-        // Random access for each component
         let selected_x_c0_limbs: Vec<_> = x_c0_limbs
             .iter()
             .map(|limbs| arithmetic_u32::U32Target(self.random_access(access_index, limbs.clone())))
@@ -304,7 +282,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
             .map(|limbs| arithmetic_u32::U32Target(self.random_access(access_index, limbs.clone())))
             .collect();
 
-        // Collect is_infinity flags
         let is_infinity_targets: Vec<_> = v.iter().map(|p| p.is_infinity.target).collect();
         let selected_is_infinity = BoolTarget::new_unsafe(
             self.random_access(access_index, is_infinity_targets)
@@ -351,7 +328,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         p: &G2AffineTarget<F, D>,
         n: &NonNativeTarget<Bn128Scalar>,
     ) -> G2AffineTarget<F, D> {
-        // Initialize with infinity
         let mut result = G2AffineTarget {
             x: self.constant_nonnative_ext2(QuadraticExtension([
                 Bn128Base::ZERO,
@@ -368,12 +344,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         let precomputation = self.precompute_window_g2(p);
         let zero = self.zero();
         
-        // Split scalar into 4-bit windows
         let windows = self.split_nonnative_to_4_bit_limbs(n);
         
-        // Process each window from most significant to least significant
         for i in (0..windows.len()).rev() {
-            // Double 4 times
             for _ in 0..WINDOW_SIZE {
                 result = self.add_g2(&result, &result); // double
             }
@@ -381,11 +354,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
             let window = windows[i];
             let to_add = self.random_access_curve_points_g2(window, precomputation.clone());
             
-            // Add if window is non-zero
             let is_zero = self.is_equal(window, zero);
             let should_add = self.not(is_zero);
             
-            // Conditional addition
             let new_result = self.add_g2(&result, &to_add);
             result = G2AffineTarget {
                 x: NonNativeTargetExt2 {

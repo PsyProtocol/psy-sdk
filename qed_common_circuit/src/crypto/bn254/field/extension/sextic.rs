@@ -1,4 +1,3 @@
-/// Sextic field extension implementation (simplified)
 use core::fmt::{self, Debug, Display, Formatter};
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -11,7 +10,6 @@ use plonky2::field::types::{Field, PrimeField, Sample};
 
 use super::quadratic::QuadraticExtension;
 
-/// Sextic extension field F[x]/(x^6 - w) 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct SexticExtension<F: Extendable<6>>(pub [F; 6]);
@@ -50,7 +48,6 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> SexticExtension<F> {
     pub const TWO: Self = Self([F::TWO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO]);
     pub const NEG_ONE: Self = Self([F::NEG_ONE, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO]);
 
-    /// Random element from specific RNG
     pub fn rand_from_rng<R: rand::RngCore + ?Sized>(rng: &mut R) -> Self {
         Self::from_basefield_array([
             F::sample(rng),
@@ -62,33 +59,27 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> SexticExtension<F> {
         ])
     }
 
-    /// Random element
     pub fn rand() -> Self {
         let mut rng = rand::thread_rng();
         Self::rand_from_rng(&mut rng)
     }
 
-    /// Check if element is zero
     pub fn is_zero(&self) -> bool {
         self.0.iter().all(|x| x.is_zero())
     }
 
-    /// Double the element
     pub fn double(&self) -> Self {
         *self + *self
     }
 
-    /// Square the element
     pub fn square(&self) -> Self {
         *self * *self
     }
 
-    /// Cube the element
     pub fn cube(&self) -> Self {
         *self * self.square()
     }
 
-    /// Multiply by non-residue (simplified)
     pub fn mul_by_nonresidue(&self) -> Self {
         let c0 = QuadraticExtension([self.0[4], self.0[5]]).mul_by_nonresidue();
         Self {
@@ -96,30 +87,24 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> SexticExtension<F> {
         }
     }
 
-    /// Field order
     pub fn order() -> BigUint {
         use num::traits::Pow;
         F::order().pow(6u32)
     }
 
-    /// Field characteristic
     pub fn characteristic() -> BigUint {
         F::characteristic()
     }
 
-    /// Number of bits
     pub const fn bits() -> usize {
         F::BITS * 6
     }
 
-    /// Try to compute inverse (simplified implementation)
     pub fn try_inverse(&self) -> Option<Self> {
         if self.is_zero() {
             return None;
         }
 
-        // Simplified implementation using direct computation
-        // Real implementation would use more efficient algorithms
         let s0 = QuadraticExtension([self.0[0], self.0[1]]);
         let s1 = QuadraticExtension([self.0[2], self.0[3]]);
         let s2 = QuadraticExtension([self.0[4], self.0[5]]);
@@ -137,32 +122,26 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> SexticExtension<F> {
         Some(Self([c0.0[0], c0.0[1], c1.0[0], c1.0[1], c2.0[0], c2.0[1]]))
     }
 
-    /// Compute inverse (panics if zero)
     pub fn inverse(&self) -> Self {
         self.try_inverse().expect("attempted to invert zero")
     }
 
-    /// From noncanonical BigUint
     pub fn from_noncanonical_biguint(n: BigUint) -> Self {
         F::from_noncanonical_biguint(n).into()
     }
 
-    /// From canonical u64
     pub fn from_canonical_u64(n: u64) -> Self {
         F::from_canonical_u64(n).into()
     }
 
-    /// From noncanonical u128
     pub fn from_noncanonical_u128(n: u128) -> Self {
         F::from_noncanonical_u128(n).into()
     }
 
-    /// To canonical BigUint (simplified)
     pub fn to_canonical_biguint(&self) -> BigUint {
         self.0[0].to_canonical_biguint()
     }
 
-    /// Multiplicative group factors
     pub fn multiplicative_group_factors() -> Vec<(BigUint, usize)> {
         vec![
             (BigUint::from(2u32), F::TWO_ADICITY + 2),
@@ -305,7 +284,6 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> Mul for SexticExtension<F> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        // Simplified multiplication - not optimized
         let l0 = QuadraticExtension([self.0[0], self.0[1]]);
         let l1 = QuadraticExtension([self.0[2], self.0[3]]);
         let l2 = QuadraticExtension([self.0[4], self.0[5]]);
@@ -357,14 +335,10 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> OEF<6> for SexticExtension<F
 }
 
 impl<F: Extendable<6> + Extendable<2> + PrimeField> Frobenius<6> for SexticExtension<F> {
-    // Simplified implementation - not optimized for pairing operations
     fn repeated_frobenius(&self, count: usize) -> Self {
-        // For proper implementation, this would need Frobenius coefficients
-        // For now, just return self for even counts
         if count % 6 == 0 {
             *self
         } else {
-            // This is a placeholder - proper implementation would use Frobenius coefficients
             *self
         }
     }

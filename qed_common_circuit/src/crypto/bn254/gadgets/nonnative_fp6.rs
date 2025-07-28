@@ -1,4 +1,3 @@
-/// NonNative Fp6 implementation
 use crate::crypto::bn254::field::extension::quadratic::QuadraticExtension;
 use crate::crypto::bn254::field::extension::sextic::SexticExtension;
 use crate::crypto::bn254::field::bn128_base::Bn128Base;
@@ -342,28 +341,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
         &mut self,
         n: usize,
     ) -> NonNativeTargetExt2<FF> {
-        // We need to construct FF values from the known Frobenius coefficients
-        // These coefficients are from bn128_extension.rs FROBENIUS_COEFFS_EXT6_C1
         use std::any::TypeId;
         
-        // Special handling for Bn128Base since that's what we're actually using
         if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
             match n % 6 {
                 0 => self.constant_nonnative_ext2(QuadraticExtension([FF::ONE, FF::ZERO])),
                 1 => {
-                    // FROBENIUS_COEFFS_EXT6_C1[1]
                     let coeff = Bn128Base([
                         7963664994991228759,
                         12257807996192067905,
                         13179524609921305146,
                         2767831111890561987,
                     ]);
-                    // Safe transmute since we checked the type
                     let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
                     self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
                 }
                 2 => {
-                    // FROBENIUS_COEFFS_EXT6_C1[2]
                     let coeff = Bn128Base([
                         3697675806616062876,
                         9065277094688085689,
@@ -375,7 +368,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
                 }
                 3 => self.constant_nonnative_ext2(QuadraticExtension([FF::ZERO, FF::ZERO])),
                 4 => {
-                    // FROBENIUS_COEFFS_EXT6_C1[4]
                     let coeff = Bn128Base([
                         14532872967180610477,
                         12903226530429559474,
@@ -386,7 +378,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
                     self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
                 }
                 5 => {
-                    // FROBENIUS_COEFFS_EXT6_C1[5]
                     let coeff = Bn128Base([
                         12447993766991532972,
                         4121872836076202828,
@@ -399,7 +390,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
                 _ => unreachable!()
             }
         } else {
-            // For other types, this should not be called
             panic!("frobenius_coeffs_c1_nonnative_ext6 only supports Bn128Base")
         }
     }
@@ -408,16 +398,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
         &mut self,
         n: usize,
     ) -> NonNativeTargetExt2<FF> {
-        // We need to construct FF values from the known Frobenius coefficients
-        // These coefficients are from bn128_extension.rs FROBENIUS_COEFFS_EXT6_C2
         use std::any::TypeId;
         
-        // Special handling for Bn128Base since that's what we're actually using
         if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
             match n % 6 {
                 0 => self.constant_nonnative_ext2(QuadraticExtension([FF::ONE, FF::ZERO])),
                 1 => {
-                    // FROBENIUS_COEFFS_EXT6_C2[1]
                     let coeff = Bn128Base([
                         6763840483288992073,
                         7118829427391486816,
@@ -428,7 +414,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
                     self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
                 }
                 2 => {
-                    // FROBENIUS_COEFFS_EXT6_C2[2]
                     let coeff = Bn128Base([
                         8183898218631979349,
                         12014359695528440611,
@@ -440,7 +425,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
                 }
                 3 => self.constant_nonnative_ext2(QuadraticExtension([FF::ZERO, FF::ZERO])),
                 4 => {
-                    // FROBENIUS_COEFFS_EXT6_C2[4]
                     let coeff = Bn128Base([
                         4938922280314430175,
                         13823286637238282975,
@@ -451,7 +435,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
                     self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
                 }
                 5 => {
-                    // FROBENIUS_COEFFS_EXT6_C2[5]
                     let coeff = Bn128Base([
                         3105754162722846417,
                         11647802298615474591,
@@ -464,7 +447,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
                 _ => unreachable!()
             }
         } else {
-            // For other types, this should not be called
             panic!("frobenius_coeffs_c2_nonnative_ext6 only supports Bn128Base")
         }
     }

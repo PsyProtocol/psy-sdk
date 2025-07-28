@@ -1,4 +1,3 @@
-/// NonNative Fp2 implementation
 use crate::crypto::bn254::field::extension::quadratic::QuadraticExtension;
 use crate::crypto::bn254::gadgets::nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget};
 use plonky2::hash::hash_types::RichField;
@@ -195,9 +194,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt2<F
         a: &NonNativeTargetExt2<FF>,
         b: &NonNativeTargetExt2<FF>,
     ) -> NonNativeTargetExt2<FF> {
-        // Devegili OhEig Scott Dahab
-        //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
-        //     Section 3 (Karatsuba)
 
         let aa = self.mul_nonnative(&a.c0, &b.c0);
         let bb = self.mul_nonnative(&a.c1, &b.c1);
@@ -252,8 +248,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt2<F
         &mut self,
         x: &NonNativeTargetExt2<FF>,
     ) -> NonNativeTargetExt2<FF> {
-        // For quadratic extensions F[u]/(u^2 - w), multiplying by u gives (a + bu) * u = bu*w + au
-        // So we need to multiply c1 by W (the non-residue) to get the new c0
         let w = self.constant_nonnative(FF::W);
         let c0 = self.mul_nonnative(&x.c1, &w);
         NonNativeTargetExt2 {
@@ -281,9 +275,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt2<F
         &mut self,
         x: &NonNativeTargetExt2<FF>,
     ) -> NonNativeTargetExt2<FF> {
-        // Devegili OhEig Scott Dahab
-        //     Multiplication and Squaring on Pairing-Friendly Fields.pdf
-        //     Section 3 (Complex squaring)
 
         let ab = self.mul_nonnative(&x.c0, &x.c1);
         let c1 = self.add_nonnative(&ab, &ab);
@@ -413,7 +404,6 @@ mod tests {
         let y = builder.constant_nonnative_ext2(y_ff);
         let diff = builder.sub_nonnative_ext2(&x, &y);
 
-        // Verify diff + y = x
         let sum = builder.add_nonnative_ext2(&diff, &y);
         builder.connect_nonnative_ext2(&sum, &x);
 
@@ -441,7 +431,6 @@ mod tests {
         let y = builder.constant_nonnative_ext2(y_ff);
         let product = builder.mul_nonnative_ext2(&x, &y);
 
-        // Also test that x * 1 = x
         let one = builder.constant_nonnative_ext2(FF::ONE);
         let x_times_one = builder.mul_nonnative_ext2(&x, &one);
         builder.connect_nonnative_ext2(&x_times_one, &x);

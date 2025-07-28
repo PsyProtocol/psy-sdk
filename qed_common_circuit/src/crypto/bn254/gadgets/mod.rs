@@ -10,7 +10,6 @@ pub mod pairing;
 pub mod split_nonnative;
 pub mod windowed_mul;
 
-// Re-export commonly used traits and types
 pub use g1::{CircuitBuilderG1, G1AffineTarget};
 pub use g2::{CircuitBuilderG2, G2AffineTarget};
 pub use nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget};

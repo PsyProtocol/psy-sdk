@@ -24,7 +24,6 @@ const NONNATIVE_BASE: [u32; 8] = [
     0xd87cfd47, 0x3c208c16, 0x6871ca8d, 0x97816a91, 0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
 ];
 
-/// A gate to perform a addition of two nonnative with 8 limbs.
 #[derive(Copy, Clone, Debug)]
 pub struct NonnativeAddGate<F: RichField + Extendable<D>, const D: usize> {
     pub num_ops: usize,
@@ -84,7 +83,6 @@ impl<F: RichField + Extendable<D>, const D: usize> NonnativeAddGate<F, D> {
     pub fn limb_bits() -> usize {
         2
     }
-    // We have 16 2-bit limbs for a 32-bit limb.
     pub fn num_limbs() -> usize {
         32 / Self::limb_bits()
     }
@@ -149,7 +147,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NonnativeAddGa
             }
             constraints.push(carry * (F::Extension::ONE - carry));
 
-            // Range-check output_result to be at most 32 bits.
             for j in 0..8 {
                 let mut combined_limbs = F::Extension::ZERO;
                 let limb_base = F::Extension::from_canonical_u64(1u64 << Self::limb_bits());
@@ -267,7 +264,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
             }
             yield_constr.one(carry * (P::ONES - carry));
 
-            // Range-check output_result to be at most 32 bits.
             for j in 0..8 {
                 let mut combined_limbs = P::ZEROS;
                 let limb_base = F::from_canonical_u64(1u64 << Self::limb_bits());

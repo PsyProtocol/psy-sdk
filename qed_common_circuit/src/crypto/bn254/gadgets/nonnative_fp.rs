@@ -1,4 +1,3 @@
-/// NonNative field arithmetic gadgets
 use std::marker::PhantomData;
 use std::any::TypeId;
 
@@ -25,12 +24,10 @@ use crate::crypto::bn254::gadgets::gates::{
 };
 use num::{BigUint, Zero};
 
-/// Helper function to compute ceiling division
 fn ceil_div_usize(a: usize, b: usize) -> usize {
     (a + b - 1) / b
 }
 
-/// A target representing a nonnative field element
 #[derive(Clone, Debug)]
 pub struct NonNativeTarget<FF: Field> {
     pub value: BigUintTarget,
@@ -46,59 +43,49 @@ impl<FF: Field> NonNativeTarget<FF> {
     }
 }
 
-/// Trait for circuit builders to support nonnative field operations
 pub trait CircuitBuilderNonNative<F: RichField + Extendable<D>, const D: usize> {
-    /// Create a new nonnative target
     fn add_virtual_nonnative_target<FF: Field>(&mut self) -> NonNativeTarget<FF>;
 
-    /// Create a nonnative constant
     fn constant_nonnative<FF: PrimeField>(&mut self, value: FF) -> NonNativeTarget<FF>;
 
-    /// Add two nonnative elements
     fn add_nonnative<FF: Field>(
         &mut self,
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF>;
 
-    /// Subtract two nonnative elements
     fn sub_nonnative<FF: Field + PrimeField>(
         &mut self,
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF>;
 
-    /// Multiply two nonnative elements
     fn mul_nonnative<FF: Field>(
         &mut self,
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF>;
 
-    /// Compute the inverse of a nonnative element
     fn inv_nonnative<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF>;
 
-    /// Divide two nonnative elements
+    fn inv_nonnative_safe<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>, is_zero: BoolTarget) -> NonNativeTarget<FF>;
+
     fn div_nonnative<FF: Field + PrimeField>(
         &mut self,
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF>;
 
-    /// Negate a nonnative element
     fn neg_nonnative<FF: Field + PrimeField>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF>;
 
-    /// Check if two nonnative elements are equal
     fn is_equal_nonnative<FF: Field>(
         &mut self,
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
     ) -> BoolTarget;
 
-    /// Check if a nonnative element is zero
     fn is_zero_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> BoolTarget;
 
-    /// Conditionally select between two nonnative elements
     fn select_nonnative<FF: Field>(
         &mut self,
         condition: BoolTarget,
@@ -106,78 +93,61 @@ pub trait CircuitBuilderNonNative<F: RichField + Extendable<D>, const D: usize> 
         false_value: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF>;
 
-    /// Create a nonnative zero
     fn zero_nonnative<FF: Field>(&mut self) -> NonNativeTarget<FF>;
 
-    /// Create a nonnative one
     fn one_nonnative<FF: Field>(&mut self) -> NonNativeTarget<FF>;
 
-    /// Convert a boolean to a nonnative element
     fn bool_to_nonnative<FF: Field>(&mut self, b: BoolTarget) -> NonNativeTarget<FF>;
 
-    /// Compute a^b for nonnative elements
     fn pow_nonnative<FF: Field>(
         &mut self,
         base: &NonNativeTarget<FF>,
         exponent: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF>;
 
-    /// Square a nonnative element
     fn square_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF>;
 
-    /// Cube a nonnative element
     fn cube_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF>;
 
-    /// Assert that a nonnative element is valid (in the range [0, modulus))
     fn assert_valid_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>);
 
-    /// Reduce a BigUint modulo the field modulus
     fn reduce_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF>;
 
-    /// Connect two nonnative elements
     fn connect_nonnative<FF: Field>(
         &mut self,
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
     );
 
-    /// Multiply a nonnative element by a boolean
     fn mul_nonnative_by_bool<FF: Field>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: BoolTarget,
     ) -> NonNativeTarget<FF>;
 
-    /// Conditionally negate a nonnative element
     fn nonnative_conditional_neg<FF: PrimeField>(
         &mut self,
         x: &NonNativeTarget<FF>,
         condition: BoolTarget,
     ) -> NonNativeTarget<FF>;
 
-    /// Split a nonnative element into bits
     fn split_nonnative_to_bits<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> Vec<BoolTarget>;
 
-    /// Multiply by nonresidue for the field FF
     fn mul_by_nonresidue_nonnative<FF: PrimeField>(
         &mut self,
         x: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF>;
 
-    /// Returns `x % |FF|` as a `NonNativeTarget`.
     fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF>;
     
 
-    /// Convert from biguint to nonnative
     fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF>;
 
-    /// Convert from nonnative to canonical biguint
     fn nonnative_to_canonical_biguint<FF: Field>(
         &mut self,
         x: &NonNativeTarget<FF>,
     ) -> BigUintTarget;
 
-    /// If-then-else for nonnative elements
     fn if_nonnative<FF: PrimeField>(
         &mut self,
         b: BoolTarget,
@@ -185,13 +155,11 @@ pub trait CircuitBuilderNonNative<F: RichField + Extendable<D>, const D: usize> 
         y: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF>;
 
-    /// Add a virtual nonnative target with specified number of limbs
     fn add_virtual_nonnative_target_sized<FF: Field>(
         &mut self,
         num_limbs: usize,
     ) -> NonNativeTarget<FF>;
 
-    /// Number of limbs needed for a nonnative field element
     fn num_nonnative_limbs<FF: Field>() -> usize;
 }
 
@@ -199,7 +167,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
     for CircuitBuilder<F, D>
 {
     fn add_virtual_nonnative_target<FF: Field>(&mut self) -> NonNativeTarget<FF> {
-        // Always create 8 limbs for compatibility with custom gates
         let value = self.add_virtual_biguint_target(8);
         NonNativeTarget::new(value)
     }
@@ -218,7 +185,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF> {
-        // Use custom gate for optimized non-native addition
         let gate = NonnativeAddGate::<F, D>::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
         let mut targets = Vec::new();
@@ -253,11 +219,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
             _phantom: PhantomData,
         });
         
-        // Range check the difference limbs
         use crate::u32::gadgets::range_check::range_check_u32_circuit;
         range_check_u32_circuit(self, diff.value.limbs.clone());
         
-        // Verify: a = diff + b
         let diff_plus_b = self.add_nonnative(&diff, rhs);
         self.connect_nonnative(lhs, &diff_plus_b);
         
@@ -269,7 +233,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF> {
-        // Convert U32 limbs to U28 for multiplication
         let gate = U32ToU28Gate::<F, D>::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
         for i in 0..8 {
@@ -296,7 +259,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
             b_targets.push(Target::wire(row, gate.wire_ith_output_result(copy, i)));
         }
         
-        // Multiply using custom gate
         let mut xy = Vec::new();
         let gate = NonnativeMulGate::<F, D>::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
@@ -312,12 +274,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
             xy.push(Target::wire(row, gate.wire_ith_output_result(copy, i)));
         }
         
-        // Multiply by inverse constants for reduction
         let mut res = Vec::new();
         let gate = NonnativeMulGate::<F, D>::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
         
-        // Import BN128_BASE_INV constants from plonky2-pairing
         const BN128_BASE_INV: [u32; 10] = [
             0x14afa37, 0x84884a0, 0x8edf8ed, 0x2285027, 0x2d9eb20, 0xcfb7449, 0x9cf63e9, 0x59e5c63,
             0xe671571, 0x2,
@@ -330,7 +290,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
             res.push(Target::wire(row, gate.wire_ith_output_result(copy, i)));
         }
         
-        // Convert back to U32
         let gate = U28ToU32Gate::<F, D>::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
         for i in 0..10 {
@@ -372,6 +331,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         }
     }
 
+    fn inv_nonnative_safe<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>, is_zero: BoolTarget) -> NonNativeTarget<FF> {
+        let one = self.one_nonnative();
+        let safe_x = self.select_nonnative(is_zero, &one, x);
+        
+        let inv_safe = self.inv_nonnative(&safe_x);
+        
+        self.select_nonnative(is_zero, &one, &inv_safe)
+    }
+
     fn div_nonnative<FF: Field + PrimeField>(
         &mut self,
         lhs: &NonNativeTarget<FF>,
@@ -391,7 +359,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
     ) -> BoolTarget {
-        // Check if all limbs are equal
         let mut all_equal = self._true();
         let (lhs_padded, rhs_padded) = self.pad_biguints(&lhs.value, &rhs.value);
         
@@ -449,13 +416,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         base: &NonNativeTarget<FF>,
         exponent: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF> {
-        // Square-and-multiply algorithm
         let mut result = self.one_nonnative::<FF>();
         let mut base_power = base.clone();
         
-        // We need to handle this differently since we can't iterate over witness values
-        // This is a simplified version - proper implementation would need more work
-        // For now, just return base * base as a placeholder
         let squared = self.mul_nonnative(&base_power, &base_power);
         squared
     }
@@ -470,7 +433,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
     }
 
     fn assert_valid_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) {
-        // Assert that x < modulus
         let modulus = self.constant_biguint(&FF::characteristic());
         let is_valid = self.cmp_biguint(&x.value, &modulus);
         self.assert_one(is_valid.target);
@@ -479,7 +441,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
     fn reduce_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
         let modulus = self.constant_biguint(&FF::characteristic());
         
-        // Use rem_biguint to compute x mod modulus (more efficient than div_rem)
         let remainder = self.rem_biguint(x, &modulus);
         
         NonNativeTarget::new(remainder)
@@ -533,8 +494,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         &mut self,
         x: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF> {
-        // For BN128 fields, NONRESIDUE is -1, so we just negate
-        // This works for both Bn128Base and Bn128Scalar
         self.neg_nonnative(x)
     }
 
@@ -658,12 +617,9 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
         let b_biguint = witness.get_biguint_target(&self.b.value);
         let p = FF::order();
         
-        // Ensure a is in range [0, p)
         let a_mod_p = a_biguint % &p;
-        // Ensure b is in range [0, p)
         let b_mod_p = b_biguint % &p;
         
-        // Compute (a - b) mod p
         let diff_biguint = if a_mod_p >= b_mod_p {
             a_mod_p - b_mod_p
         } else {
@@ -761,10 +717,8 @@ mod tests {
         let x_ff = FF::from_canonical_u64(12345);
         let x_target = builder.constant_nonnative(x_ff);
         
-        // Create another constant with same value
         let y_target = builder.constant_nonnative(x_ff);
         
-        // They should be equal
         builder.connect_nonnative(&x_target, &y_target);
 
         let data = builder.build::<C>();
@@ -827,8 +781,6 @@ mod tests {
         let b = builder.constant_nonnative(b_ff);
         let diff = builder.sub_nonnative(&a, &b);
 
-        // Instead of creating a new constant and connecting, 
-        // let's verify the result is correct using addition
         let sum = builder.add_nonnative(&diff, &b);
         builder.connect_nonnative(&sum, &a);
 
@@ -880,7 +832,6 @@ mod tests {
         let neg_x_expected = builder.constant_nonnative(neg_x_ff);
         builder.connect_nonnative(&neg_x, &neg_x_expected);
 
-        // Also verify that x + (-x) = 0
         let sum = builder.add_nonnative(&x, &neg_x);
         let zero = builder.zero_nonnative();
         builder.connect_nonnative(&sum, &zero);
@@ -921,7 +872,6 @@ mod tests {
         let inv_x_expected = builder.constant_nonnative(inv_x_ff);
         builder.connect_nonnative(&inv_x, &inv_x_expected);
 
-        // Also verify that x * x^(-1) = 1
         let product = builder.mul_nonnative(&x, &inv_x);
         let one = builder.constant_nonnative(FF::ONE);
         builder.connect_nonnative(&product, &one);
@@ -972,11 +922,9 @@ mod tests {
         let true_val = builder._true();
         let false_val = builder._false();
 
-        // x * true = x
         let x_times_true = builder.mul_nonnative_by_bool(&x, true_val);
         builder.connect_nonnative(&x_times_true, &x);
 
-        // x * false = 0
         let x_times_false = builder.mul_nonnative_by_bool(&x, false_val);
         let zero = builder.zero_nonnative();
         builder.connect_nonnative(&x_times_false, &zero);
@@ -1004,11 +952,9 @@ mod tests {
         let true_val = builder._true();
         let false_val = builder._false();
 
-        // select(true, a, b) = a
         let selected_true = builder.select_nonnative(true_val, &a, &b);
         builder.connect_nonnative(&selected_true, &a);
 
-        // select(false, a, b) = b
         let selected_false = builder.select_nonnative(false_val, &a, &b);
         builder.connect_nonnative(&selected_false, &b);
 
@@ -1032,12 +978,10 @@ mod tests {
         let true_val = builder._true();
         let false_val = builder._false();
 
-        // conditional_neg(x, true) = -x
         let neg_if_true = builder.nonnative_conditional_neg(&x, true_val);
         let neg_x = builder.neg_nonnative(&x);
         builder.connect_nonnative(&neg_if_true, &neg_x);
 
-        // conditional_neg(x, false) = x
         let neg_if_false = builder.nonnative_conditional_neg(&x, false_val);
         builder.connect_nonnative(&neg_if_false, &x);
 
@@ -1057,33 +1001,24 @@ mod tests {
         };
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        // Create multiple operations to test circuit scalability
         let values: Vec<FF> = (1..=10).map(|i| FF::from_canonical_u64(i as u64 * 123)).collect();
         let targets: Vec<_> = values.iter()
             .map(|&v| builder.constant_nonnative(v))
             .collect();
 
-        // Perform chain of operations
         let mut result = targets[0].clone();
         for i in 1..targets.len() {
-            // Add
             result = builder.add_nonnative(&result, &targets[i]);
-            // Multiply by a constant
             let constant = builder.constant_nonnative(FF::from_canonical_u64(2));
             result = builder.mul_nonnative(&result, &constant);
         }
 
-        // Final verification
         let final_target = builder.add_virtual_nonnative_target();
         builder.connect_nonnative(&result, &final_target);
 
-        println!("Building circuit with {} nonnative operations...", targets.len() * 2);
         let start = Instant::now();
         let data = builder.build::<C>();
         let build_time = start.elapsed();
-        
-        println!("Circuit build time: {:?}", build_time);
-        println!("Number of gates: {}", data.common.gates.len());
         
         let pw = PartialWitness::new();
         
@@ -1095,10 +1030,6 @@ mod tests {
         data.verify(proof).unwrap();
         let verify_time = start.elapsed();
         
-        println!("Prove time: {:?}", prove_time);
-        println!("Verify time: {:?}", verify_time);
-        
-        // Performance thresholds (adjust based on your requirements)
         assert!(build_time.as_millis() < 5000, "Build time too long: {:?}", build_time);
         assert!(prove_time.as_millis() < 10000, "Prove time too long: {:?}", prove_time);
         assert!(verify_time.as_millis() < 1000, "Verify time too long: {:?}", verify_time);
@@ -1125,25 +1056,20 @@ mod tests {
         };
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        // Test with values close to field modulus
         let large_val1 = FF::from_canonical_u64(u64::MAX - 1000);
         let large_val2 = FF::from_canonical_u64(u64::MAX - 2000);
         
         let target1 = builder.constant_nonnative(large_val1);
         let target2 = builder.constant_nonnative(large_val2);
 
-        // Test various operations with large values
         let sum = builder.add_nonnative(&target1, &target2);
         let diff = builder.sub_nonnative(&target1, &target2);
         let product = builder.mul_nonnative(&target1, &target2);
         let inv1 = builder.inv_nonnative(&target1);
         
-        // Verify difference is what we expect
-        // diff + target2 should equal target1
         let diff_plus_b = builder.add_nonnative(&diff, &target2);
         builder.connect_nonnative(&diff_plus_b, &target1);
         
-        // Verify inverse works: target1 * inv1 = 1
         let one = builder.constant_nonnative(FF::ONE);
         let product_inv = builder.mul_nonnative(&target1, &inv1);
         builder.connect_nonnative(&product_inv, &one);
@@ -1175,12 +1101,10 @@ mod tests {
         };
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        // Test full edge cases
         let zero: NonNativeTarget<FF> = builder.zero_nonnative();
         let one = builder.constant_nonnative(FF::ONE);
         let value = builder.constant_nonnative(FF::from_canonical_u64(42));
 
-        // Zero operations
         let zero_plus_value = builder.add_nonnative(&zero, &value);
         builder.connect_nonnative(&zero_plus_value, &value);
 
@@ -1190,7 +1114,6 @@ mod tests {
         let zero_times_value = builder.mul_nonnative(&zero, &value);
         builder.connect_nonnative(&zero_times_value, &zero);
 
-        // One operations
         let one_times_value = builder.mul_nonnative(&one, &value);
         builder.connect_nonnative(&one_times_value, &value);
 
