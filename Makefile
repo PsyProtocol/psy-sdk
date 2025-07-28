@@ -195,9 +195,7 @@ run-realm-processor1:
       --lmdbx-path ${PWD}/db/realm1 \
       --node-id=2 \
       --realm-id=1 \
-      --worker-queue-suffix=rwq1 \
-      --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1
+      --worker-queue-suffix=rwq1
 
 run-realm-edge1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
@@ -208,16 +206,12 @@ run-realm-edge1:
       --coordinator-addr=http://127.0.0.1:8545 \
       --node-id=2 \
       --realm-id=1 \
-      --worker-queue-suffix=rwq1 \
-      --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1
+      --worker-queue-suffix=rwq1
 
 run-realm-worker1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
       --redis-uri=redis://127.0.0.1:6381 \
-      --worker-queue-suffix=rwq1 \
-      --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1
+      --worker-queue-suffix=rwq1
 
 
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
@@ -268,9 +262,7 @@ run-realm-processor1-tikv:
 		--tikv-namespace realm1 \
 		--node-id=2 \
 		--realm-id=1 \
-		--worker-queue-suffix=rwq1 \
-		--notifications-queue-suffix=rnq1 \
-		--proof-store-key-suffix=RP1
+		--worker-queue-suffix=rwq1
 
 run-realm-edge1-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
@@ -282,9 +274,7 @@ run-realm-edge1-tikv:
         --coordinator-addr=http://127.0.0.1:8545 \
 		--node-id=2 \
 		--realm-id=1 \
-		--worker-queue-suffix=rwq1 \
-		--notifications-queue-suffix=rnq1 \
-		--proof-store-key-suffix=RP1
+		--worker-queue-suffix=rwq1
 
 run-all-tikv: shutdown-tikv init-tikv
 	@./scripts/run_all_tikv.sh

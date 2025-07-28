@@ -80,7 +80,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     
     timer.lap("connected to redis");
 
-    let q = DrainQueueFred::new(pool);
+    let q = DrainQueueFred::new(pool, "fred_q".to_string());
 
     let worker_count = 16usize;
     let items_per_worker = 2000usize;
@@ -123,7 +123,7 @@ async fn run_fred_test2() -> anyhow::Result<()> {
     
     timer.lap("connected to redis");
 
-    let q = DrainQueueFred::new(pool);
+    let q = DrainQueueFred::new(pool, "fred_q".to_string());
 
     /* 
     let worker_count = 4usize;
@@ -174,7 +174,7 @@ async fn run_fred_test() -> anyhow::Result<()> {
     
     timer.lap("connected to redis");
 
-    let q = DrainQueueFred::new(pool);
+    let q = DrainQueueFred::new(pool, "fred_q".to_string());
     let items = TestItem::gen_many(2, 10000, 0);
     timer.lap("generated items");
     for item in items {

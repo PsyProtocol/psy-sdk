@@ -174,9 +174,7 @@
         "processor": {
           "enabled": true,
           "args": {
-            "worker_queue_suffix": "rwq0",
-            "notifications_queue_suffix": "rnq0",
-            "proof_store_key_suffix": "RP0"
+            "worker_queue_suffix": "rwq0"
             },
           "env": {
             "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
@@ -198,9 +196,7 @@
           "args": {
             "listen_addr": "0.0.0.0:8546",
             "coordinator_addr": "http://coordinator-edge:8545",
-            "worker_queue_suffix": "rwq0",
-            "notifications_queue_suffix": "rnq0",
-            "proof_store_key_suffix": "RP0"
+            "worker_queue_suffix": "rwq0"
           },
           "env": {
             "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
@@ -222,9 +218,7 @@
           "enabled": true,
           "instances": 2,
           "args": {
-            "worker_queue_suffix": "rwq0",
-            "notifications_queue_suffix": "rnq0",
-            "proof_store_key_suffix": "RP0"
+            "worker_queue_suffix": "rwq0"
           },
           "env": {
             "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
@@ -286,9 +280,7 @@
         "processor": {
           "enabled": true,
           "args": {
-            "worker_queue_suffix": "rwq1",
-            "notifications_queue_suffix": "rnq1",
-            "proof_store_key_suffix": "RP1"
+            "worker_queue_suffix": "rwq1"
             },
           "env": {
             "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
@@ -310,9 +302,7 @@
           "args": {
             "listen_addr": "0.0.0.0:8547",
             "coordinator_addr": "http://coordinator-edge:8545",
-            "worker_queue_suffix": "rwq1",
-            "notifications_queue_suffix": "rnq1",
-            "proof_store_key_suffix": "RP1"
+            "worker_queue_suffix": "rwq1"
           },
           "env": {
             "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
@@ -334,9 +324,7 @@
           "enabled": true,
           "instances": 2,
           "args": {
-            "worker_queue_suffix": "rwq1",
-            "notifications_queue_suffix": "rnq1",
-            "proof_store_key_suffix": "RP1"
+            "worker_queue_suffix": "rwq1"
           },
           "env": {
             "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"

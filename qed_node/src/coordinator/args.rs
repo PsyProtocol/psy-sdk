@@ -56,18 +56,4 @@ pub struct CoordinatorQueueArgs {
         default_value = "wq1"
     )]
     pub worker_queue_suffix: String,
-    #[clap(
-        env = "COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX",
-        long,
-        short,
-        default_value = "nq1"
-    )]
-    pub notifications_queue_suffix: String,
-    #[clap(
-        env = "COORDINATOR_PROOF_STORE_KEY_SUFFIX",
-        long,
-        short = 'k',
-        default_value = "CW"
-    )]
-    pub proof_store_key_suffix: String,
 }

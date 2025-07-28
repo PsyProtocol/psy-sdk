@@ -1067,12 +1067,6 @@ Resources:
                 --realm-id {{ realm.id }} \
                 {% if realm.processor.args.worker_queue_suffix %}\
                 --worker-queue-suffix {{ realm.processor.args.worker_queue_suffix }} \
-                {% endif %}\
-                {% if realm.processor.args.notifications_queue_suffix %}\
-                --notifications-queue-suffix {{ realm.processor.args.notifications_queue_suffix }} \
-                {% endif %}\
-                {% if realm.processor.args.proof_store_key_suffix %}\
-                --proof-store-key-suffix {{ realm.processor.args.proof_store_key_suffix }}
                 {% endif %}
               
               # Check if container started successfully

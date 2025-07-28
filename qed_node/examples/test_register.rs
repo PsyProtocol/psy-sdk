@@ -43,7 +43,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
     timer.lap("connected to redis");
 
-    let q = ProofStoreFred::new(pool, "wq1".to_string(), "nq1".to_string());
+    let q = ProofStoreFred::new(pool, "wq1".to_string());
 
     let store_reader = Arc::new(KVQSimpleMemoryBackingStore::new());
 

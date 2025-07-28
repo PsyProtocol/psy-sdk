@@ -53,25 +53,12 @@ pub struct QueueConfig {
     /// Worker queue suffix
     #[arg(long, env = "REALM_QUEUE_WORKER_QUEUE_SUFFIX", default_value = "rwq0")]
     pub worker_queue_suffix: String,
-
-    /// Notifications queue suffix
-    #[arg(
-        long,
-        env = "REALM_QUEUE_NOTIFICATIONS_QUEUE_SUFFIX",
-        default_value = "rnq0"
-    )]
-    pub notifications_queue_suffix: String,
-
-    #[arg(long, env = "REALM_PROOF_STORE_KEY_SUFFIX", default_value = "RP0")]
-    pub proof_store_key_suffix: String,
 }
 
 impl Default for QueueConfig {
     fn default() -> Self {
         Self {
             worker_queue_suffix: "rwq0".to_string(),
-            notifications_queue_suffix: "rnq0".to_string(),
-            proof_store_key_suffix: "RP0".to_string(),
         }
     }
 }
