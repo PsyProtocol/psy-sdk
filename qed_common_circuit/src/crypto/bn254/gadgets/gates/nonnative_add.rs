@@ -1,5 +1,8 @@
 use core::marker::PhantomData;
 use num::BigUint;
+use std::any::TypeId;
+
+use crate::crypto::bn254::field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar};
 
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -20,17 +23,34 @@ use plonky2::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 
-const NONNATIVE_BASE: [u32; 8] = [
-    0xd87cfd47, 0x3c208c16, 0x6871ca8d, 0x97816a91, 0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
-];
+// Helper function to get field modulus as 32-bit limbs based on field type
+fn get_field_modulus_32bit<F: Field>() -> [u32; 8] {
+    use crate::crypto::bn254::field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar};
 
-#[derive(Copy, Clone, Debug)]
-pub struct NonnativeAddGate<F: RichField + Extendable<D>, const D: usize> {
-    pub num_ops: usize,
-    _phantom: PhantomData<F>,
+    if TypeId::of::<F>() == TypeId::of::<Bn128Base>() {
+        // BN128 Base field modulus in 32-bit limbs (little-endian)
+        [
+            0xd87cfd47, 0x3c208c16, 0x6871ca8d, 0x97816a91,
+            0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
+        ]
+    } else if TypeId::of::<F>() == TypeId::of::<Bn128Scalar>() {
+        // BN128 Scalar field modulus in 32-bit limbs (little-endian)
+        [
+            0xf0000001, 0x43e1f593, 0x79b97091, 0x2833e848,
+            0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
+        ]
+    } else {
+        panic!("NonNative operations only support Bn128Base and Bn128Scalar fields");
+    }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> NonnativeAddGate<F, D> {
+#[derive(Copy, Clone, Debug)]
+pub struct NonnativeAddGate<F: RichField + Extendable<D>, FF: Field, const D: usize> {
+    pub num_ops: usize,
+    _phantom: PhantomData<(F, FF)>,
+}
+
+impl<F: RichField + Extendable<D>, FF: Field, const D: usize> NonnativeAddGate<F, FF, D> {
     pub fn new_from_config(config: &CircuitConfig) -> Self {
         Self {
             num_ops: Self::num_ops(config),
@@ -88,7 +108,7 @@ impl<F: RichField + Extendable<D>, const D: usize> NonnativeAddGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NonnativeAddGate<F, D> {
+impl<F: RichField + Extendable<D>, FF: Field, const D: usize> Gate<F, D> for NonnativeAddGate<F, FF, D> {
     fn id(&self) -> String {
         format!("{self:?}")
     }
@@ -110,6 +130,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NonnativeAddGa
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
+
+        let modulus_limbs = get_field_modulus_32bit::<FF>();
+
         for i in 0..self.num_ops {
             let mut input_x = vec![F::Extension::ZERO; 8];
             let mut input_y = vec![F::Extension::ZERO; 8];
@@ -136,7 +159,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NonnativeAddGa
                     + (F::Extension::ONE - carry_l[j]) * base
                     + last_carry_l;
                 let results_r = output_result[j]
-                    + carry * F::Extension::from_canonical_u32(NONNATIVE_BASE[j])
+                    + carry * F::Extension::from_canonical_u32(modulus_limbs[j])
                     + (F::Extension::ONE - carry_r[j]) * base
                     + last_carry_r;
                 constraints.push(results_r - results_l);
@@ -192,7 +215,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NonnativeAddGa
         (0..self.num_ops)
             .map(|i| {
                 WitnessGeneratorRef::new(
-                    NonnativeAddGenerator {
+                    NonnativeAddGenerator::<F, FF, D> {
                         gate: *self,
                         row,
                         i,
@@ -221,14 +244,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NonnativeAddGa
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
-    for NonnativeAddGate<F, D>
+impl<F: RichField + Extendable<D>, FF: Field, const D: usize> PackedEvaluableBase<F, D>
+    for NonnativeAddGate<F, FF, D>
 {
     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
         &self,
         vars: EvaluationVarsBasePacked<P>,
         mut yield_constr: StridedConstraintConsumer<P>,
     ) {
+        let modulus_limbs = get_field_modulus_32bit::<FF>();
+
         for i in 0..self.num_ops {
             let mut input_x = vec![P::ZEROS; 8];
             let mut input_y = vec![P::ZEROS; 8];
@@ -253,7 +278,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
                 let results_l =
                     input_x[j] + input_y[j] + (P::ONES - carry_l[j]) * base.clone() + last_carry_l;
                 let results_r = output_result[j]
-                    + carry * F::from_canonical_u32(NONNATIVE_BASE[j])
+                    + carry * F::from_canonical_u32(modulus_limbs[j])
                     + (P::ONES - carry_r[j]) * base.clone()
                     + last_carry_r;
                 yield_constr.one(results_r - results_l);
@@ -285,15 +310,15 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 }
 
 #[derive(Clone, Debug)]
-struct NonnativeAddGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate: NonnativeAddGate<F, D>,
+struct NonnativeAddGenerator<F: RichField + Extendable<D>, FF: Field, const D: usize> {
+    gate: NonnativeAddGate<F, FF, D>,
     row: usize,
     i: usize,
-    _phantom: PhantomData<F>,
+    _phantom: PhantomData<(F, FF)>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
-    for NonnativeAddGenerator<F, D>
+impl<F: RichField + Extendable<D>, FF: Field, const D: usize> SimpleGenerator<F, D>
+    for NonnativeAddGenerator<F, FF, D>
 {
     fn id(&self) -> String {
         "NonnativeAddGenerator".to_string()
@@ -359,7 +384,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         let input_y_biguint = BigUint::from_slice(&input_y_u32s);
 
         let sum_biguint = input_x_biguint + input_y_biguint;
-        let nonnative_base_biguint = BigUint::from_slice(&NONNATIVE_BASE);
+
+        // Get the appropriate field modulus based on the field type
+        let modulus_limbs = get_field_modulus_32bit::<FF>();
+        let nonnative_base_biguint = BigUint::from_slice(&modulus_limbs);
+
         let carry = if sum_biguint >= nonnative_base_biguint {
             F::ONE
         } else {
@@ -395,8 +424,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
                 local_wire(self.gate.wire_ith_carry_l(self.i, j)),
                 carry_l.clone(),
             );
+            let modulus_limbs = get_field_modulus_32bit::<FF>();
             let carry_r = if (output_result.clone()
-                + F::from_canonical_u32(NONNATIVE_BASE[j]) * carry
+                + F::from_canonical_u32(modulus_limbs[j]) * carry
                 + last_carry_r)
                 .to_canonical_u64()
                 >= base.to_canonical_u64()
@@ -414,8 +444,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         }
 
         for j in 0..8 {
-            let num_limbs = NonnativeAddGate::<F, D>::num_limbs();
-            let limb_base = 1 << NonnativeAddGate::<F, D>::limb_bits();
+            let num_limbs = NonnativeAddGate::<F, FF,  D>::num_limbs();
+            let limb_base = 1 << NonnativeAddGate::<F, FF, D>::limb_bits();
             let output_limbs: Vec<_> = (0..num_limbs)
                 .scan(output_result_u32s[j] as u64, |acc, _| {
                     let tmp = *acc % limb_base;
@@ -445,7 +475,7 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<GoldilocksField, _, 4>(NonnativeAddGate::<GoldilocksField, 4> {
+        test_low_degree::<GoldilocksField, _, 4>(NonnativeAddGate::<GoldilocksField, Bn128Base, 4> {
             num_ops: 1,
             _phantom: PhantomData,
         })

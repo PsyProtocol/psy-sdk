@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 use std::any::TypeId;
 
+use crate::crypto::bn254::field::bn128_base::Bn128Base;
+use crate::crypto::bn254::field::bn128_scalar::Bn128Scalar;
+
 use plonky2::{
     field::{extension::Extendable, types::{Field, PrimeField}},
     hash::hash_types::RichField,
@@ -185,7 +188,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF> {
-        let gate = NonnativeAddGate::<F, D>::new_from_config(&self.config);
+        let gate = NonnativeAddGate::<F, FF, D>::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
         let mut targets = Vec::new();
         
@@ -260,7 +263,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         }
         
         let mut xy = Vec::new();
-        let gate = NonnativeMulGate::<F, D>::new_from_config(&self.config);
+        let gate = NonnativeMulGate::<F, FF,  D>::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
         for i in 0..10 {
             self.connect(
@@ -275,17 +278,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         }
         
         let mut res = Vec::new();
-        let gate = NonnativeMulGate::<F, D>::new_from_config(&self.config);
+        let gate = NonnativeMulGate::<F, FF, D>::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
         
-        const BN128_BASE_INV: [u32; 10] = [
-            0x14afa37, 0x84884a0, 0x8edf8ed, 0x2285027, 0x2d9eb20, 0xcfb7449, 0x9cf63e9, 0x59e5c63,
-            0xe671571, 0x2,
-        ];
+        // Choose Montgomery inverse based on field type
+        let mont_inv_limbs = if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
+            // BN128 Base field Montgomery inverse in 28-bit limbs
+            [
+                0x14afa37, 0x84884a0, 0x8edf8ed, 0x2285027, 0x2d9eb20, 
+                0xcfb7449, 0x9cf63e9, 0x59e5c63, 0xe671571, 0x2,
+            ]
+        } else if TypeId::of::<FF>() == TypeId::of::<Bn128Scalar>() {
+            // BN128 Scalar field with MONTGOMERY_INV = 1 (disabled Montgomery)
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        } else {
+            panic!("NonNative multiplication gate only supports Bn128Base and Bn128Scalar fields");
+        };
         
         for i in 0..10 {
             self.connect(Target::wire(row, gate.wire_ith_input_x(copy, i)), xy[i]);
-            let inv = self.constant(F::from_canonical_u32(BN128_BASE_INV[i]));
+            let inv = self.constant(F::from_canonical_u32(mont_inv_limbs[i]));
             self.connect(Target::wire(row, gate.wire_ith_input_y(copy, i)), inv);
             res.push(Target::wire(row, gate.wire_ith_output_result(copy, i)));
         }
@@ -1119,6 +1131,93 @@ mod tests {
 
         let value_times_one = builder.mul_nonnative(&value, &one);
         builder.connect_nonnative(&value_times_one, &value);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+    }
+
+    #[test]
+    fn test_bn128_scalar_operations() {
+        use crate::crypto::bn254::field::bn128_scalar::Bn128Scalar;
+        
+        let config = crate::crypto::bn254::pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test simple addition first
+        let a = Bn128Scalar::from_canonical_u64(100);
+        let b = Bn128Scalar::from_canonical_u64(200);
+        let sum = a + b;
+
+        let a_target = builder.constant_nonnative(a);
+        let b_target = builder.constant_nonnative(b);
+        let sum_target = builder.add_nonnative(&a_target, &b_target);
+
+        let expected = builder.constant_nonnative(sum);
+        builder.connect_nonnative(&sum_target, &expected);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+    }
+
+    #[test]
+    fn test_scalar_vs_base_field_operations() {
+        use crate::crypto::bn254::field::bn128_scalar::Bn128Scalar;
+        
+        let config = crate::crypto::bn254::pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test with Scalar field (should use generic operations)
+        let scalar_a = Bn128Scalar::from_canonical_u64(42);
+        let scalar_b = Bn128Scalar::from_canonical_u64(17);
+        let scalar_product = scalar_a * scalar_b;
+
+        let scalar_a_target = builder.constant_nonnative(scalar_a);
+        let scalar_b_target = builder.constant_nonnative(scalar_b);
+        let scalar_product_target = builder.mul_nonnative(&scalar_a_target, &scalar_b_target);
+
+        let expected_scalar = builder.constant_nonnative(scalar_product);
+        builder.connect_nonnative(&scalar_product_target, &expected_scalar);
+
+        // Test with Base field (should use specialized gates)
+        let base_a = FF::from_canonical_u64(42);
+        let base_b = FF::from_canonical_u64(17);
+        let base_product = base_a * base_b;
+
+        let base_a_target = builder.constant_nonnative(base_a);
+        let base_b_target = builder.constant_nonnative(base_b);
+        let base_product_target = builder.mul_nonnative(&base_a_target, &base_b_target);
+
+        let expected_base = builder.constant_nonnative(base_product);
+        builder.connect_nonnative(&base_product_target, &expected_base);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+    }
+    
+    #[test]
+    fn test_bn128_scalar_multiplication() {
+        use crate::crypto::bn254::field::bn128_scalar::Bn128Scalar;
+        
+        let config = crate::crypto::bn254::pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test multiplication
+        let x = Bn128Scalar::from_canonical_u64(7);
+        let y = Bn128Scalar::from_canonical_u64(13);
+        let product = x * y;
+
+        let x_target = builder.constant_nonnative(x);
+        let y_target = builder.constant_nonnative(y);
+        let product_target = builder.mul_nonnative(&x_target, &y_target);
+
+        let expected_product = builder.constant_nonnative(product);
+        builder.connect_nonnative(&product_target, &expected_product);
 
         let data = builder.build::<C>();
         let pw = PartialWitness::new();

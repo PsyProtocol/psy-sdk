@@ -66,9 +66,9 @@ impl Bn128Scalar {
         0xb85045b68181585d,
         0x30644e72e131a029,
     ]);
-    
+
     pub const NONRESIDUE: Self = todo!();
-    
+
     pub fn mul_by_nonresidue(&self) -> Self {
         todo!()
     }
@@ -80,10 +80,12 @@ impl Bn128Scalar {
         0x30644e72e131a029,
     ];
 
+    pub const MONTGOMERY_INV: [u64; 4] = [1, 0, 0, 0];
+
     pub const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
-    
+
     pub const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
-    
+
     pub const TWO_ADICITY: usize = 1;
 
     pub fn from_canonical_u64(n: u64) -> Self {
@@ -137,7 +139,7 @@ impl Bn128Scalar {
 
     pub fn order() -> BigUint {
         BigUint::from_slice(&[
-            0xf0000001, 0x43e1f593, 0x79b97091, 0x2833e848, 
+            0xf0000001, 0x43e1f593, 0x79b97091, 0x2833e848,
             0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
         ])
     }
@@ -160,15 +162,15 @@ impl Bn128Scalar {
 
     pub fn exp_biguint(&self, exp: &BigUint) -> Self {
         use num::traits::Zero;
-        
+
         if exp.is_zero() {
             return Self::ONE;
         }
-        
+
         let mut result = Self::ONE;
         let mut base = *self;
         let mut e = exp.clone();
-        
+
         while !e.is_zero() {
             if &e & BigUint::one() == BigUint::one() {
                 result = result * base;
@@ -176,7 +178,7 @@ impl Bn128Scalar {
             base = base * base;
             e >>= 1;
         }
-        
+
         result
     }
 
@@ -198,7 +200,7 @@ impl Bn128Scalar {
         if self.is_zero() {
             return true;
         }
-        
+
         let exp = (Self::order() - BigUint::one()) / 2u32;
         self.exp_biguint(&exp) == Self::ONE
     }
@@ -228,17 +230,17 @@ impl Field for Bn128Scalar {
     const CHARACTERISTIC_TWO_ADICITY: usize = 0;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self::MULTIPLICATIVE_GROUP_GENERATOR;
     const POWER_OF_TWO_GENERATOR: Self = Self::POWER_OF_TWO_GENERATOR;
-    
+
     const BITS: usize = 256;
-    
+
     fn try_inverse(&self) -> Option<Self> {
         self.try_inverse()
     }
-    
+
     fn from_noncanonical_biguint(n: BigUint) -> Self {
         Self::from_noncanonical_biguint(n)
     }
-    
+
     fn from_canonical_u64(n: u64) -> Self {
         Self::from_canonical_u64(n)
     }
@@ -254,19 +256,19 @@ impl Field for Bn128Scalar {
             Self::ZERO - Self::from_canonical_u64((-n) as u64)
         }
     }
-    
+
     fn from_noncanonical_u96(n: (u64, u32)) -> Self {
         Self::from_noncanonical_u96(n)
     }
-    
+
     fn from_noncanonical_u128(n: u128) -> Self {
         Self::from_noncanonical_u128(n)
     }
-    
+
     fn order() -> BigUint {
         Self::order()
     }
-    
+
     fn characteristic() -> BigUint {
         Self::characteristic()
     }
@@ -280,7 +282,7 @@ impl PrimeField for Bn128Scalar {
 
 impl Add for Bn128Scalar {
     type Output = Self;
-    
+
     fn add(self, rhs: Self) -> Self {
         let mut result = self.to_canonical_biguint() + rhs.to_canonical_biguint();
         let order = Self::order();
@@ -299,7 +301,7 @@ impl AddAssign for Bn128Scalar {
 
 impl Sub for Bn128Scalar {
     type Output = Self;
-    
+
     fn sub(self, rhs: Self) -> Self {
         self + (-rhs)
     }
@@ -313,7 +315,7 @@ impl SubAssign for Bn128Scalar {
 
 impl Mul for Bn128Scalar {
     type Output = Self;
-    
+
     fn mul(self, rhs: Self) -> Self {
         let result = self.to_canonical_biguint() * rhs.to_canonical_biguint();
         Self::from_noncanonical_biguint(result % Self::order())
@@ -328,7 +330,7 @@ impl MulAssign for Bn128Scalar {
 
 impl Div for Bn128Scalar {
     type Output = Self;
-    
+
     fn div(self, rhs: Self) -> Self {
         self * rhs.try_inverse().expect("division by zero")
     }
@@ -342,7 +344,7 @@ impl DivAssign for Bn128Scalar {
 
 impl Neg for Bn128Scalar {
     type Output = Self;
-    
+
     fn neg(self) -> Self {
         if self.is_zero() {
             Self::ZERO
@@ -401,11 +403,11 @@ mod tests {
     #[test]
     fn test_constants() {
         assert_eq!(Bn128Scalar::ZERO.0, [0, 0, 0, 0]);
-        
+
         assert_eq!(Bn128Scalar::ONE.0, [1, 0, 0, 0]);
-        
+
         assert_eq!(Bn128Scalar::TWO.0, [2, 0, 0, 0]);
-        
+
         let p = Bn128Scalar::characteristic();
         let expected_p = BigUint::parse_bytes(
             b"21888242871839275222246405745257275088548364400416034343698204186575808495617",
@@ -413,7 +415,7 @@ mod tests {
         ).unwrap();
         assert_eq!(p, expected_p);
     }
-    
+
     #[test]
     fn test_scalar_vs_base_field() {
         let scalar_order = Bn128Scalar::characteristic();
@@ -423,60 +425,60 @@ mod tests {
         ).unwrap();
         assert_ne!(scalar_order, base_order);
     }
-    
+
     #[test]
     fn test_arithmetic_operations() {
         let a = Bn128Scalar::from(42u64);
         let b = Bn128Scalar::from(13u64);
-        
+
         assert_eq!(a + b, Bn128Scalar::from(55u64));
-        
+
         assert_eq!(a - b, Bn128Scalar::from(29u64));
-        
+
         assert_eq!(a * b, Bn128Scalar::from(546u64));
-        
+
         let c = a / b;
         assert_eq!(c * b, a);
     }
-    
+
     #[test]
     fn test_field_axioms() {
         let x = Bn128Scalar::rand();
         let y = Bn128Scalar::rand();
         let z = Bn128Scalar::rand();
-        
+
         assert_eq!(x + Bn128Scalar::ZERO, x);
-        
+
         assert_eq!(x * Bn128Scalar::ONE, x);
-        
+
         assert_eq!(x + (-x), Bn128Scalar::ZERO);
-        
+
         if !x.is_zero() {
             assert_eq!(x * x.inverse(), Bn128Scalar::ONE);
         }
-        
+
         assert_eq!((x + y) + z, x + (y + z));
         assert_eq!((x * y) * z, x * (y * z));
-        
+
         assert_eq!(x + y, y + x);
         assert_eq!(x * y, y * x);
-        
+
         assert_eq!(x * (y + z), x * y + x * z);
     }
-    
+
     #[test]
     fn test_powers() {
         let base = Bn128Scalar::from(3u64);
-        
+
         assert_eq!(base.square(), Bn128Scalar::from(9u64));
-        
+
         let base_cubed = base * base * base;
         assert_eq!(base_cubed, Bn128Scalar::from(27u64));
-        
+
         let base4 = base.square().square();
         assert_eq!(base4, Bn128Scalar::from(81u64));
     }
-    
+
     #[test]
     fn test_conversion_roundtrip() {
         let x = Bn128Scalar::rand();
@@ -484,12 +486,12 @@ mod tests {
         let y = Bn128Scalar::from_noncanonical_biguint(big.clone());
         assert_eq!(x, y);
         assert_eq!(y.to_canonical_biguint(), big);
-        
+
         let large = Bn128Scalar::characteristic() + BigUint::from(12345u64);
         let reduced = Bn128Scalar::from_noncanonical_biguint(large);
         assert_eq!(reduced, Bn128Scalar::from(12345u64));
     }
-    
+
     #[test]
     fn test_sample_distribution() {
         let mut samples = Vec::new();
@@ -499,7 +501,7 @@ mod tests {
             assert!(big < Bn128Scalar::characteristic());
             samples.push(s);
         }
-        
+
         let unique_samples: std::collections::HashSet<_> = samples.iter().collect();
         assert!(unique_samples.len() > 90); // Allow for some collisions
     }
