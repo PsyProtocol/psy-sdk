@@ -7,6 +7,7 @@ pub struct TiKVConfig {
     #[clap(
         long = "tikv-pd-endpoints", 
         env = "TIKV_PD_ENDPOINTS",
+        default_value = "127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383",
         help = "Comma-separated list of PD endpoints (e.g., 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383)"
     )]
     pub pd_endpoints: String,

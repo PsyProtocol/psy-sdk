@@ -34,9 +34,9 @@ REALM_WORKER_LOG="$LOG_DIR/realm-worker.log"
 COORDINATOR_EDGE_LOG="$LOG_DIR/coordinator-edge-tikv.log"
 REALM_EDGE_LOG="$LOG_DIR/realm-edge-tikv.log"
 
-REALM_PROCESSOR32_LOG="$LOG_DIR/realm-processor32-tikv.log"
-REALM_WORKER32_LOG="$LOG_DIR/realm-worker32.log"
-REALM_EDGE32_LOG="$LOG_DIR/realm-edge32-tikv.log"
+REALM_PROCESSOR1_LOG="$LOG_DIR/realm-processor1-tikv.log"
+REALM_WORKER1_LOG="$LOG_DIR/realm-worker1.log"
+REALM_EDGE1_LOG="$LOG_DIR/realm-edge1-tikv.log"
 
 LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
 WEB_WALLET_LOG="$LOG_DIR/web_wallet.log"
@@ -49,9 +49,9 @@ echo "Clearing log files..."
 : > "$REALM_WORKER_LOG"
 : > "$COORDINATOR_EDGE_LOG"
 : > "$REALM_EDGE_LOG"
-: > "$REALM_PROCESSOR32_LOG"
-: > "$REALM_WORKER32_LOG"
-: > "$REALM_EDGE32_LOG"
+: > "$REALM_PROCESSOR1_LOG"
+: > "$REALM_WORKER1_LOG"
+: > "$REALM_EDGE1_LOG"
 : > "$LOCAL_USER_PROVER_LOG"
 : > "$WEB_WALLET_LOG"
 
@@ -102,11 +102,11 @@ run_service "make run-coordinator-worker" "coordinator-worker" "$COORDINATOR_WOR
 PIDS+=($!)
 run_service "make run-realm-processor-tikv" "realm-processor-tikv" "$REALM_PROCESSOR_LOG" &
 PIDS+=($!)
-run_service "make run-realm-processor32-tikv" "realm-processor32-tikv" "$REALM_PROCESSOR32_LOG" &
+run_service "make run-realm-processor1-tikv" "realm-processor1-tikv" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
 run_service "make run-realm-worker" "realm-worker" "$REALM_WORKER_LOG" &
 PIDS+=($!)
-run_service "make run-realm-worker32" "realm-worker32" "$REALM_WORKER32_LOG" &
+run_service "make run-realm-worker1" "realm-worker" "$REALM_WORKER1_LOG" &
 PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors/workers)
@@ -115,7 +115,7 @@ run_service "make run-coordinator-edge-tikv" "coordinator-edge-tikv" "$COORDINAT
 PIDS+=($!)
 run_service "make run-realm-edge-tikv" "realm-edge-tikv" "$REALM_EDGE_LOG" &
 PIDS+=($!)
-run_service "make run-realm-edge32-tikv" "realm-edge32-tikv" "$REALM_EDGE32_LOG" &
+run_service "make run-realm-edge1-tikv" "realm-edge1-tikv" "$REALM_EDGE1_LOG" &
 PIDS+=($!)
 
 sleep 1
