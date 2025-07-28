@@ -164,6 +164,7 @@ impl CoordinatorEdgeHandler {
         input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
         proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
     ) -> anyhow::Result<()> {
+        debug!("submit_guta input: {:?}", input);
         let checkpoint_queue = self.ctx.checkpoint_queue.clone();
         let proof_store = self.ctx.proof_store.clone();
         let config = self.ctx.coordinator_config.clone();
