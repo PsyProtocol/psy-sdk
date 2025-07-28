@@ -1,3 +1,4 @@
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{
     field::{
         extension::Extendable,
@@ -27,12 +28,19 @@ use qed_common_circuit::{
     proof_minifier::pm_chain::QEDProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
-use qed_core::data::qhashout::QHashOut;
+use qed_core::{
+    config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT, data::qhashout::QHashOut,
+};
 use qed_crypto::{
-    hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},
+    hash::{
+        merkle::core::MerkleProofCore,
+        traits::hasher::{MerkleHasher, MerkleZeroHasher},
+    },
     signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
 };
 use qed_data::{
+    config::store_config::QEDHasher,
+    models::user::contract_state_tree::UserContractStateTreeId,
     qdata::user_contract_state::UserContractState,
     qstore::imm::{
         cache::QEDCmdStoreWithCache,
@@ -42,17 +50,13 @@ use qed_data::{
         },
         cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut},
     },
-    traits::qdatastore::qtreedata::QEDComboDataStoreReaderSync,
 };
 use qed_rollup_circuit::gadgets::qdata::user_contract_state::UserContractStateGadget;
-use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
 use qedlang_core::dpn::ops::state_cmd::data::{
     DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash,
     DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
     DPNStateCmdGetSelfUserExternalContractStateSlotHash,
 };
-
-use crate::local::provider::RpcProvider;
 
 #[derive(Debug)]
 pub struct StateReaderGadget<F: RichField + Extendable<D>, const D: usize> {
@@ -534,9 +538,8 @@ pub struct StateReader<
     R: QEDReadCommandProcessorSync<F> + Send + Sync,
 > {
     pub state: UserContractState<F>,
-    // pub provider: RpcProvider,
-    // pub provider: &'a dyn QEDComboDataStoreReaderSync<F>,
-    pub provider: QEDCmdStoreWithCache<F, R>,
+    pub cmd_store: QEDCmdStoreWithCache<F, R>,
+    pub state_tree_store: KVQSimpleMemoryBackingStore,
     pub merkel_proofs: Vec<MerkleProofCore<QHashOut<F>>>,
     pub state_cmds: Vec<DPNStateCmd<F>>,
 }
@@ -547,41 +550,88 @@ impl<
         R: QEDReadCommandProcessorSync<F> + Send + Sync,
     > StateReader<F, D, R>
 {
-    pub fn new(state: UserContractState<F>, provider: QEDCmdStoreWithCache<F, R>) -> Self {
+    pub fn new(
+        state: UserContractState<F>,
+        cmd_store: QEDCmdStoreWithCache<F, R>,
+        state_tree_store: KVQSimpleMemoryBackingStore,
+    ) -> Self {
         Self {
             state,
-            provider,
+            cmd_store,
+            state_tree_store,
             merkel_proofs: Vec::new(),
             state_cmds: Vec::new(),
         }
+    }
+
+    fn get_user_contract_state_tree_merkle_proof(
+        &mut self,
+        checkpoint_id: F,
+        user_id: F,
+        contract_id: F,
+        slot_index: F,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        let checkpoint_id = checkpoint_id.to_canonical_u64();
+        let user_id = user_id.to_canonical_u64();
+        let contract_id = contract_id.to_canonical_u64();
+        let slot_index = slot_index.to_canonical_u64();
+
+        let state_tree_height = self
+            .cmd_store
+            .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData { contract_id })?
+            .state_tree_height
+            .to_canonical_u64() as u8;
+        let id = UserContractStateTreeId::<KVQSimpleMemoryBackingStore>::new(
+            user_id,
+            contract_id as u32,
+            state_tree_height,
+        );
+        let base_mp = self.cmd_store.resolve_get_merkle_proof_mut(
+            &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
+                QSRMerkleCmdGetUserContractStateTreeMerkleProof {
+                    checkpoint_id,
+                    user_id,
+                    contract_id: contract_id as u32,
+                    height: state_tree_height,
+                    leaf_id: slot_index,
+                },
+            ),
+        )?;
+        let base_mp_gf = serde_json::from_str::<MerkleProofCore<QHashOut<GoldilocksField>>>(
+            &serde_json::to_string(&base_mp)?,
+        )?;
+        id.injest_merkle_proof_ucs(&mut self.state_tree_store, checkpoint_id, &base_mp_gf)?;
+        let merkel_proof = id.get_leaf_ucs(&self.state_tree_store, checkpoint_id, slot_index)?;
+        let merkel_proof_f = serde_json::from_str::<MerkleProofCore<QHashOut<F>>>(
+            &serde_json::to_string(&merkel_proof)?,
+        )?;
+        Ok(merkel_proof_f)
     }
     pub fn get_self_user_current_contract_state_slot_hash(
         &mut self,
         slot_index: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        let state_tree_height = self
-            .provider
-            .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
-                contract_id: self.state.contract_id.to_canonical_u64(),
-            })?
-            .state_tree_height
-            .to_canonical_u64() as u8;
-        tracing::info!("state_tree_height: {}", state_tree_height);
-        let merkle_proof = self.provider.resolve_get_merkle_proof_mut(
-            &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
-                QSRMerkleCmdGetUserContractStateTreeMerkleProof {
-                    checkpoint_id: self.state.checkpoint_id.to_canonical_u64(),
-                    user_id: self.state.user_leaf.user_id.to_canonical_u64(),
-                    contract_id: self.state.contract_id.to_canonical_u64() as u32,
-                    height: state_tree_height,
-                    leaf_id: slot_index.to_canonical_u64(),
-                },
-            ),
+        let merkle_proof = self.get_user_contract_state_tree_merkle_proof(
+            self.state.checkpoint_id,
+            self.state.user_leaf.user_id,
+            self.state.contract_id,
+            slot_index,
         )?;
         tracing::info!(
             "merkle_proof: {}",
             serde_json::to_string_pretty(&merkle_proof)?
         );
+
+        let mut current = merkle_proof.value;
+        for (i, sibling) in merkle_proof.siblings.iter().enumerate() {
+            if merkle_proof.index & (1 << i) == 0 {
+                current = QEDHasher::two_to_one(&current, sibling);
+            } else {
+                current = QEDHasher::two_to_one(sibling, &current);
+            }
+        }
+
+        tracing::info!("calc root: {}", current.to_string());
 
         let value = merkle_proof.value.clone();
 
@@ -682,27 +732,16 @@ impl<
         contract_id: F,
         slot_index: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        let state_tree_height = self
-            .provider
-            .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
-                contract_id: contract_id.to_canonical_u64(),
-            })?
-            .state_tree_height
-            .to_canonical_u64() as u8;
-        tracing::info!("state_tree_height: {}", state_tree_height);
-        let merkle_proof = self.provider.resolve_get_merkle_proof_mut(
-            &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
-                QSRMerkleCmdGetUserContractStateTreeMerkleProof {
-                    checkpoint_id: self.state.checkpoint_id.to_canonical_u64(),
-                    user_id: self.state.user_leaf.user_id.to_canonical_u64(),
-                    contract_id: contract_id.to_canonical_u64() as u32,
-                    height: state_tree_height,
-                    leaf_id: slot_index.to_canonical_u64(),
-                },
-            ),
+        let merkle_proof = self.get_user_contract_state_tree_merkle_proof(
+            self.state.checkpoint_id,
+            self.state.user_leaf.user_id,
+            contract_id,
+            slot_index,
         )?;
 
         let value = merkle_proof.value.clone();
+
+        let state_tree_height = merkle_proof.siblings.len() as u8;
 
         self.merkel_proofs.push(merkle_proof);
         self.state_cmds
@@ -814,25 +853,13 @@ impl<
         contract_id: F,
         slot_index: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        let state_tree_height = self
-            .provider
-            .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
-                contract_id: contract_id.to_canonical_u64(),
-            })?
-            .state_tree_height
-            .to_canonical_u64() as u8;
-        tracing::info!("state_tree_height: {}", state_tree_height);
-        let merkle_proof = self.provider.resolve_get_merkle_proof_mut(
-            &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
-                QSRMerkleCmdGetUserContractStateTreeMerkleProof {
-                    checkpoint_id: self.state.checkpoint_id.to_canonical_u64(),
-                    user_id: user_id.to_canonical_u64(),
-                    contract_id: contract_id.to_canonical_u64() as u32,
-                    height: state_tree_height,
-                    leaf_id: slot_index.to_canonical_u64(),
-                },
-            ),
+        let merkle_proof = self.get_user_contract_state_tree_merkle_proof(
+            self.state.checkpoint_id,
+            user_id,
+            contract_id,
+            slot_index,
         )?;
+        let state_tree_height = merkle_proof.siblings.len() as u8;
 
         let value = merkle_proof.value.clone();
 
@@ -1060,10 +1087,10 @@ impl SoftwareDefinedSignTrait for SoftwareDefinedSignGadget {
         state_reader: &mut StateReaderGadget<F, D>,
         sig_inputs: Vec<Target>,
     ) -> anyhow::Result<()> {
-        let slot3 = state_reader
-            .get_self_user_current_contract_state_slot_single(builder, F::from_canonical_u64(3))?;
+        let slot0 = state_reader
+            .get_self_user_current_contract_state_slot_single(builder, F::from_canonical_u64(0))?;
         let one_thousand = builder.constant(F::from_canonical_u64(1000));
-        builder.ensure_is_less_than(32, slot3, one_thousand);
+        builder.ensure_is_less_than(32, slot0, one_thousand);
         Ok(())
     }
 
@@ -1075,10 +1102,10 @@ impl SoftwareDefinedSignTrait for SoftwareDefinedSignGadget {
         state_reader: &mut StateReader<F, D, R>,
         sig_inputs: Vec<F>,
     ) -> anyhow::Result<()> {
-        let slot3 = state_reader
-            .get_self_user_current_contract_state_slot_single(F::from_canonical_u64(3))?;
-        tracing::info!("slot3: {}", slot3.to_canonical_u64());
-        assert!(slot3.to_canonical_u64() < 1000);
+        let slot0 = state_reader
+            .get_self_user_current_contract_state_slot_single(F::from_canonical_u64(0))?;
+        tracing::info!("slot0: {}", slot0.to_canonical_u64());
+        assert!(slot0.to_canonical_u64() < 1000);
         Ok(())
     }
 }
@@ -1122,7 +1149,7 @@ where
 
         let private_key = builder.add_virtual_hash();
 
-        let mut state_reader = StateReaderGadget::new(&mut builder, 24);
+        let mut state_reader = StateReaderGadget::new(&mut builder, MAX_CONTRACT_STATE_TREE_HEIGHT);
 
         S::custom_sign_option_f(&mut builder, &mut state_reader, vec![])
             .expect("exec custom sign code failed");

@@ -602,28 +602,20 @@ impl WalletSession {
                     .st_provider
                     .get_checkpoint_tree_root(checkpoint_id)
                     .await?;
-                let contract_state_root = user_session_mgr.mgr.lps.cmd_store.resolve_get_hash_mut(
-                    &QSRHashCmd::GetUserContractStateTreeRoot(
-                        QSRHashCmdGetUserContractStateTreeRoot {
-                            checkpoint_id,
-                            user_id,
-                            contract_id: 0,
-                        },
-                    ),
-                )?;
+
+                let transaction_record =
+                    user_session_mgr.mgr.lps.transaction_records.last().ok_or(
+                        anyhow::format_err!("you must exec at least one contract call before sign"),
+                    )?;
                 tracing::info!(
-                    "user contract state root: {}",
-                    contract_state_root.to_string()
-                );
-                println!(
-                    "user contract state root: {}",
-                    contract_state_root.to_string()
+                    "transaction_record: {}",
+                    serde_json::to_string_pretty(&transaction_record)?
                 );
 
                 let user_contract_state = UserContractState::new(
                     checkpoint_tree_root,
                     user_leaf,
-                    contract_state_root,
+                    transaction_record.end_contract_state_tree_root,
                     F::ZERO,
                     F::from_canonical_u64(user_session_mgr.current_checkpoint_id),
                 );
@@ -632,9 +624,15 @@ impl WalletSession {
                     "user_contract_state: {}",
                     serde_json::to_string_pretty(&user_contract_state)?
                 );
+                let proof_tree_root = user_session_mgr.mgr.proof_tree_state.get_proof_tree_root();
+                user_session_mgr
+                    .mgr
+                    .lps
+                    .set_proof_tree_root(proof_tree_root);
                 let mut user_contract_state_reader = StateReader::new(
                     user_contract_state,
                     user_session_mgr.mgr.lps.cmd_store.clone(),
+                    user_session_mgr.mgr.lps.state_tree_store.clone(),
                 );
 
                 self.wallet
