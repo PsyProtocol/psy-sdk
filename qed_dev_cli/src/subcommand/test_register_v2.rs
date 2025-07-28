@@ -46,8 +46,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("connected to redis");
 
-    let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
-    let realm_q = ProofStoreFred::new(pool, "rwq1".to_string(), "rnq1".to_string());
+    let q = ProofStoreFred::new(pool.clone(), "wq1".to_string());
+    let realm_q = ProofStoreFred::new(pool, "rwq1".to_string());
 
     let store_reader: Arc<KVQSimpleMemoryBackingStore> =
         Arc::new(KVQSimpleMemoryBackingStore::new());

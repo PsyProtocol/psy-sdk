@@ -79,12 +79,9 @@ impl CoordinatorEdgeHandler {
 
         let qe_args = &args.queue_args;
 
-        let proof_store = Arc::new(ProofStoreRedisAsync::new2(
+        let proof_store = Arc::new(ProofStoreRedisAsync::new(
             redis_pool.clone(),
-            &qe_args.worker_queue_suffix,
-            &qe_args.notifications_queue_suffix,
-            &qe_args.proof_store_key_suffix,
-            &qe_args.proof_store_key_suffix,
+            qe_args.worker_queue_suffix.clone(),
         ).await?);
 
         // init verifier

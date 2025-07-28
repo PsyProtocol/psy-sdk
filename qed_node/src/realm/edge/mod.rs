@@ -28,12 +28,9 @@ pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedi
         config.redis.pool_size.unwrap_or(10)
     ).await?;
     // Create storage and queues
-    let proof_store = ProofStoreRedisAsync::new2(
+    let proof_store = ProofStoreRedisAsync::new(
         pool,
-        &config.queue.worker_queue_suffix,
-        &config.queue.notifications_queue_suffix,
-        &config.queue.proof_store_key_suffix.as_str(),
-        &config.queue.proof_store_key_suffix.as_str(),
+        config.queue.worker_queue_suffix.clone(),
     ).await?;
     debug!("created proof store successfully!");
     Ok(proof_store)

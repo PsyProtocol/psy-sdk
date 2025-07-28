@@ -9,7 +9,7 @@ pub use rsmq_queue::*;
 // Re-export from fred_queue for backward compatibility
 pub use fred_queue::{DrainQueueFred, ProofStoreFred, SyncProofQueue};
 // Re-export from redis_queue
-pub use redis_queue::{ProofStoreRedisAsync, Queue, SyncCheckpointQueue};
+pub use redis_queue::{ProofStoreRedisAsync, Queue, SyncCheckpointQueue, BizKey, QueuePrefixKey};
 // Re-export worker_queue_redis types from rsmq_queue
 pub mod worker_queue_redis {
     pub mod redis_queue {

@@ -52,12 +52,9 @@ impl RealmProcessor {
             config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10)
         ).await?;
-        let realm_qps = ProofStoreRedisAsync::new2(
+        let realm_qps = ProofStoreRedisAsync::new(
             pool,
-            &config.queue.worker_queue_suffix,
-            &config.queue.notifications_queue_suffix,
-            &config.queue.proof_store_key_suffix,
-            &config.queue.proof_store_key_suffix,
+            config.queue.worker_queue_suffix.clone(),
         ).await?;
         let store = QEDStore::new(&config.backend.to_backend()).await?;
         let store = Arc::new(JournalStore::new(store));

@@ -152,12 +152,9 @@ impl
         let bb8_pool =
             new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
         info!("🐶 redis pool initialized");
-        let q = ProofStoreRedisAsync::new2(
+        let q = ProofStoreRedisAsync::new(
             bb8_pool,
-            &cp_config.queue_args.worker_queue_suffix,
-            &cp_config.queue_args.notifications_queue_suffix,
-            &cp_config.queue_args.proof_store_key_suffix,
-            &cp_config.queue_args.proof_store_key_suffix,
+            cp_config.queue_args.worker_queue_suffix.clone(),
         )
         .await?;
 
