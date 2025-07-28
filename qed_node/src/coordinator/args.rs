@@ -50,10 +50,10 @@ pub struct CoordinatorEdgeArgs {
 #[derive(Clone, Debug, Args)]
 pub struct CoordinatorQueueArgs {
     #[clap(
-        env = "COORDINATOR_WORKER_QUEUE_SUFFIX",
+        env = "COORDINATOR_QUEUE_BIZ_KEY",
         long,
         short,
         default_value = "wq1"
     )]
-    pub worker_queue_suffix: String,
+    pub queue_biz_key: String,
 }

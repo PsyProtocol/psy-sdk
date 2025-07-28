@@ -154,7 +154,7 @@ impl
         info!("🐶 redis pool initialized");
         let q = ProofStoreRedisAsync::new(
             bb8_pool,
-            cp_config.queue_args.worker_queue_suffix.clone(),
+            cp_config.queue_args.queue_biz_key.clone(),
         )
         .await?;
 

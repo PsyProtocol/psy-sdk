@@ -7,7 +7,7 @@ async fn run_worker(args: CoordinatorWorkerArgs) -> anyhow::Result<()> {
     let state = WorkerState::new(
         args.redis_uri,
         args.redis_pool_size as usize,
-        args.queue_args.worker_queue_suffix.clone(),
+        args.queue_args.queue_biz_key.clone(),
     )
     .await?;
     let coordinator_worker = CoordinatorWorker::from(state);

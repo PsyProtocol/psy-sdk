@@ -51,14 +51,14 @@ impl Default for RealmConfig {
 #[serde(default)]
 pub struct QueueConfig {
     /// Worker queue suffix
-    #[arg(long, env = "REALM_QUEUE_WORKER_QUEUE_SUFFIX", default_value = "rwq0")]
-    pub worker_queue_suffix: String,
+    #[arg(long, env = "REALM_QUEUE_BIZ_KEY", default_value = "rwq0")]
+    pub queue_biz_key: String,
 }
 
 impl Default for QueueConfig {
     fn default() -> Self {
         Self {
-            worker_queue_suffix: "rwq0".to_string(),
+            queue_biz_key: "rwq0".to_string(),
         }
     }
 }
@@ -132,4 +132,24 @@ pub struct RealmEdgeConfig {
     /// Queue configuration
     #[command(flatten)]
     pub queue: QueueConfig,
+}
+
+impl RealmEdgeConfig {
+    pub fn queue_biz_key(&self) -> String {
+        if self.queue.queue_biz_key.is_empty() {
+            format!("{}",self.realm.realm_id)
+        }else{
+            self.queue.queue_biz_key.clone()
+        }
+    }
+}
+
+impl RealmNodeConfig {
+    pub fn queue_biz_key(&self) -> String {
+        if self.queue.queue_biz_key.is_empty() {
+            format!("{}",self.realm.realm_id)
+        }else{
+            self.queue.queue_biz_key.clone()
+        }
+    }
 }

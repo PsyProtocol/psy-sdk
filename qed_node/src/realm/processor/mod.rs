@@ -54,7 +54,7 @@ impl RealmProcessor {
         ).await?;
         let realm_qps = ProofStoreRedisAsync::new(
             pool,
-            config.queue.worker_queue_suffix.clone(),
+            config.queue.queue_biz_key,
         ).await?;
         let store = QEDStore::new(&config.backend.to_backend()).await?;
         let store = Arc::new(JournalStore::new(store));

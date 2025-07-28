@@ -7,7 +7,7 @@ async fn run_worker(redis_config: RedisConfig, queue_config: QueueConfig) -> any
     let state = WorkerState::new(
         redis_config.redis_uri,
         redis_config.pool_size.unwrap_or(10),
-        queue_config.worker_queue_suffix.clone(),
+        queue_config.queue_biz_key.clone(),
     )
     .await?;
     let worker = RealmWorker::from(state);

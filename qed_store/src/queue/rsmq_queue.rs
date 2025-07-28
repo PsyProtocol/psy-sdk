@@ -31,13 +31,13 @@ use crate::queue::{BizKey, QueuePrefixKey};
 
 pub enum QueueId {
     WorkerEvent {
-        worker_queue_suffix: String,
+        queue_biz_key: String,
     },
     WorkerNotification {
         notifications_queue_suffix: String,
     },
     CheckpointDrain {
-        worker_queue_suffix: String,
+        queue_biz_key: String,
         channel_id: u64,
         checkpoint_id: u64,
     },
@@ -46,7 +46,7 @@ pub enum QueueId {
         channel_id: u64,
     },
     SyncProof {
-        worker_queue_suffix: String,
+        queue_biz_key: String,
     },
 }
 
@@ -54,25 +54,25 @@ impl QueueId {
     pub fn get_queue_id(&self) -> String {
         match self {
             QueueId::WorkerEvent {
-                worker_queue_suffix,
-            } => worker_queue_suffix.clone(),
+                queue_biz_key,
+            } => queue_biz_key.clone(),
             QueueId::WorkerNotification {
                 notifications_queue_suffix,
             } => notifications_queue_suffix.clone(),
             QueueId::CheckpointDrain {
-                worker_queue_suffix,
+                queue_biz_key,
                 channel_id,
                 checkpoint_id,
             } => {
-                format!("{}-{}_{}", worker_queue_suffix, channel_id, checkpoint_id)
+                format!("{}-{}_{}", queue_biz_key, channel_id, checkpoint_id)
             }
             QueueId::CheckpointHistory { checkpoint_history_queue_prefix_key, channel_id } => {
                 format!("{}-{}", checkpoint_history_queue_prefix_key, channel_id)
             }
             QueueId::SyncProof {
-                worker_queue_suffix,
+                queue_biz_key,
             } => {
-                worker_queue_suffix.clone()
+                queue_biz_key.clone()
             }
         }
     }
@@ -197,7 +197,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for RsmqQueue {
         let metadata: qed_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
         let queue_id = QueueId::CheckpointDrain {
-            worker_queue_suffix: self.worker_queue_key().clone(),
+            queue_biz_key: self.worker_queue_key().clone(),
             channel_id: metadata.channel_id,
             checkpoint_id: metadata.checkpoint_id,
         };
@@ -214,7 +214,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
         checkpoint_id: u64,
     ) -> anyhow::Result<Vec<T>> {
         let queue_id = QueueId::CheckpointDrain {
-            worker_queue_suffix: self.worker_queue_key().clone(),
+            queue_biz_key: self.worker_queue_key().clone(),
             channel_id,
             checkpoint_id,
         };
@@ -302,7 +302,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
     async fn is_empty(&self) -> anyhow::Result<bool> {
         // Check if sync proof queue is empty
         let queue_id = QueueId::SyncProof {
-            worker_queue_suffix: self.realm_sync_checkpoint_key().clone(),
+            queue_biz_key: self.realm_sync_checkpoint_key().clone(),
         };
         match self.pool.get_queue_attributes(&queue_id.get_queue_id()).await {
             Ok(attrs) => Ok(attrs.msgs == 0),
@@ -316,7 +316,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
 impl WorkerEventReceiverAsyncImm for RsmqQueue {
     async fn wait_for_next_job_imm(&self) -> anyhow::Result<QProvingJobDataID> {
         let queue_id = QueueId::WorkerEvent {
-            worker_queue_suffix: self.worker_queue_key().clone(),
+            queue_biz_key: self.worker_queue_key().clone(),
         };
         loop {
             if let Some(bytes) = self.pop_message(&queue_id).await? {
@@ -329,7 +329,7 @@ impl WorkerEventReceiverAsyncImm for RsmqQueue {
 
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         let queue_id = QueueId::WorkerEvent {
-            worker_queue_suffix: self.worker_queue_key().clone(),
+            queue_biz_key: self.worker_queue_key().clone(),
         };
         for job in jobs {
             let bytes = job.to_fixed_bytes().to_vec();
@@ -352,7 +352,7 @@ impl WorkerEventReceiverAsyncImm for RsmqQueue {
 impl WorkerEventTransmitterAsyncImm for RsmqQueue {
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         let queue_id = QueueId::WorkerEvent {
-            worker_queue_suffix: self.worker_queue_key().clone(),
+            queue_biz_key: self.worker_queue_key().clone(),
         };
         for job in jobs {
             let bytes = job.to_fixed_bytes().to_vec();
@@ -393,14 +393,14 @@ impl WorkerEventTransmitterAsyncImm for RsmqQueue {
 impl SyncProofQueue for RsmqQueue {
     async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()> {
         let queue_id = QueueId::SyncProof {
-            worker_queue_suffix: self.realm_proof_key().clone(),
+            queue_biz_key: self.realm_proof_key().clone(),
         };
         self.send_message(&queue_id, item.to_bytes()?).await
     }
 
     async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId> {
         let queue_id = QueueId::SyncProof {
-            worker_queue_suffix: self.realm_proof_key().clone(),
+            queue_biz_key: self.realm_proof_key().clone(),
         };
         match self.pop_message(&queue_id).await? {
             None => {
