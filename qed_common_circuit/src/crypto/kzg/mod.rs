@@ -22,9 +22,10 @@ mod tests {
             g2::CircuitBuilderG2,
             nonnative_fp::CircuitBuilderNonNative,
             pairing::{CircuitBuilderPairing, CircuitBuilderCurveG2, AffinePointTargetG2},
-            biguint::{CircuitBuilderBiguint, BigUintTarget},
         },
     };
+    use crate::crypto::secp256k1::ecdsa::gadgets::biguint::{CircuitBuilderBiguint, BigUintTarget};
+
     use plonky2::{
         field::types::Field,
         hash::hash_types::RichField,
@@ -42,10 +43,7 @@ mod tests {
     type F = <C as GenericConfig<D>>::F;
 
     fn get_test_config() -> CircuitConfig {
-        CircuitConfig {
-            num_wires: 400,
-            ..CircuitConfig::wide_ecc_config()
-        }
+        crate::crypto::bn254::pairing_config()
     }
 
     mod nonnative_tests {

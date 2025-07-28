@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use crate::crypto::bn254::gadgets::biguint::BigUintTarget;
+use crate::crypto::secp256k1::ecdsa::gadgets::biguint::BigUintTarget;
 use crate::crypto::bn254::gadgets::nonnative_fp::NonNativeTarget;
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
@@ -12,7 +12,7 @@ use crate::u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 
 pub trait CircuitBuilderSplit<F: RichField + Extendable<D>, const D: usize> {
     fn split_u32_to_4_bit_limbs(&mut self, val: U32Target) -> Vec<Target>;
-    
+
     fn split_nonnative_to_4_bit_limbs<FF: Field>(
         &mut self,
         val: &NonNativeTarget<FF>,
@@ -41,7 +41,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSplit<F, D>
             .map(|(&a, &b)| self.mul_add(b, four, a))
             .collect()
     }
-    
+
     fn split_nonnative_to_4_bit_limbs<FF: Field>(
         &mut self,
         val: &NonNativeTarget<FF>,
@@ -108,7 +108,7 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let config = CircuitConfig::standard_ecc_config();
+        let config = crate::crypto::bn254::pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 

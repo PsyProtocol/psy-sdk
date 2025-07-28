@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_g2_basic() {
-        let config = CircuitConfig::standard_ecc_config();
+        let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let point = G2Affine {
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_g2_selection() {
-        let config = CircuitConfig::standard_ecc_config();
+        let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let point1 = G2Affine {

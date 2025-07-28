@@ -492,7 +492,7 @@ mod tests {
     use plonky2::fri::reduction_strategies::FriReductionStrategy;
     use plonky2::fri::FriConfig;
     
-    fn pairing_circuit_config() -> CircuitConfig {
+    fn pairing_config() -> CircuitConfig {
         CircuitConfig {
             num_wires: 340,  // NonnativeMulGate requires 334 wires
             num_routed_wires: 80,
@@ -523,7 +523,7 @@ mod tests {
         let y_ff = FF::rand();
         let sum_ff = x_ff + y_ff;
 
-        let config = pairing_circuit_config();
+        let config = pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -550,7 +550,7 @@ mod tests {
         let y_ff = FF::rand();
         let diff_ff = x_ff - y_ff;
 
-        let config = pairing_circuit_config();
+        let config = pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -577,7 +577,7 @@ mod tests {
         let y_ff = FF::rand();
         let product_ff = x_ff * y_ff;
 
-        let config = pairing_circuit_config();
+        let config = pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -602,7 +602,7 @@ mod tests {
         let x_ff = FF::rand();
         let neg_x_ff = -x_ff;
 
-        let config = pairing_circuit_config();
+        let config = pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -627,7 +627,7 @@ mod tests {
         let x_ff = FF::rand();
         let inv_x_ff = x_ff.inverse();
 
-        let config = pairing_circuit_config();
+        let config = pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -652,7 +652,7 @@ mod tests {
         let x_ff = FF::rand();
         let square_x_ff = x_ff.square();
 
-        let config = pairing_circuit_config();
+        let config = pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 

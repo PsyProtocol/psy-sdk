@@ -528,7 +528,7 @@ mod tests {
 
     #[test]
     fn test_pairing_structure() {
-        let config = CircuitConfig::standard_ecc_config();
+        let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let g1_point = builder.g1_generator();

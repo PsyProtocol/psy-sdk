@@ -681,7 +681,7 @@ mod tests {
         let y_ff = FF::sample(&mut rand::thread_rng());
         let sum_ff = x_ff + y_ff;
 
-        let config = CircuitConfig::standard_ecc_config();
+        let config = crate::crypto::bn254::pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -708,7 +708,7 @@ mod tests {
         let y_ff = FF::sample(&mut rand::thread_rng());
         let diff_ff = x_ff - y_ff;
 
-        let config = CircuitConfig::standard_ecc_config();
+        let config = crate::crypto::bn254::pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -735,7 +735,7 @@ mod tests {
 
         let product_ff = x_ff * y_ff;
 
-        let config = CircuitConfig::standard_ecc_config();
+        let config = crate::crypto::bn254::pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -760,7 +760,7 @@ mod tests {
         let x_ff = FF::sample(&mut rand::thread_rng());
         let neg_x_ff = -x_ff;
 
-        let config = CircuitConfig::standard_ecc_config();
+        let config = crate::crypto::bn254::pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -784,7 +784,7 @@ mod tests {
         let x_ff = FF::sample(&mut rand::thread_rng());
         let inv_x_ff = x_ff.inverse();
 
-        let config = CircuitConfig::standard_ecc_config();
+        let config = crate::crypto::bn254::pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -808,7 +808,7 @@ mod tests {
         let x_ff = FF::sample(&mut rand::thread_rng());
         let square_x_ff = x_ff.square();
 
-        let config = CircuitConfig::standard_ecc_config();
+        let config = crate::crypto::bn254::pairing_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 

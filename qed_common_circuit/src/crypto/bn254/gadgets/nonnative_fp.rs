@@ -13,7 +13,7 @@ use plonky2::{
     gates::gate::Gate,
 };
 
-use crate::crypto::bn254::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint, GeneratedValuesBigUint, WitnessBigUint};
+use crate::crypto::secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint, GeneratedValuesBigUint, WitnessBigUint};
 use crate::u32::gadgets::arithmetic_u32::{U32Target, CircuitBuilderU32};
 use crate::u32::gadgets::range_check::range_check_u32_circuit;
 use crate::crypto::bn254::gadgets::gates::{
