@@ -15,7 +15,8 @@ function createMemoryWalletProvider(
     coordinatorRpcConfigs: RpcConfig[],
     realmRpcConfigs: RpcConfig[],
     userPerRealm: number,
-    proverUrl?: string
+    proverUrl?: string,
+    prove_proxy_url?: string,
 ): QedUserWalletProvider {
     const networkId = "regtest";
     const coordinator_rpc = new MultiCoordinatorRpcProvider(coordinatorRpcConfigs);
@@ -29,6 +30,7 @@ function createMemoryWalletProvider(
             users_per_realm: userPerRealm,
             realm_configs: realmRpcConfigs,
             coordinator_configs: coordinatorRpcConfigs,
+            prove_proxy_url: prove_proxy_url,
         });
     }
 

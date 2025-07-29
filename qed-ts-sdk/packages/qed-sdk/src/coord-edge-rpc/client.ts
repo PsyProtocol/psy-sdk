@@ -122,8 +122,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param qhash The QHash of the user's public key
      * @returns The user ID
      */
-    async getUserId(qhash: QHashOut): Promise<number> {
-        return this.rpc<number>(CoordinatorEdgeRPCCommand.GetUserId, qhash);
+    async getUserId(publicKey: QHashOut): Promise<number> {
+        return this.rpc<number>(CoordinatorEdgeRPCCommand.GetUserId, {"public_key" : publicKey});
     }
 
     /**
@@ -593,8 +593,8 @@ export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider 
     registerUser(pubKey: ZKPublicKeyInfo): Promise<string> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.registerUser(pubKey);
     }
-    getUserId(qhash: QHashOut): Promise<number> {
-        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserId(qhash);
+    getUserId(publicKey: QHashOut): Promise<number> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserId(publicKey);
     }
     deployContract(contract: QBCDeployContract): Promise<string> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.deployContract(contract);

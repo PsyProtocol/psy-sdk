@@ -83,7 +83,7 @@ export const defaultConfig: WalletConfig = {
         rpc_url: ["http://127.0.0.1:8545"]
       }
     ],
-    prover_url: "http://127.0.0.1:8888",
+    // prover_url: "http://127.0.0.1:8888",
     nativeCurrency: "0"
   },
   wallet: {

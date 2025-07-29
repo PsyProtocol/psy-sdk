@@ -17,9 +17,11 @@ export interface NetworkConfig {
   coordinator_configs: CoordinatorConfig[];
   prover_url?: string;
   nativeCurrency?: string; // contractId of the native currency token
+  prove_proxy_url?: string,
 }
 
 export const DEFAULT_PROVER_URL = "http://127.0.0.1:8888";
+export const DEFAULT_PROVE_PROXY_URL = "http://127.0.0.1:9999";
 
 export interface WalletConfig {
   theme: {
@@ -85,7 +87,7 @@ export const defaultConfig: WalletConfig = {
         rpc_url: ["http://127.0.0.1:8545"]
       }
     ],
-    prover_url: "http://127.0.0.1:8888",
+    // prover_url: "http://127.0.0.1:8888",
     nativeCurrency: "0"
   },
   wallet: {

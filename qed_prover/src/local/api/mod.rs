@@ -141,7 +141,7 @@ impl WasmRpcServer {
         let rpc_config: RpcConfig = serde_json::from_str(rpc_config_json)
             .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
 
-        let wallet_session = WalletSession::new(&rpc_config).await
+        let wallet_session = WalletSession::new_fast_setup(&rpc_config).await
             .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
 
         Ok(WasmRpcServer {
