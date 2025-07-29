@@ -53,6 +53,17 @@ pub trait CircuitBuilderG2<F: RichField + Extendable<D>, const D: usize> {
         b: &G2AffineTarget<F, D>,
     ) -> G2AffineTarget<F, D>;
     
+    fn add_or_double_g2(
+        &mut self,
+        a: &G2AffineTarget<F, D>,
+        b: &G2AffineTarget<F, D>,
+    ) -> G2AffineTarget<F, D>;
+    
+    fn double_g2(
+        &mut self,
+        p: &G2AffineTarget<F, D>,
+    ) -> G2AffineTarget<F, D>;
+    
     fn neg_g2(
         &mut self,
         p: &G2AffineTarget<F, D>,
@@ -141,6 +152,111 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderG2<F, D>
         
         let result_if_not_a_inf = self.select_g2(b_is_inf, &result_if_b_inf, &regular_result);
         self.select_g2(a_is_inf, &result_if_a_inf, &result_if_not_a_inf)
+    }
+    
+    fn double_g2(
+        &mut self,
+        p: &G2AffineTarget<F, D>,
+    ) -> G2AffineTarget<F, D> {
+        // Check if y is zero (for both components)
+        let y0_is_zero = self.is_zero_nonnative(&p.y.c0);
+        let y1_is_zero = self.is_zero_nonnative(&p.y.c1);
+        let y_is_zero = self.and(y0_is_zero, y1_is_zero);
+        
+        let x_squared = self.squared_nonnative_ext2(&p.x);
+        let two_x_squared = self.add_nonnative_ext2(&x_squared, &x_squared);
+        let three_x_squared = self.add_nonnative_ext2(&x_squared, &two_x_squared);
+        let two_y = self.add_nonnative_ext2(&p.y, &p.y);
+        
+        let one = self.one_nonnative();
+        let zero = self.zero_nonnative();
+        let one_ext2 = NonNativeTargetExt2 { c0: one, c1: zero, _phantom: PhantomData };
+        let two_y_safe = self.select_ext2(y_is_zero, &one_ext2, &two_y);
+        let two_y_inv = self.inv_nonnative_ext2(&two_y_safe);
+        let slope = self.mul_nonnative_ext2(&three_x_squared, &two_y_inv);
+        
+        let slope_squared = self.squared_nonnative_ext2(&slope);
+        let two_x = self.add_nonnative_ext2(&p.x, &p.x);
+        let x3 = self.sub_nonnative_ext2(&slope_squared, &two_x);
+        
+        let x_diff = self.sub_nonnative_ext2(&p.x, &x3);
+        let y3_temp = self.mul_nonnative_ext2(&slope, &x_diff);
+        let y3 = self.sub_nonnative_ext2(&y3_temp, &p.y);
+        
+        let zero = self.zero_nonnative_ext2();
+        
+        let true_target = self._true().target;
+        let false_target = self._false().target;
+        G2AffineTarget {
+            x: self.select_ext2(y_is_zero, &zero, &x3),
+            y: self.select_ext2(y_is_zero, &zero, &y3),
+            is_infinity: BoolTarget::new_unsafe(self.select(y_is_zero, true_target, false_target)),
+            _phantom: PhantomData,
+        }
+    }
+    
+    fn add_or_double_g2(
+        &mut self,
+        a: &G2AffineTarget<F, D>,
+        b: &G2AffineTarget<F, D>,
+    ) -> G2AffineTarget<F, D> {
+        let a_is_inf = a.is_infinity;
+        let b_is_inf = b.is_infinity;
+        
+        let x_equal = self.is_equal_ext2(&a.x, &b.x);
+        
+        let y_equal = self.is_equal_ext2(&a.y, &b.y);
+        let should_double = self.and(x_equal, y_equal);
+        
+        let neg_b_y = self.neg_nonnative_ext2(&b.y);
+        let y_opposite = self.is_equal_ext2(&a.y, &neg_b_y);
+        let should_be_infinity_from_addition = self.and(x_equal, y_opposite);
+        
+        let doubled = self.double_g2(a);
+        
+        // Safe addition computation
+        let v = self.sub_nonnative_ext2(&b.x, &a.x);
+        let one = self.one_nonnative();
+        let zero_nn = self.zero_nonnative();
+        let one_ext2 = NonNativeTargetExt2 { c0: one, c1: zero_nn, _phantom: PhantomData };
+        let v_safe = self.select_ext2(x_equal, &one_ext2, &v);
+        let v_inv = self.inv_nonnative_ext2(&v_safe);
+        
+        let u = self.sub_nonnative_ext2(&b.y, &a.y);
+        let s = self.mul_nonnative_ext2(&u, &v_inv);
+        let s_squared = self.squared_nonnative_ext2(&s);
+        let x_sum = self.add_nonnative_ext2(&b.x, &a.x);
+        let x3_add = self.sub_nonnative_ext2(&s_squared, &x_sum);
+        let x_diff = self.sub_nonnative_ext2(&a.x, &x3_add);
+        let prod = self.mul_nonnative_ext2(&s, &x_diff);
+        let y3_add = self.sub_nonnative_ext2(&prod, &a.y);
+        
+        let zero = self.zero_nonnative_ext2();
+        let infinity_point = G2AffineTarget {
+            x: zero.clone(),
+            y: zero.clone(),
+            is_infinity: self._true(),
+            _phantom: PhantomData,
+        };
+        
+        let false_target = self._false().target;
+        let result_if_not_special = G2AffineTarget {
+            x: self.select_ext2(should_double, &doubled.x, &x3_add),
+            y: self.select_ext2(should_double, &doubled.y, &y3_add),
+            is_infinity: BoolTarget::new_unsafe(self.select(should_double, doubled.is_infinity.target, false_target)),
+            _phantom: PhantomData,
+        };
+        
+        let result_if_a_inf = b.clone();
+        let result_if_b_inf = a.clone();
+        let result_if_opposite = infinity_point;
+        
+        let mut result = result_if_not_special;
+        result = self.select_g2(should_be_infinity_from_addition, &result_if_opposite, &result);
+        result = self.select_g2(b_is_inf, &result_if_b_inf, &result);
+        result = self.select_g2(a_is_inf, &result_if_a_inf, &result);
+        
+        result
     }
     
     fn neg_g2(

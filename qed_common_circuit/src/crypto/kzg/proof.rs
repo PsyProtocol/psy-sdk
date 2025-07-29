@@ -26,32 +26,3 @@ pub struct KZGProofTarget<F: RichField + Extendable<D>, const D: usize> {
 pub struct KZGProof {
     pub w: AffinePoint<crate::crypto::bn254::curve::g1::G1>,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::crypto::kzg::CircuitBuilderKZG;
-    use crate::crypto::bn254::gadgets::g1::CircuitBuilderG1;
-    use plonky2::{
-        iop::witness::PartialWitness,
-        plonk::{
-            circuit_data::CircuitConfig,
-            config::{GenericConfig, PoseidonGoldilocksConfig},
-        },
-    };
-
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
-
-    fn gen_test_config() -> CircuitConfig {
-        CircuitConfig {
-            num_wires: 500,
-            ..CircuitConfig::wide_ecc_config()
-        }
-    }
-
-    #[test]
-    fn test_polynomial_evaluation() {
-    }
-}

@@ -5,7 +5,7 @@ pub mod proof;
 pub mod setup;
 pub mod verifier;
 
-pub use builder::CircuitBuilderKZG;
+pub use builder::{CircuitBuilderKZG, CircuitBuilderKZGHelpers};
 pub use commitment::{KZGCommitment, KZGCommitmentTarget};
 pub use fft::{CircuitBuilderFFT, FFTSettingsTarget};
 pub use proof::{KZGProof, KZGProofTarget};
@@ -14,18 +14,20 @@ pub use setup::{KZGParams, KZGSetup};
 #[cfg(test)]
 mod tests {
     use super::*;
+    use builder::CircuitBuilderKZGHelpers;
     use crate::crypto::bn254::{
         curve::{g1::G1, g2::G2},
-        field::{bn128_scalar::Bn128Scalar, bn128_base::Bn128Base},
+        field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
         gadgets::{
             g1::CircuitBuilderG1,
             g2::CircuitBuilderG2,
             nonnative_fp::CircuitBuilderNonNative,
-            pairing::{CircuitBuilderPairing, CircuitBuilderCurveG2, AffinePointTargetG2},
+            pairing::{AffinePointTargetG2, CircuitBuilderCurveG2, CircuitBuilderPairing},
         },
     };
-    use crate::crypto::secp256k1::ecdsa::gadgets::biguint::{CircuitBuilderBiguint, BigUintTarget};
+    use crate::crypto::secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint};
 
+    use num::{BigUint, Zero};
     use plonky2::{
         field::types::Field,
         hash::hash_types::RichField,
@@ -36,7 +38,6 @@ mod tests {
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
-    use num::{BigUint, Zero};
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -121,9 +122,7 @@ mod tests {
             let config = get_test_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
 
-            let coeffs = vec![
-                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5)),
-            ];
+            let coeffs = vec![builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5))];
 
             let g1_gen = builder.g1_generator();
             let powers_of_tau = vec![g1_gen.clone()];
@@ -141,15 +140,14 @@ mod tests {
             let config = get_test_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
 
-            let coeffs = vec![
-                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5)),
-            ];
+            let coeffs = vec![builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5))];
 
             let g1_gen = builder.g1_generator();
             let powers_of_tau = vec![g1_gen.clone()];
 
             let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3));
-            let (evaluation, proof) = builder.kzg_create_opening_proof(&coeffs, &point, &powers_of_tau);
+            let (evaluation, proof) =
+                builder.kzg_create_opening_proof(&coeffs, &point, &powers_of_tau);
 
             let expected_eval = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5));
             builder.connect_nonnative(&evaluation, &expected_eval);
@@ -165,6 +163,7 @@ mod tests {
             let config = get_test_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
 
+            // Test case 1: p(x) = 1 + 2x + 3x² at x = 2
             let coeffs = vec![
                 builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
                 builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2)),
@@ -174,6 +173,7 @@ mod tests {
             let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2));
             let result = builder.kzg_evaluate_polynomial(&coeffs, &point);
 
+            // p(2) = 1 + 2*2 + 3*4 = 1 + 4 + 12 = 17
             let expected = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(17));
             builder.connect_nonnative(&result, &expected);
 
@@ -181,6 +181,65 @@ mod tests {
             let pw = PartialWitness::new();
             let proof = data.prove(pw).unwrap();
             data.verify(proof).unwrap();
+        }
+
+        #[test]
+        fn test_polynomial_evaluation_comprehensive() {
+            let config = get_test_config();
+            let mut builder = CircuitBuilder::<F, D>::new(config);
+
+            // Test case 1: Constant polynomial p(x) = 42
+            let coeffs1 = vec![builder.constant_nonnative(Bn128Scalar::from_canonical_u64(42))];
+            let point1 = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(100));
+            let result1 = builder.kzg_evaluate_polynomial(&coeffs1, &point1);
+            let expected1 = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(42));
+            builder.connect_nonnative(&result1, &expected1);
+
+            // Test case 2: Linear polynomial p(x) = 5 + 3x at x = 7
+            let coeffs2 = vec![
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3)),
+            ];
+            let point2 = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(7));
+            let result2 = builder.kzg_evaluate_polynomial(&coeffs2, &point2);
+            // p(7) = 5 + 3*7 = 5 + 21 = 26
+            let expected2 = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(26));
+            builder.connect_nonnative(&result2, &expected2);
+
+            // Test case 3: Zero polynomial at x = 0
+            let coeffs3 = vec![builder.constant_nonnative(Bn128Scalar::ZERO)];
+            let point3 = builder.constant_nonnative(Bn128Scalar::ZERO);
+            let result3 = builder.kzg_evaluate_polynomial(&coeffs3, &point3);
+            let expected3 = builder.constant_nonnative(Bn128Scalar::ZERO);
+            builder.connect_nonnative(&result3, &expected3);
+
+            // Test case 4: Higher degree p(x) = 1 + x + x² + x³ + x⁴ at x = 2
+            let coeffs4 = vec![
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
+            ];
+            let point4 = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2));
+            let result4 = builder.kzg_evaluate_polynomial(&coeffs4, &point4);
+            // p(2) = 1 + 2 + 4 + 8 + 16 = 31
+            let expected4 = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(31));
+            builder.connect_nonnative(&result4, &expected4);
+
+            // Test case 5: Empty polynomial (should return 0)
+            let coeffs5 = vec![];
+            let point5 = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(10));
+            let result5 = builder.kzg_evaluate_polynomial(&coeffs5, &point5);
+            let expected5 = builder.constant_nonnative(Bn128Scalar::ZERO);
+            builder.connect_nonnative(&result5, &expected5);
+
+            let data = builder.build::<C>();
+            let pw = PartialWitness::new();
+            let proof = data.prove(pw).unwrap();
+            data.verify(proof).unwrap();
+
+            println!("✅ All polynomial evaluation test cases passed!");
         }
 
         #[test]
@@ -217,9 +276,7 @@ mod tests {
             let config = get_test_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
 
-            let coeffs = vec![
-                builder.constant_nonnative(Bn128Scalar::ZERO),
-            ];
+            let coeffs = vec![builder.constant_nonnative(Bn128Scalar::ZERO)];
 
             let g1_gen = builder.g1_generator();
             let powers_of_tau = vec![g1_gen.clone()];
@@ -237,9 +294,7 @@ mod tests {
             let config = get_test_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
 
-            let coeffs = vec![
-                builder.constant_nonnative(Bn128Scalar::ZERO),
-            ];
+            let coeffs = vec![builder.constant_nonnative(Bn128Scalar::ZERO)];
 
             let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5));
             let result = builder.kzg_evaluate_polynomial(&coeffs, &point);
@@ -289,12 +344,14 @@ mod tests {
                 builder.constant_nonnative(Bn128Scalar::from_canonical_u64(4)),
             ];
 
-            let lagrange_g1 = params.lagrange_g1.unwrap()
+            let lagrange_g1 = params
+                .lagrange_g1
+                .unwrap()
                 .into_iter()
                 .map(|p| builder.constant_g1_affine(p))
                 .collect::<Vec<_>>();
 
-            let commitment = builder.kzg_commit_lagrange_basis(&evaluations, &lagrange_g1);
+            let commitment = builder.kzg_commit_lagrange(&evaluations, &lagrange_g1);
 
             let data = builder.build::<C>();
             let pw = PartialWitness::new();
@@ -365,35 +422,18 @@ mod tests {
     }
 
     mod debug_tests {
-        use super::*;
+        use crate::crypto::bn254::pairing_config;
 
-        fn get_debug_config() -> CircuitConfig {
-            CircuitConfig {
-                num_wires: 400,
-                num_routed_wires: 80,
-                num_constants: 2,
-                use_base_arithmetic_gate: true,
-                security_bits: 100,
-                num_challenges: 2,
-                zero_knowledge: false,
-                max_quotient_degree_factor: 8,
-                fri_config: plonky2::fri::FriConfig {
-                    rate_bits: 3,
-                    cap_height: 4,
-                    proof_of_work_bits: 16,
-                    reduction_strategy: plonky2::fri::reduction_strategies::FriReductionStrategy::ConstantArityBits(4, 5),
-                    num_query_rounds: 28,
-                },
-            }
-        }
+        use super::*;
 
         #[test]
         fn test_debug_kzg_commit_only() {
-            let mut builder = CircuitBuilder::<F, D>::new(get_debug_config());
+            let mut builder = CircuitBuilder::<F, D>::new(pairing_config());
 
             let params = KZGSetup::new_test_setup(3);
             let g1_powers = params.get_g1_powers(3).unwrap();
-            let powers_of_tau = g1_powers.iter()
+            let powers_of_tau = g1_powers
+                .iter()
                 .map(|p| builder.constant_g1_affine(*p))
                 .collect::<Vec<_>>();
 
@@ -412,7 +452,7 @@ mod tests {
 
         #[test]
         fn test_debug_simple_nonnative_arithmetic() {
-            let mut builder = CircuitBuilder::<F, D>::new(get_debug_config());
+            let mut builder = CircuitBuilder::<F, D>::new(pairing_config());
 
             let one = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1));
             let three = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3));
@@ -422,6 +462,306 @@ mod tests {
             let expected = builder.constant_nonnative(neg_two);
 
             builder.connect_nonnative(&diff, &expected);
+
+            let data = builder.build::<C>();
+            let pw = PartialWitness::new();
+            let proof = data.prove(pw).unwrap();
+            data.verify(proof).unwrap();
+        }
+    }
+
+    mod end_to_end_tests {
+        use super::*;
+
+        #[test]
+        fn test_kzg_full_workflow() {
+            let config = get_test_config();
+            let mut builder = CircuitBuilder::<F, D>::new(config);
+
+            // Setup parameters
+            let tau = Bn128Scalar::from_canonical_u64(12345);
+            let max_degree = 4;
+            let setup_params = KZGSetup::new_trusted_setup(tau, max_degree);
+
+            // Convert setup to circuit targets
+            let powers_of_tau_g1: Vec<_> = setup_params.powers_of_tau_g1
+                .iter()
+                .map(|p| builder.constant_g1_affine(*p))
+                .collect();
+            
+            let (g2_gen_point, g2_tau_point) = setup_params.get_g2_powers();
+            let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_point);
+
+            // Create a polynomial: p(x) = 1 + 2x + 3x²
+            let coeffs = vec![
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3)),
+            ];
+
+            // Step 1: Commit to the polynomial
+            let commitment = builder.kzg_commit(&coeffs, &powers_of_tau_g1[..3]);
+
+            // Step 2: Create opening proof at point z = 5
+            let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5));
+            let (evaluation, proof) = builder.kzg_create_opening_proof(
+                &coeffs, 
+                &point, 
+                &powers_of_tau_g1[..3]
+            );
+
+            // Verify the evaluation is correct: p(5) = 1 + 2*5 + 3*5² = 1 + 10 + 75 = 86
+            let expected_eval = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(86));
+            builder.connect_nonnative(&evaluation, &expected_eval);
+
+            // Step 3: Verify the proof
+            let is_valid = builder.kzg_verify(
+                &commitment,
+                &point,
+                &evaluation,
+                &proof,
+                &g2_tau
+            );
+
+            // Assert the proof is valid
+            builder.assert_one(is_valid.target);
+
+            // Build and prove the circuit
+            let data = builder.build::<C>();
+            let pw = PartialWitness::new();
+            let proof = data.prove(pw).unwrap();
+            data.verify(proof).unwrap();
+        }
+
+        #[test]
+        fn test_kzg_multiple_openings() {
+            let config = get_test_config();
+            let mut builder = CircuitBuilder::<F, D>::new(config);
+
+            // Setup
+            let tau = Bn128Scalar::from_canonical_u64(54321);
+            let setup_params = KZGSetup::new_trusted_setup(tau, 8);
+            
+            let powers_of_tau_g1: Vec<_> = setup_params.powers_of_tau_g1
+                .iter()
+                .map(|p| builder.constant_g1_affine(*p))
+                .collect();
+            
+            let (_, g2_tau_point) = setup_params.get_g2_powers();
+            let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_point);
+
+            // Polynomial: p(x) = 2 + 3x + x² + 4x³
+            let coeffs = vec![
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(4)),
+            ];
+
+            // Commit
+            let commitment = builder.kzg_commit(&coeffs, &powers_of_tau_g1[..4]);
+
+            // Open at multiple points
+            let points = vec![
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(0)), // p(0) = 2
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)), // p(1) = 10
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2)), // p(2) = 40
+            ];
+
+            let expected_evals = vec![
+                Bn128Scalar::from_canonical_u64(2),
+                Bn128Scalar::from_canonical_u64(10),
+                Bn128Scalar::from_canonical_u64(40),
+            ];
+
+            // Create and verify proofs for each point
+            for (i, point) in points.iter().enumerate() {
+                let (eval, proof) = builder.kzg_create_opening_proof(
+                    &coeffs,
+                    point,
+                    &powers_of_tau_g1[..4]
+                );
+
+                // Check evaluation
+                let expected = builder.constant_nonnative(expected_evals[i]);
+                builder.connect_nonnative(&eval, &expected);
+
+                // Verify proof
+                let is_valid = builder.kzg_verify(
+                    &commitment,
+                    point,
+                    &eval,
+                    &proof,
+                    &g2_tau
+                );
+                builder.assert_one(is_valid.target);
+            }
+
+            let data = builder.build::<C>();
+            let pw = PartialWitness::new();
+            let proof = data.prove(pw).unwrap();
+            data.verify(proof).unwrap();
+        }
+
+        #[test]
+        fn test_kzg_batch_verify() {
+            let config = get_test_config();
+            let mut builder = CircuitBuilder::<F, D>::new(config);
+
+            // Setup
+            let tau = Bn128Scalar::from_canonical_u64(98765);
+            let setup_params = KZGSetup::new_trusted_setup(tau, 8);
+            
+            let powers_of_tau_g1: Vec<_> = setup_params.powers_of_tau_g1
+                .iter()
+                .map(|p| builder.constant_g1_affine(*p))
+                .collect();
+            
+            let (_, g2_tau_point) = setup_params.get_g2_powers();
+            let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_point);
+
+            // Create two polynomials
+            let coeffs1 = vec![
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2)),
+            ];
+            let coeffs2 = vec![
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(4)),
+            ];
+
+            // Commit to both
+            let commitment1 = builder.kzg_commit(&coeffs1, &powers_of_tau_g1[..2]);
+            let commitment2 = builder.kzg_commit(&coeffs2, &powers_of_tau_g1[..2]);
+
+            // Create batch opening proofs
+            let all_coeffs = vec![coeffs1, coeffs2];
+            let points = vec![
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3)),
+            ];
+
+            let (evaluations, proofs) = builder.kzg_create_batch_opening_proofs(
+                &all_coeffs,
+                &points,
+                &powers_of_tau_g1[..2]
+            );
+
+            // Batch verify
+            let commitments = vec![commitment1, commitment2];
+            let is_valid = builder.kzg_batch_verify(
+                &commitments,
+                &points,
+                &evaluations,
+                &proofs,
+                &g2_tau
+            );
+
+            builder.assert_one(is_valid.target);
+
+            let data = builder.build::<C>();
+            let pw = PartialWitness::new();
+            let proof = data.prove(pw).unwrap();
+            data.verify(proof).unwrap();
+        }
+
+        #[test]
+        fn test_kzg_invalid_proof_rejection() {
+            let config = get_test_config();
+            let mut builder = CircuitBuilder::<F, D>::new(config);
+
+            // Setup
+            let tau = Bn128Scalar::from_canonical_u64(11111);
+            let setup_params = KZGSetup::new_trusted_setup(tau, 4);
+            
+            let powers_of_tau_g1: Vec<_> = setup_params.powers_of_tau_g1
+                .iter()
+                .map(|p| builder.constant_g1_affine(*p))
+                .collect();
+            
+            let (_, g2_tau_point) = setup_params.get_g2_powers();
+            let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_point);
+
+            // Create polynomial
+            let coeffs = vec![
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5)),
+                builder.constant_nonnative(Bn128Scalar::from_canonical_u64(7)),
+            ];
+
+            let commitment = builder.kzg_commit(&coeffs, &powers_of_tau_g1[..2]);
+            let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3));
+            let (correct_eval, correct_proof) = builder.kzg_create_opening_proof(
+                &coeffs,
+                &point,
+                &powers_of_tau_g1[..2]
+            );
+
+            // Create an incorrect evaluation
+            let wrong_eval = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(999));
+
+            // Verify with wrong evaluation should fail
+            let is_valid = builder.kzg_verify(
+                &commitment,
+                &point,
+                &wrong_eval,  // Wrong evaluation
+                &correct_proof,
+                &g2_tau
+            );
+
+            // Assert the proof is INVALID
+            builder.assert_zero(is_valid.target);
+
+            let data = builder.build::<C>();
+            let pw = PartialWitness::new();
+            let proof = data.prove(pw).unwrap();
+            data.verify(proof).unwrap();
+        }
+
+        #[test]
+        fn test_kzg_zero_polynomial() {
+            let config = get_test_config();
+            let mut builder = CircuitBuilder::<F, D>::new(config);
+
+            // Setup
+            let tau = Bn128Scalar::from_canonical_u64(22222);
+            let setup_params = KZGSetup::new_trusted_setup(tau, 4);
+            
+            let powers_of_tau_g1: Vec<_> = setup_params.powers_of_tau_g1
+                .iter()
+                .map(|p| builder.constant_g1_affine(*p))
+                .collect();
+            
+            let (_, g2_tau_point) = setup_params.get_g2_powers();
+            let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_point);
+
+            // Zero polynomial
+            let coeffs = vec![
+                builder.constant_nonnative(Bn128Scalar::ZERO),
+                builder.constant_nonnative(Bn128Scalar::ZERO),
+                builder.constant_nonnative(Bn128Scalar::ZERO),
+            ];
+
+            let commitment = builder.kzg_commit(&coeffs, &powers_of_tau_g1[..3]);
+            let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(7));
+            let (eval, proof) = builder.kzg_create_opening_proof(
+                &coeffs,
+                &point,
+                &powers_of_tau_g1[..3]
+            );
+
+            // Evaluation should be zero
+            let zero = builder.constant_nonnative(Bn128Scalar::ZERO);
+            builder.connect_nonnative(&eval, &zero);
+
+            // Verify proof
+            let is_valid = builder.kzg_verify(
+                &commitment,
+                &point,
+                &eval,
+                &proof,
+                &g2_tau
+            );
+            builder.assert_one(is_valid.target);
 
             let data = builder.build::<C>();
             let pw = PartialWitness::new();
