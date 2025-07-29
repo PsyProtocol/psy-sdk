@@ -289,6 +289,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         &mut self,
         p: &JacobianPointTargetG2<FF>,
     ) -> AffinePointTargetG2<FF> {
+        // Following ark-r1cs-std approach but using existing components
+        // Since inv_nonnative_ext2 uses inv_nonnative internally which will fail on zero,
+        // and G2 points in KZG are never infinity, we can use it directly
+        
+        // Note: If we ever need to handle infinity for G2, we would need to:
+        // 1. Check if z is zero: let z_is_zero = self.is_zero_nonnative_ext2(&p.z);
+        // 2. Create a safe version of inv_nonnative_ext2 that returns 0 when input is 0
+        // 3. Add constraint: z_inv * z = !z_is_zero
+        
         let z_inv = self.inv_nonnative_ext2(&p.z);
         let z_inv_squared = self.mul_nonnative_ext2(&z_inv, &z_inv);
         let x = self.mul_nonnative_ext2(&p.x, &z_inv_squared);

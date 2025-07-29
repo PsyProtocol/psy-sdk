@@ -71,8 +71,6 @@ pub trait CircuitBuilderNonNative<F: RichField + Extendable<D>, const D: usize> 
 
     fn inv_nonnative<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF>;
 
-    fn inv_nonnative_safe<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>, is_zero: BoolTarget) -> NonNativeTarget<FF>;
-
     fn div_nonnative<FF: Field + PrimeField>(
         &mut self,
         lhs: &NonNativeTarget<FF>,
@@ -98,11 +96,11 @@ pub trait CircuitBuilderNonNative<F: RichField + Extendable<D>, const D: usize> 
 
     fn zero_nonnative<FF: Field>(&mut self) -> NonNativeTarget<FF>;
 
-    fn one_nonnative<FF: Field>(&mut self) -> NonNativeTarget<FF>;
+    fn one_nonnative<FF: PrimeField>(&mut self) -> NonNativeTarget<FF>;
 
-    fn bool_to_nonnative<FF: Field>(&mut self, b: BoolTarget) -> NonNativeTarget<FF>;
+    fn bool_to_nonnative<FF: PrimeField>(&mut self, b: BoolTarget) -> NonNativeTarget<FF>;
 
-    fn pow_nonnative<FF: Field>(
+    fn pow_nonnative<FF: PrimeField>(
         &mut self,
         base: &NonNativeTarget<FF>,
         exponent: &NonNativeTarget<FF>,
@@ -318,16 +316,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
     }
 
     fn inv_nonnative<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
+        // Following ark-r1cs-std approach: allocate witness that is either inverse or zero
         let num_limbs = x.value.num_limbs();
         let inv_biguint = self.add_virtual_biguint_target(num_limbs);
-        let one = self.constant_nonnative(FF::ONE);
-
+        
+        // Check if x is zero
+        let x_is_zero = self.is_zero_nonnative(x);
+        
+        // Add generator that computes inv = x.inverse() if x != 0, else 0
         self.add_simple_generator(NonNativeInverseGenerator::<F, D, FF> {
             x: x.clone(),
             inv: inv_biguint.clone(),
             _phantom: PhantomData,
         });
-
+        
+        // Add constraint: inv * x = !x_is_zero
+        // This ensures inv is the inverse when x != 0, and is 0 when x = 0
         let product = self.mul_nonnative(
             &x,
             &NonNativeTarget {
@@ -335,22 +339,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
                 _phantom: PhantomData,
             },
         );
-        self.connect_nonnative(&product, &one);
-
+        
+        let one = self.one_nonnative();
+        let zero = self.zero_nonnative();
+        let not_zero = self.not(x_is_zero);
+        let expected = self.select_nonnative(not_zero, &one, &zero);
+        self.connect_nonnative(&product, &expected);
+        
         NonNativeTarget::<FF> {
             value: inv_biguint,
             _phantom: PhantomData,
         }
     }
 
-    fn inv_nonnative_safe<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>, is_zero: BoolTarget) -> NonNativeTarget<FF> {
-        let one = self.one_nonnative();
-        let safe_x = self.select_nonnative(is_zero, &one, x);
-        
-        let inv_safe = self.inv_nonnative(&safe_x);
-        
-        self.select_nonnative(is_zero, &one, &inv_safe)
-    }
 
     fn div_nonnative<FF: Field + PrimeField>(
         &mut self,
@@ -410,20 +411,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         NonNativeTarget::new(zero)
     }
 
-    fn one_nonnative<FF: Field>(&mut self) -> NonNativeTarget<FF> {
-        let mut limbs = vec![self.zero_u32(); 8];
-        limbs[0] = self.one_u32();
-        let one = BigUintTarget { limbs };
-        NonNativeTarget::new(one)
+    fn one_nonnative<FF: PrimeField>(&mut self) -> NonNativeTarget<FF> {
+        self.constant_nonnative(FF::ONE)
     }
 
-    fn bool_to_nonnative<FF: Field>(&mut self, b: BoolTarget) -> NonNativeTarget<FF> {
+    fn bool_to_nonnative<FF: PrimeField>(&mut self, b: BoolTarget) -> NonNativeTarget<FF> {
         let one = self.one_nonnative();
         let zero = self.zero_nonnative();
         self.select_nonnative(b, &one, &zero)
     }
 
-    fn pow_nonnative<FF: Field>(
+    fn pow_nonnative<FF: PrimeField>(
         &mut self,
         base: &NonNativeTarget<FF>,
         exponent: &NonNativeTarget<FF>,
@@ -643,11 +641,12 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
     }
 }
 
+
 #[derive(Debug)]
-struct NonNativeInverseGenerator<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> {
-    x: NonNativeTarget<FF>,
-    inv: BigUintTarget,
-    _phantom: PhantomData<F>,
+pub struct NonNativeInverseGenerator<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> {
+    pub x: NonNativeTarget<FF>,
+    pub inv: BigUintTarget,
+    pub _phantom: PhantomData<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerator<F, D>
@@ -660,33 +659,32 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &plonky2::plonk::circuit_data::CommonCircuitData<F, D>) -> Result<(), plonky2::util::serialization::IoError> {
         use plonky2::util::serialization::Write;
         dst.write_usize(self.x.value.limbs.len())?;
-        for limb in &self.x.value.limbs {
-            dst.write_target(limb.0)?;
-        }
         dst.write_usize(self.inv.limbs.len())?;
-        for limb in &self.inv.limbs {
-            dst.write_target(limb.0)?;
-        }
+        let x_targets: Vec<Target> = self.x.value.limbs.iter().map(|l| l.0).collect();
+        let inv_targets: Vec<Target> = self.inv.limbs.iter().map(|l| l.0).collect();
+        dst.write_target_vec(&x_targets)?;
+        dst.write_target_vec(&inv_targets)?;
         Ok(())
     }
 
     fn deserialize(src: &mut plonky2::util::serialization::Buffer, _common_data: &plonky2::plonk::circuit_data::CommonCircuitData<F, D>) -> Result<Self, plonky2::util::serialization::IoError> {
         use plonky2::util::serialization::Read;
-        let x_limb_count = src.read_usize()?;
-        let mut x_limbs = Vec::with_capacity(x_limb_count);
-        for _ in 0..x_limb_count {
-            x_limbs.push(U32Target(src.read_target()?));
+        let limb_count_x = src.read_usize()?;
+        let limb_count_inv = src.read_usize()?;
+        let mut limbs_x = Vec::with_capacity(limb_count_x);
+        for _ in 0..limb_count_x {
+            limbs_x.push(U32Target(src.read_target()?));
         }
-        
-        let inv_limb_count = src.read_usize()?;
-        let mut inv_limbs = Vec::with_capacity(inv_limb_count);
-        for _ in 0..inv_limb_count {
-            inv_limbs.push(U32Target(src.read_target()?));
+        let mut limbs_inv = Vec::with_capacity(limb_count_inv);
+        for _ in 0..limb_count_inv {
+            limbs_inv.push(U32Target(src.read_target()?));
         }
-        
         Ok(Self {
-            x: NonNativeTarget::new(BigUintTarget { limbs: x_limbs }),
-            inv: BigUintTarget { limbs: inv_limbs },
+            x: NonNativeTarget {
+                value: BigUintTarget { limbs: limbs_x },
+                _phantom: PhantomData,
+            },
+            inv: BigUintTarget { limbs: limbs_inv },
             _phantom: PhantomData,
         })
     }
@@ -697,8 +695,14 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> Result<(), anyhow::Error> {
         let x = FF::from_noncanonical_biguint(witness.get_biguint_target(&self.x.value));
-        let inv = x.inverse();
-        let inv_biguint = inv.to_canonical_biguint();
+        let inv_biguint = if x.is_zero() {
+            // If x is zero, set inv to zero
+            num::BigUint::from(0u32)
+        } else {
+            // Otherwise, compute the inverse
+            let inv = x.inverse();
+            inv.to_canonical_biguint()
+        };
         out_buffer.set_biguint_target(&self.inv, &inv_biguint);
         Ok(())
     }
@@ -847,6 +851,28 @@ mod tests {
         let sum = builder.add_nonnative(&x, &neg_x);
         let zero = builder.zero_nonnative();
         builder.connect_nonnative(&sum, &zero);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+    }
+
+    #[test]
+    fn test_safe_inverse_with_zero() {
+        // Test that inverse of zero returns zero (ark-r1cs-std behavior)
+        let config = CircuitConfig {
+            num_wires: 400,
+            ..CircuitConfig::wide_ecc_config()
+        };
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let zero = builder.zero_nonnative::<FF>();
+        let inv_zero = builder.inv_nonnative(&zero);
+        
+        // inv(0) should be 0
+        let expected_zero = builder.zero_nonnative();
+        builder.connect_nonnative(&inv_zero, &expected_zero);
 
         let data = builder.build::<C>();
         let pw = PartialWitness::new();

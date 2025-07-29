@@ -396,11 +396,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderG1<F, D>
         &mut self,
         p: &G1ProjectiveTarget<F, D>,
     ) -> G1AffineTarget<F, D> {
-        let z_inv = self.inv_nonnative(&p.z);
-        let x_affine = self.mul_nonnative(&p.x, &z_inv);
-        let y_affine = self.mul_nonnative(&p.y, &z_inv);
-        
+        // Following ark-r1cs-std approach
+        // inv_nonnative now handles zero case properly
         let z_is_zero = self.is_zero_nonnative(&p.z);
+        let zero = self.zero_nonnative();
+        
+        // Use inv_nonnative which follows ark-r1cs-std approach internally
+        let z_inv = self.inv_nonnative(&p.z);
+        
+        // Compute affine coordinates
+        let x_non_zero = self.mul_nonnative(&p.x, &z_inv);
+        let y_non_zero = self.mul_nonnative(&p.y, &z_inv);
+        
+        // Select based on whether z is zero
+        let x_affine = self.select_nonnative(z_is_zero, &zero, &x_non_zero);
+        let y_affine = self.select_nonnative(z_is_zero, &zero, &y_non_zero);
         
         G1AffineTarget {
             x: x_affine,
@@ -437,6 +447,189 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderG1<F, D>
         self.connect_nonnative(&a.x, &b.x);
         self.connect_nonnative(&a.y, &b.y);
         self.connect(a.is_infinity.target, b.is_infinity.target);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::crypto::bn254::{
+        field::bn128_scalar::Bn128Scalar,
+        gadgets::nonnative_fp::CircuitBuilderNonNative,
+    };
+    use crate::crypto::secp256k1::ecdsa::gadgets::biguint::WitnessBigUint;
+    use plonky2::{
+        field::types::PrimeField,
+        iop::witness::{PartialWitness, WitnessWrite},
+        plonk::{
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
+
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+
+    #[test]
+    fn test_g1_projective_to_affine_non_zero() -> Result<(), anyhow::Error> {
+        let config = crate::crypto::bn254::pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test with a non-zero point
+        let g1_gen = G1::GENERATOR_PROJECTIVE;
+        
+        // Create projective point targets
+        let x = builder.constant_nonnative(g1_gen.x);
+        let y = builder.constant_nonnative(g1_gen.y);
+        let z = builder.constant_nonnative(g1_gen.z);
+        
+        let proj = G1ProjectiveTarget {
+            x,
+            y,
+            z,
+            _phantom: PhantomData,
+        };
+        
+        // Convert to affine
+        let affine = builder.g1_projective_to_affine(&proj);
+        
+        // The result should be the generator in affine form
+        let expected = builder.constant_g1_affine(G1::GENERATOR_AFFINE);
+        builder.connect_g1(&affine, &expected);
+        
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw)?;
+        data.verify(proof)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_g1_projective_to_affine_infinity() -> Result<(), anyhow::Error> {
+        let config = crate::crypto::bn254::pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test with infinity point (z = 0)
+        let x = builder.constant_nonnative(Bn128Base::ONE);
+        let y = builder.constant_nonnative(Bn128Base::ONE);
+        let z = builder.constant_nonnative(Bn128Base::ZERO);
+        
+        let proj = G1ProjectiveTarget {
+            x,
+            y,
+            z,
+            _phantom: PhantomData,
+        };
+        
+        // Convert to affine
+        let affine = builder.g1_projective_to_affine(&proj);
+        
+        // The result should be infinity
+        let zero = builder.zero_nonnative();
+        builder.connect_nonnative(&affine.x, &zero);
+        builder.connect_nonnative(&affine.y, &zero);
+        let true_target = builder._true().target;
+        builder.connect(affine.is_infinity.target, true_target);
+        
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw)?;
+        data.verify(proof)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_g1_projective_to_affine_witness_generator() -> Result<(), anyhow::Error> {
+        let config = crate::crypto::bn254::pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test with witness values for generator point
+        let x_target = builder.add_virtual_nonnative_target();
+        let y_target = builder.add_virtual_nonnative_target();
+        let z_target = builder.add_virtual_nonnative_target();
+        
+        let proj = G1ProjectiveTarget {
+            x: x_target.clone(),
+            y: y_target.clone(),
+            z: z_target.clone(),
+            _phantom: PhantomData,
+        };
+        
+        // Convert to affine
+        let affine = builder.g1_projective_to_affine(&proj);
+        
+        // Create expected affine result
+        let expected_x_target = builder.add_virtual_nonnative_target();
+        let expected_y_target = builder.add_virtual_nonnative_target();
+        let expected_infinity = builder.add_virtual_bool_target_safe();
+        
+        builder.connect_nonnative(&affine.x, &expected_x_target);
+        builder.connect_nonnative(&affine.y, &expected_y_target);
+        builder.connect(affine.is_infinity.target, expected_infinity.target);
+        
+        let data = builder.build::<C>();
+        
+        // Test with generator point
+        let mut pw = PartialWitness::new();
+        let g1_gen = G1::GENERATOR_PROJECTIVE;
+        let g1_affine = G1::GENERATOR_AFFINE;
+        
+        pw.set_biguint_target(&x_target.value, &g1_gen.x.to_canonical_biguint())?;
+        pw.set_biguint_target(&y_target.value, &g1_gen.y.to_canonical_biguint())?;
+        pw.set_biguint_target(&z_target.value, &g1_gen.z.to_canonical_biguint())?;
+        pw.set_biguint_target(&expected_x_target.value, &g1_affine.x.to_canonical_biguint())?;
+        pw.set_biguint_target(&expected_y_target.value, &g1_affine.y.to_canonical_biguint())?;
+        pw.set_bool_target(expected_infinity, false);
+        
+        let proof = data.prove(pw)?;
+        data.verify(proof)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_g1_projective_to_affine_witness_infinity() -> Result<(), anyhow::Error> {
+        let config = crate::crypto::bn254::pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test with witness values for infinity point
+        let x_target = builder.add_virtual_nonnative_target();
+        let y_target = builder.add_virtual_nonnative_target();
+        let z_target = builder.add_virtual_nonnative_target();
+        
+        let proj = G1ProjectiveTarget {
+            x: x_target.clone(),
+            y: y_target.clone(),
+            z: z_target.clone(),
+            _phantom: PhantomData,
+        };
+        
+        // Convert to affine
+        let affine = builder.g1_projective_to_affine(&proj);
+        
+        // Create expected affine result
+        let expected_x_target = builder.add_virtual_nonnative_target();
+        let expected_y_target = builder.add_virtual_nonnative_target();
+        let expected_infinity = builder.add_virtual_bool_target_safe();
+        
+        builder.connect_nonnative(&affine.x, &expected_x_target);
+        builder.connect_nonnative(&affine.y, &expected_y_target);
+        builder.connect(affine.is_infinity.target, expected_infinity.target);
+        
+        let data = builder.build::<C>();
+        
+        // Test with infinity point
+        let mut pw = PartialWitness::new();
+        pw.set_biguint_target(&x_target.value, &Bn128Base::ONE.to_canonical_biguint())?;
+        pw.set_biguint_target(&y_target.value, &Bn128Base::ONE.to_canonical_biguint())?;
+        pw.set_biguint_target(&z_target.value, &Bn128Base::ZERO.to_canonical_biguint())?;
+        pw.set_biguint_target(&expected_x_target.value, &Bn128Base::ZERO.to_canonical_biguint())?;
+        pw.set_biguint_target(&expected_y_target.value, &Bn128Base::ZERO.to_canonical_biguint())?;
+        pw.set_bool_target(expected_infinity, true);
+        
+        let proof = data.prove(pw)?;
+        data.verify(proof)?;
+        Ok(())
     }
 }
 

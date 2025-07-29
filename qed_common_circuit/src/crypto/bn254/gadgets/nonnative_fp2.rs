@@ -6,6 +6,9 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::{Field, PrimeField};
 use std::marker::PhantomData;
+use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
+use plonky2::iop::witness::PartitionWitness;
+use plonky2::util::serialization::{Buffer, Read, Write, IoResult};
 
 #[derive(Clone, Debug)]
 pub struct NonNativeTargetExt2<FF: Field> {
@@ -16,6 +19,8 @@ pub struct NonNativeTargetExt2<FF: Field> {
 
 pub trait CircuitBuilderNonNativeExt2<F: RichField + Extendable<D>, const D: usize> {
     fn zero_nonnative_ext2<FF: PrimeField + Extendable<2>>(&mut self) -> NonNativeTargetExt2<FF>;
+    
+    fn one_nonnative_ext2<FF: PrimeField + Extendable<2>>(&mut self) -> NonNativeTargetExt2<FF>;
 
     fn constant_nonnative_ext2<FF: PrimeField + Extendable<2>>(
         &mut self,
@@ -29,6 +34,10 @@ pub trait CircuitBuilderNonNativeExt2<F: RichField + Extendable<D>, const D: usi
     );
 
     fn add_virtual_nonnative_ext2_target<FF: Field + Extendable<2>>(
+        &mut self,
+    ) -> NonNativeTargetExt2<FF>;
+    
+    fn add_virtual_nonnative_target_ext2<FF: PrimeField + Extendable<2>>(
         &mut self,
     ) -> NonNativeTargetExt2<FF>;
 
@@ -106,6 +115,11 @@ pub trait CircuitBuilderNonNativeExt2<F: RichField + Extendable<D>, const D: usi
         x: &NonNativeTargetExt2<FF>,
         y: &NonNativeTargetExt2<FF>,
     ) -> NonNativeTargetExt2<FF>;
+    
+    fn is_zero_nonnative_ext2<FF: PrimeField + Extendable<2>>(
+        &mut self,
+        x: &NonNativeTargetExt2<FF>,
+    ) -> BoolTarget;
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt2<F, D>
@@ -113,6 +127,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt2<F
 {
     fn zero_nonnative_ext2<FF: PrimeField + Extendable<2>>(&mut self) -> NonNativeTargetExt2<FF> {
         self.constant_nonnative_ext2(QuadraticExtension::ZERO)
+    }
+    
+    fn one_nonnative_ext2<FF: PrimeField + Extendable<2>>(&mut self) -> NonNativeTargetExt2<FF> {
+        self.constant_nonnative_ext2(QuadraticExtension::ONE)
     }
 
     fn constant_nonnative_ext2<FF: PrimeField + Extendable<2>>(
@@ -345,6 +363,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt2<F
             _phantom: PhantomData,
         }
     }
+    
+    fn is_zero_nonnative_ext2<FF: PrimeField + Extendable<2>>(
+        &mut self,
+        x: &NonNativeTargetExt2<FF>,
+    ) -> BoolTarget {
+        let c0_is_zero = self.is_zero_nonnative(&x.c0);
+        let c1_is_zero = self.is_zero_nonnative(&x.c1);
+        self.and(c0_is_zero, c1_is_zero)
+    }
+    
+    fn add_virtual_nonnative_target_ext2<FF: PrimeField + Extendable<2>>(
+        &mut self,
+    ) -> NonNativeTargetExt2<FF> {
+        NonNativeTargetExt2 {
+            c0: self.add_virtual_nonnative_target(),
+            c1: self.add_virtual_nonnative_target(),
+            _phantom: PhantomData,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -514,3 +551,5 @@ mod tests {
         data.verify(proof)
     }
 }
+
+
