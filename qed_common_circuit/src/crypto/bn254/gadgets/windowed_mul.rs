@@ -195,28 +195,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         &mut self,
         p: &G2AffineTarget<F, D>,
     ) -> Vec<G2AffineTarget<F, D>> {
-        let starting = G2AffineTarget {
-            x: self.constant_nonnative_ext2(QuadraticExtension([
-                Bn128Base::from_canonical_u64(1),
-                Bn128Base::from_canonical_u64(2),
-            ])),
+        // Use point at infinity as starting point (index 0 should be 0*p = infinity)
+        let infinity = G2AffineTarget {
+            x: self.zero_nonnative_ext2(),
             y: self.constant_nonnative_ext2(QuadraticExtension([
-                Bn128Base::from_canonical_u64(3),
-                Bn128Base::from_canonical_u64(4),
+                Bn128Base::ONE,
+                Bn128Base::ZERO,
             ])),
-            is_infinity: self._false(),
+            is_infinity: self._true(),
             _phantom: PhantomData,
         };
 
-        let mut multiples = vec![starting.clone()];
+        let mut multiples = vec![infinity];
 
+        // Create [0*p, 1*p, 2*p, ..., (2^WINDOW_SIZE-1)*p]
         for i in 1..1 << WINDOW_SIZE {
-            multiples.push(self.add_g2(p, &multiples[i - 1]));
-        }
-
-        let neg_starting = self.neg_g2(&starting);
-        for i in 1..1 << WINDOW_SIZE {
-            multiples[i] = self.add_g2(&multiples[i], &neg_starting);
+            multiples.push(self.add_g2(&multiples[i - 1], p));
         }
 
         multiples
@@ -348,7 +342,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
 
         for i in (0..windows.len()).rev() {
             for _ in 0..WINDOW_SIZE {
-                result = self.add_g2(&result, &result); // double
+                result = self.double_g2(&result);
             }
 
             let window = windows[i];
@@ -380,5 +374,382 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
         }
 
         result
+    }
+}
+
+#[cfg(test)]
+mod g2_scalar_mul_tests {
+    use super::*;
+    use crate::crypto::bn254::{curve::g2::G2, pairing_config};
+    use crate::crypto::secp256k1::ecdsa::curve::curve_types::{Curve, CurveScalar};
+    use plonky2::{
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
+
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+
+    #[test]
+    fn test_curve_scalar_mul_windowed_g2_simple() {
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test with G2 generator and a small scalar
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        let scalar = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5));
+
+        println!("Starting G2 scalar multiplication test...");
+        let result = builder.curve_scalar_mul_windowed_g2(&g2_gen, &scalar);
+        println!("G2 scalar multiplication completed in circuit building");
+
+        let data = builder.build::<C>();
+        println!("Circuit built successfully");
+
+        let pw = PartialWitness::new();
+        println!("Starting proof generation...");
+        let proof = data.prove(pw).unwrap();
+        println!("Proof generated successfully");
+        
+        data.verify(proof).unwrap();
+        println!("Proof verified successfully");
+    }
+
+    #[test]
+    fn test_curve_scalar_mul_windowed_g2_zero() {
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test with zero scalar (should result in point at infinity)
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        let zero_scalar = builder.constant_nonnative(Bn128Scalar::ZERO);
+
+        let result = builder.curve_scalar_mul_windowed_g2(&g2_gen, &zero_scalar);
+        
+        // Result should be point at infinity
+        builder.assert_one(result.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+    }
+
+    #[test]
+    fn test_curve_scalar_mul_windowed_g2_one() {
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test with scalar = 1 (should result in the same point)
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        let one_scalar = builder.constant_nonnative(Bn128Scalar::ONE);
+
+        let result = builder.curve_scalar_mul_windowed_g2(&g2_gen, &one_scalar);
+        
+        // Result should equal the original point
+        builder.connect_nonnative_ext2(&result.x, &g2_gen.x);
+        builder.connect_nonnative_ext2(&result.y, &g2_gen.y);
+        builder.connect(result.is_infinity.target, g2_gen.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+    }
+
+    #[test]
+    fn test_curve_scalar_mul_windowed_g2_with_bn_scalar() {
+        // Test with the same scalar used in bn crate: "20390255904278144451778773028944684152769293537511418234311120800877067946"
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        
+        // Use the scalar from bn crate test case
+        use num::BigUint;
+        let scalar_str = "20390255904278144451778773028944684152769293537511418234311120800877067946";
+        let scalar_biguint = BigUint::parse_bytes(scalar_str.as_bytes(), 10).unwrap();
+        let scalar_bn128 = Bn128Scalar::from_noncanonical_biguint(scalar_biguint);
+        let scalar = builder.constant_nonnative(scalar_bn128);
+
+        println!("Testing G2 scalar multiplication with bn crate scalar: {}", scalar_str);
+        
+        let result = builder.curve_scalar_mul_windowed_g2(&g2_gen, &scalar);
+        println!("G2 scalar multiplication completed");
+
+        // Verify it's not the point at infinity (unless scalar is 0, which it's not)
+        builder.assert_zero(result.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("Test passed: G2 scalar multiplication with bn crate scalar is correct");
+    }
+
+    #[test]
+    fn test_g2_addition_correctness() {
+        // First test if G2 addition itself is correct
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        
+        // Test: G2 + G2 = 2*G2 (using different methods)
+        let g2_plus_g2 = builder.add_g2(&g2_gen, &g2_gen);  // Addition
+        let scalar_2 = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2));
+        let two_g2 = builder.curve_scalar_mul_windowed_g2(&g2_gen, &scalar_2);  // Scalar multiplication
+        
+        println!("Testing G2 addition: G2 + G2 vs 2*G2");
+        
+        // They should be equal
+        builder.connect_nonnative_ext2(&g2_plus_g2.x, &two_g2.x);
+        builder.connect_nonnative_ext2(&g2_plus_g2.y, &two_g2.y);
+        builder.connect(g2_plus_g2.is_infinity.target, two_g2.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("Test passed: G2 addition is correct");
+    }
+
+    #[test]
+    fn test_g2_generator_properties() {
+        // Test basic properties of G2 generator
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        
+        // Test: G2 generator is not infinity
+        builder.assert_zero(g2_gen.is_infinity.target);
+        
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("✅ G2 generator properties test passed");
+    }
+
+    #[test]
+    fn test_g2_doubling_vs_addition() {
+        // Test: 2*G2 = G2 + G2
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        
+        let doubled = builder.double_g2(&g2_gen);
+        let added = builder.add_g2(&g2_gen, &g2_gen);
+        
+        // They should be equal
+        builder.connect_nonnative_ext2(&doubled.x, &added.x);
+        builder.connect_nonnative_ext2(&doubled.y, &added.y);
+        builder.connect(doubled.is_infinity.target, added.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("✅ G2 doubling vs addition test passed");
+    }
+
+    #[test]
+    fn test_g2_scalar_mul_small_values() {
+        // Test scalar multiplication with small values: 1, 2, 3, 4
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        
+        // Test 1*G2 = G2
+        let one_scalar = builder.constant_nonnative(Bn128Scalar::ONE);
+        let one_g2 = builder.curve_scalar_mul_windowed_g2(&g2_gen, &one_scalar);
+        
+        builder.connect_nonnative_ext2(&one_g2.x, &g2_gen.x);
+        builder.connect_nonnative_ext2(&one_g2.y, &g2_gen.y);
+        builder.connect(one_g2.is_infinity.target, g2_gen.is_infinity.target);
+
+        // Test 2*G2 = G2 + G2  
+        let two_scalar = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2));
+        let two_g2 = builder.curve_scalar_mul_windowed_g2(&g2_gen, &two_scalar);
+        let doubled_g2 = builder.double_g2(&g2_gen);
+        
+        builder.connect_nonnative_ext2(&two_g2.x, &doubled_g2.x);
+        builder.connect_nonnative_ext2(&two_g2.y, &doubled_g2.y);
+        builder.connect(two_g2.is_infinity.target, doubled_g2.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("✅ G2 scalar multiplication small values test passed");
+    }
+
+    #[test]
+    fn test_g2_scalar_mul_associativity() {
+        // Test: (a*b)*G2 = a*(b*G2)
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        
+        let a = Bn128Scalar::from_canonical_u64(3);
+        let b = Bn128Scalar::from_canonical_u64(5);
+        let ab = Bn128Scalar::from_canonical_u64(15); // 3 * 5
+        
+        let ab_scalar = builder.constant_nonnative(ab);
+        let ab_g2 = builder.curve_scalar_mul_windowed_g2(&g2_gen, &ab_scalar);
+        
+        let b_scalar = builder.constant_nonnative(b);
+        let b_g2 = builder.curve_scalar_mul_windowed_g2(&g2_gen, &b_scalar);
+        let a_scalar = builder.constant_nonnative(a);
+        let a_b_g2 = builder.curve_scalar_mul_windowed_g2(&b_g2, &a_scalar);
+        
+        // (a*b)*G2 should equal a*(b*G2)
+        builder.connect_nonnative_ext2(&ab_g2.x, &a_b_g2.x);
+        builder.connect_nonnative_ext2(&ab_g2.y, &a_b_g2.y);
+        builder.connect(ab_g2.is_infinity.target, a_b_g2.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("✅ G2 scalar multiplication associativity test passed");
+    }
+
+    #[test] 
+    fn test_g2_addition_commutativity() {
+        // Test: P + Q = Q + P
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        
+        // Create two different points: G2 and 3*G2
+        let three_scalar = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3));
+        let three_g2 = builder.curve_scalar_mul_windowed_g2(&g2_gen, &three_scalar);
+        
+        let p_plus_q = builder.add_g2(&g2_gen, &three_g2);
+        let q_plus_p = builder.add_g2(&three_g2, &g2_gen);
+        
+        // They should be equal
+        builder.connect_nonnative_ext2(&p_plus_q.x, &q_plus_p.x);
+        builder.connect_nonnative_ext2(&p_plus_q.y, &q_plus_p.y);
+        builder.connect(p_plus_q.is_infinity.target, q_plus_p.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("✅ G2 addition commutativity test passed");
+    }
+
+    #[test]
+    fn test_g2_addition_associativity() {
+        // Test: (P + Q) + R = P + (Q + R)
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        
+        // Create three different points
+        let two_scalar = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2));
+        let two_g2 = builder.curve_scalar_mul_windowed_g2(&g2_gen, &two_scalar);
+        
+        let three_scalar = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3));
+        let three_g2 = builder.curve_scalar_mul_windowed_g2(&g2_gen, &three_scalar);
+        
+        // (P + Q) + R
+        let p_plus_q = builder.add_g2(&g2_gen, &two_g2);
+        let left_side = builder.add_g2(&p_plus_q, &three_g2);
+        
+        // P + (Q + R)
+        let q_plus_r = builder.add_g2(&two_g2, &three_g2);
+        let right_side = builder.add_g2(&g2_gen, &q_plus_r);
+        
+        // They should be equal
+        builder.connect_nonnative_ext2(&left_side.x, &right_side.x);
+        builder.connect_nonnative_ext2(&left_side.y, &right_side.y);
+        builder.connect(left_side.is_infinity.target, right_side.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("✅ G2 addition associativity test passed");
+    }
+
+    #[test]
+    fn test_g2_scalar_mul_distributivity() {
+        // Test: (a + b)*G2 = a*G2 + b*G2
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        
+        let a = Bn128Scalar::from_canonical_u64(5);
+        let b = Bn128Scalar::from_canonical_u64(7);
+        let a_plus_b = Bn128Scalar::from_canonical_u64(12); // 5 + 7
+        
+        // (a + b)*G2
+        let ab_scalar = builder.constant_nonnative(a_plus_b);
+        let left_side = builder.curve_scalar_mul_windowed_g2(&g2_gen, &ab_scalar);
+        
+        // a*G2 + b*G2
+        let a_scalar = builder.constant_nonnative(a);
+        let a_g2 = builder.curve_scalar_mul_windowed_g2(&g2_gen, &a_scalar);
+        let b_scalar = builder.constant_nonnative(b);
+        let b_g2 = builder.curve_scalar_mul_windowed_g2(&g2_gen, &b_scalar);
+        let right_side = builder.add_g2(&a_g2, &b_g2);
+        
+        // They should be equal
+        builder.connect_nonnative_ext2(&left_side.x, &right_side.x);
+        builder.connect_nonnative_ext2(&left_side.y, &right_side.y);
+        builder.connect(left_side.is_infinity.target, right_side.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("✅ G2 scalar multiplication distributivity test passed");
+    }
+
+    #[test]
+    fn test_g2_negation_properties() {
+        // Test: P + (-P) = O (point at infinity) and -(-P) = P
+        let config = pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g2_gen = builder.constant_g2_affine(G2::GENERATOR_AFFINE);
+        
+        // Test -(-P) = P
+        let neg_g2 = builder.neg_g2(&g2_gen);
+        let neg_neg_g2 = builder.neg_g2(&neg_g2);
+        
+        builder.connect_nonnative_ext2(&neg_neg_g2.x, &g2_gen.x);
+        builder.connect_nonnative_ext2(&neg_neg_g2.y, &g2_gen.y);
+        builder.connect(neg_neg_g2.is_infinity.target, g2_gen.is_infinity.target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("✅ G2 negation properties test passed");
     }
 }

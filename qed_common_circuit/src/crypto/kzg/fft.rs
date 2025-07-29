@@ -295,7 +295,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderFFT<F, D>
         }
 
         // Compute (z^n - 1) / n
-        let z_pow_n = CircuitBuilderPowExt::pow_nonnative(self, point, n);
+        let n_biguint = BigUint::from(n);
+        let z_pow_n = self.pow_nonnative_biguint(point, &n_biguint);
         let one = self.one_nonnative();
         let z_pow_n_minus_1 = self.sub_nonnative(&z_pow_n, &one);
         let scaled = self.mul_nonnative(&z_pow_n_minus_1, &settings.domain_size_inv);

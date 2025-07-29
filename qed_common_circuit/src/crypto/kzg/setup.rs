@@ -8,60 +8,27 @@ use crate::crypto::secp256k1::ecdsa::curve::curve_types::{
 
 #[derive(Clone, Debug)]
 pub struct KZGParams {
-    pub powers_of_tau_g1: Vec<AffinePoint<crate::crypto::bn254::curve::g1::G1>>,
+    pub lagrange_g1: Vec<AffinePoint<crate::crypto::bn254::curve::g1::G1>>,
     pub powers_of_tau_g2: Vec<AffinePoint<crate::crypto::bn254::curve::g2::G2>>,
-    pub max_degree: usize,
-
-    pub lagrange_g1: Option<Vec<AffinePoint<crate::crypto::bn254::curve::g1::G1>>>,
-    pub roots_of_unity: Option<Vec<Bn128Scalar>>,
-    pub is_lagrange_form: bool,
+    pub domain_size: usize,
+    pub roots_of_unity: Vec<Bn128Scalar>,
 }
 
 pub struct KZGSetup;
 
 impl KZGSetup {
-    /// - G1 elements: [G, τG, τ²G, ..., τ^(n-1)G]
+    /// Creates a trusted setup with Lagrange basis by default
+    /// - G1 elements in Lagrange form: [L_0(τ)G, L_1(τ)G, ..., L_{n-1}(τ)G]
     /// - G2 elements: [H, τH]
-    pub fn new_trusted_setup(tau: Bn128Scalar, max_degree: usize) -> KZGParams {
-        use crate::crypto::bn254::curve::{g1::G1, g2::G2};
-
-        // Generate powers of tau in G1: [G, τG, τ²G, ..., τ^(n-1)G]
-        let mut powers_of_tau_g1 = Vec::with_capacity(max_degree);
-        let g1_gen = G1::GENERATOR_AFFINE;
-        let mut tau_power = Bn128Scalar::ONE;
-
-        for _ in 0..max_degree {
-            // Compute τ^i * G
-            let point = (CurveScalar::<G1>(tau_power) * g1_gen.to_projective()).to_affine();
-            powers_of_tau_g1.push(point);
-            tau_power = tau_power * tau;
-        }
-
-        // Generate powers of tau in G2: [H, τH]
-        let mut powers_of_tau_g2 = Vec::with_capacity(2);
-        let g2_gen = G2::GENERATOR_AFFINE;
-
-        // H (generator of G2)
-        powers_of_tau_g2.push(g2_gen);
-
-        // τH
-        let h_tau = (CurveScalar::<G2>(tau) * g2_gen.to_projective()).to_affine();
-        powers_of_tau_g2.push(h_tau);
-
-        KZGParams {
-            powers_of_tau_g1,
-            powers_of_tau_g2,
-            max_degree,
-            lagrange_g1: None,
-            roots_of_unity: None,
-            is_lagrange_form: false,
-        }
+    pub fn new_trusted_setup(tau: Bn128Scalar, domain_size: usize) -> KZGParams {
+        // Default to Lagrange basis
+        Self::new_lagrange_setup(tau, domain_size)
     }
 
     #[cfg(test)]
-    pub fn new_test_setup(max_degree: usize) -> KZGParams {
+    pub fn new_test_setup(domain_size: usize) -> KZGParams {
         let tau = Bn128Scalar::from_canonical_u64(12345);
-        Self::new_trusted_setup(tau, max_degree)
+        Self::new_trusted_setup(tau, domain_size)
     }
 
     /// L_i(x) = ∏_{j≠i} (x - ω^j) / (ω^i - ω^j)
@@ -77,8 +44,6 @@ impl KZGSetup {
             domain_size.is_power_of_two(),
             "Domain size must be power of 2"
         );
-
-        let mut params = Self::new_trusted_setup(tau, domain_size);
 
         // Compute primitive n-th root of unity ω
         let omega = Self::compute_primitive_root_of_unity(domain_size);
@@ -119,11 +84,19 @@ impl KZGSetup {
             lagrange_g1.push(point);
         }
 
-        params.lagrange_g1 = Some(lagrange_g1);
-        params.roots_of_unity = Some(roots_of_unity);
-        params.is_lagrange_form = true;
+        // Generate powers of tau in G2: [H, τH]
+        let mut powers_of_tau_g2 = Vec::with_capacity(2);
+        let g2_gen = G2::GENERATOR_AFFINE;
+        powers_of_tau_g2.push(g2_gen);
+        let h_tau = (CurveScalar::<G2>(tau) * g2_gen.to_projective()).to_affine();
+        powers_of_tau_g2.push(h_tau);
 
-        params
+        KZGParams {
+            lagrange_g1,
+            powers_of_tau_g2,
+            domain_size,
+            roots_of_unity,
+        }
     }
 
     /// ω^n ≡ 1 (mod r)
@@ -152,7 +125,7 @@ impl KZGSetup {
     }
 
     pub fn verify_setup(params: &KZGParams) -> bool {
-        if params.powers_of_tau_g1.len() < 2 || params.powers_of_tau_g2.len() < 2 {
+        if params.lagrange_g1.len() < 2 || params.powers_of_tau_g2.len() < 2 {
             return false;
         }
 
@@ -162,15 +135,15 @@ impl KZGSetup {
 
 impl KZGParams {
     pub fn max_degree(&self) -> usize {
-        self.max_degree
+        self.domain_size
     }
 
     pub fn get_g1_powers(
         &self,
         degree: usize,
     ) -> Option<&[AffinePoint<crate::crypto::bn254::curve::g1::G1>]> {
-        if degree <= self.powers_of_tau_g1.len() {
-            Some(&self.powers_of_tau_g1[..degree])
+        if degree <= self.lagrange_g1.len() {
+            Some(&self.lagrange_g1[..degree])
         } else {
             None
         }
@@ -196,7 +169,7 @@ mod tests {
         let max_degree = 16;
         let params = KZGSetup::new_test_setup(max_degree);
 
-        assert_eq!(params.powers_of_tau_g1.len(), max_degree);
+        assert_eq!(params.lagrange_g1.len(), max_degree);
         assert_eq!(params.powers_of_tau_g2.len(), 2);
         assert!(KZGSetup::verify_setup(&params));
     }
@@ -209,7 +182,8 @@ mod tests {
         use crate::crypto::bn254::curve::g1::G1;
         let g1_gen = G1::GENERATOR_AFFINE;
 
-        assert_eq!(params.powers_of_tau_g1[0], g1_gen);
+        // First Lagrange basis element is not the generator
+        // since L_0(τ) = (τ^n - 1) / (n * (τ - 1))
     }
 
     #[test]
@@ -220,25 +194,19 @@ mod tests {
         let max_degree = 4;
         let params = KZGSetup::new_trusted_setup(tau, max_degree);
 
-        // Verify G1 powers length
-        assert_eq!(params.powers_of_tau_g1.len(), max_degree);
+        // Verify Lagrange G1 length
+        assert_eq!(params.lagrange_g1.len(), max_degree);
 
         // Verify G2 powers length
         assert_eq!(params.powers_of_tau_g2.len(), 2);
-
-        // Verify first G1 element is generator
-        let g1_gen = G1::GENERATOR_AFFINE;
-        assert_eq!(params.powers_of_tau_g1[0], g1_gen);
 
         // Verify first G2 element is generator
         let g2_gen = G2::GENERATOR_AFFINE;
         assert_eq!(params.powers_of_tau_g2[0], g2_gen);
 
-        // Verify the powers relationship: powers[i] = tau^i * G
-        // We can't directly verify this without knowing tau, but we can check structure
-        assert!(!params.is_lagrange_form);
-        assert!(params.lagrange_g1.is_none());
-        assert!(params.roots_of_unity.is_none());
+        // Verify we have Lagrange basis data
+        assert_eq!(params.domain_size, max_degree);
+        assert_eq!(params.roots_of_unity.len(), max_degree);
     }
 
     #[test]
@@ -307,15 +275,14 @@ mod tests {
     fn test_new_lagrange_setup() {
         let tau = Bn128Scalar::from_canonical_u64(12345);
         let domain_size = 4;
-        let params = KZGSetup::new_lagrange_setup(tau, domain_size);
+        let params = KZGSetup::new_trusted_setup(tau, domain_size);
 
         // Verify basic properties
-        assert!(params.is_lagrange_form);
-        assert!(params.lagrange_g1.is_some());
-        assert!(params.roots_of_unity.is_some());
+        assert_eq!(params.lagrange_g1.len(), domain_size);
+        assert_eq!(params.roots_of_unity.len(), domain_size);
 
-        let lagrange_g1 = params.lagrange_g1.as_ref().unwrap();
-        let roots = params.roots_of_unity.as_ref().unwrap();
+        let lagrange_g1 = &params.lagrange_g1;
+        let roots = &params.roots_of_unity;
 
         // Verify sizes
         assert_eq!(lagrange_g1.len(), domain_size);
@@ -337,9 +304,9 @@ mod tests {
         // Test that Lagrange polynomials have correct evaluation properties
         let tau = Bn128Scalar::from_canonical_u64(98765);
         let domain_size = 8;
-        let params = KZGSetup::new_lagrange_setup(tau, domain_size);
+        let params = KZGSetup::new_trusted_setup(tau, domain_size);
 
-        let roots = params.roots_of_unity.as_ref().unwrap();
+        let roots = &params.roots_of_unity;
 
         // Verify L_i(τ) computation matches formula
         let tau_n = tau.exp_u64(domain_size as u64);
@@ -377,32 +344,17 @@ mod tests {
     }
 
     #[test]
-    fn test_lagrange_vs_monomial_setup() {
+    fn test_lagrange_setup_size() {
         let tau = Bn128Scalar::from_canonical_u64(54321);
         let domain_size = 16;
 
-        // Create both setups
-        let monomial_params = KZGSetup::new_trusted_setup(tau, domain_size);
-        let lagrange_params = KZGSetup::new_lagrange_setup(tau, domain_size);
+        // Create setup (now always Lagrange)
+        let params = KZGSetup::new_trusted_setup(tau, domain_size);
 
-        // Both should have same powers of tau in G1 for standard form
-        assert_eq!(
-            monomial_params.powers_of_tau_g1.len(),
-            lagrange_params.powers_of_tau_g1.len()
-        );
-        assert_eq!(
-            monomial_params.powers_of_tau_g2.len(),
-            lagrange_params.powers_of_tau_g2.len()
-        );
-
-        // Lagrange should have additional data
-        assert!(lagrange_params.lagrange_g1.is_some());
-        assert!(lagrange_params.roots_of_unity.is_some());
-        assert!(lagrange_params.is_lagrange_form);
-
-        // Monomial should not have Lagrange data
-        assert!(monomial_params.lagrange_g1.is_none());
-        assert!(monomial_params.roots_of_unity.is_none());
-        assert!(!monomial_params.is_lagrange_form);
+        // Verify sizes
+        assert_eq!(params.lagrange_g1.len(), domain_size);
+        assert_eq!(params.powers_of_tau_g2.len(), 2);
+        assert_eq!(params.roots_of_unity.len(), domain_size);
+        assert_eq!(params.domain_size, domain_size);
     }
 }

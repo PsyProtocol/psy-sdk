@@ -123,35 +123,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderG2<F, D>
         a: &G2AffineTarget<F, D>,
         b: &G2AffineTarget<F, D>,
     ) -> G2AffineTarget<F, D> {
-        let a_is_inf = a.is_infinity;
-        let b_is_inf = b.is_infinity;
-        
-        let result_if_a_inf = b.clone();
-        
-        let result_if_b_inf = a.clone();
-        
-        let y_diff = self.sub_nonnative_ext2(&b.y, &a.y);
-        let x_diff = self.sub_nonnative_ext2(&b.x, &a.x);
-        let x_diff_inv = self.inv_nonnative_ext2(&x_diff);
-        let slope = self.mul_nonnative_ext2(&y_diff, &x_diff_inv);
-        
-        let slope_squared = self.squared_nonnative_ext2(&slope);
-        let x3_temp = self.sub_nonnative_ext2(&slope_squared, &a.x);
-        let x3 = self.sub_nonnative_ext2(&x3_temp, &b.x);
-        
-        let x1_minus_x3 = self.sub_nonnative_ext2(&a.x, &x3);
-        let y3_temp = self.mul_nonnative_ext2(&slope, &x1_minus_x3);
-        let y3 = self.sub_nonnative_ext2(&y3_temp, &a.y);
-        
-        let regular_result = G2AffineTarget {
-            x: x3,
-            y: y3,
-            is_infinity: self._false(),
-            _phantom: PhantomData,
-        };
-        
-        let result_if_not_a_inf = self.select_g2(b_is_inf, &result_if_b_inf, &regular_result);
-        self.select_g2(a_is_inf, &result_if_a_inf, &result_if_not_a_inf)
+        // Use the complete addition formula that handles doubling
+        self.add_or_double_g2(a, b)
     }
     
     fn double_g2(

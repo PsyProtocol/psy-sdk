@@ -186,7 +186,7 @@ pub trait QProofStoreReaderAsync {
         let next_jobs = self.get_bytes_by_id(next_jobs_id).await?;
         Ok(bincode::deserialize(&next_jobs)?)
     }
-    
+
 }
 
 #[async_trait]
