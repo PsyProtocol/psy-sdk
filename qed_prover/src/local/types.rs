@@ -16,12 +16,6 @@ pub struct WalletKeyPair {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RpcConfig {
-    pub coordinator_configs: Vec<NodeConfig>,
-    pub realm_configs: Vec<NodeConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeConfig {
     pub node_id: u64,
     pub rpc_url: Vec<String>,

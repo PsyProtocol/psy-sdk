@@ -67,8 +67,6 @@ use crate::api::{
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
-use crate::local::api::prove_proxy::ProveProxyRpcClient;
-use crate::local::api::RpcClient;
 
 pub fn gen_contract_deploy_and_circuits_for_functions(
     deployer: QHashOut<GoldilocksField>,

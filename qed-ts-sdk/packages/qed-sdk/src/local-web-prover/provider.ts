@@ -1,5 +1,5 @@
 import { WebProverConfig } from "./config";
-import { initSync, WasmRpcServer } from "./qed_user_prover";
+import { initSync, WasmRpcServer } from "./qed_prover";
 import { wasmBinary } from "./wasm-binary";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {

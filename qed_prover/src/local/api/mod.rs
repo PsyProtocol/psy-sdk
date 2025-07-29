@@ -4,14 +4,13 @@ cfg_if::cfg_if! {
         use jsonrpsee::core::async_trait;
         use jsonrpsee::proc_macros::rpc;
         use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
-        use crate::api::args::ContractCallArgs;
-        use crate::session::{WalletKeyPair, WalletSession};
-        use crate::api::provider::RpcConfig;
-    } else {
-        use crate::local::types::{ContractCallArgs, WalletKeyPair, RpcConfig};
-        use crate::local::wallet_session::WalletSession;
     }
 }
+
+use crate::api::args::ContractCallArgs;
+use crate::api::provider::RpcConfig;
+use crate::local::types::{WalletKeyPair};
+use crate::session::{WalletSession};
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;

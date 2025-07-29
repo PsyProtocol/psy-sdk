@@ -1,7 +1,6 @@
 pub mod api;
 pub mod dpn;
 pub mod local;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod session;
 pub mod ups;
 
