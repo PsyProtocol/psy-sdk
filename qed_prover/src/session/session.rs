@@ -6,8 +6,19 @@ use crate::{
         data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition},
     },
     local::args::{ContractCallArgs, SignType},
-    ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager},
-    wallet::{memory_wallet::QEDMemoryWallet, simple_sign::StateReader},
+    ups::{
+        circuit_manager::{core::QEDUPSStepCircuitManager, fingerprints},
+        session::UserProvingSessionManager,
+    },
+    wallet::{
+        memory_wallet::QEDMemoryWallet,
+        simple_sign::StateReader,
+        software_defined_circuit::{
+            PSoftwareDefinedSignatureWitnessInput, QSoftwareDefinedSignatureGadget,
+            QSoftwareDefinedSignatureWitnessInput, SoftwareDefinedSignature,
+            SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureWitnessInput,
+        },
+    },
 };
 use dashmap::DashMap;
 use plonky2::{
@@ -227,7 +238,7 @@ impl UserSessionStateManager {
 }
 
 pub struct WalletSession {
-    pub wallet: QEDMemoryWallet<C, D>,
+    pub wallet: QEDMemoryWallet,
     wallet_keys_store: DashMap<QHashOut<F>, ZKPublicKeyInfo<F>>,
     pub main_circuits: QEDUPSStepCircuitManager<C, D>,
     pub circuit_info: SessionCircuitInfoStore<F>,
@@ -243,7 +254,7 @@ impl WalletSession {
         let st_provider = RpcProvider::new_with_config(rpc_config)?;
 
         tracing::info!("init wallet");
-        let wallet = QEDMemoryWallet::<C, D>::new();
+        let wallet = QEDMemoryWallet::new();
 
         tracing::info!("init ups step circuit manager");
         let main_circuits =
@@ -296,23 +307,24 @@ impl WalletSession {
     }
 
     pub async fn add_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        self.add_user_with_type(private_key, SignType::ZKSign)
+        self.add_user_with_type(private_key, SignType::ZKSign, None)
     }
 
     pub async fn add_user_with_type(
         &mut self,
         private_key: QHashOut<F>,
         sign_type: SignType,
+        fingerprint: Option<QHashOut<F>>,
     ) -> anyhow::Result<QHashOut<F>> {
         let pk_info = match sign_type {
             SignType::ZKSign => self.wallet.add_zk_private_key(private_key)?,
             SignType::SECP256K1Sign => self.wallet.add_secp_private_key(private_key)?,
-            SignType::SoftwareDefinedSign => self
-                .wallet
-                .add_simple_software_defined_private_key(private_key)?,
-            SignType::SoftwareDefinedSignV2 => self
-                .wallet
-                .add_simple_software_defined_private_key_v2(private_key)?,
+            SignType::SoftwareDefinedSign => self.wallet.add_software_defined_private_key(
+                private_key,
+                fingerprint.ok_or(anyhow::format_err!(
+                    "software defined sign need fingerprint"
+                ))?,
+            )?,
         };
         let public_key = pk_info.qfhash::<QEDHasher>();
         tracing::info!(
@@ -403,6 +415,8 @@ impl WalletSession {
             pk_hash,
             contract_call_args,
             SignType::ZKSign,
+            None,
+            None,
             vec![],
         )
     }
@@ -412,6 +426,8 @@ impl WalletSession {
         pk_hash: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
         sign_type: SignType,
+        fingerprint: Option<QHashOut<F>>,
+        sig_contract_id: Option<u64>,
         sign_inputs: Vec<u64>,
     ) -> anyhow::Result<()> {
         tracing::info!(
@@ -424,8 +440,14 @@ impl WalletSession {
         self.prove_contract_calls(pk_hash, contract_call_args)
             .await?;
         tracing::info!("sign and submit");
-        self.sign_and_submit_with_sign_type(pk_hash, sign_type, sign_inputs)
-            .await?;
+        self.sign_and_submit_with_sign_type(
+            pk_hash,
+            sign_type,
+            fingerprint,
+            sig_contract_id,
+            sign_inputs,
+        )
+        .await?;
         Ok(())
     }
 
@@ -550,7 +572,7 @@ impl WalletSession {
     }
 
     pub async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
-        self.sign_and_submit_with_sign_type(pk_hash, SignType::ZKSign, vec![])
+        self.sign_and_submit_with_sign_type(pk_hash, SignType::ZKSign, None, None, vec![])
             .await
     }
 
@@ -558,6 +580,8 @@ impl WalletSession {
         &self,
         pk_hash: QHashOut<F>,
         sign_type: SignType,
+        fingerprint: Option<QHashOut<F>>,
+        sig_contract_id: Option<u64>,
         sign_inputs: Vec<u64>,
     ) -> anyhow::Result<()> {
         tracing::info!("🔔sign and submit with sign type: {:?}", sign_type);
@@ -588,85 +612,110 @@ impl WalletSession {
                     .await?
             }
             SignType::SoftwareDefinedSign => {
-                let user_id = user_session_mgr.user_id;
-                let checkpoint_id = user_session_mgr.current_checkpoint_id;
-                let user_leaf = user_session_mgr
-                    .mgr
-                    .lps
-                    .cmd_store
-                    .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
-                        checkpoint_id: checkpoint_id,
-                        user_id,
-                    })?;
-                let checkpoint_tree_root = self
-                    .st_provider
-                    .get_checkpoint_tree_root(checkpoint_id)
-                    .await?;
+                if let Some(fingerprint) = fingerprint {
+                    let mut sdc = self
+                        .wallet
+                        .software_defined_circuits
+                        .get_mut(&fingerprint)
+                        .ok_or(anyhow::format_err!(
+                            "software defined circuit `{}` not found",
+                            fingerprint.to_string()
+                        ))?;
 
-                let transaction_record =
-                    user_session_mgr.mgr.lps.transaction_records.last().ok_or(
-                        anyhow::format_err!("you must exec at least one contract call before sign"),
-                    )?;
-                tracing::info!(
-                    "transaction_record: {}",
-                    serde_json::to_string_pretty(&transaction_record)?
-                );
+                    let cfc_call_inputs = sign_inputs
+                        .iter()
+                        .map(|x| F::from_noncanonical_u64(*x))
+                        .collect::<Vec<_>>();
 
-                let user_contract_state = UserContractState::new(
-                    checkpoint_tree_root,
-                    user_leaf,
-                    transaction_record.end_contract_state_tree_root,
-                    F::ZERO,
-                    F::from_canonical_u64(user_session_mgr.current_checkpoint_id),
-                );
+                    let input = match &sdc.signature_gadget {
+                        SoftwareDefinedSignatureGadget::QED(q_gadget) => {
+                            let cfc_proof_input = user_session_mgr
+                                .mgr
+                                .exec_contract_call(
+                                    F::from_noncanonical_u64(sig_contract_id.unwrap_or_default()),
+                                    &q_gadget.input.fn_def,
+                                    cfc_call_inputs,
+                                )
+                                .await?;
+                            SoftwareDefinedSignatureWitnessInput::QED(
+                                QSoftwareDefinedSignatureWitnessInput {
+                                    cfc_input: cfc_proof_input,
+                                },
+                            )
+                        }
+                        SoftwareDefinedSignatureGadget::PLONKY2(_p_gadget) => {
+                            let user_id = user_session_mgr.user_id;
+                            let checkpoint_id = user_session_mgr.current_checkpoint_id;
+                            let user_leaf = user_session_mgr
+                                .mgr
+                                .lps
+                                .cmd_store
+                                .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
+                                    checkpoint_id: checkpoint_id,
+                                    user_id,
+                                })?;
+                            let checkpoint_tree_root = self
+                                .st_provider
+                                .get_checkpoint_tree_root(checkpoint_id)
+                                .await?;
 
-                tracing::info!(
-                    "user_contract_state: {}",
-                    serde_json::to_string_pretty(&user_contract_state)?
-                );
-                let proof_tree_root = user_session_mgr.mgr.proof_tree_state.get_proof_tree_root();
-                user_session_mgr
-                    .mgr
-                    .lps
-                    .set_proof_tree_root(proof_tree_root);
-                let mut user_contract_state_reader = StateReader::new(
-                    user_contract_state,
-                    user_session_mgr.mgr.lps.cmd_store.clone(),
-                    user_session_mgr.mgr.lps.state_tree_store.clone(),
-                );
+                            let transaction_record =
+                                user_session_mgr.mgr.lps.transaction_records.last().ok_or(
+                                    anyhow::format_err!(
+                                        "you must exec at least one contract call before sign"
+                                    ),
+                                )?;
+                            tracing::info!(
+                                "transaction_record: {}",
+                                serde_json::to_string_pretty(&transaction_record)?
+                            );
 
-                self.wallet
-                    .sdc_sign_for_public_key(
-                        &mut user_contract_state_reader,
-                        pk_info.public_key_param,
-                        sighash,
-                    )
-                    .await?
-            }
-            SignType::SoftwareDefinedSignV2 => {
-                let sdc = self
-                    .wallet
-                    .software_defined_circuit
-                    .as_ref()
-                    .ok_or(anyhow::format_err!("register sdc first"))?;
-                let private_key = self.wallet
-                .software_defined_public_key_to_private_key_v2_store
-                .get(&pk_info.public_key_param)
-                .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", pk_info.public_key_param.to_string()))?;
+                            let user_contract_state = UserContractState::new(
+                                checkpoint_tree_root,
+                                user_leaf,
+                                transaction_record.end_contract_state_tree_root,
+                                F::from_canonical_u64(sig_contract_id.unwrap_or_default()),
+                                F::from_canonical_u64(user_session_mgr.current_checkpoint_id),
+                            );
 
-                let cfc_call_inputs = sign_inputs
-                    .iter()
-                    .map(|x| F::from_noncanonical_u64(*x))
-                    .collect::<Vec<_>>();
-                let cfc_proof_input = user_session_mgr
-                    .mgr
-                    .exec_contract_call(
-                        F::from_noncanonical_u64(0),
-                        &sdc.inner_circuit.fn_def,
-                        cfc_call_inputs,
-                    )
-                    .await?;
-                sdc.prove(*private_key, &cfc_proof_input, sighash)?
+                            tracing::info!(
+                                "user_contract_state: {}",
+                                serde_json::to_string_pretty(&user_contract_state)?
+                            );
+                            let proof_tree_root =
+                                user_session_mgr.mgr.proof_tree_state.get_proof_tree_root();
+                            user_session_mgr
+                                .mgr
+                                .lps
+                                .set_proof_tree_root(proof_tree_root);
+                            let user_contract_state_reader = StateReader::new(
+                                user_contract_state,
+                                user_session_mgr.mgr.lps.cmd_store.clone(),
+                                user_session_mgr.mgr.lps.state_tree_store.clone(),
+                            );
+
+                            SoftwareDefinedSignatureWitnessInput::PLONKY2(
+                                PSoftwareDefinedSignatureWitnessInput {
+                                    state_reader: user_contract_state_reader,
+                                    circuit_inputs: cfc_call_inputs,
+                                },
+                            )
+                        }
+                    };
+
+                    let private_key = self
+                        .wallet
+                        .software_defined_public_key_to_private_key_store
+                        .get(&pk_info.public_key_param)
+                        .ok_or(anyhow::format_err!(
+                            "public key `{}` does not exist in the store",
+                            pk_info.public_key_param.to_string()
+                        ))?;
+
+                    sdc.prove(*private_key, &input, sighash)?
+                } else {
+                    return anyhow::bail!("software defined sign need fingerprint");
+                }
             }
         };
 
@@ -696,21 +745,18 @@ impl WalletSession {
                     .get_verifier_config_ref()
                     .to_owned(),
             ),
-            SignType::SoftwareDefinedSign => (
-                self.wallet
-                    .simple_software_defined_circuits
-                    .get_fingerprint(),
-                self.wallet
-                    .simple_software_defined_circuits
-                    .get_verifier_config_ref()
-                    .to_owned(),
-            ),
-            SignType::SoftwareDefinedSignV2 => {
+            SignType::SoftwareDefinedSign => {
+                let fingerprint = fingerprint.ok_or(anyhow::format_err!(
+                    "software defined sign need fingerprint"
+                ))?;
                 let sdc = self
                     .wallet
-                    .software_defined_circuit
-                    .as_ref()
-                    .ok_or_else(|| anyhow::format_err!("register sdc first"))?;
+                    .software_defined_circuits
+                    .get(&fingerprint)
+                    .ok_or(anyhow::format_err!(
+                        "software defined circuit `{}` not found",
+                        fingerprint.to_string()
+                    ))?;
                 (
                     sdc.get_fingerprint(),
                     sdc.get_verifier_config_ref().to_owned(),

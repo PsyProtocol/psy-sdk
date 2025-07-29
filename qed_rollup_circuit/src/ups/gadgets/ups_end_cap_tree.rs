@@ -20,7 +20,7 @@ use super::{ups_end_cap::UPSEndCapCoreGadget, verify_previous_ups_step::VerifyPr
 #[derive(Clone, Debug)]
 pub struct UPSEndCapFromProofTreeGadget {
     // software defined signature
-    pub user_contract_state: UserContractStateGadget,
+    // pub user_contract_state: UserContractStateGadget,
 
     // start require witness
     pub verify_previous_ups_step_gadget: VerifyPreviousUPSStepProofInProofTreeGadget,
@@ -70,8 +70,7 @@ impl UPSEndCapFromProofTreeGadget {
 
         let empty_deferred_tx_debt_tree_root = builder.constant_hash(H::get_zero_hash(DEFERRED_TRANSACTION_TREE_HEIGHT as usize));
         let empty_inline_tx_debt_tree_root = builder.constant_hash(H::get_zero_hash(INLINE_TRANSACTION_TREE_HEIGHT as usize));
-        
-        let user_contract_state = UserContractStateGadget::add_virtual_to(builder);
+
 
         let end_cap_core_gadget = UPSEndCapCoreGadget::enforce_signature_constraints::<H,F,D>(
             builder, 
@@ -84,12 +83,9 @@ impl UPSEndCapFromProofTreeGadget {
             network_magic,
             empty_deferred_tx_debt_tree_root,
             empty_inline_tx_debt_tree_root,
-            &user_contract_state,
-            vec![],
         );
 
         Self {
-            user_contract_state,
             verify_previous_ups_step_gadget,
             verify_zk_signature_proof_gadget,
             user_public_key_param,
@@ -103,19 +99,12 @@ impl UPSEndCapFromProofTreeGadget {
     pub fn set_witness_params<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,
-        user_contract_state: &UserContractState<F>,
         verify_previous_ups_step_input: &VerifyPreviousUPSStepProofInProofTreeInput<F>,
         verify_zk_signature_proof_input: &AttestProofInTreeInput<F>,
         user_public_key_param: QHashOut<F>,
         nonce: F,
         slots_modified: F,
     ) -> anyhow::Result<()>  {
-        self.user_contract_state.set_witness(
-            witness,
-            &user_contract_state,
-        )?;
-        
-
         witness.set_hash_target(
             self.user_public_key_param,
             user_public_key_param.0,
@@ -145,7 +134,6 @@ impl UPSEndCapFromProofTreeGadget {
     ) -> anyhow::Result<()> {
         self.set_witness_params(
             witness, 
-            &target.user_contract_state,
             &target.verify_previous_ups_step_input,
             &target.verify_zk_signature_proof_input, 
             target.user_public_key_param,

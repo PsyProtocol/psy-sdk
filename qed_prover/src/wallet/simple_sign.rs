@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{
     field::{
@@ -58,13 +60,15 @@ use qedlang_core::dpn::ops::state_cmd::data::{
     DPNStateCmdGetSelfUserExternalContractStateSlotHash,
 };
 
+use crate::local::provider::RpcProvider;
+
 #[derive(Debug)]
 pub struct StateReaderGadget<F: RichField + Extendable<D>, const D: usize> {
     pub state: UserContractStateGadget,
     pub contract_state_tree_height: u8,
     pub merkel_proofs: Vec<MerkleProofGadget>,
     pub state_cmds: Vec<DPNStateCmd<F>>,
-    pub current_state_cmd_index: usize,
+    // pub current_state_cmd_index: usize,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> StateReaderGadget<F, D> {
@@ -75,7 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StateReaderGadget<F, D> {
             contract_state_tree_height,
             merkel_proofs: Vec::new(),
             state_cmds: Vec::new(),
-            current_state_cmd_index: 0,
+            // current_state_cmd_index: 0,
         }
     }
     pub fn set_witness<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
@@ -116,11 +120,6 @@ impl<F: RichField + Extendable<D>, const D: usize> StateReaderGadget<F, D> {
         let merkle_proof_gadget = MerkleProofGadget::add_virtual_to::<PoseidonHash, F, D>(
             builder,
             self.contract_state_tree_height as usize,
-        );
-        tracing::info!("merkle_proof_gadget.root: {:?}", merkle_proof_gadget.root);
-        tracing::info!(
-            "self.state.start_contract_state_root: {:?}",
-            self.state.start_contract_state_root
         );
         builder.connect_hashes(
             merkle_proof_gadget.root,
@@ -532,6 +531,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StateReaderGadget<F, D> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct StateReader<
     F: RichField + Extendable<D>,
     const D: usize,
@@ -597,7 +597,7 @@ impl<
                 },
             ),
         )?;
-        let base_mp_gf = serde_json::from_str::<MerkleProofCore<QHashOut<GoldilocksField>>>(
+        let base_mp_gf = serde_json::from_str::<MerkleProofCore<QHashOut<GF>>>(
             &serde_json::to_string(&base_mp)?,
         )?;
         id.injest_merkle_proof_ucs(&mut self.state_tree_store, checkpoint_id, &base_mp_gf)?;
@@ -621,17 +621,6 @@ impl<
             "merkle_proof: {}",
             serde_json::to_string_pretty(&merkle_proof)?
         );
-
-        let mut current = merkle_proof.value;
-        for (i, sibling) in merkle_proof.siblings.iter().enumerate() {
-            if merkle_proof.index & (1 << i) == 0 {
-                current = QEDHasher::two_to_one(&current, sibling);
-            } else {
-                current = QEDHasher::two_to_one(sibling, &current);
-            }
-        }
-
-        tracing::info!("calc root: {}", current.to_string());
 
         let value = merkle_proof.value.clone();
 
@@ -974,244 +963,61 @@ impl<
     }
 }
 
-pub trait SoftwareDefinedSignTrait {
-    fn get_public_key_f<C: GenericConfig<D>, const D: usize>(
-        builder: &mut CircuitBuilder<C::F, D>,
-        private_key: HashOutTarget,
-    ) -> HashOutTarget
-    where
-        C::Hasher: AlgebraicHasher<C::F>;
-
-    fn get_public_key<F: RichField, H: AlgebraicHasher<F>>(private_key: HashOut<F>) -> HashOut<F>;
-
-    fn custom_sign_option_f<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        state_reader: &mut StateReaderGadget<F, D>,
+pub trait SoftwareDefinedSignTrait: Debug + Send + Sync {
+    fn custom_sign_option_f(
+        &mut self,
+        builder: &mut CircuitBuilder<GF, 2>,
+        state_reader: &mut StateReaderGadget<GF, 2>,
         sig_inputs: Vec<Target>,
     ) -> anyhow::Result<()>;
 
-    fn custom_sign_option<
-        F: RichField + Extendable<D>,
-        const D: usize,
-        R: QEDReadCommandProcessorSync<F> + Send + Sync,
-    >(
-        state_reader: &mut StateReader<F, D, R>,
-        sig_inputs: Vec<F>,
+    fn custom_sign_option(
+        &mut self,
+        state_reader: &mut StateReader<GF, 2, RpcProvider>,
+        sig_inputs: Vec<GF>,
     ) -> anyhow::Result<()>;
+
+    fn box_clone(&self) -> Box<dyn SoftwareDefinedSignTrait>;
 }
 
-#[derive(Debug)]
+impl Clone for Box<dyn SoftwareDefinedSignTrait> {
+    fn clone(&self) -> Self {
+        self.box_clone()
+    }
+}
+
+type GF = GoldilocksField;
+#[derive(Debug, Clone)]
 pub struct SoftwareDefinedSignGadget {
-    pub private_key: HashOutTarget,
 }
 
 impl SoftwareDefinedSignTrait for SoftwareDefinedSignGadget {
-    fn get_public_key_f<C: GenericConfig<D>, const D: usize>(
-        builder: &mut CircuitBuilder<C::F, D>,
-        private_key: HashOutTarget,
-    ) -> HashOutTarget
-    where
-        C::Hasher: AlgebraicHasher<C::F>,
-    {
-        let private_key_constants = PRIVATE_KEY_CONSTANTS
-            .iter()
-            .map(|c| builder.constant(C::F::from_canonical_u64(*c)))
-            .collect::<Vec<_>>();
-        builder.hash_n_to_hash_no_pad::<C::Hasher>(vec![
-            private_key_constants[0],
-            private_key_constants[1],
-            private_key_constants[2],
-            private_key_constants[19],
-            private_key.elements[1],
-            private_key_constants[1],
-            private_key_constants[2],
-            private_key_constants[3],
-            private_key_constants[4],
-            private_key_constants[5],
-            private_key_constants[6],
-            private_key.elements[0],
-            private_key_constants[7],
-            private_key.elements[2],
-            private_key_constants[8],
-            private_key_constants[9],
-            private_key_constants[10],
-            private_key_constants[11],
-            private_key_constants[12],
-            private_key.elements[3],
-            private_key_constants[13],
-            private_key_constants[14],
-            private_key_constants[15],
-            private_key_constants[16],
-            private_key_constants[17],
-            private_key_constants[18],
-        ])
-    }
-
-    fn get_public_key<F: RichField, H: AlgebraicHasher<F>>(private_key: HashOut<F>) -> HashOut<F> {
-        let private_key_constants = PRIVATE_KEY_CONSTANTS
-            .iter()
-            .map(|c| F::from_canonical_u64(*c))
-            .collect::<Vec<_>>();
-        H::hash_no_pad(&[
-            private_key_constants[0],
-            private_key_constants[1],
-            private_key_constants[2],
-            private_key_constants[19],
-            private_key.elements[1],
-            private_key_constants[1],
-            private_key_constants[2],
-            private_key_constants[3],
-            private_key_constants[4],
-            private_key_constants[5],
-            private_key_constants[6],
-            private_key.elements[0],
-            private_key_constants[7],
-            private_key.elements[2],
-            private_key_constants[8],
-            private_key_constants[9],
-            private_key_constants[10],
-            private_key_constants[11],
-            private_key_constants[12],
-            private_key.elements[3],
-            private_key_constants[13],
-            private_key_constants[14],
-            private_key_constants[15],
-            private_key_constants[16],
-            private_key_constants[17],
-            private_key_constants[18],
-        ])
-    }
-
-    fn custom_sign_option_f<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        state_reader: &mut StateReaderGadget<F, D>,
+    fn custom_sign_option_f(
+        &mut self,
+        builder: &mut CircuitBuilder<GF, 2>,
+        state_reader: &mut StateReaderGadget<GF, 2>,
         sig_inputs: Vec<Target>,
     ) -> anyhow::Result<()> {
         let slot0 = state_reader
-            .get_self_user_current_contract_state_slot_single(builder, F::from_canonical_u64(0))?;
-        let one_thousand = builder.constant(F::from_canonical_u64(1000));
+            .get_self_user_current_contract_state_slot_single(builder, GF::from_canonical_u64(0))?;
+        let one_thousand = builder.constant(GF::from_canonical_u64(1000));
         builder.ensure_is_less_than(32, slot0, one_thousand);
         Ok(())
     }
 
-    fn custom_sign_option<
-        F: RichField + Extendable<D>,
-        const D: usize,
-        R: QEDReadCommandProcessorSync<F> + Send + Sync,
-    >(
-        state_reader: &mut StateReader<F, D, R>,
-        sig_inputs: Vec<F>,
+    fn custom_sign_option(
+        &mut self,
+        state_reader: &mut StateReader<GF, 2, RpcProvider>,
+        sig_inputs: Vec<GF>,
     ) -> anyhow::Result<()> {
         let slot0 = state_reader
-            .get_self_user_current_contract_state_slot_single(F::from_canonical_u64(0))?;
+            .get_self_user_current_contract_state_slot_single(GF::from_canonical_u64(0))?;
         tracing::info!("slot0: {}", slot0.to_canonical_u64());
         assert!(slot0.to_canonical_u64() < 1000);
         Ok(())
     }
-}
 
-#[derive(Debug)]
-pub struct SimpleSoftwareDefinedCircuit<
-    C: GenericConfig<D>,
-    const D: usize,
-    S: SoftwareDefinedSignTrait,
-> where
-    C::Hasher: AlgebraicHasher<C::F>,
-{
-    pub minifier_chain: QEDProofMinifierChain<D, C::F, C>,
-    pub circuit_data: CircuitData<C::F, C, D>,
-    pub private_key: HashOutTarget,
-    pub public_key_param: HashOutTarget,
-    pub sig_hash: HashOutTarget,
-
-    pub state_reader: StateReaderGadget<C::F, D>,
-    _marker: std::marker::PhantomData<S>,
-}
-
-impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignTrait> Clone
-    for SimpleSoftwareDefinedCircuit<C, D, S>
-where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
-{
-    fn clone(&self) -> Self {
-        Self::new()
-    }
-}
-
-impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignTrait>
-    SimpleSoftwareDefinedCircuit<C, D, S>
-where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
-{
-    pub fn new() -> Self {
-        let config = CircuitConfig::standard_recursion_zk_config();
-        let mut builder = CircuitBuilder::<C::F, D>::new(config);
-
-        let private_key = builder.add_virtual_hash();
-
-        let mut state_reader = StateReaderGadget::new(&mut builder, MAX_CONTRACT_STATE_TREE_HEIGHT);
-
-        S::custom_sign_option_f(&mut builder, &mut state_reader, vec![])
-            .expect("exec custom sign code failed");
-
-        // gadget
-        let public_key_param = S::get_public_key_f::<C, D>(&mut builder, private_key);
-
-        let sig_hash = builder.add_virtual_hash();
-        let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(sig_hash, public_key_param);
-        builder.register_public_inputs(&public_inputs_hash.elements);
-        let circuit_data = builder.build::<C>();
-
-        let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
-
-        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new_add_gates(
-            &circuit_data.verifier_only,
-            &circuit_data.common,
-            2,
-            Some(&added_gates_for_minifier),
-        );
-
-        Self {
-            circuit_data,
-            sig_hash,
-            private_key,
-            public_key_param,
-            state_reader,
-            minifier_chain,
-            _marker: std::marker::PhantomData,
-        }
-    }
-
-    pub fn prove_base<R: QEDReadCommandProcessorSync<C::F> + Send + Sync>(
-        &self,
-        state_reader: &mut StateReader<C::F, D, R>,
-        private_key: QHashOut<C::F>,
-        sig_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let mut pw = PartialWitness::new();
-        S::custom_sign_option(state_reader, vec![])?;
-        pw.set_hash_target(self.private_key, private_key.0)?;
-        pw.set_hash_target(self.sig_hash, sig_hash.0)?;
-        self.state_reader.set_witness(&mut pw, state_reader)?;
-        let inner_proof = self.circuit_data.prove(pw)?;
-        self.minifier_chain.prove(&inner_proof)
-    }
-}
-
-impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignTrait> QStandardCircuit<C, D>
-    for SimpleSoftwareDefinedCircuit<C, D, S>
-where
-    C::Hasher: AlgebraicHasher<C::F>,
-{
-    fn get_fingerprint(&self) -> QHashOut<C::F> {
-        QHashOut(self.minifier_chain.get_fingerprint())
-    }
-
-    fn get_verifier_config_ref(&self) -> &VerifierOnlyCircuitData<C, D> {
-        self.minifier_chain.get_verifier_data()
-    }
-
-    fn get_common_circuit_data_ref(&self) -> &CommonCircuitData<C::F, D> {
-        self.minifier_chain.get_common_data()
+    fn box_clone(&self) -> Box<dyn SoftwareDefinedSignTrait> {
+        Box::new(self.clone())
     }
 }

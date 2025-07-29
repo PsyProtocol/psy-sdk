@@ -21,8 +21,6 @@ pub enum SignType {
     SECP256K1Sign,
     #[clap(name = "software-defined")]
     SoftwareDefinedSign,
-    #[clap(name = "software-defined-v2")]
-    SoftwareDefinedSignV2,
 }
 
 pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>> {
@@ -41,8 +39,10 @@ pub struct WalletSessionArgs {
     pub private_key: String,
     #[clap(env, long, default_value = "contract_call.json", env)]
     pub contract_calls: String,
-    #[clap(env, long, default_value = "software-defined-v2", env)]
+    #[clap(env, long, default_value = "zk", env)]
     pub sign_type: SignType,
+    #[arg(long, default_value = "0", env)]
+    pub contract_id: u64,
     #[clap(long)]
     pub sign_inputs: Vec<u64>,
 }

@@ -14,17 +14,6 @@ pub struct GetPublicKeyArgs {
     pub private_key: String,
 }
 
-#[derive(Debug, Clone, ValueEnum, Serialize, Deserialize)]
-pub enum KeyType {
-    #[clap(name = "zk")]
-    ZK,
-    #[clap(name = "secp256k1")]
-    SECP256K1,
-    #[clap(name = "software-defined")]
-    SoftwareDefined,
-    #[clap(name = "software-defined-v2")]
-    SoftwareDefinedV2,
-}
 
 #[derive(Clone, Args, Serialize, Deserialize)]
 pub struct RegisterUserArgs {
@@ -33,8 +22,8 @@ pub struct RegisterUserArgs {
     /// user private key
     #[clap(long, short)]
     pub private_key: String,
-    #[clap(long, short, default_value = "software-defined-v2")]
-    pub key_type: KeyType,
+    #[clap(long, short, default_value = "zk")]
+    pub sign_type: SignType,
     /// optional fingerprint (defaults to standard circuit fingerprint)
     #[clap(long)]
     pub fingerprint: Option<String>,
@@ -63,7 +52,7 @@ pub struct SubmitEndCapArgs {
     pub method_name: String,
     #[arg(long, env)]
     pub inputs: Vec<u64>,
-    #[clap(long, default_value = "software-defined-v2")]
+    #[clap(long, default_value = "zk")]
     pub sign_type: SignType,
     #[clap(long)]
     pub sign_inputs: Vec<u64>,

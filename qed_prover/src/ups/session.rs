@@ -8,7 +8,7 @@ use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
 use qed_crypto::{common::witnesses::qrecursion::{header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput}, proof_data::{InputLeafProof, TreeAwareTreeProofRecord}}, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use qed_data::{
-    dpn::proving_session::{DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf, user_contract_state::UserContractState}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
+    dpn::proving_session::{DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf, user_contract_state::{SignContext, UserContractState}}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_data::{
@@ -422,10 +422,6 @@ impl<
     }
 
     pub fn get_sighash(&self, network_magic: u64, nonce: F) -> QHashOut<F>{
-        self.get_sighash_with_inputs(network_magic, nonce, vec![])
-    }
-
-    pub fn get_sighash_with_inputs(&self, network_magic: u64, nonce: F, sig_inputs: Vec<F>) -> QHashOut<F>{
         let mut end_user_leaf = self.current_ups_header.current_state.user_leaf.clone();
         end_user_leaf.nonce = nonce;
 
@@ -438,22 +434,15 @@ impl<
         };
 
         // get checkpoint tree proof
-        let user_current_state = UserContractState {
+        let sign_context = SignContext {
             checkpoint_tree_root: self
                 .current_ups_header
                 .session_start_context
                 .checkpoint_tree_root,
             user_leaf: self.current_ups_header.current_state.user_leaf,
-            start_contract_state_root: self
-                .current_ups_header
-                .session_start_context
-                .start_session_user_leaf
-                .user_state_tree_root,
-            contract_id: F::ZERO,
-            checkpoint_id: self.current_ups_header.session_start_context.checkpoint_id,
         };
 
-        let sig_action = sig_data.get_sig_action_for_user::<H>(network_magic, self.lps.get_current_user_id(), nonce, user_current_state, sig_inputs);
+        let sig_action = sig_data.get_sig_action_for_user::<H>(network_magic, self.lps.get_current_user_id(), nonce, sign_context);
 
         let sighash = sig_action.get_qhash::<H>();
 
@@ -512,17 +501,16 @@ impl<
         tracing::info!("compress all proofs into a sign tree proof");
         self.proof_tree_state.finalize_tree(&circuit_mgr.proof_tree_agg_circuits)?;
 
-        let user_contract_state = UserContractState {
-            checkpoint_tree_root: self.current_ups_header.session_start_context.checkpoint_tree_root,
-            user_leaf: self.current_ups_header.current_state.user_leaf,
-            start_contract_state_root: self.current_ups_header.session_start_context.start_session_user_leaf.user_state_tree_root,
-            contract_id: F::ZERO,
-            checkpoint_id: self.current_ups_header.session_start_context.checkpoint_id,
-        };
+        // let user_contract_state = UserContractState {
+        //     checkpoint_tree_root: self.current_ups_header.session_start_context.checkpoint_tree_root,
+        //     user_leaf: self.current_ups_header.current_state.user_leaf,
+        //     start_contract_state_root: self.current_ups_header.session_start_context.start_session_user_leaf.user_state_tree_root,
+        //     contract_id: F::ZERO,
+        //     checkpoint_id: self.current_ups_header.session_start_context.checkpoint_id,
+        // };
 
         let zk_sig_leaf_proof = self.proof_tree_state.get_leaf_merkle_proof(zk_sig_proof_index);
         let end_cap_from_proof_tree_input = UPSEndCapFromProofTreeGadgetInput{
-            user_contract_state,
             verify_previous_ups_step_input: self.get_verify_previous_ups_step_proof()?,
             verify_zk_signature_proof_input: AttestProofInTreeInput {
                 fingerprint: zk_sig_fingerprint,

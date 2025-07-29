@@ -9,7 +9,7 @@ use qed_crypto::{hash::traits::{
 }, signature::zk::wallet::QEDSigAction};
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::user_contract_state::UserContractState;
+use crate::qdata::user_contract_state::{SignContext, UserContractState};
 
 
 
@@ -30,8 +30,7 @@ impl<F: RichField> QEDUserProvingSessionSignatureDataCompact<F> {
         network_magic: u64,
         user_id: F,
         nonce: F,
-        user_contract_state: UserContractState<F>,
-        inputs: Vec<F>,
+        sign_context: SignContext<F>,
     ) -> QEDSigAction<F> {
 
         let network_magic_f = F::from_noncanonical_u64(network_magic);
@@ -40,8 +39,7 @@ impl<F: RichField> QEDUserProvingSessionSignatureDataCompact<F> {
 
         // ups_end_data_hash || checkpoint_tree_root || sign_inputs
         let mut action_arguments = ups_end_data_hash.0.elements.to_vec();
-        action_arguments.extend_from_slice(&user_contract_state.to_qfelts());
-        action_arguments.extend_from_slice(&inputs);
+        action_arguments.extend_from_slice(&sign_context.to_qfelts());
 
         QEDSigAction{
             network_magic: network_magic_f,
