@@ -1,3 +1,4 @@
+use core::any::TypeId;
 use core::fmt::{self, Debug, Display, Formatter};
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -7,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use plonky2::field::extension::{Extendable, FieldExtension, Frobenius, OEF};
 use plonky2::field::types::{Field, PrimeField, Sample};
+
+use crate::crypto::bn254::field::bn128_base::Bn128Base;
 
 use super::quadratic::QuadraticExtension;
 
@@ -81,6 +84,20 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> SexticExtension<F> {
     }
 
     pub fn mul_by_nonresidue(&self) -> Self {
+        // For sextic extension over Fp2, multiplying by nonresidue shifts components
+        // c2 -> c0 (with multiplication by Fp2's nonresidue)
+        // c0 -> c1
+        // c1 -> c2
+        
+        // Check if we're dealing with Bn128Base
+        if core::any::TypeId::of::<F>() == core::any::TypeId::of::<Bn128Base>() {
+            // We know F is Bn128Base at runtime, so we can safely convert
+            let self_bn128: &SexticExtension<Bn128Base> = unsafe { core::mem::transmute(self) };
+            let result_bn128 = self_bn128.mul_by_nonresidue_bn128();
+            return unsafe { core::mem::transmute_copy(&result_bn128) };
+        }
+        
+        // Generic implementation
         let c0 = QuadraticExtension([self.0[4], self.0[5]]).mul_by_nonresidue();
         Self {
             0: [c0.0[0], c0.0[1], self.0[0], self.0[1], self.0[2], self.0[3]],
@@ -146,6 +163,22 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> SexticExtension<F> {
         vec![
             (BigUint::from(2u32), F::TWO_ADICITY + 2),
         ]
+    }
+}
+
+// Special implementation for SexticExtension over Bn128Base
+impl SexticExtension<Bn128Base> {
+    /// Specific implementation of mul_by_nonresidue for Fp6 over Bn128Base
+    pub fn mul_by_nonresidue_bn128(&self) -> Self {
+        // For sextic extension over Fp2, multiplying by nonresidue shifts components
+        // c2 -> c0 (with multiplication by Fp2's nonresidue)
+        // c0 -> c1
+        // c1 -> c2
+        let c2 = QuadraticExtension([self.0[4], self.0[5]]);
+        let c0 = c2.mul_by_nonresidue_bn128();
+        Self {
+            0: [c0.0[0], c0.0[1], self.0[0], self.0[1], self.0[2], self.0[3]],
+        }
     }
 }
 
@@ -341,5 +374,52 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> Frobenius<6> for SexticExten
         } else {
             *self
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_mul_by_nonresidue_bn128() {
+        // Test that mul_by_nonresidue works correctly for Fp6 over Bn128Base
+        type Fp6 = SexticExtension<Bn128Base>;
+        
+        // Create a test element
+        let a = Fp6::from_basefield_array([
+            Bn128Base::from_canonical_u64(1),
+            Bn128Base::from_canonical_u64(2),
+            Bn128Base::from_canonical_u64(3),
+            Bn128Base::from_canonical_u64(4),
+            Bn128Base::from_canonical_u64(5),
+            Bn128Base::from_canonical_u64(6),
+        ]);
+        
+        // Method 1: using the generic mul_by_nonresidue
+        let result1 = a.mul_by_nonresidue();
+        
+        // Method 2: using the specialized mul_by_nonresidue_bn128
+        let result2 = a.mul_by_nonresidue_bn128();
+        
+        // They should give the same result
+        assert_eq!(result1, result2, "mul_by_nonresidue and mul_by_nonresidue_bn128 should match");
+        
+        // Also verify the structure: c2 should move to c0 (after multiplication by Fp2's nonresidue)
+        // c0 should move to c1, c1 should move to c2
+        let c2 = QuadraticExtension([a.0[4], a.0[5]]);
+        let c0_expected = c2.mul_by_nonresidue_bn128();
+        
+        // Extract components
+        let result1_c0 = QuadraticExtension([result1.0[0], result1.0[1]]);
+        let result1_c1 = QuadraticExtension([result1.0[2], result1.0[3]]);
+        let result1_c2 = QuadraticExtension([result1.0[4], result1.0[5]]);
+        
+        let a_c0 = QuadraticExtension([a.0[0], a.0[1]]);
+        let a_c1 = QuadraticExtension([a.0[2], a.0[3]]);
+        
+        assert_eq!(result1_c0, c0_expected);
+        assert_eq!(result1_c1, a_c0);
+        assert_eq!(result1_c2, a_c1);
     }
 }

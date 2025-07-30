@@ -9,6 +9,46 @@ use crate::crypto::bn254::field::extension::quadratic::QuadraticExtension;
 #[derive(Debug, Copy, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct G2;
 
+impl G2 {
+    pub const INV_TWO: QuadraticExtension<Bn128Base> = QuadraticExtension::<Bn128Base>([
+        Bn128Base([
+            9781510331150239090,
+            15059239858463337189,
+            10331104244869713732,
+            2249375503248834476,
+        ]),
+        Bn128Base::ZERO,
+    ]);
+    pub const TWIST_MUL_BY_Q_X: QuadraticExtension<Bn128Base> = QuadraticExtension::<Bn128Base>([
+        Bn128Base([
+            13075984984163199792,
+            3782902503040509012,
+            8791150885551868305,
+            1825854335138010348,
+        ]),
+        Bn128Base([
+            7963664994991228759,
+            12257807996192067905,
+            13179524609921305146,
+            2767831111890561987,
+        ]),
+    ]);
+    pub const TWIST_MUL_BY_Q_Y: QuadraticExtension<Bn128Base> = QuadraticExtension::<Bn128Base>([
+        Bn128Base([
+            16482010305593259561,
+            13488546290961988299,
+            3578621962720924518,
+            2681173117283399901,
+        ]),
+        Bn128Base([
+            11661927080404088775,
+            553939530661941723,
+            7860678177968807019,
+            3208568454732775116,
+        ]),
+    ]);
+}
+
 impl Curve for G2 {
     type BaseField = QuadraticExtension<Bn128Base>;
     type ScalarField = Bn128Scalar;

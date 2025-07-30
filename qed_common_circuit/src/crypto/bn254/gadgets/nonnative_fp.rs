@@ -109,6 +109,11 @@ pub trait CircuitBuilderNonNative<F: RichField + Extendable<D>, const D: usize> 
     fn square_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF>;
 
     fn cube_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF>;
+    
+    fn mul_by_nonresidue_nonnative<FF: PrimeField>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF>;
 
     fn assert_valid_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>);
 
@@ -133,11 +138,6 @@ pub trait CircuitBuilderNonNative<F: RichField + Extendable<D>, const D: usize> 
     ) -> NonNativeTarget<FF>;
 
     fn split_nonnative_to_bits<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> Vec<BoolTarget>;
-
-    fn mul_by_nonresidue_nonnative<FF: PrimeField>(
-        &mut self,
-        x: &NonNativeTarget<FF>,
-    ) -> NonNativeTarget<FF>;
 
     fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF>;
     
@@ -441,6 +441,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         let x_squared = self.square_nonnative(x);
         self.mul_nonnative(x, &x_squared)
     }
+    
+    fn mul_by_nonresidue_nonnative<FF: PrimeField>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
+        // Check if FF is Bn128Base
+        use core::any::TypeId;
+        use crate::crypto::bn254::field::bn128_base::Bn128Base;
+        
+        if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
+            // For Bn128Base in Fp, the nonresidue is -1
+            self.neg_nonnative(x)
+        } else {
+            // For generic fields, multiply by FF::NONRESIDUE if available
+            // Since we don't have FF::NONRESIDUE in the trait bounds, we use NEG_ONE
+            self.neg_nonnative(x)
+        }
+    }
 
     fn assert_valid_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) {
         let modulus = self.constant_biguint(&FF::characteristic());
@@ -498,13 +516,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         }
 
         result
-    }
-
-    fn mul_by_nonresidue_nonnative<FF: PrimeField>(
-        &mut self,
-        x: &NonNativeTarget<FF>,
-    ) -> NonNativeTarget<FF> {
-        self.neg_nonnative(x)
     }
 
     fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
@@ -1249,6 +1260,35 @@ mod tests {
         let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof).unwrap();
+    }
+
+    #[test]
+    fn test_mul_by_nonresidue_nonnative() {
+        let config = crate::crypto::bn254::pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test with specific values
+        let x_ff = FF::from_canonical_u64(5);
+        
+        // For Bn128Base in Fp, mul_by_nonresidue should return -x
+        let expected_ff = -x_ff;
+        
+        println!("Testing mul_by_nonresidue for Bn128Base in Fp");
+        println!("x = {:?}", x_ff);
+        println!("expected (-x) = {:?}", expected_ff);
+        
+        let x = builder.constant_nonnative(x_ff);
+        let result = builder.mul_by_nonresidue_nonnative(&x);
+        let expected = builder.constant_nonnative(expected_ff);
+        
+        builder.connect_nonnative(&result, &expected);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
+        
+        println!("✅ mul_by_nonresidue_nonnative test passed!");
     }
 }
 

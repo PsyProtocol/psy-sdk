@@ -341,51 +341,29 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
         &mut self,
         n: usize,
     ) -> NonNativeTargetExt2<FF> {
+        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
         use std::any::TypeId;
         
         if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
             match n % 6 {
                 0 => self.constant_nonnative_ext2(QuadraticExtension([FF::ONE, FF::ZERO])),
                 1 => {
-                    let coeff = Bn128Base([
-                        7963664994991228759,
-                        12257807996192067905,
-                        13179524609921305146,
-                        2767831111890561987,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
+                    let coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT6_C1;
+                    let ff_coeff0 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[0]) };
+                    let ff_coeff1 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[1]) };
+                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff0, ff_coeff1]))
                 }
                 2 => {
-                    let coeff = Bn128Base([
-                        3697675806616062876,
-                        9065277094688085689,
-                        6918009208039626314,
-                        2775033306905974752,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
+                    let coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT6_C1;
+                    let ff_coeff2 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[2]) };
+                    let ff_coeff3 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[3]) };
+                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff2, ff_coeff3]))
                 }
-                3 => self.constant_nonnative_ext2(QuadraticExtension([FF::ZERO, FF::ZERO])),
-                4 => {
-                    let coeff = Bn128Base([
-                        14532872967180610477,
-                        12903226530429559474,
-                        1868623743233345524,
-                        2316889217940299650,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
-                }
-                5 => {
-                    let coeff = Bn128Base([
-                        12447993766991532972,
-                        4121872836076202828,
-                        7630813605053367399,
-                        740282956577754197,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
+                3 => {
+                    let coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT6_C1;
+                    let ff_coeff4 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[4]) };
+                    let ff_coeff5 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[5]) };
+                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff4, ff_coeff5]))
                 }
                 _ => unreachable!()
             }
@@ -398,51 +376,29 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
         &mut self,
         n: usize,
     ) -> NonNativeTargetExt2<FF> {
+        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
         use std::any::TypeId;
         
         if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
             match n % 6 {
                 0 => self.constant_nonnative_ext2(QuadraticExtension([FF::ONE, FF::ZERO])),
                 1 => {
-                    let coeff = Bn128Base([
-                        6763840483288992073,
-                        7118829427391486816,
-                        4016233444936635065,
-                        2630958277570195709,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
+                    let coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT6_C2;
+                    let ff_coeff0 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[0]) };
+                    let ff_coeff1 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[1]) };
+                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff0, ff_coeff1]))
                 }
                 2 => {
-                    let coeff = Bn128Base([
-                        8183898218631979349,
-                        12014359695528440611,
-                        12263358156045030468,
-                        3187210487005268291,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
+                    let coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT6_C2;
+                    let ff_coeff2 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[2]) };
+                    let ff_coeff3 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[3]) };
+                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff2, ff_coeff3]))
                 }
-                3 => self.constant_nonnative_ext2(QuadraticExtension([FF::ZERO, FF::ZERO])),
-                4 => {
-                    let coeff = Bn128Base([
-                        4938922280314430175,
-                        13823286637238282975,
-                        15589480384090068090,
-                        481952561930628184,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
-                }
-                5 => {
-                    let coeff = Bn128Base([
-                        3105754162722846417,
-                        11647802298615474591,
-                        13057042392041828081,
-                        1660844386505564338,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
+                3 => {
+                    let coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT6_C2;
+                    let ff_coeff4 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[4]) };
+                    let ff_coeff5 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[5]) };
+                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff4, ff_coeff5]))
                 }
                 _ => unreachable!()
             }
@@ -665,5 +621,37 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
+    }
+
+    #[test]
+    fn test_frobenius_coeffs_verification() -> anyhow::Result<()> {
+        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
+        
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = pairing_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test frobenius_coeffs_c1 for n=1
+        let coeff_c1_1 = builder.frobenius_coeffs_c1_nonnative_ext6::<Bn128Base>(1);
+        let expected_coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT6_C1;
+        let expected_c1_1 = builder.constant_nonnative_ext2(QuadraticExtension([expected_coeffs[0], expected_coeffs[1]]));
+        builder.connect_nonnative_ext2(&coeff_c1_1, &expected_c1_1);
+
+        // Test frobenius_coeffs_c2 for n=1  
+        let coeff_c2_1 = builder.frobenius_coeffs_c2_nonnative_ext6::<Bn128Base>(1);
+        let expected_coeffs_c2 = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT6_C2;
+        let expected_c2_1 = builder.constant_nonnative_ext2(QuadraticExtension([expected_coeffs_c2[0], expected_coeffs_c2[1]]));
+        builder.connect_nonnative_ext2(&coeff_c2_1, &expected_c2_1);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof)?;
+        
+        println!("✅ Frobenius coefficients verification test passed!");
+        Ok(())
     }
 }

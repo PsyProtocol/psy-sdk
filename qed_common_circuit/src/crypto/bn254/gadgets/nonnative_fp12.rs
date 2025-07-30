@@ -474,53 +474,29 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         &mut self,
         power: usize,
     ) -> NonNativeTargetExt2<FF> {
+        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
         use std::any::TypeId;
         
         if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
             match power % 12 {
                 0 => self.constant_nonnative_ext2(QuadraticExtension([FF::ONE, FF::ZERO])),
                 1 => {
-                    let coeff = Bn128Base([
-                        11683091849979440498,
-                        14992204589386555739,
-                        15866167890766973222,
-                        1200023580730561873,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
+                    let coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT12_C1;
+                    let ff_coeff0 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[0]) };
+                    let ff_coeff1 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[1]) };
+                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff0, ff_coeff1]))
                 }
                 2 => {
-                    let coeff = Bn128Base([
-                        14595462726357228530,
-                        17349508522658994025,
-                        1017833795229664280,
-                        299787779797702374,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
+                    let coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT12_C1;
+                    let ff_coeff0 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[2]) };
+                    let ff_coeff1 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[3]) };
+                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff0, ff_coeff1]))
                 }
                 3 => {
-                    self.constant_nonnative_ext2(QuadraticExtension([FF::ZERO, FF::ZERO]))
-                }
-                4 => {
-                    let coeff = Bn128Base([
-                        3914496794763385213,
-                        790120733010914719,
-                        7322192392869644725,
-                        581366264293887267,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
-                }
-                5 => {
-                    let coeff = Bn128Base([
-                        12817045492518885689,
-                        4440270538777280383,
-                        11178533038884588256,
-                        2767537931541304486,
-                    ]);
-                    let ff_coeff = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeff) };
-                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff, FF::ZERO]))
+                    let coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT12_C1;
+                    let ff_coeff0 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[4]) };
+                    let ff_coeff1 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[5]) };
+                    self.constant_nonnative_ext2(QuadraticExtension([ff_coeff0, ff_coeff1]))
                 }
                 _ => unreachable!(),
             }
@@ -821,5 +797,73 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
+    }
+
+    #[test]
+    fn test_frobenius_coeffs_ext12_verification() -> Result<()> {
+        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
+        use crate::crypto::bn254::field::extension::quadratic::QuadraticExtension;
+        use crate::crypto::bn254::gadgets::nonnative_fp2::CircuitBuilderNonNativeExt2;
+        
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = crate::crypto::bn254::pairing_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Test frobenius_coeffs_c1 for n=1
+        let coeff_c1_1 = builder.frobenius_coeffs_c1_nonnative_ext12::<Bn128Base>(1);
+        let expected_coeffs = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT12_C1;
+        let expected_c1_1 = builder.constant_nonnative_ext2(QuadraticExtension([expected_coeffs[0], expected_coeffs[1]]));
+        builder.connect_nonnative_ext2(&coeff_c1_1, &expected_c1_1);
+
+        // Test for n=2
+        let coeff_c1_2 = builder.frobenius_coeffs_c1_nonnative_ext12::<Bn128Base>(2);
+        let expected_c1_2 = builder.constant_nonnative_ext2(QuadraticExtension([expected_coeffs[2], expected_coeffs[3]]));
+        builder.connect_nonnative_ext2(&coeff_c1_2, &expected_c1_2);
+        
+        // Test for n=3
+        let coeff_c1_3 = builder.frobenius_coeffs_c1_nonnative_ext12::<Bn128Base>(3);
+        let expected_c1_3 = builder.constant_nonnative_ext2(QuadraticExtension([expected_coeffs[4], expected_coeffs[5]]));
+        builder.connect_nonnative_ext2(&coeff_c1_3, &expected_c1_3);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof)?;
+        
+        println!("✅ Frobenius EXT12 coefficients verification test passed!");
+        Ok(())
+    }
+
+    #[test]
+    fn test_cyclotomic_squared_verification() -> Result<()> {
+        type FF = DodecicExtension<Bn128Base>;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        // Create a known cyclotomic element (result of final exponentiation)
+        // For testing, we'll use a simple element: 1 + 0*w + ... + 0*w^11
+        let x_ff = FF::ONE;
+
+        let config = crate::crypto::bn254::pairing_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let x = builder.constant_nonnative_ext12(x_ff);
+        let squared = builder.cyclotomic_squared_nonnative_ext12(&x);
+        
+        // For x = 1, cyclotomic_squared(1) should equal 1
+        let expected = builder.constant_nonnative_ext12(FF::ONE);
+        builder.connect_nonnative_ext12(&squared, &expected);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof)?;
+        
+        println!("✅ Cyclotomic squared verification test passed!");
+        Ok(())
     }
 }

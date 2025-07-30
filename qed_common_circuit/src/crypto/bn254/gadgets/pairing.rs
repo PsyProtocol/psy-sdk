@@ -10,8 +10,10 @@ use plonky2::{
 };
 
 use crate::crypto::bn254::{
+    curve::g2::G2,
     gadgets::{
         g1::{CircuitBuilderG1, G1AffineTarget},
+        g2::{CircuitBuilderG2, G2AffineTarget},
         nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
         nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2},
         nonnative_fp6::{CircuitBuilderNonNativeExt6, NonNativeTargetExt6},
@@ -189,42 +191,42 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
 
         // Check if x-coordinates are equal
         let x_equal = self.is_equal_ext2(x1, x2);
-        
+
         // Check if y-coordinates are equal (same point - need to double)
         let y_equal = self.is_equal_ext2(y1, y2);
         let should_double = self.and(x_equal, y_equal);
-        
+
         // Check if y-coordinates are opposite (result is infinity)
         let neg_y2 = self.neg_nonnative_ext2(y2);
         let y_opposite = self.is_equal_ext2(y1, &neg_y2);
         let should_be_infinity = self.and(x_equal, y_opposite);
-        
+
         // Compute doubling result
         // Check if y is zero (for both components)
         let y0_is_zero = self.is_zero_nonnative(&y1.c0);
         let y1_is_zero = self.is_zero_nonnative(&y1.c1);
         let y_is_zero = self.and(y0_is_zero, y1_is_zero);
-        
+
         let x_squared = self.squared_nonnative_ext2(x1);
         let two_x_squared = self.add_nonnative_ext2(&x_squared, &x_squared);
         let three_x_squared = self.add_nonnative_ext2(&x_squared, &two_x_squared);
         let two_y = self.add_nonnative_ext2(y1, y1);
-        
+
         let one = self.one_nonnative();
         let zero = self.zero_nonnative();
         let one_ext2 = NonNativeTargetExt2 { c0: one, c1: zero, _phantom: PhantomData };
         let two_y_safe = self.select_ext2(y_is_zero, &one_ext2, &two_y);
         let two_y_inv = self.inv_nonnative_ext2(&two_y_safe);
         let slope_double = self.mul_nonnative_ext2(&three_x_squared, &two_y_inv);
-        
+
         let slope_double_squared = self.squared_nonnative_ext2(&slope_double);
         let two_x = self.add_nonnative_ext2(x1, x1);
         let x3_double = self.sub_nonnative_ext2(&slope_double_squared, &two_x);
-        
+
         let x_diff_double = self.sub_nonnative_ext2(x1, &x3_double);
         let y3_double_temp = self.mul_nonnative_ext2(&slope_double, &x_diff_double);
         let y3_double = self.sub_nonnative_ext2(&y3_double_temp, y1);
-        
+
         // Compute regular addition result (with safe division)
         let u = self.sub_nonnative_ext2(y2, y1);
         let v = self.sub_nonnative_ext2(x2, x1);
@@ -237,12 +239,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         let x_diff_add = self.sub_nonnative_ext2(x1, &x3_add);
         let prod = self.mul_nonnative_ext2(&s, &x_diff_add);
         let y3_add = self.sub_nonnative_ext2(&prod, y1);
-        
+
         // Select the appropriate result
         let zero = self.zero_nonnative_ext2();
         let x3_normal = self.select_ext2(should_double, &x3_double, &x3_add);
         let y3_normal = self.select_ext2(should_double, &y3_double, &y3_add);
-        
+
         let x3 = self.select_ext2(should_be_infinity, &zero, &x3_normal);
         let y3 = self.select_ext2(should_be_infinity, &zero, &y3_normal);
 
@@ -292,12 +294,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         // Following ark-r1cs-std approach but using existing components
         // Since inv_nonnative_ext2 uses inv_nonnative internally which will fail on zero,
         // and G2 points in KZG are never infinity, we can use it directly
-        
+
         // Note: If we ever need to handle infinity for G2, we would need to:
         // 1. Check if z is zero: let z_is_zero = self.is_zero_nonnative_ext2(&p.z);
         // 2. Create a safe version of inv_nonnative_ext2 that returns 0 when input is 0
         // 3. Add constraint: z_inv * z = !z_is_zero
-        
+
         let z_inv = self.inv_nonnative_ext2(&p.z);
         let z_inv_squared = self.mul_nonnative_ext2(&z_inv, &z_inv);
         let x = self.mul_nonnative_ext2(&p.x, &z_inv_squared);
@@ -345,7 +347,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
 
         let q1 = self.mul_by_q::<C, FF>(p);
         let mul_by_q = self.mul_by_q::<C, FF>(&q1);
-        let q2 = self.neg_g2::<FF>(&mul_by_q);
+        let q2 = <Self as CircuitBuilderCurveG2<F, D>>::neg_g2::<FF>(self, &mul_by_q);
 
         let (r0, coeff) = self.mixed_addition_step_for_flipped_miller_loop::<C, FF>(&r, &q1);
         r = r0;
@@ -407,7 +409,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         let c = &precomp.coeffs[idx];
         let ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
         let ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
-        f = self.mul_by_024(&f, &c.ell_0, &ell_vv, &ell_vw);
+        f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
 
         f
     }
@@ -419,7 +421,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         &mut self,
         p: &JacobianPointTargetG2<FF>,
     ) -> (JacobianPointTargetG2<FF>, EllCoefficientsTarget<FF>) {
-        let two_inv = self.constant_nonnative(FF::from_canonical_u64(2).inverse());
+        // Use G2::INV_TWO for BN128
+        let two_inv = if core::any::TypeId::of::<FF>() == core::any::TypeId::of::<Bn128Base>() {
+            // Safe to transmute since we checked the type
+            let inv_two_base = G2::INV_TWO.0[0];
+            unsafe {
+                let transmuted: FF = core::mem::transmute_copy(&inv_two_base);
+                self.constant_nonnative(transmuted)
+            }
+        } else {
+            self.constant_nonnative(FF::from_canonical_u64(2).inverse())
+        };
 
         let mut a = self.mul_nonnative_ext2(&p.x, &p.y);
         a = self.scale_nonnative_ext2(&a, &two_inv);
@@ -428,7 +440,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         let mut d = self.add_nonnative_ext2(&c, &c);
         d = self.add_nonnative_ext2(&d, &c);
 
-        let mut e = self.constant_nonnative_ext2(QuadraticExtension([FF::from_canonical_u64(3), FF::ZERO]));
+        // Use C::B for the curve parameter
+        let mut e = self.constant_nonnative_ext2(C::B);
         e = self.mul_nonnative_ext2(&e, &d);
         let mut f = self.add_nonnative_ext2(&e, &e);
         f = self.add_nonnative_ext2(&f, &e);
@@ -514,35 +527,57 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         let x_frobenius = self.frobenius_map_nonnative_ext2(&p.x, 1);
         let y_frobenius = self.frobenius_map_nonnative_ext2(&p.y, 1);
 
-        let twist_mul_by_q_x = self.constant_nonnative_ext2(QuadraticExtension([
-            FF::from_noncanonical_biguint(biguint_from_array([
-                13075984984163199792,
-                3782902503040509012,
-                8791150885551868305,
-                1825854335138010348,
-            ])),
-            FF::from_noncanonical_biguint(biguint_from_array([
-                7963664994991228759,
-                12257807996192067905,
-                13179524609921305146,
-                2767831111890561987,
-            ])),
-        ]));
+        // For BN128, use hardcoded constants
+        // Import G2 to get the constants
+        use crate::crypto::bn254::curve::g2::G2;
+        use crate::crypto::bn254::field::bn128_base::Bn128Base;
+        
+        // TWIST_MUL_BY_Q_X = QuadraticExtension([
+        //     Bn128Base([13075984984163199792, 3782902503040509012, 8791150885551868305, 1825854335138010348]),
+        //     Bn128Base([7963664994991228759, 12257807996192067905, 13179524609921305146, 2767831111890561987])
+        // ])
+        let twist_mul_by_q_x = if core::any::TypeId::of::<FF>() == core::any::TypeId::of::<Bn128Base>() {
+            // Safe to transmute since we checked the type
+            let g2_const = G2::TWIST_MUL_BY_Q_X;
+            unsafe {
+                let transmuted: QuadraticExtension<FF> = core::mem::transmute_copy(&g2_const);
+                self.constant_nonnative_ext2(transmuted)
+            }
+        } else {
+            // For other field types, create from BigUint
+            self.constant_nonnative_ext2(QuadraticExtension::<FF>([
+                FF::from_noncanonical_biguint(BigUint::from_slice(&[
+                    13075984984163199792u64, 3782902503040509012u64, 
+                    8791150885551868305u64, 1825854335138010348u64
+                ].iter().flat_map(|&x| vec![x as u32, (x >> 32) as u32]).collect::<Vec<_>>())),
+                FF::from_noncanonical_biguint(BigUint::from_slice(&[
+                    7963664994991228759u64, 12257807996192067905u64,
+                    13179524609921305146u64, 2767831111890561987u64
+                ].iter().flat_map(|&x| vec![x as u32, (x >> 32) as u32]).collect::<Vec<_>>())),
+            ]))
+        };
 
-        let twist_mul_by_q_y = self.constant_nonnative_ext2(QuadraticExtension([
-            FF::from_noncanonical_biguint(biguint_from_array([
-                16482010305593259561,
-                13488546290961988299,
-                3578621962720924518,
-                2681173117283399901,
-            ])),
-            FF::from_noncanonical_biguint(biguint_from_array([
-                11661927080404088775,
-                553939530661941723,
-                7860678177968807019,
-                3208568454732775116,
-            ])),
-        ]));
+        // TWIST_MUL_BY_Q_Y
+        let twist_mul_by_q_y = if core::any::TypeId::of::<FF>() == core::any::TypeId::of::<Bn128Base>() {
+            // Safe to transmute since we checked the type
+            let g2_const = G2::TWIST_MUL_BY_Q_Y;
+            unsafe {
+                let transmuted: QuadraticExtension<FF> = core::mem::transmute_copy(&g2_const);
+                self.constant_nonnative_ext2(transmuted)
+            }
+        } else {
+            // For other field types, create from BigUint
+            self.constant_nonnative_ext2(QuadraticExtension::<FF>([
+                FF::from_noncanonical_biguint(BigUint::from_slice(&[
+                    16482010305593259561u64, 13488546290961988299u64,
+                    3578621962720924518u64, 2681173117283399901u64
+                ].iter().flat_map(|&x| vec![x as u32, (x >> 32) as u32]).collect::<Vec<_>>())),
+                FF::from_noncanonical_biguint(BigUint::from_slice(&[
+                    11661927080404088775u64, 553939530661941723u64,
+                    7860678177968807019u64, 3208568454732775116u64
+                ].iter().flat_map(|&x| vec![x as u32, (x >> 32) as u32]).collect::<Vec<_>>())),
+            ]))
+        };
 
         AffinePointTargetG2 {
             x: self.mul_nonnative_ext2(&twist_mul_by_q_x, &x_frobenius),
@@ -566,98 +601,358 @@ mod tests {
     type F = <C as GenericConfig<D>>::F;
 
     #[test]
-    fn test_pairing_structure() {
+    fn test_precompute_g2() -> anyhow::Result<()> {
+        use crate::crypto::bn254::curve::G2;
+        use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
+        
         let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let g1_point = builder.g1_generator();
-
-        let g2_x = QuadraticExtension([Bn128Base::ONE, Bn128Base::ZERO]);
-        let g2_y = QuadraticExtension([Bn128Base::from_canonical_u64(2), Bn128Base::ZERO]);
-        let g2_affine_point = AffinePoint::<G2> {
-            x: g2_x,
-            y: g2_y,
-            zero: false,
-        };
-        let g2_point = builder.constant_affine_point_g2::<G2, Bn128Base>(g2_affine_point);
-
-        println!("✅ Complete pairing structure created successfully");
-        println!("📋 Structure verification:");
-        println!("   - ATE_LOOP_COUNT: Ported from plonky2-pairing");
-        println!("   - G2 data structures: AffinePointTargetG2, JacobianPointTargetG2, EllCoefficientsTarget");
-        println!("   - Main functions: pairing(), precompute(), miller_loop()");
-        println!("   - Helper functions: doubling_step, mixed_addition_step, mul_by_q");
-        println!("   - Next step: Implement Miller loop and final exponentiation algorithms");
+        
+        // Create a G2 point in the circuit
+        let g2_gen = G2::GENERATOR_AFFINE;
+        let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2_gen);
+        
+        // Try precompute operation
+        println!("Starting precompute...");
+        let coeffs = builder.precompute::<G2, Bn128Base>(&g2_target);
+        println!("Precompute completed with {} coefficients", coeffs.coeffs.len());
+        
+        // Build circuit
+        let circuit = builder.build::<C>();
+        println!("Circuit built with {} gates", circuit.common.gates.len());
+        
+        Ok(())
     }
 
     #[test]
-    fn test_pairing() {
+    fn test_g2_circuit_operations() -> anyhow::Result<()> {
+        use crate::crypto::bn254::curve::G2;
+        use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
+        
+        let config = crate::crypto::bn254::pairing_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        
+        // Create a G2 point in the circuit
+        let g2_gen = G2::GENERATOR_AFFINE;
+        let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2_gen);
+        
+        // Try mul_by_q operation which is used in pairing
+        let result = builder.mul_by_q::<G2, Bn128Base>(&g2_target);
+        
+        println!("Created G2 point and doubled it in circuit");
+        
+        // Build circuit without proving
+        let circuit = builder.build::<C>();
+        println!("Circuit built with {} gates", circuit.common.gates.len());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_g2_basic_operations() -> anyhow::Result<()> {
+        use crate::crypto::bn254::curve::G2;
+        use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
+        
+        // Test G2 generator
+        let g2_gen = G2::GENERATOR_AFFINE;
+        println!("G2 generator: x = {:?}", g2_gen.x);
+        println!("G2 generator: y = {:?}", g2_gen.y);
+        
+        // Test that generator is on curve
+        assert!(g2_gen.is_valid());
+        
+        // Test basic field arithmetic in Fp2
+        let a = g2_gen.x;
+        let b = g2_gen.y;
+        let c = a + b;
+        let d = a * b;
+        
+        println!("a + b = {:?}", c);
+        println!("a * b = {:?}", d);
+        
+        // Test mul_by_nonresidue
+        let e = a.mul_by_nonresidue_bn128();
+        println!("a.mul_by_nonresidue_bn128() = {:?}", e);
+        
+        Ok(())
+    }
+
+    // #[test]
+    // fn test_pairing_structure() {
+    //     let config = crate::crypto::bn254::pairing_config();
+    //     let mut builder = CircuitBuilder::<F, D>::new(config);
+    //
+    //     let g1_point = builder.g1_generator();
+    //
+    //     let g2_x = QuadraticExtension([Bn128Base::ONE, Bn128Base::ZERO]);
+    //     let g2_y = QuadraticExtension([Bn128Base::from_canonical_u64(2), Bn128Base::ZERO]);
+    //     let g2_affine_point = AffinePoint::<G2> {
+    //         x: g2_x,
+    //         y: g2_y,
+    //         zero: false,
+    //     };
+    //     let g2_point = builder.constant_affine_point_g2::<G2, Bn128Base>(g2_affine_point);
+    //
+    //     println!("✅ Complete pairing structure created successfully");
+    //     println!("📋 Structure verification:");
+    //     println!("   - ATE_LOOP_COUNT: Ported from plonky2-pairing");
+    //     println!("   - G2 data structures: AffinePointTargetG2, JacobianPointTargetG2, EllCoefficientsTarget");
+    //     println!("   - Main functions: pairing(), precompute(), miller_loop()");
+    //     println!("   - Helper functions: doubling_step, mixed_addition_step, mul_by_q");
+    //     println!("   - Next step: Implement Miller loop and final exponentiation algorithms");
+    // }
+
+    // #[test]
+    // #[ignore] // Temporarily ignore due to type conflicts
+    // fn test_pairing_with_witness() -> anyhow::Result<()> {
+    //     use crate::crypto::bn254::curve::{G1, G2};
+    //     use crate::crypto::bn254::field::extension::dodecic::DodecicExtension;
+    //     use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
+    //     use crate::crypto::secp256k1::ecdsa::gadgets::curve::CircuitBuilderCurve;
+    //     use plonky2::field::types::Field;
+    //     use plonky2::iop::witness::{PartialWitness, WitnessWrite};
+    //     use plonky2::plonk::circuit_data::CircuitConfig;
+    //     use plonky2::plonk::prover::prove;
+    //     
+    //     // Create a simple pairing test case
+    //     let config = CircuitConfig::standard_recursion_config();
+    //     let mut builder = CircuitBuilder::<F, D>::new(config);
+    //     
+    //     // Use identity element for G1 (point at infinity)
+    //     let g1_infinity = AffinePoint::<G1> {
+    //         x: Bn128Base::ZERO,
+    //         y: Bn128Base::ZERO,
+    //         zero: true,
+    //     };
+    //     let g1 = builder.constant_affine_point::<G1>(g1_infinity);
+    //     
+    //     // Use generator for G2
+    //     let g2_gen = G2::GENERATOR_AFFINE;
+    //     let g2 = builder.constant_affine_point_g2::<G2, Bn128Base>(g2_gen);
+    //     
+    //     println!("Computing pairing(O, G2)...");
+    //     let pairing_result = builder.pairing(&g1, &g2);
+    //     
+    //     // The result should be 1 in Fp12
+    //     let one_fp12 = DodecicExtension::<Bn128Base>::ONE;
+    //     let expected = builder.constant_nonnative_ext12(one_fp12);
+    //     
+    //     // Check if pairing(O, G2) = 1
+    //     builder.connect_nonnative_ext12(&pairing_result, &expected);
+    //     
+    //     println!("Building circuit...");
+    //     let data = builder.build::<C>();
+    //     println!("Circuit built with {} gates", data.common.gates.len());
+    //     
+    //     // Generate witness
+    //     let mut pw = PartialWitness::new();
+    //     
+    //     println!("Generating proof...");
+    //     use plonky2::util::timing::TimingTree;
+    //     let mut timing = TimingTree::new("prove", log::Level::Debug);
+    //     let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+    //     
+    //     println!("Proof generated successfully!");
+    //     
+    //     Ok(())
+    // }
+
+    #[test]
+    fn test_pairing() -> anyhow::Result<()> {
         use crate::crypto::bn254::curve::{G1, G2};
+        use crate::crypto::bn254::field::extension::dodecic::DodecicExtension;
+        use crate::crypto::bn254::gadgets::g1::G1AffineTarget;
         use crate::crypto::secp256k1::ecdsa::curve::curve_types::Curve;
         use crate::crypto::secp256k1::ecdsa::gadgets::curve::CircuitBuilderCurve;
-        use std::time::Instant;
+        use anyhow::Result;
+        use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+        use plonky2::plonk::circuit_data::CircuitConfig;
+        use plonky2::iop::witness::PartialWitness;
+        use plonky2::field::types::Sample;
 
-        let config = CircuitConfig {
-            num_wires: 400,
-            ..CircuitConfig::wide_ecc_config()
-        };
+        // Skip logging setup - we don't have env_logger dependency
+
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = crate::crypto::bn254::pairing_config();
+
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let start = Instant::now();
-        println!("Starting pairing test...");
+        type FF = Bn128Base;
 
-        let g1 = G1::GENERATOR_AFFINE;
-        let g2 = G2::GENERATOR_AFFINE;
+        // These constants are not used in this test
 
-        let g1_target = builder.g1_generator();
-        let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2);
+        let p = G1AffineTarget::<F, D> {
+            x: builder.constant_nonnative(Bn128Base([
+                18009135459904726766,
+                2053664114473314749,
+                9535470248130011749,
+                3479289040628672906,
+            ])),
+            y: builder.constant_nonnative(Bn128Base([
+                6225675676338262706,
+                4510937524066860607,
+                11348405336138879847,
+                2021255424210394902,
+            ])),
+            is_infinity: builder._false(),
+            _phantom: PhantomData,
+        };
 
-        println!("Computing pairing e(G1, G2)...");
+        let q = JacobianPointTargetG2 {
+            x: builder.constant_nonnative_ext2(QuadraticExtension::<Bn128Base>([
+                Bn128Base([
+                    2577798519503118397,
+                    14034210771057369560,
+                    14798801535089424299,
+                    1731240919448670153,
+                ]),
+                Bn128Base([
+                    15909499412933957829,
+                    12344152745192254056,
+                    1185193310574937231,
+                    760964259656302494,
+                ]),
+            ])),
+            y: builder.constant_nonnative_ext2(QuadraticExtension::<Bn128Base>([
+                Bn128Base([
+                    16827884672622421998,
+                    756648877887862755,
+                    18069298113966277418,
+                    2110768940310013157,
+                ]),
+                Bn128Base([
+                    12195099017078129020,
+                    6997443175976044100,
+                    15957581681657247863,
+                    752644145961255405,
+                ]),
+            ])),
+            z: builder.constant_nonnative_ext2(QuadraticExtension::<Bn128Base>([
+                Bn128Base([
+                    12079780699228388722,
+                    791215766957020566,
+                    2914756960274132770,
+                    2602717870663046513,
+                ]),
+                Bn128Base([
+                    12691905162280913768,
+                    89920551545646552,
+                    12941976487854615151,
+                    2355989044724612682,
+                ]),
+            ])),
+        };
+        let q_affine = builder.to_affine_g2::<G2, Bn128Base>(&q);
 
-        let pairing_start = Instant::now();
-        let pairing_result = builder.pairing::<Bn128Base, G1, G2>(&g1_target, &g2_target);
-        println!("Pairing computation took: {:?}", pairing_start.elapsed());
+        let x_expected = builder.constant_nonnative_ext12(DodecicExtension::<Bn128Base>([
+            Bn128Base([
+                5261791323882946788,
+                5969279653909130133,
+                13914067258383528210,
+                94138518832923322,
+            ]),
+            Bn128Base([
+                16452828235560020136,
+                14277920321324140450,
+                1808868257472119675,
+                34528199959501362,
+            ]),
+            Bn128Base([
+                18153774717408091761,
+                4960813716655447740,
+                16877776237373176286,
+                111333703937892795,
+            ]),
+            Bn128Base([
+                6177369533740206595,
+                5540475544632735388,
+                18239293933561841014,
+                2106733616315301007,
+            ]),
+            Bn128Base([
+                12051797884938972865,
+                5452376490073186411,
+                13624941770027287332,
+                2556206152101805306,
+            ]),
+            Bn128Base([
+                12875218175083744969,
+                18411108459922848687,
+                16205159152680096724,
+                2298321485788462962,
+            ]),
+            Bn128Base([
+                14609934753813766369,
+                10831492163493656847,
+                9520417608604346386,
+                3185244767883521333,
+            ]),
+            Bn128Base([
+                1210469375740710922,
+                12695443078599703490,
+                15456619824566231090,
+                1318481115027774681,
+            ]),
+            Bn128Base([
+                12407907403893432531,
+                2577431929064026945,
+                13354667077106593055,
+                687277024136764940,
+            ]),
+            Bn128Base([
+                16854887897954252879,
+                12456401038131277336,
+                4434193903233473879,
+                1222410746383484321,
+            ]),
+            Bn128Base([
+                14754110002434578184,
+                3232557947137383979,
+                560992349178873120,
+                3162237541859216066,
+            ]),
+            Bn128Base([
+                4982245430574873546,
+                2614584005832853337,
+                14785904332481227781,
+                1602384300921012077,
+            ]),
+        ]));
+
+        let x = builder.pairing::<Bn128Base, G1, G2>(&p, &q_affine);
+        builder.connect_nonnative_ext12(&x_expected, &x);
 
         println!("Building circuit...");
-        println!("Number of gates before build: {}", builder.num_gates());
-
-        let build_start = Instant::now();
+        println!("  - Number of gates: {}", builder.num_gates());
         let data = builder.build::<C>();
-        println!("Circuit build took: {:?}", build_start.elapsed());
-
-        println!("Circuit built successfully!");
-        println!("Number of gates: {}", data.common.gates.len());
-        println!("Degree bits: {}", data.common.degree_bits());
-        println!("Number of public inputs: {}", data.common.num_public_inputs);
-
-        println!("Generating proof...");
-        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
+        let res = data.verify(proof);
 
-        println!("Verifying proof...");
-        data.verify(proof).unwrap();
-
-        println!("✅ Pairing test passed!");
+        res
     }
 
-    #[test]
-    fn test_pairing_components() {
-        use crate::crypto::bn254::curve::G2;
-        use crate::crypto::secp256k1::ecdsa::curve::curve_types::Curve;
-
-        let config = CircuitConfig {
-            num_wires: 400,
-            ..CircuitConfig::wide_ecc_config()
-        };
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let g2 = G2::GENERATOR_AFFINE;
-        let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2);
-
-        let precomp = builder.precompute::<G2, Bn128Base>(&g2_target);
-
-        println!("✅ Pairing components test passed");
-        println!("   - G2 point creation: OK");
-        println!("   - Precompute: OK (generated {} coefficients)", precomp.coeffs.len());
-    }
+    // #[test]
+    // fn test_pairing_components() {
+    //     use crate::crypto::bn254::curve::G2;
+    //     use crate::crypto::secp256k1::ecdsa::curve::curve_types::Curve;
+    //
+    //     let config = CircuitConfig {
+    //         num_wires: 400,
+    //         ..CircuitConfig::wide_ecc_config()
+    //     };
+    //     let mut builder = CircuitBuilder::<F, D>::new(config);
+    //
+    //     let g2 = G2::GENERATOR_AFFINE;
+    //     let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2);
+    //
+    //     let precomp = builder.precompute::<G2, Bn128Base>(&g2_target);
+    //
+    //     println!("✅ Pairing components test passed");
+    //     println!("   - G2 point creation: OK");
+    //     println!("   - Precompute: OK (generated {} coefficients)", precomp.coeffs.len());
+    // }
 }

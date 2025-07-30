@@ -245,19 +245,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt2<F
     ) -> NonNativeTargetExt2<FF> {
         let c0_squared = self.mul_nonnative(&x.c0, &x.c0);
         let c1_squared = self.mul_nonnative(&x.c1, &x.c1);
-        
-        let w = self.constant_nonnative(FF::W);
-        let c1_squared_mul_nonresidue = self.mul_nonnative(&c1_squared, &w);
-        let norm = self.sub_nonnative(&c0_squared, &c1_squared_mul_nonresidue);
-        let norm_inv = self.inv_nonnative(&norm);
-
-        let c0 = self.mul_nonnative(&x.c0, &norm_inv);
-        let c1 = self.mul_nonnative(&x.c1, &norm_inv);
-        let c1 = self.neg_nonnative(&c1);
+        let c1_squared_mul_nonresidue = self.mul_by_nonresidue_nonnative(&c1_squared);
+        let t = self.sub_nonnative(&c0_squared, &c1_squared_mul_nonresidue);
+        let inv_t = self.inv_nonnative(&t);
+        let c1_mul_inv_t = self.mul_nonnative(&x.c1, &inv_t);
 
         NonNativeTargetExt2 {
-            c0,
-            c1,
+            c0: self.mul_nonnative(&x.c0, &inv_t),
+            c1: self.neg_nonnative(&c1_mul_inv_t),
             _phantom: PhantomData,
         }
     }
@@ -266,12 +261,28 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt2<F
         &mut self,
         x: &NonNativeTargetExt2<FF>,
     ) -> NonNativeTargetExt2<FF> {
-        let w = self.constant_nonnative(FF::W);
-        let c0 = self.mul_nonnative(&x.c1, &w);
-        NonNativeTargetExt2 {
-            c0,
-            c1: x.c0.clone(),
-            _phantom: PhantomData,
+        // Check if FF is Bn128Base
+        use core::any::TypeId;
+        use crate::crypto::bn254::field::bn128_base::Bn128Base;
+        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
+        
+        if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
+            // For Bn128Base, use EXT_NONRESIDUE = [9, 1]
+            let ext_nonresidue = <Bn128Base as Bn128ExtConstants>::EXT_NONRESIDUE;
+            let nonresidue = unsafe {
+                let transmuted: QuadraticExtension<FF> = core::mem::transmute_copy(&QuadraticExtension(ext_nonresidue));
+                self.constant_nonnative_ext2(transmuted)
+            };
+            self.mul_nonnative_ext2(&x, &nonresidue)
+        } else {
+            // Generic implementation: multiply c1 by W and swap
+            let w = self.constant_nonnative(FF::W);
+            let c0 = self.mul_nonnative(&x.c1, &w);
+            NonNativeTargetExt2 {
+                c0,
+                c1: x.c0.clone(),
+                _phantom: PhantomData,
+            }
         }
     }
 
@@ -545,6 +556,93 @@ mod tests {
         let square_x = builder.squared_nonnative_ext2(&x);
         let square_x_expected = builder.constant_nonnative_ext2(square_x_ff);
         builder.connect_nonnative_ext2(&square_x, &square_x_expected);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof)
+    }
+
+    #[test]
+    fn test_nonnative_ext2_mul_by_nonresidue() -> anyhow::Result<()> {
+        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
+        use plonky2::field::extension::FieldExtension;
+        
+        type FF = QuadraticExtension<Bn128Base>;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        // Test with a specific value to verify correctness
+        let x_ff = QuadraticExtension([
+            Bn128Base::from_canonical_u64(2),
+            Bn128Base::from_canonical_u64(3),
+        ]);
+        
+        // Expected result: (2 + 3u) * (9 + u) = 18 + 2u + 27u + 3u^2
+        // Since u^2 = -1, this becomes: 18 + 29u - 3 = 15 + 29u
+        let ext_nonresidue = <Bn128Base as Bn128ExtConstants>::EXT_NONRESIDUE;
+        let nonresidue = QuadraticExtension(ext_nonresidue);
+        let expected_ff = x_ff * nonresidue;
+        
+        // Print values to verify
+        println!("Testing mul_by_nonresidue for Bn128Base");
+        println!("x = {:?}", x_ff);
+        println!("nonresidue = {:?}", nonresidue);
+        println!("x * nonresidue = {:?}", expected_ff);
+
+        let config = crate::crypto::bn254::pairing_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let x = builder.constant_nonnative_ext2(x_ff);
+        let result = builder.mul_by_nonresidue_nonnative_ext2(&x);
+        let expected = builder.constant_nonnative_ext2(expected_ff);
+        
+        builder.connect_nonnative_ext2(&result, &expected);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof)
+    }
+
+    #[test]
+    fn test_nonnative_ext2_inv_with_verification() -> anyhow::Result<()> {
+        type FF = QuadraticExtension<Bn128Base>;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        // Test with specific values to verify correctness
+        let x_ff = QuadraticExtension([
+            Bn128Base::from_canonical_u64(7),
+            Bn128Base::from_canonical_u64(5),
+        ]);
+        
+        let inv_x_ff = x_ff.inverse();
+        
+        // Verify that x * inv(x) = 1
+        let product = x_ff * inv_x_ff;
+        println!("Testing inv for Fp2");
+        println!("x = {:?}", x_ff);
+        println!("inv(x) = {:?}", inv_x_ff);
+        println!("x * inv(x) = {:?}", product);
+        assert_eq!(product, FF::ONE, "x * inv(x) should equal 1");
+
+        let config = crate::crypto::bn254::pairing_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let x = builder.constant_nonnative_ext2(x_ff);
+        let inv_x = builder.inv_nonnative_ext2(&x);
+        
+        // Verify inv(x) is correct
+        let inv_x_expected = builder.constant_nonnative_ext2(inv_x_ff);
+        builder.connect_nonnative_ext2(&inv_x, &inv_x_expected);
+        
+        // Also verify that x * inv(x) = 1
+        let product = builder.mul_nonnative_ext2(&x, &inv_x);
+        let one = builder.one_nonnative_ext2();
+        builder.connect_nonnative_ext2(&product, &one);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
