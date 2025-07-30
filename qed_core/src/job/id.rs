@@ -9,6 +9,102 @@ use crate::config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROO
 use crate::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
 use crate::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged};
 use super::mode::QWorkerMode;
+use uuid::Uuid;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct JobsTask {
+    pub task_id: TaskId,
+    pub job_ids: Vec<QProvingJobDataID>,
+}
+
+impl JobsTask {
+    pub fn new(job_ids: &[QProvingJobDataID]) -> Self {
+        Self {
+            task_id: TaskId::new(),
+            job_ids: job_ids.to_vec(),
+        }
+    }
+
+    pub fn task_id(&self) -> TaskId {
+        self.task_id
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct TaskId(Uuid);
+
+impl TaskId {
+    pub fn new() -> Self {
+        Self(Uuid::new_v4())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum Color {
+    White,
+    Grey,
+    Black,
+}
+
+#[derive(Clone, Debug)]
+pub struct JobsTaskGraph {
+    pub tasks: HashMap<TaskId, JobsTask>,
+    pub deps: HashMap<TaskId, HashSet<TaskId>>,
+}
+
+impl JobsTaskGraph {
+    pub fn new() -> Self {
+        Self {
+            tasks: HashMap::new(),
+            deps: HashMap::new(),
+        }
+    }
+
+    pub fn add_task(&mut self, task: JobsTask) {
+        let task_id = task.task_id();
+        self.tasks.insert(task_id, task);
+    }
+
+    pub fn add_dep(&mut self, task: JobsTask, dep_task: JobsTask) {
+        self.deps
+            .entry(task.task_id())
+            .or_default()
+            .insert(dep_task.task_id());
+        self.add_task(task);
+        self.add_task(dep_task);
+    }
+
+    pub fn ts_inner(
+        &self,
+        task: TaskId,
+        colors: &mut HashMap<TaskId, Color>,
+        visitor: &mut impl FnMut(TaskId),
+    ) {
+        colors.insert(task, Color::Grey);
+        if let Some(deps) = self.deps.get(&task) {
+            for &dep in deps {
+                match colors.get(&dep) {
+                    Some(Color::Grey) => panic!("cycle detected"),
+                    None => self.ts_inner(dep, colors, visitor),
+                    _ => {}
+                }
+            }
+        }
+        visitor(task);
+        colors.insert(task, Color::Black);
+    }
+
+    pub fn ts(&self) -> Vec<TaskId> {
+        let mut sorted = Vec::new();
+        let mut colors = HashMap::new();
+        for &task in self.tasks.keys() {
+            self.ts_inner(task, &mut colors, &mut |task| sorted.push(task));
+        }
+        sorted
+    }
+}
+
+
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
 )]
@@ -324,6 +420,7 @@ pub struct QWorkerJobBenchmark {
   pub duration: u64,
 }
 
+// TODO: remove
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct JobDataIdGraph {
     pub dep_graph: HashMap<QProvingJobDataID, HashSet<QProvingJobDataID>>,

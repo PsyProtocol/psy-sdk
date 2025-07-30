@@ -13,7 +13,7 @@ use qed_core::{
     job::{
         drain_queue::CheckpointDrainQueueConsumerAsyncImm,
         history_queue::CheckpointHistoryQueueConsumerAsyncImm,
-        id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+        id::{JobsTask, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
@@ -770,10 +770,9 @@ impl<
 
         self.proof_store.set_bytes_by_id(finished_job, &bincode::serialize(&res).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
 
-
-        self.proof_store.write_multidimensional_jobs(&guta_jobs, &[
-            finished_job
-        ]).await?;
+        let guta_tasks = guta_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
+        let finished_job_task = JobsTask::new(&[finished_job]);
+        self.proof_store.write_multidimensional_job_tasks(&guta_tasks, &finished_job_task).await?;
 
         self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
 

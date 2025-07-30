@@ -4,7 +4,7 @@ use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use redis::{AsyncCommands, RedisResult};
 use kvq::traits::KVQSerializable;
-use qed_core::job::{id::{JobDataIdGraph, ProvingJobDataId}, traits::{JobDataIdGraphReader, JobDataIdGraphWriter}};
+use qed_core::job::{id::{JobsTask, JobsTaskGraph, JobDataIdGraph, ProvingJobDataId}, traits::{JobDataIdGraphReader, JobDataIdGraphWriter}};
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use tracing::debug;
@@ -40,7 +40,8 @@ pub struct ProofStoreRedisAsync {
     notifications_queue_id: String,
     proof_store_key: String,
     proof_store_counters: String,
-    job_graph: Arc<Mutex<JobDataIdGraph>>
+    job_graph: Arc<Mutex<JobDataIdGraph>>,
+    task_graph: Arc<Mutex<JobsTaskGraph>>,
 }
 
 impl ProofStoreRedisAsync {
@@ -64,6 +65,7 @@ impl ProofStoreRedisAsync {
                 PROOF_STORE_COUNTERS_PREFIX_1, proof_store_counters_suffix
             ),
             job_graph: Arc::new(Mutex::new(JobDataIdGraph::new())),
+            task_graph: Arc::new(Mutex::new(JobsTaskGraph::new())),
         })
     }
     pub fn pool(&self) -> &Pool<RedisConnectionManager> {
@@ -209,6 +211,35 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
                     job_graph.add_job_dep(next_job, job);
                 }
             }
+        }
+        Ok(())
+    }
+
+    async fn write_next_job_tasks(
+        &self,
+        task: &JobsTask,
+        next_task: &JobsTask,
+    ) -> anyhow::Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        task_graph.add_dep(task.clone(), next_task.clone());
+        Ok(())
+    }
+
+    async fn write_multidimensional_job_tasks(
+        &self,
+        tasks: &[JobsTask],
+        next_task: &JobsTask,
+    ) -> anyhow::Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        let job_levels_count = tasks.len();
+        for i in 0..job_levels_count {
+            let current_next_task = if i == job_levels_count - 1 {
+                &next_task
+            } else {
+                &tasks[i + 1]
+            };
+            let current_task = &tasks[i];
+            task_graph.add_dep(current_task.clone(), current_next_task.clone());
         }
         Ok(())
     }
