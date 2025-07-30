@@ -777,8 +777,6 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
 
         let config = crate::crypto::bn254::pairing_config();
-
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         type FF = Bn128Base;
@@ -929,6 +927,7 @@ mod tests {
         println!("Building circuit...");
         println!("  - Number of gates: {}", builder.num_gates());
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         let res = data.verify(proof);
 

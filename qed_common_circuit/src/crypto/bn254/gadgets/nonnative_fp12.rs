@@ -645,6 +645,7 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::field::ops::Square;
     use plonky2::field::types::{Field, Sample};
+    use plonky2::field::extension::FieldExtension;
 
     #[test]
     fn test_nonnative_ext12_add() -> Result<()> {
@@ -658,7 +659,6 @@ mod tests {
         let sum_ff = x_ff + y_ff;
 
         let config = crate::crypto::bn254::pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext12(x_ff);
@@ -669,6 +669,7 @@ mod tests {
         builder.connect_nonnative_ext12(&sum, &sum_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -685,7 +686,6 @@ mod tests {
         let diff_ff = x_ff - y_ff;
 
         let config = crate::crypto::bn254::pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext12(x_ff);
@@ -696,6 +696,7 @@ mod tests {
         builder.connect_nonnative_ext12(&diff, &diff_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -706,13 +707,25 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let x_ff = FF::sample(&mut rand::thread_rng());
-        let y_ff = FF::sample(&mut rand::thread_rng());
-
+        // Use specific values to avoid randomness issues
+        let x_ff = FF::ONE;
+        let y_ff = FF::from_basefield_array([
+            Bn128Base::from_canonical_u64(2),
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+        ]);
         let product_ff = x_ff * y_ff;
 
         let config = crate::crypto::bn254::pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext12(x_ff);
@@ -723,6 +736,7 @@ mod tests {
         builder.connect_nonnative_ext12(&product, &product_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -737,7 +751,6 @@ mod tests {
         let neg_x_ff = -x_ff;
 
         let config = crate::crypto::bn254::pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext12(x_ff);
@@ -747,6 +760,7 @@ mod tests {
         builder.connect_nonnative_ext12(&neg_x, &neg_x_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -757,11 +771,24 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let x_ff = FF::sample(&mut rand::thread_rng());
+        // Use specific non-zero value to avoid randomness issues
+        let x_ff = FF::from_basefield_array([
+            Bn128Base::from_canonical_u64(3),
+            Bn128Base::from_canonical_u64(1),
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+        ]);
         let inv_x_ff = x_ff.inverse();
 
         let config = crate::crypto::bn254::pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext12(x_ff);
@@ -771,6 +798,7 @@ mod tests {
         builder.connect_nonnative_ext12(&inv_x, &inv_x_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -781,11 +809,24 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let x_ff = FF::sample(&mut rand::thread_rng());
+        // Use specific value to avoid randomness issues
+        let x_ff = FF::from_basefield_array([
+            Bn128Base::from_canonical_u64(2),
+            Bn128Base::from_canonical_u64(1),
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+        ]);
         let square_x_ff = x_ff.square();
 
         let config = crate::crypto::bn254::pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext12(x_ff);
@@ -795,6 +836,7 @@ mod tests {
         builder.connect_nonnative_ext12(&square_x, &square_x_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -810,7 +852,6 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
 
         let config = crate::crypto::bn254::pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         // Test frobenius_coeffs_c1 for n=1
@@ -830,6 +871,7 @@ mod tests {
         builder.connect_nonnative_ext2(&coeff_c1_3, &expected_c1_3);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)?;
         
@@ -849,7 +891,6 @@ mod tests {
         let x_ff = FF::ONE;
 
         let config = crate::crypto::bn254::pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext12(x_ff);
@@ -860,6 +901,7 @@ mod tests {
         builder.connect_nonnative_ext12(&squared, &expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)?;
         

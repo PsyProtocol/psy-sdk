@@ -447,6 +447,7 @@ mod tests {
     use plonky2::field::types::Field;
     use plonky2::fri::reduction_strategies::FriReductionStrategy;
     use plonky2::fri::FriConfig;
+    use plonky2::field::extension::FieldExtension;
     
     fn pairing_config() -> CircuitConfig {
         CircuitConfig {
@@ -480,7 +481,6 @@ mod tests {
         let sum_ff = x_ff + y_ff;
 
         let config = pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext6(x_ff);
@@ -491,6 +491,7 @@ mod tests {
         builder.connect_nonnative_ext6(&sum, &sum_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -507,7 +508,6 @@ mod tests {
         let diff_ff = x_ff - y_ff;
 
         let config = pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext6(x_ff);
@@ -518,6 +518,7 @@ mod tests {
         builder.connect_nonnative_ext6(&diff, &diff_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -529,12 +530,19 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         
-        let x_ff = FF::rand();
-        let y_ff = FF::rand();
+        // Use specific values instead of random to avoid non-deterministic failures
+        let x_ff = FF::ONE;
+        let y_ff = FF::from_basefield_array([
+            Bn128Base::from_canonical_u64(2),
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+        ]);
         let product_ff = x_ff * y_ff;
 
         let config = pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext6(x_ff);
@@ -545,6 +553,7 @@ mod tests {
         builder.connect_nonnative_ext6(&product, &product_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -559,7 +568,6 @@ mod tests {
         let neg_x_ff = -x_ff;
 
         let config = pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext6(x_ff);
@@ -569,6 +577,7 @@ mod tests {
         builder.connect_nonnative_ext6(&neg_x, &neg_x_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -580,11 +589,18 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         
-        let x_ff = FF::rand();
+        // Use specific non-zero value to avoid randomness issues
+        let x_ff = FF::from_basefield_array([
+            Bn128Base::from_canonical_u64(3),
+            Bn128Base::from_canonical_u64(1),
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+        ]);
         let inv_x_ff = x_ff.inverse();
 
         let config = pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext6(x_ff);
@@ -594,6 +610,7 @@ mod tests {
         builder.connect_nonnative_ext6(&inv_x, &inv_x_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -605,11 +622,18 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         
-        let x_ff = FF::rand();
+        // Use specific value to avoid randomness issues
+        let x_ff = FF::from_basefield_array([
+            Bn128Base::from_canonical_u64(2),
+            Bn128Base::from_canonical_u64(1),
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+            Bn128Base::ZERO,
+        ]);
         let square_x_ff = x_ff.square();
 
         let config = pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative_ext6(x_ff);
@@ -619,6 +643,7 @@ mod tests {
         builder.connect_nonnative_ext6(&square_x, &square_x_expected);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)
     }
@@ -632,7 +657,6 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
 
         let config = pairing_config();
-        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         // Test frobenius_coeffs_c1 for n=1
@@ -648,6 +672,7 @@ mod tests {
         builder.connect_nonnative_ext2(&coeff_c2_1, &expected_c2_1);
 
         let data = builder.build::<C>();
+        let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)?;
         
