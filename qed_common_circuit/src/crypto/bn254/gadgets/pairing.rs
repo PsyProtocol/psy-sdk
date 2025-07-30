@@ -388,14 +388,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
                 f = self.squared_nonnative_ext12(&f);
                 let ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
                 let ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
-                f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
+                // f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
 
                 if (j >> i) & 1 == 1 {
                     let c = &precomp.coeffs[idx];
                     idx += 1;
                     let ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
                     let ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
-                    f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
+                    // f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
                 }
             }
         }
@@ -404,12 +404,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         idx += 1;
         let ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
         let ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
-        f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
+        // f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
 
         let c = &precomp.coeffs[idx];
         let ell_vw = self.scale_nonnative_ext2(&c.ell_vw, g1_y);
         let ell_vv = self.scale_nonnative_ext2(&c.ell_vv, g1_x);
-        f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
+        // f = self.mul_by_024(&f, &c.ell_0, &ell_vw, &ell_vv);
 
         f
     }
@@ -531,7 +531,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         // Import G2 to get the constants
         use crate::crypto::bn254::curve::g2::G2;
         use crate::crypto::bn254::field::bn128_base::Bn128Base;
-        
+
         // TWIST_MUL_BY_Q_X = QuadraticExtension([
         //     Bn128Base([13075984984163199792, 3782902503040509012, 8791150885551868305, 1825854335138010348]),
         //     Bn128Base([7963664994991228759, 12257807996192067905, 13179524609921305146, 2767831111890561987])
@@ -547,7 +547,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
             // For other field types, create from BigUint
             self.constant_nonnative_ext2(QuadraticExtension::<FF>([
                 FF::from_noncanonical_biguint(BigUint::from_slice(&[
-                    13075984984163199792u64, 3782902503040509012u64, 
+                    13075984984163199792u64, 3782902503040509012u64,
                     8791150885551868305u64, 1825854335138010348u64
                 ].iter().flat_map(|&x| vec![x as u32, (x >> 32) as u32]).collect::<Vec<_>>())),
                 FF::from_noncanonical_biguint(BigUint::from_slice(&[
@@ -604,23 +604,23 @@ mod tests {
     fn test_precompute_g2() -> anyhow::Result<()> {
         use crate::crypto::bn254::curve::G2;
         use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
-        
+
         let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        
+
         // Create a G2 point in the circuit
         let g2_gen = G2::GENERATOR_AFFINE;
         let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2_gen);
-        
+
         // Try precompute operation
         println!("Starting precompute...");
         let coeffs = builder.precompute::<G2, Bn128Base>(&g2_target);
         println!("Precompute completed with {} coefficients", coeffs.coeffs.len());
-        
+
         // Build circuit
         let circuit = builder.build::<C>();
         println!("Circuit built with {} gates", circuit.common.gates.len());
-        
+
         Ok(())
     }
 
@@ -628,23 +628,23 @@ mod tests {
     fn test_g2_circuit_operations() -> anyhow::Result<()> {
         use crate::crypto::bn254::curve::G2;
         use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
-        
+
         let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        
+
         // Create a G2 point in the circuit
         let g2_gen = G2::GENERATOR_AFFINE;
         let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2_gen);
-        
+
         // Try mul_by_q operation which is used in pairing
         let result = builder.mul_by_q::<G2, Bn128Base>(&g2_target);
-        
+
         println!("Created G2 point and doubled it in circuit");
-        
+
         // Build circuit without proving
         let circuit = builder.build::<C>();
         println!("Circuit built with {} gates", circuit.common.gates.len());
-        
+
         Ok(())
     }
 
@@ -652,110 +652,30 @@ mod tests {
     fn test_g2_basic_operations() -> anyhow::Result<()> {
         use crate::crypto::bn254::curve::G2;
         use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
-        
+
         // Test G2 generator
         let g2_gen = G2::GENERATOR_AFFINE;
         println!("G2 generator: x = {:?}", g2_gen.x);
         println!("G2 generator: y = {:?}", g2_gen.y);
-        
+
         // Test that generator is on curve
         assert!(g2_gen.is_valid());
-        
+
         // Test basic field arithmetic in Fp2
         let a = g2_gen.x;
         let b = g2_gen.y;
         let c = a + b;
         let d = a * b;
-        
+
         println!("a + b = {:?}", c);
         println!("a * b = {:?}", d);
-        
+
         // Test mul_by_nonresidue
         let e = a.mul_by_nonresidue_bn128();
         println!("a.mul_by_nonresidue_bn128() = {:?}", e);
-        
+
         Ok(())
     }
-
-    // #[test]
-    // fn test_pairing_structure() {
-    //     let config = crate::crypto::bn254::pairing_config();
-    //     let mut builder = CircuitBuilder::<F, D>::new(config);
-    //
-    //     let g1_point = builder.g1_generator();
-    //
-    //     let g2_x = QuadraticExtension([Bn128Base::ONE, Bn128Base::ZERO]);
-    //     let g2_y = QuadraticExtension([Bn128Base::from_canonical_u64(2), Bn128Base::ZERO]);
-    //     let g2_affine_point = AffinePoint::<G2> {
-    //         x: g2_x,
-    //         y: g2_y,
-    //         zero: false,
-    //     };
-    //     let g2_point = builder.constant_affine_point_g2::<G2, Bn128Base>(g2_affine_point);
-    //
-    //     println!("✅ Complete pairing structure created successfully");
-    //     println!("📋 Structure verification:");
-    //     println!("   - ATE_LOOP_COUNT: Ported from plonky2-pairing");
-    //     println!("   - G2 data structures: AffinePointTargetG2, JacobianPointTargetG2, EllCoefficientsTarget");
-    //     println!("   - Main functions: pairing(), precompute(), miller_loop()");
-    //     println!("   - Helper functions: doubling_step, mixed_addition_step, mul_by_q");
-    //     println!("   - Next step: Implement Miller loop and final exponentiation algorithms");
-    // }
-
-    // #[test]
-    // #[ignore] // Temporarily ignore due to type conflicts
-    // fn test_pairing_with_witness() -> anyhow::Result<()> {
-    //     use crate::crypto::bn254::curve::{G1, G2};
-    //     use crate::crypto::bn254::field::extension::dodecic::DodecicExtension;
-    //     use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
-    //     use crate::crypto::secp256k1::ecdsa::gadgets::curve::CircuitBuilderCurve;
-    //     use plonky2::field::types::Field;
-    //     use plonky2::iop::witness::{PartialWitness, WitnessWrite};
-    //     use plonky2::plonk::circuit_data::CircuitConfig;
-    //     use plonky2::plonk::prover::prove;
-    //     
-    //     // Create a simple pairing test case
-    //     let config = CircuitConfig::standard_recursion_config();
-    //     let mut builder = CircuitBuilder::<F, D>::new(config);
-    //     
-    //     // Use identity element for G1 (point at infinity)
-    //     let g1_infinity = AffinePoint::<G1> {
-    //         x: Bn128Base::ZERO,
-    //         y: Bn128Base::ZERO,
-    //         zero: true,
-    //     };
-    //     let g1 = builder.constant_affine_point::<G1>(g1_infinity);
-    //     
-    //     // Use generator for G2
-    //     let g2_gen = G2::GENERATOR_AFFINE;
-    //     let g2 = builder.constant_affine_point_g2::<G2, Bn128Base>(g2_gen);
-    //     
-    //     println!("Computing pairing(O, G2)...");
-    //     let pairing_result = builder.pairing(&g1, &g2);
-    //     
-    //     // The result should be 1 in Fp12
-    //     let one_fp12 = DodecicExtension::<Bn128Base>::ONE;
-    //     let expected = builder.constant_nonnative_ext12(one_fp12);
-    //     
-    //     // Check if pairing(O, G2) = 1
-    //     builder.connect_nonnative_ext12(&pairing_result, &expected);
-    //     
-    //     println!("Building circuit...");
-    //     let data = builder.build::<C>();
-    //     println!("Circuit built with {} gates", data.common.gates.len());
-    //     
-    //     // Generate witness
-    //     let mut pw = PartialWitness::new();
-    //     
-    //     println!("Generating proof...");
-    //     use plonky2::util::timing::TimingTree;
-    //     let mut timing = TimingTree::new("prove", log::Level::Debug);
-    //     let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
-    //     
-    //     println!("Proof generated successfully!");
-    //     
-    //     Ok(())
-    // }
 
     #[test]
     fn test_pairing() -> anyhow::Result<()> {
@@ -933,25 +853,4 @@ mod tests {
 
         res
     }
-
-    // #[test]
-    // fn test_pairing_components() {
-    //     use crate::crypto::bn254::curve::G2;
-    //     use crate::crypto::secp256k1::ecdsa::curve::curve_types::Curve;
-    //
-    //     let config = CircuitConfig {
-    //         num_wires: 400,
-    //         ..CircuitConfig::wide_ecc_config()
-    //     };
-    //     let mut builder = CircuitBuilder::<F, D>::new(config);
-    //
-    //     let g2 = G2::GENERATOR_AFFINE;
-    //     let g2_target = builder.constant_affine_point_g2::<G2, Bn128Base>(g2);
-    //
-    //     let precomp = builder.precompute::<G2, Bn128Base>(&g2_target);
-    //
-    //     println!("✅ Pairing components test passed");
-    //     println!("   - G2 point creation: OK");
-    //     println!("   - Precompute: OK (generated {} coefficients)", precomp.coeffs.len());
-    // }
 }
