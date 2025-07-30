@@ -36,10 +36,13 @@ const ExtensionHomeContent: React.FC = () => {
     }, []);
 
     const walletProvider = createMemoryWalletProvider(
+        config.network.global_user_tree_height,
+        config.network.realm_user_tree_height,
         config.network.coordinator_configs, // coordinator
         config.network.realm_configs, // realm
         config.network.users_per_realm,
         config.network.prover_url as string,
+        config.network.prove_proxy_url as string,
     );
 
     if (isLoading) {

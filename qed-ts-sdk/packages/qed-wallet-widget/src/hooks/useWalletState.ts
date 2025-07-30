@@ -9,7 +9,7 @@ import {
 } from "@qed/qed-sdk";
 import { createMemoryWalletProvider } from "../utils/provider";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
-import { DEFAULT_PROVE_PROXY_URL, loadConfig } from "../config";
+import { DEFAULT_GLOBAL_USER_TREE_HEIGHT, DEFAULT_PROVE_PROXY_URL, DEFAULT_REALM_USER_TREE_HEIGHT, loadConfig } from "../config";
 
 enum WalletWidgetLoadingState {
     Loading,
@@ -112,11 +112,13 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
     const config = loadConfig();
     const setAsync = setAsyncFactory(set, get, api);
     const walletProvider = createMemoryWalletProvider(
+        config.network.global_user_tree_height ?? DEFAULT_GLOBAL_USER_TREE_HEIGHT,
+        config.network.realm_user_tree_height ?? DEFAULT_REALM_USER_TREE_HEIGHT,
         config.network.coordinator_configs, // coordinator
         config.network.realm_configs, // realm
         config.network.users_per_realm,
         config.network.prover_url, // prover
-        DEFAULT_PROVE_PROXY_URL,
+        config.network.prove_proxy_url ?? DEFAULT_PROVE_PROXY_URL,
     );
     return {
         loadingState: WalletWidgetLoadingState.Ready,

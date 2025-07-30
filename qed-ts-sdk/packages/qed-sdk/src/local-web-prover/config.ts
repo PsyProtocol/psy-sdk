@@ -1,5 +1,7 @@
 // RPC configuration types
 export interface WebProverConfig {
+    global_user_tree_height: number,
+    realm_user_tree_height: number,
     users_per_realm: number;
     realm_configs: RpcConfig[];
     coordinator_configs: RpcConfig[];
@@ -36,7 +38,9 @@ export function createDefaultRpcConfig(): WebProverConfig {
     // };
     //
     return {
-        "users_per_realm": 32768,
+        "users_per_realm": 8388608,
+        "global_user_tree_height": 24,
+        "realm_user_tree_height": 23,
         "realm_configs": [
             {
                 "id": 0,

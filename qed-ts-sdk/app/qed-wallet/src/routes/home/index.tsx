@@ -15,10 +15,13 @@ const HomePage: React.FC = () => {
     const [networkSettingsOpen, setNetworkSettingsOpen] = useState(false);
 
     const walletProvider = createMemoryWalletProvider(
+        config.network.global_user_tree_height,
+        config.network.realm_user_tree_height,
         config.network.coordinator_configs,
         config.network.realm_configs,
         config.network.users_per_realm,
-        getProverUrl(),
+        config.network.prover_url as string,
+        config.network.prove_proxy_url as string,
     );
 
     return (

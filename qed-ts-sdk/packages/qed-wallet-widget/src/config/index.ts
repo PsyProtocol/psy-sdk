@@ -13,6 +13,8 @@ export interface CoordinatorConfig {
 }
 
 export interface NetworkConfig {
+  global_user_tree_height: number;
+  realm_user_tree_height: number;
   users_per_realm: number;
   realm_configs: RealmConfig[];
   coordinator_configs: CoordinatorConfig[];
@@ -23,6 +25,8 @@ export interface NetworkConfig {
 
 export const DEFAULT_PROVER_URL = "http://127.0.0.1:8888";
 export const DEFAULT_PROVE_PROXY_URL = "http://127.0.0.1:9999";
+export const DEFAULT_GLOBAL_USER_TREE_HEIGHT = 24;
+export const DEFAULT_REALM_USER_TREE_HEIGHT = 23;
 
 export interface WalletConfig {
   theme: {

@@ -13,10 +13,13 @@ export interface CoordinatorConfig {
 }
 
 export interface NetworkConfig {
+  global_user_tree_height: number;
+  realm_user_tree_height: number;
   users_per_realm: number;
   realm_configs: RealmConfig[];
   coordinator_configs: CoordinatorConfig[];
   prover_url?: string;
+  prove_proxy_url?: string; 
   nativeCurrency?: string; // contractId of the native currency token
 }
 
@@ -63,6 +66,8 @@ export const defaultConfig: WalletConfig = {
     },
   },
   network: {
+    global_user_tree_height: rootConfig.network.global_user_tree_height,
+    realm_user_tree_height: rootConfig.network.realm_user_tree_height,
     users_per_realm: rootConfig.network.users_per_realm,
     realm_configs: rootConfig.network.realm_configs,
     coordinator_configs: rootConfig.network.coordinator_configs,

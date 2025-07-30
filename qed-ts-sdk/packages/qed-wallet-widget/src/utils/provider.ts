@@ -12,6 +12,8 @@ import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
 import { QedMemoryTransactionSignerProvider } from "@qed/qed-sdk/src/zksigner/memory/provider";
 
 function createMemoryWalletProvider(
+    globalUserTreeHeight: number,
+    realmUserTreeHeight: number,
     coordinatorRpcConfigs: RpcConfig[],
     realmRpcConfigs: RpcConfig[],
     userPerRealm: number,
@@ -27,6 +29,8 @@ function createMemoryWalletProvider(
     } else {
         // Synchronously initialize WASM before creating provider
         userProver = new QedWasmWebProverProvider({
+            global_user_tree_height: globalUserTreeHeight,
+            realm_user_tree_height: realmUserTreeHeight,
             users_per_realm: userPerRealm,
             realm_configs: realmRpcConfigs,
             coordinator_configs: coordinatorRpcConfigs,
