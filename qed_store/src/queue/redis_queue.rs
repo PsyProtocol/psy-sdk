@@ -41,7 +41,7 @@ pub struct ProofStoreRedisAsync {
     proof_store_key: String,
     proof_store_counters: String,
     job_graph: Arc<Mutex<JobDataIdGraph>>,
-    task_graph: Arc<Mutex<JobsTaskGraph>>,
+    pub task_graph: Arc<Mutex<JobsTaskGraph>>,
 }
 
 impl ProofStoreRedisAsync {
@@ -221,7 +221,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         next_task: &JobsTask,
     ) -> anyhow::Result<()> {
         let mut task_graph = self.task_graph.lock().await;
-        task_graph.add_dep(task.clone(), next_task.clone());
+        task_graph.add_dep(next_task.clone(), task.clone());
         Ok(())
     }
 
@@ -239,7 +239,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
                 &tasks[i + 1]
             };
             let current_task = &tasks[i];
-            task_graph.add_dep(current_task.clone(), current_next_task.clone());
+            task_graph.add_dep(current_next_task.clone(), current_task.clone());
         }
         Ok(())
     }

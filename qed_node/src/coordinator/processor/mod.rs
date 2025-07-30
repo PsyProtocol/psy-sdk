@@ -213,6 +213,23 @@ impl
         info!("writing job graph: {:?}", next_checkpoint_id);
         self.proof_store.write_job_graph(next_checkpoint_id).await?;
         info!("waiting for block proving jobs: {:?}", next_checkpoint_id);
+        let task_graph = self.ctx.proof_store.task_graph.lock().await;
+        println!("checkpoint: {:?}", next_checkpoint_id);
+        for (_, task) in task_graph.tasks.iter() {
+            println!("task: {:?}", task.task_id);
+            for job in task.job_ids.iter() {
+                println!("- {:?}", job);
+            }
+        }
+        println!("TASK ORDER:");
+        for task_id in task_graph.ts().clone() {
+            let task = task_graph.tasks.get(&task_id).unwrap();
+            println!("task: {:?}", task.task_id);
+            for job in task.job_ids.iter() {
+                println!("- {:?}", job);
+            }
+        }
+        info!("🐶 waiting for block proving jobs");
         self.ctx
             .prover_queue
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)

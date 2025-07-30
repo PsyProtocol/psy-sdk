@@ -50,6 +50,7 @@ pub enum Color {
 pub struct JobsTaskGraph {
     pub tasks: HashMap<TaskId, JobsTask>,
     pub deps: HashMap<TaskId, HashSet<TaskId>>,
+    pub deps_on: HashMap<TaskId, HashSet<TaskId>>,
 }
 
 impl JobsTaskGraph {
@@ -57,6 +58,7 @@ impl JobsTaskGraph {
         Self {
             tasks: HashMap::new(),
             deps: HashMap::new(),
+            deps_on: HashMap::new(),
         }
     }
 
@@ -70,6 +72,10 @@ impl JobsTaskGraph {
             .entry(task.task_id())
             .or_default()
             .insert(dep_task.task_id());
+        self.deps_on
+            .entry(dep_task.task_id())
+            .or_default()
+            .insert(task.task_id());
         self.add_task(task);
         self.add_task(dep_task);
     }
@@ -85,6 +91,9 @@ impl JobsTaskGraph {
             for &dep in deps {
                 match colors.get(&dep) {
                     Some(Color::Grey) => panic!("cycle detected"),
+                    Some(Color::Black) => {
+                        return;
+                    }
                     None => self.ts_inner(dep, colors, visitor),
                     _ => {}
                 }
@@ -95,9 +104,15 @@ impl JobsTaskGraph {
     }
 
     pub fn ts(&self) -> Vec<TaskId> {
+        let mut starting_tasks = HashSet::new();
+        for &task_id in self.tasks.keys() {
+            if self.deps_on.get(&task_id).is_none() {
+                starting_tasks.insert(task_id);
+            }
+        }
         let mut sorted = Vec::new();
         let mut colors = HashMap::new();
-        for &task in self.tasks.keys() {
+        for task in starting_tasks {
             self.ts_inner(task, &mut colors, &mut |task| sorted.push(task));
         }
         sorted
