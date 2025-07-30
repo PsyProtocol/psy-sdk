@@ -1,9 +1,10 @@
 
-use plonky2::hash::hash_types::RichField;
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use crate::{dpn::proving_session::DPNProvingSessionSimpleMethodCall, qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 
 use super::cmd::{QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetL2BlockState, QSRCmdGetUserLeafData, QSRHashCmd, QSRMerkleCmd};
@@ -81,17 +82,17 @@ pub struct QEDReadCommandBatchOutput<F: RichField> {
     pub get_hash: Vec<QHashOut<F>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNReadOtherUserLeafMerkleProof<F: RichField> {
     pub user_tree_proof: MerkleProofCore<QHashOut<F>>,
     pub user_leaf: QEDUserLeaf<F>,
 
 }
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNReadOtherUserContractStateLeafMerkleProof<F: RichField> {
     pub user_leaf_witness: DPNReadOtherUserLeafMerkleProof<F>,
     pub contract_state_proof: MerkleProofCore<QHashOut<F>>,
@@ -100,16 +101,17 @@ pub struct DPNReadOtherUserContractStateLeafMerkleProof<F: RichField> {
 
 
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNInvokeDeferredMethodCallWitness<F: RichField> {
     pub call_data: DPNProvingSessionSimpleMethodCall<F>,
     pub insertion_proof: DeltaMerkleProofCore<QHashOut<F>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub enum DPNStateCmdWitness<F: RichField> {
     MerkleProof(MerkleProofCore<QHashOut<F>>),
     DeltaMerkleProof(DeltaMerkleProofCore<QHashOut<F>>),

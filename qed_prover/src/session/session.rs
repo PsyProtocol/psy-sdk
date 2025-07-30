@@ -5,9 +5,12 @@ use crate::{
         circuits::cfc::DapenContractFunctionCircuit,
         data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition},
     },
-    local::args::{ContractCallArgs, SignType},
+    local::{
+        args::{ContractCallArgs, SignType},
+        provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
+    },
     ups::{
-        circuit_manager::{core::QEDUPSStepCircuitManager, fingerprints},
+        circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
         session::UserProvingSessionManager,
     },
     wallet::{
@@ -121,7 +124,7 @@ type F = GoldilocksField;
 #[maybe_async::maybe_async]
 pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
     st: &R,
-    circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+    circuit_mgr: &QCircuitManager<C, D>,
     mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
     contract_id: u64,
     fn_name: &str,
@@ -131,28 +134,25 @@ pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         .resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })
         .await?;
 
-    for (i, func) in contract_code.functions.iter().enumerate() {
-        let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;
-        let dapen_fc_circuit = DapenContractFunctionCircuit::<C, D>::new(
-            &dapen_fc,
-            contract_code.state_tree_height as usize,
-            UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-            false,
-        );
-        if dapen_fc.name == fn_name {
-            return mgr
-                .prove_contract_call(
-                    circuit_mgr,
-                    F::from_canonical_u64(contract_id),
-                    i as u32,
-                    &dapen_fc_circuit,
-                    &dapen_fc,
-                    inputs,
-                )
-                .await;
-        }
-    }
-    anyhow::bail!("unable to find function {}", fn_name);
+    circuit_mgr
+        .register_contract_circuits(contract_id, &contract_code)
+        .await?;
+
+    let method_id = circuit_mgr
+        .get_method_id(contract_id, fn_name.to_string())
+        .await?;
+
+    let dapen_fc = cfc_code_definition_to_dapen_fc(&contract_code.functions[method_id as usize])?;
+
+    mgr.prove_contract_call(
+        circuit_mgr,
+        F::from_canonical_u64(contract_id),
+        method_id as u32,
+        // &dapen_fc_circuit,
+        &dapen_fc,
+        inputs,
+    )
+    .await
 }
 
 pub enum UserState {
@@ -178,7 +178,7 @@ impl UserSessionStateManager {
         checkpoint_id: u64,
         st_provider: RpcProvider,
         circuit_info: SessionCircuitInfoStore<F>,
-        main_circuits: &QEDUPSStepCircuitManager<C, D>,
+        main_circuits: &QCircuitManager<C, D>,
     ) -> anyhow::Result<UserSessionStateManager> {
         tracing::info!("create local proving session store");
         let mut rpc_provider = st_provider.clone();
@@ -195,7 +195,7 @@ impl UserSessionStateManager {
         let mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new(
             lps,
             circuit_info,
-            main_circuits.ups_circuit_whitelist_root,
+            main_circuits.ups_circuit_whitelist_root().await?,
         )
         .await?;
 
@@ -209,7 +209,7 @@ impl UserSessionStateManager {
         })
     }
 
-    pub fn new_with_dummy_mgr(
+    pub async fn new_with_dummy_mgr(
         user_state: UserState,
         st_provider: RpcProvider,
         circuit_info: SessionCircuitInfoStore<F>,
@@ -224,7 +224,8 @@ impl UserSessionStateManager {
         );
 
         tracing::info!("create ups manager");
-        let mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new_dummy(lps, circuit_info)?;
+        let mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new_dummy(lps, circuit_info)
+            .await?;
 
         Ok(UserSessionStateManager {
             user_state,
@@ -240,7 +241,7 @@ impl UserSessionStateManager {
 pub struct WalletSession {
     pub wallet: QEDMemoryWallet,
     wallet_keys_store: DashMap<QHashOut<F>, ZKPublicKeyInfo<F>>,
-    pub main_circuits: QEDUPSStepCircuitManager<C, D>,
+    pub main_circuits: QCircuitManager<C, D>,
     pub circuit_info: SessionCircuitInfoStore<F>,
     pub st_provider: RpcProvider,
 
@@ -249,7 +250,7 @@ pub struct WalletSession {
 
 #[maybe_async::maybe_async]
 impl WalletSession {
-    pub fn new(rpc_config: &RpcConfig) -> anyhow::Result<Self> {
+    pub async fn new(rpc_config: &RpcConfig) -> anyhow::Result<Self> {
         tracing::info!("init rpc provider");
         let st_provider = RpcProvider::new_with_config(rpc_config)?;
 
@@ -257,8 +258,15 @@ impl WalletSession {
         let wallet = QEDMemoryWallet::new();
 
         tracing::info!("init ups step circuit manager");
-        let main_circuits =
-            QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+        let main_circuits = match &rpc_config.prove_proxy_url {
+            Some(url) => {
+                QCircuitManager::Rpc(ProveProxyRpcProvider::new_with_config(url.to_string()).await?)
+            }
+            None => QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(
+                QED_NETWORK_MAGIC_REGTEST,
+            )),
+        };
+
         let mut circuit_info = SessionCircuitInfoStore::new();
 
         tracing::info!("register ZKSignature circuit info");
@@ -308,6 +316,7 @@ impl WalletSession {
 
     pub async fn add_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
         self.add_user_with_type(private_key, SignType::ZKSign, None)
+            .await
     }
 
     pub async fn add_user_with_type(
@@ -390,7 +399,8 @@ impl WalletSession {
                             user_state,
                             self.st_provider.clone(),
                             self.circuit_info.clone(),
-                        )?,
+                        )
+                        .await?,
                     );
                 }
             }
@@ -419,6 +429,7 @@ impl WalletSession {
             None,
             vec![],
         )
+        .await
     }
 
     pub async fn exec_contract_call_with_sign_type(
@@ -601,16 +612,12 @@ impl WalletSession {
             .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
         tracing::info!("zk sign for signhash: {}", sighash.to_string());
         let signature_proof = match sign_type {
-            SignType::ZKSign => {
-                self.wallet
-                    .zk_sign_for_public_key(pk_info.public_key_param, sighash)
-                    .await?
-            }
-            SignType::SECP256K1Sign => {
-                self.wallet
-                    .zk_sign_secp256k1(pk_info.public_key_param, sighash)
-                    .await?
-            }
+            SignType::ZKSign => self
+                .wallet
+                .zk_sign_for_public_key(pk_info.public_key_param, sighash)?,
+            SignType::SECP256K1Sign => self
+                .wallet
+                .zk_sign_secp256k1(pk_info.public_key_param, sighash)?,
             SignType::SoftwareDefinedSign => {
                 if let Some(fingerprint) = fingerprint {
                     let mut sdc = self
@@ -653,7 +660,8 @@ impl WalletSession {
                                 .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
                                     checkpoint_id: checkpoint_id,
                                     user_id,
-                                })?;
+                                })
+                                .await?;
                             let checkpoint_tree_root = self
                                 .st_provider
                                 .get_checkpoint_tree_root(checkpoint_id)
@@ -682,8 +690,11 @@ impl WalletSession {
                                 "user_contract_state: {}",
                                 serde_json::to_string_pretty(&user_contract_state)?
                             );
-                            let proof_tree_root =
-                                user_session_mgr.mgr.proof_tree_state.get_proof_tree_root();
+                            let proof_tree_root = user_session_mgr
+                                .mgr
+                                .proof_tree_state
+                                .get_proof_tree_root()
+                                .await;
                             user_session_mgr
                                 .mgr
                                 .lps
@@ -692,7 +703,8 @@ impl WalletSession {
                                 user_contract_state,
                                 user_session_mgr.mgr.lps.cmd_store.clone(),
                                 user_session_mgr.mgr.lps.state_tree_store.clone(),
-                            );
+                            )
+                            .await;
 
                             SoftwareDefinedSignatureWitnessInput::PLONKY2(
                                 PSoftwareDefinedSignatureWitnessInput {
@@ -712,7 +724,7 @@ impl WalletSession {
                             pk_info.public_key_param.to_string()
                         ))?;
 
-                    sdc.prove(*private_key, &input, sighash)?
+                    sdc.prove(*private_key, &input, sighash).await?
                 } else {
                     return anyhow::bail!("software defined sign need fingerprint");
                 }
@@ -722,7 +734,8 @@ impl WalletSession {
         user_session_mgr
             .mgr
             .proof_tree_state
-            .finalize_tree(&self.main_circuits.proof_tree_agg_circuits)?;
+            .finalize_tree(&self.main_circuits)
+            .await?;
 
         let public_key_param = self
             .wallet_keys_store
@@ -773,15 +786,18 @@ impl WalletSession {
             signature_proof.public_inputs
         );
         let nonce = user_session_mgr.nonce.clone();
-        let end_cap_proof = user_session_mgr.mgr.prove_end_cap(
-            &self.main_circuits,
-            QED_NETWORK_MAGIC_REGTEST,
-            nonce,
-            circuit_fingerprint,
-            public_key_param,
-            signature_proof,
-            circuit_verifier_config,
-        )?;
+        let end_cap_proof = user_session_mgr
+            .mgr
+            .prove_end_cap(
+                &self.main_circuits,
+                QED_NETWORK_MAGIC_REGTEST,
+                nonce,
+                circuit_fingerprint,
+                public_key_param,
+                signature_proof,
+                circuit_verifier_config,
+            )
+            .await?;
 
         let user_ec_input = user_session_mgr.mgr.get_api_input().await?;
         tracing::info!(
@@ -880,7 +896,7 @@ pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
 mod tests {
     use super::*;
     use std::path::Path;

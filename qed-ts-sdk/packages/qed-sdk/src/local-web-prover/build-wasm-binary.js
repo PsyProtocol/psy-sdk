@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Read WASM file
-const wasmPath = path.join(__dirname, './qed_user_prover_bg.wasm');
+const wasmPath = path.join(__dirname, './qed_prover_bg.wasm');
 const wasmBuffer = fs.readFileSync(wasmPath);
 
 // Convert to Uint8Array

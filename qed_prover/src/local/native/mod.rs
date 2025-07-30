@@ -1,3 +1,5 @@
+pub mod prove_proxy;
+
 use jsonrpsee::core::async_trait;
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};

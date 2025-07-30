@@ -20,10 +20,10 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 qed_core = { workspace = true }
 qedlang_core = { workspace = true }
-qed_prover = { workspace = true}
+qed_prover = { workspace = true, default-features = false}
 qed_data = { workspace = true }
 qed_rollup_utils = { workspace = true }
-qed_store = { workspace = true }
+qed_store = { workspace = true, default-features = false }
 kvq = { workspace = true }
 hashbrown = { workspace = true }
 async-trait = { workspace = true }
@@ -36,7 +36,6 @@ clap = { workspace = true }
 dotenv = { workspace = true }
 tokio = { workspace = true }
 cfg-if = {workspace = true}
-maybe-async = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 serde-wasm-bindgen = { workspace = true }
@@ -62,4 +61,4 @@ reqwest = { version = "0.12", default-features = false, features = ["json"] }
 
 [features]
 default = ["is_sync"]
-is_sync = ["qed_prover/is_sync","maybe-async/is_sync", "qed_store/is_sync"]
+is_sync = ["qed_prover/is_sync", "qed_store/is_sync"]

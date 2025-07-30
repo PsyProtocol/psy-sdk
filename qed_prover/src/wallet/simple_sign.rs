@@ -544,13 +544,14 @@ pub struct StateReader<
     pub state_cmds: Vec<DPNStateCmd<F>>,
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<
         F: RichField + Extendable<D>,
         const D: usize,
         R: QEDReadCommandProcessorSync<F> + Send + Sync,
     > StateReader<F, D, R>
 {
-    pub fn new(
+    pub async fn new(
         state: UserContractState<F>,
         cmd_store: QEDCmdStoreWithCache<F, R>,
         state_tree_store: KVQSimpleMemoryBackingStore,
@@ -564,7 +565,7 @@ impl<
         }
     }
 
-    fn get_user_contract_state_tree_merkle_proof(
+    async fn get_user_contract_state_tree_merkle_proof(
         &mut self,
         checkpoint_id: F,
         user_id: F,
@@ -578,7 +579,8 @@ impl<
 
         let state_tree_height = self
             .cmd_store
-            .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData { contract_id })?
+            .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData { contract_id })
+            .await?
             .state_tree_height
             .to_canonical_u64() as u8;
         let id = UserContractStateTreeId::<KVQSimpleMemoryBackingStore>::new(
@@ -586,8 +588,9 @@ impl<
             contract_id as u32,
             state_tree_height,
         );
-        let base_mp = self.cmd_store.resolve_get_merkle_proof_mut(
-            &QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
+        let base_mp = self
+            .cmd_store
+            .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
                 QSRMerkleCmdGetUserContractStateTreeMerkleProof {
                     checkpoint_id,
                     user_id,
@@ -595,8 +598,8 @@ impl<
                     height: state_tree_height,
                     leaf_id: slot_index,
                 },
-            ),
-        )?;
+            ))
+            .await?;
         let base_mp_gf = serde_json::from_str::<MerkleProofCore<QHashOut<GF>>>(
             &serde_json::to_string(&base_mp)?,
         )?;
@@ -607,16 +610,18 @@ impl<
         )?;
         Ok(merkel_proof_f)
     }
-    pub fn get_self_user_current_contract_state_slot_hash(
+    pub async fn get_self_user_current_contract_state_slot_hash(
         &mut self,
         slot_index: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        let merkle_proof = self.get_user_contract_state_tree_merkle_proof(
-            self.state.checkpoint_id,
-            self.state.user_leaf.user_id,
-            self.state.contract_id,
-            slot_index,
-        )?;
+        let merkle_proof = self
+            .get_user_contract_state_tree_merkle_proof(
+                self.state.checkpoint_id,
+                self.state.user_leaf.user_id,
+                self.state.contract_id,
+                slot_index,
+            )
+            .await?;
         tracing::info!(
             "merkle_proof: {}",
             serde_json::to_string_pretty(&merkle_proof)?
@@ -633,18 +638,20 @@ impl<
         Ok(value)
     }
 
-    pub fn get_self_user_current_contract_state_slot_single(
+    pub async fn get_self_user_current_contract_state_slot_single(
         &mut self,
         sub_slot_index: F,
     ) -> anyhow::Result<F> {
         let sub_slot_index = sub_slot_index.to_noncanonical_u64();
         let slot_index = F::from_canonical_u64(sub_slot_index / 4u64);
         let slot_offset = sub_slot_index % 4u64;
-        let value = self.get_self_user_current_contract_state_slot_hash(slot_index)?;
+        let value = self
+            .get_self_user_current_contract_state_slot_hash(slot_index)
+            .await?;
         Ok(value.0.elements[slot_offset as usize])
     }
 
-    pub fn get_self_user_current_contract_state_slot_range(
+    pub async fn get_self_user_current_contract_state_slot_range(
         &mut self,
         sub_slot_index: F,
         length: u32,
@@ -654,13 +661,18 @@ impl<
         let n = (sub_slot_index & 0b11) as usize;
         if length == 1 {
             // one merkle proof
-            let cur = self.get_self_user_current_contract_state_slot_hash(slot_index)?;
+            let cur = self
+                .get_self_user_current_contract_state_slot_hash(slot_index)
+                .await?;
             Ok(vec![cur.0.elements[n]])
         } else if length < 6 {
             // two merkle proofs
-            let value_0 = self.get_self_user_current_contract_state_slot_hash(slot_index)?;
-            let value_1 =
-                self.get_self_user_current_contract_state_slot_hash(slot_index + F::ONE)?;
+            let value_0 = self
+                .get_self_user_current_contract_state_slot_hash(slot_index)
+                .await?;
+            let value_1 = self
+                .get_self_user_current_contract_state_slot_hash(slot_index + F::ONE)
+                .await?;
 
             let elements = [value_0.0.elements, value_1.0.elements].concat();
 
@@ -674,9 +686,11 @@ impl<
             let len_minus_2_mod_4 = (length - 2) % 4;
 
             for i in 0..n_proofs {
-                let mp_value = self.get_self_user_current_contract_state_slot_hash(
-                    F::from_canonical_u64(start_slot + i),
-                )?;
+                let mp_value = self
+                    .get_self_user_current_contract_state_slot_hash(F::from_canonical_u64(
+                        start_slot + i,
+                    ))
+                    .await?;
                 if i == 0 {
                     if sub_slot_index_mod_4 == 0 {
                         result.push(mp_value.0.elements[0]);
@@ -716,17 +730,19 @@ impl<
         }
     }
 
-    pub fn get_self_user_external_contract_state_slot_hash(
+    pub async fn get_self_user_external_contract_state_slot_hash(
         &mut self,
         contract_id: F,
         slot_index: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        let merkle_proof = self.get_user_contract_state_tree_merkle_proof(
-            self.state.checkpoint_id,
-            self.state.user_leaf.user_id,
-            contract_id,
-            slot_index,
-        )?;
+        let merkle_proof = self
+            .get_user_contract_state_tree_merkle_proof(
+                self.state.checkpoint_id,
+                self.state.user_leaf.user_id,
+                contract_id,
+                slot_index,
+            )
+            .await?;
 
         let value = merkle_proof.value.clone();
 
@@ -745,7 +761,7 @@ impl<
         Ok(value)
     }
 
-    pub fn get_self_user_external_contract_state_slot_single(
+    pub async fn get_self_user_external_contract_state_slot_single(
         &mut self,
         contract_id: F,
         sub_slot_index: F,
@@ -753,12 +769,13 @@ impl<
         let sub_slot_index = sub_slot_index.to_canonical_u64();
         let slot_index = F::from_canonical_u64(sub_slot_index / 4u64);
         let slot_offset = sub_slot_index % 4u64;
-        let value =
-            self.get_self_user_external_contract_state_slot_hash(contract_id, slot_index)?;
+        let value = self
+            .get_self_user_external_contract_state_slot_hash(contract_id, slot_index)
+            .await?;
         Ok(value.0.elements[slot_offset as usize])
     }
 
-    pub fn get_self_user_external_contract_state_slot_range(
+    pub async fn get_self_user_external_contract_state_slot_range(
         &mut self,
         contract_id: F,
         sub_slot_index: F,
@@ -769,17 +786,18 @@ impl<
         let n = (sub_slot_index & 0b11) as usize;
         if length == 1 {
             // one merkle proof
-            let cur =
-                self.get_self_user_external_contract_state_slot_hash(contract_id, slot_index)?;
+            let cur = self
+                .get_self_user_external_contract_state_slot_hash(contract_id, slot_index)
+                .await?;
             Ok(vec![cur.0.elements[n]])
         } else if length < 6 {
             // two merkle proofs
-            let value_0 =
-                self.get_self_user_external_contract_state_slot_hash(contract_id, slot_index)?;
-            let value_1 = self.get_self_user_external_contract_state_slot_hash(
-                contract_id,
-                slot_index + F::ONE,
-            )?;
+            let value_0 = self
+                .get_self_user_external_contract_state_slot_hash(contract_id, slot_index)
+                .await?;
+            let value_1 = self
+                .get_self_user_external_contract_state_slot_hash(contract_id, slot_index + F::ONE)
+                .await?;
 
             let elements = [value_0.0.elements, value_1.0.elements].concat();
 
@@ -793,10 +811,12 @@ impl<
             let len_minus_2_mod_4 = (length - 2) % 4;
 
             for i in 0..n_proofs {
-                let mp_value = self.get_self_user_external_contract_state_slot_hash(
-                    contract_id,
-                    F::from_canonical_u64(start_slot + i),
-                )?;
+                let mp_value = self
+                    .get_self_user_external_contract_state_slot_hash(
+                        contract_id,
+                        F::from_canonical_u64(start_slot + i),
+                    )
+                    .await?;
                 if i == 0 {
                     if sub_slot_index_mod_4 == 0 {
                         result.push(mp_value.0.elements[0]);
@@ -836,18 +856,20 @@ impl<
         }
     }
 
-    pub fn get_other_user_contract_state_slot_hash(
+    pub async fn get_other_user_contract_state_slot_hash(
         &mut self,
         user_id: F,
         contract_id: F,
         slot_index: F,
     ) -> anyhow::Result<QHashOut<F>> {
-        let merkle_proof = self.get_user_contract_state_tree_merkle_proof(
-            self.state.checkpoint_id,
-            user_id,
-            contract_id,
-            slot_index,
-        )?;
+        let merkle_proof = self
+            .get_user_contract_state_tree_merkle_proof(
+                self.state.checkpoint_id,
+                user_id,
+                contract_id,
+                slot_index,
+            )
+            .await?;
         let state_tree_height = merkle_proof.siblings.len() as u8;
 
         let value = merkle_proof.value.clone();
@@ -866,7 +888,7 @@ impl<
         Ok(value)
     }
 
-    pub fn get_other_user_contract_state_slot_single(
+    pub async fn get_other_user_contract_state_slot_single(
         &mut self,
         user_id: F,
         contract_id: F,
@@ -875,13 +897,14 @@ impl<
         let sub_slot_index = sub_slot_index.to_canonical_u64();
         let slot_index = F::from_canonical_u64(sub_slot_index / 4u64);
         let slot_offset = sub_slot_index % 4u64;
-        let value =
-            self.get_other_user_contract_state_slot_hash(user_id, contract_id, slot_index)?;
+        let value = self
+            .get_other_user_contract_state_slot_hash(user_id, contract_id, slot_index)
+            .await?;
 
         Ok(value.0.elements[slot_offset as usize])
     }
 
-    pub fn get_other_user_contract_state_slot_range(
+    pub async fn get_other_user_contract_state_slot_range(
         &mut self,
         user_id: F,
         contract_id: F,
@@ -893,18 +916,18 @@ impl<
         let n = (sub_slot_index & 0b11) as usize;
         if length == 1 {
             // one merkle proof
-            let cur =
-                self.get_other_user_contract_state_slot_hash(user_id, contract_id, slot_index)?;
+            let cur = self
+                .get_other_user_contract_state_slot_hash(user_id, contract_id, slot_index)
+                .await?;
             Ok(vec![cur.0.elements[n]])
         } else if length < 6 {
             // two merkle proofs
-            let value_0 =
-                self.get_other_user_contract_state_slot_hash(user_id, contract_id, slot_index)?;
-            let value_1 = self.get_other_user_contract_state_slot_hash(
-                user_id,
-                contract_id,
-                slot_index + F::ONE,
-            )?;
+            let value_0 = self
+                .get_other_user_contract_state_slot_hash(user_id, contract_id, slot_index)
+                .await?;
+            let value_1 = self
+                .get_other_user_contract_state_slot_hash(user_id, contract_id, slot_index + F::ONE)
+                .await?;
 
             let elements = [value_0.0.elements, value_1.0.elements].concat();
 
@@ -918,11 +941,13 @@ impl<
             let len_minus_2_mod_4 = (length - 2) % 4;
 
             for i in 0..n_proofs {
-                let mp_value = self.get_other_user_contract_state_slot_hash(
-                    user_id,
-                    contract_id,
-                    F::from_canonical_u64(start_slot + i),
-                )?;
+                let mp_value = self
+                    .get_other_user_contract_state_slot_hash(
+                        user_id,
+                        contract_id,
+                        F::from_canonical_u64(start_slot + i),
+                    )
+                    .await?;
                 if i == 0 {
                     if sub_slot_index_mod_4 == 0 {
                         result.push(mp_value.0.elements[0]);
@@ -963,15 +988,16 @@ impl<
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 pub trait SoftwareDefinedSignTrait: Debug + Send + Sync {
-    fn custom_sign_option_f(
+    async fn custom_sign_option_f(
         &mut self,
         builder: &mut CircuitBuilder<GF, 2>,
         state_reader: &mut StateReaderGadget<GF, 2>,
         sig_inputs: Vec<Target>,
     ) -> anyhow::Result<()>;
 
-    fn custom_sign_option(
+    async fn custom_sign_option(
         &mut self,
         state_reader: &mut StateReader<GF, 2, RpcProvider>,
         sig_inputs: Vec<GF>,
@@ -988,11 +1014,11 @@ impl Clone for Box<dyn SoftwareDefinedSignTrait> {
 
 type GF = GoldilocksField;
 #[derive(Debug, Clone)]
-pub struct SoftwareDefinedSignGadget {
-}
+pub struct SoftwareDefinedSignGadget {}
 
+#[maybe_async::maybe_async(?Send)]
 impl SoftwareDefinedSignTrait for SoftwareDefinedSignGadget {
-    fn custom_sign_option_f(
+    async fn custom_sign_option_f(
         &mut self,
         builder: &mut CircuitBuilder<GF, 2>,
         state_reader: &mut StateReaderGadget<GF, 2>,
@@ -1005,13 +1031,14 @@ impl SoftwareDefinedSignTrait for SoftwareDefinedSignGadget {
         Ok(())
     }
 
-    fn custom_sign_option(
+    async fn custom_sign_option(
         &mut self,
         state_reader: &mut StateReader<GF, 2, RpcProvider>,
         sig_inputs: Vec<GF>,
     ) -> anyhow::Result<()> {
         let slot0 = state_reader
-            .get_self_user_current_contract_state_slot_single(GF::from_canonical_u64(0))?;
+            .get_self_user_current_contract_state_slot_single(GF::from_canonical_u64(0))
+            .await?;
         tracing::info!("slot0: {}", slot0.to_canonical_u64());
         assert!(slot0.to_canonical_u64() < 1000);
         Ok(())

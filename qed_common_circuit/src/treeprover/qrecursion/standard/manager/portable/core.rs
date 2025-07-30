@@ -21,9 +21,8 @@ use qed_crypto::{
     },
 };
 
-use crate::
-    circuits::traits::qstandard::QStandardCircuit
-;
+use crate::treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsProveTrait;
+use crate::treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsTrait;
 
 use qed_crypto::common::witnesses::qrecursion::proof_data::{
     AggProofRecord, QStandardBinaryTreeCircuitType,
@@ -45,14 +44,13 @@ pub struct PortableQTreeRecursionManager<C: GenericConfig<D>, const D: usize>
     q_recursion_tree_height: usize,
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionManager<C, D>
 where
     C::Hasher:
-       AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    pub fn new(
-        q_recursion_tree_height: usize,
-    ) -> Self {
+    pub async fn new(q_recursion_tree_height: usize) -> Self {
         let proof_tree =
             SimpleMerkleTree::<C::Hasher, QHashOut<C::F>>::new(q_recursion_tree_height as u8);
         let max_proofs_in_tree = 1u64 << (q_recursion_tree_height as u64);
@@ -69,19 +67,19 @@ where
             q_recursion_tree_height,
         }
     }
-    pub fn get_proof_tree_height(&self) -> usize {
+    pub async fn get_proof_tree_height(&self) -> usize {
         self.q_recursion_tree_height
     }
-    pub fn get_proof_tree_height_u8(&self) -> u8 {
+    pub async fn get_proof_tree_height_u8(&self) -> u8 {
         self.q_recursion_tree_height as u8
     }
-    pub fn get_proof_tree_root(&self) -> QHashOut<C::F> {
+    pub async fn get_proof_tree_root(&self) -> QHashOut<C::F> {
         self.proof_tree.get_root()
     }
-    pub fn get_leaf_merkle_proof(&self, index: u64) -> MerkleProofCore<QHashOut<C::F>> {
+    pub async fn get_leaf_merkle_proof(&self, index: u64) -> MerkleProofCore<QHashOut<C::F>> {
         self.proof_tree.get_leaf(index)
     }
-    pub fn find_zero_hash_proof_for_historical_root(
+    pub async fn find_zero_hash_proof_for_historical_root(
         &self,
         root_hash: QHashOut<C::F>,
     ) -> Option<MerkleProofCore<QHashOut<C::F>>> {
@@ -100,7 +98,7 @@ where
             None => None,
         }
     }
-    pub fn injest_single_leaf_proof(&mut self, leaf_proof: InputLeafProof<C, D>) -> u64 {
+    pub async fn injest_single_leaf_proof(&mut self, leaf_proof: InputLeafProof<C, D>) -> u64 {
         let index = self.next_proof_index;
         let public_inputs_hash = QHashOut(HashOut {
             elements: [
@@ -111,7 +109,10 @@ where
             ],
         });
 
-        let value = QHashOut(<C::Hasher as Hasher<C::F>>::two_to_one(leaf_proof.fingerprint.0, public_inputs_hash.0));
+        let value = QHashOut(<C::Hasher as Hasher<C::F>>::two_to_one(
+            leaf_proof.fingerprint.0,
+            public_inputs_hash.0,
+        ));
         self.leaf_to_index_map.insert(value, index);
         let insertion_proof = self.proof_tree.set_leaf(index, value);
         self.root_history.push(insertion_proof.old_root);
@@ -125,23 +126,32 @@ where
         };
         self.leaf_proofs.push_back(record);
         self.next_proof_index += 1;
-        assert!(self.next_proof_index < self.max_proofs_in_tree, "added more proofs than the tree has capacity for");
+        assert!(
+            self.next_proof_index < self.max_proofs_in_tree,
+            "added more proofs than the tree has capacity for"
+        );
         index
     }
 
-    fn prove_single_leaf(&self, circuit_mgr: &PortableQTreeRecursionCircuits<C, D>, leaf: &LeafProofRecord<C, D>) -> anyhow::Result<AggProofRecord<C, D>> {
-        let agg_circuit_whitelist_root = circuit_mgr.circuit_inclusion_proofs.circuit_whitelist_tree_root;
+    async fn prove_single_leaf<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
+        &self,
+        circuit_mgr: &T,
+        leaf: &LeafProofRecord<C, D>,
+    ) -> anyhow::Result<AggProofRecord<C, D>> {
+        let agg_circuit_whitelist_root = circuit_mgr
+            .circuit_inclusion_proofs().await
+            .circuit_whitelist_tree_root;
 
-        let proof = circuit_mgr.circuit_set.single_leaf_circuit.prove_base(
+        let proof = circuit_mgr.prove_single_leaf_circuit(
             agg_circuit_whitelist_root,
             &leaf.insertion_proof,
             &leaf.proof,
             &leaf.verifier_data,
-        )?;
+        ).await?;
 
         let record = AggProofRecord {
             circuit_type: QStandardBinaryTreeCircuitType::SingleLeaf,
-            fingerprint: circuit_mgr.circuit_set.single_leaf_circuit.get_fingerprint(),
+            fingerprint: circuit_mgr.single_leaf_circuit_fingerprint().await,
             agg_header: QRecursionAggStandardHeader {
                 state_transition_start: leaf.insertion_proof.old_root,
                 state_transition_end: leaf.insertion_proof.new_root,
@@ -153,28 +163,30 @@ where
         Ok(record)
     }
 
-    fn prove_left_agg_right_leaf(
+    async fn prove_left_agg_right_leaf<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
         &self,
-        circuit_mgr: &PortableQTreeRecursionCircuits<C, D>,
+        circuit_mgr: &T,
         left: &AggProofRecord<C, D>,
         right: &LeafProofRecord<C, D>,
     ) -> anyhow::Result<AggProofRecord<C, D>> {
-        let proof = circuit_mgr.circuit_set.left_agg_right_leaf_circuit.prove_base(
-            circuit_mgr.circuit_inclusion_proofs
+        let proof = circuit_mgr.prove_left_agg_right_leaf_circuit(
+            circuit_mgr
+                .circuit_inclusion_proofs().await
                 .get_inclusion_proof_for_type(left.circuit_type),
             &left.agg_header,
             &left.proof,
-            circuit_mgr.circuit_set
-                .get_verifier_data_by_type(left.circuit_type),
+            &circuit_mgr.get_verifier_data_by_type(left.circuit_type).await,
             &right.insertion_proof,
             &right.proof,
             &right.verifier_data,
-        )?;
-        let agg_circuit_whitelist_root = circuit_mgr.circuit_inclusion_proofs.circuit_whitelist_tree_root;
+        ).await?;
+        let agg_circuit_whitelist_root = circuit_mgr
+            .circuit_inclusion_proofs().await
+            .circuit_whitelist_tree_root;
 
         let record = AggProofRecord {
             circuit_type: QStandardBinaryTreeCircuitType::LeftAggRightLeaf,
-            fingerprint: circuit_mgr.circuit_set.left_agg_right_leaf_circuit.get_fingerprint(),
+            fingerprint: circuit_mgr.left_agg_right_leaf_circuit_fingerprint().await,
             agg_header: QRecursionAggStandardHeader {
                 state_transition_start: left.agg_header.state_transition_start,
                 state_transition_end: right.insertion_proof.new_root,
@@ -186,15 +198,17 @@ where
         Ok(record)
     }
 
-    pub fn prove_two_leaf(
+    pub async fn prove_two_leaf<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
         &self,
-        circuit_mgr: &PortableQTreeRecursionCircuits<C, D>,
+        circuit_mgr: &T,
         left: &LeafProofRecord<C, D>,
         right: &LeafProofRecord<C, D>,
     ) -> anyhow::Result<AggProofRecord<C, D>> {
-        let agg_circuit_whitelist_root = circuit_mgr.circuit_inclusion_proofs.circuit_whitelist_tree_root;
+        let agg_circuit_whitelist_root = circuit_mgr
+            .circuit_inclusion_proofs().await
+            .circuit_whitelist_tree_root;
 
-        let proof = circuit_mgr.circuit_set.two_leaf_circuit.prove_base(
+        let proof = circuit_mgr.prove_two_leaf_circuit(
             agg_circuit_whitelist_root,
             &left.insertion_proof,
             &left.proof,
@@ -202,10 +216,10 @@ where
             &right.insertion_proof,
             &right.proof,
             &right.verifier_data,
-        )?;
+        ).await?;
         let record = AggProofRecord {
             circuit_type: QStandardBinaryTreeCircuitType::TwoLeaf,
-            fingerprint: circuit_mgr.circuit_set.two_leaf_circuit.get_fingerprint(),
+            fingerprint: circuit_mgr.two_leaf_circuit_fingerprint().await,
             agg_header: QRecursionAggStandardHeader {
                 state_transition_start: left.insertion_proof.old_root,
                 state_transition_end: right.insertion_proof.new_root,
@@ -217,32 +231,33 @@ where
         Ok(record)
     }
 
-    fn prove_two_agg(
+    async fn prove_two_agg<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
         &self,
-        circuit_mgr: &PortableQTreeRecursionCircuits<C, D>,
+        circuit_mgr: &T,
         left: &AggProofRecord<C, D>,
         right: &AggProofRecord<C, D>,
     ) -> anyhow::Result<AggProofRecord<C, D>> {
-        let agg_circuit_whitelist_root = circuit_mgr.circuit_inclusion_proofs.circuit_whitelist_tree_root;
+        let agg_circuit_whitelist_root = circuit_mgr
+            .circuit_inclusion_proofs().await
+            .circuit_whitelist_tree_root;
 
-        let proof = circuit_mgr.circuit_set.two_agg_circuit.prove_base(
-            circuit_mgr.circuit_inclusion_proofs
+        let proof = circuit_mgr.prove_two_agg_circuit(
+            circuit_mgr
+                .circuit_inclusion_proofs().await
                 .get_inclusion_proof_for_type(left.circuit_type),
             &left.agg_header,
             &left.proof,
-            circuit_mgr.circuit_set
-                .get_verifier_data_by_type(left.circuit_type),
-
-                circuit_mgr.circuit_inclusion_proofs
+            &circuit_mgr.get_verifier_data_by_type(left.circuit_type).await,
+            circuit_mgr
+                .circuit_inclusion_proofs().await
                 .get_inclusion_proof_for_type(right.circuit_type),
             &right.agg_header,
             &right.proof,
-            circuit_mgr.circuit_set
-                .get_verifier_data_by_type(right.circuit_type),
-        )?;
+            &circuit_mgr.get_verifier_data_by_type(right.circuit_type).await,
+        ).await?;
         let record = AggProofRecord {
             circuit_type: QStandardBinaryTreeCircuitType::TwoAgg,
-            fingerprint: circuit_mgr.circuit_set.two_agg_circuit.get_fingerprint(),
+            fingerprint: circuit_mgr.two_agg_circuit_fingerprint().await,
             agg_header: QRecursionAggStandardHeader {
                 state_transition_start: left.agg_header.state_transition_start,
                 state_transition_end: right.agg_header.state_transition_end,
@@ -254,26 +269,29 @@ where
         Ok(record)
     }
 
-    pub fn prove_one_step_simple_serial(&mut self, circuit_mgr: &PortableQTreeRecursionCircuits<C, D>) -> anyhow::Result<bool> {
+    pub async fn prove_one_step_simple_serial<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
+        &mut self,
+        circuit_mgr: &T,
+    ) -> anyhow::Result<bool> {
         let leaf_proofs_len = self.leaf_proofs.len();
         let agg_proofs_len = self.agg_proofs.len();
 
         let result = if leaf_proofs_len >= 2 {
             let left = self.leaf_proofs.pop_front().unwrap();
             let right = self.leaf_proofs.pop_front().unwrap();
-            let record = self.prove_two_leaf(circuit_mgr, &left, &right)?;
+            let record = self.prove_two_leaf(circuit_mgr, &left, &right).await?;
             self.agg_proofs.push(record);
             true
         } else if agg_proofs_len >= 2 {
             let right = self.agg_proofs.pop().unwrap();
             let left = self.agg_proofs.pop().unwrap();
-            let record = self.prove_two_agg(circuit_mgr, &left, &right)?;
+            let record = self.prove_two_agg(circuit_mgr, &left, &right).await?;
             self.agg_proofs.push(record);
             true
         } else if agg_proofs_len != 0 && leaf_proofs_len != 0 {
             let left_agg = self.agg_proofs.pop().unwrap();
             let right_leaf = self.leaf_proofs.pop_front().unwrap();
-            let record = self.prove_left_agg_right_leaf(circuit_mgr, &left_agg, &right_leaf)?;
+            let record = self.prove_left_agg_right_leaf(circuit_mgr, &left_agg, &right_leaf).await?;
             self.agg_proofs.push(record);
             true
         } else {
@@ -283,18 +301,21 @@ where
         Ok(result)
     }
 
-    pub fn add_leaf_proofs(&mut self, leaf_proofs: Vec<InputLeafProof<C, D>>) -> Vec<u64> {
+    pub async fn add_leaf_proofs(&mut self, leaf_proofs: Vec<InputLeafProof<C, D>>) -> Vec<u64> {
         let mut inds = Vec::with_capacity(leaf_proofs.len());
 
         self.leaf_proofs.reserve(leaf_proofs.len());
         for lp in leaf_proofs.into_iter() {
-            inds.push(self.injest_single_leaf_proof(lp))
+            inds.push(self.injest_single_leaf_proof(lp).await)
         }
         inds
     }
 
-    pub fn finalize_tree(&mut self, circuit_mgr: &PortableQTreeRecursionCircuits<C, D>) -> anyhow::Result<()> {
-        while self.prove_one_step_simple_serial(circuit_mgr)? {
+    pub async fn finalize_tree<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
+        &mut self,
+        circuit_mgr: &T,
+    ) -> anyhow::Result<()> {
+        while self.prove_one_step_simple_serial(circuit_mgr).await? {
             // prove remaining tasks (if any)
         }
 
@@ -306,41 +327,39 @@ where
             let dangling_leaf = self.leaf_proofs.pop_front().unwrap();
             println!("prove_single_leaf");
 
-            let record = self.prove_single_leaf(circuit_mgr, &dangling_leaf)?;
+            let record = self.prove_single_leaf(circuit_mgr, &dangling_leaf).await?;
             self.agg_proofs.push(record);
         }
 
-
-
         Ok(())
     }
-/* 
-    pub fn get_root_verified_proof(&self, circuit_mgr: &PortableQTreeRecursionCircuits<C, D>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>{
+    /*
+        pub fn get_root_verified_proof(&self, circuit_mgr: &PortableQTreeRecursionCircuits<C, D>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>{
 
-        if self.leaf_proofs.len() != 0 || self.agg_proofs.len() != 1 {
-            anyhow::bail!("proof tree not yet finalized");
-        }
-        match self.agg_proofs.last() {
-            Some(x) => {
-                circuit_mgr.root_circuit.prove_base(
-                    circuit_mgr.circuit_inclusion_proofs.get_inclusion_proof_for_type(x.circuit_type),
-                    &x.agg_header,
-                    &x.proof,
-                    circuit_mgr.circuit_set.get_verifier_data_by_type(x.circuit_type)
-                )
+            if self.leaf_proofs.len() != 0 || self.agg_proofs.len() != 1 {
+                anyhow::bail!("proof tree not yet finalized");
+            }
+            match self.agg_proofs.last() {
+                Some(x) => {
+                    circuit_mgr.root_circuit.prove_base(
+                        circuit_mgr.circuit_inclusion_proofs.get_inclusion_proof_for_type(x.circuit_type),
+                        &x.agg_header,
+                        &x.proof,
+                        circuit_mgr.circuit_set.get_verifier_data_by_type(x.circuit_type).await
+                    )
 
-            },
-            None =>  anyhow::bail!("proof tree not yet finalized"),
+                },
+                None =>  anyhow::bail!("proof tree not yet finalized"),
+            }
         }
-    }
-*/
-    pub fn get_finalized_proot_tree_record(&self) -> anyhow::Result<&AggProofRecord<C,D>>{
+    */
+    pub async fn get_finalized_proot_tree_record(&self) -> anyhow::Result<&AggProofRecord<C, D>> {
         if self.leaf_proofs.len() != 0 || self.agg_proofs.len() != 1 {
             anyhow::bail!("proof tree not yet finalized");
         }
         match self.agg_proofs.last() {
             Some(x) => Ok(x),
-            None =>  anyhow::bail!("proof tree not yet finalized"),
+            None => anyhow::bail!("proof tree not yet finalized"),
         }
 
     }

@@ -39,14 +39,15 @@ use crate::{
     wallet::simple_sign::{SoftwareDefinedSignTrait, StateReader, StateReaderGadget},
 };
 
+#[maybe_async::maybe_async(?Send)]
 pub trait SoftwareDefinedSignature<C: GenericConfig<D>, const D: usize> {
     type Input;
     type WitnessInput;
-    fn add_signature_circuit(builder: &mut CircuitBuilder<C::F, D>, inputs: &Self::Input) -> Self;
+    async fn add_signature_circuit(builder: &mut CircuitBuilder<C::F, D>, inputs: &Self::Input) -> Self;
 
     fn get_circuit_builder_input(&self) -> Self::Input;
 
-    fn set_signature_circuit_witness(
+    async fn set_signature_circuit_witness(
         &mut self,
         pw: &mut PartialWitness<C::F>,
         input: &Self::WitnessInput,
@@ -70,28 +71,29 @@ pub struct SoftwareDefinedSignatureCircuit<
     pub minifier_chain: QEDProofMinifierChain<D, C::F, C>,
 }
 
-impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>> Clone
-    for SoftwareDefinedSignatureCircuit<C, D, S>
+#[maybe_async::maybe_async(?Send)]
+impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>> SoftwareDefinedSignatureCircuit<C, D, S>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    fn clone(&self) -> Self {
-        Self::new(&self.signature_gadget.get_circuit_builder_input())
+    async fn clone(&self) -> Self {
+        Self::new(&self.signature_gadget.get_circuit_builder_input()).await
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>>
     SoftwareDefinedSignatureCircuit<C, D, S>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    pub fn new(input: &S::Input) -> Self {
+    pub async fn new(input: &S::Input) -> Self {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
         let private_key = builder.add_virtual_hash();
         let sig_hash = builder.add_virtual_hash();
 
-        let signature_gadget = S::add_signature_circuit(&mut builder, input);
+        let signature_gadget = S::add_signature_circuit(&mut builder, input).await;
 
         let public_key_param = get_zk_public_key_param::<C, D>(&mut builder, &private_key);
 
@@ -122,7 +124,7 @@ where
             minifier_chain,
         }
     }
-    pub fn prove(
+    pub async fn prove(
         &mut self,
         private_key: QHashOut<C::F>,
         input: &S::WitnessInput,
@@ -134,7 +136,8 @@ where
         pw.set_hash_target(self.sig_hash, sig_hash.0)?;
 
         self.signature_gadget
-            .set_signature_circuit_witness(&mut pw, input)?;
+            .set_signature_circuit_witness(&mut pw, input)
+            .await?;
 
         let inner_proof = self.circuit_data.prove(pw)?;
         let minified_proof = self.minifier_chain.prove(&inner_proof)?;
@@ -217,10 +220,11 @@ pub struct PSoftwareDefinedSignatureInput {
     pub sign_circuit: Box<dyn SoftwareDefinedSignTrait>,
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl SoftwareDefinedSignature<C, D> for QSoftwareDefinedSignatureGadget {
     type Input = QSoftwareDefinedSignatureInput;
     type WitnessInput = QSoftwareDefinedSignatureWitnessInput;
-    fn add_signature_circuit(builder: &mut CircuitBuilder<GF, D>, input: &Self::Input) -> Self {
+    async fn add_signature_circuit(builder: &mut CircuitBuilder<GF, D>, input: &Self::Input) -> Self {
         let circuit_inputs = builder.add_virtual_targets(input.fn_def.circuit_inputs.len());
         let fn_builder_gadget =
             QEDContractFunctionBuilderGadget::add_virtual_to::<PoseidonHash, GF, D>(
@@ -253,7 +257,7 @@ impl SoftwareDefinedSignature<C, D> for QSoftwareDefinedSignatureGadget {
         self.input.clone()
     }
 
-    fn set_signature_circuit_witness(
+    async fn set_signature_circuit_witness(
         &mut self,
         pw: &mut PartialWitness<GF>,
         witness_input: &Self::WitnessInput,
@@ -283,10 +287,14 @@ pub struct PSoftwareDefinedSignatureGadget {
     pub circuit_inputs: Vec<Target>,
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl SoftwareDefinedSignature<C, D> for PSoftwareDefinedSignatureGadget {
     type Input = PSoftwareDefinedSignatureInput;
     type WitnessInput = PSoftwareDefinedSignatureWitnessInput;
-    fn add_signature_circuit(builder: &mut CircuitBuilder<GF, D>, input: &Self::Input) -> Self {
+    async fn add_signature_circuit(
+        builder: &mut CircuitBuilder<GF, D>,
+        input: &Self::Input,
+    ) -> Self {
         let circuit_inputs = builder.add_virtual_targets(input.input_len);
         let mut state_reader_gadget =
             StateReaderGadget::new(builder, input.contract_state_tree_height as u8);
@@ -294,6 +302,7 @@ impl SoftwareDefinedSignature<C, D> for PSoftwareDefinedSignatureGadget {
         sign_circuit
             .as_mut()
             .custom_sign_option_f(builder, &mut state_reader_gadget, circuit_inputs.clone())
+            .await
             .expect("custom sign option failed");
 
         Self {
@@ -307,7 +316,7 @@ impl SoftwareDefinedSignature<C, D> for PSoftwareDefinedSignatureGadget {
         self.input.clone()
     }
 
-    fn set_signature_circuit_witness(
+    async fn set_signature_circuit_witness(
         &mut self,
         pw: &mut PartialWitness<GF>,
         witness_input: &Self::WitnessInput,
@@ -319,26 +328,28 @@ impl SoftwareDefinedSignature<C, D> for PSoftwareDefinedSignatureGadget {
         self.input
             .sign_circuit
             .as_mut()
-            .custom_sign_option(&mut state_reader, witness_input.circuit_inputs.clone())?;
+            .custom_sign_option(&mut state_reader, witness_input.circuit_inputs.clone())
+            .await?;
 
         self.state_reader_gadget.set_witness(pw, &state_reader)?;
         Ok(())
     }
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl SoftwareDefinedSignature<C, D> for SoftwareDefinedSignatureGadget {
     type Input = SoftwareDefinedSignatureInput;
 
     type WitnessInput = SoftwareDefinedSignatureWitnessInput;
 
-    fn add_signature_circuit(builder: &mut CircuitBuilder<GF, D>, inputs: &Self::Input) -> Self {
+    async fn add_signature_circuit(builder: &mut CircuitBuilder<GF, D>, inputs: &Self::Input) -> Self {
         match inputs {
             SoftwareDefinedSignatureInput::QED(input) => {
-                let gadget = QSoftwareDefinedSignatureGadget::add_signature_circuit(builder, input);
+                let gadget = QSoftwareDefinedSignatureGadget::add_signature_circuit(builder, input).await;
                 Self::QED(gadget)
             }
             SoftwareDefinedSignatureInput::PLONKY2(input) => {
-                let gadget = PSoftwareDefinedSignatureGadget::add_signature_circuit(builder, input);
+                let gadget = PSoftwareDefinedSignatureGadget::add_signature_circuit(builder, input).await;
                 Self::PLONKY2(gadget)
             }
         }
@@ -355,17 +366,17 @@ impl SoftwareDefinedSignature<C, D> for SoftwareDefinedSignatureGadget {
         }
     }
 
-    fn set_signature_circuit_witness(
+    async fn set_signature_circuit_witness(
         &mut self,
         pw: &mut PartialWitness<GF>,
         input: &Self::WitnessInput,
     ) -> anyhow::Result<()> {
         match (self, input) {
             (Self::QED(gadget), SoftwareDefinedSignatureWitnessInput::QED(input)) => {
-                gadget.set_signature_circuit_witness(pw, input)?;
+                gadget.set_signature_circuit_witness(pw, input).await?;
             }
             (Self::PLONKY2(gadget), SoftwareDefinedSignatureWitnessInput::PLONKY2(input)) => {
-                gadget.set_signature_circuit_witness(pw, input)?;
+                gadget.set_signature_circuit_witness(pw, input).await?;
             }
             _ => anyhow::bail!("invalid input type"),
         }

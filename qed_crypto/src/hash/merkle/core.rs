@@ -169,7 +169,8 @@ impl<F: RichField> DeltaMerkleProof<F> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct MerkleProofCore<Hash: PartialEq + Copy> {
     pub root: Hash,
     pub value: Hash,

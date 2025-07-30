@@ -39,7 +39,7 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct QEDMemoryWallet {
     pub zk_circuit: QEDBasicZKSignatureCircuit<C, D>,
     pub secp_circuit: L1Secp256K1SignatureCircuit<C, D>,
@@ -225,12 +225,13 @@ impl QEDMemoryWallet {
 }
 
 /// software defined circuit
+#[maybe_async::maybe_async(?Send)]
 impl QEDMemoryWallet {
-    pub fn register_software_defined_circuit(
+    pub async fn register_software_defined_circuit(
         &mut self,
         input: SoftwareDefinedSignatureInput,
     ) -> anyhow::Result<QHashOut<F>> {
-        let sdc = SoftwareDefinedSignatureCircuit::new(&input);
+        let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
         let fingerprint = sdc.get_fingerprint();
         tracing::info!(
             "register software defined circuit: {}",

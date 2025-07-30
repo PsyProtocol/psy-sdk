@@ -69,6 +69,7 @@ where
             compressed_signature.try_into()?;
 
         let mut timer = DebugTimer::new("DogeSecp256K1SignatureCircuit::Prove");
+        tracing::info!("start prove base secp256k1 signature");
         timer.lap("start prove base");
         let mut pw = PartialWitness::new();
         self.signature_gadget.set_witness_public_keys_update(
@@ -79,6 +80,7 @@ where
         )?;
         let base_proof = self.base_circuit_data.prove(pw)?;
         timer.lap("end prove base");
+        tracing::info!("end prove base secp256k1 signature");
         timer.lap("start minifier");
         let minified_proof = self.minifier_chain.prove(&base_proof)?;
         timer.lap("end minifier");

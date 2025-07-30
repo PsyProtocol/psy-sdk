@@ -1,4 +1,3 @@
-use wasm_bindgen::prelude::*;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
@@ -10,12 +9,14 @@ use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::str::FromStr;
+use wasm_bindgen::prelude::*;
 
-use crate::WalletSession;
 use crate::local::store::UserProverWorkerStore;
-use crate::local::types::{ContractCallArgs, WalletKeyPair, RpcConfig};
+use crate::local::{args::ContractCallArgs, provider::RpcConfig};
+use crate::session::WalletKeyPair;
+use crate::session::WalletSession;
 
-pub mod wallet_session;
+// pub mod wallet_session;
 
 type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
@@ -30,11 +31,12 @@ pub struct WasmRpcServer {
 #[wasm_bindgen]
 impl WasmRpcServer {
     #[wasm_bindgen(constructor)]
-    pub fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
+    pub async fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
         let rpc_config: RpcConfig = serde_json::from_str(rpc_config_json)
             .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
 
         let wallet_session = WalletSession::new(&rpc_config)
+        .await
             .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
 
         Ok(WasmRpcServer {

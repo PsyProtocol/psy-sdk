@@ -3,6 +3,7 @@ export interface WebProverConfig {
     users_per_realm: number;
     realm_configs: RpcConfig[];
     coordinator_configs: RpcConfig[];
+    prove_proxy_url?: string;
 }
 
 interface RpcConfig {

@@ -64,3 +64,9 @@ pub struct ProverArgs {
     )]
     pub api_key: String,
 }
+
+#[derive(Clone, Debug, Parser)]
+pub struct ProveProxyArgs {
+    #[clap(env = "PROVE_PROXY_LISTEN_ADDR", long, default_value = "0.0.0.0:9999")]
+    pub listen_addr: String,
+}
