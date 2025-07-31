@@ -453,10 +453,10 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
                     .into(),
             },
             secp_circuit: QCommonCircuitData {
-                fingerprint: self.circuit_manager.zk_circuit.get_fingerprint(),
+                fingerprint: self.circuit_manager.secp_circuit.get_fingerprint(),
                 verifier_config: self
                     .circuit_manager
-                    .zk_circuit
+                    .secp_circuit
                     .get_verifier_config_ref()
                     .into(),
             },
