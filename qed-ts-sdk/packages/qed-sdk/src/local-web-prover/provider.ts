@@ -14,7 +14,7 @@ import { QedJSON } from "../utils";
 
 
 // Synchronous WASM initialization function
-function initWasmSync(): void {
+export function initWasmSync(): void {
     try {
         // Initialize synchronously with pre-compiled binary data
         initSync(wasmBinary);
@@ -27,7 +27,7 @@ function initWasmSync(): void {
 }
 
 export class QedWasmWebProverProvider implements IQedUserProverProvider {
-    private static wasmServer: WasmRpcServer;
+    static wasmServer: WasmRpcServer;
 
     constructor(rpcConfigJson: WebProverConfig) {
         const json = QedJSON.stringify(rpcConfigJson);

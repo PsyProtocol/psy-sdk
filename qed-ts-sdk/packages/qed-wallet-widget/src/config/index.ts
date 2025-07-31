@@ -71,10 +71,13 @@ export const defaultConfig: WalletConfig = {
     },
   },
   network: {
+    global_user_tree_height: rootConfig.network.global_user_tree_height,
+    realm_user_tree_height: rootConfig.network.realm_user_tree_height,
     users_per_realm: rootConfig.network.users_per_realm,
     realm_configs: rootConfig.network.realm_configs,
     coordinator_configs: rootConfig.network.coordinator_configs,
     prover_url: rootConfig.network.prover_url,
+    prove_proxy_url: rootConfig.network.prove_proxy_url,
     nativeCurrency: rootConfig.network.native_currency,
   },
   wallet: {
@@ -116,6 +119,11 @@ export const loadConfig = (): WalletConfig => {
           realm_configs: parsed.network?.realm_configs || defaultConfig.network.realm_configs,
           coordinator_configs: parsed.network?.coordinator_configs || defaultConfig.network.coordinator_configs,
           nativeCurrency: parsed.network?.nativeCurrency || defaultConfig.network.nativeCurrency,
+          // prover_url: parsed.network?.prover_url || defaultConfig.network.prover_url,
+          // prove_proxy_url: parsed.network?.prove_proxy_url || defaultConfig.network.prove_proxy_url,
+          // global_user_tree_height: parsed.network?.global_user_tree_height || defaultConfig.network.global_user_tree_height,
+          // realm_user_tree_height: parsed.network?.realm_user_tree_height || defaultConfig.network.realm_user_tree_height,
+          // users_per_realm: parsed.network?.users_per_realm || defaultConfig.network.users_per_realm,
         },
         wallet: {
           ...defaultConfig.wallet,

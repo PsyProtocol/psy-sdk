@@ -280,7 +280,7 @@ impl WalletSession {
             main_circuits.secp_circuit_verifier_config().await?.into(),
         );
 
-        main_circuits.register_info(&mut circuit_info);
+        main_circuits.register_info(&mut circuit_info).await;
 
         let wallet = QEDMemoryWallet::new(main_circuits);
 
