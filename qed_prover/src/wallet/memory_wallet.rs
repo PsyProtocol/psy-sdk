@@ -24,6 +24,9 @@ use qed_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
+use crate::local::provider::ProveProxyRpcTrait;
+use crate::ups::circuit_manager;
+use crate::ups::circuit_manager::core::QCircuitManager;
 use crate::wallet::simple_sign::StateReader;
 use crate::wallet::software_defined_circuit::{
     get_sdc_public_key_param, QSoftwareDefinedSignatureGadget, SoftwareDefinedSignature,
@@ -41,49 +44,45 @@ type F = GoldilocksField;
 
 // #[derive(Clone)]
 pub struct QEDMemoryWallet {
-    pub zk_circuit: QEDBasicZKSignatureCircuit<C, D>,
-    pub secp_circuit: L1Secp256K1SignatureCircuit<C, D>,
+    // pub zk_circuit: Option<QEDBasicZKSignatureCircuit<C, D>>,
+    // pub secp_circuit: Option<L1Secp256K1SignatureCircuit<C, D>>,
     // figerprint, circuit
     pub software_defined_circuits:
         DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
+    pub circuit_manager: QCircuitManager<C, D>,
     pub zk_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
     pub secp_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
     pub software_defined_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
 }
 
+#[maybe_async::maybe_async(?Send)]
 impl QEDMemoryWallet {
-    pub fn new() -> Self {
+    pub fn new(circuit_manager: QCircuitManager<C, D>) -> Self {
         Self {
             zk_public_key_to_private_key_store: DashMap::new(),
             secp_public_key_to_private_key_store: DashMap::new(),
             software_defined_public_key_to_private_key_store: DashMap::new(),
+            circuit_manager,
             software_defined_circuits: DashMap::new(),
-
-            zk_circuit: QEDBasicZKSignatureCircuit::new(),
-            secp_circuit: L1Secp256K1SignatureCircuit::new(),
         }
     }
 
-    pub fn get_zksig_circuit_fingerprint(&self) -> QHashOut<F> {
-        self.zk_circuit.get_fingerprint()
-    }
-    pub fn get_secp_circuit_fingerprint(&self) -> QHashOut<F> {
-        self.secp_circuit.get_fingerprint()
-    }
-
-    pub fn add_zk_private_key(
+    pub async fn add_zk_private_key(
         &mut self,
         private_key: QHashOut<F>,
     ) -> anyhow::Result<ZKPublicKeyInfo<F>> {
-        let pk_info = self.get_zk_pk_info(private_key)?;
+        let pk_info = self.get_zk_pk_info(private_key).await?;
         self.zk_public_key_to_private_key_store
             .insert(pk_info.public_key_param, private_key);
         Ok(pk_info)
     }
-    pub fn get_zk_pk_info(&self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
+    pub async fn get_zk_pk_info(
+        &self,
+        private_key: QHashOut<F>,
+    ) -> anyhow::Result<ZKPublicKeyInfo<F>> {
         let private_key = SimpleQEDPrivateKey { private_key };
         let public_key_param = private_key.get_public_key_param::<PoseidonHash>();
-        let fingerprint = self.get_zksig_circuit_fingerprint();
+        let fingerprint = self.circuit_manager.zk_circuit_fingerprint().await?;
 
         Ok(ZKPublicKeyInfo {
             fingerprint,
@@ -91,11 +90,11 @@ impl QEDMemoryWallet {
         })
     }
 
-    pub fn add_secp_private_key(
+    pub async fn add_secp_private_key(
         &mut self,
         private_key: QHashOut<F>,
     ) -> anyhow::Result<ZKPublicKeyInfo<F>> {
-        let pk_info = self.get_secp_pk_info(private_key)?;
+        let pk_info = self.get_secp_pk_info(private_key).await?;
         tracing::info!("add secp user {}", serde_json::to_string_pretty(&pk_info)?);
 
         self.secp_public_key_to_private_key_store
@@ -103,7 +102,7 @@ impl QEDMemoryWallet {
         Ok(pk_info)
     }
 
-    pub fn add_software_defined_private_key(
+    pub async fn add_software_defined_private_key(
         &mut self,
         private_key: QHashOut<F>,
         fingerprint: QHashOut<F>,
@@ -129,7 +128,10 @@ impl QEDMemoryWallet {
     ) -> anyhow::Result<CompressedPublicKey> {
         super::utils::get_secp_public_key(private_key)
     }
-    pub fn get_secp_pk_info(&self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
+    pub async fn get_secp_pk_info(
+        &self,
+        private_key: QHashOut<F>,
+    ) -> anyhow::Result<ZKPublicKeyInfo<F>> {
         let pub_compressed = self.get_secp_public_key(private_key)?;
         tracing::info!("get secp public key {:?}", pub_compressed);
 
@@ -137,12 +139,12 @@ impl QEDMemoryWallet {
             hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(pub_compressed);
 
         Ok(ZKPublicKeyInfo {
-            fingerprint: self.get_secp_circuit_fingerprint(),
+            fingerprint: self.circuit_manager.secp_circuit_fingerprint().await?,
             public_key_param: public_key_params,
         })
     }
 
-    pub fn zk_sign_for_public_key(
+    pub async fn zk_sign_for_public_key(
         &self,
         public_key: QHashOut<F>,
         sig_hash: QHashOut<F>,
@@ -151,14 +153,18 @@ impl QEDMemoryWallet {
                 .zk_public_key_to_private_key_store
                 .get(&public_key)
                 .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", public_key.to_string()))?;
-        self.zk_circuit.prove_base(*private_key, sig_hash)
+        self.circuit_manager
+            .prove_zk_sign(*private_key, sig_hash)
+            .await
     }
-    pub fn zk_sign_with_private_key(
+    pub async fn zk_sign_with_private_key(
         &self,
         private_key: QHashOut<F>,
         sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        self.zk_circuit.prove_base(private_key, sig_hash)
+        self.circuit_manager
+            .prove_zk_sign(private_key, sig_hash)
+            .await
     }
 
     pub fn sdc_sign_for_public_key<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
@@ -204,23 +210,28 @@ impl QEDMemoryWallet {
         public_key: QHashOut<F>,
         sig_hash: QHashOut<F>,
     ) -> anyhow::Result<QEDCompressedSecp256K1Signature> {
-        let private_key = self.secp_public_key_to_private_key_store.get(&public_key).
-        ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", public_key.to_string()))?;
+        let private_key = self
+            .secp_public_key_to_private_key_store
+            .get(&public_key)
+            .ok_or(anyhow::format_err!(
+                "public key ({}) does not match any private keys",
+                public_key.to_string()
+            ))?;
         self.secp256k1_sign(*private_key, sig_hash)
     }
-    pub fn zk_secp256k1_from_signature(
+    pub async fn zk_secp256k1_from_signature(
         &self,
         signature: &QEDCompressedSecp256K1Signature,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        self.secp_circuit.prove(signature)
+        self.circuit_manager.prove_secp_sign(*signature).await
     }
-    pub fn zk_sign_secp256k1(
+    pub async fn zk_sign_secp256k1(
         &self,
         public_key: QHashOut<F>,
         sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let ecc_sig = self.secp256k1_sign_with_public_key(public_key, sig_hash)?;
-        self.secp_circuit.prove(&ecc_sig)
+        self.circuit_manager.prove_secp_sign(ecc_sig).await
     }
 }
 
@@ -231,18 +242,19 @@ impl QEDMemoryWallet {
         &mut self,
         input: SoftwareDefinedSignatureInput,
     ) -> anyhow::Result<QHashOut<F>> {
-        let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
-        let fingerprint = sdc.get_fingerprint();
-        tracing::info!(
-            "register software defined circuit: {}",
-            fingerprint.to_string()
-        );
-        if let Some(_) = self.software_defined_circuits.insert(fingerprint, sdc) {
-            tracing::warn!(
-                "software defined circuit `{}` is already registered",
-                fingerprint.to_string()
-            );
-        };
-        Ok(fingerprint)
+        // let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
+        // let fingerprint = sdc.get_fingerprint();
+        // tracing::info!(
+        //     "register software defined circuit: {}",
+        //     fingerprint.to_string()
+        // );
+        // if let Some(_) = self.software_defined_circuits.insert(fingerprint, sdc) {
+        //     tracing::warn!(
+        //         "software defined circuit `{}` is already registered",
+        //         fingerprint.to_string()
+        //     );
+        // };
+        // Ok(fingerprint)
+        todo!()
     }
 }

@@ -1,15 +1,15 @@
-use jsonrpsee::core::async_trait;
-use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::ErrorObjectOwned;
-use qed_common_circuit::circuits::zk_signature3::core::QEDBasicZKSignatureCircuit;
 use crate::dpn::circuits::cfc::DapenContractFunctionCircuit;
 use crate::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use dashmap::DashMap;
+use jsonrpsee::core::async_trait;
+use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::types::ErrorObjectOwned;
 use k256::ecdsa::signature::hazmat::PrehashSigner;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_common_circuit::circuits::l1_secp256k1_signature::L1Secp256K1SignatureCircuit;
+use qed_common_circuit::circuits::zk_signature3::core::QEDBasicZKSignatureCircuit;
 use qed_core::config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT;
 use qed_core::data::alt::AltVerifierOnlyCircuitData;
 use qed_core::data::base_types::hash256::Hash256;
@@ -39,8 +39,8 @@ use serde::Serialize;
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 // use crate::local::provider::LocalCommonCircuitsData;
-use crate::local::provider::QCommonCircuitData;
 use crate::dpn::data::cfc_code_definition_to_dapen_fc;
+use crate::local::provider::QCommonCircuitData;
 
 type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
@@ -99,15 +99,15 @@ pub trait ProveProxyRpc {
         input: UPSCFCDeferredTransactionCircuitInput<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
-    #[method(name = "prove_signature")]
-    async fn prove_signature(
+    #[method(name = "prove_zk_sign")]
+    async fn prove_zk_sign(
         &self,
         private_key: QHashOut<F>,
         sig_hash: QHashOut<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
-    #[method(name = "prove_secp256k1_signature")]
-    async fn prove_secp256k1_signature(
+    #[method(name = "prove_secp_sign")]
+    async fn prove_secp_sign(
         &self,
         signature: QEDCompressedSecp256K1Signature,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
@@ -197,6 +197,8 @@ pub struct LocalCommonCircuitsData {
     pub ups_cfc_standard_tx: QCommonCircuitData<F>,
     pub ups_cfc_deferred_tx: QCommonCircuitData<F>,
     pub ups_end_cap: QCommonCircuitData<F>,
+    pub zk_circuit: QCommonCircuitData<F>,
+    pub secp_circuit: QCommonCircuitData<F>,
 
     pub ups_circuit_whitelist_root: QHashOut<F>,
     pub ups_start_whitelist_proof: MerkleProofCore<QHashOut<F>>,
@@ -219,9 +221,6 @@ pub struct LocalCommonCircuitsData {
 pub struct ProveProxyServerProvider {
     pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
 
-    pub signature_circuit: QEDBasicZKSignatureCircuit<C, D>,
-    pub secp256k1_circuit: L1Secp256K1SignatureCircuit<C, D>,
-
     pub circuit_manager: QEDUPSStepCircuitManager<C, D>,
     pub circuit_info: SessionCircuitInfoStore<F>,
 }
@@ -232,28 +231,23 @@ impl ProveProxyServerProvider {
         use qed_core::ups::circuits::LocalCircuitType;
         use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
 
-        let signature_circuit = QEDBasicZKSignatureCircuit::<C, D>::new();
-        let secp256k1_circuit = L1Secp256K1SignatureCircuit::new();
-
         let circuit_manager = QEDUPSStepCircuitManager::<C, D>::new_with_config(network_magic);
         let mut circuit_info = SessionCircuitInfoStore::new();
 
-        circuit_info.register_circuit(
-            LocalCircuitType::SimpleZKSignature.into(),
-            signature_circuit.get_fingerprint(),
-            signature_circuit.get_verifier_config_ref().into(),
-        );
-        circuit_info.register_circuit(
-            LocalCircuitType::SimpleSecp256K1.into(),
-            secp256k1_circuit.get_fingerprint(),
-            secp256k1_circuit.get_verifier_config_ref().into(),
-        );
+        // circuit_info.register_circuit(
+        //     LocalCircuitType::SimpleZKSignature.into(),
+        //     zk_circuit.get_fingerprint(),
+        //     zk_circuit.get_verifier_config_ref().into(),
+        // );
+        // circuit_info.register_circuit(
+        //     LocalCircuitType::SimpleSecp256K1.into(),
+        //     secp_circuit.get_fingerprint(),
+        //     secp_circuit.get_verifier_config_ref().into(),
+        // );
 
         circuit_manager.register_info(&mut circuit_info);
         Self {
             contract_circuits: DashMap::new(),
-            signature_circuit,
-            secp256k1_circuit,
             circuit_manager,
             circuit_info,
         }
@@ -450,6 +444,22 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
                 .proof_tree_agg_circuits
                 .circuit_inclusion_proofs
                 .clone(),
+            zk_circuit: QCommonCircuitData {
+                fingerprint: self.circuit_manager.zk_circuit.get_fingerprint(),
+                verifier_config: self
+                    .circuit_manager
+                    .zk_circuit
+                    .get_verifier_config_ref()
+                    .into(),
+            },
+            secp_circuit: QCommonCircuitData {
+                fingerprint: self.circuit_manager.zk_circuit.get_fingerprint(),
+                verifier_config: self
+                    .circuit_manager
+                    .zk_circuit
+                    .get_verifier_config_ref()
+                    .into(),
+            },
         };
 
         Ok(serde_json::to_string(&data).unwrap())
@@ -584,32 +594,32 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
             })
     }
 
-    async fn prove_signature(
+    async fn prove_zk_sign(
         &self,
         private_key: QHashOut<F>,
         sig_hash: QHashOut<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
-        tracing::info!("🔔 prove_signature");
-        self.signature_circuit
+        tracing::info!("🔔 prove_zk_sign");
+        self.circuit_manager
+            .zk_circuit
             .prove_base(private_key, sig_hash)
             .map_err(|err| {
                 ErrorObjectOwned::owned(1, "signature proving error", Some(err.to_string()))
             })
     }
 
-    async fn prove_secp256k1_signature(
+    async fn prove_secp_sign(
         &self,
         signature: QEDCompressedSecp256K1Signature,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
-        tracing::info!("🔔 prove_secp256k1_signature");
+        tracing::info!("🔔 prove_secp_sign");
 
-        self.secp256k1_circuit.prove(&signature).map_err(|err| {
-            ErrorObjectOwned::owned(
-                1,
-                "secp256k1 signature proving error",
-                Some(err.to_string()),
-            )
-        })
+        self.circuit_manager
+            .secp_circuit
+            .prove(&signature)
+            .map_err(|err| {
+                ErrorObjectOwned::owned(1, "secp signature proving error", Some(err.to_string()))
+            })
     }
 
     async fn prove_ups_end_cap(

@@ -254,9 +254,9 @@ pub enum RequestParams<F: RichField> {
     UpsCfcStandardTx(QUpsCfcStandardTxRPCRequest<F>),
     #[serde(rename = "qed_prove_ups_cfc_deferred_tx")]
     UpsCfcDeferredTx(QUpsCfcDeferredTxRPCRequest<F>),
-    #[serde(rename = "qed_prove_signature")]
-    SignatureProof(QSignatureProofRPCRequest<F>),
-    #[serde(rename = "qed_prove_secp256k1_signature")]
+    #[serde(rename = "qed_prove_zk_sign")]
+    ZKSignatureProof(QSignatureProofRPCRequest<F>),
+    #[serde(rename = "qed_prove_secp_sign")]
     SECPSignatureProof(QSecpSignatureProofRPCRequest),
     // #[serde(rename = "qed_finalize_tree")]
     // FinalizeTree,

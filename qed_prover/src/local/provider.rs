@@ -40,11 +40,17 @@ use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, marker::PhantomData, sync::Arc};
 
-use crate::local::request::{QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QSecpSignatureProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, RequestParamsV2};
+use crate::local::request::{
+    QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QLeftAggRightLeafRpcRequestV2,
+    QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest,
+    QRegisterCircuitsRPCRequest, QSecpSignatureProofRPCRequest, QSignatureProofRPCRequest,
+    QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2,
+    QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
+    RequestParamsV2,
+};
 
 use super::request::{
-    Id, QRegisterUserRPCRequest, RequestParams, ResponseResult, RpcRequest,
-    RpcResponse, Version,
+    Id, QRegisterUserRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
 };
 use serde_json;
 
@@ -170,9 +176,12 @@ macro_rules! qed_rpc_call {
                     tracing::info!("{:?}", s);
                     Ok(())
                 }
-                ResponseResult::Error(e) => { Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)) }
+                ResponseResult::Error(e) => {
+                    Err(anyhow::format_err!("qed rpc call failed `{:?}`", e))
+                }
             }
-        }.await
+        }
+        .await
     }};
 }
 
@@ -213,7 +222,8 @@ macro_rules! qed_rpc_call_back {
                 .await?
                 .json::<RpcResponse<$ret_ty>>()
                 .await
-        }.await?
+        }
+        .await?
     }};
 }
 
@@ -363,7 +373,7 @@ pub struct RpcConfig {
 impl Default for RpcConfig {
     fn default() -> Self {
         Self {
-            users_per_realm: 8388608,  // 1 << 23
+            users_per_realm: 8388608, // 1 << 23
             global_user_tree_height: 24,
             realm_user_tree_height: 23,
             realm_configs: vec![
@@ -445,16 +455,22 @@ pub trait ProveProxyRpcTrait<C: GenericConfig<D>, const D: usize> {
         input: &UPSCFCDeferredTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    async fn prove_signature(
+    async fn prove_zk_sign(
         &self,
         private_key: QHashOut<C::F>,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    async fn prove_secp256k1_signature(
+    async fn prove_secp_sign(
         &self,
         signature: QEDCompressedSecp256K1Signature,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+
+    // async fn software_defined_sign(
+    //     &self,
+    //     private_key: QHashOut<C::F>,
+    //     sig_hash: QHashOut<C::F>,
+    // ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
     // async fn finalize_tree(&self) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
@@ -490,6 +506,14 @@ pub trait ProveProxyRpcTrait<C: GenericConfig<D>, const D: usize> {
     ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
 
     async fn ups_circuit_whitelist_root(&self) -> anyhow::Result<QHashOut<C::F>>;
+
+    async fn zk_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>;
+
+    async fn zk_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
+
+    async fn secp_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>;
+
+    async fn secp_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
 }
 
 #[derive(Clone, Debug)]
@@ -514,6 +538,8 @@ pub struct LocalCommonCircuitsData<F: RichField> {
     pub ups_cfc_standard_tx: QCommonCircuitData<F>,
     pub ups_cfc_deferred_tx: QCommonCircuitData<F>,
     pub ups_end_cap: QCommonCircuitData<F>,
+    pub zk_circuit: QCommonCircuitData<F>,
+    pub secp_circuit: QCommonCircuitData<F>,
 
     pub ups_circuit_whitelist_root: QHashOut<F>,
     pub ups_start_whitelist_proof: MerkleProofCore<QHashOut<F>>,
@@ -541,16 +567,16 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
         // todo fix bug
         #[cfg(target_arch = "wasm32")]
         let response = client
-                .post(&proof_proxy_url)
-                .json(&RpcRequest {
-                    jsonrpc: Version::V2,
-                    request: RequestParams::<C::F>::GetCircuitsData(),
-                    id: Id::Number(1),
-                })
-                .send()
-                .await?
-                .json::<RpcResponse<String>>()
-                .await?;
+            .post(&proof_proxy_url)
+            .json(&RpcRequest {
+                jsonrpc: Version::V2,
+                request: RequestParams::<C::F>::GetCircuitsData(),
+                id: Id::Number(1),
+            })
+            .send()
+            .await?
+            .json::<RpcResponse<String>>()
+            .await?;
         #[cfg(not(target_arch = "wasm32"))]
         let response = client
             .post(&proof_proxy_url)
@@ -915,16 +941,16 @@ where
         }
     }
 
-    async fn prove_signature(
+    async fn prove_zk_sign(
         &self,
         private_key: QHashOut<C::F>,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        tracing::info!("prove prove_signature: {}", sig_hash.to_string());
+        tracing::info!("prove_zk_sign: {}", sig_hash.to_string());
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
-            RequestParams::<C::F>::SignatureProof(QSignatureProofRPCRequest {
+            RequestParams::<C::F>::ZKSignatureProof(QSignatureProofRPCRequest {
                 private_key,
                 sig_hash,
             }),
@@ -942,12 +968,12 @@ where
         }
     }
 
-    async fn prove_secp256k1_signature(
+    async fn prove_secp_sign(
         &self,
         signature: QEDCompressedSecp256K1Signature,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!(
-            "prove_secp256k1_signature: {}",
+            "prove_secp_sign: {}",
             serde_json::to_string_pretty(&signature)?
         );
         let response = qed_rpc_call_back!(
@@ -1065,6 +1091,22 @@ where
 
     async fn ups_circuit_whitelist_root(&self) -> anyhow::Result<QHashOut<C::F>> {
         Ok(self.common_circuits_data.ups_circuit_whitelist_root)
+    }
+
+    async fn zk_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>{
+        Ok(self.common_circuits_data.zk_circuit.fingerprint)
+    }
+
+    async fn zk_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>{
+        Ok(self.common_circuits_data.zk_circuit.verifier_config.clone().to_verifier_data())
+    }
+
+    async fn secp_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>{
+        Ok(self.common_circuits_data.secp_circuit.fingerprint)
+    }
+
+    async fn secp_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>{
+        Ok(self.common_circuits_data.secp_circuit.verifier_config.clone().to_verifier_data())
     }
 }
 

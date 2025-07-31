@@ -15,8 +15,8 @@ const HomePage: React.FC = () => {
     const [networkSettingsOpen, setNetworkSettingsOpen] = useState(false);
 
     const walletProvider = createMemoryWalletProvider(
-        config.network.global_user_tree_height,
-        config.network.realm_user_tree_height,
+        config.network.global_user_tree_height ?? 24,
+        config.network.realm_user_tree_height ?? 23,
         config.network.coordinator_configs,
         config.network.realm_configs,
         config.network.users_per_realm,

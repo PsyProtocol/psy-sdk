@@ -130,18 +130,20 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub fn get_zk_public_key_json(&self, private_key_str: &str) -> Result<String, JsError> {
+    pub async fn get_zk_public_key_json(&self, private_key_str: &str) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
         let public_key = self.wallet_session.get_zk_public_key(private_key)
+            .await
             .map_err(|e| JsError::new(&format!("Get ZK public key error: {}", e)))?;
         serde_json::to_string(&public_key)
             .map_err(|e| JsError::new(&format!("Serialize public key error: {}", e)))
     }
 
     #[wasm_bindgen]
-    pub fn get_random_keypair_json(&self) -> Result<String, JsError> {
+    pub async fn get_random_keypair_json(&self) -> Result<String, JsError> {
         let keypair = self.wallet_session.get_random_keypair()
+            .await
             .map_err(|e| JsError::new(&format!("Get random keypair error: {}", e)))?;
         serde_json::to_string(&keypair)
             .map_err(|e| JsError::new(&format!("Serialize keypair error: {}", e)))
