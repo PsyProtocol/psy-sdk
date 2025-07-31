@@ -33,6 +33,7 @@ use qed_data::qdata::user::QEDUserLeaf;
 use qed_rollup_utils::generate_jwt_token;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
+use std::collections::VecDeque;
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
@@ -46,7 +47,7 @@ pub struct RealmEdgeHandler<
     PS: QProofStoreAsyncImm,
 > {
     ctx: RealmEdgeContext<SR, DQ, PS>,
-    job_manager: Arc<Mutex<JobsGraphManager>>,
+    job_manager: Arc<Mutex<VecDeque<QProvingJobDataID>>>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
 }
 
@@ -58,7 +59,7 @@ where
 {
     pub fn new(
         ctx: RealmEdgeContext<SR, DQ, PS>,
-        job_manager: Arc<Mutex<JobsGraphManager>>,
+        job_manager: Arc<Mutex<VecDeque<QProvingJobDataID>>>,
         job_notify_queue: Arc<ProofStoreRedisAsync>,
     ) -> Self {
         Self {
@@ -619,7 +620,7 @@ where
 {
     async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>> {
         let mut job_manager = self.job_manager.lock().await;
-        let job_id = job_manager.get_next_pending_job_to_process();
+        let job_id = job_manager.pop_front();
         Ok(job_id)
     }
 
@@ -649,7 +650,6 @@ where
         job_id: QProvingJobDataID,
         proof: Option<ConcreteProofWithPublicInputs>,
     ) -> RpcResult<()> {
-        let mut job_manager = self.job_manager.lock().await;
         if let Some(proof) = proof {
             info!("Setting proof by id: {:?}", job_id);
             let output_id = job_id.get_output_id();
@@ -668,7 +668,6 @@ where
                 .await
                 .map_err(RpcError::Anyhow)?;
         }
-        job_manager.mark_job_done(job_id);
         Ok(())
     }
 }

@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 // std
 use std::sync::Arc;
 
@@ -68,7 +69,7 @@ pub struct CoordinatorEdgeHandler {
     proof_store: Arc<ProofStore>,
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
-    job_manager: Arc<Mutex<JobsGraphManager>>,
+    job_manager: Arc<Mutex<VecDeque<QProvingJobDataID>>>,
 }
 
 impl CoordinatorEdgeHandler {
@@ -115,7 +116,7 @@ impl CoordinatorEdgeHandler {
             &qe_args.proof_store_key_suffix,
         )
         .await?;
-        let job_manager = Arc::new(Mutex::new(JobsGraphManager::new()));
+        let job_manager = Arc::new(Mutex::new(VecDeque::new()));
         run_jobs_listener(
             Arc::clone(&job_manager),
             Arc::new(job_graph_reader),
@@ -1317,7 +1318,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
 
     async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>> {
         let mut job_manager = self.job_manager.lock().await;
-        let job_id = job_manager.get_next_pending_job_to_process();
+        let job_id = job_manager.pop_front();
         Ok(job_id)
     }
 
@@ -1332,7 +1333,6 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     }
 
     async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()> {
-        let mut job_manager = self.job_manager.lock().await;
         if let Some(proof) = proof {
             info!("Setting proof by id: {:?}", job_id);
             // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
@@ -1345,7 +1345,6 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                 info!("Notifying core goal completed: {:?}", job_id);
                 self.history_queue.notify_core_goal_completed_imm(job_id).await.map_err(RpcError::Anyhow)?;
         }
-        job_manager.mark_job_done(job_id);
         Ok(())
     }
 }

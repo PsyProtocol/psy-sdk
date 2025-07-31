@@ -62,6 +62,12 @@ impl JobsTaskGraph {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.tasks.clear();
+        self.deps.clear();
+        self.deps_on.clear();
+    }
+
     pub fn add_task(&mut self, task: JobsTask) {
         let task_id = task.task_id();
         self.tasks.insert(task_id, task);

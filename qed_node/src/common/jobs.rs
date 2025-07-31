@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::{HashMap, VecDeque}, sync::Arc};
 
 use crate::common::ConcreteProofWithPublicInputs;
 use async_trait::async_trait;
@@ -92,29 +92,30 @@ impl QProofStoreReaderAsync for JobClient {
 }
 
 pub async fn run_jobs_listener<T: JobDataIdGraphReader + Send + Sync + 'static>(
-    job_manager: Arc<Mutex<JobsGraphManager>>,
+    saved_jobs: Arc<Mutex<VecDeque<QProvingJobDataID>>>,
     job_graph_reader: Arc<T>,
 ) {
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             match job_graph_reader.wait_for_next_job_graph().await {
-                Ok((checkpoint_id, job_graph)) => {
-                    println!("Received job graph, checkpoint_id = {}", checkpoint_id);
-                    for job in job_graph.dep_graph.keys() {
-                        println!("Job: {:?}", job);
-                        for dep in job_graph.dep_graph.get(job).unwrap() {
-                            println!("- Dep: {:?}", dep);
-                        }
-                    }
-                    let mut job_manager = job_manager.lock().await;
-                    if job_manager.is_job_graph_empty() {
-                        job_manager.set_job_graph(job_graph, checkpoint_id);
-                    } else {
-                        error!(
-                        "🔍 Job graph is not empty, skipping, checkpoint_id = {}, job_graph = {:?}",
-                        checkpoint_id, job_graph
+                Ok((checkpoint_id, jobs)) => {
+                    info!(
+                        "Received jobs: len={}, checkpoint_id={}",
+                        jobs.len(),
+                        checkpoint_id
                     );
+                    if jobs.is_empty() {
+                        warn!("No jobs received");
+                        continue;
+                    }
+                    let mut job_lock = saved_jobs.lock().await;
+                    for job in jobs.iter() {
+                        if job_lock.contains(job) {
+                            warn!("Job already exists: {:?}", job);
+                            continue;
+                        }
+                        job_lock.push_back(job.clone());
                     }
                 }
                 Err(err) => {

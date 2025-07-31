@@ -16,7 +16,7 @@ pub trait JobDataIdGraphWriter {
 
 #[async_trait]
 pub trait JobDataIdGraphReader {
-    async fn wait_for_next_job_graph(&self) -> anyhow::Result<(u64, JobDataIdGraph)>;
+    async fn wait_for_next_job_graph(&self) -> anyhow::Result<(u64, Vec<QProvingJobDataID>)>;
 }
 
 pub trait QProofStoreReaderSync {

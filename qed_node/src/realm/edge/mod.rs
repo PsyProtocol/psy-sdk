@@ -18,6 +18,7 @@ use jsonrpsee::server::ServerBuilder;
 use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::QEDStore;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use sync::spawn_active_checkpoint_sync_task;
 use tokio::sync::Mutex;
@@ -96,7 +97,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         .build(&config.rpc.listen_addr)
         .await?;
 
-    let job_manager = Arc::new(Mutex::new(JobsGraphManager::new()));
+    let job_manager = Arc::new(Mutex::new(VecDeque::new()));
     let job_graph_reader = proof_store.clone();
     run_jobs_listener(Arc::clone(&job_manager), job_graph_reader).await;
 

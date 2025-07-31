@@ -76,24 +76,61 @@ impl ProofStoreRedisAsync {
 #[async_trait]
 impl JobDataIdGraphWriter for ProofStoreRedisAsync {
     async fn write_job_graph(&self, checkpoint_id: u64) -> anyhow::Result<()> {
-        let mut job_graph = self.job_graph.lock().await;
-        let job_graph = std::mem::take(&mut *job_graph);
-        let serialized = bincode::serialize(&(checkpoint_id, job_graph))?;
+        // let mut job_graph = self.job_graph.lock().await;
+        // let job_graph = std::mem::take(&mut *job_graph);
+        // let serialized = bincode::serialize(&(checkpoint_id, job_graph))?;
         let mut con = self.pool.get().await?;
-        let job_graph_key = format!("job_graph-{}", self.worker_queue_id);
-        con.lpush(job_graph_key, serialized).await?;
+        // let job_graph_key = format!("job_graph-{}", self.worker_queue_id);
+        // con.lpush(job_graph_key, serialized).await?;
+
+        let mut tasks = self.task_graph.lock().await;
+        let sorted_tasks = tasks.ts().clone();
+        let mut jobs = Vec::new();
+        for task_id in sorted_tasks {
+            for job_id in tasks.tasks.get(&task_id).unwrap().job_ids.iter() {
+                jobs.push(job_id.clone());
+            }
+        }
+        tasks.clear();
+        println!("writing job graph: len={}, checkpoint_id={}", jobs.len(), checkpoint_id);
+        for job in jobs.iter() {
+            println!("job: {:?}", job);
+        }
+        let serialized = bincode::serialize(&(checkpoint_id, jobs))?;
+        let task_job_key = format!("task_job-{}", self.worker_queue_id);
+        con.lpush(task_job_key, serialized).await?;
+        // let task_job_key = format!("task_job-{}", self.worker_queue_id);
+        // for task_id in sorted_tasks {
+        //     for job_id in tasks.tasks.get(&task_id).unwrap().job_ids.iter() {
+        //         con.lpush(task_job_key, job_id.to_fixed_bytes().as_slice()).await?;
+        //     }
+        // }
+
+
+
+
+        // let serialized = bincode::serialize(&(checkpoint_id, tasks))?;
+        // let mut con = self.pool.get().await?;
+        // let task_graph_key = format!("task_graph-{}", self.worker_queue_id);
+        // con.lpush(task_graph_key, serialized).await?;
+
         Ok(())
     }
 }
 
 #[async_trait]
 impl JobDataIdGraphReader for ProofStoreRedisAsync {
-    async fn wait_for_next_job_graph(&self) -> anyhow::Result<(u64, JobDataIdGraph)> {
-        let job_graph_key = format!("job_graph-{}", self.worker_queue_id);
+    async fn wait_for_next_job_graph(&self) -> anyhow::Result<(u64, Vec<QProvingJobDataID>)> {
+        // let job_graph_key = format!("job_graph-{}", self.worker_queue_id);
+        // let mut con = self.pool.get().await?;
+        // let serialized: Vec<u8> = con.rpop(job_graph_key.clone(), None).await?;
+        // let (checkpoint_id, job_graph) = bincode::deserialize::<(u64, JobDataIdGraph)>(&serialized)?;
+        // Ok((checkpoint_id, job_graph))
         let mut con = self.pool.get().await?;
-        let serialized: Vec<u8> = con.rpop(job_graph_key.clone(), None).await?;
-        let (checkpoint_id, job_graph) = bincode::deserialize::<(u64, JobDataIdGraph)>(&serialized)?;
-        Ok((checkpoint_id, job_graph))
+        let task_job_key = format!("task_job-{}", self.worker_queue_id);
+        let serialized: Vec<u8> = con.rpop(task_job_key.clone(), None).await?;
+        let (checkpoint_id, jobs) = bincode::deserialize::<(u64, Vec<QProvingJobDataID>)>(&serialized)?;
+        Ok((checkpoint_id, jobs))
     }
 }
 

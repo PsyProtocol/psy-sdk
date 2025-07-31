@@ -47,8 +47,9 @@ async fn run_scheduler_worker(
                 continue;
             }
         };
+        info!("received job: {:?}", job_id);
         if !should_prove_job(job_id) {
-            info!("skipping job proving: {:?}", job_id);
+            info!("skipping job proving");
             job_receiver.submit_job_proof(job_id, None).await?;
             continue;
         }
