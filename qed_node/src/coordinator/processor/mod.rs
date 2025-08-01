@@ -187,7 +187,7 @@ impl
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
-        let mut coordinator_processor_ctx = CoordinatorProcessorContext::new(
+        let coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
             Arc::new(qed_store.clone()),
             qps.clone(),
@@ -218,30 +218,31 @@ impl
         info!("building block: {:?}", next_checkpoint_id);
         self.ctx.build_block().await?;
         info!("waiting for block proving jobs: {:?}", next_checkpoint_id);
-        let mut task_graph = self.ctx.proof_store.task_graph.lock().await;
-        println!("checkpoint: {:?}", next_checkpoint_id);
-        for (_, task) in task_graph.tasks.iter() {
-            println!("taskb: {:?}", task.task_id);
-            for job in task.job_ids.iter() {
-                println!("- {:?}", job);
-            }
-        }
-        println!("TASK ORDER:");
-        for task_id in task_graph.ts().clone() {
-            let task = task_graph.tasks.get(&task_id).unwrap();
-            println!("taska: {:?}", task.task_id);
-            for job in task.job_ids.iter() {
-                println!("- {:?}", job);
-            }
-        }
         {
+            let mut task_graph = self.ctx.proof_store.task_graph.lock().await;
+            println!("checkpoint: {:?}", next_checkpoint_id);
+            for (_, task) in task_graph.tasks.iter() {
+                println!("taskb: {:?}", task.task_id);
+                for job in task.job_ids.iter() {
+                    println!("- {:?}", job);
+                }
+            }
+            println!("TASK ORDER:");
+            for task_id in task_graph.ts().clone() {
+                let task = task_graph.tasks.get(&task_id).unwrap();
+                println!("taska: {:?}", task.task_id);
+                for job in task.job_ids.iter() {
+                    println!("- {:?}", job);
+                }
+            }
+            
             //get the topology sorted tasks
             let sorted_tasks = task_graph.ts_task();
             self.job_task_store.save_task_topology(sorted_tasks).await?;
+            task_graph.clear();
         }
-        task_graph.clear();
 
-
+        
         info!("🐶 waiting for block proving jobs");
         self.ctx
             .prover_queue

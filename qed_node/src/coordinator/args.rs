@@ -10,7 +10,7 @@ pub struct CoordinatorWorkerArgs {
     )]
     pub redis_uri: String,
     #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
-    pub redis_pool_size: u32,
+    pub redis_pool_size: usize,
     #[clap(long = "edge-url", default_value = "http://localhost:8545")]
     pub edge_url: String,
     #[clap(flatten)]
@@ -26,7 +26,7 @@ pub struct CoordinatorProcessorArgs {
     )]
     pub redis_uri: String,
     #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
-    pub redis_pool_size: u32,
+    pub redis_pool_size: usize,
     #[clap(flatten)]
     pub backend: BackendConfig,
     #[clap(flatten)]
@@ -47,6 +47,8 @@ pub struct CoordinatorEdgeArgs {
     pub backend: BackendConfig,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
+    #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
+    pub redis_pool_size: usize,
 }
 
 #[derive(Clone, Debug, Args)]

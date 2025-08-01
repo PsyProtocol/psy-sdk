@@ -79,10 +79,8 @@ impl CoordinatorEdgeHandler {
         info!("🗄️ Initializing storage backend...");
         let qed_store = QEDStore::from_backend(args.backend.to_backend()).await?;
         let store_reader = Arc::new(qed_store);
-
-        let redis_pool = new_redis_async_pool(&args.redis_uri, 8).await?;
-
-        let task_store = JobTaskStoreImpl::new(&args.redis_uri, 8).await?;
+        let redis_pool = new_redis_async_pool(&args.redis_uri, args.redis_pool_size).await?;
+        let task_store = JobTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size).await?;
         let qe_args = &args.queue_args;
 
         let proof_store = Arc::new(ProofStoreRedisAsync::new2(

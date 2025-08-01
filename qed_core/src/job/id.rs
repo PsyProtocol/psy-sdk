@@ -321,8 +321,6 @@ impl QProvingJobDataIDSerializedWrapped {
 pub struct QWorkerJobBenchmark {
   #[serde_as(as = "serde_with::hex::Hex")]
   pub job_id: QProvingJobDataIDSerialized,
-
-
   pub duration: u64,
 }
 
@@ -419,10 +417,7 @@ impl JobsTaskGraph {
         self.add_task(task);
         self.add_task(dep_task);
     }
-
-
-
-
+    
     pub fn ts_inner(
         &self,
         task: TaskId,
@@ -471,8 +466,6 @@ impl JobsTaskGraph {
     pub fn get_task(&self, task_id: TaskId) -> Option<&JobsTask> {
         self.tasks.get(&task_id)
     }
-
-
 }
 
 
