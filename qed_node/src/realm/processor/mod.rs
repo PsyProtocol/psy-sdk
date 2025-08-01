@@ -6,7 +6,6 @@ use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
 };
 use qed_core::job::id::ProvingJobDataId;
-use qed_core::job::traits::JobDataIdGraphWriter;
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::models::checkpoint::sync_info::CheckpointError;
@@ -20,6 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
+use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl};
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<QEDStore>,
@@ -35,6 +35,8 @@ pub struct RealmProcessor {
     pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
     pub store: Arc<JournalStore<QEDStore>>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+    pub job_task_store: Arc<JobTaskStoreImpl>,
+
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
@@ -51,6 +53,8 @@ impl RealmProcessor {
             config.redis.pool_size.unwrap_or(10),
         )
         .await?;
+        let task_store = JobTaskStoreImpl::new(&config.redis.redis_uri.as_str(), config.redis.pool_size.unwrap_or(10))
+            .await?;
         let realm_qps = ProofStoreRedisAsync::new2(
             pool,
             &config.queue.worker_queue_suffix,
@@ -73,6 +77,7 @@ impl RealmProcessor {
             sync_checkpoint,
             store: store_reader,
             proof_verifier,
+            job_task_store: Arc::new(task_store),
         };
         Ok(processor)
     }
@@ -201,7 +206,29 @@ impl RealmProcessor {
             self.store.rollback(next_checkpoint_id)?;
             return Err(err);
         }
+        {
+            println!("checkpoint: {:?}", next_checkpoint_id);
+            let mut task_graph = context.proof_store.task_graph.lock().await;
 
+            for (_, task) in task_graph.tasks.iter() {
+                println!("taskb: {:?}", task.task_id);
+                for job in task.job_ids.iter() {
+                    println!("- {:?}", job);
+                }
+            }
+            println!("TASK ORDER:");
+            for task_id in task_graph.ts().clone() {
+                let task = task_graph.tasks.get(&task_id).unwrap();
+                println!("taska: {:?}", task.task_id);
+                for job in task.job_ids.iter() {
+                    println!("- {:?}", job);
+                }
+            }
+            //get the topology sorted tasks
+            let sorted_tasks = task_graph.ts_task();
+            self.job_task_store.save_task_topology(sorted_tasks).await?;
+            task_graph.clear();
+        }
         let realm_worker_output_job_id = self
             .sync_proof
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)

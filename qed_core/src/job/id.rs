@@ -6,148 +6,11 @@ use kvq::traits::KVQSerializable;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
+use uuid::Uuid;
 use crate::config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROOF_SYNC_CHANNEL};
 use crate::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
 use crate::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged};
 use super::mode::QWorkerMode;
-use uuid::Uuid;
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct JobsTask {
-    pub task_id: TaskId,
-    pub job_ids: Vec<QProvingJobDataID>,
-}
-
-impl JobsTask {
-    pub fn new(job_ids: &[QProvingJobDataID]) -> Self {
-        Self {
-            task_id: TaskId::new(),
-            job_ids: job_ids.to_vec(),
-        }
-    }
-
-    pub fn task_id(&self) -> TaskId {
-        self.task_id
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct TaskId(Uuid);
-
-impl TaskId {
-    pub fn new() -> Self {
-        Self(Uuid::new_v4())
-    }
-    /// Creates a sequential TaskId for debugging
-    /// Returns IDs like "task-001", "task-002", etc.
-    pub fn new_debug() -> Self {
-        let counter = DEBUG_COUNTER.fetch_add(1, Ordering::SeqCst);
-        // Create a deterministic UUID from the counter
-        let mut bytes = [0u8; 16];
-        bytes[..8].copy_from_slice(&counter.to_le_bytes());
-        TaskId(Uuid::from_bytes(bytes))
-    }
-}
-
-impl fmt::Display for TaskId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum Color {
-    White,
-    Grey,
-    Black,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JobsTaskGraph {
-    pub tasks: HashMap<TaskId, JobsTask>,
-    pub deps: HashMap<TaskId, HashSet<TaskId>>,
-    pub deps_on: HashMap<TaskId, HashSet<TaskId>>,
-}
-
-impl JobsTaskGraph {
-    pub fn new() -> Self {
-        Self {
-            tasks: HashMap::new(),
-            deps: HashMap::new(),
-            deps_on: HashMap::new(),
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.tasks.clear();
-        self.deps.clear();
-        self.deps_on.clear();
-    }
-
-    pub fn add_task(&mut self, task: JobsTask) {
-        let task_id = task.task_id();
-        self.tasks.insert(task_id, task);
-    }
-
-    pub fn add_dep(&mut self, task: JobsTask, dep_task: JobsTask) {
-        self.deps
-            .entry(task.task_id())
-            .or_default()
-            .insert(dep_task.task_id());
-        self.deps_on
-            .entry(dep_task.task_id())
-            .or_default()
-            .insert(task.task_id());
-        self.add_task(task);
-        self.add_task(dep_task);
-    }
-
-    pub fn ts_inner(
-        &self,
-        task: TaskId,
-        colors: &mut HashMap<TaskId, Color>,
-        visitor: &mut impl FnMut(TaskId),
-    ) {
-        colors.insert(task, Color::Grey);
-        if let Some(deps) = self.deps.get(&task) {
-            for &dep in deps {
-                match colors.get(&dep) {
-                    Some(Color::Grey) => panic!("cycle detected"),
-                    Some(Color::Black) => {
-                        return;
-                    }
-                    None => self.ts_inner(dep, colors, visitor),
-                    _ => {}
-                }
-            }
-        }
-        visitor(task);
-        colors.insert(task, Color::Black);
-    }
-
-    pub fn ts(&self) -> Vec<TaskId> {
-        let mut starting_tasks = HashSet::new();
-        for &task_id in self.tasks.keys() {
-            if self.deps_on.get(&task_id).is_none() {
-                starting_tasks.insert(task_id);
-            }
-        }
-        let mut sorted = Vec::new();
-        let mut colors = HashMap::new();
-        for task in starting_tasks {
-            self.ts_inner(task, &mut colors, &mut |task| sorted.push(task));
-        }
-        sorted
-    }
-        pub fn ts_task(&self) -> Vec<&JobsTask> {
-        self.ts()
-            .into_iter()
-            .filter_map(|task_id| self.tasks.get(&task_id))
-            .collect()
-    }
-}
-
-
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
 )]
@@ -463,58 +326,155 @@ pub struct QWorkerJobBenchmark {
   pub duration: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct JobsTask {
+    pub task_id: TaskId,
+    pub job_ids: Vec<QProvingJobDataID>,
+}
+
+impl JobsTask {
+    pub fn new(job_ids: &[QProvingJobDataID]) -> Self {
+        let task_id = TaskId::new_debug();
+        Self {
+            task_id,
+            job_ids: job_ids.to_vec(),
+        }
+    }
+
+    pub fn task_id(&self) -> TaskId {
+        self.task_id
+    }
+}
 /// Static counter for generating sequential debug IDs
 static DEBUG_COUNTER: AtomicU64 = AtomicU64::new(1);
 
-// TODO: remove
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct JobDataIdGraph {
-    pub dep_graph: HashMap<QProvingJobDataID, HashSet<QProvingJobDataID>>,
+#[derive(Serialize, Deserialize,Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct TaskId(Uuid);
+
+impl TaskId {
+    pub fn new() -> Self {
+        Self(Uuid::new_v4())
+    }
+
+    /// Creates a sequential TaskId for debugging
+    /// Returns IDs like "task-001", "task-002", etc.
+    pub fn new_debug() -> Self {
+        let counter = DEBUG_COUNTER.fetch_add(1, Ordering::SeqCst);
+        // Create a deterministic UUID from the counter
+        let mut bytes = [0u8; 16];
+        bytes[..8].copy_from_slice(&counter.to_le_bytes());
+        TaskId(Uuid::from_bytes(bytes))
+    }
 }
 
-impl JobDataIdGraph {
+impl fmt::Display for TaskId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Serialize, Deserialize,Clone, Debug)]
+pub enum Color {
+    White,
+    Grey,
+    Black,
+}
+
+#[derive(Serialize, Deserialize,Clone, Debug)]
+pub struct JobsTaskGraph {
+    pub tasks: HashMap<TaskId, JobsTask>,
+    pub deps: HashMap<TaskId, HashSet<TaskId>>,
+    pub deps_on: HashMap<TaskId, HashSet<TaskId>>,
+}
+
+impl JobsTaskGraph {
     pub fn new() -> Self {
         Self {
-            dep_graph: HashMap::new(),
+            tasks: HashMap::new(),
+            deps: HashMap::new(),
+            deps_on: HashMap::new(),
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.dep_graph.is_empty()
+    pub fn clear(&mut self) {
+        self.tasks.clear();
+        self.deps.clear();
+        self.deps_on.clear();
     }
 
-    pub fn add_job(&mut self, job_id: QProvingJobDataID) {
-        self.dep_graph.entry(job_id).or_default();
+    pub fn add_task(&mut self, task: JobsTask) {
+        let task_id = task.task_id();
+        self.tasks.insert(task_id, task);
     }
 
-    pub fn add_job_dep(&mut self, job_id: QProvingJobDataID, dep_id: QProvingJobDataID) {
-        self.add_job(job_id);
-        self.add_job(dep_id);
-        self.dep_graph.entry(job_id).or_default().insert(dep_id);
+    pub fn add_dep(&mut self, task: JobsTask, dep_task: JobsTask) {
+        self.deps
+            .entry(task.task_id())
+            .or_default()
+            .insert(dep_task.task_id());
+        self.deps_on
+            .entry(dep_task.task_id())
+            .or_default()
+            .insert(task.task_id());
+        self.add_task(task);
+        self.add_task(dep_task);
     }
 
-    pub fn get_ready_jobs(&self) -> Vec<QProvingJobDataID> {
-        let mut ready_jobs = Vec::new();
-        for (&job_id, deps) in &self.dep_graph {
-            if deps.is_empty() {
-                ready_jobs.push(job_id);
+
+
+
+    pub fn ts_inner(
+        &self,
+        task: TaskId,
+        colors: &mut HashMap<TaskId, Color>,
+        visitor: &mut impl FnMut(TaskId),
+    ) {
+        colors.insert(task, Color::Grey);
+        if let Some(deps) = self.deps.get(&task) {
+            for &dep in deps {
+                match colors.get(&dep) {
+                    Some(Color::Grey) => panic!("cycle detected"),
+                    Some(Color::Black) => {
+                        return;
+                    }
+                    None => self.ts_inner(dep, colors, visitor),
+                    _ => {}
+                }
             }
         }
-        ready_jobs
+        visitor(task);
+        colors.insert(task, Color::Black);
     }
 
-    pub fn take_ready_jobs(&mut self) -> Vec<QProvingJobDataID> {
-        let ready_jobs = self.get_ready_jobs();
-        for job_id in ready_jobs.iter() {
-            self.dep_graph.remove(job_id);
-            for dep_graph in self.dep_graph.values_mut() {
-                dep_graph.remove(job_id);
+    pub fn ts(&self) -> Vec<TaskId> {
+        let mut starting_tasks = HashSet::new();
+        for &task_id in self.tasks.keys() {
+            if self.deps_on.get(&task_id).is_none() {
+                starting_tasks.insert(task_id);
             }
         }
-        ready_jobs
+        let mut sorted = Vec::new();
+        let mut colors = HashMap::new();
+        for task in starting_tasks {
+            self.ts_inner(task, &mut colors, &mut |task| sorted.push(task));
+        }
+        sorted
     }
+
+    pub fn ts_task(&self) -> Vec<&JobsTask> {
+        self.ts()
+            .into_iter()
+            .filter_map(|task_id| self.tasks.get(&task_id))
+            .collect()
+    }
+
+    pub fn get_task(&self, task_id: TaskId) -> Option<&JobsTask> {
+        self.tasks.get(&task_id)
+    }
+
 
 }
+
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct QProvingJobDataID {

@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 // std
 use std::sync::Arc;
 
@@ -18,7 +17,7 @@ use qed_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
     WithDrainQueueMetadata,
 };
-use qed_core::job::id::{JobDataIdGraph, ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
+use qed_core::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
 use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 
 // qed_crypto
@@ -44,7 +43,7 @@ use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
-use crate::common::jobs::{run_jobs_listener, JobSchedulerRpcServer, JobsGraphManager};
+use crate::common::jobs::{JobSchedulerRpcServer};
 use crate::common::ConcreteProofWithPublicInputs;
 // crate inner
 use crate::coordinator::edge::{StoreReader, DrainQueue, ProofStore};

@@ -4,8 +4,7 @@ use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use redis::{AsyncCommands, RedisResult};
 use kvq::traits::KVQSerializable;
-use qed_core::job::{id::{JobsTask, JobsTaskGraph, JobDataIdGraph, ProvingJobDataId}, traits::{JobDataIdGraphReader, JobDataIdGraphWriter}};
-use qed_data::qdata::checkpoint::CheckpointSyncInfo;
+use qed_core::job::{id::{JobsTask, JobsTaskGraph, ProvingJobDataId}};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use tracing::debug;
 
@@ -25,7 +24,7 @@ use qed_core::job::{
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
 use tokio::{sync::Mutex, time::sleep};
-
+use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 // Re-use constants from fred_queue
 use crate::queue::fred_queue::{
     PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX,
@@ -40,8 +39,7 @@ pub struct ProofStoreRedisAsync {
     notifications_queue_id: String,
     proof_store_key: String,
     proof_store_counters: String,
-    job_graph: Arc<Mutex<JobDataIdGraph>>,
-    pub task_graph: Arc<Mutex<JobsTaskGraph>>,
+    pub task_graph: Arc<Mutex<JobsTaskGraph>>
 }
 
 impl ProofStoreRedisAsync {
@@ -64,73 +62,11 @@ impl ProofStoreRedisAsync {
                 "{}-{}",
                 PROOF_STORE_COUNTERS_PREFIX_1, proof_store_counters_suffix
             ),
-            job_graph: Arc::new(Mutex::new(JobDataIdGraph::new())),
             task_graph: Arc::new(Mutex::new(JobsTaskGraph::new())),
         })
     }
     pub fn pool(&self) -> &Pool<RedisConnectionManager> {
         &self.pool
-    }
-}
-
-#[async_trait]
-impl JobDataIdGraphWriter for ProofStoreRedisAsync {
-    async fn write_job_graph(&self, checkpoint_id: u64) -> anyhow::Result<()> {
-        // let mut job_graph = self.job_graph.lock().await;
-        // let job_graph = std::mem::take(&mut *job_graph);
-        // let serialized = bincode::serialize(&(checkpoint_id, job_graph))?;
-        let mut con = self.pool.get().await?;
-        // let job_graph_key = format!("job_graph-{}", self.worker_queue_id);
-        // con.lpush(job_graph_key, serialized).await?;
-
-        let mut tasks = self.task_graph.lock().await;
-        let sorted_tasks = tasks.ts().clone();
-        let mut jobs = Vec::new();
-        for task_id in sorted_tasks {
-            for job_id in tasks.tasks.get(&task_id).unwrap().job_ids.iter() {
-                jobs.push(job_id.clone());
-            }
-        }
-        tasks.clear();
-        println!("writing job graph: len={}, checkpoint_id={}", jobs.len(), checkpoint_id);
-        for job in jobs.iter() {
-            println!("job: {:?}", job);
-        }
-        let serialized = bincode::serialize(&(checkpoint_id, jobs))?;
-        let task_job_key = format!("task_job-{}", self.worker_queue_id);
-        con.lpush(task_job_key, serialized).await?;
-        // let task_job_key = format!("task_job-{}", self.worker_queue_id);
-        // for task_id in sorted_tasks {
-        //     for job_id in tasks.tasks.get(&task_id).unwrap().job_ids.iter() {
-        //         con.lpush(task_job_key, job_id.to_fixed_bytes().as_slice()).await?;
-        //     }
-        // }
-
-
-
-
-        // let serialized = bincode::serialize(&(checkpoint_id, tasks))?;
-        // let mut con = self.pool.get().await?;
-        // let task_graph_key = format!("task_graph-{}", self.worker_queue_id);
-        // con.lpush(task_graph_key, serialized).await?;
-
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl JobDataIdGraphReader for ProofStoreRedisAsync {
-    async fn wait_for_next_job_graph(&self) -> anyhow::Result<(u64, Vec<QProvingJobDataID>)> {
-        // let job_graph_key = format!("job_graph-{}", self.worker_queue_id);
-        // let mut con = self.pool.get().await?;
-        // let serialized: Vec<u8> = con.rpop(job_graph_key.clone(), None).await?;
-        // let (checkpoint_id, job_graph) = bincode::deserialize::<(u64, JobDataIdGraph)>(&serialized)?;
-        // Ok((checkpoint_id, job_graph))
-        let mut con = self.pool.get().await?;
-        let task_job_key = format!("task_job-{}", self.worker_queue_id);
-        let serialized: Vec<u8> = con.rpop(task_job_key.clone(), None).await?;
-        let (checkpoint_id, jobs) = bincode::deserialize::<(u64, Vec<QProvingJobDataID>)>(&serialized)?;
-        Ok((checkpoint_id, jobs))
     }
 }
 
@@ -217,12 +153,9 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         next_jobs: &[QProvingJobDataID],
     ) -> anyhow::Result<()> {
         self.write_next_jobs_core(jobs, next_jobs).await?;
-        let mut job_graph = self.job_graph.lock().await;
-        for &next_job in next_jobs {
-            for &job in jobs {
-                job_graph.add_job_dep(next_job, job);
-            }
-        }
+        let task = JobsTask::new(jobs);
+        let next_task = JobsTask::new(next_jobs);
+        self.task_graph.lock().await.add_dep(task, next_task);
         Ok(())
     }
 
@@ -233,21 +166,18 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
     ) -> anyhow::Result<()> {
         self.write_multidimensional_jobs_core(jobs_levels, next_jobs)
             .await?;
-        let mut job_graph = self.job_graph.lock().await;
         let job_levels_count = jobs_levels.len();
+        let tasks = jobs_levels.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
+        let next_task = JobsTask::new(next_jobs);
+        let mut task_graph = self.task_graph.lock().await;
         for i in 0..job_levels_count {
-            // jobs_levels[0]'s next job is jobs_levels[1]
-            let current_next_jobs = if i == job_levels_count - 1 {
-                next_jobs
+            let current_next_task = if i == job_levels_count - 1 {
+                &next_task
             } else {
-                &jobs_levels[i + 1]
+                &tasks[i + 1]
             };
-            let current_jobs = &jobs_levels[i];
-            for &next_job in current_next_jobs {
-                for &job in current_jobs {
-                    job_graph.add_job_dep(next_job, job);
-                }
-            }
+            let current_task = &tasks[i];
+            task_graph.add_dep(current_task.clone(), current_next_task.clone());
         }
         Ok(())
     }
@@ -350,10 +280,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
             jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect::<Vec<Vec<u8>>>().as_slice(),
         )
         .await?;
-        let mut job_graph = self.job_graph.lock().await;
-        for &job in jobs {
-            job_graph.add_job(job);
-        }
+
         Ok(())
     }
     async fn notify_core_goal_completed_imm(&self, job: QProvingJobDataID) -> anyhow::Result<()> {
@@ -382,7 +309,6 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
         &self,
         _checkpoint_id: u64,
     ) -> anyhow::Result<QProvingJobDataID> {
-        tracing::info!("waiting for block proving, notifications_queue_id = {}, checkpoint_id = {}", self.notifications_queue_id, _checkpoint_id);
         loop {
             let mut con = self.pool.get().await?;
             let job_res: Option<Vec<u8>> = con.lpop(&self.notifications_queue_id, None).await?;

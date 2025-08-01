@@ -1,6 +1,6 @@
 use super::error::RpcError;
 use super::rpc::RealmEdgeRpcServer;
-use crate::common::jobs::{JobSchedulerRpcServer, JobsGraphManager};
+use crate::common::jobs::{JobSchedulerRpcServer};
 use crate::common::ConcreteProofWithPublicInputs;
 use crate::realm::state::edge::RealmEdgeContext;
 use crate::realm::{C, D, F, H};
@@ -33,7 +33,6 @@ use qed_data::qdata::user::QEDUserLeaf;
 use qed_rollup_utils::generate_jwt_token;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
-use std::collections::VecDeque;
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
