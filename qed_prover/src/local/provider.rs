@@ -43,10 +43,14 @@ use std::{collections::HashMap, fs, marker::PhantomData, sync::Arc};
 use crate::local::request::{
     QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QLeftAggRightLeafRpcRequestV2,
     QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest,
-    QRegisterCircuitsRPCRequest, QSecpSignatureProofRPCRequest, QSignatureProofRPCRequest,
-    QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2,
+    QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest,
+    QSecpSignatureProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2,
+    QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2,
     QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
     RequestParamsV2,
+};
+use crate::wallet::software_defined_circuit::{
+    SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
 };
 
 use super::request::{
@@ -464,6 +468,19 @@ pub trait ProveProxyRpcTrait<C: GenericConfig<D>, const D: usize> {
     async fn prove_secp_sign(
         &self,
         signature: QEDCompressedSecp256K1Signature,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+
+    async fn register_software_defined_circuit(
+        &self,
+        input: SoftwareDefinedSignatureInput,
+    ) -> anyhow::Result<QHashOut<C::F>>;
+
+    async fn prove_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<C::F>,
+        private_key: QHashOut<C::F>,
+        input: SoftwareDefinedSignatureWitnessInput,
+        sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
     // async fn software_defined_sign(
@@ -996,6 +1013,67 @@ where
         }
     }
 
+    async fn register_software_defined_circuit(
+        &self,
+        input: SoftwareDefinedSignatureInput,
+    ) -> anyhow::Result<QHashOut<C::F>> {
+        tracing::info!("register_software_defined_circuit: ");
+        let input = match input {
+            SoftwareDefinedSignatureInput::QED(input) => input,
+            SoftwareDefinedSignatureInput::PLONKY2(_) => unimplemented!(),
+        };
+        let response = qed_rpc_call_back!(
+            self,
+            &self.proof_proxy_url,
+            RequestParams::<C::F>::RegisterSoftwareDefinedCircuit(
+                QRegisterSoftwareDefinedCircuitRPCRequest { input }
+            ),
+            QHashOut<C::F>
+        );
+        match response.result {
+            ResponseResult::Success(fingerprint) => {
+                tracing::info!("get sdc fingerprint: {}", fingerprint.to_string());
+                Ok(fingerprint)
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    async fn prove_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<C::F>,
+        private_key: QHashOut<C::F>,
+        input: SoftwareDefinedSignatureWitnessInput,
+        sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::info!("prove_software_defined_sign:");
+        let input = match input {
+            SoftwareDefinedSignatureWitnessInput::QED(input) => input,
+            SoftwareDefinedSignatureWitnessInput::PLONKY2(_) => unimplemented!(),
+        };
+        let response = qed_rpc_call_back!(
+            self,
+            &self.proof_proxy_url,
+            RequestParams::<C::F>::SoftwareDefinedSignatureProof(QSoftwareDefinedSignatureProofRPCRequest {
+                fingerprint,
+                private_key,
+                input,
+                sig_hash,
+            }),
+            ProofWithPublicInputs<C::F, C, D>
+        );
+        match response.result {
+            ResponseResult::Success(proof) => {
+                tracing::info!(
+                    "get proof: {}",
+                    serde_json::to_string_pretty(&proof.public_inputs)?
+                );
+                Ok(proof)
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
     async fn prove_ups_end_cap(
         &self,
         circuit_info: &SessionCircuitInfoStore<C::F>,
@@ -1093,20 +1171,30 @@ where
         Ok(self.common_circuits_data.ups_circuit_whitelist_root)
     }
 
-    async fn zk_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>{
+    async fn zk_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         Ok(self.common_circuits_data.zk_circuit.fingerprint)
     }
 
-    async fn zk_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>{
-        Ok(self.common_circuits_data.zk_circuit.verifier_config.clone().to_verifier_data())
+    async fn zk_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self
+            .common_circuits_data
+            .zk_circuit
+            .verifier_config
+            .clone()
+            .to_verifier_data())
     }
 
-    async fn secp_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>{
+    async fn secp_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         Ok(self.common_circuits_data.secp_circuit.fingerprint)
     }
 
-    async fn secp_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>{
-        Ok(self.common_circuits_data.secp_circuit.verifier_config.clone().to_verifier_data())
+    async fn secp_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self
+            .common_circuits_data
+            .secp_circuit
+            .verifier_config
+            .clone()
+            .to_verifier_data())
     }
 }
 

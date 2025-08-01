@@ -34,6 +34,9 @@ use serde_with::serde_as;
 use std::borrow::Cow;
 use ts_rs::TS;
 
+use crate::wallet::software_defined_circuit::{
+    QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput,
+};
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
@@ -258,6 +261,10 @@ pub enum RequestParams<F: RichField> {
     ZKSignatureProof(QSignatureProofRPCRequest<F>),
     #[serde(rename = "qed_prove_secp_sign")]
     SECPSignatureProof(QSecpSignatureProofRPCRequest),
+    #[serde(rename = "qed_register_software_defined_circuit")]
+    RegisterSoftwareDefinedCircuit(QRegisterSoftwareDefinedCircuitRPCRequest),
+    #[serde(rename = "qed_prove_software_defined_sign")]
+    SoftwareDefinedSignatureProof(QSoftwareDefinedSignatureProofRPCRequest<F>),
     // #[serde(rename = "qed_finalize_tree")]
     // FinalizeTree,
     // #[serde(rename = "qed_prove_ups_end_cap")]
@@ -1150,6 +1157,23 @@ pub struct QSignatureProofRPCRequest<F: RichField> {
 // #[ts(export, concrete(F = GoldilocksField))]
 pub struct QSecpSignatureProofRPCRequest {
     pub signature: QEDCompressedSecp256K1Signature,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QRegisterSoftwareDefinedCircuitRPCRequest {
+    pub input: QSoftwareDefinedSignatureInput,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct QSoftwareDefinedSignatureProofRPCRequest<F: RichField> {
+    pub fingerprint: QHashOut<F>,
+    pub private_key: QHashOut<F>,
+    pub input: QSoftwareDefinedSignatureWitnessInput,
+    pub sig_hash: QHashOut<F>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

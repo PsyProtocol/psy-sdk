@@ -1,5 +1,10 @@
 use crate::dpn::circuits::cfc::DapenContractFunctionCircuit;
 use crate::ups::circuit_manager::core::QEDUPSStepCircuitManager;
+use crate::wallet::software_defined_circuit::{
+    QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput,
+    SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureInput,
+    SoftwareDefinedSignatureWitnessInput,
+};
 use dashmap::DashMap;
 use jsonrpsee::core::async_trait;
 use jsonrpsee::proc_macros::rpc;
@@ -112,6 +117,21 @@ pub trait ProveProxyRpc {
         signature: QEDCompressedSecp256K1Signature,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
+    #[method(name = "register_software_defined_circuit")]
+    async fn register_software_defined_circuit(
+        &self,
+        input: QSoftwareDefinedSignatureInput,
+    ) -> Result<QHashOut<F>, ErrorObjectOwned>;
+
+    #[method(name = "prove_software_defined_sign")]
+    async fn prove_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<F>,
+        private_key: QHashOut<F>,
+        input: QSoftwareDefinedSignatureWitnessInput,
+        sig_hash: QHashOut<F>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+
     // #[method(name = "finalize_tree")]
     // async fn finalize_tree(&self) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
@@ -220,6 +240,8 @@ pub struct LocalCommonCircuitsData {
 #[derive(Debug)]
 pub struct ProveProxyServerProvider {
     pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
+    pub software_defined_circuits:
+        DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
 
     pub circuit_manager: QEDUPSStepCircuitManager<C, D>,
     pub circuit_info: SessionCircuitInfoStore<F>,
@@ -248,6 +270,7 @@ impl ProveProxyServerProvider {
         circuit_manager.register_info(&mut circuit_info);
         Self {
             contract_circuits: DashMap::new(),
+            software_defined_circuits: DashMap::new(),
             circuit_manager,
             circuit_info,
         }
@@ -620,6 +643,56 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
             .map_err(|err| {
                 ErrorObjectOwned::owned(1, "secp signature proving error", Some(err.to_string()))
             })
+    }
+
+    async fn register_software_defined_circuit(
+        &self,
+        input: QSoftwareDefinedSignatureInput,
+    ) -> Result<QHashOut<F>, ErrorObjectOwned> {
+        let input = SoftwareDefinedSignatureInput::QED(input);
+        let sdc = SoftwareDefinedSignatureCircuit::new(&input);
+        let fingerprint = sdc.get_fingerprint();
+        tracing::info!(
+            "register software defined circuit: {}",
+            fingerprint.to_string()
+        );
+        if let Some(_) = self.software_defined_circuits.insert(fingerprint, sdc) {
+            tracing::warn!(
+                "software defined circuit `{}` is already registered",
+                fingerprint.to_string()
+            );
+        };
+        Ok(fingerprint)
+    }
+
+    async fn prove_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<F>,
+        private_key: QHashOut<F>,
+        input: QSoftwareDefinedSignatureWitnessInput,
+        sig_hash: QHashOut<F>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
+        tracing::info!("🔔 prove_software_defined_sign");
+        let input = SoftwareDefinedSignatureWitnessInput::QED(input);
+
+        if let Some(mut sdc) = self.software_defined_circuits.get_mut(&fingerprint) {
+            sdc.prove(private_key, &input, sig_hash).map_err(|err| {
+                ErrorObjectOwned::owned(
+                    1,
+                    "software defined signature proving error",
+                    Some(err.to_string()),
+                )
+            })
+        } else {
+            Err(ErrorObjectOwned::owned(
+                1,
+                format!(
+                    "software defined circuit {} is not found",
+                    fingerprint.to_string()
+                ),
+                Some(format!("fingerprint: {}", fingerprint.to_string())),
+            ))
+        }
     }
 
     async fn prove_ups_end_cap(

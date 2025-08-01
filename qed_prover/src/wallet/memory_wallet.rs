@@ -242,19 +242,21 @@ impl QEDMemoryWallet {
         &mut self,
         input: SoftwareDefinedSignatureInput,
     ) -> anyhow::Result<QHashOut<F>> {
-        // let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
-        // let fingerprint = sdc.get_fingerprint();
-        // tracing::info!(
-        //     "register software defined circuit: {}",
-        //     fingerprint.to_string()
-        // );
-        // if let Some(_) = self.software_defined_circuits.insert(fingerprint, sdc) {
-        //     tracing::warn!(
-        //         "software defined circuit `{}` is already registered",
-        //         fingerprint.to_string()
-        //     );
-        // };
-        // Ok(fingerprint)
-        todo!()
+        if let QCircuitManager::Rpc(rpc_provider) = &self.circuit_manager {
+            return rpc_provider.register_software_defined_circuit(input).await;
+        };
+        let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
+        let fingerprint = sdc.get_fingerprint();
+        tracing::info!(
+            "register software defined circuit: {}",
+            fingerprint.to_string()
+        );
+        if let Some(_) = self.software_defined_circuits.insert(fingerprint, sdc) {
+            tracing::warn!(
+                "software defined circuit `{}` is already registered",
+                fingerprint.to_string()
+            );
+        };
+        Ok(fingerprint)
     }
 }

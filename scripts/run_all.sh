@@ -22,7 +22,8 @@ REALM_PROCESSOR32_LOG="$LOG_DIR/realm-processor1.log"
 REALM_WORKER32_LOG="$LOG_DIR/realm-worker1.log"
 REALM_EDGE32_LOG="$LOG_DIR/realm-edge1.log"
 
-LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
+# LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
+LOCAL_PROVE_PROXY_LOG="$LOG_DIR/local-prove-proxy.log"
 WEB_WALLET_LOG="$LOG_DIR/web_wallet.log"
 
 # Clear log files at startup
@@ -36,7 +37,8 @@ echo "Clearing log files..."
 : > "$REALM_PROCESSOR32_LOG"
 : > "$REALM_WORKER32_LOG"
 : > "$REALM_EDGE32_LOG"
-: > "$LOCAL_USER_PROVER_LOG"
+# : > "$LOCAL_USER_PROVER_LOG"
+: > "$LOCAL_PROVE_PROXY_LOG"
 : > "$WEB_WALLET_LOG"
 
 # Array to store PIDs of background processes
@@ -99,9 +101,11 @@ run_service "make run-realm-edge1" "realm-edge1" "$REALM_EDGE32_LOG" &
 PIDS+=($!)
 
 sleep 1
-run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &
-PIDS+=($!)
+# run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &
+# PIDS+=($!)
 run_service "make run-web-wallet" "web-wallet" "$WEB_WALLET_LOG" &
+PIDS+=($!)
+run_service "make run-prove-proxy" "local-prove-proxy" "$LOCAL_PROVE_PROXY_LOG" &
 PIDS+=($!)
 
 # Wait for all background processes

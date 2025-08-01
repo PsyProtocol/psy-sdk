@@ -63,6 +63,9 @@ use crate::{
         provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
         request::QAggProofRecord,
     },
+    wallet::software_defined_circuit::{
+        SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
+    },
 };
 
 #[derive(Debug)]
@@ -674,6 +677,35 @@ where
         match self {
             QCircuitManager::Local(manager) => manager.prove_secp_sign(signature).await,
             QCircuitManager::Rpc(provider) => provider.prove_secp_sign(signature).await,
+        }
+    }
+
+    async fn register_software_defined_circuit(
+        &self,
+        input: SoftwareDefinedSignatureInput,
+    ) -> anyhow::Result<QHashOut<C::F>> {
+        match self {
+            QCircuitManager::Local(_) => unreachable!(),
+            QCircuitManager::Rpc(provider) => {
+                provider.register_software_defined_circuit(input).await
+            }
+        }
+    }
+
+    async fn prove_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<C::F>,
+        private_key: QHashOut<C::F>,
+        input: SoftwareDefinedSignatureWitnessInput,
+        sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        match self {
+            QCircuitManager::Local(_) => unreachable!(),
+            QCircuitManager::Rpc(provider) => {
+                provider
+                    .prove_software_defined_sign(fingerprint, private_key, input, sig_hash)
+                    .await
+            }
         }
     }
 

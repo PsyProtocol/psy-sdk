@@ -19,7 +19,6 @@
         "rpc_url": ["http://127.0.0.1:8545"]
       }
     ],
-    "prover_url": "http://prover:8888",
     "prove_proxy_url": "http:/127.0.0.1:9999",
     "native_currency": "0"
   },

@@ -31,6 +31,8 @@ use qed_crypto::{
 };
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use std::fmt::Debug;
 
 use crate::{
@@ -178,7 +180,7 @@ pub enum SoftwareDefinedSignatureInput {
 type C = PoseidonGoldilocksConfig;
 type GF = GoldilocksField;
 const D: usize = 2;
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct QSoftwareDefinedSignatureWitnessInput {
     pub cfc_input: DapenContractFunctionCircuitInput<GF>,
 }
@@ -201,7 +203,7 @@ pub struct QSoftwareDefinedSignatureGadget {
     pub circuit_inputs: Vec<Target>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct QSoftwareDefinedSignatureInput {
     pub fn_def: DPNFunctionCircuitDefinition,
     pub contract_id: u64,
