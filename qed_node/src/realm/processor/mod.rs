@@ -202,7 +202,6 @@ impl RealmProcessor {
             return Err(err);
         }
 
-        realm_qps.write_job_graph(next_checkpoint_id).await?;
         let realm_worker_output_job_id = self
             .sync_proof
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)

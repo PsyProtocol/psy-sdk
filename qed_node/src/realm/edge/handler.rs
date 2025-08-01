@@ -37,8 +37,10 @@ use std::collections::VecDeque;
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
+use jsonrpsee::types::{ErrorCode, ErrorObject};
 use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
+use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl, QJob};
 
 #[derive(Clone)]
 pub struct RealmEdgeHandler<
@@ -47,8 +49,9 @@ pub struct RealmEdgeHandler<
     PS: QProofStoreAsyncImm,
 > {
     ctx: RealmEdgeContext<SR, DQ, PS>,
-    job_manager: Arc<Mutex<VecDeque<QProvingJobDataID>>>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
+    job_task_store: Arc<JobTaskStoreImpl>,
+
 }
 
 impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
@@ -59,13 +62,13 @@ where
 {
     pub fn new(
         ctx: RealmEdgeContext<SR, DQ, PS>,
-        job_manager: Arc<Mutex<VecDeque<QProvingJobDataID>>>,
         job_notify_queue: Arc<ProofStoreRedisAsync>,
+        job_task_store: Arc<JobTaskStoreImpl>,
     ) -> Self {
         Self {
             ctx,
-            job_manager,
             job_notify_queue,
+            job_task_store,
         }
     }
 }
@@ -618,10 +621,24 @@ where
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
-    async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>> {
-        let mut job_manager = self.job_manager.lock().await;
-        let job_id = job_manager.pop_front();
-        Ok(job_id)
+    async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
+        let j = match self.job_task_store.claim_job_from_current_task().await {
+            Ok(job) => job,
+            Err(e) => {
+                error!("Error claiming job from current task: {:?}", e);
+                return Err(crate::coordinator::edge::error::RpcError::Anyhow(e.into()));
+            }
+        };
+        match j {
+            Some(job) => {
+                debug!("Pending job from current task: {:?}", job);
+                Ok(Some(job))
+            },
+            None => {
+                debug!("No pending job from current task");
+                Ok(None)
+            }
+        }
     }
 
     async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>> {
@@ -647,9 +664,10 @@ where
 
     async fn set_proof_by_id(
         &self,
-        job_id: QProvingJobDataID,
+        job: QJob,
         proof: Option<ConcreteProofWithPublicInputs>,
     ) -> RpcResult<()> {
+        let job_id = job.job_id;
         if let Some(proof) = proof {
             info!("Setting proof by id: {:?}", job_id);
             let output_id = job_id.get_output_id();
@@ -658,6 +676,23 @@ where
                 .set_proof_by_id(output_id, &proof)
                 .await
                 .map_err(RpcError::Anyhow)?;
+
+
+        }
+
+        // remove the job from the current task, no matter if proof is None or Some
+        match self.job_task_store.acknowledge_job_completion(&job).await {
+            Ok(_) => {
+                info!("Job completed successfully: {:?}", job_id);
+            },
+            Err(e) => {
+                error!("Error acknowledging job completion: {:?}", e);
+                return Err(ErrorObject::owned(
+                    ErrorCode::InternalError.code(),
+                    format!("Failed to acknowledge job completion: {}", e),
+                    None::<()>,
+                ));
+            }
         }
         if job_id.topic == QJobTopic::NotifyOrchestratorComplete
             || job_id.circuit_type == ProvingJobCircuitType::NotifyRealmComplete

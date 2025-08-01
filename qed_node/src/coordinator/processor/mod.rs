@@ -30,6 +30,7 @@ use std::time::Duration;
 use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
 use tracing::{error, info, warn};
+use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -51,6 +52,7 @@ pub struct CoordinatorProcessNode<
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+    pub job_task_store: Arc<JobTaskStoreImpl>,
 }
 
 impl<
@@ -71,6 +73,7 @@ impl<
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+        job_task_store: Arc<JobTaskStoreImpl>,
     ) -> Self {
         Self {
             ctx,
@@ -80,6 +83,7 @@ impl<
             event_receiver,
             proof_verifier,
             coordinator_worker_circuits,
+            job_task_store,
         }
     }
 
@@ -150,6 +154,8 @@ impl
         let bb8_pool =
             new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
         info!("🐶 redis pool initialized");
+        let task_store = JobTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
+            .await?;
         let q = ProofStoreRedisAsync::new2(
             bb8_pool,
             &cp_config.queue_args.worker_queue_suffix,
@@ -204,6 +210,7 @@ impl
             q,
             proof_verifier,
             coordinator_worker_circuits,
+            Arc::new(task_store),
         ))
     }
 
@@ -211,9 +218,9 @@ impl
         info!("building block: {:?}", next_checkpoint_id);
         self.ctx.build_block().await?;
         info!("writing job graph: {:?}", next_checkpoint_id);
-        self.proof_store.write_job_graph(next_checkpoint_id).await?;
+        // self.proof_store.write_job_graph(next_checkpoint_id).await?;
         info!("waiting for block proving jobs: {:?}", next_checkpoint_id);
-        let task_graph = self.ctx.proof_store.task_graph.lock().await;
+        let mut task_graph = self.ctx.proof_store.task_graph.lock().await;
         println!("checkpoint: {:?}", next_checkpoint_id);
         for (_, task) in task_graph.tasks.iter() {
             println!("task: {:?}", task.task_id);
@@ -229,6 +236,15 @@ impl
                 println!("- {:?}", job);
             }
         }
+        
+        {
+            //get the topology sorted tasks
+            let sorted_tasks = task_graph.ts_task();
+            self.job_task_store.save_task_topology(sorted_tasks).await?;
+            
+        }
+        task_graph.clear();
+
         info!("🐶 waiting for block proving jobs");
         self.ctx
             .prover_queue

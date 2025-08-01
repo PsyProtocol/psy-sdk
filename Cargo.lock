@@ -3135,6 +3135,7 @@ dependencies = [
  "anyhow",
  "getrandom 0.2.16",
  "hashbrown 0.14.5",
+ "indexmap 2.10.0",
  "itertools 0.11.0",
  "keccak-hash",
  "log",
@@ -3157,7 +3158,9 @@ version = "1.0.0"
 source = "git+https://github.com/clint-long/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
 dependencies = [
  "anyhow",
+ "dashmap 6.1.0",
  "itertools 0.11.0",
+ "log",
  "num",
  "plonky2_util",
  "rand 0.8.5",
@@ -3791,6 +3794,7 @@ dependencies = [
  "bb8",
  "bb8-redis",
  "bincode",
+ "chrono",
  "clap",
  "fred",
  "futures",
@@ -5794,6 +5798,7 @@ checksum = "3cf4199d1e5d15ddd86a694e4d0dffa9c323ce759fea589f00fef9d81cc1931d"
 dependencies = [
  "getrandom 0.3.3",
  "js-sys",
+ "serde",
  "wasm-bindgen",
 ]
 

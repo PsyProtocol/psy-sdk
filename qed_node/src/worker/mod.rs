@@ -10,7 +10,7 @@ use qed_core::job::{
 use qed_crypto::common::worker::QNextGenWorkerGenericProverAsyncMut;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::{sync::Arc, time::Duration};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 pub use worker_state::*;
 
 use crate::common::{
@@ -40,23 +40,24 @@ async fn run_scheduler_worker(
     let library = &proof_verifier.library;
     loop {
         tokio::time::sleep(Duration::from_secs(1)).await;
-        let job_id = match job_receiver.get_next_ready_job().await {
-            Ok(job_id) => job_id,
+        let job = match job_receiver.get_next_job().await {
+            Ok(job) => job,
             Err(e) => {
                 warn!("Error getting next ready job: {:?}", e);
                 continue;
             }
         };
-        info!("received job: {:?}", job_id);
+        debug!("Received job, task: {}", job.task_id);
+        let job_id = job.job_id;
         if !should_prove_job(job_id) {
-            info!("skipping job proving");
-            job_receiver.submit_job_proof(job_id, None).await?;
+            info!("skipping job proving: {:?}", job_id);
+            job_receiver.submit_job_proof(job, None).await?;
             continue;
         }
         match prover.worker_prove_mut_async(&store, library, job_id).await {
             Ok(proof) => {
                 info!("Proved job: job_id={:?}", job_id);
-                job_receiver.submit_job_proof(job_id, Some(proof)).await?;
+                job_receiver.submit_job_proof(job, Some(proof)).await?;
             }
             Err(e) => {
                 error!("Failed to prove job: err={:?}, job_id={:?}", e, job_id);

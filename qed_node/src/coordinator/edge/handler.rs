@@ -69,7 +69,7 @@ pub struct CoordinatorEdgeHandler {
     proof_store: Arc<ProofStore>,
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
-    job_manager: Arc<Mutex<VecDeque<QProvingJobDataID>>>,
+    job_task_store: Arc<JobTaskStoreImpl>,
 }
 
 impl CoordinatorEdgeHandler {
@@ -83,6 +83,7 @@ impl CoordinatorEdgeHandler {
 
         let redis_pool = new_redis_async_pool(&args.redis_uri, 8).await?;
 
+        let task_store = JobTaskStoreImpl::new(&args.redis_uri, 8).await?;
         let qe_args = &args.queue_args;
 
         let proof_store = Arc::new(ProofStoreRedisAsync::new2(
@@ -108,26 +109,13 @@ impl CoordinatorEdgeHandler {
         )
         .await?;
 
-        let job_graph_reader = ProofStoreRedisAsync::new2(
-            redis_pool.clone(),
-            &qe_args.worker_queue_suffix,
-            &qe_args.notifications_queue_suffix,
-            &qe_args.proof_store_key_suffix,
-            &qe_args.proof_store_key_suffix,
-        )
-        .await?;
-        let job_manager = Arc::new(Mutex::new(VecDeque::new()));
-        run_jobs_listener(
-            Arc::clone(&job_manager),
-            Arc::new(job_graph_reader),
-        ).await;
 
         Ok(Self {
             history_queue: Arc::clone(&proof_store),
             proof_store: Arc::clone(&proof_store),
             ctx,
             store: store_reader,
-            job_manager,
+            job_task_store: Arc::new(task_store),
         })
     }
 
@@ -904,6 +892,7 @@ use super::rpc::CoordinatorEdgeRpcServer;
 use super::error::RpcError;
 use super::types::LatestCheckpointResponse;
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl, QJob};
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
@@ -1315,11 +1304,24 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
-
-    async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>> {
-        let mut job_manager = self.job_manager.lock().await;
-        let job_id = job_manager.pop_front();
-        Ok(job_id)
+    async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
+        let j = match self.job_task_store.claim_job_from_current_task().await {
+            Ok(job) => job,
+            Err(e) => {
+                error!("Error claiming job from current task: {:?}", e);
+                return Err(RpcError::Anyhow(e.into()));
+            }
+        };
+        match j {
+            Some(job) => {
+                debug!("Pending job from current task: {:?}", job);
+                Ok(Some(job))
+            },
+            None => {
+                debug!("No pending job from current task");
+                Ok(None)
+            }
+        }
     }
 
     async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>> {
@@ -1332,13 +1334,26 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         self.proof_store.get_bytes_by_id(job_id).await.map_err(|e| RpcError::Anyhow(e.into()))
     }
 
-    async fn set_proof_by_id(&self, job_id: QProvingJobDataID, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()> {
+    async fn set_proof_by_id(&self, job: QJob, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()> {
+        let job_id = job.job_id;
         if let Some(proof) = proof {
             info!("Setting proof by id: {:?}", job_id);
             // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
             let output_id = job_id.get_output_id();
             self.proof_store.set_proof_by_id(output_id, &proof).await.map_err(RpcError::Anyhow)?;
+
         }
+        // remove the job from the current task, no matter if proof is None or Some
+        match self.job_task_store.acknowledge_job_completion(&job).await{
+            Ok(_) => {
+                info!("Job completed successfully: {:?}", job_id);
+            },
+            Err(e) => {
+                error!("Error acknowledging job completion: {:?}", e);
+                return Err(RpcError::Anyhow(e.into()));
+            }
+        }
+
         if job_id.topic == QJobTopic::NotifyOrchestratorComplete
             || job_id.circuit_type == ProvingJobCircuitType::NotifyRealmComplete
             {

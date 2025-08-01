@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
-
+use std::fmt;
+use std::sync::atomic::{AtomicU64, Ordering};
 use hex::FromHexError;
 use kvq::traits::KVQSerializable;
 use serde::{Deserialize, Serialize};
@@ -11,7 +12,7 @@ use crate::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged
 use super::mode::QWorkerMode;
 use uuid::Uuid;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct JobsTask {
     pub task_id: TaskId,
     pub job_ids: Vec<QProvingJobDataID>,
@@ -30,23 +31,38 @@ impl JobsTask {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TaskId(Uuid);
 
 impl TaskId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
+    /// Creates a sequential TaskId for debugging
+    /// Returns IDs like "task-001", "task-002", etc.
+    pub fn new_debug() -> Self {
+        let counter = DEBUG_COUNTER.fetch_add(1, Ordering::SeqCst);
+        // Create a deterministic UUID from the counter
+        let mut bytes = [0u8; 16];
+        bytes[..8].copy_from_slice(&counter.to_le_bytes());
+        TaskId(Uuid::from_bytes(bytes))
+    }
 }
 
-#[derive(Clone, Debug)]
+impl fmt::Display for TaskId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Color {
     White,
     Grey,
     Black,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JobsTaskGraph {
     pub tasks: HashMap<TaskId, JobsTask>,
     pub deps: HashMap<TaskId, HashSet<TaskId>>,
@@ -122,6 +138,12 @@ impl JobsTaskGraph {
             self.ts_inner(task, &mut colors, &mut |task| sorted.push(task));
         }
         sorted
+    }
+        pub fn ts_task(&self) -> Vec<&JobsTask> {
+        self.ts()
+            .into_iter()
+            .filter_map(|task_id| self.tasks.get(&task_id))
+            .collect()
     }
 }
 
@@ -441,6 +463,9 @@ pub struct QWorkerJobBenchmark {
   pub duration: u64,
 }
 
+/// Static counter for generating sequential debug IDs
+static DEBUG_COUNTER: AtomicU64 = AtomicU64::new(1);
+
 // TODO: remove
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct JobDataIdGraph {
@@ -488,6 +513,7 @@ impl JobDataIdGraph {
         }
         ready_jobs
     }
+
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]

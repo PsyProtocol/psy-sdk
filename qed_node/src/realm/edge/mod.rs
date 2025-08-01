@@ -24,6 +24,7 @@ use sync::spawn_active_checkpoint_sync_task;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
+use qed_store::queue::task_queue::JobTaskStoreImpl;
 
 pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedisAsync> {
     let pool = new_redis_async_pool(
@@ -55,6 +56,11 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     // Create storage and queues
     let proof_store = creat_redis_store(config.clone()).await?;
+    // Create task queue for jobs
+    let task_store = JobTaskStoreImpl::new(
+        config.redis.redis_uri.as_str(),
+        config.redis.pool_size.unwrap_or(10),
+    ).await?;
     // Create proof storage
     let proof_store = Arc::new(proof_store);
     let checkpoint_queue = proof_store.clone();
@@ -96,13 +102,13 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         .set_http_middleware(cors)
         .build(&config.rpc.listen_addr)
         .await?;
-
-    let job_manager = Arc::new(Mutex::new(VecDeque::new()));
-    let job_graph_reader = proof_store.clone();
-    run_jobs_listener(Arc::clone(&job_manager), job_graph_reader).await;
+    //
+    // let job_manager = Arc::new(Mutex::new(JobsGraphManager::new()));
+    // let job_graph_reader = proof_store.clone();
+    // run_jobs_listener(Arc::clone(&job_manager), job_graph_reader).await;
 
     let job_notify_queue = proof_store.clone();
-    let handler = RealmEdgeHandler::new(edge_ctx, job_manager, job_notify_queue);
+    let handler = RealmEdgeHandler::new(edge_ctx, job_notify_queue, Arc::new(task_store));
     let mut rpc_module = RealmEdgeRpcServer::into_rpc(handler.clone());
     let job_rpc_module = JobSchedulerRpcServer::into_rpc(handler);
     rpc_module.merge(job_rpc_module)?;

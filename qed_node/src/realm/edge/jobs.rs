@@ -7,6 +7,7 @@ use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use qed_core::job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
 use tracing::info;
+use qed_store::queue::task_queue::QJob;
 
 #[derive(Clone)]
 pub struct RealmJobClient {
@@ -23,22 +24,22 @@ impl RealmJobClient {
 
 #[async_trait]
 impl JobReceiver for RealmJobClient {
-    async fn get_next_ready_job(&self) -> anyhow::Result<QProvingJobDataID> {
+    async fn get_next_job(&self) -> anyhow::Result<QJob> {
         loop {
-            if let Some(job_id) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client).await? {
-                return Ok(job_id);
+            if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client).await? {
+                return Ok(job);
             }
-            info!("No pending job found, sleeping for 1 second");
+            // info!("No pending job found, sleeping for 1 second");
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
     async fn submit_job_proof(
         &self,
-        job_id: QProvingJobDataID,
+        job: QJob,
         proof: Option<ConcreteProofWithPublicInputs>,
     ) -> anyhow::Result<()> {
-        info!("Submitted job proof for job_id: {:?}", job_id);
-        JobSchedulerRpcClient::set_proof_by_id(&self.rpc_client, job_id, proof).await?;
+        info!("Submitted job proof for job_id: {:?}", job);
+        JobSchedulerRpcClient::set_proof_by_id(&self.rpc_client, job, proof).await?;
         Ok(())
     }
 }

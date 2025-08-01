@@ -15,11 +15,12 @@ use qed_core::job::{
 };
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
+use qed_store::queue::task_queue::QJob;
 
 #[rpc(server, client, namespace = "qed")]
 pub trait JobSchedulerRpc {
     #[method(name = "get_pending_job")]
-    async fn get_pending_job(&self) -> RpcResult<Option<QProvingJobDataID>>;
+    async fn get_pending_job(&self) -> RpcResult<Option<QJob>>;
 
     #[method(name = "get_proof_by_id")]
     async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
@@ -30,7 +31,7 @@ pub trait JobSchedulerRpc {
     #[method(name = "set_proof_by_id")]
     async fn set_proof_by_id(
         &self,
-        job_id: QProvingJobDataID,
+        job: QJob,
         proof: Option<ConcreteProofWithPublicInputs>,
     ) -> RpcResult<()>;
 }
@@ -50,22 +51,22 @@ impl JobClient {
 
 #[async_trait]
 impl JobReceiver for JobClient {
-    async fn get_next_ready_job(&self) -> anyhow::Result<QProvingJobDataID> {
+    async fn get_next_job(&self) -> anyhow::Result<QJob> {
         loop {
-            if let Some(job_id) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client).await? {
-                return Ok(job_id);
+            if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client).await? {
+                return Ok(job);
             }
-            info!("No pending job found, sleeping for 1 second");
+            // info!("No pending job found, sleeping for 1 second");
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
     async fn submit_job_proof(
         &self,
-        job_id: QProvingJobDataID,
+        job: QJob,
         proof: Option<ConcreteProofWithPublicInputs>,
     ) -> anyhow::Result<()> {
-        info!("Submitted job proof for job_id: {:?}", job_id);
-        JobSchedulerRpcClient::set_proof_by_id(&self.rpc_client, job_id, proof).await?;
+        info!("Submitted job proof for job_id: {:?}", job);
+        JobSchedulerRpcClient::set_proof_by_id(&self.rpc_client, job, proof).await?;
         Ok(())
     }
 }
@@ -250,11 +251,11 @@ impl JobsGraphManager {
 
 #[async_trait]
 pub trait JobReceiver {
-    async fn get_next_ready_job(&self) -> anyhow::Result<QProvingJobDataID>;
+    async fn get_next_job(&self) -> anyhow::Result<QJob>;
 
     async fn submit_job_proof(
         &self,
-        job_id: QProvingJobDataID,
+        job: QJob,
         proof: Option<ConcreteProofWithPublicInputs>,
     ) -> anyhow::Result<()>;
 }
