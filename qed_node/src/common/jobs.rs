@@ -1,21 +1,14 @@
-use std::{collections::HashMap, sync::Arc};
-
 use crate::common::ConcreteProofWithPublicInputs;
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, Utc};
 use jsonrpsee::{
     core::RpcResult,
     http_client::{HttpClient, HttpClientBuilder},
     proc_macros::rpc,
 };
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use qed_core::job::{
-    id::{QProvingJobDataID},
-    traits::{QProofStoreReaderAsync},
-};
-use tokio::sync::Mutex;
-use tracing::{error, info, warn};
+use qed_core::job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
 use qed_store::queue::task_queue::QJob;
+use tracing::info;
 
 #[rpc(server, client, namespace = "qed")]
 pub trait JobSchedulerRpc {
@@ -91,13 +84,6 @@ impl QProofStoreReaderAsync for JobClient {
         Ok(bytes)
     }
 }
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum JobStatus {
-    Pending,
-    Processing(DateTime<Utc>),
-    Done,
-}
-
 
 #[async_trait]
 pub trait JobReceiver {

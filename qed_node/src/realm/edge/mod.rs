@@ -1,13 +1,12 @@
 pub mod error;
 pub mod handler;
-pub mod jobs;
 pub mod rpc;
 mod sync;
 
 use super::handler::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
 use super::{config::RealmEdgeConfig, C, D};
-use crate::common::jobs::{JobSchedulerRpcServer};
+use crate::common::jobs::JobSchedulerRpcServer;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::realm::handler::RealmEdgeHandler;
 use crate::realm::state::edge::RealmEdgeContext;
@@ -16,14 +15,13 @@ use anyhow::Result;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
 use qed_store::queue::new_redis_async_pool;
+use qed_store::queue::task_queue::JobTaskStoreImpl;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::QEDStore;
 use std::sync::Arc;
 use sync::spawn_active_checkpoint_sync_task;
-use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
-use qed_store::queue::task_queue::JobTaskStoreImpl;
 
 pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedisAsync> {
     let pool = new_redis_async_pool(
@@ -59,7 +57,8 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let task_store = JobTaskStoreImpl::new(
         config.redis.redis_uri.as_str(),
         config.redis.pool_size.unwrap_or(20),
-    ).await?;
+    )
+    .await?;
     // Create proof storage
     let proof_store = Arc::new(proof_store);
     let checkpoint_queue = proof_store.clone();
