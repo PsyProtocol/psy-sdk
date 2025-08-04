@@ -779,7 +779,7 @@ impl<
         Ok((levels, guta))
     }
 
-    pub async fn build_block(&mut self) -> anyhow::Result<()> {
+    pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("coordinator STARTED new block");
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
@@ -1031,10 +1031,11 @@ impl<
             regsitered_users_start_pivot_siblings,
             registered_users: new_accounts,
             old_checkpoint_leaf_hash,
+            slot,
         };
         eprintln!("DEBUGPRINT[591]: processor.rs:1007: l2_sync={}", serde_json::to_string_pretty(&l2_sync).unwrap());
         self.store
-            .set_checkpoint_sync_info_imm(l2_sync.clone())
+            .set_checkpoint_sync_info_imm(l2_sync.clone())// todo
             .await?;
 
         //todo! mark, should commit the txn

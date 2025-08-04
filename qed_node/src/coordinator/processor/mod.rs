@@ -29,7 +29,10 @@ use std::time::Duration;
 
 use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
+use tokio::time::{sleep_until, Instant};
 use tracing::{debug, error, info, warn};
+use crate::common::clock::SlotTimer;
+use crate::common::slot::LocalClock;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -51,6 +54,7 @@ pub struct CoordinatorProcessNode<
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+    pub slot_timer: SlotTimer<LocalClock>
 }
 
 impl<
@@ -80,6 +84,7 @@ impl<
             event_receiver,
             proof_verifier,
             coordinator_worker_circuits,
+            slot_timer: SlotTimer::new(LocalClock),
         }
     }
 
@@ -89,6 +94,7 @@ impl<
         let start_checkpoint = latest_l2_block_state.checkpoint_id + 1; // Listen for the next checkpoint
         
         // Try to get messages from the history queue
+        // todo
         let messages = self.edge_command_queue.chq_listen_from_imm::<CEQueueNotification>(
             COORDINATOR_TO_REALM_CHANNEL,
             start_checkpoint
@@ -209,54 +215,76 @@ impl
         ))
     }
 
-    pub async fn build_block(&mut self) -> anyhow::Result<u64> {
+    pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<u64> {
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
 
-        if let Err(e) = self.ctx.build_block().await.and(
+        // todo
+        if let Err(e) = self.ctx.build_block(slot).await.and(
             self.ctx
                 .prover_queue
-                .wait_for_block_proving_jobs_imm(next_checkpoint_id)
+                .wait_for_block_proving_jobs_imm(next_checkpoint_id)//todo
                 .await,
         ) {
             self.journal_store.rollback(next_checkpoint_id)?;
             return Err(e);
         }
 
+        // pending
         self.journal_store.commit(next_checkpoint_id)?;
 
+        // not pending
         Ok(next_checkpoint_id)
     }
 }
 
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
     let mut coordinator_processor = CoordinatorProcessNode::new_with_config(args).await?;
-
+    let slot_timer= SlotTimer::new(LocalClock);
     loop {
         loop {
-            match coordinator_processor.wait_for_produce_block().await {
-                Ok(true) => break,
-                Ok(false) => {
-                    tokio::time::sleep(Duration::from_secs(1)).await;
+            let slot = slot_timer.wait_for_next_slot().await;
+            match coordinator_processor.build_block(slot).await {
+                Ok(checkpoint_id) => {
+                    info!(
+                        "✅ Successfully built and committed block {}",
+                        checkpoint_id
+                    );
                 }
                 Err(e) => {
-                    error!("❌ Error waiting for produce block: {:?}", e);
-                    tokio::time::sleep(Duration::from_secs(1)).await;
-                    continue;
+                    error!("❌ Failed to build block: {:?}", e);
                 }
-            }
-        }
-        match coordinator_processor.build_block().await {
-            Ok(checkpoint_id) => {
-                info!(
-                    "✅ Successfully built and committed block {}",
-                    checkpoint_id
-                );
-            }
-            Err(e) => {
-                error!("❌ Failed to build block: {:?}", e);
-                tokio::time::sleep(Duration::from_secs(1));
             }
         }
     }
+
+
+    //todo
+    // loop {
+    //     loop {
+    //         match coordinator_processor.wait_for_produce_block().await {
+    //             Ok(true) => break,
+    //             Ok(false) => {
+    //                 tokio::time::sleep(Duration::from_secs(1)).await;
+    //             }
+    //             Err(e) => {
+    //                 error!("❌ Error waiting for produce block: {:?}", e);
+    //                 tokio::time::sleep(Duration::from_secs(1)).await;
+    //                 continue;
+    //             }
+    //         }
+    //     }
+    //     match coordinator_processor.build_block().await {
+    //         Ok(checkpoint_id) => {
+    //             info!(
+    //                 "✅ Successfully built and committed block {}",
+    //                 checkpoint_id
+    //             );
+    //         }
+    //         Err(e) => {
+    //             error!("❌ Failed to build block: {:?}", e);
+    //             tokio::time::sleep(Duration::from_secs(1));
+    //         }
+    //     }
+    // }
 }
