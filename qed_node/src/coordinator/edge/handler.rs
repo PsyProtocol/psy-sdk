@@ -270,10 +270,11 @@ impl CoordinatorEdgeHandler {
         
         // Convert compact to full sync info with all required fields
         let sync_info = CheckpointSyncInfo {
+            pending_checkpoint_id: None, // todo if something pending, we need to get it from db
             latest_checkpoint_id: latest,
             description: None,
             source_coordinator_edge_id: None,
-            sync_timestamp: chrono::Utc::now().timestamp() as u64,
+            sync_timestamp: Utc::now().timestamp() as u64,
             compact,
         };
         Ok(sync_info)

@@ -13,7 +13,7 @@ use crate::common::verifier::get_cached_generic_verifier;
 use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::sync::Arc;
 use std::time::Duration;
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use futures::future::err;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
@@ -22,6 +22,8 @@ use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
+use crate::common::clock::SlotTimer;
+use crate::common::slot::{LocalClock, Slot};
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<QEDStore>,
@@ -37,6 +39,8 @@ pub struct RealmProcessor {
     pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
     pub store: Arc<JournalStore<QEDStore>>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+    pub slot_timer: SlotTimer<LocalClock>,
+    pub remote_latest_slot: u64,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
@@ -73,6 +77,8 @@ impl RealmProcessor {
             sync_checkpoint,
             store: store_reader,
             proof_verifier,
+            slot_timer: SlotTimer::new(LocalClock),
+            remote_latest_slot: 0,
         };
         Ok(processor)
     }
@@ -156,11 +162,13 @@ impl RealmProcessor {
                 info!("Checkpoint received checkpoint_id: {}, local_checkpoint_id: {}", checkpoint_id, local_checkpoint_id);
                 if local_checkpoint_id >= checkpoint_id && local_checkpoint_id > 0 {
                     info!("Local checkpoint is up to date");
+                    self.remote_latest_slot = block.compact.slot;
                     return Ok(false);
                 }
 
                 if local_checkpoint_id >= block.latest_checkpoint_id && local_checkpoint_id > 0 {
                     info!("Local checkpoint is latest");
+                    self.remote_latest_slot = block.compact.slot;
                     return Ok(true);
                 }
 
@@ -173,6 +181,7 @@ impl RealmProcessor {
                             ||  local_checkpoint_id == checkpoint_id && block.latest_checkpoint_id == checkpoint_id && local_checkpoint_id == 0
                         {
                             info!("Local checkpoint is latest");
+                            self.remote_latest_slot = block.compact.slot;
                             return Ok(true);
                         }
                         self.store.commit(checkpoint_id)?;
@@ -207,16 +216,31 @@ impl RealmProcessor {
         .sync_proof
         .wait_for_block_proving_jobs_imm(next_checkpoint_id)
         .await {
-            Ok(realm_worker_output_job_id) =>
+            Ok(realm_worker_output_job_id) => {
+                if !self.is_next_slot() {
+                    self.store.rollback(next_checkpoint_id)?;
+                    bail!("Not next slot")
+                }
+
+                if !self.slot_timer.is_can_reach_to_next_slot() {
+                    self.store.rollback(next_checkpoint_id)?;
+                    bail!("Not reach to next slot")
+                }
+
                 Ok(ProvingJobDataId::new(
                     next_checkpoint_id,
                     realm_worker_output_job_id,
-                )),
+                ))
+            }
+
             Err(err) => {
                 self.store.rollback(next_checkpoint_id)?;
                 Err(err)
             }
         }
+    }
+    fn is_next_slot(&self) -> bool {
+        self.remote_latest_slot == 0 || self.slot_timer.get_next_slot_timestamp() == self.remote_latest_slot + 1
     }
 
     pub async fn get_local_latest_l2_block_state(&self) -> anyhow::Result<u64> {

@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use tokio::time::{sleep, Duration};
 use crate::common::slot::{Clock, LocalClock, Slot};
 
@@ -30,7 +31,13 @@ impl<T: Clock> SlotTimer<T> {
     }
 }
 
+impl<T: Clock> Deref for SlotTimer<T> {
+    type Target = T;
 
+    fn deref(&self) -> &Self::Target {
+        &self.clock
+    }
+}
 
 
 
