@@ -106,7 +106,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?;
     timer.lap("sent requests");
 
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
     timer.lap("built block");
 
     timer.lap("started up");

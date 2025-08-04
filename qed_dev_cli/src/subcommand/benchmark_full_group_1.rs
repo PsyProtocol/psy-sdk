@@ -125,7 +125,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?;
     timer.lap("sent requests");
 
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
 
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
         _,
@@ -191,7 +191,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         circuit_type:realm_result.proof_id.circuit_type,
     }, &realm_proof).await?;
 
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
         _,
         _,
@@ -369,7 +369,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         checkpoint_tree_root: realm_result.checkpoint_tree_root,
         circuit_type:realm_result.proof_id.circuit_type,
     }, &realm_proof).await?;
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
         _,
         _,
@@ -422,7 +422,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         checkpoint_tree_root: realm_result.checkpoint_tree_root,
         circuit_type:realm_result.proof_id.circuit_type,
     }, &realm_proof).await?;
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
         _,
         _,
