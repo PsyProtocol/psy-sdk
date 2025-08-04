@@ -1,13 +1,17 @@
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 
+pub const SLOT0: u64 = 0;
 pub const SLOT_SIZE: u64 = 6000; // 6s
 pub const SLOT0_TIMESTAMP: u64 = 1753891200000; // 2025-07-31 00:00:00
 pub const NETWORK_COST_TIME_MS: u64 = 500; // 500ms
 
+// #[auto_impl(&, Box, Arc)]
 pub trait Clock {
     fn get_current_timestamp(&self) -> u64;
 }
 
+// #[auto_impl(&, Box, Arc)]
 pub trait Slot: Clock {
     /// Convert a timestamp to its corresponding slot number
     /// 
@@ -128,19 +132,6 @@ pub trait Slot: Clock {
         Ok(self.get_timestamp_from_slot(slot) - self.get_current_timestamp())
     }
 
-    /// Get the time remaining until the next slot (alias for get_retain_time_to_next_slot)
-    /// 
-    /// # Returns
-    /// The remaining time in milliseconds until the next slot starts
-    /// 
-    /// # Example
-    /// ```
-    /// let time_to_next = clock.get_current_slot_time_to_next_slot();
-    /// ```
-    fn get_current_slot_time_to_next_slot(&self) -> u64 {
-        self.get_next_slot_timestamp() - self.get_current_timestamp()
-    }
-
     /// Check if there is enough time to reach the next slot considering network cost
     /// 
     /// # Returns
@@ -173,7 +164,7 @@ pub trait Slot: Clock {
     /// }
     /// ```
     fn is_can_reach_to_slot(&self, slot: u64) -> anyhow::Result<bool> {
-        Ok(self.get_retain_time_to_slot(slot)? <= NETWORK_COST_TIME_MS)
+        Ok(self.get_retain_time_to_slot(slot)? >= NETWORK_COST_TIME_MS)
     }
 
     /// Get the start timestamp of the previous slot
@@ -372,9 +363,24 @@ impl Clock for LocalClock {
 }
 
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Deserialize, Serialize)]
+pub struct Instant(pub u64);
+
+impl Instant {
+    pub fn new(timestamp: u64) -> Self {
+        Self(timestamp)
+    }
+}
+
+impl Clock for Instant {
+    fn get_current_timestamp(&self) -> u64 {
+        self.0
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
-    use tracing_subscriber::fmt::time;
     use crate::common::slot::{Clock, Slot, SLOT0_TIMESTAMP, SLOT_SIZE, NETWORK_COST_TIME_MS};
 
     pub struct TestClock {
@@ -491,15 +497,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_current_slot_time_to_next_slot() {
-        let clock = TestClock::new(SLOT0_TIMESTAMP);
-        assert_eq!(clock.get_current_slot_time_to_next_slot(), SLOT_SIZE);
-
-        let clock = TestClock::new(SLOT0_TIMESTAMP + SLOT_SIZE / 2);
-        assert_eq!(clock.get_current_slot_time_to_next_slot(), SLOT_SIZE / 2);
-    }
-
-    #[test]
     fn test_is_can_reach_to_next_slot() {
         // Test when there's enough time (should return true)
         let clock = TestClock::new(SLOT0_TIMESTAMP + 100);
@@ -521,13 +518,13 @@ mod tests {
         // Test valid future slot with enough time
         let result = clock.is_can_reach_to_slot(1);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), false);
+        assert_eq!(result.unwrap(), true);
 
         // Test valid future slot without enough time
         let clock = TestClock::new(SLOT0_TIMESTAMP + SLOT_SIZE - NETWORK_COST_TIME_MS + 100);
         let result = clock.is_can_reach_to_slot(1);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), true);
+        assert_eq!(result.unwrap(), false);
 
         // Test invalid past slot
         let clock = TestClock::new(SLOT0_TIMESTAMP + SLOT_SIZE * 10);
