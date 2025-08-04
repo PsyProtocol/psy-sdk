@@ -220,20 +220,16 @@ impl
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
 
         // todo
-        if let Err(e) = self.ctx.build_block(slot).await.and(
-            self.ctx
-                .prover_queue
-                .wait_for_block_proving_jobs_imm(next_checkpoint_id)//todo
-                .await,
-        ) {
+        if let Err(e) = self.ctx.build_block(slot).await {
             self.journal_store.rollback(next_checkpoint_id)?;
             return Err(e);
         }
-
         // pending
         self.journal_store.commit(next_checkpoint_id)?;
-
-        // not pending
+        self.ctx
+            .prover_queue
+            .wait_for_block_proving_jobs_imm(next_checkpoint_id)
+            .await?;
         Ok(next_checkpoint_id)
     }
 }
