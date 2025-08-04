@@ -29,7 +29,7 @@ use std::time::Duration;
 
 use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl};
 
 type C = PoseidonGoldilocksConfig;
@@ -108,6 +108,8 @@ impl<
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
 
         let CEQueueNotification::StartProduceBlock { next_checkpoint } = notify_message;
+        debug!("coordinator: wait_for_produce_block: next_checkpoint: {}, latest_l2_block_state.checkpoint_id: {}",
+            next_checkpoint, latest_l2_block_state.checkpoint_id);
 
         match next_checkpoint.cmp(&latest_l2_block_state.checkpoint_id) {
             std::cmp::Ordering::Equal => {

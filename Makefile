@@ -1,7 +1,7 @@
 export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
-PROFILE                  := release
-LOG_LEVEL                := qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+PROFILE := release
+LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
 
 default: build-release wasm-build
 
@@ -145,6 +145,16 @@ init:
 	@echo "Waiting for databases to be ready..."
 	@sleep 10
 
+clear-db:
+	@echo "Clearing lmdbx databases..."
+	@rm -fr ${PWD}/db/coordinator/*
+	@rm -fr ${PWD}/db/realm0/*
+	@rm -fr ${PWD}/db/realm1/*
+	@echo "Clearing redis databases..."
+	@redis-cli -p 6379 FLUSHALL
+	@redis-cli -p 6380 FLUSHALL
+	@redis-cli -p 6381 FLUSHALL
+
 .PHONY: shutdown
 shutdown:
 	@echo "Stopping and removing database containers..."
@@ -205,6 +215,76 @@ run-worker:
 		--edge-url=http://127.0.0.1:8545 \
 		--edge-url=http://127.0.0.1:8546 \
 		--edge-url=http://127.0.0.1:8547
+
+
+TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
+
+init-tikv:
+	@echo "Starting TiKV cluster..."
+	@docker-compose -f ./scripts/docker-compose.tikv.yml up -d
+	@echo "Waiting for TiKV to be ready..."
+	@sleep 30
+	@echo "TiKV cluster is ready"
+
+shutdown-tikv:
+	@echo "Stopping TiKV cluster..."
+	@docker-compose -f ./scripts/docker-compose.tikv.yml down -v
+	@echo "TiKV cluster stopped"
+
+run-coordinator-processor-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace coordinator
+
+run-coordinator-edge-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace coordinator
+
+run-realm-processor-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6380 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm0
+
+run-realm-edge-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+		--redis-uri=redis://127.0.0.1:6380 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm0
+
+run-realm-processor1-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6381 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm1 \
+		--node-id=2 \
+		--realm-id=1 \
+		--worker-queue-suffix=rwq1 \
+		--notifications-queue-suffix=rnq1 \
+		--proof-store-key-suffix=RP1
+
+run-realm-edge1-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+		--listen-addr=0.0.0.0:8547 \
+        --redis-uri=redis://127.0.0.1:6381 \
+        --database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm1 \
+        --coordinator-addr=http://127.0.0.1:8545 \
+		--node-id=2 \
+		--realm-id=1 \
+		--worker-queue-suffix=rwq1 \
+		--notifications-queue-suffix=rnq1 \
+		--proof-store-key-suffix=RP1
+
+run-all-tikv: shutdown-tikv init-tikv
+	@./scripts/run_all_tikv.sh
 
 run-user-prover:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover

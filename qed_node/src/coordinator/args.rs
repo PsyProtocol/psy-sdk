@@ -6,7 +6,7 @@ pub struct CoordinatorWorkerArgs {
     #[clap(
         env = "COORDINATOR_REDIS_URI",
         long,
-        default_value = "redis://localhost:6379"
+        default_value = "redis://127.0.0.1:6379"
     )]
     pub redis_uri: String,
     #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
@@ -22,7 +22,7 @@ pub struct CoordinatorProcessorArgs {
     #[clap(
         env = "COORDINATOR_REDIS_URI",
         long,
-        default_value = "redis://localhost:6379"
+        default_value = "redis://127.0.0.1:6379"
     )]
     pub redis_uri: String,
     #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
@@ -38,7 +38,7 @@ pub struct CoordinatorEdgeArgs {
     #[clap(
         env = "COORDINATOR_REDIS_URI",
         long,
-        default_value = "redis://localhost:6379"
+        default_value = "redis://127.0.0.1:6379"
     )]
     pub redis_uri: String,
     #[clap(env = "COORDINATOR_LISTEN_ADDR", long, default_value = "0.0.0.0:8545")]

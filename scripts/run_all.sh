@@ -16,8 +16,8 @@ REALM_PROCESSOR_LOG="$LOG_DIR/realm-processor.log"
 COORDINATOR_EDGE_LOG="$LOG_DIR/coordinator-edge.log"
 REALM_EDGE_LOG="$LOG_DIR/realm-edge.log"
 
-REALM_PROCESSOR32_LOG="$LOG_DIR/realm-processor1.log"
-REALM_EDGE32_LOG="$LOG_DIR/realm-edge1.log"
+REALM_PROCESSOR1_LOG="$LOG_DIR/realm-processor1.log"
+REALM_EDGE1_LOG="$LOG_DIR/realm-edge1.log"
 
 WORKER_LOG="$LOG_DIR/worker.log"
 
@@ -30,8 +30,8 @@ echo "Clearing log files..."
 : > "$REALM_PROCESSOR_LOG"
 : > "$COORDINATOR_EDGE_LOG"
 : > "$REALM_EDGE_LOG"
-: > "$REALM_PROCESSOR32_LOG"
-: > "$REALM_EDGE32_LOG"
+: > "$REALM_PROCESSOR1_LOG"
+: > "$REALM_EDGE1_LOG"
 : > "$LOCAL_USER_PROVER_LOG"
 : > "$WEB_WALLET_LOG"
 : > "$WORKER_LOG"
@@ -77,7 +77,7 @@ run_service "make run-coordinator-processor" "coordinator-processor" "$COORDINAT
 PIDS+=($!)
 run_service "make run-realm-processor" "realm-processor" "$REALM_PROCESSOR_LOG" &
 PIDS+=($!)
-run_service "make run-realm-processor1" "realm-processor1" "$REALM_PROCESSOR32_LOG" &
+run_service "make run-realm-processor1" "realm-processor1" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
 run_service "make run-worker" "worker" "$WORKER_LOG" &
 PIDS+=($!)
@@ -88,7 +88,7 @@ run_service "make run-coordinator-edge" "coordinator-edge" "$COORDINATOR_EDGE_LO
 PIDS+=($!)
 run_service "make run-realm-edge" "realm-edge" "$REALM_EDGE_LOG" &
 PIDS+=($!)
-run_service "make run-realm-edge1" "realm-edge1" "$REALM_EDGE32_LOG" &
+run_service "make run-realm-edge1" "realm-edge1" "$REALM_EDGE1_LOG" &
 PIDS+=($!)
 
 sleep 1
