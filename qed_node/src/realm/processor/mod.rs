@@ -49,22 +49,17 @@ impl RealmProcessor {
         info!("Realm Processor Config: {:?}", config);
         let pool = new_redis_async_pool(
             config.redis.redis_uri.as_str(),
-            config.redis.pool_size.unwrap_or(10),
-        )
-        .await?;
+            config.redis.pool_size.unwrap_or(10)
+        ).await?;
         let task_store = JobTaskStoreImpl::new(
             &config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10),
         )
         .await?;
-        let realm_qps = ProofStoreRedisAsync::new2(
+        let realm_qps = ProofStoreRedisAsync::new(
             pool,
-            &config.queue.worker_queue_suffix,
-            &config.queue.notifications_queue_suffix,
-            &config.queue.proof_store_key_suffix,
-            &config.queue.proof_store_key_suffix,
-        )
-        .await?;
+            config.queue.queue_biz_key,
+        ).await?;
         let store = QEDStore::new(&config.backend.to_backend()).await?;
         let store = Arc::new(JournalStore::new(store));
         let store_reader = store.clone();

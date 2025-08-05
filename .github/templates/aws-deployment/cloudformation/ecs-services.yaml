@@ -434,14 +434,8 @@ Resources:
             
             - --log-level
             - 'info'
-            
-            - --notifications-queue-suffix
-            - 'rnq0'
-            
-            - --proof-store-key-suffix
-            - 'RP0'
-            
-            - --worker-queue-suffix
+
+            - --queue-biz-key
             - 'rwq0'
             
           Environment:
@@ -639,14 +633,8 @@ Resources:
             
             - --log-level
             - 'info'
-            
-            - --notifications-queue-suffix
-            - 'rnq1'
-            
-            - --proof-store-key-suffix
-            - 'RP1'
-            
-            - --worker-queue-suffix
+
+            - --queue-biz-key
             - 'rwq1'
             
           Environment:

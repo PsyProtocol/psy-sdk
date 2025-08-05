@@ -83,12 +83,9 @@ impl CoordinatorEdgeHandler {
         let task_store = JobTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size).await?;
         let qe_args = &args.queue_args;
 
-        let proof_store = Arc::new(ProofStoreRedisAsync::new2(
+        let proof_store = Arc::new(ProofStoreRedisAsync::new(
             redis_pool.clone(),
-            &qe_args.worker_queue_suffix,
-            &qe_args.notifications_queue_suffix,
-            &qe_args.proof_store_key_suffix,
-            &qe_args.proof_store_key_suffix,
+            qe_args.queue_biz_key.clone(),
         ).await?);
 
         // init verifier
