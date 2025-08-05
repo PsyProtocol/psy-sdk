@@ -17,12 +17,13 @@ use qed_node::{
     }, realm::state::{edge::RealmEdgeContext, processor::{RealmConfig, RealmProcessorContext}}, worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker}
 };
 use qed_node::common::verifier::get_cached_generic_verifier;
-use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager};
+use qed_prover::{local::provider::ProveProxyRpcTrait, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
 use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm}, queue::ProofStoreFred};
 use super::super::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
 use std::time::Duration;
+use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsProveTrait;
 
 
 use plonky2::{
@@ -229,7 +230,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("start: init QEDUPSStepCircuitManager");
 
-    let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+    let main_circuits = QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST));
     //main_circuits.print_common_config();
 
     timer.lap("end: init QEDUPSStepCircuitManager");
@@ -263,13 +264,14 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         wallet.circuit.get_verifier_config_ref().into(),
     );
 
-    main_circuits.register_info(&mut circuit_info);
-    contract_helper.register_funcs(0, &mut circuit_info);
+    if let QCircuitManager::Local(ref mgr) = main_circuits {
+        mgr.register_info(&mut circuit_info);
+    }
 
     let mut mgr = UserProvingSessionManager::<GoldilocksField,QEDHasher,_,C,D>::new(
         lps,
         circuit_info,
-        main_circuits.ups_circuit_whitelist_root
+        main_circuits.ups_circuit_whitelist_root()?
     )?;
 
     timer.lap("setup mgr");
@@ -311,7 +313,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_user_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
+    mgr.proof_tree_state.finalize_tree(&main_circuits)?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param =SimpleQEDPrivateKey::new(priv_key_user_0).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(

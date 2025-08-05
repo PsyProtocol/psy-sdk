@@ -292,7 +292,7 @@ impl<T: Witness<F>, F: PrimeField64> WitnessBigUint<F> for T {
 
     fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) -> anyhow::Result<()> {
         let mut limbs = value.to_u32_digits();
-        if target.num_limbs() >= limbs.len() {
+        if target.num_limbs() > limbs.len() {
             anyhow::bail!("invalid number of limbs passed to BigUintTarget");
         }
         limbs.resize(target.num_limbs(), 0);

@@ -289,6 +289,9 @@ run-all-tikv: shutdown-tikv init-tikv
 run-user-prover:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover
 
+run-prove-proxy:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli prove-proxy
+
 run-web-wallet:
 	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
 

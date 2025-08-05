@@ -13,3 +13,4 @@ serde_repr = { workspace = true }
 plonky2 = { workspace = true }
 twox-hash = { workspace = true }
 hashbrown = { workspace = true }
+ts-rs = { workspace = true }

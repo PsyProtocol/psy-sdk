@@ -12,10 +12,13 @@ import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
 import { QedMemoryTransactionSignerProvider } from "@qed/qed-sdk/src/zksigner/memory/provider";
 
 function createMemoryWalletProvider(
+    globalUserTreeHeight: number,
+    realmUserTreeHeight: number,
     coordinatorRpcConfigs: RpcConfig[],
     realmRpcConfigs: RpcConfig[],
     userPerRealm: number,
-    proverUrl?: string
+    proverUrl?: string,
+    prove_proxy_url?: string,
 ): QedUserWalletProvider {
     const networkId = "regtest";
     const coordinator_rpc = new MultiCoordinatorRpcProvider(coordinatorRpcConfigs);
@@ -26,9 +29,12 @@ function createMemoryWalletProvider(
     } else {
         // Synchronously initialize WASM before creating provider
         userProver = new QedWasmWebProverProvider({
+            global_user_tree_height: globalUserTreeHeight,
+            realm_user_tree_height: realmUserTreeHeight,
             users_per_realm: userPerRealm,
             realm_configs: realmRpcConfigs,
             coordinator_configs: coordinatorRpcConfigs,
+            prove_proxy_url: prove_proxy_url,
         });
     }
 

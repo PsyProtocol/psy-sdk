@@ -1,7 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
-use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer};
@@ -11,12 +10,12 @@ use qed_data::{
         core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
     }, qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}
 };
-use qed_prover::{local::simple::SimpleAPI, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager}};
+use qed_prover::{dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, local::{provider::ProveProxyRpcTrait, simple::SimpleAPI}, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_rollup_circuit::guta::guta_helper::QEDGUTACircuitManager;
 use qed_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
-use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
+use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreWriterAsyncImm};
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -432,7 +431,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     timer.lap("start: init QEDUPSStepCircuitManager");
 
-    let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+    let main_circuits = QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST));
     //main_circuits.print_common_config();
 
     timer.lap("end: init QEDUPSStepCircuitManager");
@@ -446,11 +445,15 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     timer.lap("start build guta circuits");
 
+    let end_cap_proof_common_data = match &main_circuits {
+        QCircuitManager::Local(manager) => manager.ups_end_cap.get_common_circuit_data_ref(),
+        QCircuitManager::Rpc(provider) => unimplemented!(),
+    };
 
     let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
-        main_circuits.ups_end_cap.get_common_circuit_data_ref(),
-        main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),
-        main_circuits.ups_end_cap.get_fingerprint(),
+        end_cap_proof_common_data,
+        main_circuits.ups_end_cap_circuit_verifier_config()?.constants_sigmas_cap.height(),
+        main_circuits.ups_end_cap_circuit_fingerprint()?,
     );
     timer.lap("built guta circuits");
     let proof_store = SimpleProofStoreMemory::new();
@@ -498,7 +501,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     let mut mgr = UserProvingSessionManager::<GoldilocksField,QEDHasher,_,C,D>::new(
         lps,
         circuit_info,
-        main_circuits.ups_circuit_whitelist_root
+        main_circuits.ups_circuit_whitelist_root()?
     )?;
 
     timer.lap("START USER PROVING SESSION");
@@ -510,7 +513,6 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         &main_circuits,
         contract_id,
         0,
-        &simple_mint_debug_circuit,
         &simple_mint_debug_def,
         vec![
             GoldilocksField::from_noncanonical_u64(1000)
@@ -524,7 +526,6 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         &main_circuits,
         contract_id,
         1,
-        &simple_transfer_circuit,
         &simple_transfer_def,
         vec![
             GoldilocksField::from_noncanonical_u64(2),
@@ -538,7 +539,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
+    mgr.proof_tree_state.finalize_tree(&main_circuits)?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param =SimpleQEDPrivateKey::new(priv_key_0).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(
@@ -576,7 +577,6 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         &main_circuits,
         contract_id,
         0,
-        &simple_mint_debug_circuit,
         &simple_mint_debug_def,
         vec![
             GoldilocksField::from_noncanonical_u64(10000)
@@ -590,7 +590,6 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         &main_circuits,
         contract_id,
         1,
-        &simple_transfer_circuit,
         &simple_transfer_def,
         vec![
             GoldilocksField::from_noncanonical_u64(3),
@@ -604,7 +603,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_1, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
+    mgr.proof_tree_state.finalize_tree(&main_circuits)?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param =SimpleQEDPrivateKey::new(priv_key_1).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(
@@ -636,7 +635,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     let (pairs, left_over) = api.get_start_witnesses()?;
     timer.lap("finished generating start witnesses");
     for p in pairs.into_iter() {
-        let _proof = api.proof_start_dbg(p, main_circuits.ups_end_cap.get_verifier_config_ref())?;
+        let _proof = api.proof_start_dbg(p, &main_circuits.ups_end_cap_circuit_verifier_config()?)?;
         timer.lap("Proved Recursive Global User Tree Aggregation");
 
     }

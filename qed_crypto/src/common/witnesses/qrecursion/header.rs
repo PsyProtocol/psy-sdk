@@ -1,13 +1,15 @@
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::hash::{merkle::core::{compute_historical_and_current_merkle_roots_core, MerkleProofCore}, traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QRecursionAggStandardHeader<F: RichField> {
     pub state_transition_start: QHashOut<F>,
     pub state_transition_end: QHashOut<F>,
@@ -39,8 +41,9 @@ impl<F: RichField> QFieldHashable<F> for QRecursionAggStandardHeader<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct AttestProofInTreeInput<F: RichField> {
     pub fingerprint: QHashOut<F>,
     pub public_inputs_hash: QHashOut<F>,
@@ -60,8 +63,9 @@ impl<F: RichField> KVQSerializable for AttestProofInTreeInput<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct AttestTreeAwareProofInTreeInput<F: RichField> {
     pub fingerprint: QHashOut<F>,
     pub inner_public_inputs_hash: QHashOut<F>,

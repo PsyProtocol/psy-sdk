@@ -301,7 +301,7 @@ where
             &left.agg_header,
             &left.proof,
             self.circuit_set
-                .get_verifier_data_by_type(left.circuit_type),
+                .get_verifier_data_by_type(left.circuit_type).await,
             &right.insertion_proof,
             &right.proof,
             &right.verifier_data,
@@ -365,14 +365,14 @@ where
             &left.agg_header,
             &left.proof,
             self.circuit_set
-                .get_verifier_data_by_type(left.circuit_type),
+                .get_verifier_data_by_type(left.circuit_type).await,
 
             self.circuit_inclusion_proofs
                 .get_inclusion_proof_for_type(right.circuit_type),
             &right.agg_header,
             &right.proof,
             self.circuit_set
-                .get_verifier_data_by_type(right.circuit_type),
+                .get_verifier_data_by_type(right.circuit_type).await,
         );
         let record = AggProofRecord {
             circuit_type: QStandardBinaryTreeCircuitType::TwoAgg,

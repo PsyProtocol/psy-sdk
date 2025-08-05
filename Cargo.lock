@@ -3803,6 +3803,7 @@ dependencies = [
  "hex-literal",
  "itertools 0.14.0",
  "kvq",
+ "maybe-async",
  "num",
  "plonky2",
  "qed_core",
@@ -3915,6 +3916,7 @@ name = "qed_exec"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bincode",
  "kvq",
  "maybe-async",
@@ -3928,6 +3930,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "ts-rs",
 ]
 
 [[package]]
@@ -3984,14 +3987,17 @@ name = "qed_prover"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "cfg-if",
  "clap",
  "console_error_panic_hook",
  "dashmap 6.1.0",
  "futures",
+ "getrandom 0.2.16",
  "hyper 1.6.0",
  "js-sys",
  "jsonrpsee",
+ "k256",
  "kvq",
  "maybe-async",
  "plonky2",
@@ -4122,7 +4128,6 @@ dependencies = [
  "hex",
  "js-sys",
  "kvq",
- "maybe-async",
  "plonky2",
  "qed_common_circuit",
  "qed_core",
@@ -4161,6 +4166,7 @@ dependencies = [
  "plonky2",
  "serde",
  "serde_repr",
+ "ts-rs",
  "twox-hash 1.6.3",
 ]
 

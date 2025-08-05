@@ -56,9 +56,9 @@ use qed_node::{
     },
 };
 use qed_node::common::verifier::get_cached_generic_verifier;
-use qed_prover::ups::{
-    circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager,
-};
+use qed_prover::{local::provider::ProveProxyRpcTrait, ups::{
+    circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager,
+}};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{
     config::store_config::{QEDFelt, QEDHasher},
@@ -433,7 +433,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("start: init QEDUPSStepCircuitManager");
 
     let main_circuits =
-        QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+        QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST));
     //main_circuits.print_common_config();
 
     timer.lap("end: init QEDUPSStepCircuitManager");
@@ -463,7 +463,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut mgr = UserProvingSessionManager::<GoldilocksField, QEDHasher, _, C, D>::new(
         lps,
         circuit_info,
-        main_circuits.ups_circuit_whitelist_root,
+        main_circuits.ups_circuit_whitelist_root()?,
     )?;
 
     timer.lap("setup mgr");
