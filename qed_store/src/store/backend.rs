@@ -2,6 +2,7 @@ use clap::{Args, Parser};
 use serde::{Deserialize, Serialize};
 
 use super::scylla::config::ScyllaDBConfig;
+use super::tikv::config::TiKVConfig;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct LmdbxConfig {
@@ -20,6 +21,9 @@ pub enum Backend {
 
     #[serde(rename = "lmdbx")]
     Lmdbx(LmdbxConfig),
+    
+    #[serde(rename = "tikv")]
+    TiKV(TiKVConfig),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, clap::ValueEnum, PartialEq)]
@@ -27,15 +31,7 @@ pub enum Backend {
 pub enum DatabaseKind {
     Scylla,
     Lmdbx,
-}
-
-impl DatabaseKind {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            DatabaseKind::Scylla => "scylla",
-            DatabaseKind::Lmdbx => "lmdbx",
-        }
-    }
+    Tikv,
 }
 
 #[derive(Clone, Debug, Args, Serialize, Deserialize)]
@@ -48,6 +44,9 @@ pub struct BackendConfig {
 
     #[clap(flatten)]
     pub lmdbx: LmdbxConfig,
+    
+    #[clap(flatten)]
+    pub tikv: TiKVConfig,
 }
 
 impl Default for Backend {
@@ -65,16 +64,17 @@ impl Default for BackendConfig {
                 lmdbx_path: "db".to_string(),
                 lmdbx_mmap_size_gb: 100,
             },
+            tikv: TiKVConfig::default(),
         }
     }
 }
 
 impl BackendConfig {
     pub fn to_backend(&self) -> Backend {
-        match self.database.as_str() {
-            "scylla" => Backend::Scylla(self.scylla.clone()),
-            "lmdbx" => Backend::Lmdbx(self.lmdbx.clone()),
-            _ => Backend::Lmdbx(self.lmdbx.clone()),
+        match self.database {
+            DatabaseKind::Scylla => Backend::Scylla(self.scylla.clone()),
+            DatabaseKind::Lmdbx => Backend::Lmdbx(self.lmdbx.clone()),
+            DatabaseKind::Tikv => Backend::TiKV(self.tikv.clone()),
         }
     }
 }

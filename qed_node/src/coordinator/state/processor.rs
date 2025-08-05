@@ -14,7 +14,7 @@ use qed_core::{
     job::{
         drain_queue::{CheckpointDrainQueueConsumerAsyncImm, WithDrainQueueMetadata},
         history_queue::CheckpointHistoryQueueEmitterAsyncImm,
-        id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+        id::{JobsTask, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
@@ -64,6 +64,7 @@ use qed_store::node::coordinator::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
+use std::marker::Sync;
 
 
 type F = QEDFelt;
@@ -150,7 +151,7 @@ impl<
         DQ: CheckpointDrainQueueConsumerAsyncImm,
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
-        PS: QProofStoreAsyncImm,
+        PS: QProofStoreAsyncImm + Sync
     > CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>
 {
     pub async fn new(
@@ -552,7 +553,7 @@ impl<
                 )
                 .await?;
 
-         
+
 
             return Ok((vec![vec![id]],r_with_deps.input.get_new_guta_header::<QEDHasher>()))// r_with_deps.input.guta_proof_header));
         }
@@ -810,8 +811,10 @@ impl<
         let root_state_transition =
             QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id);
 
+        let root_state_transition_task = JobsTask::new(&[root_state_transition]);
+        let notify_block_complete_task = JobsTask::new(&[notify_block_complete]);
         self.proof_store
-            .write_next_jobs(&[root_state_transition], &[notify_block_complete])
+            .write_next_job_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
 
         let op_agg_group_parts_common_id = 6;
@@ -821,7 +824,7 @@ impl<
             op_agg_group_parts_common_id,
             0,
         );
-/* 
+/*
         let state_part_2_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(
             new_checkpoint_id,
             op_agg_group_parts_common_id,
@@ -833,15 +836,14 @@ impl<
             QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id);
         //let state_part_2_id =QProvingJobDataID::block_agg_state_part_2_input_witness(new_checkpoint_id);
 
+        let state_part_1_task = JobsTask::new(&[state_part_1_id]);
+        let state_part_1_common_task = JobsTask::new(&[state_part_1_common_id]);
         self.proof_store
-            .write_next_jobs(
-                &[state_part_1_common_id],//, state_part_2_common_id],
-                &[root_state_transition],
-            )
+            .write_next_job_tasks(&state_part_1_common_task, &root_state_transition_task)
             .await?;
 
         self.proof_store
-            .write_next_jobs(&[state_part_1_id], &[state_part_1_common_id])
+            .write_next_job_tasks(&state_part_1_task, &state_part_1_common_task)
             .await?;
         //self.proof_store  .write_next_jobs(&[state_part_2_id], &[state_part_2_common_id]).await?;
 
@@ -864,25 +866,24 @@ impl<
             2,
         );
 
+        let register_users_agg_task = JobsTask::new(&[register_users_agg_job_id]);
+        let deploy_contracts_agg_task = JobsTask::new(&[deploy_contracts_agg_job_id]);
+        let guta_agg_task = JobsTask::new(&[guta_agg_job_id]);
+        self.proof_store.write_next_job_tasks(&register_users_agg_task, &state_part_1_task).await?;
         self.proof_store
-            .write_next_jobs(
-                &[
-                    register_users_agg_job_id,
-                    deploy_contracts_agg_job_id,
-                    guta_agg_job_id,
-                ],
-                &[state_part_1_id],
-            )
+            .write_next_job_tasks(&deploy_contracts_agg_task, &state_part_1_task)
             .await?;
         self.proof_store
-            .write_multidimensional_jobs(&user_registration_jobs, &[register_users_agg_job_id])
+            .write_next_job_tasks(&guta_agg_task, &state_part_1_task)
             .await?;
-        self.proof_store
-            .write_multidimensional_jobs(&deploy_jobs, &[deploy_contracts_agg_job_id])
-            .await?;
-        self.proof_store
-            .write_multidimensional_jobs(&guta_jobs, &[guta_agg_job_id])
-            .await?;
+
+        let user_registration_tasks = user_registration_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
+        let deploy_contracts_tasks = deploy_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
+        let guta_tasks = guta_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
+        self.proof_store.write_multidimensional_job_tasks(&user_registration_tasks, &register_users_agg_task).await?;
+        self.proof_store.write_multidimensional_job_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
+        self.proof_store.write_multidimensional_job_tasks(&guta_tasks, &guta_agg_task).await?;
+
         //let new_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
         /*let user_agg = AggStateTransition {
             state_transition_start: last_user_tree_root,
@@ -969,8 +970,8 @@ impl<
 
         let checkpoint_dmp = self.store.set_checkpoint_tree_leaf_hash_imm(new_checkpoint_id, new_checkpoint_leaf_hash).await?;
         eprintln!("DEBUGPRINT[594]: processor.rs:947: checkpoint_dmp={}", serde_json::to_string_pretty(&checkpoint_dmp).unwrap());
-        
-        
+
+
         let checkpoint_tree_update_siblings = checkpoint_dmp.siblings.clone();
         let old_checkpoint_leaf_hash = checkpoint_dmp.old_value;
         let witness_checkpoint_state_transition = CircuitInputWithDependencies{
@@ -1050,4 +1051,3 @@ impl<
         Ok(())
     }
 }
-

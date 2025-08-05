@@ -34,29 +34,36 @@ type C = PoseidonGoldilocksConfig;
 
 #[cfg(feature = "is_sync")]
 pub fn run(args: DeployContractArgs) -> anyhow::Result<()> {
+    tracing::info!("user cli deploying contract");
     use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
 
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)?;
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
 
+    tracing::info!("adding private key to wallet");
     let pk = wallet.add_private_key_get_info(SimpleQEDPrivateKey { private_key });
     let deployer = pk.qfhash::<QEDHasher>();
 
     let defs_array: Vec<DPNFunctionCircuitDefinition> =
         serde_json::from_str(&fs::read_to_string(args.contract_path)?)?;
 
+    tracing::info!("getting contract state tree height");
     let contract_state_tree_height = MAX_CONTRACT_STATE_TREE_HEIGHT as usize;
 
+    tracing::info!("generating circuits");
     let (_result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
         deployer,
         contract_state_tree_height as u8,
         &defs_array,
     )?;
 
+    tracing::info!("deploying contract");
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
+    tracing::info!("deploying contract");
     provider.deploy_contract(QDeployContractRPCRequest {
         deploy_contract: deploy_cmd,
     })?;
+    tracing::info!("contract deployed");
 
     Ok(())
 }

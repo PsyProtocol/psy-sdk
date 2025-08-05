@@ -169,7 +169,6 @@ impl RsmqQueue {
         self.pool.send_message(&queue_id, bytes, None).await?;
         Ok(())
     }
-
     pub async fn receive_message(
         &self,
         queue: &QueueId,

@@ -1,10 +1,11 @@
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
+use qed_core::job::id::QProvingJobDataID;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::config::store_config::QEDFelt;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::plonk::proof::ProofWithPublicInputs;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::{QEDCheckpointLeaf, QEDL2BlockState, QEDCheckpointGlobalStateRoots};
@@ -16,6 +17,8 @@ use qed_data::config::store_config::QCheckpointSyncInfoCompact;
 
 // Import the request types from qed_prover
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+use crate::common::ConcreteProofWithPublicInputs;
+
 use super::types::LatestCheckpointResponse;
 
 type F = QEDFelt;

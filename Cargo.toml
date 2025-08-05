@@ -91,7 +91,7 @@ dashmap = "6.1"
 cc = "1.2"
 bindgen = "0.71"
 
-clap = { version = "4.4.6", features = ["derive", "env"] }
+clap = { version = "4.5.39", features = ["derive", "env"] }
 k256 = { version = "0.13.2", features = [
   "arithmetic",
   "ecdsa",
@@ -161,8 +161,9 @@ proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quote = "1.0"
 
 # Additional common dependencies
-uuid = { version = "1.0", features = ["v4"] }
+uuid = { version = "1.0", features = ["serde", "v4"] }
 scylla = { version = "0.15.1" }
+tikv-client = "0.3"
 http = "1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"

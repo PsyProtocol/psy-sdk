@@ -2,6 +2,8 @@ pub mod rsmq_queue;
 pub mod pool;
 pub mod fred_queue;
 pub mod redis_queue;
+pub mod task_queue;
+pub mod rsmq_task_queue;
 
 // Re-export commonly used items
 pub use pool::{new_fred_pool, new_redis_async_pool};
