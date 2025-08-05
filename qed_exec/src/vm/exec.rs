@@ -38,6 +38,7 @@ use qedlang_core::dpn::{
     vm::{def::DPNFunctionCircuitDefinition, exec::SimpleDPNExecutor},
 };
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use super::cfc_input::DapenContractFunctionCircuitInput;
 fn mp_to_dmp<H: PartialEq + Copy>(mp: MerkleProofCore<H>) -> DeltaMerkleProofCore<H> {
@@ -1070,8 +1071,9 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
         }
     }
 }
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct QEDCmdWithInputAndWitness<F: RichField> {
     pub state_cmd: DPNStateCmd<u64>,
     pub witness: DPNStateCmdWitness<F>,

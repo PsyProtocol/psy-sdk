@@ -10,7 +10,9 @@ pub struct CoordinatorWorkerArgs {
     )]
     pub redis_uri: String,
     #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
-    pub redis_pool_size: u32,
+    pub redis_pool_size: usize,
+    #[clap(long = "edge-url", default_value = "http://localhost:8545")]
+    pub edge_url: String,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
 }
@@ -24,7 +26,7 @@ pub struct CoordinatorProcessorArgs {
     )]
     pub redis_uri: String,
     #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
-    pub redis_pool_size: u32,
+    pub redis_pool_size: usize,
     #[clap(flatten)]
     pub backend: BackendConfig,
     #[clap(flatten)]
@@ -45,29 +47,17 @@ pub struct CoordinatorEdgeArgs {
     pub backend: BackendConfig,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
+    #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
+    pub redis_pool_size: usize,
 }
 
 #[derive(Clone, Debug, Args)]
 pub struct CoordinatorQueueArgs {
     #[clap(
-        env = "COORDINATOR_WORKER_QUEUE_SUFFIX",
+        env = "COORDINATOR_QUEUE_BIZ_KEY",
         long,
         short,
         default_value = "wq1"
     )]
-    pub worker_queue_suffix: String,
-    #[clap(
-        env = "COORDINATOR_NOTIFICATIONS_QUEUE_SUFFIX",
-        long,
-        short,
-        default_value = "nq1"
-    )]
-    pub notifications_queue_suffix: String,
-    #[clap(
-        env = "COORDINATOR_PROOF_STORE_KEY_SUFFIX",
-        long,
-        short = 'k',
-        default_value = "CW"
-    )]
-    pub proof_store_key_suffix: String,
+    pub queue_biz_key: String,
 }

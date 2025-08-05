@@ -1,7 +1,7 @@
-use clap::{Args, Parser};
+use clap::{Args, Parser, ValueEnum};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
-use qed_prover::local::provider::RpcConfig;
+use qed_prover::local::{args::SignType, provider::RpcConfig};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 #[derive(Clone, Args)]
@@ -14,13 +14,16 @@ pub struct GetPublicKeyArgs {
     pub private_key: String,
 }
 
-#[derive(Clone, Args)]
+
+#[derive(Clone, Args, Serialize, Deserialize)]
 pub struct RegisterUserArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     /// user private key
     #[clap(long, short)]
     pub private_key: String,
+    #[clap(long, short, default_value = "zk")]
+    pub sign_type: SignType,
     /// optional fingerprint (defaults to standard circuit fingerprint)
     #[clap(long)]
     pub fingerprint: Option<String>,
@@ -47,8 +50,12 @@ pub struct SubmitEndCapArgs {
     pub contract_id: u64,
     #[arg(long, default_value = "main", env)]
     pub method_name: String,
-    #[arg(long, default_value = "[]", env)]
+    #[arg(long, env)]
     pub inputs: Vec<u64>,
+    #[clap(long, default_value = "zk")]
+    pub sign_type: SignType,
+    #[clap(long)]
+    pub sign_inputs: Vec<u64>,
 }
 
 

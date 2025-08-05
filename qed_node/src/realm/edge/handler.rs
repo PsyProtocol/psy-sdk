@@ -1,48 +1,31 @@
 use super::error::RpcError;
 use super::rpc::RealmEdgeRpcServer;
+use crate::common::jobs::{JobSchedulerRpcServer};
+use crate::common::ConcreteProofWithPublicInputs;
 use crate::realm::state::edge::RealmEdgeContext;
-use crate::realm::state::processor::RealmConfig;
 use crate::realm::{C, D, F, H};
-use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
-use qed_core::config::network_constants::REALM_PROOF_SYNC_CHANNEL;
-use std::env;
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::http_client::{HeaderMap, HeaderValue};
 use jsonrpsee::rpc_params;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use plonky2::{
-    field::{goldilocks_field::GoldilocksField, types::PrimeField64},
-    plonk::proof::ProofWithPublicInputs,
-};
+use plonky2::{field::types::PrimeField64, plonk::proof::ProofWithPublicInputs};
+use qed_core::config::network_constants::REALM_PROOF_SYNC_CHANNEL;
+use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
 use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 use qed_core::{
-    config::network_constants::GLOBAL_USER_TREE_HEIGHT,
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueEmitterAsyncImm,
-        id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+        id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
         traits::QProofStoreAsyncImm,
     },
 };
 use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_crypto::{
-    common::generic_circuit_verifier::GenericCircuitVerifier,
-    hash::traits::{
-        hasher::{MerkleZeroHasher, PoseidonHasher},
-        qhashable::QFieldHashable,
-    },
-};
-use qed_data::config::store_config::{QCheckpointSyncInfoCompact, UserPublicKeyTableStore};
 use qed_data::config::store_config::QEDFelt;
-use qed_data::config::store_config::UserTreeStore;
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
-use qed_data::guta::{
-    api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
-    end_cap_input::SubmitUserEndCapNonProofInput,
-};
-use qed_data::models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelReaderCore;
-use qed_data::models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore;
+use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
 };
@@ -50,19 +33,54 @@ use qed_data::qdata::user::QEDUserLeaf;
 use qed_rollup_utils::generate_jwt_token;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
+use std::env;
 use std::sync::Arc;
 use std::time::Duration;
+use jsonrpsee::types::{ErrorCode, ErrorObject};
+use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
+use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl, QJob};
+
+#[derive(Clone)]
+pub struct RealmEdgeHandler<
+    SR: QEDRealmStoreReaderAsync<F> + Sync,
+    DQ: CheckpointDrainQueueEmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
+> {
+    ctx: RealmEdgeContext<SR, DQ, PS>,
+    job_notify_queue: Arc<ProofStoreRedisAsync>,
+    job_task_store: Arc<JobTaskStoreImpl>,
+
+}
+
+impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
+where
+    SR: QEDRealmStoreReaderAsync<F> + Sync,
+    DQ: CheckpointDrainQueueEmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
+{
+    pub fn new(
+        ctx: RealmEdgeContext<SR, DQ, PS>,
+        job_notify_queue: Arc<ProofStoreRedisAsync>,
+        job_task_store: Arc<JobTaskStoreImpl>,
+    ) -> Self {
+        Self {
+            ctx,
+            job_notify_queue,
+            job_task_store,
+        }
+    }
+}
 
 #[async_trait]
-impl<SR, DQ, PS> RealmEdgeRpcServer for RealmEdgeContext<SR, DQ, PS>
+impl<SR, DQ, PS> RealmEdgeRpcServer for RealmEdgeHandler<SR, DQ, PS>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool> {
-        Ok(self.includes_user_id(user_id))
+        Ok(self.ctx.includes_user_id(user_id))
     }
 
     async fn submit_user_end_cap(
@@ -71,6 +89,7 @@ where
         proof: ProofWithPublicInputs<F, C, D>,
     ) -> RpcResult<String> {
         Ok(self
+            .ctx
             .handle_recv_end_cap_from_user(user_ec_input, &proof)
             .await
             .map(|_| "ok".to_string())
@@ -82,6 +101,7 @@ where
         checkpoint_id: u64,
     ) -> RpcResult<QEDCheckpointLeaf<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_checkpoint_leaf_data(checkpoint_id)
             .await
@@ -93,6 +113,7 @@ where
         checkpoint_id: F,
     ) -> RpcResult<QEDCheckpointLeaf<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_checkpoint_leaf_data(checkpoint_id.to_canonical_u64())
             .await
@@ -101,6 +122,7 @@ where
 
     async fn get_latest_l2_block_state(&self) -> RpcResult<QEDL2BlockState> {
         Ok(self
+            .ctx
             .store_reader
             .get_latest_l2_block_state()
             .await
@@ -109,6 +131,7 @@ where
 
     async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<QEDL2BlockState> {
         Ok(self
+            .ctx
             .store_reader
             .get_l2_block_state(checkpoint_id)
             .await
@@ -117,6 +140,7 @@ where
 
     async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<QEDL2BlockState> {
         Ok(self
+            .ctx
             .store_reader
             .get_l2_block_state(checkpoint_id.to_canonical_u64())
             .await
@@ -125,6 +149,7 @@ where
 
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_registration_tree_root(checkpoint_id)
             .await
@@ -133,6 +158,7 @@ where
 
     async fn get_latest_checkpoint_tree_root(&self) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_latest_checkpoint_tree_root()
             .await
@@ -141,6 +167,7 @@ where
 
     async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_checkpoint_tree_root(checkpoint_id)
             .await
@@ -149,6 +176,7 @@ where
 
     async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_checkpoint_tree_root(checkpoint_id.to_canonical_u64())
             .await
@@ -161,6 +189,7 @@ where
         leaf_checkpoint_id: u64,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_checkpoint_tree_leaf_hash(checkpoint_id, leaf_checkpoint_id)
             .await
@@ -173,6 +202,7 @@ where
         leaf_checkpoint_id: F,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_checkpoint_tree_leaf_hash(
                 checkpoint_id.to_canonical_u64(),
@@ -188,6 +218,7 @@ where
         leaf_checkpoint_id: u64,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
+            .ctx
             .store_reader
             .get_checkpoint_tree_merkle_proof(checkpoint_id, leaf_checkpoint_id)
             .await
@@ -200,6 +231,7 @@ where
         leaf_checkpoint_id: F,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
+            .ctx
             .store_reader
             .get_checkpoint_tree_merkle_proof(
                 checkpoint_id.to_canonical_u64(),
@@ -213,6 +245,7 @@ where
         checkpoint_id: u64,
     ) -> RpcResult<QEDCheckpointGlobalStateRoots<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_checkpoint_global_state_roots(checkpoint_id)
             .await
@@ -225,6 +258,7 @@ where
         user_id: u64,
     ) -> RpcResult<QEDUserLeaf<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_leaf_data(checkpoint_id, user_id)
             .await
@@ -237,6 +271,7 @@ where
         user_id: F,
     ) -> RpcResult<QEDUserLeaf<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_leaf_data(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
             .await
@@ -250,6 +285,7 @@ where
         contract_id: u32,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_state_tree_root(checkpoint_id, user_id, contract_id)
             .await
@@ -263,6 +299,7 @@ where
         contract_id: F,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_state_tree_root(
                 checkpoint_id.to_canonical_u64(),
@@ -282,6 +319,7 @@ where
         leaf_id: u64,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_state_tree_leaf_hash(
                 checkpoint_id,
@@ -303,6 +341,7 @@ where
         leaf_id: F,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_state_tree_leaf_hash_f(
                 checkpoint_id,
@@ -324,6 +363,7 @@ where
         leaf_id: u64,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_state_tree_merkle_proof(
                 checkpoint_id,
@@ -345,6 +385,7 @@ where
         leaf_id: F,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_state_tree_merkle_proof_f(
                 checkpoint_id,
@@ -363,6 +404,7 @@ where
         user_id: u64,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_tree_root(checkpoint_id, user_id)
             .await
@@ -375,6 +417,7 @@ where
         user_id: F,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_tree_root(
                 checkpoint_id.to_canonical_u64(),
@@ -391,6 +434,7 @@ where
         contract_id: u32,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_tree_leaf_hash(checkpoint_id, user_id, contract_id)
             .await
@@ -404,6 +448,7 @@ where
         contract_id: F,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_tree_leaf_hash_f(checkpoint_id, user_id, contract_id)
             .await
@@ -417,6 +462,7 @@ where
         contract_id: u32,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_tree_merkle_proof(checkpoint_id, user_id, contract_id)
             .await
@@ -430,6 +476,7 @@ where
         contract_id: F,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_contract_tree_merkle_proof_f(checkpoint_id, user_id, contract_id)
             .await
@@ -438,6 +485,7 @@ where
 
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_tree_root(checkpoint_id)
             .await
@@ -446,6 +494,7 @@ where
 
     async fn get_user_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_tree_root(checkpoint_id.to_canonical_u64())
             .await
@@ -458,6 +507,7 @@ where
         user_id: u64,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_tree_leaf_hash(checkpoint_id, user_id)
             .await
@@ -470,6 +520,7 @@ where
         user_id: F,
     ) -> RpcResult<QHashOut<F>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_tree_leaf_hash(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
             .await
@@ -483,6 +534,7 @@ where
         user_id: u64,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_bottom_tree_merkle_proof(root_level, checkpoint_id, user_id)
             .await
@@ -496,6 +548,7 @@ where
         user_id: F,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_bottom_tree_merkle_proof(
                 root_level,
@@ -514,6 +567,7 @@ where
         leaf_index: u64,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_sub_tree_merkle_proof(checkpoint_id, root_level, leaf_level, leaf_index)
             .await
@@ -528,6 +582,7 @@ where
         leaf_index: F,
     ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
+            .ctx
             .store_reader
             .get_user_sub_tree_merkle_proof(
                 checkpoint_id.to_canonical_u64(),
@@ -550,10 +605,104 @@ where
             user_id
         );
         Ok(self
+            .ctx
             .store_reader
             .get_user_tree_merkle_proof(checkpoint_id, user_id)
             .await
             .map_err(RpcError::Anyhow)?)
+    }
+}
+
+#[async_trait]
+impl<SR, DQ, PS> JobSchedulerRpcServer for RealmEdgeHandler<SR, DQ, PS>
+where
+    SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+    DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
+    PS: QProofStoreAsyncImm + Sync + Send + 'static,
+{
+    async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
+        let j = match self.job_task_store.claim_job_from_current_task().await {
+            Ok(job) => job,
+            Err(e) => {
+                error!("Error claiming job from current task: {:?}", e);
+                return Err(crate::coordinator::edge::error::RpcError::Anyhow(e.into()));
+            }
+        };
+        match j {
+            Some(job) => {
+                debug!("Pending job from current task: {:?}", job);
+                Ok(Some(job))
+            },
+            None => {
+                debug!("No pending job from current task");
+                Ok(None)
+            }
+        }
+    }
+
+    async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>> {
+        let proof: ConcreteProofWithPublicInputs = self
+            .ctx
+            .proof_store
+            .get_proof_by_id(job_id)
+            .await
+            .map_err(|e| RpcError::Anyhow(e.into()))?;
+        let bytes = bincode::serialize(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
+        Ok(bytes)
+    }
+
+    async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>> {
+        let bytes = self
+            .ctx
+            .proof_store
+            .get_bytes_by_id(job_id)
+            .await
+            .map_err(RpcError::Anyhow)?;
+        Ok(bytes)
+    }
+
+    async fn set_proof_by_id(
+        &self,
+        job: QJob,
+        proof: Option<ConcreteProofWithPublicInputs>,
+    ) -> RpcResult<()> {
+        let job_id = job.job_id;
+        if let Some(proof) = proof {
+            info!("Setting proof by id: {:?}", job_id);
+            let output_id = job_id.get_output_id();
+            self.ctx
+                .proof_store
+                .set_proof_by_id(output_id, &proof)
+                .await
+                .map_err(RpcError::Anyhow)?;
+
+
+        }
+
+        // remove the job from the current task, no matter if proof is None or Some
+        match self.job_task_store.acknowledge_job_completion(&job).await {
+            Ok(_) => {
+                info!("Job completed successfully: {:?}", job_id);
+            },
+            Err(e) => {
+                error!("Error acknowledging job completion: {:?}", e);
+                return Err(ErrorObject::owned(
+                    ErrorCode::InternalError.code(),
+                    format!("Failed to acknowledge job completion: {}", e),
+                    None::<()>,
+                ));
+            }
+        }
+        if job_id.topic == QJobTopic::NotifyOrchestratorComplete
+            || job_id.circuit_type == ProvingJobCircuitType::NotifyRealmComplete
+        {
+            info!("Notifying core goal completed: {:?}", job_id);
+            self.job_notify_queue
+                .notify_core_goal_completed_imm(job_id)
+                .await
+                .map_err(RpcError::Anyhow)?;
+        }
+        Ok(())
     }
 }
 
@@ -567,10 +716,13 @@ pub async fn spawn_realm_job_update_task(
         let mut last_checkpoint = 0u64;
         loop {
             // Listen for new proof job IDs from the history queue
-            match proof_store.wait_for_next_item_imm::<ProvingJobDataId>(
-                REALM_PROOF_SYNC_CHANNEL,
-                last_checkpoint
-            ).await {
+            match proof_store
+                .wait_for_next_item_imm::<ProvingJobDataId>(
+                    REALM_PROOF_SYNC_CHANNEL,
+                    last_checkpoint,
+                )
+                .await
+            {
                 Ok(job_id) => {
                     info!(?job_id, "Received proof from realm processor");
                     last_checkpoint = job_id.checkpoint_id + 1;
@@ -696,4 +848,3 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
         tokio::time::sleep(Duration::from_secs(1u64.pow(retry_count as u32))).await;
     }
 }
-

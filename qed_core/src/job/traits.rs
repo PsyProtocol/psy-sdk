@@ -3,10 +3,9 @@ use kvq::traits::KVQPair;
 use plonky2::plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::GenericConfig, proof::ProofWithPublicInputs};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::data::qhashout::QHashOut;
+use crate::{data::qhashout::QHashOut, job::id::JobsTask};
 
 use super::id::{ProvingJobCircuitType, QProvingJobDataID};
-
 
 
 pub trait QProofStoreReaderSync {
@@ -190,7 +189,7 @@ pub trait QProofStoreReaderAsync {
 }
 
 #[async_trait]
-pub trait QProofStoreWriterAsyncImm {
+pub trait QProofStoreWriterAsyncImm: Send + Sync {
 
 
     async fn set_obj_by_id<T: Serialize + Send + Sync>(&self, id: QProvingJobDataID, obj: &T) -> anyhow::Result<()> {
@@ -261,6 +260,22 @@ pub trait QProofStoreWriterAsyncImm {
             ).await?;
         }
         Ok(())
+    }
+
+    async fn write_next_job_tasks(
+        &self,
+        _task: &JobsTask,
+        _next_task: &JobsTask,
+    ) -> anyhow::Result<()> {
+        unimplemented!()
+    }
+
+    async fn write_multidimensional_job_tasks(
+        &self,
+        _tasks: &[JobsTask],
+        _next_task: &JobsTask,
+    ) -> anyhow::Result<()> {
+        unimplemented!()
     }
 }
 

@@ -1,18 +1,20 @@
 
 
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf}, user::QEDUserLeaf};
 
 use super::proving_session::DPNProvingSessionCompactMethodCall;
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct DapenCFCProvingSessionStartContext<F: RichField> {
     pub checkpoint_id: F,
     pub checkpoint_tree_root: QHashOut<F>,
@@ -56,8 +58,9 @@ impl<F: RichField> KVQSerializable for DapenCFCProvingSessionStartContext<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct DapenCFCUserTransactionCallStartContext<F: RichField> {
     pub start_user_contract_tree_root: QHashOut<F>,
     pub start_contract_state_tree_root: QHashOut<F>,
@@ -110,8 +113,9 @@ impl<F: RichField> KVQSerializable for DapenCFCUserTransactionCallStartContext<F
 }
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct DapenCFCUserTransactionEndContext<F: RichField> {
     pub end_contract_state_tree_root: QHashOut<F>,
     pub end_deferred_tx_debt_tree_root: QHashOut<F>,
@@ -159,8 +163,9 @@ impl<F: RichField> KVQSerializable for DapenCFCUserTransactionEndContext<F> {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct DapenCFCUserTransactionInputContext<F: RichField> {
     pub proving_session_start_ctx: DapenCFCProvingSessionStartContext<F>,
     pub transaction_call_start_ctx: DapenCFCUserTransactionCallStartContext<F>,

@@ -1,7 +1,6 @@
-use clap::{Args, Parser};
+use clap::{Args, Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-
 
 #[derive(Debug, Clone, Deserialize, Serialize, Parser, TS)]
 #[ts(export)]
@@ -10,8 +9,18 @@ pub struct ContractCallArgs {
     pub contract_id: u64,
     #[arg(long, default_value = "main", env)]
     pub method_name: String,
-    #[arg(long, default_value = "[]", env)]
+    #[arg(long, env)]
     pub inputs: Vec<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, ValueEnum, Deserialize, Serialize, Parser, TS)]
+pub enum SignType {
+    #[clap(name = "zk")]
+    ZKSign,
+    #[clap(name = "secp256k1")]
+    SECP256K1Sign,
+    #[clap(name = "software-defined")]
+    SoftwareDefinedSign,
 }
 
 pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>> {
@@ -30,6 +39,12 @@ pub struct WalletSessionArgs {
     pub private_key: String,
     #[clap(env, long, default_value = "contract_call.json", env)]
     pub contract_calls: String,
+    #[clap(env, long, default_value = "zk", env)]
+    pub sign_type: SignType,
+    #[arg(long, default_value = "0", env)]
+    pub contract_id: u64,
+    #[clap(long)]
+    pub sign_inputs: Vec<u64>,
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -48,4 +63,10 @@ pub struct ProverArgs {
         default_value = "9f5cb6b51fd293bbc95f94013d65c566d7adeebb7e1cc77c89b9ccd73571b5c0"
     )]
     pub api_key: String,
+}
+
+#[derive(Clone, Debug, Parser)]
+pub struct ProveProxyArgs {
+    #[clap(env = "PROVE_PROXY_LISTEN_ADDR", long, default_value = "0.0.0.0:9999")]
+    pub listen_addr: String,
 }

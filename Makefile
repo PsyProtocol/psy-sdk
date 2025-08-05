@@ -134,6 +134,10 @@ init:
 	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
+	@sleep 10
+	@docker exec qed-redis-coordinator redis-cli FLUSHALL
+	@docker exec qed-redis-realm0 redis-cli FLUSHALL
+	@docker exec qed-redis-realm1 redis-cli FLUSHALL
 	# @echo "Starting ScyllaDB containers..."
 	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
 	# @docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
@@ -176,17 +180,11 @@ run-coordinator-processor:
 run-coordinator-edge:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --database lmdbx --lmdbx-path ${PWD}/db/coordinator
 
-run-coordinator-worker:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-worker
-
 run-realm-processor:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor --redis-uri=redis://127.0.0.1:6380 --database lmdbx --lmdbx-path ${PWD}/db/realm0
 
 run-realm-edge:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --database lmdbx --lmdbx-path ${PWD}/db/realm0
-
-run-realm-worker:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker --redis-uri=redis://127.0.0.1:6380
 
 run-realm-processor1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
@@ -195,9 +193,7 @@ run-realm-processor1:
       --lmdbx-path ${PWD}/db/realm1 \
       --node-id=2 \
       --realm-id=1 \
-      --worker-queue-suffix=rwq1 \
-      --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1
+      --queue-biz-key=rwq1
 
 run-realm-edge1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
@@ -208,17 +204,13 @@ run-realm-edge1:
       --coordinator-addr=http://127.0.0.1:8545 \
       --node-id=2 \
       --realm-id=1 \
-      --worker-queue-suffix=rwq1 \
-      --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1
+      --queue-biz-key=rwq1
 
-run-realm-worker1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-worker \
-      --redis-uri=redis://127.0.0.1:6381 \
-      --worker-queue-suffix=rwq1 \
-      --notifications-queue-suffix=rnq1 \
-      --proof-store-key-suffix=RP1
-
+run-worker:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+      --edge-url=http://127.0.0.1:8545 \
+      --edge-url=http://127.0.0.1:8546 \
+      --edge-url=http://127.0.0.1:8547
 
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 
@@ -268,9 +260,7 @@ run-realm-processor1-tikv:
 		--tikv-namespace realm1 \
 		--node-id=2 \
 		--realm-id=1 \
-		--worker-queue-suffix=rwq1 \
-		--notifications-queue-suffix=rnq1 \
-		--proof-store-key-suffix=RP1
+		--queue-biz-key=rwq1
 
 run-realm-edge1-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
@@ -282,15 +272,16 @@ run-realm-edge1-tikv:
         --coordinator-addr=http://127.0.0.1:8545 \
 		--node-id=2 \
 		--realm-id=1 \
-		--worker-queue-suffix=rwq1 \
-		--notifications-queue-suffix=rnq1 \
-		--proof-store-key-suffix=RP1
+		--queue-biz-key=rwq1
 
 run-all-tikv: shutdown-tikv init-tikv
 	@./scripts/run_all_tikv.sh
 
 run-user-prover:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover
+
+run-prove-proxy:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli prove-proxy
 
 run-web-wallet:
 	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev

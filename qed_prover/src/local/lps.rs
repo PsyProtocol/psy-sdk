@@ -3,11 +3,14 @@ use super::request::*;
 use crate::qed_rpc_call_back;
 use anyhow::Ok;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::{config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
+use qed_core::{
+    config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT},
+    data::qhashout::QHashOut,
+};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
-    contract::{ContractCodeDefinition, QEDContractLeaf},
+    contract::{ContractCodeDefinition, QEDContractLeaf, SimpleContractCodeDefinition},
     user::{self, QEDUserLeaf},
 };
 use qed_data::{
@@ -24,7 +27,7 @@ type F = GoldilocksField;
 #[maybe_async::maybe_async(?Send)]
 impl QTreeDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(checkpoint_id, user_id, contract_id))]
-   async fn get_user_contract_state_tree_root(
+    async fn get_user_contract_state_tree_root(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -73,7 +76,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         skip(self),
         fields(checkpoint_id, user_id, contract_id, height, leaf_id)
     )]
-   async fn get_user_contract_state_tree_leaf_hash(
+    async fn get_user_contract_state_tree_leaf_hash(
         &self,
         checkpoint_id: u64,
         user_id: u64,
@@ -565,12 +568,14 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     "Before verify"
                 );
 
-                let top_proof = self.get_user_sub_tree_merkle_proof(
-                    checkpoint_id,
-                    0,
-                    COORDINATOR_USER_TREE_HEIGHT,
-                    self.get_realm_id(user_id),
-                ).await?;
+                let top_proof = self
+                    .get_user_sub_tree_merkle_proof(
+                        checkpoint_id,
+                        0,
+                        COORDINATOR_USER_TREE_HEIGHT,
+                        self.get_realm_id(user_id),
+                    )
+                    .await?;
                 eprintln!(
                     "DEBUGPRINT[528]: lps.rs:685: top_proof={}",
                     serde_json::to_string_pretty(&top_proof).unwrap()
@@ -582,7 +587,10 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 new_siblings.extend_from_slice(&top_proof.siblings);
                 merkle_proof.root = top_proof.root;
                 merkle_proof.siblings = new_siblings;
-                eprintln!("DEBUGPRINT[723]: lps.rs:583: merkle_proof={}", serde_json::to_string_pretty(&merkle_proof).unwrap());
+                eprintln!(
+                    "DEBUGPRINT[723]: lps.rs:583: merkle_proof={}",
+                    serde_json::to_string_pretty(&merkle_proof).unwrap()
+                );
 
                 debug!(
                     checkpoint_id = checkpoint_id,
@@ -1409,7 +1417,9 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     "Successfully fetched contract {} code definition: {}",
                     contract_id,
-                    serde_json::to_string_pretty(&contract_code)?
+                    serde_json::to_string_pretty(&SimpleContractCodeDefinition::from(
+                        &contract_code
+                    ))?
                 );
                 Ok(contract_code)
             }

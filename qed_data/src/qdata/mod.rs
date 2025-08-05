@@ -1,3 +1,4 @@
+pub mod user_contract_state;
 pub mod user;
 pub mod contract;
 pub mod checkpoint;

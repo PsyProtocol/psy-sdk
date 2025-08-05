@@ -17,7 +17,7 @@ use qed_node::{
     }, realm::state::{edge::RealmEdgeContext, processor::{RealmConfig, RealmProcessorContext}}, worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker}
 };
 use qed_node::common::verifier::get_cached_generic_verifier;
-use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager};
+use qed_prover::{local::provider::ProveProxyRpcTrait, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
 use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::ProofStoreFred};
@@ -55,8 +55,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     pool.init().await?;
     timer.lap("connected to redis");
 
-    let q = ProofStoreFred::new(pool.clone(), "wq1".to_string(), "nq1".to_string());
-    let realm_q = ProofStoreFred::new(pool, "rwq1".to_string(), "rnq1".to_string());
+    let q = ProofStoreFred::new(pool.clone(), "wq1".to_string());
+    let realm_q = ProofStoreFred::new(pool, "rwq1".to_string());
 
     let store_reader: Arc<KVQSimpleMemoryBackingStore> =
         Arc::new(KVQSimpleMemoryBackingStore::new());
@@ -221,7 +221,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("start: init QEDUPSStepCircuitManager");
 
-    let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+    let main_circuits = QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST));
     //main_circuits.print_common_config();
 
     timer.lap("end: init QEDUPSStepCircuitManager");
@@ -251,7 +251,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut mgr = UserProvingSessionManager::<GoldilocksField,QEDHasher,_,C,D>::new(
         lps,
         circuit_info,
-        main_circuits.ups_circuit_whitelist_root
+        main_circuits.ups_circuit_whitelist_root()?,
     )?;
 
     timer.lap("setup mgr");

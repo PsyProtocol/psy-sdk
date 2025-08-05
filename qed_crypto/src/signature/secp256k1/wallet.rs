@@ -100,6 +100,15 @@ impl MemorySecp256K1Wallet {
     }
     pub fn add_private_key(&mut self, private_key: Hash256) -> anyhow::Result<CompressedPublicKey> {
         let signing_key = k256::ecdsa::SigningKey::from_slice(&private_key.0)?;
+        let pub_compressed = self.get_public_key(private_key)?;
+        let p2pkh = pub_compressed.to_p2pkh_address();
+        self.p2pkh_key_map.insert(p2pkh, pub_compressed);
+        self.key_map.insert(pub_compressed, signing_key);
+        Ok(pub_compressed)
+    }
+
+    pub fn get_public_key(&self, private_key: Hash256) -> anyhow::Result<CompressedPublicKey> {
+        let signing_key = k256::ecdsa::SigningKey::from_slice(&private_key.0)?;
         let public_key = signing_key
             .verifying_key()
             .to_encoded_point(true)
@@ -111,9 +120,10 @@ impl MemorySecp256K1Wallet {
             anyhow::bail!("public key length is not 33")
         }
         let pub_compressed = CompressedPublicKey(compressed);
-        let p2pkh = pub_compressed.to_p2pkh_address();
-        self.p2pkh_key_map.insert(p2pkh, pub_compressed);
-        self.key_map.insert(pub_compressed, signing_key);
         Ok(pub_compressed)
+    }
+
+    pub fn get_private_key(&self, public_key: CompressedPublicKey) -> anyhow::Result<k256::ecdsa::SigningKey> {
+        self.key_map.get(&public_key).cloned().ok_or(anyhow::format_err!("private key not found"))
     }
 }

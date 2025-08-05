@@ -8,8 +8,9 @@ use qed_common_circuit::treeprover::qrecursion::standard::gadgets::attest_proof_
 ;
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT}, data::qhashout::QHashOut};
 use qed_crypto::{common::witnesses::qrecursion::header::AttestProofInTreeInput, hash::traits::hasher::MerkleZeroHasher};
-use qed_data::ups::{ups_end_cap::UPSEndCapFromProofTreeGadgetInput, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput};
+use qed_data::{qdata::user_contract_state::UserContractState, ups::{ups_end_cap::UPSEndCapFromProofTreeGadgetInput, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}};
 
+use crate::gadgets::qdata::user_contract_state::UserContractStateGadget;
 
 use super::{ups_end_cap::UPSEndCapCoreGadget, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeGadget};
 
@@ -18,6 +19,8 @@ use super::{ups_end_cap::UPSEndCapCoreGadget, verify_previous_ups_step::VerifyPr
 
 #[derive(Clone, Debug)]
 pub struct UPSEndCapFromProofTreeGadget {
+    // software defined signature
+    // pub user_contract_state: UserContractStateGadget,
 
     // start require witness
     pub verify_previous_ups_step_gadget: VerifyPreviousUPSStepProofInProofTreeGadget,
@@ -67,7 +70,6 @@ impl UPSEndCapFromProofTreeGadget {
 
         let empty_deferred_tx_debt_tree_root = builder.constant_hash(H::get_zero_hash(DEFERRED_TRANSACTION_TREE_HEIGHT as usize));
         let empty_inline_tx_debt_tree_root = builder.constant_hash(H::get_zero_hash(INLINE_TRANSACTION_TREE_HEIGHT as usize));
-        
 
 
         let end_cap_core_gadget = UPSEndCapCoreGadget::enforce_signature_constraints::<H,F,D>(
@@ -103,7 +105,6 @@ impl UPSEndCapFromProofTreeGadget {
         nonce: F,
         slots_modified: F,
     ) -> anyhow::Result<()>  {
-
         witness.set_hash_target(
             self.user_public_key_param,
             user_public_key_param.0,

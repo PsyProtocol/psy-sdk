@@ -6,7 +6,7 @@ use qed_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, data::qhash
 use qed_crypto::{common::user_id::get_user_id_from_registration_id, signature::zk::wallet::SimpleQEDPrivateKey};
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_node::{coordinator::state::edge::CoordinatorEdgeContext, realm::state::edge::RealmEdgeContext};
-use qed_prover::ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager};
+use qed_prover::ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager};
 use qed_data::{config::store_config::QEDHasher, qstore::imm::cmd_processor::QEDReadCommandProcessorSync};
 use qed_store::node::{coordinator::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync};
 
@@ -64,7 +64,7 @@ impl ExampleDemoUserInfoStore {
         &self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C,D>,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+        circuit_mgr: &QCircuitManager<C, D>,
         contract_id: u32,
         fn_name: &str,
         inputs: Vec<F>,
@@ -75,7 +75,7 @@ impl ExampleDemoUserInfoStore {
         &mut self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C,D>,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+        circuit_mgr: &QCircuitManager<C, D>,
         contract_id: u32,
         calls: Vec<(&str,Vec<F>)>
     ) -> anyhow::Result<()>{
@@ -90,7 +90,7 @@ impl ExampleDemoUserInfoStore {
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
         contract: &SimpleTestContract<C,D>,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+        circuit_mgr: &QCircuitManager<C, D>,
         contract_id: u32,
         user_id_u64: u64,
         calls: Vec<(&str,Vec<F>)>
@@ -116,7 +116,7 @@ impl ExampleDemoUserInfoStore {
 
             let signature_proof = self.wallet.zk_sign_for_private_key_value(*self.user_private_keys.get(&user_id_u64).unwrap(), sighash)?;
             timer.lap("generated zk signature for UPS transaction batch");
-            mgr.proof_tree_state.finalize_tree(&circuit_mgr.proof_tree_agg_circuits)?;
+            mgr.proof_tree_state.finalize_tree(circuit_mgr)?;
             timer.lap("aggregated all UPS proofs into a single proof");
             let public_key_param =SimpleQEDPrivateKey::new(*self.user_private_keys.get(&user_id_u64).unwrap()).get_public_key_param::<QEDHasher>();
             let end_cap_proof = mgr.prove_end_cap(
@@ -152,7 +152,7 @@ impl ExampleDemoUserInfoStore {
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
         contract: &SimpleTestContract<C,D>,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+        circuit_mgr: &QCircuitManager<C, D>,
         contract_id: u32,
         user_calls: Vec<(u64, Vec<(&str,Vec<F>)>)>
     ) -> anyhow::Result<(UserProvingSessionManager<F, PoseidonHash, R, C, D>, Vec<(SubmitUserEndCapNonProofInput<F>, ProofWithPublicInputs<F,C,D>)>)>{
@@ -182,7 +182,7 @@ impl ExampleDemoUserInfoStore {
 
             let signature_proof = self.wallet.zk_sign_for_private_key_value(*self.user_private_keys.get(&user_id_u64).unwrap(), sighash)?;
             timer.lap("generated zk signature for UPS transaction batch");
-            mgr.proof_tree_state.finalize_tree(&circuit_mgr.proof_tree_agg_circuits)?;
+            mgr.proof_tree_state.finalize_tree(circuit_mgr)?;
             timer.lap("aggregated all UPS proofs into a single proof");
             let public_key_param =SimpleQEDPrivateKey::new(*self.user_private_keys.get(&user_id_u64).unwrap()).get_public_key_param::<QEDHasher>();
             let end_cap_proof = mgr.prove_end_cap(
@@ -219,7 +219,7 @@ impl ExampleDemoUserInfoStore {
         mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
         contract: &SimpleTestContract<C,D>,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+        circuit_mgr: &QCircuitManager<C, D>,
         contract_id: u32,
         user_calls: Vec<(u64, Vec<(&str,Vec<F>)>)>
     ) -> anyhow::Result<(UserProvingSessionManager<F, PoseidonHash, R, C, D>)>{

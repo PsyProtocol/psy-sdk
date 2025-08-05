@@ -22,8 +22,14 @@ qed_crypto = { workspace = true }
 qed_core = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
+maybe-async = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
 rand_chacha = "0.3.1"
 hex-literal = { workspace = true }
+
+
+[features]
+default = ["is_sync"]
+is_sync = ["maybe-async/is_sync"]

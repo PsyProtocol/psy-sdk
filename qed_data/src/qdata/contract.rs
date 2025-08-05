@@ -88,6 +88,15 @@ pub struct ContractFunctionCodeDefinition {
     pub code: Vec<u8>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default,TS)]
+#[ts(export)]
+pub struct SimpleContractFunctionCodeDefinition {
+    pub method_id: u32,
+    pub num_inputs: u32,
+    pub num_outputs: u32,
+    pub vm_type: u32,
+}
+
 impl KVQSerializable for ContractFunctionCodeDefinition {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
@@ -112,5 +121,26 @@ impl KVQSerializable for ContractCodeDefinition {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash,TS)]
+#[ts(export)]
+pub struct SimpleContractCodeDefinition {
+    pub state_tree_height: u16,
+    pub functions: Vec<SimpleContractFunctionCodeDefinition>,
+}
+
+impl From<&ContractCodeDefinition> for SimpleContractCodeDefinition {
+    fn from(value: &ContractCodeDefinition) -> Self {
+        Self {
+            state_tree_height: value.state_tree_height,
+            functions: value.functions.clone().into_iter().map(|f| SimpleContractFunctionCodeDefinition {
+                method_id: f.method_id,
+                num_inputs: f.num_inputs,
+                num_outputs: f.num_outputs,
+                vm_type: f.vm_type,
+            }).collect(),
+        }
     }
 }

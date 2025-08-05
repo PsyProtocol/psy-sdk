@@ -12,32 +12,30 @@ mkdir -p "$LOG_DIR"
 
 # Define log files for each service
 COORDINATOR_PROCESSOR_LOG="$LOG_DIR/coordinator-processor.log"
-COORDINATOR_WORKER_LOG="$LOG_DIR/coordinator-worker.log"
 REALM_PROCESSOR_LOG="$LOG_DIR/realm-processor.log"
-REALM_WORKER_LOG="$LOG_DIR/realm-worker.log"
 COORDINATOR_EDGE_LOG="$LOG_DIR/coordinator-edge.log"
 REALM_EDGE_LOG="$LOG_DIR/realm-edge.log"
 
 REALM_PROCESSOR1_LOG="$LOG_DIR/realm-processor1.log"
-REALM_WORKER1_LOG="$LOG_DIR/realm-worker1.log"
 REALM_EDGE1_LOG="$LOG_DIR/realm-edge1.log"
 
-LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
+WORKER_LOG="$LOG_DIR/worker.log"
+
+# LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
+LOCAL_PROVE_PROXY_LOG="$LOG_DIR/local-prove-proxy.log"
 WEB_WALLET_LOG="$LOG_DIR/web_wallet.log"
 
 # Clear log files at startup
 echo "Clearing log files..."
 : > "$COORDINATOR_PROCESSOR_LOG"
-: > "$COORDINATOR_WORKER_LOG"
 : > "$REALM_PROCESSOR_LOG"
-: > "$REALM_WORKER_LOG"
 : > "$COORDINATOR_EDGE_LOG"
 : > "$REALM_EDGE_LOG"
 : > "$REALM_PROCESSOR1_LOG"
-: > "$REALM_WORKER1_LOG"
 : > "$REALM_EDGE1_LOG"
-: > "$LOCAL_USER_PROVER_LOG"
+: > "$LOCAL_PROVE_PROXY_LOG"
 : > "$WEB_WALLET_LOG"
+: > "$WORKER_LOG"
 
 # Array to store PIDs of background processes
 declare -a PIDS=()
@@ -66,7 +64,7 @@ run_service() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting $service_name (logging to $log_file)..." | tee -a "$log_file"
     while true; do
         # Run service and append both stdout and stderr to log file
-        ( $service_cmd 2>&1 | sed 's/\o033\[[0-9;]*m//g' ) >> "$log_file" &
+        ( $service_cmd 2>&1 | sed 's/\x1b\[[0-9;]*m//g' ) >> "$log_file" &
         local pid=$!
         PIDS+=("$pid")  # Add PID to array
         wait $pid
@@ -78,15 +76,11 @@ run_service() {
 # Group 1: Start processor and worker services in background
 run_service "make run-coordinator-processor" "coordinator-processor" "$COORDINATOR_PROCESSOR_LOG" &
 PIDS+=($!)
-run_service "make run-coordinator-worker" "coordinator-worker" "$COORDINATOR_WORKER_LOG" &
-PIDS+=($!)
 run_service "make run-realm-processor" "realm-processor" "$REALM_PROCESSOR_LOG" &
 PIDS+=($!)
 run_service "make run-realm-processor1" "realm-processor1" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
-run_service "make run-realm-worker" "realm-worker" "$REALM_WORKER_LOG" &
-PIDS+=($!)
-run_service "make run-realm-worker1" "realm-worker1" "$REALM_WORKER1_LOG" &
+run_service "make run-worker" "worker" "$WORKER_LOG" &
 PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors/workers)
@@ -99,9 +93,11 @@ run_service "make run-realm-edge1" "realm-edge1" "$REALM_EDGE1_LOG" &
 PIDS+=($!)
 
 sleep 1
-run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &
-PIDS+=($!)
+# run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &
+# PIDS+=($!)
 run_service "make run-web-wallet" "web-wallet" "$WEB_WALLET_LOG" &
+PIDS+=($!)
+run_service "make run-prove-proxy" "local-prove-proxy" "$LOCAL_PROVE_PROXY_LOG" &
 PIDS+=($!)
 
 # Wait for all background processes

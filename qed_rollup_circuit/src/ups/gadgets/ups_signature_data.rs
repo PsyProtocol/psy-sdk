@@ -10,7 +10,7 @@ use qed_common_circuit::{builder::{core::CircuitBuilderHelpersCore, hash::core::
 use qed_core::config::network_constants::QED_SIG_ACTION_SIGN_UPS_END_CAP;
 use qed_data::qdata::ups_signature::QEDUserProvingSessionSignatureDataCompact;
 
-use crate::gadgets::sig_action::{compute_sig_action_hash_circuit, SimpleQEDSigAction};
+use crate::gadgets::{qdata::user_contract_state::{SignContextGadget, UserContractStateGadget}, sig_action::{compute_sig_action_hash_circuit, SimpleQEDSigAction}};
 
 
 
@@ -121,6 +121,7 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
         network_magic: u64,
         user_id: Target,
         nonce: Target,
+        sign_context: &SignContextGadget,
 
     ) -> SimpleQEDSigAction {
 
@@ -128,7 +129,9 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
         let sig_action = builder.constant_u64(QED_SIG_ACTION_SIGN_UPS_END_CAP);
         let ups_end_data_hash = self.to_hash::<H,F,D>(builder);
         
-        let action_arguments = ups_end_data_hash.elements.to_vec();
+        let mut action_arguments = ups_end_data_hash.elements.to_vec();
+        action_arguments.extend_from_slice(&sign_context.to_targets());
+        
         let sig_action_hash = compute_sig_action_hash_circuit::<H,F,D>(
             builder,
             network_magic_target,

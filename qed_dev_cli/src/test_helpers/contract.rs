@@ -20,7 +20,7 @@ use qed_data::{
 };
 use qed_prover::{
     dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition},
-    ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager},
+    ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager},
 };
 use qed_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
@@ -316,7 +316,7 @@ type F = GoldilocksField;
 impl SimpleTestContract<C, D> {
     pub fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &self,
-        circuit_mgr: &QEDUPSStepCircuitManager<C, D>,
+        circuit_mgr: &QCircuitManager<C, D>,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract_id: u32,
         fn_name: &str,
@@ -328,7 +328,7 @@ impl SimpleTestContract<C, D> {
                     circuit_mgr,
                     F::from_canonical_u32(contract_id),
                     i as u32, //f.def.method_id,
-                    &f.circuit,
+                    // &f.circuit,
                     &f.def,
                     inputs,
                 )?;

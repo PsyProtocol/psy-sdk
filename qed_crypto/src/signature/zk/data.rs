@@ -8,7 +8,31 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use ts_rs::TS;
 
 
+#[derive(
+    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash,TS
+)]
+#[ts(export, concrete(F = GoldilocksField))]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct PublicKeyInfo<F: RichField> {
+    pub zk_public_key: ZKPublicKeyInfo<F>,
+    pub secp256k1_public_key_hash: QHashOut<F>,
+}
 
+impl<F: RichField> DrainQueueMetadataTagged for PublicKeyInfo<F> {
+    fn get_dq_metadata(&self) -> DrainQueueMetadata {
+        self.zk_public_key.get_dq_metadata()
+    }
+}
+
+impl<F: RichField> KVQSerializable for PublicKeyInfo<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
 
 #[derive(
     Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash,TS

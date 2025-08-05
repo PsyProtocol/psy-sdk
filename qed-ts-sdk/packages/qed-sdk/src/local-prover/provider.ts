@@ -1,5 +1,5 @@
 import { WebProverConfig } from "./config";
-import { WasmRpcServer } from "./qed_user_prover";
+import { WasmRpcServer } from "./qed_prover";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
     ContractCallArgs,

@@ -1065,14 +1065,8 @@ Resources:
                 --redis-uri redis://$REDIS_ENDPOINT:6379 \
                 --node-id {{ realm.node_id }} \
                 --realm-id {{ realm.id }} \
-                {% if realm.processor.args.worker_queue_suffix %}\
-                --worker-queue-suffix {{ realm.processor.args.worker_queue_suffix }} \
-                {% endif %}\
-                {% if realm.processor.args.notifications_queue_suffix %}\
-                --notifications-queue-suffix {{ realm.processor.args.notifications_queue_suffix }} \
-                {% endif %}\
-                {% if realm.processor.args.proof_store_key_suffix %}\
-                --proof-store-key-suffix {{ realm.processor.args.proof_store_key_suffix }}
+                {% if realm.processor.args.queue-biz-key %}\
+                --queue-biz-key {{ realm.processor.args.queue-biz-key }} \
                 {% endif %}
               
               # Check if container started successfully

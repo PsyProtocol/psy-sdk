@@ -37,7 +37,7 @@ pub fn run(args: super::RegisterUserArgs) -> anyhow::Result<()> {
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
     let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(private_key));
 
-    println!("{}", serde_json::to_string_pretty(&public_key).unwrap());
+    println!("{}", serde_json::to_string_pretty(&public_key)?);
     println!("{:?}", public_key.qfhash::<QEDHasher>().to_string());
     provider.register_user(QRegisterUserRPCRequest {
         public_key: public_key,

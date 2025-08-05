@@ -1,5 +1,5 @@
 import { WebProverConfig } from "./config";
-import initWasm, { WasmRpcServer } from "./qed_user_prover";
+import initWasm, { WasmRpcServer } from "./qed_prover";
 import { QedUserProverRPCCommand } from "../local-prover-rpc/types";
 import { QedJSON } from "../utils";
 
