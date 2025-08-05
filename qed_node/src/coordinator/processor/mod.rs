@@ -54,7 +54,6 @@ pub struct CoordinatorProcessNode<
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
-    pub slot_timer: SlotTimer<LocalClock>
 }
 
 impl<
@@ -84,7 +83,6 @@ impl<
             event_receiver,
             proof_verifier,
             coordinator_worker_circuits,
-            slot_timer: SlotTimer::new(LocalClock),
         }
     }
 
@@ -238,18 +236,16 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
     let mut coordinator_processor = CoordinatorProcessNode::new_with_config(args).await?;
     let slot_timer= SlotTimer::new(LocalClock);
     loop {
-        loop {
-            let slot = slot_timer.wait_for_next_slot().await;
-            match coordinator_processor.build_block(slot).await {
-                Ok(checkpoint_id) => {
-                    info!(
-                        "✅ Successfully built and committed block {}",
-                        checkpoint_id
-                    );
-                }
-                Err(e) => {
-                    error!("❌ Failed to build block: {:?}", e);
-                }
+        let slot = slot_timer.wait_for_next_slot().await;
+        match coordinator_processor.build_block(slot).await {
+            Ok(checkpoint_id) => {
+                info!(
+                    "✅ Successfully built and committed block {}",
+                    checkpoint_id
+                );
+            }
+            Err(e) => {
+                error!("❌ Failed to build block: {:?}", e);
             }
         }
     }
