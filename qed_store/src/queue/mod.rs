@@ -9,7 +9,7 @@ pub mod rsmq_task_queue;
 pub use pool::{new_fred_pool, new_redis_async_pool};
 pub use rsmq_queue::*;
 // Re-export from fred_queue for backward compatibility
-pub use fred_queue::{DrainQueueFred, ProofStoreFred, SyncProofQueue};
+pub use fred_queue::{DrainQueueFred, ProofStoreFred};
 // Re-export from redis_queue
 pub use redis_queue::{ProofStoreRedisAsync, Queue, SyncCheckpointQueue, BizKey, QueuePrefixKey};
 // Re-export worker_queue_redis types from rsmq_queue
@@ -27,3 +27,12 @@ pub mod worker_queue_redis {
         };
     }
 }
+
+pub const PROOF_STORE_KEY_PREFIX_1: &'static str = "PSV1";
+pub const PROOF_STORE_COUNTERS_PREFIX_1: &'static str = "proof_counters";
+
+pub const PS_DRAIN_QUEUE_KEY_PREFIX: &'static str = "PSDQV1_";
+pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
+pub const PS_NOTIFICATIONS_QUEUE_KEY_PREFIX: &'static str = "PSNQV1";
+pub const PS_HISTORY_QUEUE_KEY_PREFIX: &'static str = "PSHQV1";
+pub const PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX: &'static str = "PSSQV1";

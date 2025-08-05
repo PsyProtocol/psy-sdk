@@ -1,8 +1,9 @@
-use std::time::Duration;
 use std::fmt;
+use std::time::Duration;
 
+use crate::queue::{BizKey, QueuePrefixKey};
 use async_trait::async_trait;
-use fred::prelude::{HashesInterface, KeysInterface, ListInterface, Pool, FredResult};
+use fred::prelude::{FredResult, HashesInterface, KeysInterface, ListInterface, Pool};
 use kvq::traits::{KVQPair, KVQSerializable};
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use qed_core::job::{
@@ -13,28 +14,13 @@ use qed_core::job::{
         CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
         CheckpointHistoryQueueEmitterSyncImm, HQSerializable,
     },
-    id::{QProvingJobDataID, ProvingJobDataId},
+    id::{ProvingJobDataId, QProvingJobDataID},
     traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
 use tokio::time::sleep;
-use crate::queue::{BizKey, QueuePrefixKey};
 
-pub const PROOF_STORE_KEY_PREFIX_1: &'static str = "PSV1";
-pub const PROOF_STORE_COUNTERS_PREFIX_1: &'static str = "proof_counters";
-
-pub const PS_DRAIN_QUEUE_KEY_PREFIX: &'static str = "PSDQV1_";
-pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
-pub const PS_NOTIFICATIONS_QUEUE_KEY_PREFIX: &'static str = "PSNQV1";
-pub const PS_HISTORY_QUEUE_KEY_PREFIX: &'static str = "PSHQV1";
-pub const REAML_PROOF_KEY: &str = "REALM_PROOF";
-pub const PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX: &'static str = "PSSQV1";
-
-#[async_trait]
-pub trait SyncProofQueue {
-    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()>;
-    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId>;
-}
+use super::PS_DRAIN_QUEUE_KEY_PREFIX;
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -50,8 +36,12 @@ impl BizKey for ProofStoreFred {
 
 impl fmt::Debug for ProofStoreFred {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ProofStoreFred {{ pool: ..., worker_queue_id: {:?}, notifications_queue_id: {:?} }}",
-               self.worker_queue_key(), self.notifications_queue_key())
+        write!(
+            f,
+            "ProofStoreFred {{ pool: ..., worker_queue_id: {:?}, notifications_queue_id: {:?} }}",
+            self.worker_queue_key(),
+            self.notifications_queue_key()
+        )
     }
 }
 
@@ -81,14 +71,8 @@ impl BizKey for DrainQueueFred {
 }
 
 impl ProofStoreFred {
-    pub fn new(
-        pool: Pool,
-        biz_id: String,
-    ) -> Self {
-        Self {
-            pool,
-            biz_id,
-        }
+    pub fn new(pool: Pool, biz_id: String) -> Self {
+        Self { pool, biz_id }
     }
 
     pub fn pool(&self) -> &Pool {
@@ -320,7 +304,9 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreFred {
             .set::<(), String, &[u8]>(
                 format!(
                     "{}-{}_{}",
-                    self.checkpoint_history_queue_prefix_key(), metadata.channel_id, metadata.checkpoint_id,
+                    self.checkpoint_history_queue_prefix_key(),
+                    metadata.channel_id,
+                    metadata.checkpoint_id,
                 ),
                 &bytes,
                 None,
@@ -330,7 +316,11 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreFred {
             .await?;
         self.pool
             .set::<(), String, u64>(
-                format!("{}-{}", self.checkpoint_history_queue_prefix_key(), metadata.channel_id,),
+                format!(
+                    "{}-{}",
+                    self.checkpoint_history_queue_prefix_key(),
+                    metadata.channel_id,
+                ),
                 metadata.checkpoint_id,
                 None,
                 None,
@@ -350,7 +340,11 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
     ) -> anyhow::Result<Vec<T>> {
         let cur_checkpoint_id = self
             .pool
-            .get::<Option<u64>, String>(format!("{}-{}", self.checkpoint_history_queue_prefix_key(), channel_id,))
+            .get::<Option<u64>, String>(format!(
+                "{}-{}",
+                self.checkpoint_history_queue_prefix_key(),
+                channel_id,
+            ))
             .await?;
         match cur_checkpoint_id {
             Some(r) => {
@@ -362,7 +356,9 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
                             .pool
                             .get::<Vec<u8>, String>(format!(
                                 "{}-{}_{}",
-                                self.checkpoint_history_queue_prefix_key(), channel_id, i,
+                                self.checkpoint_history_queue_prefix_key(),
+                                channel_id,
+                                i,
                             ))
                             .await?;
                         results.push(T::from_bytes(&result)?);
@@ -383,7 +379,11 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
     ) -> anyhow::Result<T> {
         let cur_checkpoint_id = self
             .pool
-            .get::<Option<u64>, String>(format!("{}-{}", self.checkpoint_history_queue_prefix_key(), channel_id,))
+            .get::<Option<u64>, String>(format!(
+                "{}-{}",
+                self.checkpoint_history_queue_prefix_key(),
+                channel_id,
+            ))
             .await?;
         let mut checkpoint_current: i64 = match cur_checkpoint_id {
             Some(x) => x as i64,
@@ -397,7 +397,8 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
                 .pool
                 .get::<Option<u64>, String>(format!(
                     "{}-{}",
-                    self.checkpoint_history_queue_prefix_key(), channel_id,
+                    self.checkpoint_history_queue_prefix_key(),
+                    channel_id,
                 ))
                 .await?;
             checkpoint_current = match cur_checkpoint_id {
@@ -409,44 +410,19 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
             .pool
             .get::<Vec<u8>, String>(format!(
                 "{}-{}_{}",
-                self.checkpoint_history_queue_prefix_key(), channel_id, checkpoint_current,
+                self.checkpoint_history_queue_prefix_key(),
+                channel_id,
+                checkpoint_current,
             ))
             .await?;
         Ok(T::from_bytes(&result)?)
     }
-    
+
     async fn is_empty(&self) -> anyhow::Result<bool> {
         // Check if REALM_CHECKPOINT queue is empty
         let realm_sync_checkpoint_key = self.realm_sync_checkpoint_key();
         let length: usize = self.pool.llen(&realm_sync_checkpoint_key).await?;
         Ok(length == 0)
-    }
-}
-
-#[async_trait]
-impl SyncProofQueue for ProofStoreFred {
-    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()> {
-        let realm_proof_key = self.realm_proof_key();
-        self.pool()
-            .rpush::<(), &str, Vec<u8>>(&realm_proof_key, item.to_bytes()?)
-            .await?;
-        Ok(())
-    }
-
-    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId> {
-        let realm_proof_key = self.realm_proof_key();
-        let result: FredResult<(String, Vec<u8>)> = self.pool().blpop(realm_proof_key, 0.0).await;
-
-        match result {
-            Ok((_, bytes)) => match ProvingJobDataId::from_bytes(&bytes) {
-                Ok(id) => Ok(id),
-                Err(err) => Err(anyhow::anyhow!(
-                    "Failed to parse ProvingJobDataId: {:?}",
-                    err
-                )),
-            },
-            Err(err) => Err(anyhow::anyhow!("Error getting job_id from Redis {:?}", err)),
-        }
     }
 }
 
@@ -458,7 +434,10 @@ impl CheckpointDrainQueueEmitterAsyncImm for DrainQueueFred {
         let bytes = item.to_bytes()?;
         self.pool
             .lpush::<(), String, &[u8]>(
-                    format!("CDQ_2_{}_{}_{}", self.biz_key ,metadata.channel_id, metadata.checkpoint_id),
+                format!(
+                    "CDQ_2_{}_{}_{}",
+                    self.biz_key, metadata.channel_id, metadata.checkpoint_id
+                ),
                 &bytes,
             )
             .await?;
@@ -487,3 +466,4 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
             .collect()
     }
 }
+

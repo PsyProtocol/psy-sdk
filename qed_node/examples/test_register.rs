@@ -8,11 +8,9 @@ use qed_crypto::{
     common::simple_circuit_library::SimpleCircuitLibrary, signature::zk::data::ZKPublicKeyInfo,
 };
 use qed_node::{
-    coordinator::{
-        state::{
-            edge::CoordinatorEdgeContext,
-            processor::{CoordinatorConfig, CoordinatorProcessorContext},
-        },
+    coordinator::state::{
+        edge::CoordinatorEdgeContext,
+        processor::{CoordinatorConfig, CoordinatorProcessorContext},
     },
     worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
 };
