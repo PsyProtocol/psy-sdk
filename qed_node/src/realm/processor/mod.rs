@@ -1,3 +1,7 @@
+mod slot_phase;
+
+use std::ops::Deref;
+use std::os::unix::raw::time_t;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::{C, D, F};
 use fred::prelude::KeysInterface;
@@ -12,10 +16,12 @@ use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use crate::common::verifier::get_cached_generic_verifier;
 use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::sync::Arc;
+use std::thread::sleep;
 use std::time::Duration;
 use anyhow::{anyhow, bail};
-use futures::future::err;
+use futures::future::{err, ok};
 use tokio::task::JoinHandle;
+use tower_http::follow_redirect::policy::PolicyExt;
 use tracing::{debug, error, info, warn};
 use qed_store::queue::new_redis_async_pool;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
@@ -23,7 +29,9 @@ use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
 use crate::common::clock::SlotTimer;
-use crate::common::slot::{LocalClock, Slot};
+use crate::common::slot::{Clock, LocalClock, Slot};
+use crate::realm::processor::slot_phase::SlotPhase;
+use crate::realm::processor::slot_phase::SlotPhase::BuildPhase;
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<QEDStore>,
@@ -118,6 +126,20 @@ impl RealmProcessor {
 
                 _ => {}
             }
+
+            if let Err(err) = self.validate_slot() {
+                warn!("Error validating slot: {:?}", err);
+                continue
+            }
+
+            if let BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
+                let current_timestamp = self.slot_timer.get_current_timestamp();
+                if current_timestamp < build_phase_start {
+                    info!("Waiting for build phase to start");
+                    tokio::time::sleep(Duration::from_millis(build_phase_start - current_timestamp)).await;
+                }
+            }
+
             info!("Start building block");
             let proving_data_job_id: ProvingJobDataId = match self.build_block(&mut context).await {
                 Ok(job_id) => job_id,
@@ -208,25 +230,18 @@ impl RealmProcessor {
         let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
         self.store.commit(local_latest_checkpoint_id)?;
-        if let Err(err) = context.build_block().await {
+        if let Err(err) = context.build_block().await.and(self.validate_slot()) {
             self.store.rollback(next_checkpoint_id)?;
             return Err(err);
         }
         match self
         .sync_proof
         .wait_for_block_proving_jobs_imm(next_checkpoint_id)
-        .await {
+        .await.and_then(|realm_worker_output_job_id| {
+            self.validate_slot()?;
+            Ok(realm_worker_output_job_id)
+        }) {
             Ok(realm_worker_output_job_id) => {
-                if !self.is_next_slot() {
-                    self.store.rollback(next_checkpoint_id)?;
-                    bail!("Not next slot")
-                }
-
-                if !self.slot_timer.is_can_reach_to_next_slot() {
-                    self.store.rollback(next_checkpoint_id)?;
-                    bail!("Not reach to next slot")
-                }
-
                 Ok(ProvingJobDataId::new(
                     next_checkpoint_id,
                     realm_worker_output_job_id,
@@ -239,8 +254,24 @@ impl RealmProcessor {
             }
         }
     }
-    fn is_next_slot(&self) -> bool {
-        self.remote_latest_slot == 0 || self.slot_timer.get_next_slot_timestamp() == self.remote_latest_slot + 1
+
+    fn validate_slot(&self) -> anyhow::Result<()> {
+        if !self.is_current_slot() {
+            bail!("Not in current slot")
+        }
+
+        if !self.slot_timer.is_can_reach_to_next_slot() {
+            bail!("Not reach to next slot")
+        }
+        Ok(())
+    }
+
+    fn is_current_slot(&self) -> bool {
+        self.remote_latest_slot == 0 || self.slot_timer.get_current_slot() == self.remote_latest_slot
+    }
+
+    async fn wait(&self) -> anyhow::Result<()> {
+        Ok(())
     }
 
     pub async fn get_local_latest_l2_block_state(&self) -> anyhow::Result<u64> {
