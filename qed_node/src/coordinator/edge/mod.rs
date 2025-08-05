@@ -4,6 +4,8 @@ pub mod types;
 pub mod rpc;
 pub mod error;
 
+use crate::common::jobs::JobSchedulerRpcServer;
+
 use super::args::CoordinatorEdgeArgs;
 use self::rpc::CoordinatorEdgeRpcServer;
 use self::jwt::{JwtSecret, ServerLayer};
@@ -27,7 +29,9 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("✅ Loaded config: {:#?}", config);
 
     let handler = handler::CoordinatorEdgeHandler::new(config.clone()).await?;
-    let rpc_module = handler.clone().into_rpc();
+    let mut rpc_module = CoordinatorEdgeRpcServer::into_rpc(handler.clone());
+    let job_rpc_module = JobSchedulerRpcServer::into_rpc(handler);
+    rpc_module.merge(job_rpc_module)?;
 
     let addr: SocketAddr = config.listen_addr.parse()?;
 

@@ -42,8 +42,8 @@ bb8-redis = { workspace = true }
 bb8 = { workspace = true }
 rsmq = { workspace = true }
 url = { workspace = true }
+chrono = {workspace = true}
 rand = { workspace = true }
-
 
 [features]
 default = ["is_sync"]

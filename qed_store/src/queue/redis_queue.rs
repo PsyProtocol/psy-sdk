@@ -1,11 +1,10 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use redis::{AsyncCommands, RedisResult};
 use kvq::traits::KVQSerializable;
-use qed_core::job::id::ProvingJobDataId;
-use qed_data::qdata::checkpoint::CheckpointSyncInfo;
+use qed_core::job::{id::{JobsTask, JobsTaskGraph, ProvingJobDataId}};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use tracing::debug;
 
@@ -24,8 +23,8 @@ use qed_core::job::{
     traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
-use tokio::time::sleep;
-
+use tokio::{sync::Mutex, time::sleep};
+use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 // Re-use constants from fred_queue
 use crate::queue::fred_queue::{
     PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX,
@@ -40,6 +39,7 @@ pub struct ProofStoreRedisAsync {
     notifications_queue_id: String,
     proof_store_key: String,
     proof_store_counters: String,
+    pub task_graph: Arc<Mutex<JobsTaskGraph>>
 }
 
 impl ProofStoreRedisAsync {
@@ -62,6 +62,7 @@ impl ProofStoreRedisAsync {
                 "{}-{}",
                 PROOF_STORE_COUNTERS_PREFIX_1, proof_store_counters_suffix
             ),
+            task_graph: Arc::new(Mutex::new(JobsTaskGraph::new())),
         })
     }
     pub fn pool(&self) -> &Pool<RedisConnectionManager> {
@@ -151,7 +152,11 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         jobs: &[QProvingJobDataID],
         next_jobs: &[QProvingJobDataID],
     ) -> anyhow::Result<()> {
-        self.write_next_jobs_core(jobs, next_jobs).await
+        self.write_next_jobs_core(jobs, next_jobs).await?;
+        let task = JobsTask::new(jobs);
+        let next_task = JobsTask::new(next_jobs);
+        self.task_graph.lock().await.add_dep(task, next_task);
+        Ok(())
     }
 
     async fn write_multidimensional_jobs(
@@ -160,7 +165,50 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         next_jobs: &[QProvingJobDataID],
     ) -> anyhow::Result<()> {
         self.write_multidimensional_jobs_core(jobs_levels, next_jobs)
-            .await
+            .await?;
+        let job_levels_count = jobs_levels.len();
+        let tasks = jobs_levels.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
+        let next_task = JobsTask::new(next_jobs);
+        let mut task_graph = self.task_graph.lock().await;
+        for i in 0..job_levels_count {
+            let current_next_task = if i == job_levels_count - 1 {
+                &next_task
+            } else {
+                &tasks[i + 1]
+            };
+            let current_task = &tasks[i];
+            task_graph.add_dep(current_task.clone(), current_next_task.clone());
+        }
+        Ok(())
+    }
+
+    async fn write_next_job_tasks(
+        &self,
+        task: &JobsTask,
+        next_task: &JobsTask,
+    ) -> anyhow::Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        task_graph.add_dep(next_task.clone(), task.clone());
+        Ok(())
+    }
+
+    async fn write_multidimensional_job_tasks(
+        &self,
+        tasks: &[JobsTask],
+        next_task: &JobsTask,
+    ) -> anyhow::Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        let job_levels_count = tasks.len();
+        for i in 0..job_levels_count {
+            let current_next_task = if i == job_levels_count - 1 {
+                &next_task
+            } else {
+                &tasks[i + 1]
+            };
+            let current_task = &tasks[i];
+            task_graph.add_dep(current_next_task.clone(), current_task.clone());
+        }
+        Ok(())
     }
 }
 
@@ -371,7 +419,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedisAsync {
             .await?;
         Ok(T::from_bytes(&result)?)
     }
-    
+
     async fn is_empty(&self) -> anyhow::Result<bool> {
         // Check if REALM_CHECKPOINT queue is empty
         let realm_checkpoint_key = format!("{}-REALM_CHECKPOINT", self.worker_queue_id);
@@ -438,7 +486,7 @@ impl Queue {
             .max_size(pool_size as u32)
             .build(manager).await?;
 
-        Ok(Self { 
+        Ok(Self {
             pool,
             worker_queue_id: format!("{}-{}", PS_SYNC_QUEUE_KEY_PREFIX, worker_queue_suffix),
         })

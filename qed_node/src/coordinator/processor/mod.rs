@@ -30,6 +30,7 @@ use std::time::Duration;
 use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
+use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -51,6 +52,7 @@ pub struct CoordinatorProcessNode<
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+    pub job_task_store: Arc<JobTaskStoreImpl>,
 }
 
 impl<
@@ -71,6 +73,7 @@ impl<
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+        job_task_store: Arc<JobTaskStoreImpl>,
     ) -> Self {
         Self {
             ctx,
@@ -80,6 +83,7 @@ impl<
             event_receiver,
             proof_verifier,
             coordinator_worker_circuits,
+            job_task_store,
         }
     }
 
@@ -87,17 +91,17 @@ impl<
         // Get current checkpoint to listen from
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let start_checkpoint = latest_l2_block_state.checkpoint_id + 1; // Listen for the next checkpoint
-        
+
         // Try to get messages from the history queue
         let messages = self.edge_command_queue.chq_listen_from_imm::<CEQueueNotification>(
             COORDINATOR_TO_REALM_CHANNEL,
             start_checkpoint
         ).await?;
-        
+
         if messages.is_empty() {
             return Ok(false);
         }
-        
+
         // Process the first message
         let notify_message = messages.into_iter().next().unwrap();
 
@@ -152,6 +156,8 @@ impl
         let bb8_pool =
             new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
         info!("🐶 redis pool initialized");
+        let task_store = JobTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
+            .await?;
         let q = ProofStoreRedisAsync::new2(
             bb8_pool,
             &cp_config.queue_args.worker_queue_suffix,
@@ -183,7 +189,7 @@ impl
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
-        let mut coordinator_processor_ctx = CoordinatorProcessorContext::new(
+        let coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
             Arc::new(qed_store.clone()),
             qps.clone(),
@@ -206,19 +212,34 @@ impl
             q,
             proof_verifier,
             coordinator_worker_circuits,
+            Arc::new(task_store),
         ))
+    }
+
+    pub async fn build_block_inner(&mut self, next_checkpoint_id: u64) -> anyhow::Result<()> {
+        info!("building block: {:?}", next_checkpoint_id);
+        self.ctx.build_block().await?;
+        info!("waiting for block proving jobs: {:?}", next_checkpoint_id);
+        {
+            let mut task_graph = self.ctx.proof_store.task_graph.lock().await;
+            let sorted_tasks = task_graph.ts_task();
+            self.job_task_store.save_task_topology(sorted_tasks).await?;
+            task_graph.clear();
+        }
+
+        info!("🐶 waiting for block proving jobs");
+        self.ctx
+            .prover_queue
+            .wait_for_block_proving_jobs_imm(next_checkpoint_id)
+            .await?;
+        Ok(())
     }
 
     pub async fn build_block(&mut self) -> anyhow::Result<u64> {
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
 
-        if let Err(e) = self.ctx.build_block().await.and(
-            self.ctx
-                .prover_queue
-                .wait_for_block_proving_jobs_imm(next_checkpoint_id)
-                .await,
-        ) {
+        if let Err(e) = self.build_block_inner(next_checkpoint_id).await {
             self.journal_store.rollback(next_checkpoint_id)?;
             return Err(e);
         }
@@ -234,6 +255,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
     loop {
         loop {
+            info!("waiting for produce block");
             match coordinator_processor.wait_for_produce_block().await {
                 Ok(true) => break,
                 Ok(false) => {
@@ -255,7 +277,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
             }
             Err(e) => {
                 error!("❌ Failed to build block: {:?}", e);
-                tokio::time::sleep(Duration::from_secs(1));
+                tokio::time::sleep(Duration::from_secs(1)).await;
             }
         }
     }
