@@ -46,6 +46,8 @@ pub trait CircuitBuilderBiguint<F: RichField + Extendable<D>, const D: usize> {
 
     fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget;
 
+    fn is_equal_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget) -> BoolTarget;
+
     fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget;
 
     /// Add two `BigUintTarget`s.
@@ -131,6 +133,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         let (a, b) = self.pad_biguints(a, b);
 
         list_lte_u32_circuit(self, a.limbs, b.limbs)
+    }
+
+    fn is_equal_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget) -> BoolTarget {
+        let min_limbs = lhs.num_limbs().min(rhs.num_limbs());
+        let mut is_equal = self.constant_bool(true);
+        for i in 0..min_limbs {
+            let is_equal_inner = self.is_equal(lhs.get_limb(i).0, rhs.get_limb(i).0);
+            is_equal = self.and(is_equal, is_equal_inner);
+        }
+
+        let zero = self.zero();
+        for i in min_limbs..lhs.num_limbs() {
+            let is_equal_inner = self.is_equal(lhs.get_limb(i).0, zero);
+            is_equal = self.and(is_equal, is_equal_inner);
+        }
+        for i in min_limbs..rhs.num_limbs() {
+            let is_equal_inner = self.is_equal(rhs.get_limb(i).0, zero);
+            is_equal = self.and(is_equal, is_equal_inner);
+        }
+        is_equal
     }
 
     fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {

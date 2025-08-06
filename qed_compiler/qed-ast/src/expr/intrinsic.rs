@@ -89,7 +89,13 @@ pub enum IntrinsicExprNode {
         method_id: ExprId,
         inputs: ExprId,
         location: Location,
-    }
+    },
+    CheckSecpSign {
+        pub_key: ExprId,
+        msg: ExprId,
+        sig: ExprId,
+        location: Location,
+    },
 }
 
 impl NodeInfo for IntrinsicExprNode {

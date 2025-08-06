@@ -14,3 +14,5 @@ plonky2 = { workspace = true }
 twox-hash = { workspace = true }
 hashbrown = { workspace = true }
 ts-rs = { workspace = true }
+
+k256 = { workspace = true }

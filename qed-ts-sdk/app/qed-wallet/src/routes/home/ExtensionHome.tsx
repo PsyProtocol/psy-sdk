@@ -33,8 +33,8 @@ const ExtensionHomeContent: React.FC = () => {
         const initWasmRpcServer = async () => {
             try {
                 const rpcConfigJson = {
-                    global_user_tree_height: config.network.global_user_tree_height ?? 24,
-                    realm_user_tree_height: config.network.realm_user_tree_height ?? 23,
+                    global_user_tree_height: config.network.global_user_tree_height,
+                    realm_user_tree_height: config.network.realm_user_tree_height,
                     users_per_realm: config.network.users_per_realm,
                     realm_configs: config.network.realm_configs,
                     coordinator_configs: config.network.coordinator_configs,
@@ -60,8 +60,8 @@ const ExtensionHomeContent: React.FC = () => {
     }, []);
 
     const walletProvider = createMemoryWalletProvider(
-        config.network.global_user_tree_height ?? 24,
-        config.network.realm_user_tree_height ?? 23,
+        config.network.global_user_tree_height,
+        config.network.realm_user_tree_height,
         config.network.coordinator_configs,
         config.network.realm_configs,
         config.network.users_per_realm,

@@ -1,5 +1,7 @@
 use core::panic;
 
+use crate::dpn::ops::{op_types::DPNOpType, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
+use k256::ecdsa::Signature;
 use plonky2::{
     field::{
         goldilocks_field::GoldilocksField,
@@ -9,7 +11,6 @@ use plonky2::{
     plonk::config::{GenericHashOut, Hasher},
 };
 use std::ops::Neg;
-use crate::dpn::ops::{op_types::DPNOpType, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
 
 use super::traits::{ContextEval, ContextInput, EvalCache};
 fn split_bits(x: u64, num_bits: u64) -> Vec<u64> {
@@ -326,6 +327,70 @@ impl ContextEval for SymFeltStore {
                     let res = base.exp_u64(exponent.to_canonical_u64()).to_canonical_u64();
                     assert!(res < 0xffffffffu64, "u32 exp result is too large");
                     res
+                }
+                DPNOpType::CheckSecpSign => {
+                    use k256::ecdsa::signature::hazmat::PrehashVerifier;
+                    let inputs = self.resolve_array_args(felt_ref, input, cache);
+                    assert!(inputs.len() == 36, "CheckSecpSign input length must be 36");
+                    let pk_u32 = inputs[0..16]
+                        .to_vec()
+                        .iter()
+                        .map(|k| {
+                            assert!(*k < 0xffffffffu64, "secp pk.x must be [u32; 16]");
+                            *k as u32
+                        })
+                        .collect::<Vec<u32>>();
+                    let pk_x_bytes = pk_u32[0..8]
+                        .iter()
+                        .flat_map(|&num| num.to_le_bytes())
+                        .rev()
+                        .collect::<Vec<_>>();
+                    let pk_y_bytes = pk_u32[8..16]
+                        .iter()
+                        .flat_map(|&num| num.to_le_bytes())
+                        .rev()
+                        .collect::<Vec<_>>();
+                    let mut pk_sec1_bytes = vec![0x04];
+                    pk_sec1_bytes.extend(pk_x_bytes);
+                    pk_sec1_bytes.extend(pk_y_bytes);
+                    let vk = k256::ecdsa::VerifyingKey::from_sec1_bytes(&pk_sec1_bytes)
+                        .expect("secp pk must be valid");
+                    let signature_u32 = inputs[16..32]
+                        .to_vec()
+                        .iter()
+                        .map(|k| {
+                            assert!(*k < 0xffffffffu64, "secp signature must be [u32; 16]");
+                            *k as u32
+                        })
+                        .collect::<Vec<u32>>();
+
+                    let signature_r_bytes = signature_u32[0..8].iter()
+                        .flat_map(|&num| num.to_le_bytes())
+                        .rev()
+                        .collect::<Vec<_>>();
+                    let signature_s_bytes = signature_u32[8..16].iter()
+                        .flat_map(|&num| num.to_le_bytes())
+                        .rev()
+                        .collect::<Vec<_>>();
+
+                    let signature_bytes = signature_r_bytes
+                        .iter()
+                        .chain(signature_s_bytes.iter())
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    
+                    let signature = Signature::from_slice(&signature_bytes)
+                        .expect("secp signature must be valid");
+
+                    let msg_bytes = inputs[32..36].iter()
+                        .flat_map(|&num| num.to_le_bytes())
+                        .rev()
+                        .collect::<Vec<_>>();
+
+                    match vk.verify_prehash(&msg_bytes, &signature){
+                        Ok(_) => 1,
+                        Err(_) => 0,
+                    }
                 }
             };
             result

@@ -697,6 +697,27 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ))
             }
+            IntrinsicExprNode::CheckSecpSign {
+                pub_key,
+                msg,
+                sig,
+                location,
+            } => {
+                let pub_key = self.visit_expr(pub_key, ctx)?;
+
+                let msg = self.visit_expr(msg, ctx)?;
+                let sig = self.visit_expr(sig, ctx)?;
+
+                Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::CheckSecpSign {
+                        pub_key: self.program.exprs.alloc_item(pub_key),
+                        msg: self.program.exprs.alloc_item(msg),
+                        sig: self.program.exprs.alloc_item(sig),
+                        type_id: BOOL_TYPE,
+                        location,
+                    },
+                ))
+            }
         }
     }
 
