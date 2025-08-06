@@ -39,7 +39,7 @@ async fn run_scheduler_worker(
     let prover = QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
     let library = &proof_verifier.library;
     loop {
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
         let job = match job_receiver.get_next_job().await {
             Ok(job) => job,
             Err(e) => {
