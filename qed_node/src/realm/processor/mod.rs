@@ -20,6 +20,7 @@ use std::time::Duration;
 use anyhow::{anyhow, bail};
 use futures::future::{err, ok};
 use tokio::task::JoinHandle;
+use tokio::time::Instant;
 use tower_http::follow_redirect::policy::PolicyExt;
 use tracing::{debug, error, info, warn};
 use qed_store::queue::new_redis_async_pool;
@@ -129,11 +130,12 @@ impl RealmProcessor {
                 continue
             }
 
+            let slot = self.slot_timer.get_current_slot();
             if let SlotPhase::BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
                 let current_timestamp = self.slot_timer.get_current_timestamp();
                 if current_timestamp < build_phase_start {
                     let tt = build_phase_start - current_timestamp;
-                    info!("Waiting for build phase to start: sleep {} ms", tt);
+                    info!("Waiting for build phase to start: sleep {} ms, slot: {}", tt, slot);
                     tokio::time::sleep(Duration::from_millis(tt)).await;
                 }
             }
@@ -142,11 +144,11 @@ impl RealmProcessor {
             let proving_data_job_id: ProvingJobDataId = match self.build_block(&mut context).await {
                 Ok(job_id) => job_id,
                 Err(err) => {
-                    error!("Error building block: {:?}", err);
+                    error!("Error building block: {:?}, slot: {}", err, slot);
                     continue;
                 }
             };
-            info!("Pushing job id to queue: {:?}", proving_data_job_id);
+            info!("Pushing job id to queue: {:?}, slot: {}", proving_data_job_id, slot);
             self.sync_proof.chq_push_imm(proving_data_job_id).await?;
             // Send the job id to the channel for the next step
             // if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
@@ -179,7 +181,7 @@ impl RealmProcessor {
                 // checkpoint.l2_block_state
                 let checkpoint_id = block.compact.l2_block_state.checkpoint_id;
 
-                info!("Checkpoint received checkpoint_id: {}, local_checkpoint_id: {}", checkpoint_id, local_checkpoint_id);
+                info!("Checkpoint received checkpoint_id: {},latest_checkpoint_id: {} ,local_checkpoint_id: {}", checkpoint_id, block.latest_checkpoint_id, local_checkpoint_id);
                 if local_checkpoint_id >= block.latest_checkpoint_id && local_checkpoint_id > 0 {
                     info!("Local checkpoint is latest");
                     self.remote_latest_slot = block.compact.slot;
@@ -195,6 +197,7 @@ impl RealmProcessor {
                     Ok(_) => {
                         info!(?checkpoint_id, "Sync to new checkpoint");
                         info!("Checkpoint sync reg users: {:?}", block.compact.registered_users);
+                        self.store.commit(checkpoint_id)?;
                         if local_checkpoint_id + 1 == block.latest_checkpoint_id && block.latest_checkpoint_id == checkpoint_id
                             ||  local_checkpoint_id == checkpoint_id && block.latest_checkpoint_id == checkpoint_id && local_checkpoint_id == 0
                         {
@@ -202,7 +205,6 @@ impl RealmProcessor {
                             self.remote_latest_slot = block.compact.slot;
                             return Ok(true);
                         }
-                        self.store.commit(checkpoint_id)?;
                         Ok(false)
                     }
                     Err(err) => {
@@ -226,15 +228,18 @@ impl RealmProcessor {
         let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
         self.store.commit(local_latest_checkpoint_id)?;
-        if let Err(err) = context.build_block().await.and(self.validate_slot()) {
+        let now = Instant::now();
+        //if let Err(err) = context.build_block().await.and(self.validate_slot()) {
+        if let Err(err) = context.build_block().await {
             self.store.rollback(next_checkpoint_id)?;
             return Err(err);
         }
-        match self
+        info!("Build block {} time: {} ms", next_checkpoint_id, now.elapsed().as_millis());
+        let result = match self
         .sync_proof
         .wait_for_block_proving_jobs_imm(next_checkpoint_id)
         .await.and_then(|realm_worker_output_job_id| {
-            self.validate_slot()?;
+            // self.validate_slot()?;
             Ok(realm_worker_output_job_id)
         }) {
             Ok(realm_worker_output_job_id) => {
@@ -248,7 +253,9 @@ impl RealmProcessor {
                 self.store.rollback(next_checkpoint_id)?;
                 Err(err)
             }
-        }
+        };
+        info!("Prove block {} time: {}ms", next_checkpoint_id, now.elapsed().as_millis());
+        result
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {

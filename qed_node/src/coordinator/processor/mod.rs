@@ -219,21 +219,24 @@ impl
 
         if !self.ctx.has_pending_tasks(next_checkpoint_id).await? {
             bail!(
-                "No pending tasks for checkpoint {}",
-                next_checkpoint_id
+                "No pending tasks for checkpoint {}, slot {}",
+                next_checkpoint_id, slot
             );
         }
 
+        let now = Instant::now();
         if let Err(e) = self.ctx.build_block(slot).await {
             self.journal_store.rollback(next_checkpoint_id)?;
             return Err(e);
         }
+        info!("✅ Built block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
         // pending
         self.journal_store.commit(next_checkpoint_id)?;
         self.ctx
             .prover_queue
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)
             .await?;
+        info!("✅ Committed and prove block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
         Ok(next_checkpoint_id)
     }
 }
@@ -246,12 +249,12 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         match coordinator_processor.build_block(slot).await {
             Ok(checkpoint_id) => {
                 info!(
-                    "✅ Successfully built and committed block {}",
-                    checkpoint_id
+                    "✅ Successfully built and committed block {}, slot {}",
+                    checkpoint_id, slot
                 );
             }
             Err(e) => {
-                error!("❌ Failed to build block: {:?}", e);
+                error!("❌ Failed to build block: {:?}, slot: {}", e, slot);
             }
         }
     }
