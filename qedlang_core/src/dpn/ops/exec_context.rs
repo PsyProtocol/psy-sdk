@@ -5,7 +5,7 @@ use super::{
     op_types::{DPNBuiltInDataType, DPNOpType},
     state_cmd::{
         data::{
-            DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdInvokeExternalContractFunctionSync, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
+            DPNStateCmd, DPNStateCmdGetCheckpointLeafStats, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdInvokeExternalContractFunctionSync, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
         },
         store::DPNStateCommandStore,
         types::DPNStateCmdCore,
@@ -831,6 +831,43 @@ impl DPNContext<SymFeltRef> for QExecContext {
 
     fn get_user_public_key_hash(&mut self) -> [SymFeltRef; 4] {
         self.op_target_at_array(SymFeltRef::new_valueless(DPNOpType::GetUserPublicKeyHash))
+    }
+    
+    fn get_checkpoint_stats(&mut self, checkpoint_id: SymFeltRef) -> Vec<SymFeltRef> {
+        // Execute GetCheckpointLeafStats state command
+        let cmd = DPNStateCmd::GetCheckpointLeafStats(
+            DPNStateCmdGetCheckpointLeafStats {
+                checkpoint_id
+            }
+        );
+        let b = self.resolve_state_cmd_base(cmd);
+        // Return all checkpoint stats fields
+        let mut result = Vec::new();
+        for i in 0..36 {  // Approximate size of full checkpoint stats
+            result.push(self.op_target_at(b, i));
+        }
+        result
+    }
+    
+    fn get_register_users_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        // Get full checkpoint stats
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        // Extract register_users_root (indices 18-21 after basic stats and random_seed)
+        [stats[18].clone(), stats[19].clone(), stats[20].clone(), stats[21].clone()]
+    }
+    
+    fn get_gutas_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        // Get full checkpoint stats
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        // Extract gutas_root (indices 22-25)
+        [stats[22].clone(), stats[23].clone(), stats[24].clone(), stats[25].clone()]
+    }
+    
+    fn get_deploy_contracts_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        // Get full checkpoint stats
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        // Extract deploy_contracts_root (indices 26-29)
+        [stats[26].clone(), stats[27].clone(), stats[28].clone(), stats[29].clone()]
     }
 
     fn op_get_state_felt(

@@ -280,6 +280,25 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     fn get_user_public_key_hash(&mut self) -> [F; 4] {
         todo!()
     }
+    
+    fn get_checkpoint_stats(&mut self, _checkpoint_id: F) -> Vec<F> {
+        vec![F::cns(0); 36]
+    }
+    
+    fn get_register_users_root(&mut self, checkpoint_id: F) -> [F; 4] {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        [stats[18], stats[19], stats[20], stats[21]]
+    }
+    
+    fn get_gutas_root(&mut self, checkpoint_id: F) -> [F; 4] {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        [stats[22], stats[23], stats[24], stats[25]]
+    }
+    
+    fn get_deploy_contracts_root(&mut self, checkpoint_id: F) -> [F; 4] {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        [stats[26], stats[27], stats[28], stats[29]]
+    }
 
     fn cset<V: ToFelts<F>>(&mut self, _old_value: V, new_value: V) -> V {
         new_value

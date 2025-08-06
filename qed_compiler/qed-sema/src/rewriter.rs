@@ -716,6 +716,38 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *sig = self.rewrite_expr(*sig, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
+                    CheckedIntrinsicExprNode::GetCheckpointStats {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetRegisterUsersRoot {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetGutasRoot {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetDeployContractsRoot {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
                 }
             }
             CheckedExprNode::LambdaFunction(_) => {}

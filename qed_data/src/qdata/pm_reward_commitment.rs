@@ -1,8 +1,10 @@
-use plonky2::{field::goldilocks_field::GoldilocksField, hash::{hash_types::RichField, poseidon::PoseidonHash}, plonk::config::Hasher};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField, plonk::config::AlgebraicHasher};
 use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+// Constant for PM Reward Commitment size (3 QHashOut, each with 4 field elements)
+pub const PM_REWARD_COMMITMENT_SIZE: usize = 12;
 
 // TODO: Make a constant size commitment scheme for proof miners
 // for now, we can just use a partial merkle tree for testing,  
@@ -21,16 +23,16 @@ pub struct PMRewardCommitment<F: RichField> {
 
 impl<F: RichField> PMRewardCommitment<F> {
     // Combine two PMRewardCommitments by hashing the roots together
-    pub fn combine_with(&self, other: &Self) -> Self {
-        let register_users_root = QHashOut(PoseidonHash::two_to_one(
+    pub fn combine_with<H: AlgebraicHasher<F>>(&self, other: &Self) -> Self {
+        let register_users_root = QHashOut(H::two_to_one(
             self.register_users_root.0,
             other.register_users_root.0,
         ));
-        let gutas_root = QHashOut(PoseidonHash::two_to_one(
+        let gutas_root = QHashOut(H::two_to_one(
             self.gutas_root.0,
             other.gutas_root.0,
         ));
-        let deploy_contracts_root = QHashOut(PoseidonHash::two_to_one(
+        let deploy_contracts_root = QHashOut(H::two_to_one(
             self.deploy_contracts_root.0,
             other.deploy_contracts_root.0,
         ));
@@ -42,12 +44,12 @@ impl<F: RichField> PMRewardCommitment<F> {
     }
     
     // Get the overall commitment hash
-    pub fn get_commitment_hash(&self) -> QHashOut<F> {
-        let temp = PoseidonHash::two_to_one(
+    pub fn get_commitment_hash<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
+        let temp = H::two_to_one(
             self.register_users_root.0,
             self.gutas_root.0,
         );
-        QHashOut(PoseidonHash::two_to_one(
+        QHashOut(H::two_to_one(
             temp,
             self.deploy_contracts_root.0,
         ))
@@ -55,12 +57,12 @@ impl<F: RichField> PMRewardCommitment<F> {
 }
 impl<F: RichField> QFeltSized for PMRewardCommitment<F> {
     fn q_felt_size() -> usize {
-        12 // 3 QHashOut, each with 4 fields
+        PM_REWARD_COMMITMENT_SIZE
     }
 }
 impl<F: RichField> ToQFelts<F> for PMRewardCommitment<F> {
     fn to_qfelts(&self) -> Vec<F> {
-        let mut result = Vec::with_capacity(12);
+        let mut result = Vec::with_capacity(PM_REWARD_COMMITMENT_SIZE);
         result.extend_from_slice(&self.register_users_root.0.elements);
         result.extend_from_slice(&self.gutas_root.0.elements);
         result.extend_from_slice(&self.deploy_contracts_root.0.elements);
@@ -68,8 +70,8 @@ impl<F: RichField> ToQFelts<F> for PMRewardCommitment<F> {
     }
 
     fn from_qfelts(felts: &[F]) -> Self {
-        if felts.len() != 12 {
-            panic!("Invalid number of elements for PMRewardCommitment, expected 12 got {}", felts.len());
+        if felts.len() != PM_REWARD_COMMITMENT_SIZE {
+            panic!("Invalid number of elements for PMRewardCommitment, expected {} got {}", PM_REWARD_COMMITMENT_SIZE, felts.len());
         }
         PMRewardCommitment {
             register_users_root: QHashOut(plonky2::hash::hash_types::HashOut {

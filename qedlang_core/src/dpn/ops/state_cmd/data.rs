@@ -7,6 +7,10 @@ use ts_rs::TS;
 
 use super::types::{DPNStateCmdCore, DPNStateCommandType};
 
+// Constants for field sizes
+const PM_REWARD_COMMITMENT_SIZE: usize = 12; // 3 roots * 4 field elements each
+const DA_CHALLENGE_WINDOW: usize = 14; // Matching qed_core::config::network_constants::DA_CHALLENGE_WINDOW
+
 
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
@@ -432,6 +436,35 @@ impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetOtherUse
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
+pub struct DPNStateCmdGetCheckpointLeafStats<T> {
+    pub checkpoint_id: T,
+}
+
+impl<T> DPNStateCmdGetCheckpointLeafStats<T> {
+    pub fn new(checkpoint_id: T) -> Self {
+        Self {
+            checkpoint_id,
+        }
+    }
+}
+
+impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetCheckpointLeafStats<T> {
+    fn get_inputs(&self) -> Vec<T> {
+        vec![self.checkpoint_id]
+    }
+
+    fn get_state_command_type(&self) -> DPNStateCommandType {
+        DPNStateCommandType::GetCheckpointLeafStats
+    }
+
+    fn get_output_felt_size(&self) -> usize {
+        // Returns full checkpoint leaf stats: 10 base fields + PM_REWARD_COMMITMENT_SIZE + DA_CHALLENGE_WINDOW
+        10 + PM_REWARD_COMMITMENT_SIZE + DA_CHALLENGE_WINDOW
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, TS)]
 #[serde(tag = "type")]
 #[ts(export, concrete(T = GoldilocksField))]
@@ -450,6 +483,7 @@ pub enum DPNStateCmd<T> {
     GetOtherUserContractStateSlotHash(DPNStateCmdGetOtherUserContractStateSlotHash<T>),
     GetOtherUserContractStateSlotSingle(DPNStateCmdGetOtherUserContractStateSlotSingle<T>),
     GetOtherUserContractStateSlotRange(DPNStateCmdGetOtherUserContractStateSlotRange<T>),
+    GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats<T>),
 }
 impl<T> DPNStateCmd<T> {
     pub fn set_contract_state_slot_hash(condition: T, slot_index: T, value: [T; 4]) -> Self {
@@ -517,6 +551,9 @@ impl<T> DPNStateCmd<T> {
     pub fn get_other_user_contract_state_slot_range(user_id: T, contract_id: T, contract_state_tree_height: u8, sub_slot_index: T, length: u32) -> Self {
         DPNStateCmd::GetOtherUserContractStateSlotRange(DPNStateCmdGetOtherUserContractStateSlotRange::<T>::new(user_id, contract_id, contract_state_tree_height, sub_slot_index, length))
     }
+    pub fn get_checkpoint_leaf_stats(checkpoint_id: T) -> Self {
+        DPNStateCmd::GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats::<T>::new(checkpoint_id))
+    }
 
 }
 impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
@@ -536,6 +573,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::GetOtherUserContractStateSlotHash(c) => c.get_inputs(),
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => c.get_inputs(),
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => c.get_inputs(),
+            DPNStateCmd::GetCheckpointLeafStats(c) => c.get_inputs(),
         }
     }
 
@@ -555,6 +593,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::GetOtherUserContractStateSlotHash(c) => c.get_state_command_type(),
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => c.get_state_command_type(),
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => c.get_state_command_type(),
+            DPNStateCmd::GetCheckpointLeafStats(c) => c.get_state_command_type(),
         }
     }
 
@@ -574,6 +613,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::GetOtherUserContractStateSlotHash(c) => c.get_output_felt_size(),
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => c.get_output_felt_size(),
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => c.get_output_felt_size(),
+            DPNStateCmd::GetCheckpointLeafStats(c) => c.get_output_felt_size(),
         }
     }
 }
@@ -652,6 +692,9 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
             },
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => {
                 DPNStateCmd::GetOtherUserContractStateSlotRange(DPNStateCmdGetOtherUserContractStateSlotRange::<u64>::new(inputs_as_u64[0], inputs_as_u64[1], c.contract_state_tree_height, inputs_as_u64[2], c.length))
+            },
+            DPNStateCmd::GetCheckpointLeafStats(c) => {
+                DPNStateCmd::GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats::<u64>::new(inputs_as_u64[0]))
             },
         }
     }

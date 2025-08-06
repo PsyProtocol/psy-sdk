@@ -1144,6 +1144,46 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             self.context.op_check_secp_sign(public_key, msg, signature),
                         ));
                     }
+                    CheckedIntrinsicExprNode::GetCheckpointStats {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felts().first().unwrap().clone();
+                        let stats = self.context.get_checkpoint_stats(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_vec(type_id.clone(), stats));
+                    }
+                    CheckedIntrinsicExprNode::GetRegisterUsersRoot {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felts().first().unwrap().clone();
+                        let root = self.context.get_register_users_root(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_vec(type_id.clone(), root.to_vec()));
+                    }
+                    CheckedIntrinsicExprNode::GetGutasRoot {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felts().first().unwrap().clone();
+                        let root = self.context.get_gutas_root(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_vec(type_id.clone(), root.to_vec()));
+                    }
+                    CheckedIntrinsicExprNode::GetDeployContractsRoot {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felts().first().unwrap().clone();
+                        let root = self.context.get_deploy_contracts_root(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_vec(type_id.clone(), root.to_vec()));
+                    }
                 }
             }),
             CheckedExprNode::Value(value_node) => Ok(CheckedValueRef::new_rc(

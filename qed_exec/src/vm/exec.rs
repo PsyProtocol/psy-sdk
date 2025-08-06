@@ -6,7 +6,7 @@ use plonky2::{
     },
     hash::hash_types::{HashOut, RichField},
 };
-use qed_core::data::qhashout::QHashOut;
+use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::ToQFelts};
 use qed_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::qhashable::QFieldHashable,
@@ -20,11 +20,11 @@ use qed_data::{
     config::store_config::QEDHasher,
     qstore::imm::{
         cmd::{
-            QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof,
-            QSRMerkleCmdGetUserContractTreeMerkleProof,
+            QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof,
+            QSRMerkleCmdGetUserContractTreeMerkleProof, QSRCmdGetCheckpointLeafData,
         },
         cmd_processor::{
-            DPNInvokeDeferredMethodCallWitness, DPNReadOtherUserContractStateLeafMerkleProof,
+            DPNCheckpointLeafStatsWitness, DPNInvokeDeferredMethodCallWitness, DPNReadOtherUserContractStateLeafMerkleProof,
             DPNStateCmdWitness, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut,
         },
     },
@@ -1067,6 +1067,43 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                         ),
                     })
                 }
+            }
+            DPNStateCmd::GetCheckpointLeafStats(c) => {
+                // Get checkpoint leaf stats for the specified checkpoint
+                let requested_checkpoint_id = c.checkpoint_id;
+                let checkpoint_leaf_cmd = QSRCmdGetCheckpointLeafData { 
+                    checkpoint_id: requested_checkpoint_id 
+                };
+                let checkpoint_leaf = self.cmd_store.resolve_get_checkpoint_leaf_mut(&checkpoint_leaf_cmd).await?;
+                
+                // Get the state roots for this checkpoint
+                // We need to retrieve this separately as the checkpoint leaf only stores the hash
+                let state_roots = self.get_checkpoint_state_roots(requested_checkpoint_id).await?;
+                
+                // Get historical proof that this checkpoint existed
+                let current_checkpoint_id = self.get_current_start_checkpoint_id_u64();
+                let historical_proof = self.cmd_store.resolve_get_merkle_proof_mut(
+                    &QSRMerkleCmd::GetCheckpointTreeMerkleProof(
+                        QSRMerkleCmdGetCheckpointTreeMerkleProof {
+                            checkpoint_id: current_checkpoint_id,
+                            leaf_checkpoint_id: requested_checkpoint_id,
+                        }
+                    )
+                ).await?;
+                
+                // Prepare the result - full checkpoint stats
+                let mut result = Vec::new();
+                result.extend_from_slice(&checkpoint_leaf.stats.to_qfelts());
+                
+                Ok(QEDCmdWithInputAndWitness {
+                    state_cmd: state_cmd.clone(),
+                    result,
+                    witness: DPNStateCmdWitness::CheckpointLeafStats(DPNCheckpointLeafStatsWitness {
+                        checkpoint_leaf_stats: checkpoint_leaf.stats,
+                        checkpoint_state_roots: state_roots,
+                        checkpoint_historical_proof: historical_proof,
+                    }),
+                })
             }
         }
     }

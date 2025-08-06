@@ -895,4 +895,39 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
     pub fn get_state_delta_input(&mut self) -> anyhow::Result<UPSCFCStandardStateDeltaInput<GF>> {
         todo!()
     }
+    
+    pub async fn get_checkpoint_state_roots(&mut self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<GF>> {
+        // Get the state roots for a given checkpoint
+        // These are stored separately from the checkpoint leaf and contain the actual merkle roots
+        // for user tree, contract tree, deposit tree, withdrawal tree, and user registration tree
+        
+        // Retrieve state roots using the appropriate command
+        let user_tree_root = self.cmd_store.resolve_get_hash_mut(
+            &QSRHashCmd::GetUserTreeRoot(QSRHashCmdGetUserTreeRoot { checkpoint_id })
+        ).await?;
+        
+        let contract_tree_root = self.cmd_store.resolve_get_hash_mut(
+            &QSRHashCmd::GetContractTreeRoot(QSRHashCmdGetContractTreeRoot { checkpoint_id })
+        ).await?;
+        
+        let deposit_tree_root = self.cmd_store.resolve_get_hash_mut(
+            &QSRHashCmd::GetDepositTreeRoot(QSRHashCmdGetDepositTreeRoot { checkpoint_id })
+        ).await?;
+        
+        let withdrawal_tree_root = self.cmd_store.resolve_get_hash_mut(
+            &QSRHashCmd::GetWithdrawalTreeRoot(QSRHashCmdGetWithdrawalTreeRoot { checkpoint_id })
+        ).await?;
+        
+        let user_registration_tree_root = self.cmd_store.resolve_get_hash_mut(
+            &QSRHashCmd::GetUserRegistrationTreeRoot(QSRHashCmdGetUserRegistrationTreeRoot { checkpoint_id })
+        ).await?;
+        
+        Ok(QEDCheckpointGlobalStateRoots {
+            contract_tree_root,
+            deposit_tree_root,
+            user_tree_root,
+            withdrawal_tree_root,
+            user_registration_tree_root,
+        })
+    }
 }

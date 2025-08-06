@@ -16,6 +16,26 @@ pub enum CheckedIntrinsicExprNode {
         type_id: TypeId,
         location: Location,
     },
+    GetCheckpointStats {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    GetRegisterUsersRoot {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    GetGutasRoot {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    GetDeployContractsRoot {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
     GetLastNonce {
         type_id: TypeId,
         location: Location,

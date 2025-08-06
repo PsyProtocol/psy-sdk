@@ -1158,6 +1158,22 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 self.visit_expr(msg, ctx)?,
                 self.visit_expr(sig, ctx)?,
             )),
+            IntrinsicExprNode::GetCheckpointStats { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_checkpoint_stats({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
+            IntrinsicExprNode::GetRegisterUsersRoot { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_register_users_root({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
+            IntrinsicExprNode::GetGutasRoot { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_gutas_root({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
+            IntrinsicExprNode::GetDeployContractsRoot { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_deploy_contracts_root({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
         }
     }
 
