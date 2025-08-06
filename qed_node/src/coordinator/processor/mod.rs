@@ -197,7 +197,6 @@ impl
         )
         .await?;
 
-        let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let coordinator_worker_circuits =
             QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
 
