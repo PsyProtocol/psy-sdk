@@ -232,6 +232,14 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
         }
         members.into_iter().map(|x| T::from_bytes(&x)).collect()
     }
+
+    async fn cdq_peek_imm<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<T>> {
+        todo!()
+    }
 }
 
 #[async_trait]

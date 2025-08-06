@@ -247,6 +247,28 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
             .map(|x| T::from_bytes(&x))
             .collect()
     }
+
+    async fn cdq_peek_imm<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<T>> {
+        let checkpoint_queue_prefix =
+            format!("{}-{}", self.worker_queue_id, PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!(
+            "{}-{}_{}",
+            checkpoint_queue_prefix, channel_id, checkpoint_id
+        );
+        let members: Vec<Vec<u8>> = self
+            .pool
+            .lrange::<Vec<Vec<u8>>, String>(key, 0, -1)
+            .await?;
+        members
+            .into_iter()
+            .rev()
+            .map(|x| T::from_bytes(&x))
+            .collect()
+    }
 }
 
 #[async_trait]
@@ -499,6 +521,23 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
             .await?;
         self.pool.del::<(), String>(key).await?;
 
+        members
+            .into_iter()
+            .rev()
+            .map(|x| T::from_bytes(&x))
+            .collect()
+    }
+
+    async fn cdq_peek_imm<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<T>> {
+        let key = format!("CDQ_2_{}_{}", channel_id, checkpoint_id);
+        let members: Vec<Vec<u8>> = self
+            .pool
+            .lrange::<Vec<Vec<u8>>, String>(key, 0, -1)
+            .await?;
         members
             .into_iter()
             .rev()
