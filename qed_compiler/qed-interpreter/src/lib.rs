@@ -1125,6 +1125,25 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         );
                         return Ok(CheckedValueRef::new_rc(CheckedValue::Type(type_id.clone())));
                     }
+                    CheckedIntrinsicExprNode::CheckSecpSign {
+                        pub_key,
+                        msg,
+                        sig,
+                        type_id,
+                        location,
+                    } => {
+                        let public_key = self
+                            .interpret_expr(program, pub_key.clone(), ctx)?
+                            .to_u32_array();
+                        let msg = self.interpret_expr(program, msg.clone(), ctx)?.to_array();
+                        let signature = self
+                            .interpret_expr(program, sig.clone(), ctx)?
+                            .to_u32_array();
+
+                        return Ok(CheckedValueRef::from_bool(
+                            self.context.op_check_secp_sign(public_key, msg, signature),
+                        ));
+                    }
                 }
             }),
             CheckedExprNode::Value(value_node) => Ok(CheckedValueRef::new_rc(

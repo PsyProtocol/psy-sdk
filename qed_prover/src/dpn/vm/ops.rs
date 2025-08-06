@@ -1,9 +1,35 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::target::{BoolTarget, Target}, plonk::circuit_builder::CircuitBuilder};
-use qed_common_circuit::{builder::comparison::CircuitBuilderComparison, crypto::secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint}, hash::base_types::hash160::Hash160Target, u32::{arithmetic_u32::{CircuitBuilderU32, U32Target}, interleaved_u32::CircuitBuilderB32}};
+use plonky2::{
+    field::{
+        extension::Extendable, secp256k1_base::Secp256K1Base, secp256k1_scalar::Secp256K1Scalar,
+    },
+    hash::hash_types::{HashOutTarget, RichField},
+    iop::target::{BoolTarget, Target},
+    plonk::circuit_builder::CircuitBuilder,
+};
+use qed_common_circuit::{
+    builder::comparison::CircuitBuilderComparison,
+    crypto::secp256k1::{
+        ecdsa::gadgets::{
+            biguint::{BigUintTarget, CircuitBuilderBiguint},
+            curve::AffinePointTarget,
+            ecdsa::{ECDSAPublicKeyTarget, ECDSASignatureTarget},
+            nonnative::NonNativeTarget,
+        },
+        gadget::verify_secp_sign_opcode,
+    },
+    hash::base_types::hash160::Hash160Target,
+    u32::{
+        arithmetic_u32::{CircuitBuilderU32, U32Target},
+        interleaved_u32::CircuitBuilderB32,
+    },
+};
+use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
 use qed_data::config::store_config::QEDHasher;
-use qedlang_core::dpn::ops::op_types::{decode_indexed_op_id, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType};
+use qedlang_core::dpn::ops::op_types::{
+    decode_indexed_op_id, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType,
+};
 
 const COMPARISON_BITS: usize = 63;
 pub struct SimpleDPNBuilder<F: RichField + Extendable<D>, const D: usize>{
@@ -631,6 +657,85 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let (low, high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, res);
                 builder.assert_zero(high);
                 self.u32s.push(U32Target(low));
+            }
+            DPNOpType::CheckSecpSign => {
+                type CURVE = Secp256K1;
+                assert!(
+                    op.inputs.len() == 36,
+                    "CheckSecpSign op must have 36 inputs"
+                );
+                let msg_u32_targets = op.inputs[32..36]
+                    .iter()
+                    .flat_map(|id| {
+                        let u64_target = self.resolve_target(*id);
+                        let (_low, _high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, u64_target);
+                        vec![U32Target(_low), U32Target(_high)]
+                    })
+                    .collect::<Vec<_>>();
+
+                let msg_target = NonNativeTarget::<Secp256K1Scalar> {
+                    value: BigUintTarget {
+                        limbs: msg_u32_targets.to_vec(),
+                    },
+                    _phantom: PhantomData,
+                };
+
+                let pk_x_u32_target = op.inputs[0..8]
+                    .iter()
+                    .map(|id| self.resolve_u32(*id))
+                    .collect::<Vec<_>>();
+                let pk_x_target = NonNativeTarget::<Secp256K1Base> {
+                    value: BigUintTarget {
+                        limbs: pk_x_u32_target.to_vec(),
+                    },
+                    _phantom: PhantomData,
+                };
+                let pk_y_u32_target = op.inputs[8..16]
+                    .iter()
+                    .map(|id| self.resolve_u32(*id))
+                    .collect::<Vec<_>>();
+                let pk_y_target = NonNativeTarget::<Secp256K1Base> {
+                    value: BigUintTarget {
+                        limbs: pk_y_u32_target.to_vec(),
+                    },
+                    _phantom: PhantomData,
+                };
+                let public_key_target = ECDSAPublicKeyTarget::<CURVE>(
+                    AffinePointTarget{
+                        x: pk_x_target,
+                        y: pk_y_target,
+                    },
+                );
+                let r_u32_target = op.inputs[16..24]
+                    .iter()
+                    .map(|id| self.resolve_u32(*id))
+                    .collect::<Vec<_>>();
+                let r = NonNativeTarget::<Secp256K1Scalar> {
+                    value: BigUintTarget {
+                        limbs: r_u32_target.to_vec(),
+                    },
+                    _phantom: PhantomData,
+                };
+                let s_u32_target = op.inputs[24..32]
+                    .iter()
+                    .map(|id| self.resolve_u32(*id))
+                    .collect::<Vec<_>>();
+                let s = NonNativeTarget::<Secp256K1Scalar> {
+                    value: BigUintTarget {
+                        limbs: s_u32_target.to_vec(),
+                    },
+                    _phantom: PhantomData,
+                };
+
+                let signature_target = ECDSASignatureTarget::<Secp256K1> { r: r, s: s };
+
+                self.bools.push(verify_secp_sign_opcode::<F, D>(
+                    builder,
+                    &msg_target,
+                    &signature_target,
+                    &public_key_target,
+                ));
+
             }
         }
         

@@ -271,11 +271,17 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
 }
 
 #[derive(Debug)]
-pub struct SimpleTestContractItem<C: GenericConfig<D>, const D: usize> {
+pub struct SimpleTestContractItem<C: GenericConfig<D>, const D: usize> 
+where
+    C::Hasher: AlgebraicHasher<C::F>
+{
     pub circuit: DapenContractFunctionCircuit<C, D>,
     pub def: DPNFunctionCircuitDefinition,
 }
-pub struct SimpleTestContract<C: GenericConfig<D>, const D: usize> {
+pub struct SimpleTestContract<C: GenericConfig<D>, const D: usize> 
+where
+    C::Hasher: AlgebraicHasher<C::F>
+{
     pub funcs: Vec<SimpleTestContractItem<C, D>>,
 }
 

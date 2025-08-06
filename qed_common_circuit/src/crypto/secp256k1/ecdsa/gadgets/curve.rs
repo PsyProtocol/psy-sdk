@@ -33,6 +33,7 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_affine_point_target<C: Curve>(&mut self) -> AffinePointTarget<C>;
 
     fn curve_assert_valid<C: Curve>(&mut self, p: &AffinePointTarget<C>);
+    fn curve_is_valid<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> BoolTarget;
 
     fn curve_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C>;
 
@@ -110,6 +111,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         let rhs = self.add_nonnative(&x_cubed, &a_x_plus_b);
 
         self.connect_nonnative(&y_squared, &rhs);
+    }
+
+    fn curve_is_valid<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> BoolTarget {
+        let a = self.constant_nonnative(C::A);
+        let b = self.constant_nonnative(C::B);
+
+        let y_squared = self.mul_nonnative(&p.y, &p.y);
+        let x_squared = self.mul_nonnative(&p.x, &p.x);
+        let x_cubed = self.mul_nonnative(&x_squared, &p.x);
+        let a_x = self.mul_nonnative(&a, &p.x);
+        let a_x_plus_b = self.add_nonnative(&a_x, &b);
+        let rhs = self.add_nonnative(&x_cubed, &a_x_plus_b);
+
+        self.is_equal_nonnative(&y_squared, &rhs)
     }
 
     fn curve_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {

@@ -101,6 +101,8 @@ pub enum DPNOpType {
     BoolInputTarget = 74,
     U32Mod = 75,
     U32Exp = 76,
+
+    CheckSecpSign = 77,
 }
 
 impl From<u16> for DPNOpType {
@@ -174,6 +176,7 @@ impl From<u16> for DPNOpType {
             74 => DPNOpType::BoolInputTarget,
             75 => DPNOpType::U32Mod,
             76 => DPNOpType::U32Exp,
+            77 => DPNOpType::CheckSecpSign,
             _ => panic!("Unknown DPNOpType: {}", value),
         }
     }
@@ -294,6 +297,7 @@ impl DPNOpType {
             DPNOpType::BoolInputTarget => DPNBuiltInDataType::Bool,
             DPNOpType::U32Mod => DPNBuiltInDataType::U32Target,
             DPNOpType::U32Exp => DPNBuiltInDataType::U32Target,
+            DPNOpType::CheckSecpSign => DPNBuiltInDataType::Bool,
         }
     }
     pub fn is_inputless(&self) -> bool{
@@ -419,6 +423,7 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::BoolInputTarget => "BoolInputTarget",
             DPNOpType::U32Mod => "U32Mod",
             DPNOpType::U32Exp => "U32Exp",
+            DPNOpType::CheckSecpSign => "CheckSecpSign",
         };
         write!(f, "DPNOpType::{}", r)
     }

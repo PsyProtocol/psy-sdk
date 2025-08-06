@@ -798,6 +798,21 @@ impl DPNContext<SymFeltRef> for QExecContext {
         self.store.insert(op)
     }
 
+    // secp256k1 sign
+    fn op_check_secp_sign(&mut self, public_key: [SymFeltRef; 16], msg_hash: [SymFeltRef; 4], signature: [SymFeltRef; 16]) -> SymFeltRef {
+        let inputs : Vec<_> = public_key.into_iter()
+            .chain(signature.into_iter())
+            .chain(msg_hash.into_iter())
+            .collect();
+
+        let value = SymFeltRefValue {
+            op_type: DPNOpType::CheckSecpSign,
+            const_param: 0,
+            inputs,
+        };
+        self.store.insert(value)
+    }
+
     fn get_user_id(&mut self) -> SymFeltRef {
         SymFeltRef::new_valueless(DPNOpType::GetUserId)
     }

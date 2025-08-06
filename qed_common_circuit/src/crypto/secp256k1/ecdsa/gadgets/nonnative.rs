@@ -49,6 +49,12 @@ pub trait CircuitBuilderNonNative<F: RichField + Extendable<D>, const D: usize> 
         rhs: &NonNativeTarget<FF>,
     );
 
+    fn is_equal_nonnative<FF: Field>(
+        &mut self,
+        lhs: &NonNativeTarget<FF>,
+        rhs: &NonNativeTarget<FF>,
+    ) -> BoolTarget;
+
     fn add_virtual_nonnative_target<FF: Field>(&mut self) -> NonNativeTarget<FF>;
 
     fn add_virtual_nonnative_target_sized<FF: Field>(
@@ -156,6 +162,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
         rhs: &NonNativeTarget<FF>,
     ) {
         self.connect_biguint(&lhs.value, &rhs.value);
+    }
+
+    fn is_equal_nonnative<FF: Field>(
+        &mut self,
+        lhs: &NonNativeTarget<FF>,
+        rhs: &NonNativeTarget<FF>,
+    ) -> BoolTarget {
+        self.is_equal_biguint(&lhs.value, &rhs.value)
     }
 
     fn add_virtual_nonnative_target<FF: Field>(&mut self) -> NonNativeTarget<FF> {
