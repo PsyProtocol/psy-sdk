@@ -25,6 +25,7 @@ where
     pub agg_user_register_deploy_contracts_guta: VerifyAggUserRegistartionDeployContractsGUTACircuit<C, D>,
     pub guta_circuits: QEDGUTACircuitManager<C,D>,
     pub checkpoint_root_transition: QEDCheckpointStateTransitionCircuit<C,D>,
+    pub public_key: QHashOut<C::F>,
 }
 
 impl<C: GenericConfig<D> + 'static, const D: usize> QEDCoordinatorCircuitManager<C, D>
@@ -32,12 +33,13 @@ where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    pub fn new_with_library<T: CircuitInfoLibrary<C,D>>(library: &T) -> Self {
-        let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_library(library);
-        Self::new_with_guta(guta_circuits)
+    pub fn new_with_library<T: CircuitInfoLibrary<C,D>>(library: &T, public_key: QHashOut<C::F>) -> Self {
+        let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_library(library, public_key);
+        Self::new_with_guta(guta_circuits, public_key)
     }
     pub fn new_with_guta(
         guta_circuits: QEDGUTACircuitManager<C,D>,
+        public_key: QHashOut<C::F>,
     ) -> Self {
         let append_user_registration_tree = BatchAppendUserRegistrationTreeCircuit::new(
             GLOBAL_USER_TREE_HEIGHT as usize,
@@ -106,6 +108,7 @@ where
             agg_user_register_deploy_contracts_guta,
             append_register_users_circuit_whitelist,
             batch_deploy_contracts_circuit_whitelist,
+            public_key,
         }
     }
 
@@ -229,18 +232,18 @@ where
         job_id: QProvingJobDataID,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match job_id.circuit_type {
-            ProvingJobCircuitType::AppendUserRegistrationTree => self.append_user_registration_tree.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => self.agg_state_transition.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => self.dummy_agg_state_transition.prove_with_proof_store_async(store, library, job_id).await,
+            ProvingJobCircuitType::AppendUserRegistrationTree => self.append_user_registration_tree.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => self.agg_state_transition.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => self.dummy_agg_state_transition.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
 
 
-            ProvingJobCircuitType::BatchDeployContracts => self.batch_deploy_contracts.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::BatchDeployContractsAggregate => self.agg_state_transition.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::DummyBatchDeployContractsAggregate => self.dummy_agg_state_transition.prove_with_proof_store_async(store, library, job_id).await,
+            ProvingJobCircuitType::BatchDeployContracts => self.batch_deploy_contracts.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::BatchDeployContractsAggregate => self.agg_state_transition.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::DummyBatchDeployContractsAggregate => self.dummy_agg_state_transition.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
 
 
-            ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => self.agg_user_register_deploy_contracts_guta.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::GenerateRollupStateTransitionProof => self.checkpoint_root_transition.prove_with_proof_store_async(store, library, job_id).await,
+            ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => self.agg_user_register_deploy_contracts_guta.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::GenerateRollupStateTransitionProof => self.checkpoint_root_transition.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
 
             _ => self.guta_circuits.worker_prove_mut_async(store, library, job_id).await,
         }

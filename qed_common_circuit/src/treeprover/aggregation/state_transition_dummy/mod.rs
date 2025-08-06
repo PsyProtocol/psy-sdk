@@ -162,6 +162,7 @@ where
         store: &S,
         _library: &L,
         job_id: QProvingJobDataID,
+        _worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: DummyAggStateTransition<C::F> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)

@@ -35,8 +35,9 @@ async fn run_scheduler_worker(
     job_receiver: impl JobReceiver,
     store: impl QProofStoreReaderAsync + Send + Sync,
 ) -> anyhow::Result<()> {
+    use qed_core::config::network_constants::DEFAULT_WORKER_PUBLIC_KEY;
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
-    let prover = QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
+    let prover = QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, DEFAULT_WORKER_PUBLIC_KEY);
     let library = &proof_verifier.library;
     loop {
         tokio::time::sleep(Duration::from_secs(1)).await;

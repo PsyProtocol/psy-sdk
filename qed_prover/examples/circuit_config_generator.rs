@@ -22,13 +22,16 @@ fn run_gen_config() -> anyhow::Result<()> {
     );
 
 
+    use qed_core::config::network_constants::DEFAULT_WORKER_PUBLIC_KEY;
+    
     let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
         main_circuits.ups_end_cap.get_common_circuit_data_ref(),
         main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),
         main_circuits.ups_end_cap.get_fingerprint(),
+        DEFAULT_WORKER_PUBLIC_KEY,
     );
 
-    let coordinator_circuits = QEDCoordinatorCircuitManager::<C,D>::new_with_guta(guta_circuits);
+    let coordinator_circuits = QEDCoordinatorCircuitManager::<C,D>::new_with_guta(guta_circuits, DEFAULT_WORKER_PUBLIC_KEY);
 
     coordinator_circuits.register_library(&mut library);
 

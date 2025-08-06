@@ -31,6 +31,7 @@ impl WorkerState {
         pool_size: usize,
         biz_key: String,
     ) -> anyhow::Result<Self> {
+        use qed_core::config::network_constants::DEFAULT_WORKER_PUBLIC_KEY;
         let pool = new_redis_async_pool(
             redis_url.as_str(),
             pool_size
@@ -44,7 +45,7 @@ impl WorkerState {
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
         let coordinator_worker_circuits =
-            QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
+            QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, DEFAULT_WORKER_PUBLIC_KEY);
         let processor = WorkerState {
             queue: realm_qps,
             proof_verifier,

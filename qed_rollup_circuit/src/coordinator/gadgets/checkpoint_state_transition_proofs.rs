@@ -1,6 +1,6 @@
 use plonky2::{
     field::extension::Extendable,
-    hash::hash_types::{HashOutTarget, RichField},
+    hash::hash_types::{HashOut, HashOutTarget, RichField},
     iop::{target::Target, witness::Witness},
     plonk::{
         circuit_builder::CircuitBuilder,
@@ -121,7 +121,9 @@ impl QEDPart1StateDeltaResultGadget {
             random_seed: builder
                 .hash_two_to_one::<H>(old_stats.random_seed, final_random_seed_contribution),
             pm_rewards_commitment: PMRewardCommitmentGadget {
-                commitment: [zero, zero, zero, zero],
+                register_users_root: builder.constant_hash(HashOut::ZERO),
+                gutas_root: builder.constant_hash(HashOut::ZERO),
+                deploy_contracts_root: builder.constant_hash(HashOut::ZERO),
             },
             da_challenges_claimed: [zero; DA_CHALLENGE_WINDOW],
         };

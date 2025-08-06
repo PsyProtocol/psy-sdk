@@ -71,7 +71,9 @@ impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
                 block_time: self.block_time,
                 random_seed: H::q_two_to_one(self.old_stats.random_seed, self.final_random_seed_contribution),
                 pm_rewards_commitment: PMRewardCommitment{
-                    commitment: [F::ZERO; 4],
+                    register_users_root: QHashOut::default(),
+                    gutas_root: QHashOut::default(),
+                    deploy_contracts_root: QHashOut::default(),
                 },
                 da_challenges_claimed: [F::ZERO; DA_CHALLENGE_WINDOW],
             }

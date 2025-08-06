@@ -180,6 +180,7 @@ C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
         store: &S,
         library: &L,
         job_id: QProvingJobDataID,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
 
         let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<C::F>> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;

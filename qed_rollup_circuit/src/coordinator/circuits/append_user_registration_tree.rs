@@ -23,6 +23,8 @@ pub struct BatchAppendUserRegistrationTreeCircuit<C: GenericConfig<D>, const D: 
 {
     pub batch_append_gadget: BatchAppendUserRegistrationTreeGadget,
     pub register_users_circuit_whitelist: HashOutTarget,
+    pub worker_public_key: HashOutTarget,
+    pub commitment: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -43,7 +45,7 @@ where
 
 
         let register_users_circuit_whitelist = builder.add_virtual_hash();
-
+        let worker_public_key = builder.add_virtual_hash();
 
         let batch_append_gadget = BatchAppendUserRegistrationTreeGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,
@@ -56,6 +58,12 @@ where
             batch_append_gadget.new_root,
         );
 
+        // For leaf nodes, commitment equals worker_public_key
+        let commitment = worker_public_key;
+
+        // Register public inputs in order: commitment, worker_public_key, register_users_circuit_whitelist, state_transition_hash
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&register_users_circuit_whitelist.elements);
         builder.register_public_inputs(&state_transition_hash.elements);
 
@@ -68,6 +76,8 @@ where
 
         Self {
             register_users_circuit_whitelist,
+            worker_public_key,
+            commitment,
             batch_append_gadget,
             circuit_data,
             fingerprint,
@@ -77,11 +87,13 @@ where
     pub fn prove_base(
         &self,
         register_users_circuit_whitelist: QHashOut<C::F>,
+        worker_public_key: QHashOut<C::F>,
         spiderman_append_proofs: &[SpidermanUpdateProof<QHashOut<C::F>>],
 
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.register_users_circuit_whitelist, register_users_circuit_whitelist.0)?;
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
         self.batch_append_gadget.set_witness_params(
             &mut pw,
             spiderman_append_proofs
@@ -120,8 +132,10 @@ where
         &self,
         input: &QCAppendUserRegistrationTreeCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        // Using default for backward compatibility with trait
         self.prove_base(
             input.register_users_circuit_whitelist,
+            QHashOut::default(),
             &input.spiderman_append_proofs,
         )
     }
@@ -160,11 +174,16 @@ where
         store: &S,
         _library: &L,
         job_id: QProvingJobDataID,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let input: QCAppendUserRegistrationTreeCircuitInput<C::F> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
 
-        let result = self.prove_standard(&input)?;
+        let result = self.prove_base(
+            input.register_users_circuit_whitelist,
+            worker_public_key,
+            &input.spiderman_append_proofs,
+        )?;
         
         Ok(result)
     }

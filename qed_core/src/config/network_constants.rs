@@ -118,3 +118,12 @@ pub const COORDINATOR_TO_REALM_CHANNEL: u64 = 0xCC544F5245414C4D;
 pub const REALM_TO_COORDINATOR_CHANNEL: u64 = 0x5245414C4D544F43;
 
 pub const REALM_PROOF_SYNC_CHANNEL: u64 = 0x524C4D50524F4F46;
+
+pub const DEFAULT_WORKER_PUBLIC_KEY: QHashOut<GoldilocksField> = QHashOut(HashOut {
+    elements: [
+        GoldilocksField(0),
+        GoldilocksField(0),
+        GoldilocksField(0),
+        GoldilocksField(0),
+    ],
+});

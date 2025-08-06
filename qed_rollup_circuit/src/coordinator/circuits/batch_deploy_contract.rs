@@ -23,6 +23,8 @@ pub struct BatchDeployContractsCircuit<C: GenericConfig<D>, const D: usize>
 {
     pub deploy_contract_batch_gadget: BatchDeployContractsGadget,
     pub deploy_contract_circuit_whitelist: HashOutTarget,
+    pub worker_public_key: HashOutTarget,
+    pub commitment: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -42,6 +44,7 @@ where
 
 
         let deploy_contract_circuit_whitelist = builder.add_virtual_hash();
+        let worker_public_key = builder.add_virtual_hash();
 
 
         let deploy_contract_batch_gadget = BatchDeployContractsGadget::add_virtual_to::<C::Hasher, C::F, D>(
@@ -55,6 +58,12 @@ where
             deploy_contract_batch_gadget.spiderman_gadget.new_root,
         );
 
+        // For leaf nodes, commitment equals worker_public_key
+        let commitment = worker_public_key;
+
+        // Register public inputs in order: commitment, worker_public_key, deploy_contract_circuit_whitelist, state_transition_hash
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&deploy_contract_circuit_whitelist.elements);
         builder.register_public_inputs(&state_transition_hash.elements);
         builder.add_qed_type_d_common_gates();
@@ -68,6 +77,8 @@ where
 
         Self {
             deploy_contract_circuit_whitelist,
+            worker_public_key,
+            commitment,
             deploy_contract_batch_gadget,
             circuit_data,
             fingerprint,
@@ -77,12 +88,14 @@ where
     pub fn prove_base(
         &self,
         deploy_contract_circuit_whitelist: QHashOut<C::F>,
+        worker_public_key: QHashOut<C::F>,
         spiderman_append_proof: &SpidermanUpdateProof<QHashOut<C::F>>,
         contract_leaves: &[QEDContractLeaf<C::F>],
 
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.deploy_contract_circuit_whitelist, deploy_contract_circuit_whitelist.0)?;
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
         self.deploy_contract_batch_gadget.set_witness_params(
             &mut pw,
             spiderman_append_proof,
@@ -120,8 +133,10 @@ where
         &self,
         input: &QCBatchDeployContractsCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        // Using default for backward compatibility with trait
         self.prove_base(
             input.deploy_contract_circuit_whitelist,
+            QHashOut::default(),
             &input.spiderman_append_proof,
             &input.contract_leaves,
         )
@@ -161,11 +176,17 @@ where
         store: &S,
         _library: &L,
         job_id: QProvingJobDataID,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let input: QCBatchDeployContractsCircuitInput<C::F> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
 
-        let result = self.prove_standard(&input)?;
+        let result = self.prove_base(
+            input.deploy_contract_circuit_whitelist,
+            worker_public_key,
+            &input.spiderman_append_proof,
+            &input.contract_leaves,
+        )?;
         
         Ok(result)
     }
