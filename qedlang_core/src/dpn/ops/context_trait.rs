@@ -333,6 +333,9 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
 
     fn op_false(&mut self) -> F;
 
+    // secp256k1 sign
+    fn op_check_secp_sign(&mut self, public_key: [F; 16], msg_hash: [F; 4], signature: [F; 16]) -> F;
+
     fn add_input(&mut self) -> F;
     fn add_u32_input(&mut self) -> F;
     fn add_bool_input(&mut self) -> F;

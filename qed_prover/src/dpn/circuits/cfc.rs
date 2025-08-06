@@ -1,4 +1,5 @@
 use plonky2::{
+    gates::gate::GateRef,
     hash::hash_types::{HashOut, HashOutTarget},
     iop::{
         target::Target,
@@ -10,7 +11,6 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
-    field::types::Field,
 };
 use qed_common_circuit::{
     builder::{
@@ -21,23 +21,30 @@ use qed_common_circuit::{
         provable::QStandardCircuitProvable, QStandardCircuit,
         QStandardCircuitProvableWithProofStoreSync,
     },
-    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    proof_minifier::{pm_chain::QEDProofMinifierChain, pm_core::get_circuit_fingerprint_generic},
+    u32::gates::comparison::ComparisonGate,
 };
 use qed_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
-use qed_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
+use qed_crypto::{
+    hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
+};
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::dpn::vm::compile::QEDContractFunctionBuilderGadget;
 
 #[derive(Debug)]
-pub struct DapenContractFunctionCircuit<C: GenericConfig<D>, const D: usize> {
+pub struct DapenContractFunctionCircuit<C: GenericConfig<D>, const D: usize>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
     pub inputs: Vec<Target>,
     pub fn_builder_gadget: QEDContractFunctionBuilderGadget,
 
     // end circuit targets
     pub circuit_data: CircuitData<C::F, C, D>,
-    pub fingerprint: QHashOut<C::F>,
+    // pub fingerprint: QHashOut<C::F>,
+    pub minifier_chain: QEDProofMinifierChain<D, C::F, C>,
 
     // end circuit data
     pub fn_def: DPNFunctionCircuitDefinition,
@@ -72,7 +79,7 @@ where
         session_proof_tree_height: usize,
         force_four_align: bool,
     ) -> Self {
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
         let inputs = builder.add_virtual_targets(fn_def.circuit_inputs.len());
         let fn_builder_gadget =
@@ -100,14 +107,24 @@ where
 
         let circuit_data = builder.build::<C>();
 
-        let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
+        // let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
+
+        let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
+
+        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new_add_gates(
+            &circuit_data.verifier_only,
+            &circuit_data.common,
+            2,
+            Some(&added_gates_for_minifier),
+        );
 
         Self {
             inputs,
             fn_builder_gadget,
             circuit_data,
-            fingerprint,
+            // fingerprint,
             fn_def: fn_def.clone(),
+            minifier_chain,
         }
     }
     pub fn prove_base(
@@ -130,23 +147,27 @@ where
             .state_reader
             .set_witness(&mut pw, cfc_input, &self.fn_def);
 
-        self.circuit_data.prove(pw)
+        let base_proof = self.circuit_data.prove(pw)?;
+        let minified_proof = self.minifier_chain.prove(&base_proof)?;
+        Ok(minified_proof)
     }
 }
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
     for DapenContractFunctionCircuit<C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
-        self.fingerprint
+        QHashOut(self.minifier_chain.get_fingerprint())
     }
 
     fn get_verifier_config_ref(&self) -> &VerifierOnlyCircuitData<C, D> {
-        &self.circuit_data.verifier_only
+        self.minifier_chain.get_verifier_data()
     }
 
     fn get_common_circuit_data_ref(&self) -> &CommonCircuitData<C::F, D> {
-        &self.circuit_data.common
+        self.minifier_chain.get_common_data()
     }
 }
 impl<C: GenericConfig<D>, const D: usize>
@@ -177,4 +198,3 @@ where
         self.prove_standard(input)
     }
 }
-

@@ -356,4 +356,8 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     fn get_other_user_contract_state_range_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, sub_slot_index: F, length: F) -> Vec<F> {
         todo!()
     }
+
+    fn op_check_secp_sign(&mut self, public_key: [F; 16], msg_hash: [F; 4], signature: [F; 16]) -> F {
+        todo!()
+    }
 }

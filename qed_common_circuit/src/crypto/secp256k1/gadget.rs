@@ -28,7 +28,7 @@ use num::BigUint;
 use plonky2::{
     field::{extension::Extendable, secp256k1_scalar::Secp256K1Scalar},
     hash::hash_types::{HashOut, HashOutTarget, RichField},
-    iop::{target::Target, witness::Witness},
+    iop::{target::{BoolTarget, Target}, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 fn biguint_from_array(arr: [u64; 4]) -> BigUint {
@@ -66,6 +66,32 @@ pub fn verify_message_circuit_v2<F: RichField + Extendable<D>, const D: usize>(
     let x: NonNativeTarget<Secp256K1Scalar> = builder.biguint_to_nonnative(&x_value);
     builder.connect_nonnative(&r, &x);
 }
+
+pub fn verify_secp_sign_opcode<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    msg: &NonNativeTarget<Secp256K1Scalar>,
+    sig: &ECDSASignatureTarget<Secp256K1>,
+    pk: &ECDSAPublicKeyTarget<Secp256K1>,
+) -> BoolTarget {
+    let ECDSASignatureTarget { r, s } = sig;
+
+    let verify_result = builder.curve_is_valid(&pk.0);
+
+    let c = builder.inv_nonnative(&s);
+    let u1 = builder.mul_nonnative(&msg, &c);
+    let u2 = builder.mul_nonnative(&r, &c);
+
+    let point1 = fixed_base_curve_mul_circuit(builder, Secp256K1::GENERATOR_AFFINE, &u1);
+    let point2 = builder.glv_mul(&pk.0, &u2);
+    let point = builder.curve_add(&point1, &point2);
+
+    let x_value = builder.nonnative_to_canonical_biguint(&point.x);
+
+    let x: NonNativeTarget<Secp256K1Scalar> = builder.biguint_to_nonnative(&x_value);
+    let signature_is_valid = builder.is_equal_nonnative(&r, &x);
+    builder.and(verify_result, signature_is_valid)
+}
+
 pub struct Secp256K1CircuitGadget {
     pub msg_biguint_target: BigUintTarget,
     pub public_key_x_target: BigUintTarget,
@@ -581,5 +607,166 @@ mod tests {
     #[ignore]
     fn test_ecdsa_circuit_wide() -> Result<()> {
         test_ecdsa_circuit_with_config(CircuitConfig::wide_ecc_config())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_op_secp_sign() -> Result<()> {
+        use std::{marker::PhantomData, str::FromStr};
+
+        use k256::ecdsa::{Signature, VerifyingKey};
+        use num::BigUint;
+        use plonky2::{
+            field::{secp256k1_base::Secp256K1Base, secp256k1_scalar::Secp256K1Scalar},
+            iop::witness::PartialWitness,
+            plonk::{
+                circuit_builder::CircuitBuilder,
+                circuit_data::CircuitConfig,
+                config::{GenericConfig, PoseidonGoldilocksConfig},
+            },
+        };
+        use qed_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+        use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+
+        use crate::{
+            crypto::secp256k1::{
+                ecdsa::gadgets::{
+                    biguint::{BigUintTarget, WitnessBigUint},
+                    curve::AffinePointTarget,
+                    ecdsa::{ECDSAPublicKeyTarget, ECDSASignatureTarget},
+                    nonnative::NonNativeTarget,
+                },
+                gadget::verify_secp_sign_opcode,
+            },
+            u32::arithmetic_u32::CircuitBuilderU32,
+        };
+        use k256::ecdsa::signature::hazmat::PrehashSigner;
+
+        type CURVE = Secp256K1;
+
+        // let pub_key = [4203227662u32, 540940946u32, 962567723u32, 1830567167u32, 3450763808u32, 3950740017u32, 3026903052u32, 3029228469u32, 1837759160u32, 825683440u32, 3630293783u32, 436568768u32, 3543321651u32, 1044682747u32, 168350425u32, 936127172u32];
+        // let sig = [201339544u32, 2533129003u32, 3911198242u32, 2163032835u32, 2488559593u32, 2971164201u32, 3572923983u32, 3650316646u32, 3964687905u32, 1624041662u32, 2373224611u32, 3243422930u32, 1353934640u32, 2321957132u32, 2691932396u32, 1560388502u32];
+        // let msg = [6716978020874491267, 18326158388222717469, 7113070761591959818, 9714795267687279217];
+
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        let config = CircuitConfig::standard_ecc_config();
+
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let msg_u32_targets = builder.add_virtual_u32_targets(8);
+
+        let msg_target = NonNativeTarget::<Secp256K1Scalar> {
+            value: BigUintTarget {
+                limbs: msg_u32_targets.to_vec(),
+            },
+            _phantom: PhantomData,
+        };
+
+        let pk_x_u32_target = builder.add_virtual_u32_targets(8);
+        let pk_x_target = NonNativeTarget::<Secp256K1Base> {
+            value: BigUintTarget {
+                limbs: pk_x_u32_target.to_vec(),
+            },
+            _phantom: PhantomData,
+        };
+        let pk_y_u32_target = builder.add_virtual_u32_targets(8);
+        let pk_y_target = NonNativeTarget::<Secp256K1Base> {
+            value: BigUintTarget {
+                limbs: pk_y_u32_target.to_vec(),
+            },
+            _phantom: PhantomData,
+        };
+        let public_key_target = ECDSAPublicKeyTarget::<CURVE>(AffinePointTarget {
+            x: pk_x_target.clone(),
+            y: pk_y_target.clone(),
+        });
+        let r_u32_target = builder.add_virtual_u32_targets(8);
+        let r_target = NonNativeTarget::<Secp256K1Scalar> {
+            value: BigUintTarget {
+                limbs: r_u32_target.to_vec(),
+            },
+            _phantom: PhantomData,
+        };
+        let s_u32_target = builder.add_virtual_u32_targets(8);
+        let s_target = NonNativeTarget::<Secp256K1Scalar> {
+            value: BigUintTarget {
+                limbs: s_u32_target.to_vec(),
+            },
+            _phantom: PhantomData,
+        };
+
+        let signature_target = ECDSASignatureTarget::<Secp256K1> {
+            r: r_target.clone(),
+            s: s_target.clone(),
+        };
+
+        let vrfy_signature_is_valid = verify_secp_sign_opcode::<F, D>(
+            &mut builder,
+            &msg_target,
+            &signature_target,
+            &public_key_target,
+        );
+        builder.assert_one(vrfy_signature_is_valid.target);
+
+        let data = builder.build::<C>();
+        let mut pw = PartialWitness::<F>::new();
+
+        let sk = QHashOut::<F>::from_str(
+            "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
+        )?;
+
+        let key_pair = k256::ecdsa::SigningKey::from_slice(&Hash256::from(sk).0)?;
+        let pk = key_pair.verifying_key();
+
+        let sig_hash = QHashOut::<F>::from_str(
+            "83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186",
+        )?;
+        let signature: k256::ecdsa::Signature =
+            key_pair.sign_prehash(&Hash256::from(sig_hash).0)?;
+        use k256::ecdsa::signature::hazmat::PrehashVerifier;
+        pk.verify_prehash(&Hash256::from(sig_hash).0, &signature)?;
+
+        let pk_bytes = pk.to_encoded_point(false).to_bytes();
+        let pk_x = pk_bytes[1..33].to_vec();
+        let pk_y = pk_bytes[33..65].to_vec();
+
+        let pk2 = VerifyingKey::from_sec1_bytes(&pk_bytes).unwrap();
+        assert_eq!(pk, &pk2);
+
+        let mut pk_x_u32 = pk_x
+            .chunks(4)
+            .map(|c| u32::from_be_bytes(c.try_into().unwrap()))
+            .collect::<Vec<_>>();
+        let pk_x_big = BigUint::from_bytes_be(&pk_x);
+        let pk_y_u32 = pk_y
+            .chunks(4)
+            .map(|c| u32::from_be_bytes(c.try_into().unwrap()))
+            .collect::<Vec<_>>();
+        let pk_y_big = BigUint::from_bytes_be(&pk_y);
+
+        let r = signature.r().to_bytes().to_vec();
+        let r_big = BigUint::from_bytes_be(&r);
+        let s = signature.s().to_bytes().to_vec();
+        let s_big = BigUint::from_bytes_be(&s);
+
+        let sign_bytes = r.iter().chain(s.iter()).cloned().collect::<Vec<_>>();
+        let sign_big = Signature::from_slice(&sign_bytes)?;
+        assert_eq!(sign_big, signature);
+
+        pw.set_biguint_target(&pk_x_target.value, &pk_x_big)?;
+        pw.set_biguint_target(&pk_y_target.value, &pk_y_big)?;
+
+        pw.set_biguint_target(&r_target.value, &r_big)?;
+        pw.set_biguint_target(&s_target.value, &s_big)?;
+
+        let msg_big = sig_hash.to_le_bytes();
+        let msg_big = BigUint::from_bytes_be(&msg_big);
+        pw.set_biguint_target(&msg_target.value, &msg_big)?;
+
+        let proof = data.prove(pw)?;
+        data.verify(proof)?;
+
+        Ok(())
     }
 }

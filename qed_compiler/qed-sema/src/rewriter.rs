@@ -704,6 +704,18 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *inputs = self.rewrite_expr(*inputs, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
+                    CheckedIntrinsicExprNode::CheckSecpSign {
+                        pub_key,
+                        msg,
+                        sig,
+                        type_id,
+                        location,
+                    } => {
+                        *pub_key = self.rewrite_expr(*pub_key, ctx)?;
+                        *msg = self.rewrite_expr(*msg, ctx)?;
+                        *sig = self.rewrite_expr(*sig, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
                 }
             }
             CheckedExprNode::LambdaFunction(_) => {}

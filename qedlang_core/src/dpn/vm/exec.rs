@@ -624,6 +624,75 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 assert!( res <= 0xffffffffu64, "u32 exp value too large");
                 self.u32s.push(res as u32);
             }
+            DPNOpType::CheckSecpSign => {
+                // 8 + 8 + 8 + 8 + 8 = 40
+                use k256::ecdsa::Signature;
+                use k256::ecdsa::signature::hazmat::PrehashVerifier;
+                let inputs = self.resolve_targets(&op.inputs);
+                assert!(inputs.len() == 36, "CheckSecpSign input length must be 36");
+                let pk_u32 = inputs[0..16]
+                    .to_vec()
+                    .iter()
+                    .map(|k| {
+                        assert!(k.to_canonical_u64() < 0xffffffffu64, "secp pk.x must be [u32; 16]");
+                        k.to_canonical_u64() as u32
+                    })
+                    .collect::<Vec<u32>>();
+                let pk_x_bytes = pk_u32[0..8]
+                    .iter()
+                    .flat_map(|&num| num.to_le_bytes())
+                    .rev()
+                    .collect::<Vec<_>>();
+                let pk_y_bytes = pk_u32[8..16]
+                    .iter()
+                    .flat_map(|&num| num.to_le_bytes())
+                    .rev()
+                    .collect::<Vec<_>>();
+                let mut pk_sec1_bytes = vec![0x04];
+                pk_sec1_bytes.extend(pk_x_bytes);
+                pk_sec1_bytes.extend(pk_y_bytes);
+                let vk = k256::ecdsa::VerifyingKey::from_sec1_bytes(&pk_sec1_bytes)
+                    .expect("secp pk must be valid");
+                let signature_u32 = inputs[16..32]
+                    .to_vec()
+                    .iter()
+                    .map(|k| {
+                        assert!(k.to_canonical_u64() < 0xffffffffu64, "secp signature must be [u32; 16]");
+                        k.to_canonical_u64() as u32
+                    })
+                    .collect::<Vec<u32>>();
+
+                let signature_r_bytes = signature_u32[0..8]
+                    .iter()
+                    .flat_map(|&num| num.to_le_bytes())
+                    .rev()
+                    .collect::<Vec<_>>();
+                let signature_s_bytes = signature_u32[8..16]
+                    .iter()
+                    .flat_map(|&num| num.to_le_bytes())
+                    .rev()
+                    .collect::<Vec<_>>();
+
+                let signature_bytes = signature_r_bytes
+                    .iter()
+                    .chain(signature_s_bytes.iter())
+                    .cloned()
+                    .collect::<Vec<_>>();
+
+                let signature =
+                    Signature::from_slice(&signature_bytes).expect("secp signature must be valid");
+
+                let msg_bytes = inputs[32..36]
+                    .iter()
+                    .flat_map(|&num| num.to_canonical_u64().to_le_bytes())
+                    .rev()
+                    .collect::<Vec<_>>();
+
+                match vk.verify_prehash(&msg_bytes, &signature) {
+                    Ok(_) => self.bools.push(true),
+                    Err(_) => self.bools.push(false),
+                }
+            }
         }
         
     }

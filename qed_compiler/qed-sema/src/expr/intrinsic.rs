@@ -108,6 +108,13 @@ pub enum CheckedIntrinsicExprNode {
         type_id: TypeId,
         location: Location,
     },
+    CheckSecpSign {
+        pub_key: ExprId,
+        msg: ExprId,
+        sig: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
 }
 
 impl NodeInfo for CheckedIntrinsicExprNode {
