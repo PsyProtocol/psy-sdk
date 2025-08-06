@@ -112,13 +112,13 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
     const config = loadConfig();
     const setAsync = setAsyncFactory(set, get, api);
     const walletProvider = createMemoryWalletProvider(
-        config.network.global_user_tree_height ?? 24,
-        config.network.realm_user_tree_height ?? 23,
+        config.network.global_user_tree_height,
+        config.network.realm_user_tree_height,
         config.network.coordinator_configs, // coordinator
         config.network.realm_configs, // realm
         config.network.users_per_realm,
         config.network.prover_url, // prover
-        config.network.prove_proxy_url ?? DEFAULT_PROVE_PROXY_URL,
+        config.network.prove_proxy_url,
     );
     return {
         loadingState: WalletWidgetLoadingState.Ready,
