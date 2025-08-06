@@ -187,7 +187,7 @@ impl
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
-        let mut coordinator_processor_ctx = CoordinatorProcessorContext::new(
+        let coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
             Arc::new(qed_store.clone()),
             qps.clone(),
@@ -217,7 +217,13 @@ impl
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
 
-        // todo
+        if !self.ctx.has_pending_tasks(next_checkpoint_id).await? {
+            bail!(
+                "No pending tasks for checkpoint {}",
+                next_checkpoint_id
+            );
+        }
+
         if let Err(e) = self.ctx.build_block(slot).await {
             self.journal_store.rollback(next_checkpoint_id)?;
             return Err(e);

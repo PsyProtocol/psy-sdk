@@ -1001,7 +1001,7 @@ impl<
             total_deposits_claimed_epoch: last_l2_blockstate.total_deposits_claimed_epoch,
             next_user_id: last_l2_blockstate.next_user_id + new_accounts.len() as u64,
             end_balance: last_l2_blockstate.end_balance,
-            next_contract_id: next_contract_id,
+            next_contract_id,
         };
         eprintln!("DEBUGPRINT[590]: processor.rs:979: new_l2_block_state={}", serde_json::to_string_pretty(&new_l2_block_state).unwrap());
         self.prover_queue
@@ -1050,5 +1050,46 @@ impl<
 
         Ok(())
     }
+
+
+    pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
+        // Check deploy contracts queue
+        let deploy_items = self
+            .checkpoint_queue
+            .cdq_peek_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
+                self.coordinator_config.deploy_contract_channel_id,
+                checkpoint_id,
+            )
+            .await?;
+
+        if !deploy_items.is_empty() {
+            return Ok(true);
+        }
+
+        // Check user registration queue
+        let user_reg_items = self
+            .checkpoint_queue
+            .cdq_peek_imm::<ZKPublicKeyInfo<F>>(
+                COORD_API_REGISTER_USER_CHANNEL_ID,
+                0,
+            )
+            .await?;
+
+        if !user_reg_items.is_empty() {
+            return Ok(true);
+        }
+
+        // Check GUTA queue
+        let guta_items = self
+            .checkpoint_queue
+            .cdq_peek_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(
+                self.coordinator_config.guta_channel_id,
+                checkpoint_id,
+            )
+            .await?;
+
+        Ok(!guta_items.is_empty())
+    }
+
 }
 

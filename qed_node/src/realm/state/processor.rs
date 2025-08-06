@@ -1,5 +1,5 @@
 use std::{sync::Arc, time::Instant};
-
+use anyhow::bail;
 use kvq::traits::KVQPair;
 use plonky2::{
     field::
@@ -756,6 +756,10 @@ impl<
             q
         };
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
+        // Check if there are any pending tasks
+        if !self.has_pending_tasks(new_checkpoint_id, &pending_users).await? {
+            bail!("No pending tasks for checkpoint {}, skipping block construction", new_checkpoint_id);
+        }
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
         let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_realms_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
         println!("guta_jobs: {:?}",guta_jobs);
@@ -780,5 +784,24 @@ impl<
 
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())
+    }
+
+    /// Check if there are pending tasks for the given checkpoint
+    pub async fn has_pending_tasks(&self, checkpoint_id: u64, pending_register_users: &[MerkleProofCore<QHashOut<F>>]) -> anyhow::Result<bool> {
+        // Check if there are pending user registrations
+        if !pending_register_users.is_empty() {
+            return Ok(true);
+        }
+
+        // Check if there are user operations in the GUTA queue
+        let guta_queue_peek = self
+            .checkpoint_queue
+            .cdq_peek_imm::<UserEndCapNonProofCoreInputQueueItem<F>>(
+                self.realm_config.guta_channel_id,
+                checkpoint_id,
+            )
+            .await?;
+
+        Ok(!guta_queue_peek.is_empty())
     }
 }

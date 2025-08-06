@@ -1,7 +1,6 @@
 mod slot_phase;
 
 use std::ops::Deref;
-use std::os::unix::raw::time_t;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::{C, D, F};
 use fred::prelude::KeysInterface;
@@ -31,7 +30,6 @@ use qed_store::store::journal::{Journal, JournalStore};
 use crate::common::clock::SlotTimer;
 use crate::common::slot::{Clock, LocalClock, Slot};
 use crate::realm::processor::slot_phase::SlotPhase;
-use crate::realm::processor::slot_phase::SlotPhase::BuildPhase;
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<QEDStore>,
@@ -115,7 +113,6 @@ impl RealmProcessor {
             info!("Waiting for latest checkpoint");
             match self.sync_checkpoint(&mut context).await {
                 Ok(false) => {
-                    tokio::time::sleep(Duration::from_millis(200)).await;
                     continue;
                 }
                 Err(err) => {
@@ -132,11 +129,12 @@ impl RealmProcessor {
                 continue
             }
 
-            if let BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
+            if let SlotPhase::BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
                 let current_timestamp = self.slot_timer.get_current_timestamp();
                 if current_timestamp < build_phase_start {
-                    info!("Waiting for build phase to start");
-                    tokio::time::sleep(Duration::from_millis(build_phase_start - current_timestamp)).await;
+                    let tt = build_phase_start - current_timestamp;
+                    info!("Waiting for build phase to start: sleep {} ms", tt);
+                    tokio::time::sleep(Duration::from_millis(tt)).await;
                 }
             }
 
@@ -182,16 +180,14 @@ impl RealmProcessor {
                 let checkpoint_id = block.compact.l2_block_state.checkpoint_id;
 
                 info!("Checkpoint received checkpoint_id: {}, local_checkpoint_id: {}", checkpoint_id, local_checkpoint_id);
-                if local_checkpoint_id >= checkpoint_id && local_checkpoint_id > 0 {
-                    info!("Local checkpoint is up to date");
-                    self.remote_latest_slot = block.compact.slot;
-                    return Ok(false);
-                }
-
                 if local_checkpoint_id >= block.latest_checkpoint_id && local_checkpoint_id > 0 {
                     info!("Local checkpoint is latest");
                     self.remote_latest_slot = block.compact.slot;
                     return Ok(true);
+                }
+                if local_checkpoint_id >= checkpoint_id && local_checkpoint_id > 0 {
+                    info!("Local checkpoint is up to date");
+                    return Ok(false);
                 }
 
                 info!("Syncing checkpoint");
@@ -269,11 +265,6 @@ impl RealmProcessor {
     fn is_current_slot(&self) -> bool {
         self.remote_latest_slot == 0 || self.slot_timer.get_current_slot() == self.remote_latest_slot
     }
-
-    async fn wait(&self) -> anyhow::Result<()> {
-        Ok(())
-    }
-
     pub async fn get_local_latest_l2_block_state(&self) -> anyhow::Result<u64> {
         let state = self.store.get_latest_l2_block_state().await
             .map_err(|err| anyhow!("Error getting latest l2 block state: {:?}", err))?;
