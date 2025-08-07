@@ -57,7 +57,12 @@ async fn run_scheduler_worker(
         match prover.worker_prove_mut_async(&store, library, job_id).await {
             Ok(proof) => {
                 info!("Proved job: job_id={:?}", job_id);
-                job_receiver.submit_job_proof(job, Some(proof)).await?;
+                if let Err(e) = job_receiver.submit_job_proof(job, Some(proof)).await {
+                    error!(
+                        "Failed to submit job proof: err={:?}, job_id={:?}",
+                        e, job_id
+                    );
+                }
             }
             Err(e) => {
                 error!("Failed to prove job: err={:?}, job_id={:?}", e, job_id);
