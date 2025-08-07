@@ -115,7 +115,7 @@ impl<
 
         let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
         let checkpoint_id = self.get_checkpoint_id_async().await?;
-        let next_checkpoint_id = checkpoint_id + 2;//todo fix bug?
+        let next_checkpoint_id = checkpoint_id + 1;//todo fix bug?
         if end_cap_checkpoint_id > checkpoint_id {
             tracing::info!("ensure end cap checkpoint id: {} {} {}", checkpoint_id, end_cap_checkpoint_id, next_checkpoint_id);
             anyhow::bail!("invalid checkpoint id");
