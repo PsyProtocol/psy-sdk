@@ -1,4 +1,5 @@
 use super::args::CoordinatorProcessorArgs;
+use crate::common::slot::Slot;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::coordinator::state::processor::CoordinatorConfig;
 use crate::coordinator::state::processor::CoordinatorProcessorContext;
@@ -32,6 +33,7 @@ use std::sync::Arc;
 use tokio::time::{sleep_until, Instant};
 use tracing::{debug, error, info, warn};
 use crate::common::clock::SlotTimer;
+use crate::common::slot;
 use crate::common::slot::LocalClock;
 
 type C = PoseidonGoldilocksConfig;
@@ -86,13 +88,12 @@ impl<
         }
     }
 
-    pub async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
+    async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
         // Get current checkpoint to listen from
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let start_checkpoint = latest_l2_block_state.checkpoint_id + 1; // Listen for the next checkpoint
         
         // Try to get messages from the history queue
-        // todo
         let messages = self.edge_command_queue.chq_listen_from_imm::<CEQueueNotification>(
             COORDINATOR_TO_REALM_CHANNEL,
             start_checkpoint
@@ -136,6 +137,26 @@ impl<
             }
             std::cmp::Ordering::Greater => {
                 return Ok(true);
+            }
+        }
+    }
+
+    pub async fn wait_for_make_block(&mut self) -> bool {
+        match self.wait_for_produce_block().await {
+            Ok(true) => {
+                info!("✅ Successfully wait for produce block");
+                tokio::time::sleep(Duration::from_millis(slot::SLOT_SIZE/2)).await;
+                true
+            }
+            Ok(false) => {
+                info!("⚠️ No pending tasks, waiting for next checkpoint");
+                tokio::time::sleep(Duration::from_millis(slot::SLOT_SIZE/2)).await;
+                false
+            }
+            Err(e) => {
+                error!("❌ Error waiting for produce block: {:?}", e);
+                tokio::time::sleep(Duration::from_millis(slot::SLOT_SIZE/2)).await;
+                false
             }
         }
     }
@@ -244,8 +265,20 @@ impl
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
     let mut coordinator_processor = CoordinatorProcessNode::new_with_config(args).await?;
     let slot_timer= SlotTimer::new(LocalClock);
+    let slot_timer_other = slot_timer.clone();
     loop {
-        let slot = slot_timer.wait_for_next_slot().await;
+        tokio::select! {
+            is = coordinator_processor.wait_for_make_block() => {
+                if !is {
+                    continue;
+                }
+            }
+            slot = slot_timer.wait_for_next_slot() => {
+                info!("✅ Successfully wait for next slot: {}", slot);
+            }
+        }
+
+        let slot = slot_timer_other.get_current_slot();
         match coordinator_processor.build_block(slot).await {
             Ok(checkpoint_id) => {
                 info!(
