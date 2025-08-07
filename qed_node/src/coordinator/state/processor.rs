@@ -1005,16 +1005,16 @@ impl<
             next_contract_id: next_contract_id,
         };
         eprintln!("DEBUGPRINT[590]: processor.rs:979: new_l2_block_state={}", serde_json::to_string_pretty(&new_l2_block_state).unwrap());
-        self.prover_queue
-            .enqueue_jobs_imm(
-                &([
-                    guta_jobs[0].to_vec(),
-                    deploy_jobs[0].to_vec(),
-                    user_registration_jobs[0].to_vec(),
-                ]
-                .concat()),
-            )
-            .await?;
+        // self.prover_queue
+        //     .enqueue_jobs_imm(
+        //         &([
+        //             guta_jobs[0].to_vec(),
+        //             deploy_jobs[0].to_vec(),
+        //             user_registration_jobs[0].to_vec(),
+        //         ]
+        //         .concat()),
+        //     )
+        //     .await?;
             let lf_state = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;
             //println!("set new leaf: {:#?}\n\nnew_leaf_hash {}: {:?},\nlf: {:?}, {:?}",new_checkpoint_leaf,new_checkpoint_id,new_checkpoint_leaf.qfhash::<QEDHasher>(),lf_state,lf_state.qfhash::<QEDHasher>());
         self.store
