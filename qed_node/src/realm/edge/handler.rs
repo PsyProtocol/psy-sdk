@@ -18,7 +18,7 @@ use qed_core::{
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueEmitterAsyncImm,
-        id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
+        id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, JobProof},
         traits::QProofStoreAsyncImm,
     },
 };
@@ -610,6 +610,28 @@ where
             .get_user_tree_merkle_proof(checkpoint_id, user_id)
             .await
             .map_err(RpcError::Anyhow)?)
+    }
+
+    async fn get_job_proof(
+        &self,
+        checkpoint_id: u64,
+        job_id: QProvingJobDataID,
+    ) -> RpcResult<JobProof> {
+        use jsonrpsee::types::ErrorObject;
+        
+        if job_id.goal_id != checkpoint_id {
+            return Err(ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                "Job ID does not belong to the specified checkpoint",
+                None::<()>,
+            ));
+        }
+        
+        Err(ErrorObject::owned(
+            jsonrpsee::types::ErrorCode::InternalError.code(),
+            "get_job_proof not yet fully implemented",
+            None::<()>,
+        ))
     }
 }
 

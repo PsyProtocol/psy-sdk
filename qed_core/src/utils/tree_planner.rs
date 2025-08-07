@@ -113,12 +113,12 @@ mod tests {
     #[test]
     fn btree_planner_graphviz() {
         let btp = BinaryTreePlanner::new(6);
-        tracing::info!("{}", btp.get_graphviz());
+        println!("{}", btp.get_graphviz());
     }
     #[test]
     fn btree_planner_json() {
         let btp = BinaryTreePlanner::new(6);
 
-        tracing::info!("{}", serde_json::to_string(&btp).unwrap());
+        println!("{}", serde_json::to_string(&btp).unwrap());
     }
 }

@@ -378,6 +378,25 @@ pub enum Color {
     Black,
 }
 
+use crate::data::qhashout::QHashOut;
+use plonky2::field::goldilocks_field::GoldilocksField;
+
+type F = GoldilocksField;
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct JobProofSibling {
+    pub hash: QHashOut<F>,  // sibling's hash value
+    pub is_left: bool,  // true if sibling is on the left
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct JobProof {
+    pub job_id: QProvingJobDataID,
+    pub value: QHashOut<F>,  // this job's value (commitment + public_key)
+    pub siblings: Vec<JobProofSibling>,  // siblings from leaf to root
+    pub root: QHashOut<F>,  // root of the tree
+}
+
 #[derive(Serialize, Deserialize,Clone, Debug)]
 pub struct JobsTaskGraph {
     pub tasks: HashMap<TaskId, JobsTask>,
@@ -399,7 +418,7 @@ impl JobsTaskGraph {
         self.deps.clear();
         self.deps_on.clear();
     }
-
+    
     pub fn add_task(&mut self, task: JobsTask) {
         let task_id = task.task_id();
         self.tasks.insert(task_id, task);
@@ -442,16 +461,13 @@ impl JobsTaskGraph {
     }
 
     pub fn ts(&self) -> Vec<TaskId> {
-        let mut starting_tasks = HashSet::new();
-        for &task_id in self.tasks.keys() {
-            if self.deps_on.get(&task_id).is_none() {
-                starting_tasks.insert(task_id);
-            }
-        }
         let mut sorted = Vec::new();
         let mut colors = HashMap::new();
-        for task in starting_tasks {
-            self.ts_inner(task, &mut colors, &mut |task| sorted.push(task));
+        
+        for &task_id in self.tasks.keys() {
+            if !colors.contains_key(&task_id) {
+                self.ts_inner(task_id, &mut colors, &mut |task| sorted.push(task));
+            }
         }
         sorted
     }
@@ -465,6 +481,169 @@ impl JobsTaskGraph {
 
     pub fn get_task(&self, task_id: TaskId) -> Option<&JobsTask> {
         self.tasks.get(&task_id)
+    }
+    
+    pub fn generate_proof<PS: crate::job::traits::QProofStore>(
+        &self,
+        leaf_job_id: QProvingJobDataID,
+        proof_store: &PS,
+    ) -> anyhow::Result<JobProof> {
+        use plonky2::plonk::config::PoseidonGoldilocksConfig;
+        use plonky2::plonk::config::Hasher;
+        use plonky2::hash::poseidon::PoseidonHash;
+        use plonky2::plonk::proof::ProofWithPublicInputs;
+        use plonky2::field::goldilocks_field::GoldilocksField;
+        
+        let mut leaf_task_id = None;
+        let mut leaf_job_index = 0;
+        
+        for (task_id, task) in &self.tasks {
+            if let Some(idx) = task.job_ids.iter().position(|&id| id == leaf_job_id) {
+                leaf_task_id = Some(*task_id);
+                leaf_job_index = idx;
+                break;
+            }
+        }
+        
+        let leaf_task_id = leaf_task_id
+            .ok_or_else(|| anyhow::anyhow!("Leaf job not found in any task"))?;
+        
+        let task_levels = self.get_task_levels();
+        
+        let mut current_level = 0;
+        for (level_idx, level_tasks) in task_levels.iter().enumerate() {
+            if level_tasks.contains(&leaf_task_id) {
+                current_level = level_idx;
+                break;
+            }
+        }
+        
+        let leaf_proof: ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2> = proof_store.get_proof_by_id(leaf_job_id.get_output_id())?;
+        let leaf_value = QHashOut(leaf_proof.get_public_inputs_hash());
+        
+        let mut siblings = Vec::new();
+        let mut current_task_id = leaf_task_id;
+        let mut current_job_index = leaf_job_index;
+        
+        while current_level < task_levels.len() - 1 {
+            let current_task = &self.tasks[&current_task_id];
+            
+            let sibling_index = if current_job_index % 2 == 0 {
+                if current_job_index + 1 < current_task.job_ids.len() {
+                    Some(current_job_index + 1)
+                } else {
+                    None
+                }
+            } else {
+                Some(current_job_index - 1)
+            };
+            
+            if let Some(sibling_idx) = sibling_index {
+                let sibling_job_id = current_task.job_ids[sibling_idx];
+                let sibling_proof: ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2> = proof_store.get_proof_by_id(sibling_job_id.get_output_id())?;
+                let sibling_value = QHashOut(sibling_proof.get_public_inputs_hash());
+                
+                siblings.push(JobProofSibling {
+                    hash: sibling_value,
+                    is_left: sibling_idx < current_job_index,
+                });
+            }
+            
+            if let Some(parent_tasks) = self.deps_on.get(&current_task_id) {
+                if let Some(&parent_task_id) = parent_tasks.iter().next() {
+                    if sibling_index.is_none() {
+                        let parent_task = &self.tasks[&parent_task_id];
+                        current_job_index = parent_task.job_ids.len() - 1;
+                    } else {
+                        current_job_index = current_job_index / 2;
+                    }
+                    
+                    current_task_id = parent_task_id;
+                    current_level += 1;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        
+        let root = self.compute_root_from_proof(&leaf_value, &siblings);
+        
+        Ok(JobProof {
+            job_id: leaf_job_id,
+            value: leaf_value,
+            siblings,
+            root,
+        })
+    }
+    
+    fn get_task_levels(&self) -> Vec<Vec<TaskId>> {
+        let mut levels = Vec::new();
+        let mut processed = HashSet::new();
+        
+        let mut current_level = Vec::new();
+        for &task_id in self.tasks.keys() {
+            if !self.deps.contains_key(&task_id) || self.deps[&task_id].is_empty() {
+                current_level.push(task_id);
+                processed.insert(task_id);
+            }
+        }
+        
+        if current_level.is_empty() {
+            return levels;
+        }
+        
+        levels.push(current_level.clone());
+        
+        while !current_level.is_empty() {
+            let mut next_level = Vec::new();
+            
+            for &task_id in &current_level {
+                if let Some(parent_tasks) = self.deps_on.get(&task_id) {
+                    for &parent_task_id in parent_tasks {
+                        if let Some(parent_deps) = self.deps.get(&parent_task_id) {
+                            if parent_deps.iter().all(|dep| processed.contains(dep)) {
+                                if !processed.contains(&parent_task_id) {
+                                    next_level.push(parent_task_id);
+                                    processed.insert(parent_task_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if !next_level.is_empty() {
+                levels.push(next_level.clone());
+            }
+            current_level = next_level;
+        }
+        
+        levels
+    }
+    
+    
+    pub fn verify_proof(&self, proof: &JobProof) -> bool {
+        let computed_root = self.compute_root_from_proof(&proof.value, &proof.siblings);
+        computed_root == proof.root
+    }
+    
+    fn compute_root_from_proof(&self, value: &QHashOut<F>, siblings: &[JobProofSibling]) -> QHashOut<F> {
+        use plonky2::hash::poseidon::PoseidonHash;
+        use plonky2::plonk::config::Hasher;
+        
+        let mut current_hash = *value;
+        
+        for sibling in siblings {
+            current_hash = if sibling.is_left {
+                    QHashOut(PoseidonHash::two_to_one(sibling.hash.0, current_hash.0))
+            } else {
+                QHashOut(PoseidonHash::two_to_one(current_hash.0, sibling.hash.0))
+            };
+        }
+        
+        current_hash
     }
 }
 
@@ -1070,7 +1249,8 @@ impl KVQSerializable for QProvingJobDataID {
 
 #[cfg(test)]
 mod tests {
-    use super::{ProvingJobCircuitType, QProvingJobDataID};
+    use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_decode() {
@@ -1088,5 +1268,121 @@ mod tests {
         let decoded_job2: QProvingJobDataID = bincode::deserialize(&result2).unwrap();
 
         assert_eq!(job, decoded_job2);
+    }
+
+    #[test]
+    fn test_jobs_task_graph_topological_sort() {
+        let mut graph = JobsTaskGraph::new();
+        
+        // Create tasks
+        let task1 = JobsTask {
+            task_id: TaskId::new(),
+            job_ids: vec![
+                QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 0, 0),
+            ],
+        };
+        let task2 = JobsTask {
+            task_id: TaskId::new(),
+            job_ids: vec![
+                QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 1, 0),
+            ],
+        };
+        let task3 = JobsTask {
+            task_id: TaskId::new(),
+            job_ids: vec![
+                QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 2, 0),
+            ],
+        };
+        
+        // Add dependencies: task3 depends on task1 and task2
+        graph.add_dep(task3.clone(), task1.clone());
+        graph.add_dep(task3.clone(), task2.clone());
+        
+        // Run topological sort
+        let sorted = graph.ts();
+        
+        // Verify that task1 and task2 come before task3
+        let task1_pos = sorted.iter().position(|&t| t == task1.task_id).unwrap();
+        let task2_pos = sorted.iter().position(|&t| t == task2.task_id).unwrap();
+        let task3_pos = sorted.iter().position(|&t| t == task3.task_id).unwrap();
+        
+        assert!(task1_pos < task3_pos);
+        assert!(task2_pos < task3_pos);
+    }
+
+    #[test]
+    fn test_job_proof_verification() {
+        use plonky2::field::goldilocks_field::GoldilocksField;
+        use plonky2::hash::poseidon::PoseidonHash;
+        use plonky2::plonk::config::Hasher;
+        
+        let graph = JobsTaskGraph::new();
+        
+        // Create a sample proof
+        let job_id = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 0, 0);
+        let value = QHashOut::<GoldilocksField>::from_values(1, 2, 3, 4);
+        
+        // Create siblings
+        let siblings = vec![
+            JobProofSibling {
+                hash: QHashOut::from_values(5, 6, 7, 8),
+                is_left: true,
+            },
+            JobProofSibling {
+                hash: QHashOut::from_values(9, 10, 11, 12),
+                is_left: false,
+            },
+        ];
+        
+        // Calculate expected root
+        let mut current = value;
+        for sibling in &siblings {
+            current = if sibling.is_left {
+                QHashOut(PoseidonHash::two_to_one(sibling.hash.0, current.0))
+            } else {
+                QHashOut(PoseidonHash::two_to_one(current.0, sibling.hash.0))
+            };
+        }
+        
+        let proof = JobProof {
+            job_id,
+            value,
+            siblings,
+            root: current,
+        };
+        
+        // Verify the proof
+        assert!(graph.verify_proof(&proof));
+        
+        // Test with wrong root
+        let wrong_proof = JobProof {
+            job_id,
+            value,
+            siblings: proof.siblings.clone(),
+            root: QHashOut::from_values(0, 0, 0, 0),
+        };
+        assert!(!graph.verify_proof(&wrong_proof));
+    }
+
+    #[test] 
+    #[should_panic(expected = "cycle detected")]
+    fn test_cycle_detection() {
+        let mut graph = JobsTaskGraph::new();
+        
+        let task1 = JobsTask {
+            task_id: TaskId::new(),
+            job_ids: vec![],
+        };
+        let task2 = JobsTask {
+            task_id: TaskId::new(),
+            job_ids: vec![],
+        };
+        
+        // Create a cycle: task1 -> task2 -> task1
+        graph.add_dep(task1.clone(), task2.clone());
+        graph.add_dep(task2.clone(), task1.clone());
+        
+        // This should panic with "cycle detected"
+        graph.ts();
     }
 }

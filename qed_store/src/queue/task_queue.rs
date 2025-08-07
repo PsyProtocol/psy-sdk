@@ -22,22 +22,35 @@ const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(180);
 
 /// Represents a single job in the proving system
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct QJob {
+pub struct QJob<T = String> {
     pub job_id: QProvingJobDataID,
     pub task_id: TaskId,
+    pub parent: Option<QProvingJobDataID>,
     #[serde(default)]
-    pub msg_id: String,
+    pub msg_id: T,
 }
 
-impl QJob {
+impl<T: Default> QJob<T> {
     pub fn new(job_id: QProvingJobDataID, task_id: TaskId) -> Self {
         Self {
             job_id,
             task_id,
-            msg_id: String::new(),
+            parent: None,
+            msg_id: T::default(),
         }
     }
+    
+    pub fn new_with_parent(job_id: QProvingJobDataID, task_id: TaskId, parent: QProvingJobDataID) -> Self {
+        Self {
+            job_id,
+            task_id,
+            parent: Some(parent),
+            msg_id: T::default(),
+        }
+    }
+}
 
+impl QJob<String> {
     fn with_msg_id(mut self, msg_id: String) -> Self {
         self.msg_id = msg_id;
         self

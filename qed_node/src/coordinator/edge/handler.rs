@@ -17,7 +17,7 @@ use qed_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
     WithDrainQueueMetadata,
 };
-use qed_core::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
+use qed_core::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, JobProof};
 use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 
 // qed_crypto
@@ -1295,6 +1295,24 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         self.get_checkpoint_tree_merkle_proof_f(checkpoint_id, leaf_checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
+    }
+
+    async fn get_job_proof(&self, checkpoint_id: u64, job_id: QProvingJobDataID) -> RpcResult<JobProof> {
+        use jsonrpsee::types::ErrorObject;
+        
+        if job_id.goal_id != checkpoint_id {
+            return Err(ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                "Job ID does not belong to the specified checkpoint",
+                None::<()>,
+            ));
+        }
+        
+        Err(ErrorObject::owned(
+            jsonrpsee::types::ErrorCode::InternalError.code(),
+            "get_job_proof not yet fully implemented",
+            None::<()>,
+        ))
     }
 }
 
