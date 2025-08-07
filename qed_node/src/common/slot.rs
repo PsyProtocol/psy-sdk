@@ -355,6 +355,7 @@ pub trait Slot: Clock {
 
 impl<T: Clock> Slot for T {}
 
+#[derive(Debug, Clone, Copy)]
 pub struct LocalClock;
 
 impl Clock for LocalClock {
@@ -364,7 +365,7 @@ impl Clock for LocalClock {
 }
 
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy)]
 pub struct Instant(pub u64);
 
 impl Instant {

@@ -110,21 +110,32 @@ impl RealmProcessor {
             self.proof_verifier.clone(),
         ).await?;
         info!("Realm Processor started");
+
+        // Ensure checkpoint sync first
+        self.ensure_checkpoint_sync(&mut context).await?;
+        let slot_timer = self.slot_timer.clone();
         loop {
-            info!("Waiting for latest checkpoint");
-            match self.sync_checkpoint(&mut context).await {
-                Ok(false) => {
+            tokio::select! {
+                checkpoint_sync_result = self.ensure_checkpoint_sync(&mut context) => {
+                    match checkpoint_sync_result {
+                        Ok(true) => {
+                            info!("Checkpoint sync completed");
+                        }
+                        Ok(false) => {
+                            info!("No new checkpoint to sync");
+                        }
+                        Err(err) => {
+                            error!("Checkpoint sync failed: {:?}", err);
+                        }
+                    }
                     continue;
+                },
+                slot = slot_timer.wait_for_next_slot() => {
+                    info!("Next slot: {}", slot);
                 }
-                Err(err) => {
-                    warn!("Error syncing checkpoint: {:?}", err);
-                    tokio::time::sleep(Duration::from_millis(200)).await;
-                    continue;
-                }
-
-                _ => {}
             }
-
+        
+            // Build block based on slot timing
             if let Err(err) = self.validate_slot() {
                 warn!("Error validating slot: {:?}", err);
                 continue
@@ -158,6 +169,24 @@ impl RealmProcessor {
         }
     }
 
+    async fn ensure_checkpoint_sync(
+        &mut self,
+        context: &mut ConcreteRealmProcessorContext,
+    ) -> anyhow::Result<bool> {
+        loop {
+            match self.sync_checkpoint(context).await {
+                Ok(true) => return Ok(true),  // Sync completed
+                Err(err) => {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    bail!("Checkpoint sync attempt failed: {:?}", err)
+                }
+                _ => {
+                    continue;
+                }
+            }
+        }
+    }
+    
     pub async fn sync_checkpoint(
         &mut self,
         context: &mut ConcreteRealmProcessorContext,
@@ -259,8 +288,9 @@ impl RealmProcessor {
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {
+        let slot = self.slot_timer.get_current_slot();
         if !self.is_current_slot() {
-            bail!("Not in current slot")
+            bail!("Not in current slot, slot: {}, remote latest slot: {}", slot, self.remote_latest_slot)
         }
 
         if !self.slot_timer.is_can_reach_to_next_slot() {
@@ -270,7 +300,7 @@ impl RealmProcessor {
     }
 
     fn is_current_slot(&self) -> bool {
-        self.remote_latest_slot == 0 || self.slot_timer.get_current_slot() == self.remote_latest_slot
+        self.remote_latest_slot == 0 || self.slot_timer.get_current_slot() > self.remote_latest_slot
     }
     pub async fn get_local_latest_l2_block_state(&self) -> anyhow::Result<u64> {
         let state = self.store.get_latest_l2_block_state().await

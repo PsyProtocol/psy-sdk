@@ -1,15 +1,17 @@
 use std::ops::Deref;
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use crate::common::slot::{Clock, LocalClock, Slot};
+use crate::common::slot::{Clock, Slot};
 
+#[derive(Clone)]
 pub struct SlotTimer<T> {
-    clock: T,
+    clock: Arc<T>,
 }
 
 impl<T: Clock> SlotTimer<T> {
     pub fn new(clock: T) -> Self {
         Self {
-            clock,
+            clock: Arc::new(clock),
         }
     }
     
