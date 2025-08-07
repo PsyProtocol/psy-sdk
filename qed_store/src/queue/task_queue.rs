@@ -10,17 +10,15 @@ use std::time::Duration;
 use tracing::{debug, error, info, trace, warn};
 
 use qed_core::job::id::{JobsTask, JobsTaskGraph, QProvingJobDataID, TaskId};
-use crate::queue::{new_redis_async_pool};
-use crate::queue::rsmq_task_queue::RsmqTaskQueue;
+use crate::queue::{new_redis_async_pool, QueueId, QueueStats, RsmqQueue};
 
-// Constants
-const JOB_GRAPH_KEY: &str = "job_graph:current";
-const TASK_LIST_KEY: &str = "task:list";
-const TASK_RSMQ_QUEUE_PREFIX: &str = "task:rsmq:";
-const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(180);
+// Configuration constants
+const JOB_GRAPH_KEY: &str = "job_graph:";
+const TASK_LIST_KEY: &str = "task:list:";
+const TASK_RSMQ_PREFIX: &str = "task:rsmq:";
+const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(30);
 
-
-/// Represents a single job in the proving system
+/// Represents a single proving job with task assignment
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct QJob {
     pub job_id: QProvingJobDataID,
@@ -30,6 +28,7 @@ pub struct QJob {
 }
 
 impl QJob {
+    /// Create a new QJob with the given job_id and task_id
     pub fn new(job_id: QProvingJobDataID, task_id: TaskId) -> Self {
         Self {
             job_id,
@@ -38,28 +37,52 @@ impl QJob {
         }
     }
 
-    fn with_msg_id(mut self, msg_id: String) -> Self {
+    /// Set the message ID (builder pattern)
+    pub fn with_msg_id(mut self, msg_id: String) -> Self {
         self.msg_id = msg_id;
         self
     }
+
+    /// Serialize to bytes using bincode
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
+        bincode::serialize(self).context("Failed to serialize QJob")
+    }
+
+    /// Deserialize from bytes using bincode
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        bincode::deserialize(bytes).context("Failed to deserialize QJob")
+    }
+
+    /// Check if this job has been assigned a message ID
+    pub fn has_msg_id(&self) -> bool {
+        !self.msg_id.is_empty()
+    }
+
+    /// Create multiple jobs for the same task
+    pub fn batch_new(job_ids: Vec<QProvingJobDataID>, task_id: TaskId) -> Vec<Self> {
+        job_ids.into_iter()
+            .map(|job_id| Self::new(job_id, task_id.clone()))
+            .collect()
+    }
 }
 
-/// Generates the RSMQ queue name for a given task ID
-#[inline]
-fn task_queue_name(task_id: &TaskId) -> String {
-    format!("{}{}", TASK_RSMQ_QUEUE_PREFIX, task_id)
+// Display implementation for better logging
+impl std::fmt::Display for QJob {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Job({:?}@{})", self.job_id, self.task_id)
+    }
 }
 
-/// Main implementation of the JobTaskStore
+
+/// Job task store implementation with Redis backend
 pub struct JobTaskStoreImpl {
     redis_pool: Arc<Pool<RedisConnectionManager>>,
-    rsmq: Arc<RsmqTaskQueue>,
+    rsmq: Arc<RsmqQueue>,
 }
 
 impl JobTaskStoreImpl {
-    /// Creates a new JobTaskStore instance
     pub async fn new(redis_url: &str, pool_size: usize) -> Result<Self> {
-        info!("Initializing JobTaskStore - URL: {}, Pool size: {}", redis_url, pool_size);
+        debug!("Initializing JobTaskStore with pool size {}", pool_size);
 
         let redis_pool = Arc::new(
             new_redis_async_pool(redis_url, pool_size)
@@ -67,40 +90,85 @@ impl JobTaskStoreImpl {
                 .context("Failed to create Redis pool")?
         );
 
+        // Use the unified RsmqQueue instead of RsmqTaskQueue
         let rsmq = Arc::new(
-            RsmqTaskQueue::new(redis_url, pool_size)
+            RsmqQueue::new(redis_url, pool_size, "job_task_store")
                 .await
-                .context("Failed to create RsmqTaskQueue")?
+                .context("Failed to create RSMQ queue")?
         );
 
-        info!("JobTaskStore initialized successfully");
         Ok(Self { redis_pool, rsmq })
     }
 
-    /// Removes a task from the Redis list
+    /// Generate queue name for a task
+    #[inline]
+    fn task_queue_name(task_id: &TaskId) -> String {
+        format!("{}{}", TASK_RSMQ_PREFIX, task_id)
+    }
+
+    /// Create QueueId for a task
+    #[inline]
+    fn task_queue_id(task_id: &TaskId) -> QueueId {
+        QueueId::WorkerEvent {
+            queue_biz_key: Self::task_queue_name(task_id),
+        }
+    }
+
+    /// Remove task from Redis list
     async fn remove_task_from_list(&self, task_id: &TaskId) -> Result<bool> {
         let mut conn = self.redis_pool.get().await?;
-        let serialized = bincode::serialize(task_id)?;
+        let serialized = task_id.to_vec()?;
         let removed: i32 = conn.lrem(TASK_LIST_KEY, 0, &serialized).await?;
 
-        if removed > 0 {
-            info!("Removed {} occurrences of task '{:?}' from task list", removed, task_id);
-        } else {
-            warn!("Task '{:?}' not found in task list", task_id);
+        if removed == 0 {
+            warn!("Task '{}' not found in list", task_id);
         }
 
         Ok(removed > 0)
     }
 
-    /// Serializes and deserializes task IDs
-    #[inline]
-    fn serialize_task(task_id: &TaskId) -> Result<Vec<u8>> {
-        bincode::serialize(task_id).context("Failed to serialize task ID")
+    /// Get queue statistics for monitoring
+    pub async fn get_queue_stats(&self) -> Result<HashMap<TaskId, u64>> {
+        let task_ids = self.get_task_list().await?;
+        let mut stats = HashMap::with_capacity(task_ids.len());
+
+        for task_id in task_ids {
+            if let Ok(count) = self.count_pending_jobs_in_task(&task_id).await {
+                stats.insert(task_id, count);
+            }
+        }
+
+        Ok(stats)
     }
 
-    #[inline]
-    fn deserialize_task(bytes: &[u8]) -> Result<TaskId> {
-        bincode::deserialize(bytes).context("Failed to deserialize task ID")
+    /// Get system status summary
+    pub async fn get_system_status(&self) -> Result<String> {
+        let tasks = self.get_task_list().await?;
+        let stats = self.get_queue_stats().await?;
+
+        let mut status = format!("Active Tasks: {}\n", tasks.len());
+        for task_id in tasks {
+            let count = stats.get(&task_id).copied().unwrap_or(0);
+            status.push_str(&format!("  {}: {} pending\n", task_id, count));
+        }
+
+        Ok(status)
+    }
+
+    /// Clear all tasks and queues (use with caution)
+    pub async fn clear_all(&self) -> Result<()> {
+        let tasks = self.get_task_list().await?;
+
+        for task_id in tasks {
+            let queue_id = Self::task_queue_id(&task_id);
+            let _ = self.rsmq.delete_queue(&queue_id).await;
+        }
+
+        let mut conn = self.redis_pool.get().await?;
+        conn.del(TASK_LIST_KEY).await?;
+
+        info!("Cleared all tasks and queues");
+        Ok(())
     }
 }
 
@@ -122,115 +190,92 @@ pub trait JobTaskStore {
 impl JobTaskStore for JobTaskStoreImpl {
     async fn enqueue_jobs(&self, task_id: &TaskId, jobs: &[QJob]) -> Result<()> {
         if jobs.is_empty() {
-            warn!("No jobs to enqueue");
             return Ok(());
         }
 
-        info!("Enqueuing {} jobs for task '{}'", jobs.len(), task_id);
-        let queue = task_queue_name(task_id);
+        debug!("Enqueuing {} jobs for task '{}'", jobs.len(), task_id);
+        let queue_id = Self::task_queue_id(task_id);
 
-        self.rsmq.create_queue_if_not_exists(&queue).await?;
+        self.rsmq.create_queue_if_not_exists(&queue_id).await?;
 
-        // Process jobs concurrently
-        let errors: Vec<_> = futures::future::join_all(
-            jobs.iter().enumerate().map(|(idx, job)| {
-                let queue = queue.clone();
+        // Batch process jobs
+        let results = futures::future::join_all(
+            jobs.iter().map(|job| {
+                let queue_id = queue_id.clone();
                 let rsmq = self.rsmq.clone();
-                let job_id = job.job_id.clone();
-
                 async move {
-                    match bincode::serialize(job) {
-                        Ok(data) => {
-                            rsmq.send_message(&queue, data)
-                                .await
-                                .map_err(|e| (idx, job_id, anyhow!("Send failed: {}", e)))
-                        }
-                        Err(e) => Err((idx, job_id, anyhow!("Serialization failed: {}", e)))
-                    }
+                    let data = job.to_bytes()?;
+                    rsmq.send_message(&queue_id, data).await
                 }
             })
-        )
-        .await
-        .into_iter()
-        .filter_map(|r| r.err())
-        .collect();
+        ).await;
+
+        // Check for errors
+        let errors: Vec<_> = results.iter()
+            .enumerate()
+            .filter_map(|(i, r)| r.as_ref().err().map(|e| (i, e)))
+            .collect();
 
         if !errors.is_empty() {
-            for (idx, job_id, err) in &errors {
-                error!("Job {} ({:?}): {}", idx, job_id, err);
-            }
-            return Err(anyhow!("Failed to enqueue {} out of {} jobs", errors.len(), jobs.len()));
+            return Err(anyhow!(
+                "Failed to enqueue {} of {} jobs",
+                errors.len(),
+                jobs.len()
+            ));
         }
 
-        info!("Successfully enqueued all {} jobs", jobs.len());
         Ok(())
     }
 
     async fn claim_job_from_current_task(&self) -> Result<Option<QJob>> {
         let task_id = match self.peek_current_task().await? {
             Some(id) => id,
-            None => {
-                debug!("No current task available");
-                return Ok(None);
-            }
+            None => return Ok(None),
         };
 
-        let queue = task_queue_name(&task_id);
-        debug!("Claiming job from task '{}' (queue: '{}')", task_id, queue);
+        let queue_id = Self::task_queue_id(&task_id);
 
-        match self.rsmq.receive_message_with_id(&queue, Some(VISIBILITY_TIMEOUT)).await? {
+        match self.rsmq.receive_message_with_id(&queue_id, Some(VISIBILITY_TIMEOUT)).await? {
             Some(msg) => {
-                let job: QJob = bincode::deserialize(&msg.message)
-                    .context("Failed to deserialize job")?;
-
-                info!("Claimed job {:?} from task '{}'", job.job_id, task_id);
+                let job = QJob::from_bytes(&msg.message)?;
+                debug!("Claimed {}", job);
                 Ok(Some(job.with_msg_id(msg.id)))
             }
-            None => {
-                debug!("No jobs available in task '{}'", task_id);
-                Ok(None)
-            }
+            None => Ok(None)
         }
     }
 
     async fn count_pending_jobs_in_current_task(&self) -> Result<u64> {
         let task_id = self.peek_current_task().await?
-            .ok_or_else(|| anyhow!("No current task available"))?;
+            .ok_or_else(|| anyhow!("No current task"))?;
         self.count_pending_jobs_in_task(&task_id).await
     }
 
     async fn count_pending_jobs_in_task(&self, task_id: &TaskId) -> Result<u64> {
-        let count = self.rsmq
-            .get_queue_length(&task_queue_name(task_id))
+        let queue_id = Self::task_queue_id(task_id);
+        self.rsmq
+            .get_queue_length(&queue_id)
             .await
-            .with_context(|| format!("Failed to count jobs for task '{:?}'", task_id))?;
-
-        debug!("Task {:?} has {} pending jobs", task_id, count);
-        Ok(count)
+            .context("Failed to get queue length")
     }
 
     async fn acknowledge_job_completion(&self, job: &QJob) -> Result<()> {
-        info!("Acknowledging job {:?} completion", job.job_id);
+        debug!("Acknowledging {}", job);
 
-        let queue = task_queue_name(&job.task_id);
+        let queue_id = Self::task_queue_id(&job.task_id);
 
         // Delete message from queue
-        self.rsmq
-            .delete_message(&queue, &job.msg_id)
-            .await
-            .with_context(|| format!("Failed to delete message for job {:?}", job.job_id))?;
+        self.rsmq.delete_message(&queue_id, &job.msg_id).await?;
 
         // Check if task is complete
-        let remaining = self.rsmq.get_queue_length(&queue).await?;
-        info!("Task '{:?}' has {} remaining jobs", job.task_id, remaining);
+        let remaining = self.rsmq.get_queue_length(&queue_id).await?;
 
         if remaining == 0 {
-            info!("Task '{:?}' completed - cleaning up", job.task_id);
+            info!("Task '{}' completed", job.task_id);
 
             if self.remove_task_from_list(&job.task_id).await? {
-                if let Err(e) = self.rsmq.delete_queue(&queue).await {
-                    error!("Failed to delete queue '{}': {}", queue, e);
-                }
+                // Best effort queue cleanup
+                let _ = self.rsmq.delete_queue(&queue_id).await;
             }
         }
 
@@ -238,170 +283,105 @@ impl JobTaskStore for JobTaskStoreImpl {
     }
 
     async fn peek_current_task(&self) -> Result<Option<TaskId>> {
-        trace!("Peeking at current task");
-
         let mut conn = self.redis_pool.get().await?;
 
-        conn.lindex::<_, Option<Vec<u8>>>(TASK_LIST_KEY, 0)
-            .await?
-            .map(|bytes| Self::deserialize_task(&bytes))
-            .transpose()
+        match conn.lindex::<_, Option<Vec<u8>>>(TASK_LIST_KEY, 0).await? {
+            Some(bytes) => Ok(Some(TaskId::from_slice(&bytes)?)),
+            None => Ok(None)
+        }
     }
+
     async fn save_task_topology(&self, tasks: Vec<&JobsTask>) -> Result<()> {
-        info!("Saving topology with {} tasks", tasks.len());
+        debug!("Saving {} tasks", tasks.len());
 
         let mut conn = self.redis_pool.get().await?;
 
-        // Verify list is empty
+        // Verify clean state
         let existing: usize = conn.llen(TASK_LIST_KEY).await?;
         if existing > 0 {
-            return Err(anyhow!("Cannot save topology: {} existing tasks found. Clear existing tasks first.", existing));
+            return Err(anyhow!(
+                "Cannot save: {} existing tasks. Clear first.",
+                existing
+            ));
         }
 
-        // Process tasks
-        for (index, task) in tasks.iter().enumerate() {
-            trace!("Processing task {}/{}: '{:?}' with {} jobs", index + 1, tasks.len(), task.task_id, task.job_ids.len());
-
-            // Skip empty tasks
+        // Process each task
+        for task in tasks {
             if task.job_ids.is_empty() {
-                warn!("Task '{:?}' has no jobs to enqueue", task.task_id);
+                warn!("Skipping empty task '{}'", task.task_id);
                 continue;
             }
 
-            // 1. Create jobs
-            let jobs: Vec<_> = task.job_ids
-                .iter()
-                .map(|job_id| QJob::new(job_id.clone(), task.task_id.clone()))
-                .collect();
+            // Create jobs using batch method
+            let jobs = QJob::batch_new(
+                task.job_ids.clone(),
+                task.task_id.clone()
+            );
 
-            // 2. Enqueue jobs FIRST (before adding task to list)
-            self.enqueue_jobs(&task.task_id, &jobs)
-                .await
-                .with_context(|| format!("Failed to enqueue {} jobs for task '{:?}'",
-                    jobs.len(), task.task_id
-                ))?;
+            self.enqueue_jobs(&task.task_id, &jobs).await?;
 
-            info!("Enqueued {} jobs for task '{:?}'", jobs.len(), task.task_id);
-
-            // 3. Add task to list ONLY AFTER jobs are successfully enqueued
-            let serialized = Self::serialize_task(&task.task_id)?;
-            conn.rpush(TASK_LIST_KEY, serialized)
-                .await
-                .with_context(|| format!("Failed to save task '{:?}' to list", task.task_id))?;
-
-            debug!("Added task '{:?}' to Redis list", task.task_id);
+            // Add to task list
+            let serialized = task.task_id.to_vec()?;
+            conn.rpush(TASK_LIST_KEY, serialized).await?;
         }
 
-        info!("Successfully saved topology");
+        info!("Topology saved successfully");
         Ok(())
     }
 
     async fn get_task_list(&self) -> Result<Vec<TaskId>> {
-        debug!("Retrieving complete task list");
-
         let mut conn = self.redis_pool.get().await?;
         let tasks_raw: Vec<Vec<u8>> = conn.lrange(TASK_LIST_KEY, 0, -1).await?;
 
-        debug!("Retrieved {} raw task entries", tasks_raw.len());
-
-        let mut task_ids = Vec::with_capacity(tasks_raw.len());
-        let mut failed_count = 0;
-
-        for task_bytes in tasks_raw {
-            match bincode::deserialize::<TaskId>(&task_bytes) {
-                Ok(task_id) => {
-                    trace!("Deserialized task ID: '{:?}'", task_id);
-                    task_ids.push(task_id);
-                },
-                Err(e) => {
-                    error!("Failed to deserialize task ID: {}", e);
-                    failed_count += 1;
-                }
-            }
+        let mut result = Vec::with_capacity(tasks_raw.len());
+        for bytes in tasks_raw {
+            result.push(TaskId::from_slice(&bytes)?);
         }
-
-        if failed_count > 0 {
-            warn!("Failed to deserialize {} task IDs", failed_count);
-        }
-
-        info!("Retrieved {} task IDs successfully", task_ids.len());
-        Ok(task_ids)
+        Ok(result)
     }
 
     async fn save_job_dependency_graph(&self, graph: &JobsTaskGraph) -> Result<()> {
-        info!("Saving job dependency graph");
-
-        let serialized_graph = bincode::serialize(graph)
-            .map_err(|e| {
-                error!("Failed to serialize job graph: {}", e);
-                e
-            })?;
-
-        debug!("Serialized graph size: {} bytes", serialized_graph.len());
+        let serialized = bincode::serialize(graph)?;
 
         let mut conn = self.redis_pool.get().await?;
-        conn.set(JOB_GRAPH_KEY, serialized_graph).await
-            .map_err(|e| {
-                error!("Failed to store job graph in Redis: {}", e);
-                e
-            })?;
+        conn.set(JOB_GRAPH_KEY, serialized).await?;
 
-        info!("Successfully saved job dependency graph");
+        debug!("Job graph saved");
         Ok(())
     }
 
     async fn load_job_dependency_graph(&self) -> Result<JobsTaskGraph> {
-        info!("Loading job dependency graph");
-
         let mut conn = self.redis_pool.get().await?;
-        let graph_bytes: Vec<u8> = conn.get(JOB_GRAPH_KEY).await
-            .map_err(|e| {
-                error!("Failed to retrieve job graph from Redis: {}", e);
-                e
-            })?;
+        let graph_bytes: Vec<u8> = conn.get(JOB_GRAPH_KEY).await?;
 
-        debug!("Retrieved graph data: {} bytes", graph_bytes.len());
-
-        let graph = bincode::deserialize::<JobsTaskGraph>(&graph_bytes)
-            .map_err(|e| {
-                error!("Failed to deserialize job graph: {}", e);
-                e
-            })?;
-
-        info!("Successfully loaded job dependency graph");
-        Ok(graph)
+        bincode::deserialize::<JobsTaskGraph>(&graph_bytes)
+            .context("Failed to deserialize job graph")
     }
 }
 
-// Utility methods
+// Additional helper methods for batch operations
 impl JobTaskStoreImpl {
-    /// Gets queue statistics for all tasks
-    pub async fn get_queue_stats(&self) -> Result<HashMap<TaskId, u64>> {
-        let task_ids = self.get_task_list().await?;
-        let mut stats = HashMap::with_capacity(task_ids.len());
-
-        for task_id in task_ids {
-            match self.count_pending_jobs_in_task(&task_id).await {
-                Ok(count) => { stats.insert(task_id, count); }
-                Err(e) => error!("Failed to get stats for task '{:?}': {}", task_id, e),
-            }
-        }
-
-        Ok(stats)
+    /// Enqueue jobs by job IDs for a specific task
+    pub async fn enqueue_job_ids(&self, job_ids: Vec<QProvingJobDataID>, task_id: TaskId) -> Result<()> {
+        let jobs = QJob::batch_new(job_ids, task_id.clone());
+        self.enqueue_jobs(&task_id, &jobs).await
     }
 
-    /// Gets system status summary
-    pub async fn get_system_status(&self) -> Result<String> {
-        let tasks = self.get_task_list().await?;
-        let stats = self.get_queue_stats().await?;
+    /// Get detailed stats for a specific task
+    pub async fn get_task_details(&self, task_id: &TaskId) -> Result<(u64, String)> {
+        let count = self.count_pending_jobs_in_task(task_id).await?;
+        let queue_name = Self::task_queue_name(task_id);
+        Ok((count, queue_name))
+    }
 
-        let mut status = format!("=== JobTaskStore Status ===\nActive Tasks: {}\n\n", tasks.len());
+    /// Check if any tasks are pending
+    pub async fn has_pending_tasks(&self) -> Result<bool> {
+        Ok(self.peek_current_task().await?.is_some())
+    }
 
-        for task_id in tasks {
-            let count = stats.get(&task_id).copied().unwrap_or(0);
-            status.push_str(&format!("Task '{:?}': {} pending jobs\n", task_id, count));
-        }
-
-        Ok(status)
+    /// Get queue statistics using the unified API
+    pub async fn get_detailed_queue_stats(&self, task_id: &TaskId) -> Result<QueueStats> {
+        let queue_id = Self::task_queue_id(task_id);
+        self.rsmq.get_queue_stats(&queue_id).await
     }
 }

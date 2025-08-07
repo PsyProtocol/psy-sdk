@@ -11,6 +11,7 @@ use crate::config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROO
 use crate::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
 use crate::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged};
 use super::mode::QWorkerMode;
+use anyhow::{Context, Result};
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
 )]
@@ -363,11 +364,85 @@ impl TaskId {
         bytes[..8].copy_from_slice(&counter.to_le_bytes());
         TaskId(Uuid::from_bytes(bytes))
     }
+
+    /// Get the inner UUID
+    pub fn as_uuid(&self) -> &Uuid {
+        &self.0
+    }
+
+    /// Convert to bytes for storage
+    pub fn to_bytes(&self) -> [u8; 16] {
+        *self.0.as_bytes()
+    }
+
+    /// Create from bytes
+    pub fn from_bytes(bytes: [u8; 16]) -> Self {
+        Self(Uuid::from_bytes(bytes))
+    }
+
+    /// Serialize to a byte vector using bincode
+    pub fn to_vec(&self) -> Result<Vec<u8>> {
+        bincode::serialize(self).context("Failed to serialize TaskId")
+    }
+
+    /// Deserialize from bytes using bincode
+    pub fn from_slice(bytes: &[u8]) -> Result<Self> {
+        bincode::deserialize(bytes).context("Failed to deserialize TaskId")
+    }
+
+    /// Serialize to a compact string representation
+    pub fn to_string(&self) -> String {
+        self.0.to_string()
+    }
+
+    /// Parse from string representation
+    pub fn from_str(s: &str) -> Result<Self> {
+        Ok(Self(Uuid::parse_str(s)?))
+    }
+}
+// Implement Display for convenient string conversion
+impl std::fmt::Display for TaskId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
-impl fmt::Display for TaskId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+// Implement FromStr for parsing
+impl std::str::FromStr for TaskId {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(Uuid::parse_str(s)?))
+    }
+}
+
+// For Redis operations, implement conversion to/from Vec<u8>
+impl From<TaskId> for Vec<u8> {
+    fn from(task_id: TaskId) -> Self {
+        task_id.to_vec().unwrap_or_else(|_| task_id.to_bytes().to_vec())
+    }
+}
+
+impl TryFrom<Vec<u8>> for TaskId {
+    type Error = anyhow::Error;
+
+    fn try_from(bytes: Vec<u8>) -> Result<Self> {
+        Self::from_slice(&bytes)
+    }
+}
+
+impl TryFrom<&[u8]> for TaskId {
+    type Error = anyhow::Error;
+
+    fn try_from(bytes: &[u8]) -> Result<Self> {
+        Self::from_slice(bytes)
+    }
+}
+
+//Implement AsRef for more ergonomic usage
+impl AsRef<Uuid> for TaskId {
+    fn as_ref(&self) -> &Uuid {
+        &self.0
     }
 }
 
