@@ -417,7 +417,7 @@ impl JobsTaskGraph {
         self.add_task(task);
         self.add_task(dep_task);
     }
-    
+
     pub fn ts_inner(
         &self,
         task: TaskId,
@@ -454,6 +454,49 @@ impl JobsTaskGraph {
             self.ts_inner(task, &mut colors, &mut |task| sorted.push(task));
         }
         sorted
+    }
+
+    pub fn ts_layers(&self) -> Vec<Vec<TaskId>> {
+        let mut in_degrees: HashMap<TaskId, usize> = self.tasks
+            .keys()
+            .map(|&task_id| {
+                let degree = self.deps.get(&task_id).map_or(0, |deps| deps.len());
+                (task_id, degree)
+            })
+            .collect();
+
+        let mut current_layer: Vec<TaskId> = in_degrees
+            .iter()
+            .filter_map(|(&task_id, &degree)| if degree == 0 { Some(task_id) } else { None })
+            .collect();
+
+        let mut sorted_layers = Vec::new();
+        let mut processed_tasks_count = 0;
+
+        while !current_layer.is_empty() {
+            processed_tasks_count += current_layer.len();
+
+            let mut next_layer = Vec::new();
+            for &task_id in &current_layer {
+                if let Some(dependents) = self.deps_on.get(&task_id) {
+                    for &dependent_id in dependents {
+                        let degree = in_degrees.get_mut(&dependent_id).unwrap();
+                        *degree -= 1;
+                        if *degree == 0 {
+                            next_layer.push(dependent_id);
+                        }
+                    }
+                }
+            }
+            sorted_layers.push(current_layer);
+            current_layer = next_layer;
+        }
+
+        if processed_tasks_count != self.tasks.len() {
+            panic!("Cycle detected in the task graph.");
+        } else {
+            sorted_layers
+        }
     }
 
     pub fn ts_task(&self) -> Vec<&JobsTask> {
