@@ -1,17 +1,17 @@
-use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
+use super::mode::QWorkerMode;
+use crate::config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROOF_SYNC_CHANNEL};
+use crate::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
+use crate::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged};
+use crate::utils::graph::BidirectionalGraph;
+use anyhow::{Context, Result};
 use hex::FromHexError;
 use kvq::traits::KVQSerializable;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;
-use crate::config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROOF_SYNC_CHANNEL};
-use crate::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
-use crate::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged};
-use super::mode::QWorkerMode;
-use anyhow::{Context, Result};
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
 )]
@@ -328,11 +328,10 @@ pub struct QWorkerJobBenchmark {
 type LayerId = TaskId;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct JobsLayer {
-    pub layer_id: LayerId,  // Fixed naming convention (was Layer_id)
+    pub layer_id: LayerId, // Fixed naming convention (was Layer_id)
     pub task_ids: Vec<TaskId>,
     pub job_ids: Vec<QProvingJobDataID>,
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct JobsTask {
@@ -357,7 +356,7 @@ impl JobsTask {
 static DEBUG_COUNTER: AtomicU64 = AtomicU64::new(1);
 static DEBUG_LAYER_COUNTER: AtomicU64 = AtomicU64::new(1);
 
-#[derive(Serialize, Deserialize,Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TaskId(pub Uuid);
 
 impl TaskId {
@@ -462,158 +461,69 @@ impl AsRef<Uuid> for TaskId {
     }
 }
 
-#[derive(Serialize, Deserialize,Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Color {
     White,
     Grey,
     Black,
 }
 
-#[derive(Serialize, Deserialize,Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct JobsTaskGraph {
     tasks: HashMap<TaskId, JobsTask>,
-    dependencies: HashMap<TaskId, HashSet<TaskId>>,
-    dependents: HashMap<TaskId, HashSet<TaskId>>,
+    graph: BidirectionalGraph<TaskId>,
 }
 
 impl JobsTaskGraph {
     pub fn new() -> Self {
         Self {
             tasks: HashMap::new(),
-            dependencies: HashMap::new(),
-            dependents: HashMap::new(),
+            graph: BidirectionalGraph::new(),
         }
     }
 
     pub fn clear(&mut self) {
         self.tasks.clear();
-        self.dependencies.clear();
-        self.dependents.clear();
+        self.graph.clear();
     }
 
     pub fn add_task(&mut self, task: JobsTask) {
         let task_id = task.task_id();
         self.tasks.insert(task_id, task);
+        self.graph.add_node(task_id);
     }
 
     pub fn add_dep(&mut self, task: JobsTask, dep_task: JobsTask) {
-        self.dependencies
-            .entry(task.task_id())
-            .or_default()
-            .insert(dep_task.task_id());
-        self.dependents
-            .entry(dep_task.task_id())
-            .or_default()
-            .insert(task.task_id());
+        self.graph.add_edge(task.task_id(), dep_task.task_id());
         self.add_task(task);
         self.add_task(dep_task);
     }
 
-    pub fn ts_inner(
-        &self,
-        task: TaskId,
-        colors: &mut HashMap<TaskId, Color>,
-        visitor: &mut impl FnMut(TaskId),
-    ) {
-        colors.insert(task, Color::Grey);
-        if let Some(deps) = self.dependencies.get(&task) {
-            for &dep in deps {
-                match colors.get(&dep) {
-                    Some(Color::Grey) => panic!("cycle detected"),
-                    Some(Color::Black) => {
-                        return;
-                    }
-                    None => self.ts_inner(dep, colors, visitor),
-                    _ => {}
-                }
-            }
-        }
-        visitor(task);
-        colors.insert(task, Color::Black);
-    }
-
-    pub fn ts(&self) -> Vec<TaskId> {
-        let mut starting_tasks = HashSet::new();
-        for &task_id in self.tasks.keys() {
-            if self.dependents.get(&task_id).is_none() {
-                starting_tasks.insert(task_id);
-            }
-        }
-        let mut sorted = Vec::new();
-        let mut colors = HashMap::new();
-        for task in starting_tasks {
-            self.ts_inner(task, &mut colors, &mut |task| sorted.push(task));
-        }
-        sorted
-    }
-
     pub fn ts_layers(&self) -> Vec<JobsLayer> {
-        let mut in_degrees: HashMap<TaskId, usize> = self.tasks
-            .keys()
-            .map(|&task_id| {
-                let degree = self.dependencies.get(&task_id).map_or(0, |deps| deps.len());
-                (task_id, degree)
-            })
-            .collect();
-
-        let mut current_layer: Vec<TaskId> = in_degrees
-            .iter()
-            .filter_map(|(&task_id, &degree)| if degree == 0 { Some(task_id) } else { None })
-            .collect();
-
         let mut sorted_layers = Vec::new();
-        let mut processed_tasks_count = 0;
-
-        while !current_layer.is_empty() {
-            processed_tasks_count += current_layer.len();
-
-            // Create JobsLayer for the current layer
+        let ts_order = self.graph.ts_order();
+        for current_layer in ts_order {
             let layer_id = LayerId::new_layer_debug();
             let mut job_ids = Vec::new();
             let task_ids = current_layer.clone();
-
-            // Collect all job IDs from all tasks in this layer
             for &task_id in &task_ids {
                 if let Some(task) = self.tasks.get(&task_id) {
                     job_ids.extend(task.job_ids.clone());
                 }
             }
-
             sorted_layers.push(JobsLayer {
                 layer_id,
                 task_ids: task_ids.clone(),
                 job_ids,
             });
-
-            // Prepare next layer
-            let mut next_layer = Vec::new();
-            for &task_id in &current_layer {
-                if let Some(dependents) = self.dependents.get(&task_id) {
-                    for &dependent_id in dependents {
-                        let degree = in_degrees.get_mut(&dependent_id).unwrap();
-                        *degree -= 1;
-                        if *degree == 0 {
-                            next_layer.push(dependent_id);
-                        }
-                    }
-                }
-            }
-
-            current_layer = next_layer;
-        }
-
-        if processed_tasks_count != self.tasks.len() {
-            panic!("Cycle detected in the task graph.");
-        } else {
-            sorted_layers
-        }
+        };
+        sorted_layers
     }
 
     pub fn get_task(&self, task_id: TaskId) -> Option<&JobsTask> {
         self.tasks.get(&task_id)
     }
 }
-
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct QProvingJobDataID {
