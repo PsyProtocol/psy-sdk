@@ -464,24 +464,24 @@ pub enum Color {
 
 #[derive(Serialize, Deserialize,Clone, Debug)]
 pub struct JobsTaskGraph {
-    pub tasks: HashMap<TaskId, JobsTask>,
-    pub deps: HashMap<TaskId, HashSet<TaskId>>,
-    pub deps_on: HashMap<TaskId, HashSet<TaskId>>,
+    tasks: HashMap<TaskId, JobsTask>,
+    dependencies: HashMap<TaskId, HashSet<TaskId>>,
+    dependents: HashMap<TaskId, HashSet<TaskId>>,
 }
 
 impl JobsTaskGraph {
     pub fn new() -> Self {
         Self {
             tasks: HashMap::new(),
-            deps: HashMap::new(),
-            deps_on: HashMap::new(),
+            dependencies: HashMap::new(),
+            dependents: HashMap::new(),
         }
     }
 
     pub fn clear(&mut self) {
         self.tasks.clear();
-        self.deps.clear();
-        self.deps_on.clear();
+        self.dependencies.clear();
+        self.dependents.clear();
     }
 
     pub fn add_task(&mut self, task: JobsTask) {
@@ -490,18 +490,18 @@ impl JobsTaskGraph {
     }
 
     pub fn add_dep(&mut self, task: JobsTask, dep_task: JobsTask) {
-        self.deps
+        self.dependencies
             .entry(task.task_id())
             .or_default()
             .insert(dep_task.task_id());
-        self.deps_on
+        self.dependents
             .entry(dep_task.task_id())
             .or_default()
             .insert(task.task_id());
         self.add_task(task);
         self.add_task(dep_task);
     }
-    
+
     pub fn ts_inner(
         &self,
         task: TaskId,
@@ -509,7 +509,7 @@ impl JobsTaskGraph {
         visitor: &mut impl FnMut(TaskId),
     ) {
         colors.insert(task, Color::Grey);
-        if let Some(deps) = self.deps.get(&task) {
+        if let Some(deps) = self.dependencies.get(&task) {
             for &dep in deps {
                 match colors.get(&dep) {
                     Some(Color::Grey) => panic!("cycle detected"),
@@ -528,7 +528,7 @@ impl JobsTaskGraph {
     pub fn ts(&self) -> Vec<TaskId> {
         let mut starting_tasks = HashSet::new();
         for &task_id in self.tasks.keys() {
-            if self.deps_on.get(&task_id).is_none() {
+            if self.dependents.get(&task_id).is_none() {
                 starting_tasks.insert(task_id);
             }
         }
@@ -544,7 +544,7 @@ impl JobsTaskGraph {
         let mut in_degrees: HashMap<TaskId, usize> = self.tasks
             .keys()
             .map(|&task_id| {
-                let degree = self.deps.get(&task_id).map_or(0, |deps| deps.len());
+                let degree = self.dependencies.get(&task_id).map_or(0, |deps| deps.len());
                 (task_id, degree)
             })
             .collect();
@@ -581,7 +581,7 @@ impl JobsTaskGraph {
             // Prepare next layer
             let mut next_layer = Vec::new();
             for &task_id in &current_layer {
-                if let Some(dependents) = self.deps_on.get(&task_id) {
+                if let Some(dependents) = self.dependents.get(&task_id) {
                     for &dependent_id in dependents {
                         let degree = in_degrees.get_mut(&dependent_id).unwrap();
                         *degree -= 1;

@@ -503,57 +503,6 @@ impl JobTaskStore for JobTaskStoreImpl {
 
 // Implementation-specific methods
 impl JobTaskStoreImpl {
-    /// Compute layers from graph (placeholder - your colleague will provide the actual implementation)
-    async fn compute_layers_from_graph(&self, graph: &JobsTaskGraph) -> Result<Vec<Vec<TaskId>>> {
-        // This is a placeholder implementation
-        // Your colleague will modify the ts() function to return Vec<Vec<TaskId>>
-        // For now, simulating a simple layer computation
-
-        let mut layers = Vec::new();
-        let mut visited = HashSet::new();
-        let mut current_layer = Vec::new();
-
-        // Find all tasks with no dependencies (first layer)
-        for task_id in graph.tasks.keys() {
-            if !graph.deps_on.contains_key(task_id) {
-                current_layer.push(*task_id);
-                visited.insert(*task_id);
-            }
-        }
-
-        if !current_layer.is_empty() {
-            layers.push(current_layer);
-        }
-
-        // Build subsequent layers
-        while visited.len() < graph.tasks.len() {
-            let mut next_layer = Vec::new();
-
-            for task_id in graph.tasks.keys() {
-                if !visited.contains(task_id) {
-                    // Check if all dependencies are satisfied
-                    if let Some(deps) = graph.deps.get(task_id) {
-                        if deps.iter().all(|dep| visited.contains(dep)) {
-                            next_layer.push(*task_id);
-                        }
-                    }
-                }
-            }
-
-            if next_layer.is_empty() {
-                break; // No more tasks can be scheduled
-            }
-
-            for task_id in &next_layer {
-                visited.insert(*task_id);
-            }
-
-            layers.push(next_layer);
-        }
-
-        Ok(layers)
-    }
-
     /// Get status of a specific layer
     pub async fn get_layer_status(&self, layer_id: LayerId) -> Result<(usize, u64)> {
         let layers = self.get_all_layers().await?;
