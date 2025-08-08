@@ -35,7 +35,8 @@ impl ContractRef {
         assert(user_id < 1073741824, "user_id out of bounds");
         
         let nullifier_ref = c.nullifiers.index(checkpoint_id).index(user_id);
-        assert(!nullifier_ref.get().used, "reward already claimed for this checkpoint");
+        let nullifier = nullifier_ref.get();
+        assert(!nullifier.used, "reward already claimed for this checkpoint");
         
         let expected_root = get_register_users_root(checkpoint_id);
         assert(proof_root == expected_root, "invalid proof root");
@@ -48,8 +49,8 @@ impl ContractRef {
                 current_hash = hash_two(sibling, current_hash);
             } else {
                 current_hash = hash_two(current_hash, sibling);
-            }
-            i = i + 1;
+            };
+            i += 1;
         }
         
         assert(current_hash == proof_root, "invalid proof");
@@ -80,7 +81,8 @@ impl ContractRef {
         assert(user_id < 1073741824, "user_id out of bounds");
         
         let nullifier_ref = c.nullifiers.index(checkpoint_id).index(user_id);
-        assert(!nullifier_ref.get().used, "reward already claimed for this checkpoint");
+        let nullifier = nullifier_ref.get();
+        assert(!nullifier.used, "reward already claimed for this checkpoint");
         
         let expected_root = get_gutas_root(checkpoint_id);
         assert(proof_root == expected_root, "invalid proof root");
@@ -93,8 +95,8 @@ impl ContractRef {
                 current_hash = hash_two(sibling, current_hash);
             } else {
                 current_hash = hash_two(current_hash, sibling);
-            }
-            i = i + 1;
+            };
+            i += 1;
         }
         
         assert(current_hash == proof_root, "invalid proof");
@@ -125,7 +127,8 @@ impl ContractRef {
         assert(user_id < 1073741824, "user_id out of bounds");
         
         let nullifier_ref = c.nullifiers.index(checkpoint_id).index(user_id);
-        assert(!nullifier_ref.get().used, "reward already claimed for this checkpoint");
+        let nullifier = nullifier_ref.get();
+        assert(!nullifier.used, "reward already claimed for this checkpoint");
         
         let expected_root = get_deploy_contracts_root(checkpoint_id);
         assert(proof_root == expected_root, "invalid proof root");
@@ -138,8 +141,8 @@ impl ContractRef {
                 current_hash = hash_two(sibling, current_hash);
             } else {
                 current_hash = hash_two(current_hash, sibling);
-            }
-            i = i + 1;
+            };
+            i += 1;
         }
         
         assert(current_hash == proof_root, "invalid proof");
@@ -210,6 +213,7 @@ fn main() {
     let test_proof_root = hash_two(test_siblings[0], test_proof_value);
     let test_reward = 1000;
     
-    let test_nullifier = c.nullifiers.index(test_checkpoint_id).index(get_user_id()).get();
+    let test_nullifier_ref = c.nullifiers.index(test_checkpoint_id).index(get_user_id());
+    let test_nullifier = test_nullifier_ref.get();
     assert(!test_nullifier.used, "nullifier should not be used initially");
 }

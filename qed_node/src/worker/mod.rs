@@ -40,11 +40,12 @@ async fn run_scheduler_worker(
     let prover = QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, DEFAULT_WORKER_PUBLIC_KEY);
     let library = &proof_verifier.library;
     loop {
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
         let job = match job_receiver.get_next_job().await {
             Ok(job) => job,
             Err(e) => {
                 warn!("Error getting next ready job: {:?}", e);
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 continue;
             }
         };
@@ -58,7 +59,12 @@ async fn run_scheduler_worker(
         match prover.worker_prove_mut_async(&store, library, job_id).await {
             Ok(proof) => {
                 info!("Proved job: job_id={:?}", job_id);
-                job_receiver.submit_job_proof(job, Some(proof)).await?;
+                if let Err(e) = job_receiver.submit_job_proof(job, Some(proof)).await {
+                    error!(
+                        "Failed to submit job proof: err={:?}, job_id={:?}",
+                        e, job_id
+                    );
+                }
             }
             Err(e) => {
                 error!("Failed to prove job: err={:?}, job_id={:?}", e, job_id);

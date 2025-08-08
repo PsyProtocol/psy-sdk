@@ -1319,7 +1319,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
-        let j = match self.job_task_store.claim_job_from_current_task().await {
+        let j = match self.job_task_store.claim_job_from_current_layer().await {
             Ok(job) => job,
             Err(e) => {
                 error!("Error claiming job from current task: {:?}", e);
@@ -1352,6 +1352,8 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         let job_id = job.job_id;
         if let Some(proof) = proof {
             info!("Setting proof by id: {:?}", job_id);
+            self.ctx.proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)
+                .map_err(|e| RpcError::Anyhow(e.into()))?;
             // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
             let output_id = job_id.get_output_id();
             self.proof_store.set_proof_by_id(output_id, &proof).await.map_err(RpcError::Anyhow)?;

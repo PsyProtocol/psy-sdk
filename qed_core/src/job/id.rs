@@ -18,9 +18,9 @@ use serde_with::serde_as;
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;
+use anyhow::{Context, Result};
 
 type F = GoldilocksField;
-
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
 )]
@@ -405,6 +405,15 @@ pub struct QWorkerJobBenchmark {
     pub duration: u64,
 }
 
+type LayerId = TaskId;
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct JobsLayer {
+    pub layer_id: LayerId,  // Fixed naming convention (was Layer_id)
+    pub task_ids: Vec<TaskId>,
+    pub job_ids: Vec<QProvingJobDataID>,
+}
+
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct JobsTask {
     pub task_id: TaskId,
@@ -440,11 +449,85 @@ impl TaskId {
         bytes[..8].copy_from_slice(&counter.to_le_bytes());
         TaskId(Uuid::from_bytes(bytes))
     }
+
+    /// Get the inner UUID
+    pub fn as_uuid(&self) -> &Uuid {
+        &self.0
+    }
+
+    /// Convert to bytes for storage
+    pub fn to_bytes(&self) -> [u8; 16] {
+        *self.0.as_bytes()
+    }
+
+    /// Create from bytes
+    pub fn from_bytes(bytes: [u8; 16]) -> Self {
+        Self(Uuid::from_bytes(bytes))
+    }
+
+    /// Serialize to a byte vector using bincode
+    pub fn to_vec(&self) -> Result<Vec<u8>> {
+        bincode::serialize(self).context("Failed to serialize TaskId")
+    }
+
+    /// Deserialize from bytes using bincode
+    pub fn from_slice(bytes: &[u8]) -> Result<Self> {
+        bincode::deserialize(bytes).context("Failed to deserialize TaskId")
+    }
+
+    /// Serialize to a compact string representation
+    pub fn to_string(&self) -> String {
+        self.0.to_string()
+    }
+
+    /// Parse from string representation
+    pub fn from_str(s: &str) -> Result<Self> {
+        Ok(Self(Uuid::parse_str(s)?))
+    }
+}
+// Implement Display for convenient string conversion
+impl std::fmt::Display for TaskId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
-impl fmt::Display for TaskId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+// Implement FromStr for parsing
+impl std::str::FromStr for TaskId {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(Uuid::parse_str(s)?))
+    }
+}
+
+// For Redis operations, implement conversion to/from Vec<u8>
+impl From<TaskId> for Vec<u8> {
+    fn from(task_id: TaskId) -> Self {
+        task_id.to_vec().unwrap_or_else(|_| task_id.to_bytes().to_vec())
+    }
+}
+
+impl TryFrom<Vec<u8>> for TaskId {
+    type Error = anyhow::Error;
+
+    fn try_from(bytes: Vec<u8>) -> Result<Self> {
+        Self::from_slice(&bytes)
+    }
+}
+
+impl TryFrom<&[u8]> for TaskId {
+    type Error = anyhow::Error;
+
+    fn try_from(bytes: &[u8]) -> Result<Self> {
+        Self::from_slice(bytes)
+    }
+}
+
+//Implement AsRef for more ergonomic usage
+impl AsRef<Uuid> for TaskId {
+    fn as_ref(&self) -> &Uuid {
+        &self.0
     }
 }
 
@@ -473,23 +556,23 @@ pub struct JobProof {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JobsTaskGraph {
     pub tasks: IndexMap<TaskId, JobsTask>,
-    pub deps: IndexMap<TaskId, IndexSet<TaskId>>,
-    pub deps_on: IndexMap<TaskId, IndexSet<TaskId>>,
+    pub dependencies: IndexMap<TaskId, IndexSet<TaskId>>,
+    pub dependents: IndexMap<TaskId, IndexSet<TaskId>>,
 }
 
 impl JobsTaskGraph {
     pub fn new() -> Self {
         Self {
             tasks: IndexMap::new(),
-            deps: IndexMap::new(),
-            deps_on: IndexMap::new(),
+            dependencies: IndexMap::new(),
+            dependents: IndexMap::new(),
         }
     }
 
     pub fn clear(&mut self) {
         self.tasks.clear();
-        self.deps.clear();
-        self.deps_on.clear();
+        self.dependencies.clear();
+        self.dependents.clear();
     }
 
     pub fn add_task(&mut self, task: JobsTask) {
@@ -498,11 +581,11 @@ impl JobsTaskGraph {
     }
 
     pub fn add_dep(&mut self, task: JobsTask, dep_task: JobsTask) {
-        self.deps
+        self.dependencies
             .entry(task.task_id())
             .or_default()
             .insert(dep_task.task_id());
-        self.deps_on
+        self.dependents
             .entry(dep_task.task_id())
             .or_default()
             .insert(task.task_id());
@@ -517,7 +600,7 @@ impl JobsTaskGraph {
         visitor: &mut impl FnMut(TaskId),
     ) {
         colors.insert(task, Color::Grey);
-        if let Some(deps) = self.deps.get(&task) {
+        if let Some(deps) = self.dependencies.get(&task) {
             for &dep in deps {
                 match colors.get(&dep) {
                     Some(Color::Grey) => panic!("cycle detected"),
@@ -545,11 +628,66 @@ impl JobsTaskGraph {
         sorted
     }
 
-    pub fn ts_task(&self) -> Vec<&JobsTask> {
-        self.ts()
-            .into_iter()
-            .filter_map(|task_id| self.tasks.get(&task_id))
-            .collect()
+    pub fn ts_layers(&self) -> Vec<JobsLayer> {
+        let mut in_degrees: IndexMap<TaskId, usize> = self.tasks
+            .keys()
+            .map(|&task_id| {
+                let degree = self.dependencies.get(&task_id).map_or(0, |deps| deps.len());
+                (task_id, degree)
+            })
+            .collect();
+
+        let mut current_layer: Vec<TaskId> = in_degrees
+            .iter()
+            .filter_map(|(&task_id, &degree)| if degree == 0 { Some(task_id) } else { None })
+            .collect();
+
+        let mut sorted_layers = Vec::new();
+        let mut processed_tasks_count = 0;
+
+        while !current_layer.is_empty() {
+            processed_tasks_count += current_layer.len();
+
+            // Create JobsLayer for the current layer
+            let layer_id = LayerId::new();
+            let mut job_ids = Vec::new();
+            let task_ids = current_layer.clone();
+
+            // Collect all job IDs from all tasks in this layer
+            for &task_id in &task_ids {
+                if let Some(task) = self.tasks.get(&task_id) {
+                    job_ids.extend(task.job_ids.clone());
+                }
+            }
+
+            sorted_layers.push(JobsLayer {
+                layer_id,
+                task_ids: task_ids.clone(),
+                job_ids,
+            });
+
+            // Prepare next layer
+            let mut next_layer = Vec::new();
+            for &task_id in &current_layer {
+                if let Some(dependents) = self.dependents.get(&task_id) {
+                    for &dependent_id in dependents {
+                        let degree = in_degrees.get_mut(&dependent_id).unwrap();
+                        *degree -= 1;
+                        if *degree == 0 {
+                            next_layer.push(dependent_id);
+                        }
+                    }
+                }
+            }
+
+            current_layer = next_layer;
+        }
+
+        if processed_tasks_count != self.tasks.len() {
+            panic!("Cycle detected in the task graph.");
+        } else {
+            sorted_layers
+        }
     }
 
     pub fn get_task(&self, task_id: TaskId) -> Option<&JobsTask> {
@@ -635,7 +773,7 @@ impl JobsTaskGraph {
                 });
             }
 
-            if let Some(parent_tasks) = self.deps_on.get(&current_task_id) {
+            if let Some(parent_tasks) = self.dependents.get(&current_task_id) {
                 if let Some(&parent_task_id) = parent_tasks.iter().next() {
                     current_job_index = current_job_index / 2;
 
@@ -696,7 +834,7 @@ impl JobsTaskGraph {
 
         let mut current_level = Vec::new();
         for &task_id in self.tasks.keys() {
-            if !self.deps.contains_key(&task_id) || self.deps[&task_id].is_empty() {
+            if !self.dependencies.contains_key(&task_id) || self.dependencies[&task_id].is_empty() {
                 current_level.push(task_id);
                 processed.insert(task_id);
             }
@@ -712,9 +850,9 @@ impl JobsTaskGraph {
             let mut next_level = Vec::new();
 
             for &task_id in &current_level {
-                if let Some(parent_tasks) = self.deps_on.get(&task_id) {
+                if let Some(parent_tasks) = self.dependents.get(&task_id) {
                     for &parent_task_id in parent_tasks {
-                        if let Some(parent_deps) = self.deps.get(&parent_task_id) {
+                        if let Some(parent_deps) = self.dependencies.get(&parent_task_id) {
                             if parent_deps.iter().all(|dep| processed.contains(dep)) {
                                 if !processed.contains(&parent_task_id) {
                                     next_level.push(parent_task_id);
