@@ -1620,6 +1620,9 @@ mod tests {
             } else {
                 QHashOut(PoseidonHash::two_to_one(current.0, sibling.hash.0))
             };
+            if let Some(parent_public_key) = sibling.parent_public_key {
+                current = QHashOut(PoseidonHash::two_to_one(current.0, parent_public_key.0));
+            }
         }
 
         let proof = JobProof {
