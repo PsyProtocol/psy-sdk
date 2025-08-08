@@ -54,7 +54,6 @@ impl RealmProcessor {
         let task_store = JobTaskStoreImpl::new(
             &config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10),
-            0,
         )
         .await?;
         let realm_qps = ProofStoreRedisAsync::new(
@@ -221,7 +220,7 @@ impl RealmProcessor {
         context.build_block().await?;
         {
             let mut task_graph = context.proof_store.task_graph.lock().await;
-            let sorted_tasks = task_graph.ts_layer();
+            let sorted_tasks = task_graph.ts_layers();
             self.job_task_store.save_task_topology_with_layers(sorted_tasks).await?;
             task_graph.clear();
         }

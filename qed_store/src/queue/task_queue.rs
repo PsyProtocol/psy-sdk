@@ -92,12 +92,11 @@ impl std::fmt::Display for QJob {
 pub struct JobTaskStoreImpl {
     redis_pool: Arc<Pool<RedisConnectionManager>>,
     rsmq: Arc<RsmqQueue>,
-    checkpoint_id: u64,  // Store the checkpoint ID
 }
 
 impl JobTaskStoreImpl {
-    pub async fn new(redis_url: &str, pool_size: usize, checkpoint_id: u64) -> Result<Self> {
-        debug!("Initializing JobTaskStore for checkpoint {} with pool size {}", checkpoint_id, pool_size);
+    pub async fn new(redis_url: &str, pool_size: usize) -> Result<Self> {
+        debug!("Initializing JobTaskStore with pool size {}", pool_size);
 
         let redis_pool = Arc::new(
             new_redis_async_pool(redis_url, pool_size)
@@ -107,7 +106,7 @@ impl JobTaskStoreImpl {
 
         // Use the unified RsmqQueue instead of RsmqTaskQueue
         let rsmq = Arc::new(
-            RsmqQueue::new(redis_url, pool_size, format!("job_task_store:{}", checkpoint_id))
+            RsmqQueue::new(redis_url, pool_size, "job_task_store") //no
                 .await
                 .context("Failed to create RSMQ queue")?
         );
@@ -115,7 +114,6 @@ impl JobTaskStoreImpl {
         Ok(Self {
             redis_pool,
             rsmq,
-            checkpoint_id,
         })
     }
 
@@ -128,18 +126,18 @@ impl JobTaskStoreImpl {
     /// Get the checkpoint-specific layers key
     #[inline]
     fn layers_key(&self) -> String {
-        format!("{}:{}:layer_lists", TASK_COMMON_PREFIX, self.checkpoint_id)
+        format!("{}:layer_lists", TASK_COMMON_PREFIX)
     }
 
     /// Generate queue name for a layer (includes checkpoint)
     #[inline]
-    fn layer_queue_name(&self, layer_id: &TaskId) -> String {
-        format!("{}:{}:{}:rsmq", TASK_COMMON_PREFIX, self.checkpoint_id, layer_id)
+    fn layer_queue_name(&self, layer_id: &LayerId) -> String {
+        format!("{}:{}:rsmq", TASK_COMMON_PREFIX, layer_id)
     }
 
     /// Create QueueId for a layer
     #[inline]
-    fn layer_queue_id(&self, layer_id: &TaskId) -> QueueId {
+    fn layer_queue_id(&self, layer_id: &LayerId) -> QueueId {
         QueueId::WorkerEvent {
             queue_biz_key: self.layer_queue_name(layer_id),
         }
@@ -161,7 +159,7 @@ impl JobTaskStoreImpl {
             conn.rpush(&layers_key, serialized).await?;
         }
 
-        debug!("Pushed {} layers to list for checkpoint {}", layers.len(), self.checkpoint_id);
+        debug!("Pushed {} layers to list", layers.len());
         Ok(())
     }
 
@@ -183,7 +181,7 @@ impl JobTaskStoreImpl {
     }
 
     /// Pop the current layer only if it matches the expected layer ID
-    async fn pop_current_layer(&self, expected_layer_id: &TaskId) -> Result<Option<TaskLayer>> {
+    async fn pop_current_layer(&self, expected_layer_id: &LayerId) -> Result<Option<TaskLayer>> {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layers_key();
 
@@ -197,8 +195,8 @@ impl JobTaskStoreImpl {
                 // Check if the layer ID matches the expected one
                 if layer.layer_id != *expected_layer_id {
                     warn!(
-                        "Layer mismatch for checkpoint {}: expected {}, found {}. Abandoning pop operation.",
-                        self.checkpoint_id, expected_layer_id, layer.layer_id
+                        "Layer mismatch: expected {}, found {}. Abandoning pop operation.",
+                        expected_layer_id, layer.layer_id
                     );
                     return Err(anyhow!(
                         "Layer ID mismatch: expected {}, found {}",
@@ -214,21 +212,20 @@ impl JobTaskStoreImpl {
                     Some(pop_data) => {
                         let popped_layer: TaskLayer = bincode::deserialize(&pop_data)?;
                         info!(
-                            "Successfully popped layer {} from checkpoint {}",
+                            "Successfully popped layer {}",
                             popped_layer.layer_id,
-                            self.checkpoint_id
                         );
                         Ok(Some(popped_layer))
                     }
                     None => {
                         // This shouldn't happen, but handle it gracefully
-                        error!("Layer disappeared between peek and pop for checkpoint {}", self.checkpoint_id);
+                        error!("Layer disappeared between peek and pop for checkpoint");
                         Ok(None)
                     }
                 }
             }
             None => {
-                debug!("No layers to pop for checkpoint {}", self.checkpoint_id);
+                debug!("No layers to pop");
                 Ok(None)
             }
         }
@@ -244,7 +241,7 @@ impl JobTaskStoreImpl {
         match bytes {
             Some(data) => {
                 let layer: TaskLayer = bincode::deserialize(&data)?;
-                warn!("Force popped layer {} from checkpoint {}", layer.layer_id, self.checkpoint_id);
+                warn!("Force popped layer {}", layer.layer_id);
                 Ok(Some(layer))
             }
             None => Ok(None),
@@ -274,21 +271,21 @@ impl JobTaskStoreImpl {
     }
 
     /// Check if a layer is complete
-    async fn is_layer_complete(&self, layer_id: &TaskId) -> Result<bool> {
+    async fn is_layer_complete(&self, layer_id: &LayerId) -> Result<bool> {
         let queue_id = self.layer_queue_id(layer_id);
         let count = self.rsmq.get_queue_length(&queue_id).await?;
         Ok(count == 0)
     }
 
     /// Get queue statistics for monitoring
-    pub async fn get_queue_stats(&self) -> Result<HashMap<TaskId, u64>> {
+    pub async fn get_queue_stats(&self) -> Result<HashMap<LayerId, u64>> {
         let layers = self.get_all_layers().await?;
         let mut stats = HashMap::with_capacity(layers.len());
 
         for layer in layers {
             let queue_id = self.layer_queue_id(&layer.layer_id);
             if let Ok(count) = self.rsmq.get_queue_length(&queue_id).await {
-                stats.insert(layer.layer_id, count);  // Now correctly using TaskId as key
+                stats.insert(layer.layer_id, count);
             }
         }
 
@@ -322,31 +319,12 @@ impl JobTaskStoreImpl {
         Ok(status)
     }
 
-    /// Clear all tasks and queues
-    pub async fn clear_all(&self) -> Result<()> {
-        let layers = self.get_all_layers().await?;
-
-        // Delete all layer queues
-        for layer in layers {
-            let queue_id = self.layer_queue_id(&layer.layer_id);
-            let _ = self.rsmq.delete_queue(&queue_id).await;
-        }
-
-        let mut conn = self.redis_pool.get().await?;
-        conn.del(&self.layers_key()).await?;
-        conn.del(&self.graph_key(self.checkpoint_id)).await?;
-
-        info!("Cleared all layers and queues for checkpoint {}", self.checkpoint_id);
-        Ok(())
-    }
-
     /// Convert topologically sorted layers to TaskLayers
-    fn create_task_layers(layers: Vec<Vec<TaskId>>) -> Vec<TaskLayer> {
+    fn create_task_layers(layers: Vec<Vec<LayerId>>) -> Vec<TaskLayer> {
         layers.into_iter()
-            .map(|task_ids| {
-                // Generate a unique TaskId for this layer
-                let layer_id = TaskId::new();
-                TaskLayer::new(layer_id, task_ids)
+            .map(|layer_ids| {
+                let layer_id = TaskId::new_debug();
+                TaskLayer::new(layer_id, layer_ids)
             })
             .collect()
     }
@@ -361,7 +339,7 @@ pub trait JobTaskStore {
     async fn count_pending_jobs_in_current_layer(&self) -> Result<u64>;
 
     // Legacy operations (kept for compatibility)
-    async fn save_job_dependency_graph(&self, graph: &JobsTaskGraph) -> Result<()>;
+    async fn save_job_dependency_graph(&self, graph: &JobsTaskGraph, checkpoint_id: u64) -> Result<()> ;
     async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<JobsTaskGraph> ;
 }
 
@@ -502,10 +480,10 @@ impl JobTaskStore for JobTaskStoreImpl {
             .context("Failed to get queue length")
     }
 
-    async fn save_job_dependency_graph(&self, graph: &JobsTaskGraph) -> Result<()> {
+    async fn save_job_dependency_graph(&self, graph: &JobsTaskGraph, checkpoint_id: u64) -> Result<()> {
         let mut conn = self.redis_pool.get().await?;
         let serialized = bincode::serialize(graph)?;
-        let graph_key = self.graph_key(self.checkpoint_id);
+        let graph_key = self.graph_key(checkpoint_id);
         conn.set(graph_key, serialized).await?;
 
         debug!("Job graph saved");
@@ -616,9 +594,5 @@ impl JobTaskStoreImpl {
         self.get_layer_count().await
     }
 
-    /// Get the checkpoint ID this store is managing
-    pub fn checkpoint_id(&self) -> u64 {
-        self.checkpoint_id
-    }
 }
 
