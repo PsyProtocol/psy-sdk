@@ -80,7 +80,7 @@ impl CoordinatorEdgeHandler {
         let qed_store = QEDStore::from_backend(args.backend.to_backend()).await?;
         let store_reader = Arc::new(qed_store);
         let redis_pool = new_redis_async_pool(&args.redis_uri, args.redis_pool_size).await?;
-        let task_store = JobTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size).await?;
+        let task_store = JobTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size, 0).await?;
         let qe_args = &args.queue_args;
 
         let proof_store = Arc::new(ProofStoreRedisAsync::new(
@@ -1301,7 +1301,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
-        let j = match self.job_task_store.claim_job_from_current_task().await {
+        let j = match self.job_task_store.claim_job_from_current_layer().await {
             Ok(job) => job,
             Err(e) => {
                 error!("Error claiming job from current task: {:?}", e);

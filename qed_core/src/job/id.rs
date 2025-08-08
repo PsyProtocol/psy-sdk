@@ -325,6 +325,15 @@ pub struct QWorkerJobBenchmark {
   pub duration: u64,
 }
 
+type LayerId = TaskId;
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct JobsLayer {
+    pub layer_id: LayerId,  // Fixed naming convention (was Layer_id)
+    pub task_ids: Vec<TaskId>,
+    pub job_ids: Vec<QProvingJobDataID>,
+}
+
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct JobsTask {
     pub task_id: TaskId,
@@ -516,25 +525,90 @@ impl JobsTaskGraph {
         colors.insert(task, Color::Black);
     }
 
-    pub fn ts(&self) -> Vec<TaskId> {
-        let mut starting_tasks = HashSet::new();
+    //todo! replace with another algorithm
+    // Modified ts to return layers (Vec<Vec<TaskId>>)
+    pub fn ts(&self) -> Vec<Vec<TaskId>> {
+        let mut layers = Vec::new();
+        let mut visited = HashSet::new();
+
+        // Find all starting tasks (no dependencies)
+        let mut current_layer_tasks = HashSet::new();
         for &task_id in self.tasks.keys() {
             if self.deps_on.get(&task_id).is_none() {
-                starting_tasks.insert(task_id);
+                current_layer_tasks.insert(task_id);
+                visited.insert(task_id);
             }
         }
-        let mut sorted = Vec::new();
-        let mut colors = HashMap::new();
-        for task in starting_tasks {
-            self.ts_inner(task, &mut colors, &mut |task| sorted.push(task));
+
+        // Process layers
+        while !current_layer_tasks.is_empty() {
+            // Add current layer
+            layers.push(current_layer_tasks.iter().copied().collect());
+
+            // Find next layer - tasks whose dependencies are all satisfied
+            let mut next_layer_tasks = HashSet::new();
+            for &task_id in self.tasks.keys() {
+                if !visited.contains(&task_id) {
+                    // Check if all dependencies are visited
+                    if let Some(deps) = self.deps.get(&task_id) {
+                        if deps.iter().all(|dep| visited.contains(dep)) {
+                            next_layer_tasks.insert(task_id);
+                        }
+                    } else {
+                        // No dependencies but not visited yet
+                        if !visited.contains(&task_id) {
+                            next_layer_tasks.insert(task_id);
+                        }
+                    }
+                }
+            }
+
+            // Mark next layer as visited
+            for &task_id in &next_layer_tasks {
+                visited.insert(task_id);
+            }
+
+            current_layer_tasks = next_layer_tasks;
         }
-        sorted
+
+        layers
+    }
+
+    // Original flattened version for backward compatibility
+    pub fn ts_flat(&self) -> Vec<TaskId> {
+        self.ts().into_iter().flatten().collect()
     }
 
     pub fn ts_task(&self) -> Vec<&JobsTask> {
-        self.ts()
+        self.ts_flat()
             .into_iter()
             .filter_map(|task_id| self.tasks.get(&task_id))
+            .collect()
+    }
+
+    pub fn ts_layer(&self) -> Vec<JobsLayer> {
+        self.ts()
+            .into_iter()
+            .map(|task_ids_in_layer| {
+                // Generate a unique LayerId for this layer
+                let layer_id = LayerId::new();
+
+                // Collect all job IDs from all tasks in this layer
+                let mut job_ids = Vec::new();
+                let mut task_ids = Vec::new();
+                for task_id in task_ids_in_layer {
+                    if let Some(task) = self.tasks.get(&task_id) {
+                        job_ids.extend(task.job_ids.clone());
+                        task_ids.push(task_id);
+                    }
+                }
+
+                JobsLayer {
+                    layer_id,
+                    task_ids,
+                    job_ids,
+                }
+            })
             .collect()
     }
 

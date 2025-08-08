@@ -53,6 +53,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let task_store = JobTaskStoreImpl::new(
         config.redis.redis_uri.as_str(),
         config.redis.pool_size.unwrap_or(20),
+        0
     )
     .await?;
     // Create proof storage

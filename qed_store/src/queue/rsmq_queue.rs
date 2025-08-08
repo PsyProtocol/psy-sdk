@@ -220,6 +220,109 @@ impl RsmqQueue {
         Ok(message.map(|msg| msg.message))
     }
 
+    // ===== Type-safe serialization methods =====
+
+    /// Send a serializable object to the queue
+    pub async fn send_object<T: Serialize>(&self, queue: &QueueId, obj: &T) -> Result<()> {
+        let bytes = bincode::serialize(obj)?;
+        self.send_message(queue, bytes).await
+    }
+
+    /// Send a JSON-serializable object to the queue
+    pub async fn send_json<T: Serialize>(&self, queue: &QueueId, obj: &T) -> Result<()> {
+        let json = serde_json::to_vec(obj)?;
+        self.send_message(queue, json).await
+    }
+
+    /// Receive and deserialize an object from the queue
+    pub async fn receive_object<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue: &QueueId,
+        hidden: Option<Duration>,
+    ) -> Result<Option<T>> {
+        match self.receive_message(queue, hidden).await? {
+            Some(bytes) => Ok(Some(bincode::deserialize(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Receive and deserialize a JSON object from the queue
+    pub async fn receive_json<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue: &QueueId,
+        hidden: Option<Duration>,
+    ) -> Result<Option<T>> {
+        match self.receive_message(queue, hidden).await? {
+            Some(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Receive an object with message ID for acknowledgment
+    pub async fn receive_object_with_id<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue: &QueueId,
+        hidden: Option<Duration>,
+    ) -> Result<Option<(T, String)>> {
+        match self.receive_message_with_id(queue, hidden).await? {
+            Some(msg) => {
+                let obj = bincode::deserialize(&msg.message)?;
+                Ok(Some((obj, msg.id)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Pop and deserialize an object from the queue
+    pub async fn pop_object<T: for<'de> Deserialize<'de>>(&self, queue: &QueueId) -> Result<Option<T>> {
+        match self.pop_message(queue).await? {
+            Some(bytes) => Ok(Some(bincode::deserialize(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Pop and deserialize a JSON object from the queue
+    pub async fn pop_json<T: for<'de> Deserialize<'de>>(&self, queue: &QueueId) -> Result<Option<T>> {
+        match self.pop_message(queue).await? {
+            Some(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Send multiple objects in batch
+    pub async fn send_batch<T: Serialize>(&self, queue: &QueueId, items: &[T]) -> Result<()> {
+        for item in items {
+            self.send_object(queue, item).await?;
+        }
+        Ok(())
+    }
+
+    /// Receive multiple objects (up to limit)
+    pub async fn receive_batch<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue: &QueueId,
+        limit: usize,
+        hidden: Option<Duration>,
+    ) -> Result<Vec<T>> {
+        let mut results = Vec::with_capacity(limit.min(100));
+        for _ in 0..limit {
+            match self.receive_object(queue, hidden).await? {
+                Some(obj) => results.push(obj),
+                None => break,
+            }
+        }
+        Ok(results)
+    }
+
+    /// Pop all messages from queue and deserialize
+    pub async fn pop_all<T: for<'de> Deserialize<'de>>(&self, queue: &QueueId) -> Result<Vec<T>> {
+        let mut results = Vec::new();
+        while let Some(obj) = self.pop_object(queue).await? {
+            results.push(obj);
+        }
+        Ok(results)
+    }
+
     pub async fn get_queue_length(&self, queue: &QueueId) -> Result<u64> {
         let queue_id = queue.get_queue_id();
         match self.pool.get_queue_attributes(&queue_id).await {
@@ -276,6 +379,8 @@ impl RsmqTaskQueue {
         self.inner.create_queue_if_not_exists(&queue_id).await
     }
 
+    // ===== Raw message methods =====
+
     pub async fn send_message<E>(&self, queue_name: &str, message: E) -> Result<()>
     where
         E: Into<RedisBytes> + Send,
@@ -302,6 +407,47 @@ impl RsmqTaskQueue {
             queue_biz_key: queue_name.to_string(),
         };
         self.inner.delete_message(&queue_id, message_id).await
+    }
+
+    // ===== Type-safe serialization methods =====
+
+    /// Send a serializable object to the queue
+    pub async fn send_object<T: Serialize>(&self, queue_name: &str, obj: &T) -> Result<()> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.send_object(&queue_id, obj).await
+    }
+
+    /// Receive and deserialize an object with ID
+    pub async fn receive_object_with_id<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue_name: &str,
+        hidden: Option<Duration>,
+    ) -> Result<Option<(T, String)>> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.receive_object_with_id(&queue_id, hidden).await
+    }
+
+    /// Pop and deserialize an object
+    pub async fn pop_object<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue_name: &str,
+    ) -> Result<Option<T>> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.pop_object(&queue_id).await
+    }
+
+    /// Send multiple objects in batch
+    pub async fn send_batch<T: Serialize>(&self, queue_name: &str, items: &[T]) -> Result<()> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.send_batch(&queue_id, items).await
     }
 
     pub async fn get_queue_length(&self, queue_name: &str) -> Result<u64> {

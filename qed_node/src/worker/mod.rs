@@ -39,7 +39,7 @@ async fn run_scheduler_worker(
     let prover = QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library);
     let library = &proof_verifier.library;
     loop {
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_micros(50)).await;
         let job = match job_receiver.get_next_job().await {
             Ok(job) => job,
             Err(e) => {
@@ -47,7 +47,7 @@ async fn run_scheduler_worker(
                 continue;
             }
         };
-        debug!("Received job, task: {}", job.task_id);
+        debug!("Received job, layer: {}", job.layer_id);
         let job_id = job.job_id;
         if !should_prove_job(job_id) {
             info!("skipping job proving: {:?}", job_id);

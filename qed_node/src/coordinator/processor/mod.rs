@@ -156,7 +156,7 @@ impl
         let bb8_pool =
             new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
         info!("🐶 redis pool initialized");
-        let task_store = JobTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
+        let task_store = JobTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize, 0)
             .await?;
         let q = ProofStoreRedisAsync::new(
             bb8_pool,
@@ -219,8 +219,8 @@ impl
         info!("waiting for block proving jobs: {:?}", next_checkpoint_id);
         {
             let mut task_graph = self.ctx.proof_store.task_graph.lock().await;
-            let sorted_tasks = task_graph.ts_task();
-            self.job_task_store.save_task_topology(sorted_tasks).await?;
+            let sorted_tasks = task_graph.ts_layer();
+            self.job_task_store.save_task_topology_with_layers(sorted_tasks).await?;
             task_graph.clear();
         }
 
