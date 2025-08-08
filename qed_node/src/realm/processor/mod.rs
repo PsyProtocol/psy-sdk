@@ -12,6 +12,7 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::new_redis_async_pool;
+use qed_store::queue::redis_queue::QPendingUserStoreAsyncImm;
 use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl};
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
@@ -100,6 +101,31 @@ impl RealmProcessor {
         )
         .await?;
         info!("Realm Processor started");
+
+        if let Ok(local_latest_l2_block_state) = context.store.get_latest_l2_block_state().await {
+            info!(
+                "local_latest_l2_block_state: {:?}",
+                local_latest_l2_block_state
+            );
+
+            let current_process_user_index = context.sync_queue.get_current_pending_user_index().await?;
+            let total_pending_register_users = context.sync_queue.get_total_pending_users().await?;
+            let pending_users = context
+                .sync_queue
+                .get_range_pending_users::<F>(
+                    current_process_user_index,
+                    total_pending_register_users,
+                )
+                .await?;
+            info!(
+                "sync pending users from redis: {}",
+                serde_json::to_string_pretty(&pending_users)?
+            );
+            context.pending_register_users = pending_users;
+            context.current_process_user_index = current_process_user_index;
+            context.total_pending_register_users = total_pending_register_users;
+        }
+
         loop {
             info!("Waiting for latest checkpoint");
             match self.sync_checkpoint(&mut context).await {
@@ -183,6 +209,27 @@ impl RealmProcessor {
                             "Checkpoint sync reg users: {:?}",
                             block.compact.registered_users
                         );
+
+                        // assert bound in handle_checkpoint_sync method
+                        let current_checkpoint_pending_users = context.pending_register_users
+                            [context.pending_register_users.len()
+                                - context.current_checkpoint_pending_register_users..]
+                            .to_vec();
+
+                        context
+                            .sync_queue
+                            .push_pending_users(&current_checkpoint_pending_users)
+                            .await?;
+
+                        info!("pending current checkpoint users to redis: {}", serde_json::to_string_pretty(&current_checkpoint_pending_users)?);
+
+                        let total_pending_register_users = context
+                            .sync_queue
+                            .get_total_pending_users()
+                            .await?;
+                        info!("total pending users in redis: {}", total_pending_register_users);
+                        assert_eq!(total_pending_register_users, context.total_pending_register_users);
+
                         if local_checkpoint_id + 1 == block.latest_checkpoint_id
                             && block.latest_checkpoint_id == checkpoint_id
                             || local_checkpoint_id == checkpoint_id
@@ -218,6 +265,16 @@ impl RealmProcessor {
         next_checkpoint_id: u64,
     ) -> anyhow::Result<ProvingJobDataId> {
         context.build_block().await?;
+        context
+            .sync_queue
+            .set_current_pending_user_index(context.current_process_user_index)
+            .await?;
+        let redis_current_pending_user_index = context
+            .sync_queue
+            .get_current_pending_user_index()
+            .await?;
+        info!("current pending user index in redis: {}", redis_current_pending_user_index);
+        assert_eq!(redis_current_pending_user_index, context.current_process_user_index);
         {
             let mut task_graph = context.proof_store.task_graph.lock().await;
             let sorted_tasks = task_graph.ts_task();

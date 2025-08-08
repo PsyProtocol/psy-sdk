@@ -110,6 +110,9 @@ pub struct RealmProcessorContext<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
     pub pending_register_users: Vec<MerkleProofCore<QHashOut<F>>>,
+    pub current_checkpoint_pending_register_users: usize,
+    pub current_process_user_index: usize,
+    pub total_pending_register_users: usize,
     //chkpoint_id: u64,
     //pub checkpoint_id: u64,
     //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
@@ -141,6 +144,9 @@ impl<
             proof_store,
             proof_verifier,
             pending_register_users: Vec::new(),
+            current_checkpoint_pending_register_users: 0,
+            current_process_user_index: 0,
+            total_pending_register_users: 0,
         })
     }
 
@@ -157,6 +163,7 @@ impl<
         &mut self,
         input: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
+        self.current_checkpoint_pending_register_users = 0;
         let dmps = input.get_registered_user_merkle_proofs::<QEDHasher>();
         self.store
             .injest_checkpoint_sync_data_imm(input.to_sync_info::<QEDHasher>())
@@ -166,8 +173,13 @@ impl<
 
             if self.realm_config.includes_user_id(real_id) {
                 self.pending_register_users.push(x);
+                self.current_checkpoint_pending_register_users += 1;
+                self.total_pending_register_users += 1;
             }
         });
+
+        assert_eq!(self.total_pending_register_users - self.current_process_user_index, self.pending_register_users.len());
+        assert!(self.current_checkpoint_pending_register_users <= self.pending_register_users.len());
 
         Ok(())
     }
@@ -750,9 +762,11 @@ impl<
         // todo fix the bug!!!
         let pending_users = if self.pending_register_users.len() > 32 {
             // self.pending_register_users.split_off(self.pending_register_users.len()-32)
+            self.current_process_user_index += 32;
             self.pending_register_users.drain(..32).collect::<Vec<_>>()
         }else{
             let q = self.pending_register_users.clone();
+            self.current_process_user_index += self.pending_register_users.len();
             self.pending_register_users = vec![];
             q
         };

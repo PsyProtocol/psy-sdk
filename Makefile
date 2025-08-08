@@ -306,8 +306,12 @@ register-user:
 	# @sleep 0.5
 	# @RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER3_PRIVATE_KEY} | tail -5 | jq .
 
-random-register-user-batch:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli random-register-user-batch --total-user $(TOTAL_USER)
+register-random-user:
+	@echo "Registering random users..."
+	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user | tail -6 | jq .
+	@sleep 0.5
+	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user | tail -6 | jq .
+	@sleep 0.5
 
 deploy-contract:
 	@echo "Deploying contracts..."
