@@ -3844,6 +3844,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "hex",
+ "indexmap 2.10.0",
  "kvq",
  "plonky2",
  "rand 0.8.5",
