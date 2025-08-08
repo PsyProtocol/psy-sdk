@@ -10,6 +10,7 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use tracing::debug;
 
 use async_trait::async_trait;
+use auto_impl::auto_impl;
 use kvq::traits::KVQPair;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use qed_core::job::{
@@ -514,6 +515,46 @@ impl SyncCheckpointQueue for Queue {
                 "Error getting checkpoint info from Redis {:?}",
                 err
             )),
+        }
+    }
+}
+
+#[async_trait]
+#[auto_impl(Box, Arc)]
+pub trait NotificationQueue<T: HQSerializable> {
+    async fn produce_item(
+        &self,
+        item: T,
+    ) -> anyhow::Result<()> where T: 'async_trait;
+    async fn consume_item(&self, channel_id: u64) -> anyhow::Result<T>;
+}
+
+#[async_trait]
+impl<T: HQSerializable> NotificationQueue<T> for ProofStoreRedisAsync {
+    async fn produce_item(&self, item: T) -> anyhow::Result<()> where T: 'async_trait {
+        let mut conn = self.pool.get().await?;
+        let key = format!("{}-{}", self.notifications_queue_id, item.get_hq_metadata().channel_id);
+        conn.rpush(key.as_str(), item.to_bytes()?).await?;
+        Ok(())
+    }
+
+    async fn consume_item(&self, channel_id: u64) -> anyhow::Result<T> {
+
+        loop {
+            let mut conn = self.pool.get().await?;
+            let key = format!("{}-{}", self.notifications_queue_id, channel_id);
+            let result: Option<Vec<u8>> = conn.lpop(key.as_str(), None).await?;
+            match result {
+                Some(result) => {
+                    match T::from_bytes(&result) {
+                        Ok(item) => return Ok(item),
+                        Err(err) => return Err(anyhow::anyhow!("Failed to parse item: {:?}", err)),
+                    }
+                }
+                None => {
+                    sleep(Duration::from_millis(200)).await;
+                }
+            }
         }
     }
 }

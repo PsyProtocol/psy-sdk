@@ -13,10 +13,7 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 
 // qed_core
 use qed_core::data::qhashout::QHashOut;
-use qed_core::job::drain_queue::{
-    CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
-    WithDrainQueueMetadata,
-};
+use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DrainQueueMetadataTagged, WithDrainQueueMetadata};
 use qed_core::job::id::ProvingJobCircuitType;
 use qed_core::job::traits::QProofStoreWriterAsyncImm;
 
@@ -25,7 +22,7 @@ use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 
 // qed_data
-use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
+use qed_data::guta::api::{SubmitGUTARealmResultAPINoProofInput, SubmitGUTARealmResultAPIQueueItem};
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
@@ -61,7 +58,7 @@ const D: usize = 2;
 
 #[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
-    history_queue: Arc<ProofStore>,
+    cmd_queue: Arc<ProofStore>,
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
 }
@@ -103,7 +100,7 @@ impl CoordinatorEdgeHandler {
         .await?;
 
         Ok(Self {
-            history_queue: Arc::clone(&proof_store),
+            cmd_queue: Arc::clone(&proof_store),
             ctx,
             store: store_reader,
         })
@@ -164,7 +161,7 @@ impl CoordinatorEdgeHandler {
         input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
         proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
     ) -> anyhow::Result<()> {
-        debug!("submit_guta input: {:?}", input);
+        debug!("submit_guta input: {}", serde_json::to_string_pretty(&input).unwrap());
         let checkpoint_queue = self.ctx.checkpoint_queue.clone();
         let proof_store = self.ctx.proof_store.clone();
         let config = self.ctx.coordinator_config.clone();
@@ -222,19 +219,23 @@ impl CoordinatorEdgeHandler {
         }
 
         // build queue item
-        let queue_item =
+        let queue_item: SubmitGUTARealmResultAPIQueueItem<plonky2::field::goldilocks_field::GoldilocksField> =
             input.to_queue_item(config.guta_channel_id, config.realm_root_level as u32);
         let proof_id = queue_item.proof_id;
         info!(
             "🚀 Pushing GUTA result to drain queue, realm_id = {}",
             proof_id.task_index
         );
+        
 
         // write to proof store
         proof_store.set_proof_by_id(proof_id, &proof).await?;
         info!("✅ wrote guta result to proof store");
-        checkpoint_queue.cdq_push_imm(queue_item).await?;
+        checkpoint_queue.cdq_push_imm(queue_item.clone()).await?;
         info!("✅ wrote guta result to proof store end");
+        let metadata = queue_item.get_dq_metadata();
+        let items:Vec<SubmitGUTARealmResultAPIQueueItem<plonky2::field::goldilocks_field::GoldilocksField>> = checkpoint_queue.cdq_peek_imm(metadata.channel_id, metadata.checkpoint_id).await?;
+        info!("DEBUGPRINT[237]: handler.rs:237: items={}, metadata = {:?}", serde_json::to_string_pretty(&items).unwrap(), metadata);
 
         Ok(())
     }
@@ -244,7 +245,7 @@ impl CoordinatorEdgeHandler {
         let next_checkpoint = latest + 1;
         
         // Use CheckpointHistoryQueue instead of RedisQueue
-        self.history_queue.chq_push_imm(
+        self.cmd_queue.produce_item(
             CEQueueNotification::StartProduceBlock { next_checkpoint }
         ).await?;
         
@@ -884,6 +885,7 @@ use super::rpc::CoordinatorEdgeRpcServer;
 use super::error::RpcError;
 use super::types::LatestCheckpointResponse;
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+use qed_store::queue::redis_queue::NotificationQueue;
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {

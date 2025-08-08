@@ -32,6 +32,7 @@ use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
 use tokio::time::{sleep_until, Instant};
 use tracing::{debug, error, info, warn};
+use qed_store::queue::redis_queue::NotificationQueue;
 use crate::common::clock::SlotTimer;
 use crate::common::slot;
 use crate::common::slot::LocalClock;
@@ -44,7 +45,7 @@ pub struct CoordinatorProcessNode<
     JL: Journal,
     SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
     DQ: CheckpointDrainQueueConsumerAsyncImm,
-    HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
+    HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     ER: WorkerEventReceiverAsyncImm,
@@ -62,7 +63,7 @@ impl<
         JL: Journal,
         SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
         DQ: CheckpointDrainQueueConsumerAsyncImm,
-        HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
+        HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
@@ -91,20 +92,7 @@ impl<
     async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
         // Get current checkpoint to listen from
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
-        let start_checkpoint = latest_l2_block_state.checkpoint_id + 1; // Listen for the next checkpoint
-        
-        // Try to get messages from the history queue
-        let messages = self.edge_command_queue.chq_listen_from_imm::<CEQueueNotification>(
-            COORDINATOR_TO_REALM_CHANNEL,
-            start_checkpoint
-        ).await?;
-        
-        if messages.is_empty() {
-            return Ok(false);
-        }
-        
-        // Process the first message
-        let notify_message = messages.into_iter().next().unwrap();
+        let notify_message = self.edge_command_queue.consume_item(COORDINATOR_TO_REALM_CHANNEL).await?;
 
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
 
@@ -145,7 +133,6 @@ impl<
         match self.wait_for_produce_block().await {
             Ok(true) => {
                 info!("✅ Successfully wait for produce block");
-                tokio::time::sleep(Duration::from_millis(slot::SLOT_SIZE/2)).await;
                 true
             }
             Ok(false) => {
@@ -238,7 +225,8 @@ impl
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
 
-        if !self.ctx.has_pending_tasks(next_checkpoint_id).await? {
+        if !self.ctx.has_pending_tasks(next_checkpoint_id).await
+        .map_err(|e| anyhow::anyhow!("Failed to check pending tasks: {:?}", e))? {
             bail!(
                 "No pending tasks for checkpoint {}, slot {}",
                 next_checkpoint_id, slot
@@ -248,7 +236,7 @@ impl
         let now = Instant::now();
         if let Err(e) = self.ctx.build_block(slot).await {
             self.journal_store.rollback(next_checkpoint_id)?;
-            return Err(e);
+            bail!("Failed to build block: {:?}", e);
         }
         info!("✅ Built block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
         // pending
