@@ -21,7 +21,7 @@ use qed_crypto::hash::merkle::
     treeprover::AggStateTransition
 ;
 use qed_data::{
-    guta::header::GlobalUserTreeAggregatorHeader, 
+    guta::header::GlobalUserTreeAggregatorHeader,
     qdata::{
         checkpoint::QEDCheckpointLeafStats,
         pm_reward_commitment::PMRewardCommitment,
@@ -236,6 +236,36 @@ impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
         };
 
         builder.connect_hashes(part_1_header_hash, expected_part_1_header_hash);
+
+        let register_users_root_from_proof = HashOutTarget {
+            elements: [
+                part_1_proof_target.public_inputs[4],
+                part_1_proof_target.public_inputs[5],
+                part_1_proof_target.public_inputs[6],
+                part_1_proof_target.public_inputs[7],
+            ]
+        };
+        let deploy_contracts_root_from_proof = HashOutTarget {
+            elements: [
+                part_1_proof_target.public_inputs[8],
+                part_1_proof_target.public_inputs[9],
+                part_1_proof_target.public_inputs[10],
+                part_1_proof_target.public_inputs[11],
+            ]
+        };
+        let gutas_root_from_proof = HashOutTarget {
+            elements: [
+                part_1_proof_target.public_inputs[12],
+                part_1_proof_target.public_inputs[13],
+                part_1_proof_target.public_inputs[14],
+                part_1_proof_target.public_inputs[15],
+            ]
+        };
+
+        // Connect the pm_rewards_commitment from input with the values from proof
+        builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.register_users_root, register_users_root_from_proof);
+        builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.deploy_contracts_root, deploy_contracts_root_from_proof);
+        builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.gutas_root, gutas_root_from_proof);
 
         Self {
             part_1_verifier_data,
