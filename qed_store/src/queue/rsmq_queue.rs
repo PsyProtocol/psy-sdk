@@ -63,15 +63,15 @@ impl QueueId {
             QueueId::CheckpointDrain {
                 worker_queue_suffix,
                 channel_id,
-                checkpoint_id,
+                ..
             } => {
                 let worker_queue_id =
                     format!("{}-{}", PS_WORKER_QUEUE_KEY_PREFIX, worker_queue_suffix);
                 let checkpoint_queue_prefix =
                     format!("{}-{}", worker_queue_id, PS_DRAIN_QUEUE_KEY_PREFIX);
                 format!(
-                    "{}-{}_{}",
-                    checkpoint_queue_prefix, channel_id, checkpoint_id
+                    "{}-{}",
+                    checkpoint_queue_prefix, channel_id
                 )
             }
             QueueId::CheckpointHistory { channel_id } => {
@@ -219,12 +219,11 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
     async fn cdq_drain_imm<T: DQSerializable>(
         &self,
         channel_id: u64,
-        checkpoint_id: u64,
     ) -> anyhow::Result<Vec<T>> {
         let queue_id = QueueId::CheckpointDrain {
             worker_queue_suffix: self.worker_queue_suffix.clone(),
             channel_id,
-            checkpoint_id,
+            checkpoint_id: 0,//todo remove this field
         };
         let mut members = vec![];
         while let Some(message) = self.pop_message(&queue_id).await? {
@@ -236,7 +235,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
     async fn cdq_peek_imm<T: DQSerializable>(
         &self,
         channel_id: u64,
-        checkpoint_id: u64,
     ) -> anyhow::Result<Vec<T>> {
         todo!()
     }

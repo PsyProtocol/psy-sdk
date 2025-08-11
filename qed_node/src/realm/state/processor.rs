@@ -179,7 +179,6 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<CSTUserUpdate<QHashOut<F>>>(
                 CST_USER_UPDATE_CHANNEL_ID,
-                checkpoint_id,
             )
             .await?;
         eprintln!("DEBUGPRINT[574]: processor.rs:197: checkpoint {} updates={}", checkpoint_id, serde_json::to_string_pretty(&updates).unwrap());
@@ -452,7 +451,6 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<UserEndCapNonProofCoreInputQueueItem<F>>(
                 self.realm_config.guta_channel_id,
-                checkpoint_id,
             )
             .await?;
         eprintln!("DEBUGPRINT[514]: processor.rs:450: guta_queue_items={}", serde_json::to_string_pretty(&guta_queue_items).unwrap());
@@ -799,7 +797,6 @@ impl<
             .checkpoint_queue
             .cdq_peek_imm::<UserEndCapNonProofCoreInputQueueItem<F>>(
                 self.realm_config.guta_channel_id,
-                checkpoint_id,
             )
             .await?;
 
@@ -813,7 +810,6 @@ impl<
             .checkpoint_queue
             .cdq_peek_imm::<CSTUserUpdate<QHashOut<F>>>(
                 CST_USER_UPDATE_CHANNEL_ID,
-                checkpoint_id,
             )
             .await?;
 
