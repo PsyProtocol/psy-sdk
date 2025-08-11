@@ -61,7 +61,9 @@ run_make_command "make register-user" "Register User"
 # run_make_command "make build-block" "Build Block 1"
 echo "wait for block 1 to be committed"
 # wait for block 2 to be committed
-sleep 30s
+sleep 15s
+run_make_command "make build-block" "Build Block 1"
+sleep 15s
 run_make_command "make mint" "Mint"
 # run_make_command "make build-block" "Build Block 2"
 echo "wait for block 2 to be committed"

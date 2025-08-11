@@ -226,7 +226,7 @@ init-tikv:
 	@echo "Starting TiKV cluster..."
 	@docker-compose -f ./scripts/docker-compose.tikv.yml up -d
 	@echo "Waiting for TiKV to be ready..."
-	@sleep 30
+	@sleep 15
 	@echo "TiKV cluster is ready"
 
 shutdown-tikv:
