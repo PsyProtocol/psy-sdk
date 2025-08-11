@@ -355,9 +355,10 @@ impl JobsTask {
 }
 /// Static counter for generating sequential debug IDs
 static DEBUG_COUNTER: AtomicU64 = AtomicU64::new(1);
+static DEBUG_LAYER_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Serialize, Deserialize,Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct TaskId(Uuid);
+pub struct TaskId(pub Uuid);
 
 impl TaskId {
     pub fn new() -> Self {
@@ -369,6 +370,12 @@ impl TaskId {
     pub fn new_debug() -> Self {
         let counter = DEBUG_COUNTER.fetch_add(1, Ordering::SeqCst);
         // Create a deterministic UUID from the counter
+        let mut bytes = [0u8; 16];
+        bytes[..8].copy_from_slice(&counter.to_le_bytes());
+        TaskId(Uuid::from_bytes(bytes))
+    }
+    pub fn new_layer_debug() -> Self {
+        let counter = DEBUG_LAYER_COUNTER.fetch_add(1, Ordering::SeqCst);
         let mut bytes = [0u8; 16];
         bytes[..8].copy_from_slice(&counter.to_le_bytes());
         TaskId(Uuid::from_bytes(bytes))
@@ -561,7 +568,7 @@ impl JobsTaskGraph {
             processed_tasks_count += current_layer.len();
 
             // Create JobsLayer for the current layer
-            let layer_id = LayerId::new();
+            let layer_id = LayerId::new_layer_debug();
             let mut job_ids = Vec::new();
             let task_ids = current_layer.clone();
 
