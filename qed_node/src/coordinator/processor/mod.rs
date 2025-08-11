@@ -239,13 +239,16 @@ impl
             bail!("Failed to build block: {:?}", e);
         }
         info!("✅ Built block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
-        // pending
-        self.journal_store.commit(next_checkpoint_id)?;
-        self.ctx
+        let now = Instant::now();
+        if let Err(e) = self.ctx
             .prover_queue
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)
-            .await?;
-        info!("✅ Committed and prove block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
+            .await {
+            self.journal_store.rollback(next_checkpoint_id)?;
+            bail!("Failed to prove block: {:?}", e);
+        }
+        info!("✅ Prove block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
+        self.journal_store.commit(next_checkpoint_id)?;
         Ok(next_checkpoint_id)
     }
 }
@@ -279,34 +282,4 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
             }
         }
     }
-
-
-    //todo
-    // loop {
-    //     loop {
-    //         match coordinator_processor.wait_for_produce_block().await {
-    //             Ok(true) => break,
-    //             Ok(false) => {
-    //                 tokio::time::sleep(Duration::from_secs(1)).await;
-    //             }
-    //             Err(e) => {
-    //                 error!("❌ Error waiting for produce block: {:?}", e);
-    //                 tokio::time::sleep(Duration::from_secs(1)).await;
-    //                 continue;
-    //             }
-    //         }
-    //     }
-    //     match coordinator_processor.build_block().await {
-    //         Ok(checkpoint_id) => {
-    //             info!(
-    //                 "✅ Successfully built and committed block {}",
-    //                 checkpoint_id
-    //             );
-    //         }
-    //         Err(e) => {
-    //             error!("❌ Failed to build block: {:?}", e);
-    //             tokio::time::sleep(Duration::from_secs(1));
-    //         }
-    //     }
-    // }
 }
