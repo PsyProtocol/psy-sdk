@@ -43,10 +43,14 @@ where
 
         let state_transition_hash = builder.add_virtual_hash();
         let allowed_circuit_hashes_root = builder.add_virtual_hash();
+        let worker_public_key = builder.add_virtual_hash();
+        let commitment = worker_public_key;
 
         let transition =
             builder.hash_two_to_one::<C::Hasher>(state_transition_hash, state_transition_hash);
 
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&allowed_circuit_hashes_root.elements);
         builder.register_public_inputs(&transition.elements);
 

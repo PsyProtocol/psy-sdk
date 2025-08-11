@@ -63,10 +63,9 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
         let commitment = worker_public_key; // For leaf circuits, commitment = worker_public_key
-        
+
         let public_inputs_hash = a_end_cap_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
-        
-        // Register 12 public inputs: commitment, worker_public_key, header_hash
+
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&public_inputs_hash.elements);

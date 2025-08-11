@@ -97,7 +97,11 @@ where
         let new_checkpoint_root = core_checkpoint_gadget.new_checkpoint_tree_root;
         //let combo_hash = builder.hash_two_to_one::<C::Hasher>(expected_old_checkpoint_root, new_checkpoint_root);
 
+        let worker_public_key = builder.add_virtual_hash();
+        let commitment = worker_public_key;
 
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&core_checkpoint_gadget.old_checkpoint_tree_root.elements);
         builder.register_public_inputs(&new_checkpoint_root.elements);
         builder.add_qed_type_d_common_gates();

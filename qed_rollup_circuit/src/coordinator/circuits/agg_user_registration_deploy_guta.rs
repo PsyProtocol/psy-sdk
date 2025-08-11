@@ -161,7 +161,6 @@ where
             }
         );
 
-        // Register public inputs: state_transition_hash + pm_rewards_commitment
         builder.register_public_inputs(&state_transition_hash.elements);
         builder.register_public_inputs(&register_users_root.elements);
         builder.register_public_inputs(&deploy_contracts_root.elements);
