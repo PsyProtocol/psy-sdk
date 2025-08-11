@@ -12,7 +12,5 @@ pub trait WorkerEventReceiverAsyncImm {
 pub trait WorkerEventTransmitterAsyncImm {
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()>;
     async fn wait_for_block_proving_jobs_imm(&self, checkpoint_id: u64) -> anyhow::Result<QProvingJobDataID>;
-    
-    /// Wait for a specific job to complete
     async fn wait_for_job_completion(&self, job_id: QProvingJobDataID) -> anyhow::Result<()>;
 }

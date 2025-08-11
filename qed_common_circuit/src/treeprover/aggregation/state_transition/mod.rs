@@ -162,7 +162,6 @@ where
                 &mut builder,
             );
 
-        // Add worker public key as virtual input
         let worker_public_key = builder.add_virtual_hash();
 
         let left_proof = builder.add_virtual_proof_with_pis(child_common_data);
@@ -171,8 +170,6 @@ where
         let right_proof = builder.add_virtual_proof_with_pis(child_common_data);
         let right_verifier_data = builder.add_virtual_verifier_data(verifier_cap_height);
 
-        // Extract commitment and public_key from children's public inputs
-        // New format: [0..4] = commitment, [4..8] = public_key, [8..12] = allowed_circuit_hashes_root, [12..16] = transition_hash
         let left_child_commitment = HashOutTarget {
             elements: [
                 left_proof.public_inputs[0],
@@ -197,7 +194,7 @@ where
                 left_proof.public_inputs[15],
             ],
         };
-        
+
         let right_child_commitment = HashOutTarget {
             elements: [
                 right_proof.public_inputs[0],
@@ -222,7 +219,7 @@ where
                 right_proof.public_inputs[15],
             ],
         };
-        
+
         // Calculate new commitment: hash(hash(left_commitment, right_commitment), worker_public_key)
         let children_hash = builder.hash_two_to_one::<PoseidonHash>(left_child_commitment, right_child_commitment);
         let commitment = builder.hash_two_to_one::<PoseidonHash>(children_hash, worker_public_key);
@@ -305,7 +302,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
-        /* 
+        /*
         println!("agg_fingerprint: {} ({:?})", agg_fingerprint.to_string(), agg_fingerprint);
         println!("leaf_fingerprint: {} ({:?})", leaf_fingerprint.to_string(), leaf_fingerprint);
         println!("left_proof_public_inputs: {:?}", left_proof.public_inputs);
@@ -401,8 +398,6 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         input: &AggStateTransitionInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        // Note: TreeProverAggCircuit trait doesn't support worker_public_key parameter
-        // Using default value. For production use, call prove_base directly from manager.
         let worker_public_key = QHashOut::default();
         self.prove_base(
             agg_fingerprint,

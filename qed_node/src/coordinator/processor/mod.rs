@@ -188,8 +188,7 @@ impl
         let qps = Arc::new(q.clone());
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
-        
-        // Use the JobTaskStore instance created above
+
         let job_task_store = task_store.clone();
 
         let coordinator_processor_ctx = CoordinatorProcessorContext::new(
@@ -226,7 +225,7 @@ impl
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
 
         info!("building block: {:?}", next_checkpoint_id);
-        
+
         if let Err(e) = self.ctx.build_block().await {
             self.journal_store.rollback(next_checkpoint_id)?;
             return Err(e);

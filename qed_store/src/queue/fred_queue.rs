@@ -293,7 +293,7 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
             sleep(Duration::from_millis(500)).await;
         }
     }
-    
+
     async fn wait_for_job_completion(&self, job_id: QProvingJobDataID) -> anyhow::Result<()> {
         loop {
             let job_res = self
@@ -305,7 +305,6 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
                     if g.len() == 24 {
                         match QProvingJobDataID::try_from_byte_vec(&g) {
                             Ok(notified_job) => {
-                                // Check if this is the specific job we're waiting for
                                 if notified_job == job_id {
                                     return Ok(());
                                 }

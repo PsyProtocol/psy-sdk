@@ -294,12 +294,12 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
 
                     };
                     let dmp = self.set_contract_state_slot(
-                        current_contract_id, 
-                        start_slot_index, 
+                        current_contract_id,
+                        start_slot_index,
                         QHashOut(HashOut{elements: first_proof_set_elements})
                     ).await?;
                     dmps.push(dmp);
-                    
+
 
                     // we don't need to get the old values for main body proofs
                     for i in 1..(n_proofs-1) {
@@ -315,7 +315,7 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                         });
 
                         let dmp = self.set_contract_state_slot(
-                            current_contract_id, 
+                            current_contract_id,
                             start_slot_index+GF::from_canonical_u64(i),
                             set_value,
                         ).await?;
@@ -324,7 +324,7 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
 
                     // handle the last proof special case
                     /*
-                    
+
                     const SLOT_MASK_TABLE: [[u8; 4]; 7] = [
                         [0, 0, 0, 0], // type 0
                         [0, 0, 0, 0], // type 1
@@ -353,7 +353,7 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                         });
 
                         let dmp = self.set_contract_state_slot(
-                            current_contract_id, 
+                            current_contract_id,
                             last_proof_slot_index,
                             set_value,
                         ).await?;
@@ -398,7 +398,7 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                             ]
                         };
                         let dmp = self.set_contract_state_slot(
-                            current_contract_id, 
+                            current_contract_id,
                             last_proof_slot_index,
                             QHashOut(HashOut{elements: new_set_value}),
                         ).await?;
@@ -410,7 +410,7 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                         result,
                         witness: DPNStateCmdWitness::DeltaMerkleProofArray(dmps),
                     })
-                    /* 
+                    /*
                     let base_offset = c.sub_slot_index % 4u64;
                     let end_sub_index = (c.value.len() as u64) + c.sub_slot_index;
                     let end_offset = end_sub_index % 4u64;
@@ -947,7 +947,7 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                     let elements = [proof_0.value.0.elements, proof_1.value.0.elements].concat();
 
                     let result = elements[n..(n + c.length as usize)].to_vec();
-                    
+
                     Ok(QEDCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
                         result,
@@ -1069,18 +1069,14 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                 }
             }
             DPNStateCmd::GetCheckpointLeafStats(c) => {
-                // Get checkpoint leaf stats for the specified checkpoint
                 let requested_checkpoint_id = c.checkpoint_id;
-                let checkpoint_leaf_cmd = QSRCmdGetCheckpointLeafData { 
-                    checkpoint_id: requested_checkpoint_id 
+                let checkpoint_leaf_cmd = QSRCmdGetCheckpointLeafData {
+                    checkpoint_id: requested_checkpoint_id
                 };
                 let checkpoint_leaf = self.cmd_store.resolve_get_checkpoint_leaf_mut(&checkpoint_leaf_cmd).await?;
-                
-                // Get the state roots for this checkpoint
-                // We need to retrieve this separately as the checkpoint leaf only stores the hash
+
                 let state_roots = self.get_checkpoint_state_roots(requested_checkpoint_id).await?;
-                
-                // Get historical proof that this checkpoint existed
+
                 let current_checkpoint_id = self.get_current_start_checkpoint_id_u64();
                 let historical_proof = self.cmd_store.resolve_get_merkle_proof_mut(
                     &QSRMerkleCmd::GetCheckpointTreeMerkleProof(
@@ -1090,11 +1086,10 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                         }
                     )
                 ).await?;
-                
-                // Prepare the result - full checkpoint stats
+
                 let mut result = Vec::new();
                 result.extend_from_slice(&checkpoint_leaf.stats.to_qfelts());
-                
+
                 Ok(QEDCmdWithInputAndWitness {
                     state_cmd: state_cmd.clone(),
                     result,

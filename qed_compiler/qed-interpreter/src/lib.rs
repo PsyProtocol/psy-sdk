@@ -1034,7 +1034,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         let left_felts = left.to_felts();
                         let right_felts = right.to_felts();
                         
-                        // Ensure we have exactly 4 elements for each side
                         assert!(left_felts.len() == 4, "hash_two_to_one left input must be Hash (4 felts)");
                         assert!(right_felts.len() == 4, "hash_two_to_one right input must be Hash (4 felts)");
                         

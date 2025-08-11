@@ -619,7 +619,6 @@ where
     ) -> RpcResult<Vec<JobProof>> {
         use jsonrpsee::types::ErrorObject;
 
-        // Validate all job IDs belong to the checkpoint
         for job_id in &job_ids {
             if job_id.goal_id != checkpoint_id {
                 return Err(ErrorObject::owned(
@@ -630,7 +629,6 @@ where
             }
         }
 
-        // Get checkpoint data to access the PMRewardCommitment
         let checkpoint_leaf = self.ctx.store_reader
             .get_checkpoint_leaf_data(checkpoint_id)
             .await
@@ -640,7 +638,6 @@ where
                 None::<()>,
             ))?;
 
-        // Load the saved JobsTaskGraph for this checkpoint
         let graph = self.job_task_store
             .load_job_dependency_graph(checkpoint_id)
             .await
@@ -650,11 +647,9 @@ where
                 None::<()>,
             ))?;
 
-        // Generate proofs for each requested job
         let mut proofs = Vec::new();
 
         for job_id in job_ids {
-            // Determine expected root based on job type
             let expected_root = match job_id.circuit_type {
                 ProvingJobCircuitType::GUTARegisterUsers | ProvingJobCircuitType::GUTAOnlyRegisterUsers => {
                     checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
@@ -674,10 +669,8 @@ where
                 }
             };
 
-            // Generate the merkle proof using the loaded JobsTaskGraph
             match graph.generate_proof(job_id, &*self.ctx.proof_store).await {
                 Ok(job_proof) => {
-                    // Verify the proof root matches the expected commitment root
                     if job_proof.root != expected_root {
                         tracing::warn!(
                             "Root mismatch for job {:?}: expected {:?}, got {:?}",

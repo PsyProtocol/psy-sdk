@@ -274,8 +274,6 @@ pub trait RealmEdgeRpc {
         .await
     }
 
-
-    /// Generate batch proofs for multiple jobs in a checkpoint
     #[method(name = "generate_batch_proofs")]
     async fn generate_batch_proofs(
         &self,

@@ -91,14 +91,13 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let st = Arc::new(store_reader.clone());
 
     timer.lap("initialized store");
-    
-    // Create JobTaskStore for testing
+
     let job_task_store = Arc::new(
         JobTaskStoreImpl::new("redis://127.0.0.1/", 10)
             .await
             .expect("Failed to create JobTaskStore")
     );
-    
+
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     timer.lap("created proof verifier");
 

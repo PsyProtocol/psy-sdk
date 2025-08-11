@@ -83,7 +83,7 @@ where
             fingerprint,
         }
     }
-    
+
     pub fn prove_base(
         &self,
         register_users_circuit_whitelist: QHashOut<C::F>,
@@ -132,7 +132,6 @@ where
         &self,
         input: &QCAppendUserRegistrationTreeCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        // Using default for backward compatibility with trait
         self.prove_base(
             input.register_users_circuit_whitelist,
             QHashOut::default(),
@@ -184,7 +183,7 @@ where
             worker_public_key,
             &input.spiderman_append_proofs,
         )?;
-        
+
         Ok(result)
     }
 }

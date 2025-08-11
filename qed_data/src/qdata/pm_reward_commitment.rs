@@ -3,13 +3,8 @@ use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelt
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-// Constant for PM Reward Commitment size (3 QHashOut, each with 4 field elements)
 pub const PM_REWARD_COMMITMENT_SIZE: usize = 12;
 
-// TODO: Make a constant size commitment scheme for proof miners
-// for now, we can just use a partial merkle tree for testing,  
-// but in the future we want miners to be able to prove that they participated
-// by only knowing the final block commitment + the element which proves their participation
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -22,7 +17,6 @@ pub struct PMRewardCommitment<F: RichField> {
 
 
 impl<F: RichField> PMRewardCommitment<F> {
-    // Combine two PMRewardCommitments by hashing the roots together
     pub fn combine_with<H: AlgebraicHasher<F>>(&self, other: &Self) -> Self {
         let register_users_root = QHashOut(H::two_to_one(
             self.register_users_root.0,
@@ -42,8 +36,7 @@ impl<F: RichField> PMRewardCommitment<F> {
             deploy_contracts_root,
         }
     }
-    
-    // Get the overall commitment hash
+
     pub fn get_commitment_hash<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
         let temp = H::two_to_one(
             self.register_users_root.0,

@@ -752,8 +752,7 @@ impl<
     pub async fn build_block(&mut self) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("realm STARTED new block");
-        
-        // Clear the task graph for this new block
+
         self.job_task_store.clear_task_graph().await?;
         //let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
 
@@ -786,8 +785,7 @@ impl<
         self.job_task_store.write_multidimensional_job_tasks(&guta_tasks, &finished_job_task).await?;
 
         // self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
-        
-        // Finalize the task graph and save the topology
+
         self.job_task_store.finalize_and_save_topology().await?;
 
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());

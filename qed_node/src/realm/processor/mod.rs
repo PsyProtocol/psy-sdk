@@ -223,10 +223,9 @@ impl RealmProcessor {
         let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
         self.store.commit(local_latest_checkpoint_id)?;
-        
+
         match context.build_block().await {
             Ok(_) => {
-                // Task graph is now handled inside context.build_block()
                 let realm_worker_output_job_id = self
                     .sync_proof
                     .wait_for_block_proving_jobs_imm(next_checkpoint_id)

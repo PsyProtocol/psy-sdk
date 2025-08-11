@@ -12,8 +12,8 @@ use qed_common_circuit::{
         math::core::CircuitBuilderCoreMathHelpers, select::CircuitBuilderSelectHelpers,
     },
     hash::merkle::gadgets::{
-        delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget, 
-        sub_slot_delta_merkle_proof_batch::SubSlotDeltaMerkleProofBatchGadget, 
+        delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget,
+        sub_slot_delta_merkle_proof_batch::SubSlotDeltaMerkleProofBatchGadget,
         sub_slot_merkle_proof_batch::SubSlotMerkleProofBatchGadget,
         historical_root_merkle_proof::HistoricalRootMerkleProofGadget,
     },
@@ -142,7 +142,7 @@ impl CKInvokeDeferredMethodCall {
             input_target_ids_hash: sha256::CoreSha256Hasher::hash_u64s(input_target_ids),
         }
     }
-    
+
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
@@ -293,7 +293,7 @@ impl StateCommandCacheKey {
         })
     }
     pub fn new_read_current_contract_range(
-        sub_slot_target_id: u64, 
+        sub_slot_target_id: u64,
         length: u32,
         slot_offset_index: u64,
         write_epoch: u32
@@ -460,7 +460,7 @@ pub struct StateReaderGadget {
     pub chain_state_roots: QEDCheckpointGlobalStateRootsGadget,
     pub checkpoint_stats: QEDCheckpointLeafStatsGadget,
     pub checkpoint_tree_root: HashOutTarget,  // Add checkpoint tree root
-    
+
     pub start_deferred_tx_tree_root: HashOutTarget,
     pub end_deferred_tx_tree_root: HashOutTarget,
 
@@ -516,7 +516,7 @@ impl StateReaderGadget {
             contract_state_tree_height,
             user_contract_tree_state_root,
             deferred_tx_count: 0,
-            
+
             session_proof_tree_root,
             session_proof_tree_height,
             force_four_align,
@@ -635,7 +635,7 @@ impl StateReaderGadget {
         self.gadget_map.insert(key, ref_key);
         ref_key
     }
-    
+
     pub fn insert_checkpoint_stats_gadget(
         &mut self,
         key: StateCommandCacheKey,
@@ -783,7 +783,7 @@ impl StateReaderGadget {
                 mp_user_tree.index,
             )
         };
-        
+
 
         if is_new {
             builder.connect_hashes(mp_user_tree_root, self.chain_state_roots.user_tree_root);
@@ -814,7 +814,7 @@ impl StateReaderGadget {
 
             let (is_new, leaf) = self.resolve_or_insert_user_leaf_gadget::<F, D>(builder, user_leaf_ck);
 
-       
+
         if is_new {
             let actual_leaf_hash = leaf.to_hash::<H, F, D>(builder);
 
@@ -848,7 +848,7 @@ impl StateReaderGadget {
 
         let (is_new, mp_uct) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, uct_ck, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
 
-       
+
         if is_new {
             let expected_contract_id = dpn.resolve_target(contract_target_id);
 
@@ -884,7 +884,7 @@ impl StateReaderGadget {
 
         let (is_new, mp_cst) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, cst_ck, contract_state_tree_height);
 
-       
+
         if is_new {
             let expected_contract_id = dpn.resolve_target(slot_target_id);
 
@@ -1265,7 +1265,7 @@ impl StateReaderGadget {
                         self.force_four_align
                     );
                     (gadget.values, gadget.merkle_proof_gadgets)
-    
+
                     };
                     builder.connect_hashes(
                         mps[0].root,
@@ -1441,89 +1441,66 @@ impl StateReaderGadget {
                 tx_hash.elements.to_vec()
             },
             DPNStateCmd::GetCheckpointLeafStats(c) => {
-                // Create cache key for this checkpoint stats request
                 let ck = StateCommandCacheKey::new_get_checkpoint_stats(c.checkpoint_id);
-                
-                // Check if we already have this checkpoint stats request
+
                 if let Some(existing_result) = self.result_map.get(&ck) {
                     existing_result.clone()
                 } else {
-                    // Get the requested checkpoint ID
                     let requested_checkpoint_id = dpn.resolve_target(c.checkpoint_id);
-                    
-                    // Create a gadget for the requested checkpoint's stats (will be populated from witness)
+
                     let requested_checkpoint_stats = QEDCheckpointLeafStatsGadget::create_virtual(builder);
-                    
-                    // Create historical proof gadget to verify this checkpoint existed
+
                     let historical_proof = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<H, F, D>(
-                        builder, 
+                        builder,
                         qed_core::config::network_constants::CHECKPOINT_TREE_HEIGHT as usize
                     );
-                    
-                    // The historical proof should prove that the requested checkpoint existed in the checkpoint tree
-                    // Connect the index to the requested checkpoint ID
+
                     builder.connect(historical_proof.index, requested_checkpoint_id);
-                    
-                    // The historical root should be the checkpoint tree root at the current checkpoint
-                    // This verifies that the requested checkpoint existed historically
+
                     builder.connect_hashes(
                         historical_proof.current_root,
                         self.checkpoint_tree_root
                     );
-                    
-                    // Verify that the requested_checkpoint_stats matches the checkpoint leaf hash
-                    // The checkpoint leaf contains the stats hash, so we need to compute it
+
                     let checkpoint_stats_hash = requested_checkpoint_stats.to_hash::<H, F, D>(builder);
-                    
-                    // The historical proof's current_value should be the checkpoint leaf hash
-                    // which contains the stats hash and state roots hash
-                    // We need to also get the state roots for this checkpoint
+
                     let requested_checkpoint_state_roots = QEDCheckpointGlobalStateRootsGadget::create_virtual(builder);
                     let state_roots_hash = requested_checkpoint_state_roots.to_hash::<H, F, D>(builder);
-                    
-                    // Compute the checkpoint leaf hash (stats_hash, state_roots_hash)
+
                     let checkpoint_leaf_hash = builder.hash_two_to_one::<H>(checkpoint_stats_hash, state_roots_hash);
-                    
-                    // Verify that this matches what's in the historical proof
+
                     builder.connect_hashes(
                         historical_proof.current_value,
                         checkpoint_leaf_hash
                     );
-                    
-                    // Store the gadgets
+
                     self.insert_checkpoint_stats_gadget(
                         ck.clone(),
                         requested_checkpoint_stats.clone(),
                         requested_checkpoint_state_roots,
                         historical_proof,
                     );
-                    
-                    // Prepare the result
+
                     let mut result = Vec::new();
-                    
-                    // Add all checkpoint stats fields from the requested checkpoint
+
                     result.push(requested_checkpoint_stats.fees_collected);
                     result.push(requested_checkpoint_stats.user_ops_processed);
                     result.push(requested_checkpoint_stats.total_transactions);
                     result.push(requested_checkpoint_stats.slots_modified);
                     result.push(requested_checkpoint_stats.pm_jobs_completed);
                     result.push(requested_checkpoint_stats.block_time);
-                    
-                    // Add random_seed (4 elements)
+
                     result.extend_from_slice(&requested_checkpoint_stats.random_seed.elements);
-                    
-                    // Add PM rewards commitment
+
                     let pm_rewards = &requested_checkpoint_stats.pm_rewards_commitment;
                     result.extend_from_slice(&pm_rewards.register_users_root.elements);
                     result.extend_from_slice(&pm_rewards.gutas_root.elements);
                     result.extend_from_slice(&pm_rewards.deploy_contracts_root.elements);
-                    
-                    // Add DA challenges claimed
+
                     result.extend_from_slice(&requested_checkpoint_stats.da_challenges_claimed);
-                    
-                    // Cache the result
+
                     self.result_map.insert(ck, result.clone());
-                    
+
                     result
                 }
             },

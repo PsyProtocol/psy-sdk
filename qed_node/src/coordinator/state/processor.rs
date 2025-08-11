@@ -795,7 +795,6 @@ impl<
         let start = Instant::now();
         info!("coordinator STARTED new block");
         
-        // Clear the task graph for this new block
         self.job_task_store.clear_task_graph().await?;
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
@@ -1102,7 +1101,6 @@ impl<
             .set_checkpoint_sync_info_imm(l2_sync.clone())
             .await?;
 
-        // Finalize the task graph and save the topology
         self.job_task_store.finalize_and_save_topology().await?;
         
         //todo! mark, should commit the txn

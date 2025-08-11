@@ -441,31 +441,25 @@ impl StateReaderGadget {
 
             },
             DPNStateCmd::GetCheckpointLeafStats(c) => {
-                // Get the cache key for this checkpoint stats request
                 let ck = StateCommandCacheKey::new_get_checkpoint_stats(c.checkpoint_id);
-                
-                // Get the reference key from the gadget map
+
                 if let Some(ref_key) = self.gadget_map.get(&ck) {
                     match ref_key.gadget_type {
                         StateReaderReferenceKeyType::CheckpointStats => {
                             let index = ref_key.gadget_index;
-                            
-                            // Get the witness data
+
                             let checkpoint_witness = cmd_witness.witness.get_checkpoint_leaf_stats_ref();
-                            
-                            // Set witness for checkpoint stats gadget
+
                             self.checkpoint_stats_requests[index].set_witness(
                                 witness,
                                 &checkpoint_witness.checkpoint_leaf_stats,
                             )?;
-                            
-                            // Set witness for checkpoint state roots gadget  
+
                             self.checkpoint_state_roots_requests[index].set_witness(
                                 witness,
                                 &checkpoint_witness.checkpoint_state_roots,
                             )?;
-                            
-                            // Set witness for historical proof
+
                             self.historical_proofs[index].set_witness_generic::<W, F>(
                                 witness,
                                 F::from_noncanonical_u64(checkpoint_witness.checkpoint_historical_proof.index),

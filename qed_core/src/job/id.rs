@@ -408,7 +408,7 @@ pub struct QWorkerJobBenchmark {
 type LayerId = TaskId;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct JobsLayer {
-    pub layer_id: LayerId, // Fixed naming convention (was Layer_id)
+    pub layer_id: LayerId,
     pub task_ids: Vec<TaskId>,
     pub job_ids: Vec<QProvingJobDataID>,
 }
@@ -449,49 +449,41 @@ impl TaskId {
         TaskId(Uuid::from_bytes(bytes))
     }
 
-    /// Get the inner UUID
     pub fn as_uuid(&self) -> &Uuid {
         &self.0
     }
 
-    /// Convert to bytes for storage
     pub fn to_bytes(&self) -> [u8; 16] {
         *self.0.as_bytes()
     }
 
-    /// Create from bytes
     pub fn from_bytes(bytes: [u8; 16]) -> Self {
         Self(Uuid::from_bytes(bytes))
     }
 
-    /// Serialize to a byte vector using bincode
     pub fn to_vec(&self) -> Result<Vec<u8>> {
         bincode::serialize(self).context("Failed to serialize TaskId")
     }
 
-    /// Deserialize from bytes using bincode
     pub fn from_slice(bytes: &[u8]) -> Result<Self> {
         bincode::deserialize(bytes).context("Failed to deserialize TaskId")
     }
 
-    /// Serialize to a compact string representation
     pub fn to_string(&self) -> String {
         self.0.to_string()
     }
 
-    /// Parse from string representation
     pub fn from_str(s: &str) -> Result<Self> {
         Ok(Self(Uuid::parse_str(s)?))
     }
 }
-// Implement Display for convenient string conversion
+
 impl std::fmt::Display for TaskId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-// Implement FromStr for parsing
 impl std::str::FromStr for TaskId {
     type Err = uuid::Error;
 
@@ -500,7 +492,6 @@ impl std::str::FromStr for TaskId {
     }
 }
 
-// For Redis operations, implement conversion to/from Vec<u8>
 impl From<TaskId> for Vec<u8> {
     fn from(task_id: TaskId) -> Self {
         task_id
@@ -525,7 +516,6 @@ impl TryFrom<&[u8]> for TaskId {
     }
 }
 
-//Implement AsRef for more ergonomic usage
 impl AsRef<Uuid> for TaskId {
     fn as_ref(&self) -> &Uuid {
         &self.0
@@ -650,12 +640,10 @@ impl JobsTaskGraph {
         while !current_layer.is_empty() {
             processed_tasks_count += current_layer.len();
 
-            // Create JobsLayer for the current layer
             let layer_id = LayerId::new();
             let mut job_ids = Vec::new();
             let task_ids = current_layer.clone();
 
-            // Collect all job IDs from all tasks in this layer
             for &task_id in &task_ids {
                 if let Some(task) = self.tasks.get(&task_id) {
                     job_ids.extend(task.job_ids.clone());
@@ -668,7 +656,6 @@ impl JobsTaskGraph {
                 job_ids,
             });
 
-            // Prepare next layer
             let mut next_layer = Vec::new();
             for &task_id in &current_layer {
                 if let Some(dependents) = self.dependents.get(&task_id) {

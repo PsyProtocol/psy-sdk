@@ -1302,7 +1302,6 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn generate_batch_proofs(&self, checkpoint_id: u64, job_ids: Vec<QProvingJobDataID>) -> RpcResult<Vec<JobProof>> {
         use jsonrpsee::types::ErrorObject;
         
-        // Validate all job IDs belong to the checkpoint
         for job_id in &job_ids {
             if job_id.goal_id != checkpoint_id {
                 return Err(ErrorObject::owned(
