@@ -300,9 +300,23 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
         self.to_vec().try_into().unwrap()
     }
 
+    pub fn to_u32_array<const N: usize>(&self) -> [F; N]
+    where
+        F: std::fmt::Debug,
+    {
+        self.to_u32_vec().try_into().unwrap()
+    }
+
     pub fn to_vec(&self) -> Vec<F> {
         match &*self.borrow() {
             CheckedValue::Array(_, arr) => arr.into_iter().map(|x| x.to_felt()).collect::<Vec<F>>(),
+            _ => panic!("Expected array value"),
+        }
+    }
+
+    pub fn to_u32_vec(&self) -> Vec<F> {
+        match &*self.borrow() {
+            CheckedValue::Array(_, arr) => arr.into_iter().map(|x| x.to_u32()).collect::<Vec<F>>(),
             _ => panic!("Expected array value"),
         }
     }

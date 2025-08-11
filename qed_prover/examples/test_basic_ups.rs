@@ -13,7 +13,7 @@ use qed_data::{
     },
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
-use qed_prover::{dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::QEDUPSStepCircuitManager, session::UserProvingSessionManager}};
+use qed_prover::{local::provider::ProveProxyRpcTrait, dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition}, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
@@ -463,7 +463,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
 
     timer.lap("start: init QEDUPSStepCircuitManager");
 
-    let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+    let main_circuits = QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST));
     //main_circuits.print_common_config();
 
     timer.lap("end: init QEDUPSStepCircuitManager");
@@ -511,7 +511,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     let mut mgr = UserProvingSessionManager::<GoldilocksField,QEDHasher,_,C,D>::new(
         lps,
         circuit_info,
-        main_circuits.ups_circuit_whitelist_root
+        main_circuits.ups_circuit_whitelist_root()?
     )?;
 
     timer.lap("START USER PROVING SESSION");
@@ -523,7 +523,6 @@ async fn test_prove_simple() -> anyhow::Result<()> {
         &main_circuits,
         contract_id,
         0,
-        &simple_mint_debug_circuit,
         &simple_mint_debug_def,
         vec![
             GoldilocksField::from_noncanonical_u64(1000)
@@ -537,7 +536,6 @@ async fn test_prove_simple() -> anyhow::Result<()> {
         &main_circuits,
         contract_id,
         1,
-        &simple_transfer_circuit,
         &simple_transfer_def,
         vec![
             GoldilocksField::from_noncanonical_u64(2),
@@ -551,7 +549,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits)?;
+    mgr.proof_tree_state.finalize_tree(&main_circuits)?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param =SimpleQEDPrivateKey::new(priv_key).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(
@@ -566,8 +564,9 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("Proved End Cap for UPS Session 🎉");
 
     // the end cap proof the proof that we send off to the network 🎉
-
-    main_circuits.ups_end_cap.verify_proof(end_cap_proof)?;
+    if let QCircuitManager::Local(ref mgr) = main_circuits {
+        mgr.ups_end_cap.verify_proof(end_cap_proof)?;
+    }
     timer.lap("✅ Verified End Cap Proof");
 
 

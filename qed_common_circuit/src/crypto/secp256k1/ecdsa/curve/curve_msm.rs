@@ -1,7 +1,6 @@
 use itertools::Itertools;
 use plonky2::field::types::{Field, PrimeField};
-use plonky2_maybe_rayon::rayon::iter::IntoParallelIterator;
-use plonky2_maybe_rayon::{MaybeParChunks, ParallelIterator};
+use plonky2_maybe_rayon::*;
 
 use super::curve_summation::affine_multisummation_best;
 use super::curve_types::{AffinePoint, Curve, ProjectivePoint};

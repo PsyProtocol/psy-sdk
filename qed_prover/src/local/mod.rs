@@ -8,9 +8,9 @@ pub mod request;
 pub mod ts_export;
 
 // These modules use async/await and are only available for native
-#[cfg(not(target_arch = "wasm32"))]
+// #[cfg(not(target_arch = "wasm32"))]
 pub mod provider;
-#[cfg(not(target_arch = "wasm32"))]
+// #[cfg(not(target_arch = "wasm32"))]
 pub mod lps;
 #[cfg(feature = "is_sync")]
 pub mod simple;

@@ -23,3 +23,7 @@ kvq = { workspace = true }
 qed_core = { workspace = true }
 qed_crypto = { workspace = true }
 ts-rs =  { workspace = true }
+
+[features]
+default = ["is_sync"]
+is_sync = ["maybe-async/is_sync"]

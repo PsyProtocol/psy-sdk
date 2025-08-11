@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::dpn::ops::{op_types::{DPNAssertEqInfoIndexed, DPNIndexedVarDef}, state_cmd::data::DPNStateCmd};
 
@@ -34,7 +35,7 @@ pub struct DPNAssertEqInfoIndexed {
 }
 */
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, TS)]
 pub struct DPNFunctionCircuitDefinition {
   pub name: String,
   pub method_id: u32,

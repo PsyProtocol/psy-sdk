@@ -1,5 +1,4 @@
 use super::args::CoordinatorProcessorArgs;
-use crate::common::slot::Slot;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::coordinator::state::processor::CoordinatorConfig;
 use crate::coordinator::state::processor::CoordinatorProcessorContext;
@@ -32,11 +31,11 @@ use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
 use tokio::time::{sleep_until, Instant};
 use tracing::{debug, error, info, warn};
+use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl};
 use qed_store::queue::redis_queue::NotificationQueue;
 use crate::common::clock::SlotTimer;
 use crate::common::slot;
-use crate::common::slot::LocalClock;
-
+use crate::common::slot::{LocalClock, Slot};
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -57,6 +56,7 @@ pub struct CoordinatorProcessNode<
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+    pub job_task_store: Arc<JobTaskStoreImpl>,
 }
 
 impl<
@@ -77,6 +77,7 @@ impl<
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+        job_task_store: Arc<JobTaskStoreImpl>,
     ) -> Self {
         Self {
             ctx,
@@ -86,10 +87,11 @@ impl<
             event_receiver,
             proof_verifier,
             coordinator_worker_circuits,
+            job_task_store,
         }
     }
 
-    async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
+    pub async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
         // Get current checkpoint to listen from
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let notify_message = self.edge_command_queue.consume_item(COORDINATOR_TO_REALM_CHANNEL).await?;
@@ -164,12 +166,11 @@ impl
         let bb8_pool =
             new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
         info!("🐶 redis pool initialized");
-        let q = ProofStoreRedisAsync::new2(
+        let task_store = JobTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
+            .await?;
+        let q = ProofStoreRedisAsync::new(
             bb8_pool,
-            &cp_config.queue_args.worker_queue_suffix,
-            &cp_config.queue_args.notifications_queue_suffix,
-            &cp_config.queue_args.proof_store_key_suffix,
-            &cp_config.queue_args.proof_store_key_suffix,
+            cp_config.queue_args.queue_biz_key.clone(),
         )
         .await?;
 
@@ -218,36 +219,49 @@ impl
             q,
             proof_verifier,
             coordinator_worker_circuits,
+            Arc::new(task_store),
         ))
+    }
+
+    pub async fn build_block_inner(&mut self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<()> {
+        info!("building block: {:?}", next_checkpoint_id);
+        let now = Instant::now();
+        self.ctx.build_block(slot).await?;
+        info!("✅ Built block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
+        let now = Instant::now();
+        info!("waiting for block proving jobs: {:?}", next_checkpoint_id);
+        {
+            let mut task_graph = self.ctx.proof_store.task_graph.lock().await;
+            let sorted_tasks = task_graph.ts_task();
+            self.job_task_store.save_task_topology(sorted_tasks).await?;
+            task_graph.clear();
+        }
+
+        info!("🐶 waiting for block proving jobs");
+        self.ctx
+            .prover_queue
+            .wait_for_block_proving_jobs_imm(next_checkpoint_id)
+            .await?;
+        info!("✅ Prove block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
+        Ok(())
     }
 
     pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<u64> {
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
-
         if !self.ctx.has_pending_tasks(next_checkpoint_id).await
-        .map_err(|e| anyhow::anyhow!("Failed to check pending tasks: {:?}", e))? {
+            .map_err(|e| anyhow::anyhow!("Failed to check pending tasks: {:?}", e))? {
             bail!(
                 "No pending tasks for checkpoint {}, slot {}",
                 next_checkpoint_id, slot
             );
         }
 
-        let now = Instant::now();
-        if let Err(e) = self.ctx.build_block(slot).await {
+        if let Err(e) = self.build_block_inner(next_checkpoint_id, slot).await {
             self.journal_store.rollback(next_checkpoint_id)?;
-            bail!("Failed to build block: {:?}", e);
+            bail!("Failed to build and prove block: {:?}", e);
         }
-        info!("✅ Built block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
-        let now = Instant::now();
-        if let Err(e) = self.ctx
-            .prover_queue
-            .wait_for_block_proving_jobs_imm(next_checkpoint_id)
-            .await {
-            self.journal_store.rollback(next_checkpoint_id)?;
-            bail!("Failed to prove block: {:?}", e);
-        }
-        info!("✅ Prove block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
+
         self.journal_store.commit(next_checkpoint_id)?;
         Ok(next_checkpoint_id)
     }

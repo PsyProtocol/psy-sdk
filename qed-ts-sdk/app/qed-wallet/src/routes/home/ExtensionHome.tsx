@@ -17,6 +17,7 @@ import {
     ErrorMessage,
     ErrorHint
 } from "./ExtensionHome.styles";
+import { QedWasmWebProverProvider, WasmRpcServer, QedJSON, initWasmSync} from "@qed/qed-sdk";
 
 const ExtensionHomeContent: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -29,6 +30,29 @@ const ExtensionHomeContent: React.FC = () => {
             console.log('Running as Chrome extension');
         }
 
+        const initWasmRpcServer = async () => {
+            try {
+                const rpcConfigJson = {
+                    global_user_tree_height: config.network.global_user_tree_height,
+                    realm_user_tree_height: config.network.realm_user_tree_height,
+                    users_per_realm: config.network.users_per_realm,
+                    realm_configs: config.network.realm_configs,
+                    coordinator_configs: config.network.coordinator_configs,
+                    prover_url: config.network.prover_url as string,
+                    prove_proxy_url: config.network.prove_proxy_url as string,
+                };
+                const json = QedJSON.stringify(rpcConfigJson);
+                const now = new Date().getTime();
+                initWasmSync();
+                QedWasmWebProverProvider.wasmServer = await new WasmRpcServer(json);
+                console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
+            } catch (error) {
+                console.error('Failed to get prover URL:', error);
+            }
+        };
+
+        initWasmRpcServer();
+
         // Quick loading
         setTimeout(() => {
             setIsLoading(false);
@@ -36,10 +60,13 @@ const ExtensionHomeContent: React.FC = () => {
     }, []);
 
     const walletProvider = createMemoryWalletProvider(
-        config.network.coordinator_configs, // coordinator
-        config.network.realm_configs, // realm
+        config.network.global_user_tree_height,
+        config.network.realm_user_tree_height,
+        config.network.coordinator_configs,
+        config.network.realm_configs,
         config.network.users_per_realm,
         config.network.prover_url as string,
+        config.network.prove_proxy_url as string,
     );
 
     if (isLoading) {

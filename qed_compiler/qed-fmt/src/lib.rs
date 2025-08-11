@@ -1147,6 +1147,17 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 self.visit_expr(method_id, ctx)?,
                 self.visit_expr(inputs, ctx)?,
             )),
+            IntrinsicExprNode::CheckSecpSign {
+                pub_key,
+                msg,
+                sig,
+                ..
+            } => Ok(format!(
+                "__invoke_deferred({}, {}, {})",
+                self.visit_expr(pub_key, ctx)?,
+                self.visit_expr(msg, ctx)?,
+                self.visit_expr(sig, ctx)?,
+            )),
         }
     }
 

@@ -88,6 +88,9 @@ pub enum Token<'input> {
     #[token("__invoke_deferred")]
     IntrinsicInvokeDeferred,
 
+    #[token("__check_secp_sign")]
+    IntrinsicCheckSecpSign,
+
     #[token("new")]
     KeywordNew,
     #[token("extern")]

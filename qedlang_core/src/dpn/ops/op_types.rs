@@ -3,6 +3,7 @@ use core::panic;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::{Field, Field64, PrimeField64}};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use ts_rs::TS;
 use std::ops::Neg;
 const INDEX_BITS: u64 = 32;
 const INDEX_MASK: u64 = (1u64 << INDEX_BITS) - 1u64;
@@ -17,7 +18,7 @@ pub fn encode_indexed_op_id(data_type: DPNBuiltInDataType, index: usize) -> u64 
     ((data_type as u64) << INDEX_BITS) | (index as u64)
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Serialize_repr, Deserialize_repr, Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, TS)]
 #[repr(u16)]
 pub enum DPNOpType {
     InputTarget = 0,
@@ -100,6 +101,8 @@ pub enum DPNOpType {
     BoolInputTarget = 74,
     U32Mod = 75,
     U32Exp = 76,
+
+    CheckSecpSign = 77,
 }
 
 impl From<u16> for DPNOpType {
@@ -173,6 +176,7 @@ impl From<u16> for DPNOpType {
             74 => DPNOpType::BoolInputTarget,
             75 => DPNOpType::U32Mod,
             76 => DPNOpType::U32Exp,
+            77 => DPNOpType::CheckSecpSign,
             _ => panic!("Unknown DPNOpType: {}", value),
         }
     }
@@ -293,6 +297,7 @@ impl DPNOpType {
             DPNOpType::BoolInputTarget => DPNBuiltInDataType::Bool,
             DPNOpType::U32Mod => DPNBuiltInDataType::U32Target,
             DPNOpType::U32Exp => DPNBuiltInDataType::U32Target,
+            DPNOpType::CheckSecpSign => DPNBuiltInDataType::Bool,
         }
     }
     pub fn is_inputless(&self) -> bool{
@@ -418,12 +423,13 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::BoolInputTarget => "BoolInputTarget",
             DPNOpType::U32Mod => "U32Mod",
             DPNOpType::U32Exp => "U32Exp",
+            DPNOpType::CheckSecpSign => "CheckSecpSign",
         };
         write!(f, "DPNOpType::{}", r)
     }
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Serialize_repr, Deserialize_repr, Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, TS)]
 #[repr(u8)]
 pub enum DPNBuiltInDataType {
     Target = 0,
@@ -485,7 +491,7 @@ impl From<u8> for DPNBuiltInDataType {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, TS)]
 pub struct DPNIndexedVarDef {
     pub data_type: DPNBuiltInDataType,
     pub index: usize,
@@ -498,7 +504,7 @@ impl DPNIndexedVarDef {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, TS)]
 pub struct DPNAssertEqInfoIndexed {
     pub left: u64,
     pub right: u64,

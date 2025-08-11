@@ -173,7 +173,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("connected to redis");
 
-    let q = ProofStoreFred::new(pool, "wq1".to_string(),"nq1".to_string());
+    let q = ProofStoreFred::new(pool, "wq1".to_string());
 
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;

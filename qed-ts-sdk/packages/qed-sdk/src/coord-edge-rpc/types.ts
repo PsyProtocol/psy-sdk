@@ -88,7 +88,7 @@ export enum CoordinatorEdgeRPCCommand {
  */
 export interface ICoordinatorEdgeRpcProvider {
     registerUser(pubKey: ZKPublicKeyInfo): Promise<string>;
-    getUserId(qhash: QHashOut): Promise<number>;
+    getUserId(publicKey: QHashOut): Promise<number>;
     deployContract(contract: QBCDeployContract): Promise<string>;
     getLatestCheckpoint(): Promise<LatestCheckpointResponse>;
     buildBlock(): Promise<string>;

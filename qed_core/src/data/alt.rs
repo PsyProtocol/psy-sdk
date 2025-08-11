@@ -1,11 +1,14 @@
 use plonky2::{field::extension::Extendable, hash::{hash_types::RichField, merkle_tree::MerkleCap}, plonk::{circuit_data::VerifierOnlyCircuitData, config::{AlgebraicHasher, GenericConfig}}, util::log2_strict};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+use plonky2::field::goldilocks_field::GoldilocksField;
 
 use super::qhashout::QHashOut;
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub struct AltVerifierOnlyCircuitData<F: RichField> {
     pub constants_sigmas_cap: Vec<QHashOut<F>>,
     pub circuit_digest: QHashOut<F>,

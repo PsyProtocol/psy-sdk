@@ -46,6 +46,8 @@ pub trait CircuitBuilderBiguint<F: RichField + Extendable<D>, const D: usize> {
 
     fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget;
 
+    fn is_equal_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget) -> BoolTarget;
+
     fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget;
 
     /// Add two `BigUintTarget`s.
@@ -131,6 +133,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         let (a, b) = self.pad_biguints(a, b);
 
         list_lte_u32_circuit(self, a.limbs, b.limbs)
+    }
+
+    fn is_equal_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget) -> BoolTarget {
+        let min_limbs = lhs.num_limbs().min(rhs.num_limbs());
+        let mut is_equal = self.constant_bool(true);
+        for i in 0..min_limbs {
+            let is_equal_inner = self.is_equal(lhs.get_limb(i).0, rhs.get_limb(i).0);
+            is_equal = self.and(is_equal, is_equal_inner);
+        }
+
+        let zero = self.zero();
+        for i in min_limbs..lhs.num_limbs() {
+            let is_equal_inner = self.is_equal(lhs.get_limb(i).0, zero);
+            is_equal = self.and(is_equal, is_equal_inner);
+        }
+        for i in min_limbs..rhs.num_limbs() {
+            let is_equal_inner = self.is_equal(rhs.get_limb(i).0, zero);
+            is_equal = self.and(is_equal, is_equal_inner);
+        }
+        is_equal
     }
 
     fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {
@@ -275,15 +297,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
 }
 
 pub trait WitnessBigUint<F: PrimeField64>: Witness<F> {
-    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint;
+    fn get_biguint_target(&self, target: &BigUintTarget) -> BigUint;
     fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) -> anyhow::Result<()>;
 }
 
 impl<T: Witness<F>, F: PrimeField64> WitnessBigUint<F> for T {
-    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
+    fn get_biguint_target(&self, target: &BigUintTarget) -> BigUint {
         target
             .limbs
-            .into_iter()
+            .iter()
             .rev()
             .fold(BigUint::zero(), |acc, limb| {
                 (acc << 32) + self.get_target(limb.0).to_canonical_biguint()
@@ -292,8 +314,8 @@ impl<T: Witness<F>, F: PrimeField64> WitnessBigUint<F> for T {
 
     fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) -> anyhow::Result<()> {
         let mut limbs = value.to_u32_digits();
-        if target.num_limbs() >= limbs.len() {
-            anyhow::bail!("invalid number of limbs passed to BigUintTarget");
+        if limbs.len() > target.num_limbs() {
+            anyhow::bail!("invalid number of limbs passed to BigUintTarget: value has {} limbs but target only has {}", limbs.len(), target.num_limbs());
         }
         limbs.resize(target.num_limbs(), 0);
         for i in 0..target.num_limbs() {
@@ -341,8 +363,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<() >{
-        let a = witness.get_biguint_target(self.a.clone());
-        let b = witness.get_biguint_target(self.b.clone());
+        let a = witness.get_biguint_target(&self.a);
+        let b = witness.get_biguint_target(&self.b);
         let (div, rem) = a.div_rem(&b);
 
         out_buffer.set_biguint_target(&self.div, &div)?;

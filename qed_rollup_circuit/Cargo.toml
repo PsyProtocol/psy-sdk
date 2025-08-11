@@ -13,6 +13,11 @@ bincode = { workspace = true }
 async-trait = { workspace = true }
 
 qed_core = { workspace = true }
-qed_common_circuit = { workspace = true }
-qed_data = { workspace = true }
+qed_common_circuit = { workspace = true, default-features = false }
+qed_data = { workspace = true, default-features = false }
 qed_crypto = { workspace = true }
+
+
+[features]
+default = ["is_sync"]
+is_sync = ["qed_data/is_sync","qed_common_circuit/is_sync"]
