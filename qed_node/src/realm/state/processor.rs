@@ -104,14 +104,14 @@ pub struct RealmProcessorContext<
     HQ: CheckpointHistoryQueueConsumerAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
-    JTS: QProvingTaskStore,
+    TS: QProvingTaskStore,
 > {
     pub store: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub sync_queue: Arc<HQ>,
     pub prover_queue: Arc<WQ>,
     pub proof_store: Arc<PS>,
-    pub job_task_store: Arc<JTS>,
+    pub task_store: Arc<TS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
     pub pending_register_users: Vec<MerkleProofCore<QHashOut<F>>>,
@@ -126,8 +126,8 @@ impl<
         HQ: CheckpointHistoryQueueConsumerAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
-        JTS: QProvingTaskStore,
-    > RealmProcessorContext<SR, DQ, HQ, WQ, PS, JTS>
+        TS: QProvingTaskStore,
+    > RealmProcessorContext<SR, DQ, HQ, WQ, PS, TS>
 {
     pub async fn new(
         realm_config: RealmConfig,
@@ -136,7 +136,7 @@ impl<
         sync_queue: Arc<HQ>,
         prover_queue: Arc<WQ>,
         proof_store: Arc<PS>,
-        job_task_store: Arc<JTS>,
+        task_store: Arc<TS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
@@ -146,7 +146,7 @@ impl<
             sync_queue,
             prover_queue,
             proof_store,
-            job_task_store,
+            task_store,
             proof_verifier,
             pending_register_users: Vec::new(),
         })
@@ -755,7 +755,7 @@ impl<
         let start = Instant::now();
         info!("realm STARTED new block");
 
-        self.job_task_store.clear_task_graph().await?;
+        self.task_store.clear_task_graph().await?;
         //let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
@@ -784,11 +784,11 @@ impl<
 
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let finished_job_task = QProvingTask::new(&[finished_job]);
-        self.job_task_store.write_multidimensional_job_tasks(&guta_tasks, &finished_job_task).await?;
+        self.task_store.write_multidimensional_job_tasks(&guta_tasks, &finished_job_task).await?;
 
         // self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
 
-        self.job_task_store.finalize_and_save_topology().await?;
+        self.task_store.finalize_and_save_topology().await?;
 
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())

@@ -48,7 +48,7 @@ pub struct RealmEdgeHandler<
 > {
     ctx: RealmEdgeContext<SR, DQ, PS>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
-    job_task_store: Arc<QProvingTaskStoreImpl>,
+    task_store: Arc<QProvingTaskStoreImpl>,
 
 }
 
@@ -61,12 +61,12 @@ where
     pub fn new(
         ctx: RealmEdgeContext<SR, DQ, PS>,
         job_notify_queue: Arc<ProofStoreRedisAsync>,
-        job_task_store: Arc<QProvingTaskStoreImpl>,
+        task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
         Self {
             ctx,
             job_notify_queue,
-            job_task_store,
+            task_store,
         }
     }
 }
@@ -638,7 +638,7 @@ where
                 None::<()>,
             ))?;
 
-        let graph = self.job_task_store
+        let graph = self.task_store
             .load_job_dependency_graph(checkpoint_id)
             .await
             .map_err(|e| ErrorObject::owned(
@@ -703,7 +703,7 @@ where
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
     async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
-        let j = match self.job_task_store.claim_job_from_current_layer().await {
+        let j = match self.task_store.claim_job_from_current_layer().await {
             Ok(job) => job,
             Err(e) => {
                 error!("Error claiming job from current task: {:?}", e);
@@ -762,7 +762,7 @@ where
         }
 
         // remove the job from the current task, no matter if proof is None or Some
-        match self.job_task_store.acknowledge_job_completion(&job).await {
+        match self.task_store.acknowledge_job_completion(&job).await {
             Ok(_) => {
                 info!("Job completed successfully: {:?}", job_id);
             },

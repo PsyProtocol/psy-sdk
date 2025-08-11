@@ -34,8 +34,8 @@ impl<
         WQ: WorkerEventTransmitterAsyncImm,
 
         PS: QProofStoreAsyncImm,
-        JTS: QProvingTaskStore,
-    > CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, JTS>
+        TS: QProvingTaskStore,
+    > CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, TS>
 {
     pub fn push_user_registration_request(
         &self,

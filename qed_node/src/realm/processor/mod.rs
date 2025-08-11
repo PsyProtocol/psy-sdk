@@ -36,7 +36,7 @@ pub struct RealmProcessor {
     pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
     pub store: Arc<JournalStore<QEDStore>>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub job_task_store: Arc<QProvingTaskStoreImpl>,
+    pub task_store: Arc<QProvingTaskStoreImpl>,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
@@ -75,7 +75,7 @@ impl RealmProcessor {
             sync_checkpoint,
             store: store_reader,
             proof_verifier,
-            job_task_store: Arc::new(task_store),
+            task_store: Arc::new(task_store),
         };
         Ok(processor)
     }
@@ -98,7 +98,7 @@ impl RealmProcessor {
             realm_qps.clone(),
             realm_qps.clone(),
             realm_qps.clone(),
-            self.job_task_store.clone(),
+            self.task_store.clone(),
             self.proof_verifier.clone(),
         )
         .await?;

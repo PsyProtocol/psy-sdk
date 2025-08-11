@@ -99,7 +99,7 @@ struct TestGrouping<
     CPHQ: CheckpointHistoryQueueEmitterAsyncImm,
     CPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     CPWQ: WorkerEventTransmitterAsyncImm,
-    CPJTS: QProvingTaskStore + Send + Sync,
+    CPTS: QProvingTaskStore + Send + Sync,
     RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
     RDQ: CheckpointDrainQueueEmitterAsyncImm,
     RPS: QProofStoreAsyncImm,
@@ -112,14 +112,14 @@ struct TestGrouping<
     RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
     RPWQ: WorkerEventTransmitterAsyncImm,
     RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
-    RPJTS: QProvingTaskStore + Send + Sync,
+    RPTS: QProvingTaskStore + Send + Sync,
 > {
     coord_circuits: QEDCoordinatorCircuitManager<C, D>,
     coord_edge: CoordinatorEdgeContext<CSR, CDQ, CPS>,
-    coord_proc: CoordinatorProcessorContext<CPSR, CPDQ, CPHQ, CPWQ, CPPS, CPJTS>,
+    coord_proc: CoordinatorProcessorContext<CPSR, CPDQ, CPHQ, CPWQ, CPPS, CPTS>,
 
     realm_edge: RealmEdgeContext<RSR, RDQ, RPS>,
-    realm_proc: RealmProcessorContext<RPSR, RPDQ, RPHQ, RPWQ, RPPS, RPJTS>,
+    realm_proc: RealmProcessorContext<RPSR, RPDQ, RPHQ, RPWQ, RPPS, RPTS>,
 
     coord_w_queue_store: ProofStoreFred,
     realm_w_queue_store: ProofStoreFred,
@@ -143,7 +143,7 @@ impl<
         CPHQ: CheckpointHistoryQueueEmitterAsyncImm,
         CPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
         CPWQ: WorkerEventTransmitterAsyncImm,
-        CPJTS: QProvingTaskStore + Send + Sync,
+        CPTS: QProvingTaskStore + Send + Sync,
         RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
         RDQ: CheckpointDrainQueueEmitterAsyncImm,
         RPS: QProofStoreAsyncImm,
@@ -156,7 +156,7 @@ impl<
         RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
         RPWQ: WorkerEventTransmitterAsyncImm,
         RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
-        RPJTS: QProvingTaskStore + Send + Sync,
+        RPTS: QProvingTaskStore + Send + Sync,
     >
     TestGrouping<
         CSR,
@@ -167,7 +167,7 @@ impl<
         CPHQ,
         CPPS,
         CPWQ,
-        CPJTS,
+        CPTS,
         RSR,
         RDQ,
         RPS,
@@ -176,7 +176,7 @@ impl<
         RPHQ,
         RPWQ,
         RPPS,
-        RPJTS,
+        RPTS,
     >
 {
     pub async fn deploy_contract(&mut self) -> anyhow::Result<SimpleTestContract<C, D>> {
@@ -308,7 +308,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("initialized store");
 
-    let job_task_store = Arc::new(
+    let task_store = Arc::new(
         QProvingTaskStoreImpl::new("redis://127.0.0.1/", 10)
             .await
             .expect("Failed to create JobTaskStore")
@@ -340,7 +340,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         qps.clone(),
         qps.clone(),
         qps.clone(),
-        job_task_store.clone(),
+        task_store.clone(),
         Arc::clone(&proof_verifier),
     )
     .await?;
@@ -396,7 +396,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         realm_qps.clone(),
         realm_qps.clone(),
         realm_qps.clone(),
-        job_task_store.clone(),
+        task_store.clone(),
         Arc::clone(&proof_verifier),
     )
     .await?;

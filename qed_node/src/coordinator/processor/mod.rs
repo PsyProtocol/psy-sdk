@@ -44,16 +44,16 @@ pub struct CoordinatorProcessNode<
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     ER: WorkerEventReceiverAsyncImm,
-    JTS: QProvingTaskStore,
+    TS: QProvingTaskStore,
 > {
-    pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, JTS>,
+    pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, TS>,
     pub journal_store: JL,
     pub edge_command_queue: Arc<HQ>,
     pub proof_store: PS,
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
-    pub job_task_store: Arc<QProvingTaskStoreImpl>,
+    pub task_store: Arc<QProvingTaskStoreImpl>,
 }
 
 impl<
@@ -64,18 +64,18 @@ impl<
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
-        JTS: QProvingTaskStore,
-    > CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER, JTS>
+        TS: QProvingTaskStore,
+    > CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER, TS>
 {
     pub fn new(
-        ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, JTS>,
+        ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, TS>,
         journal_store: JL,
         edge_command_queue: Arc<HQ>,
         proof_store: PS,
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
-        job_task_store: Arc<QProvingTaskStoreImpl>,
+        task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
         Self {
             ctx,
@@ -85,7 +85,7 @@ impl<
             event_receiver,
             proof_verifier,
             coordinator_worker_circuits,
-            job_task_store,
+            task_store,
         }
     }
 
@@ -189,8 +189,6 @@ impl
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
-        let job_task_store = task_store.clone();
-
         let coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
             Arc::new(qed_store.clone()),
@@ -198,7 +196,7 @@ impl
             qps.clone(),
             qps.clone(),
             qps.clone(),
-            job_task_store,
+            task_store.clone(),
             Arc::clone(&proof_verifier),
         )
         .await?;
