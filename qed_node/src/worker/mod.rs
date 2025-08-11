@@ -47,7 +47,7 @@ async fn run_scheduler_worker(
     store: impl QProofStoreReaderAsync + Send + Sync,
 ) -> anyhow::Result<()> {
     loop {
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
         let job = match job_receiver.get_next_job().await {
             Ok(job) => job,
             Err(e) => {
@@ -56,6 +56,8 @@ async fn run_scheduler_worker(
                 continue;
             }
         };
+        tokio::time::sleep(std::time::Duration::from_secs(40)).await;
+
         debug!("Received job, layer: {}", job.layer_id);
         let job_id = job.job_id;
         if !should_prove_job(job_id) {

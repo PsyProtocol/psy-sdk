@@ -297,6 +297,91 @@ impl JobTaskStoreImpl {
     }
 }
 
+impl JobTaskStoreImpl {
+    /// Validate that a specific job is currently being processed by a worker
+    /// Returns a detailed status of the validation
+    pub async fn validate_job_ownership(&self, job: &QJob) -> Result<JobValidationStatus> {
+        // Step 1: Check if the layer is the current layer
+        let current_layer = match self.peek_current_layer().await? {
+            Some(layer) => layer,
+            None => {
+                warn!("No active layer when validating job {}", job);
+                return Ok(JobValidationStatus::NoActiveLayer);
+            }
+        };
+
+        if current_layer != job.layer_id {
+            warn!(
+                "Job {} claims layer {} but current layer is {}",
+                job, job.layer_id, current_layer
+            );
+            return Ok(JobValidationStatus::WrongLayer {
+                expected: current_layer,
+                provided: job.layer_id,
+            });
+        }
+
+        // Step 2: Check if the specific message is hidden by trying to extend its visibility
+        // This will ONLY succeed if:
+        // - The message exists in the queue
+        // - The message is currently hidden (being processed)
+        let queue_id = self.layer_queue_id(&job.layer_id);
+
+        match self.rsmq.change_message_visibility(&queue_id, &job.msg_id, VISIBILITY_TIMEOUT).await {
+            Ok(_) => {
+                // Success! Message exists and is hidden
+                debug!(
+                    "Job {} validated: message {} is hidden and visibility extended",
+                    job, job.msg_id
+                );
+                Ok(JobValidationStatus::Valid)
+            }
+            Err(e) => {
+                // Failed - analyze the error to determine why
+                let error_str = e.to_string().to_lowercase();
+
+                if error_str.contains("not found") || error_str.contains("does not exist") {
+                    warn!(
+                        "Job {} validation failed: message {} not found in queue",
+                        job, job.msg_id
+                    );
+                    Ok(JobValidationStatus::MessageNotFound)
+                } else if error_str.contains("visible") || error_str.contains("not hidden") {
+                    warn!(
+                        "Job {} validation failed: message {} is visible (not being processed)",
+                        job, job.msg_id
+                    );
+                    Ok(JobValidationStatus::MessageNotHidden)
+                } else {
+                    // Unexpected error - propagate it
+                    error!("Unexpected error validating job {}: {}", job, e);
+                    Err(e)
+                }
+            }
+        }
+    }
+
+    /// Simplified validation that just returns true/false
+    pub async fn is_job_valid(&self, job: &QJob) -> Result<bool> {
+        match self.validate_job_ownership(job).await? {
+            JobValidationStatus::Valid => Ok(true),
+            _ => Ok(false),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum JobValidationStatus {
+    Valid,
+    NoActiveLayer,
+    WrongLayer {
+        expected: LayerId,
+        provided: LayerId
+    },
+    MessageNotFound,
+    MessageNotHidden,
+}
+
 #[async_trait]
 pub trait JobTaskStore {
     async fn save_task_topology_with_layers(&self, graph: Vec<JobsLayer>) -> Result<()>;
