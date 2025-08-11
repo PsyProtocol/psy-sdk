@@ -11,7 +11,7 @@ use plonky2::{
     },
 };
 use qed_common_circuit::{
-    builder::pad_circuit::pad_circuit_degree, circuits::traits::qstandard::{
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{
         QStandardCircuit,
         QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
     }, proof_minifier::pm_core::get_circuit_fingerprint_generic
@@ -93,7 +93,24 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
 
-        let commitment = worker_public_key;
+        let a_commitment = HashOutTarget {
+            elements: [
+                a_guta_gadget.proof_target.public_inputs[0],
+                a_guta_gadget.proof_target.public_inputs[1],
+                a_guta_gadget.proof_target.public_inputs[2],
+                a_guta_gadget.proof_target.public_inputs[3],
+            ]
+        };
+        let b_commitment = HashOutTarget {
+            elements: [
+                b_guta_gadget.proof_target.public_inputs[0],
+                b_guta_gadget.proof_target.public_inputs[1],
+                b_guta_gadget.proof_target.public_inputs[2],
+                b_guta_gadget.proof_target.public_inputs[3],
+            ]
+        };
+
+        let commitment = builder.hash_two_to_one::<C::Hasher>(a_commitment, b_commitment);
 
         let public_inputs_hash = nca_state_transition_gadget
             .new_guta_header
