@@ -69,7 +69,7 @@ pub struct CoordinatorEdgeHandler {
     proof_store: Arc<ProofStore>,
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
-    job_task_store: Arc<JobTaskStoreImpl>,
+    job_task_store: Arc<QProvingTaskStoreImpl>,
 }
 
 impl CoordinatorEdgeHandler {
@@ -81,7 +81,7 @@ impl CoordinatorEdgeHandler {
         let qed_store = QEDStore::from_backend(args.backend.to_backend()).await?;
         let store_reader = Arc::new(qed_store);
         let redis_pool = new_redis_async_pool(&args.redis_uri, args.redis_pool_size).await?;
-        let task_store = JobTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size).await?;
+        let task_store = QProvingTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size).await?;
         let qe_args = &args.queue_args;
 
         let proof_store = Arc::new(ProofStoreRedisAsync::new(
@@ -889,7 +889,7 @@ use super::rpc::CoordinatorEdgeRpcServer;
 use super::error::RpcError;
 use super::types::LatestCheckpointResponse;
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
-use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl, QJob};
+use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, QJob};
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {

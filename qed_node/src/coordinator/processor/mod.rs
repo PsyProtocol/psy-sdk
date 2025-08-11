@@ -30,7 +30,7 @@ use std::time::Duration;
 use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
-use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl};
+use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -44,7 +44,7 @@ pub struct CoordinatorProcessNode<
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     ER: WorkerEventReceiverAsyncImm,
-    JTS: JobTaskStore,
+    JTS: QProvingTaskStore,
 > {
     pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, JTS>,
     pub journal_store: JL,
@@ -53,7 +53,7 @@ pub struct CoordinatorProcessNode<
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
-    pub job_task_store: Arc<JobTaskStoreImpl>,
+    pub job_task_store: Arc<QProvingTaskStoreImpl>,
 }
 
 impl<
@@ -64,7 +64,7 @@ impl<
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
-        JTS: JobTaskStore,
+        JTS: QProvingTaskStore,
     > CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER, JTS>
 {
     pub fn new(
@@ -75,7 +75,7 @@ impl<
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
-        job_task_store: Arc<JobTaskStoreImpl>,
+        job_task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
         Self {
             ctx,
@@ -152,14 +152,14 @@ impl
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
-        JobTaskStoreImpl,
+        QProvingTaskStoreImpl,
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
         let bb8_pool =
             new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
         info!("🐶 redis pool initialized");
-        let task_store = Arc::new(JobTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
+        let task_store = Arc::new(QProvingTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
             .await?);
         let q = ProofStoreRedisAsync::new(
             bb8_pool,

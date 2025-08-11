@@ -5,7 +5,7 @@ use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use kvq::traits::KVQSerializable;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::job::id::{JobsTask, ProvingJobDataId};
+use qed_core::job::id::{QProvingTask, ProvingJobDataId};
 use redis::{AsyncCommands, RedisResult};
 use tracing::debug;
 

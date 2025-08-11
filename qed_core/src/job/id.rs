@@ -414,12 +414,12 @@ pub struct JobsLayer {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct JobsTask {
+pub struct QProvingTask {
     pub task_id: TaskId,
     pub job_ids: Vec<QProvingJobDataID>,
 }
 
-impl JobsTask {
+impl QProvingTask {
     pub fn new(job_ids: &[QProvingJobDataID]) -> Self {
         let task_id = TaskId::new_debug();
         Self {
@@ -545,13 +545,13 @@ pub struct JobProof {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JobsTaskGraph {
-    pub tasks: IndexMap<TaskId, JobsTask>,
+pub struct QProvingTaskGraph {
+    pub tasks: IndexMap<TaskId, QProvingTask>,
     pub dependencies: IndexMap<TaskId, IndexSet<TaskId>>,
     pub dependents: IndexMap<TaskId, IndexSet<TaskId>>,
 }
 
-impl JobsTaskGraph {
+impl QProvingTaskGraph {
     pub fn new() -> Self {
         Self {
             tasks: IndexMap::new(),
@@ -566,12 +566,12 @@ impl JobsTaskGraph {
         self.dependents.clear();
     }
 
-    pub fn add_task(&mut self, task: JobsTask) {
+    pub fn add_task(&mut self, task: QProvingTask) {
         let task_id = task.task_id();
         self.tasks.insert(task_id, task);
     }
 
-    pub fn add_dep(&mut self, task: JobsTask, dep_task: JobsTask) {
+    pub fn add_dep(&mut self, task: QProvingTask, dep_task: QProvingTask) {
         self.dependencies
             .entry(task.task_id())
             .or_default()
@@ -679,7 +679,7 @@ impl JobsTaskGraph {
         }
     }
 
-    pub fn get_task(&self, task_id: TaskId) -> Option<&JobsTask> {
+    pub fn get_task(&self, task_id: TaskId) -> Option<&QProvingTask> {
         self.tasks.get(&task_id)
     }
 
@@ -1549,9 +1549,9 @@ mod tests {
 
     #[test]
     fn test_jobs_task_graph_topological_sort() {
-        let mut graph = JobsTaskGraph::new();
+        let mut graph = QProvingTaskGraph::new();
 
-        let task1 = JobsTask {
+        let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![QProvingJobDataID::new_proof_job_id(
                 1,
@@ -1561,7 +1561,7 @@ mod tests {
                 0,
             )],
         };
-        let task2 = JobsTask {
+        let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![QProvingJobDataID::new_proof_job_id(
                 1,
@@ -1571,7 +1571,7 @@ mod tests {
                 0,
             )],
         };
-        let task3 = JobsTask {
+        let task3 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![QProvingJobDataID::new_proof_job_id(
                 1,
@@ -1599,7 +1599,7 @@ mod tests {
     fn test_job_proof_verification() {
         use plonky2::field::goldilocks_field::GoldilocksField;
 
-        let graph = JobsTaskGraph::new();
+        let graph = QProvingTaskGraph::new();
 
         let job_id =
             QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 0, 0);
@@ -1653,13 +1653,13 @@ mod tests {
     #[test]
     #[should_panic(expected = "cycle detected")]
     fn test_cycle_detection() {
-        let mut graph = JobsTaskGraph::new();
+        let mut graph = QProvingTaskGraph::new();
 
-        let task1 = JobsTask {
+        let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task2 = JobsTask {
+        let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
@@ -1676,7 +1676,7 @@ mod tests {
         // We test that the graph correctly handles the odd 5th node (Job4)
         // which gets promoted to a higher level in the tree
 
-        let mut graph = JobsTaskGraph::new();
+        let mut graph = QProvingTaskGraph::new();
 
         let leaf_jobs: Vec<QProvingJobDataID> = (0..5)
             .map(|i| {
@@ -1685,7 +1685,7 @@ mod tests {
             .collect();
 
         // Create the leaf task with all 5 jobs
-        let task0 = JobsTask::new(&leaf_jobs);
+        let task0 = QProvingTask::new(&leaf_jobs);
         graph.add_task(task0.clone());
 
         // Parent layer: Jobs 0+1 and 2+3 combine
@@ -1694,19 +1694,19 @@ mod tests {
             QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 1, 1, 0),
         ];
 
-        let task1 = JobsTask::new(&parent_jobs);
+        let task1 = QProvingTask::new(&parent_jobs);
         graph.add_dep(task1.clone(), task0.clone());
 
         // Combine parent_jobs[0] and parent_jobs[1]
         let root_job =
             QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 2, 0, 0);
-        let task2 = JobsTask::new(&[root_job]);
+        let task2 = QProvingTask::new(&[root_job]);
         graph.add_dep(task2.clone(), task1.clone());
 
         // Final root: combine root_job with Job4 (the odd leaf)
         let final_root_job =
             QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 3, 0, 0);
-        let task3 = JobsTask::new(&[final_root_job]);
+        let task3 = QProvingTask::new(&[final_root_job]);
         graph.add_dep(task3.clone(), task2.clone());
         graph.add_dep(task3.clone(), task0.clone()); // Direct dependency on leaf task for Job4
 
@@ -1753,13 +1753,13 @@ mod tests {
 
     #[test]
     fn test_get_task_levels_simple() {
-        let mut graph = JobsTaskGraph::new();
+        let mut graph = QProvingTaskGraph::new();
 
-        let task1 = JobsTask {
+        let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task2 = JobsTask {
+        let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
@@ -1776,17 +1776,17 @@ mod tests {
 
     #[test]
     fn test_get_task_levels_parallel() {
-        let mut graph = JobsTaskGraph::new();
+        let mut graph = QProvingTaskGraph::new();
 
-        let task1 = JobsTask {
+        let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task2 = JobsTask {
+        let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task3 = JobsTask {
+        let task3 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
@@ -1805,21 +1805,21 @@ mod tests {
 
     #[test]
     fn test_get_task_levels_diamond() {
-        let mut graph = JobsTaskGraph::new();
+        let mut graph = QProvingTaskGraph::new();
 
-        let task1 = JobsTask {
+        let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task2 = JobsTask {
+        let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task3 = JobsTask {
+        let task3 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task4 = JobsTask {
+        let task4 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
@@ -1842,25 +1842,25 @@ mod tests {
 
     #[test]
     fn test_get_task_levels_complex() {
-        let mut graph = JobsTaskGraph::new();
+        let mut graph = QProvingTaskGraph::new();
 
-        let task1 = JobsTask {
+        let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task2 = JobsTask {
+        let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task3 = JobsTask {
+        let task3 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task4 = JobsTask {
+        let task4 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task5 = JobsTask {
+        let task5 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
@@ -1885,28 +1885,28 @@ mod tests {
 
     #[test]
     fn test_get_task_levels_empty() {
-        let graph = JobsTaskGraph::new();
+        let graph = QProvingTaskGraph::new();
         let levels = graph.get_task_levels();
         assert_eq!(levels.len(), 0);
     }
 
     #[test]
     fn test_get_task_levels_odd_leaves() {
-        let mut graph = JobsTaskGraph::new();
+        let mut graph = QProvingTaskGraph::new();
 
-        let task1 = JobsTask {
+        let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task2 = JobsTask {
+        let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task3 = JobsTask {
+        let task3 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
-        let task4 = JobsTask {
+        let task4 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
@@ -1927,9 +1927,9 @@ mod tests {
 
     #[test]
     fn test_get_task_levels_single_task() {
-        let mut graph = JobsTaskGraph::new();
+        let mut graph = QProvingTaskGraph::new();
 
-        let task = JobsTask {
+        let task = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
         };
@@ -1947,7 +1947,7 @@ mod tests {
         // Generate batch proof data for QED testing
         use crate::job::traits::QDummyProofStore;
 
-        let mut graph = JobsTaskGraph::new();
+        let mut graph = QProvingTaskGraph::new();
 
         // Create 3 different jobs with different values for variety
         let job_ids = vec![
@@ -1957,7 +1957,7 @@ mod tests {
         ];
 
         // Create tasks
-        let task0 = JobsTask::new(&job_ids);
+        let task0 = QProvingTask::new(&job_ids);
         graph.add_task(task0.clone());
 
         // Use QDummyProofStore which generates deterministic hashes

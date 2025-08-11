@@ -38,7 +38,7 @@ use std::time::Duration;
 use jsonrpsee::types::{ErrorCode, ErrorObject};
 use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
-use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl, QJob};
+use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, QJob};
 
 #[derive(Clone)]
 pub struct RealmEdgeHandler<
@@ -48,7 +48,7 @@ pub struct RealmEdgeHandler<
 > {
     ctx: RealmEdgeContext<SR, DQ, PS>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
-    job_task_store: Arc<JobTaskStoreImpl>,
+    job_task_store: Arc<QProvingTaskStoreImpl>,
 
 }
 
@@ -61,7 +61,7 @@ where
     pub fn new(
         ctx: RealmEdgeContext<SR, DQ, PS>,
         job_notify_queue: Arc<ProofStoreRedisAsync>,
-        job_task_store: Arc<JobTaskStoreImpl>,
+        job_task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
         Self {
             ctx,

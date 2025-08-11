@@ -13,7 +13,7 @@ use qed_core::{
     job::{
         drain_queue::CheckpointDrainQueueConsumerAsyncImm,
         history_queue::CheckpointHistoryQueueConsumerAsyncImm,
-        id::{JobsTask, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+        id::{QProvingTask, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
@@ -41,7 +41,7 @@ use qed_data::{
 use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
 use qed_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-    queue::task_queue::JobTaskStore,
+    queue::task_queue::QProvingTaskStore,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -104,7 +104,7 @@ pub struct RealmProcessorContext<
     HQ: CheckpointHistoryQueueConsumerAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
-    JTS: JobTaskStore,
+    JTS: QProvingTaskStore,
 > {
     pub store: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
@@ -126,7 +126,7 @@ impl<
         HQ: CheckpointHistoryQueueConsumerAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
-        JTS: JobTaskStore,
+        JTS: QProvingTaskStore,
     > RealmProcessorContext<SR, DQ, HQ, WQ, PS, JTS>
 {
     pub async fn new(
@@ -179,7 +179,7 @@ impl<
 
         Ok(())
     }
-    pub async fn handle_guta_state_updates_from_realms(
+    pub async fn handle_guta_state_updates_from_users(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<()> {
@@ -197,7 +197,7 @@ impl<
         Ok(())
     }
 
-    pub async fn handle_guta_from_realms_ensure_no_topline(
+    pub async fn handle_guta_from_users_ensure_no_topline(
         &self,
         checkpoint_id: u64,
         pending_register_users: &[MerkleProofCore<QHashOut<F>>],
@@ -206,8 +206,9 @@ impl<
         GlobalUserTreeAggregatorHeader<F>,
         DeltaMerkleProofCore<QHashOut<F>>,
     )> {
-        self.handle_guta_state_updates_from_realms(checkpoint_id).await?;
-        let (jobs, guta, proof) = self.handle_guta_from_realms(checkpoint_id).await?;
+        self.handle_guta_state_updates_from_users(checkpoint_id).await?;
+
+        let (jobs, guta, proof) = self.handle_guta_from_users(checkpoint_id).await?;
         eprintln!("DEBUGPRINT[513]: processor.rs:212: guta={}", serde_json::to_string_pretty(&guta).unwrap());
         eprintln!("DEBUGPRINT[513]: processor.rs:212: guta_hash={}", serde_json::to_string_pretty(&guta.qfhash::<QEDHasher>()).unwrap());
         eprintln!("DEBUGPRINT[512]: processor.rs:212: jobs={}", serde_json::to_string_pretty(&jobs).unwrap());
@@ -448,7 +449,7 @@ impl<
         }
     }
 
-    pub async fn handle_guta_from_realms(
+    pub async fn handle_guta_from_users(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<(
@@ -593,7 +594,7 @@ impl<
 
         let res = self
             .store
-            .injest_user_tree_nodes_imm(checkpoint_id,COORDINATOR_USER_TREE_HEIGHT, &mnu)
+            .injest_user_tree_nodes_imm(checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, &mnu)
             .await?;
         eprintln!("DEBUGPRINT[700]: processor.rs:590: res={}", serde_json::to_string_pretty(&res).unwrap());
 
@@ -749,6 +750,7 @@ impl<
 
         Ok((levels, guta, res.link_proof))
     }
+
     pub async fn build_block(&mut self) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("realm STARTED new block");
@@ -767,7 +769,7 @@ impl<
         };
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
-        let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_realms_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
+        let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
         println!("guta_jobs: {:?}",guta_jobs);
         let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
         let res = GUTARealmCheckpointResult{
@@ -780,8 +782,8 @@ impl<
 
         self.proof_store.set_bytes_by_id(finished_job, &bincode::serialize(&res).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
 
-        let guta_tasks = guta_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
-        let finished_job_task = JobsTask::new(&[finished_job]);
+        let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
+        let finished_job_task = QProvingTask::new(&[finished_job]);
         self.job_task_store.write_multidimensional_job_tasks(&guta_tasks, &finished_job_task).await?;
 
         // self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;

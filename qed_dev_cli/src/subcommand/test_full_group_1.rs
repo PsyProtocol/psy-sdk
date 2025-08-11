@@ -49,7 +49,7 @@ use qed_store::{controllers::local::{
     },
     node::coordinator::QEDCoordinatorStoreReaderAsync,
     queue::ProofStoreFred,
-    queue::task_queue::{JobTaskStore, JobTaskStoreImpl},
+    queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
 };
 
 use super::super::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
@@ -93,7 +93,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("initialized store");
 
     let job_task_store = Arc::new(
-        JobTaskStoreImpl::new("redis://127.0.0.1/", 10)
+        QProvingTaskStoreImpl::new("redis://127.0.0.1/", 10)
             .await
             .expect("Failed to create JobTaskStore")
     );

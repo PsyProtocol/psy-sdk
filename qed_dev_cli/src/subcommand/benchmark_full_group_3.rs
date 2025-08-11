@@ -75,7 +75,7 @@ use qed_store::{
         realm::QEDRealmStoreReaderAsync,
     },
     queue::ProofStoreFred,
-    queue::task_queue::{JobTaskStore, JobTaskStoreImpl},
+    queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
 };
 
 use std::time::Duration;
@@ -99,7 +99,7 @@ struct TestGrouping<
     CPHQ: CheckpointHistoryQueueEmitterAsyncImm,
     CPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     CPWQ: WorkerEventTransmitterAsyncImm,
-    CPJTS: JobTaskStore + Send + Sync,
+    CPJTS: QProvingTaskStore + Send + Sync,
     RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
     RDQ: CheckpointDrainQueueEmitterAsyncImm,
     RPS: QProofStoreAsyncImm,
@@ -112,7 +112,7 @@ struct TestGrouping<
     RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
     RPWQ: WorkerEventTransmitterAsyncImm,
     RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
-    RPJTS: JobTaskStore + Send + Sync,
+    RPJTS: QProvingTaskStore + Send + Sync,
 > {
     coord_circuits: QEDCoordinatorCircuitManager<C, D>,
     coord_edge: CoordinatorEdgeContext<CSR, CDQ, CPS>,
@@ -143,7 +143,7 @@ impl<
         CPHQ: CheckpointHistoryQueueEmitterAsyncImm,
         CPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
         CPWQ: WorkerEventTransmitterAsyncImm,
-        CPJTS: JobTaskStore + Send + Sync,
+        CPJTS: QProvingTaskStore + Send + Sync,
         RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
         RDQ: CheckpointDrainQueueEmitterAsyncImm,
         RPS: QProofStoreAsyncImm,
@@ -156,7 +156,7 @@ impl<
         RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
         RPWQ: WorkerEventTransmitterAsyncImm,
         RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
-        RPJTS: JobTaskStore + Send + Sync,
+        RPJTS: QProvingTaskStore + Send + Sync,
     >
     TestGrouping<
         CSR,
@@ -309,7 +309,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("initialized store");
 
     let job_task_store = Arc::new(
-        JobTaskStoreImpl::new("redis://127.0.0.1/", 10)
+        QProvingTaskStoreImpl::new("redis://127.0.0.1/", 10)
             .await
             .expect("Failed to create JobTaskStore")
     );

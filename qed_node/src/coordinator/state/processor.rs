@@ -14,7 +14,7 @@ use qed_core::{
     job::{
         drain_queue::{CheckpointDrainQueueConsumerAsyncImm, WithDrainQueueMetadata},
         history_queue::CheckpointHistoryQueueEmitterAsyncImm,
-        id::{JobsTask, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+        id::{QProvingTask, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
@@ -66,7 +66,7 @@ use qed_store::{
     node::coordinator::{
         QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
     },
-    queue::task_queue::JobTaskStore,
+    queue::task_queue::QProvingTaskStore,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -142,7 +142,7 @@ pub struct CoordinatorProcessorContext<
     HQ: CheckpointHistoryQueueEmitterAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
-    JTS: JobTaskStore,
+    JTS: QProvingTaskStore,
 > {
     pub store: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
@@ -160,7 +160,7 @@ impl<
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm + Sync,
-        JTS: JobTaskStore + Sync
+        JTS: QProvingTaskStore + Sync
     > CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, JTS>
 {
     pub async fn new(
@@ -824,8 +824,8 @@ impl<
         let root_state_transition =
             QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id);
 
-        let root_state_transition_task = JobsTask::new(&[root_state_transition]);
-        let notify_block_complete_task = JobsTask::new(&[notify_block_complete]);
+        let root_state_transition_task = QProvingTask::new(&[root_state_transition]);
+        let notify_block_complete_task = QProvingTask::new(&[notify_block_complete]);
         self.job_task_store
             .write_next_job_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
@@ -849,8 +849,8 @@ impl<
             QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id);
         //let state_part_2_id =QProvingJobDataID::block_agg_state_part_2_input_witness(new_checkpoint_id);
 
-        let state_part_1_task = JobsTask::new(&[state_part_1_id]);
-        let state_part_1_common_task = JobsTask::new(&[state_part_1_common_id]);
+        let state_part_1_task = QProvingTask::new(&[state_part_1_id]);
+        let state_part_1_common_task = QProvingTask::new(&[state_part_1_common_id]);
         self.job_task_store
             .write_next_job_tasks(&state_part_1_common_task, &root_state_transition_task)
             .await?;
@@ -879,9 +879,9 @@ impl<
             2,
         );
 
-        let register_users_agg_task = JobsTask::new(&[register_users_agg_job_id]);
-        let deploy_contracts_agg_task = JobsTask::new(&[deploy_contracts_agg_job_id]);
-        let guta_agg_task = JobsTask::new(&[guta_agg_job_id]);
+        let register_users_agg_task = QProvingTask::new(&[register_users_agg_job_id]);
+        let deploy_contracts_agg_task = QProvingTask::new(&[deploy_contracts_agg_job_id]);
+        let guta_agg_task = QProvingTask::new(&[guta_agg_job_id]);
         self.job_task_store.write_next_job_tasks(&register_users_agg_task, &state_part_1_task).await?;
         self.job_task_store
             .write_next_job_tasks(&deploy_contracts_agg_task, &state_part_1_task)
@@ -890,9 +890,9 @@ impl<
             .write_next_job_tasks(&guta_agg_task, &state_part_1_task)
             .await?;
 
-        let user_registration_tasks = user_registration_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
-        let deploy_contracts_tasks = deploy_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
-        let guta_tasks = guta_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
+        let user_registration_tasks = user_registration_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
+        let deploy_contracts_tasks = deploy_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
+        let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         self.job_task_store.write_multidimensional_job_tasks(&user_registration_tasks, &register_users_agg_task).await?;
         self.job_task_store.write_multidimensional_job_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
         self.job_task_store.write_multidimensional_job_tasks(&guta_tasks, &guta_agg_task).await?;

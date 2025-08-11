@@ -20,7 +20,7 @@ use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_prover::{local::provider::ProveProxyRpcTrait, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
-use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::ProofStoreFred, queue::task_queue::{JobTaskStore, JobTaskStoreImpl}};
+use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::ProofStoreFred, queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl}};
 use super::super::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
 use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use std::time::Duration;
@@ -76,7 +76,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("initialized store");
 
     let job_task_store = Arc::new(
-        JobTaskStoreImpl::new("redis://127.0.0.1/", 10)
+        QProvingTaskStoreImpl::new("redis://127.0.0.1/", 10)
             .await
             .expect("Failed to create JobTaskStore")
     );

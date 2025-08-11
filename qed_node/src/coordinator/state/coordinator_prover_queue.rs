@@ -20,7 +20,7 @@ use qed_store::{
     node::coordinator::{
         QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
     },
-    queue::task_queue::JobTaskStore,
+    queue::task_queue::QProvingTaskStore,
 };
 
 use super::processor::CoordinatorProcessorContext;
@@ -34,7 +34,7 @@ impl<
         WQ: WorkerEventTransmitterAsyncImm,
 
         PS: QProofStoreAsyncImm,
-        JTS: JobTaskStore,
+        JTS: QProvingTaskStore,
     > CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, JTS>
 {
     pub fn push_user_registration_request(

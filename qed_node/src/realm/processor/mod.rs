@@ -12,7 +12,7 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::new_redis_async_pool;
-use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl};
+use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
 use qed_store::store::QEDStore;
@@ -27,7 +27,7 @@ type ConcreteRealmProcessorContext = RealmProcessorContext<
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
-    JobTaskStoreImpl,
+    QProvingTaskStoreImpl,
 >;
 
 pub struct RealmProcessor {
@@ -36,7 +36,7 @@ pub struct RealmProcessor {
     pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
     pub store: Arc<JournalStore<QEDStore>>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub job_task_store: Arc<JobTaskStoreImpl>,
+    pub job_task_store: Arc<QProvingTaskStoreImpl>,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
@@ -52,7 +52,7 @@ impl RealmProcessor {
             config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10)
         ).await?;
-        let task_store = JobTaskStoreImpl::new(
+        let task_store = QProvingTaskStoreImpl::new(
             &config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10),
         )
@@ -90,7 +90,7 @@ impl RealmProcessor {
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
-            JobTaskStoreImpl,
+            QProvingTaskStoreImpl,
         >::new(
             self.realm_config,
             st.clone(),
