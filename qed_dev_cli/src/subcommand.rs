@@ -13,6 +13,7 @@ pub mod register_user;
 pub mod get_user_id_from_registration_id;
 pub mod generate;
 pub mod launch;
+pub mod get_job_proof;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -69,6 +70,9 @@ pub enum Commands {
     
     #[command(about = "Launch QED network for development (inspired by polkadot-launch)")]
     Launch(LaunchArgs),
+    
+    #[command(about = "Get job proof for reward claiming")]
+    GetJobProof(GetJobProofArgs),
 }
 
 #[derive(Parser)]
@@ -230,4 +234,19 @@ pub struct LaunchArgs {
     
     #[arg(long, short = 'v', help = "Verbose output")]
     pub verbose: bool,
+}
+
+#[derive(Parser)]
+pub struct GetJobProofArgs {
+    #[arg(long, help = "Checkpoint ID")]
+    pub checkpoint_id: u64,
+    
+    #[arg(long, help = "Job ID in hex format")]
+    pub job_id: String,
+    
+    #[arg(long, default_value = "http://localhost:5551", help = "Coordinator edge RPC URL")]
+    pub coordinator_url: String,
+    
+    #[arg(long, help = "Realm edge RPC URL (optional, will be determined from job ID if not provided)")]
+    pub realm_url: Option<String>,
 }

@@ -1123,6 +1123,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             IntrinsicExprNode::Hash { data, .. } => {
                 Ok(format!("hash({})", self.visit_expr(data, ctx)?,))
             }
+            IntrinsicExprNode::HashTwoToOne { left, right, .. } => {
+                Ok(format!("hash_two_to_one({}, {})", self.visit_expr(left, ctx)?, self.visit_expr(right, ctx)?))
+            }
             IntrinsicExprNode::InvokeSync {
                 contract_id,
                 method_id,

@@ -93,6 +93,11 @@ pub enum IntrinsicExprNode {
         data: ExprId,
         location: Location,
     },
+    HashTwoToOne {
+        left: ExprId,
+        right: ExprId,
+        location: Location,
+    },
     InvokeSync {
         contract_id: ExprId,
         method_id: ExprId,

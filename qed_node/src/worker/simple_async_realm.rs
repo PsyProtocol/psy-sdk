@@ -107,8 +107,7 @@ impl SimpleAsyncRealmWorker {
         ));
 
         tracing::info!(?job_id, "job started");
-        if job_id.circuit_type == ProvingJobCircuitType::NotifyRealmComplete {
-            tracing::info!("Found NotifyRealmComplete");
+        if job_id.is_notify_complete() {
             event_receiver
                 .notify_core_goal_completed_imm(job_id)
                 .await?;
@@ -132,14 +131,6 @@ impl SimpleAsyncRealmWorker {
                     output_id
                 }
             };
-            //let duration = start_time.elapsed().as_millis() as u64;
-            //event_receiver.record_job_bench(job_id, duration)?;
-        }
-        if job_id.topic == QJobTopic::NotifyOrchestratorComplete {
-            event_receiver
-                .notify_core_goal_completed_imm(job_id)
-                .await?;
-            return Ok(job_id);
         }
 
         let goal_counter = store.get_goal_by_job_id(job_id).await?;

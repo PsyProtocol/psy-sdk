@@ -10,17 +10,16 @@ use jsonrpsee::http_client::{HeaderMap, HeaderValue};
 use jsonrpsee::rpc_params;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{field::types::PrimeField64, plonk::proof::ProofWithPublicInputs};
+use plonky2::field::types::Field;
 use qed_core::config::network_constants::REALM_PROOF_SYNC_CHANNEL;
 use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
 use qed_core::job::id::ProvingJobDataId;
+use qed_core::data::qhashout::QHashOut;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
-use qed_core::{
-    data::qhashout::QHashOut,
-    job::{
-        drain_queue::CheckpointDrainQueueEmitterAsyncImm,
-        id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, JobProof},
-        traits::QProofStoreAsyncImm,
-    },
+use qed_core::job::{
+    drain_queue::CheckpointDrainQueueEmitterAsyncImm,
+    id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, JobProof},
+    traits::QProofStoreAsyncImm,
 };
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::config::store_config::QEDFelt;
@@ -612,26 +611,94 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_job_proof(
+
+    async fn generate_batch_proofs(
         &self,
         checkpoint_id: u64,
-        job_id: QProvingJobDataID,
-    ) -> RpcResult<JobProof> {
+        job_ids: Vec<QProvingJobDataID>,
+    ) -> RpcResult<Vec<JobProof>> {
         use jsonrpsee::types::ErrorObject;
-        
-        if job_id.goal_id != checkpoint_id {
-            return Err(ErrorObject::owned(
-                jsonrpsee::types::ErrorCode::InvalidParams.code(),
-                "Job ID does not belong to the specified checkpoint",
-                None::<()>,
-            ));
+
+        // Validate all job IDs belong to the checkpoint
+        for job_id in &job_ids {
+            if job_id.goal_id != checkpoint_id {
+                return Err(ErrorObject::owned(
+                    jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                    format!("Job ID {:?} does not belong to checkpoint {}", job_id, checkpoint_id),
+                    None::<()>,
+                ));
+            }
         }
-        
-        Err(ErrorObject::owned(
-            jsonrpsee::types::ErrorCode::InternalError.code(),
-            "get_job_proof not yet fully implemented",
-            None::<()>,
-        ))
+
+        // Get checkpoint data to access the PMRewardCommitment
+        let checkpoint_leaf = self.ctx.store_reader
+            .get_checkpoint_leaf_data(checkpoint_id)
+            .await
+            .map_err(|e| ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InternalError.code(),
+                format!("Failed to get checkpoint data: {}", e),
+                None::<()>,
+            ))?;
+
+        // Load the saved JobsTaskGraph for this checkpoint
+        let graph = self.job_task_store
+            .load_job_dependency_graph(checkpoint_id)
+            .await
+            .map_err(|e| ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InternalError.code(),
+                format!("Failed to load job dependency graph for checkpoint {}: {}", checkpoint_id, e),
+                None::<()>,
+            ))?;
+
+        // Generate proofs for each requested job
+        let mut proofs = Vec::new();
+
+        for job_id in job_ids {
+            // Determine expected root based on job type
+            let expected_root = match job_id.circuit_type {
+                ProvingJobCircuitType::GUTARegisterUsers | ProvingJobCircuitType::GUTAOnlyRegisterUsers => {
+                    checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
+                }
+                ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange => {
+                    checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
+                }
+                ProvingJobCircuitType::BatchDeployContracts => {
+                    checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
+                }
+                _ => {
+                    return Err(ErrorObject::owned(
+                        jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                        format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
+                        None::<()>,
+                    ));
+                }
+            };
+
+            // Generate the merkle proof using the loaded JobsTaskGraph
+            match graph.generate_proof(job_id, &*self.ctx.proof_store).await {
+                Ok(job_proof) => {
+                    // Verify the proof root matches the expected commitment root
+                    if job_proof.root != expected_root {
+                        tracing::warn!(
+                            "Root mismatch for job {:?}: expected {:?}, got {:?}",
+                            job_id, expected_root, job_proof.root
+                        );
+                    }
+
+                    proofs.push(job_proof);
+                }
+                Err(e) => {
+                    error!("Failed to generate proof for job {:?}: {}", job_id, e);
+                    return Err(ErrorObject::owned(
+                        jsonrpsee::types::ErrorCode::InternalError.code(),
+                        format!("Failed to generate proof for job {:?}: {}", job_id, e),
+                        None::<()>,
+                    ));
+                }
+            }
+        }
+
+        Ok(proofs)
     }
 }
 
@@ -715,9 +782,7 @@ where
                 ));
             }
         }
-        if job_id.topic == QJobTopic::NotifyOrchestratorComplete
-            || job_id.circuit_type == ProvingJobCircuitType::NotifyRealmComplete
-        {
+        if job_id.is_notify_complete() {
             info!("Notifying core goal completed: {:?}", job_id);
             self.job_notify_queue
                 .notify_core_goal_completed_imm(job_id)

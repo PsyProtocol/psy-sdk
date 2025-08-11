@@ -114,6 +114,12 @@ pub enum CheckedIntrinsicExprNode {
         type_id: TypeId,
         location: Location,
     },
+    HashTwoToOne {
+        left: ExprId,
+        right: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
     InvokeSync {
         contract_id: ExprId,
         method_id: ExprId,

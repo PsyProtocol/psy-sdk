@@ -274,11 +274,12 @@ pub trait RealmEdgeRpc {
         .await
     }
 
-    /// Get job proof for a specific job in the current checkpoint
-    #[method(name = "get_job_proof")]
-    async fn get_job_proof(
+
+    /// Generate batch proofs for multiple jobs in a checkpoint
+    #[method(name = "generate_batch_proofs")]
+    async fn generate_batch_proofs(
         &self,
         checkpoint_id: u64,
-        job_id: QProvingJobDataID,
-    ) -> RpcResult<JobProof>;
+        job_ids: Vec<QProvingJobDataID>,
+    ) -> RpcResult<Vec<JobProof>>;
 }

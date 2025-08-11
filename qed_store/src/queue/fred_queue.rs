@@ -293,6 +293,35 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
             sleep(Duration::from_millis(500)).await;
         }
     }
+    
+    async fn wait_for_job_completion(&self, job_id: QProvingJobDataID) -> anyhow::Result<()> {
+        loop {
+            let job_res = self
+                .pool
+                .lpop::<Vec<u8>, _>(&self.notifications_queue_key(), None)
+                .await;
+            match job_res {
+                Ok(g) => {
+                    if g.len() == 24 {
+                        match QProvingJobDataID::try_from_byte_vec(&g) {
+                            Ok(notified_job) => {
+                                // Check if this is the specific job we're waiting for
+                                if notified_job == job_id {
+                                    return Ok(());
+                                }
+                            },
+                            Err(e1) => eprintln!("error deserializing job id in wait_for_job_completion: {:?}", e1),
+                        }
+                    }
+                }
+                Err(e2) => eprintln!(
+                    "error deserializing job id in wait_for_job_completion: {:?}",
+                    e2
+                ),
+            };
+            sleep(Duration::from_millis(500)).await;
+        }
+    }
 }
 
 #[async_trait]

@@ -362,6 +362,26 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 let values = self.resolve_targets(&op.inputs);
                 self.hashes.push(PoseidonHash::hash_no_pad(&values).elements);
             },
+            DPNOpType::HashTwoToOne => {
+                // Expecting 8 inputs: 4 for left hash, 4 for right hash
+                assert_eq!(op.inputs.len(), 8, "HashTwoToOne requires exactly 8 inputs");
+                let left = [
+                    self.resolve_target(op.inputs[0]),
+                    self.resolve_target(op.inputs[1]),
+                    self.resolve_target(op.inputs[2]),
+                    self.resolve_target(op.inputs[3]),
+                ];
+                let right = [
+                    self.resolve_target(op.inputs[4]),
+                    self.resolve_target(op.inputs[5]),
+                    self.resolve_target(op.inputs[6]),
+                    self.resolve_target(op.inputs[7]),
+                ];
+                let left_hash = plonky2::hash::hash_types::HashOut { elements: left };
+                let right_hash = plonky2::hash::hash_types::HashOut { elements: right };
+                let result = PoseidonHash::two_to_one(left_hash, right_hash);
+                self.hashes.push(result.elements);
+            },
             DPNOpType::HashPad => unimplemented!(),
             DPNOpType::Select => {
                 let condition = self.resolve_target(op.inputs[0]);

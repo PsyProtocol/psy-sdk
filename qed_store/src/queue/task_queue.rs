@@ -10,6 +10,7 @@ use std::time::Duration;
 use scylla::_macro_internal::SerializeRow;
 use tracing::{debug, error, info, trace, warn};
 use qed_core::job::id::{JobsLayer, JobsTask, JobsTaskGraph, QProvingJobDataID, TaskId};
+use tokio::sync::Mutex;
 use crate::queue::{new_redis_async_pool, QueueId, QueueStats, RsmqQueue};
 
 const TASK_COMMON_PREFIX: &str = "tasks:";
@@ -58,7 +59,7 @@ impl<T: Default> QJob<T> {
             msg_id: T::default(),
         }
     }
-    
+
     pub fn new_with_parent(job_id: QProvingJobDataID, task_id: TaskId, parent: QProvingJobDataID) -> Self {
         Self {
             job_id,
@@ -102,6 +103,7 @@ impl std::fmt::Display for QJob {
 pub struct JobTaskStoreImpl {
     redis_pool: Arc<Pool<RedisConnectionManager>>,
     rsmq: Arc<RsmqQueue>,
+    pub task_graph: Arc<Mutex<JobsTaskGraph>>,
 }
 
 impl JobTaskStoreImpl {
@@ -114,9 +116,8 @@ impl JobTaskStoreImpl {
                 .context("Failed to create Redis pool")?
         );
 
-        // Use the unified RsmqQueue instead of RsmqTaskQueue
         let rsmq = Arc::new(
-            RsmqQueue::new(redis_url, pool_size, "job_task_store") //no
+            RsmqQueue::new(redis_url, pool_size, "job_task_store")
                 .await
                 .context("Failed to create RSMQ queue")?
         );
@@ -124,6 +125,7 @@ impl JobTaskStoreImpl {
         Ok(Self {
             redis_pool,
             rsmq,
+            task_graph: Arc::new(Mutex::new(JobsTaskGraph::new())),
         })
     }
 
@@ -347,6 +349,13 @@ pub trait JobTaskStore {
     async fn acknowledge_job_completion(&self, job: &QJob) -> Result<()>;
     async fn get_current_layer_info(&self) -> Result<Option<TaskLayer>>;
     async fn count_pending_jobs_in_current_layer(&self) -> Result<u64>;
+    
+    // Task graph management methods
+    async fn write_next_job_tasks(&self, task: &JobsTask, next_task: &JobsTask) -> Result<()>;
+    async fn write_multidimensional_job_tasks(&self, tasks: &[JobsTask], next_task: &JobsTask) -> Result<()>;
+    async fn get_task_graph(&self) -> JobsTaskGraph;
+    async fn clear_task_graph(&self) -> Result<()>;
+    async fn finalize_and_save_topology(&self) -> Result<()>;
 
     // Legacy operations (kept for compatibility)
     async fn save_job_dependency_graph(&self, graph: &JobsTaskGraph, checkpoint_id: u64) -> Result<()> ;
@@ -508,6 +517,45 @@ impl JobTaskStore for JobTaskStoreImpl {
 
         bincode::deserialize::<JobsTaskGraph>(&graph_bytes)
             .context("Failed to deserialize job graph")
+    }
+    
+    async fn write_next_job_tasks(&self, task: &JobsTask, next_task: &JobsTask) -> Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        task_graph.add_dep(next_task.clone(), task.clone());
+        Ok(())
+    }
+    
+    async fn write_multidimensional_job_tasks(&self, tasks: &[JobsTask], next_task: &JobsTask) -> Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        let job_levels_count = tasks.len();
+        for i in 0..job_levels_count {
+            let current_next_task = if i == job_levels_count - 1 {
+                next_task
+            } else {
+                &tasks[i + 1]
+            };
+            let current_task = &tasks[i];
+            task_graph.add_dep(current_next_task.clone(), current_task.clone());
+        }
+        Ok(())
+    }
+    
+    async fn get_task_graph(&self) -> JobsTaskGraph {
+        let task_graph = self.task_graph.lock().await;
+        task_graph.clone()
+    }
+    
+    async fn clear_task_graph(&self) -> Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        task_graph.clear();
+        Ok(())
+    }
+    
+    async fn finalize_and_save_topology(&self) -> Result<()> {
+        let task_graph = self.task_graph.lock().await;
+        let layers = task_graph.ts_layers();
+        drop(task_graph); // Release the lock before calling save_task_topology_with_layers
+        self.save_task_topology_with_layers(layers).await
     }
 }
 

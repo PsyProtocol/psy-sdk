@@ -27,6 +27,7 @@ type ConcreteRealmProcessorContext = RealmProcessorContext<
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
+    JobTaskStoreImpl,
 >;
 
 pub struct RealmProcessor {
@@ -89,6 +90,7 @@ impl RealmProcessor {
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
+            JobTaskStoreImpl,
         >::new(
             self.realm_config,
             st.clone(),
@@ -96,6 +98,7 @@ impl RealmProcessor {
             realm_qps.clone(),
             realm_qps.clone(),
             realm_qps.clone(),
+            self.job_task_store.clone(),
             self.proof_verifier.clone(),
         )
         .await?;
@@ -212,28 +215,6 @@ impl RealmProcessor {
         }
     }
 
-    pub async fn build_block_inner(
-        &mut self,
-        context: &mut ConcreteRealmProcessorContext,
-        next_checkpoint_id: u64,
-    ) -> anyhow::Result<ProvingJobDataId> {
-        context.build_block().await?;
-        {
-            let mut task_graph = context.proof_store.task_graph.lock().await;
-            let sorted_tasks = task_graph.ts_layers();
-            self.job_task_store.save_task_topology_with_layers(sorted_tasks).await?;
-            task_graph.clear();
-        }
-        let realm_worker_output_job_id = self
-            .sync_proof
-            .wait_for_block_proving_jobs_imm(next_checkpoint_id)
-            .await?;
-        Ok(ProvingJobDataId::new(
-            next_checkpoint_id,
-            realm_worker_output_job_id,
-        ))
-    }
-
     pub async fn build_block(
         &mut self,
         context: &mut ConcreteRealmProcessorContext,
@@ -242,8 +223,19 @@ impl RealmProcessor {
         let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
         self.store.commit(local_latest_checkpoint_id)?;
-        match self.build_block_inner(context, next_checkpoint_id).await {
-            Ok(job_id) => Ok(job_id),
+        
+        match context.build_block().await {
+            Ok(_) => {
+                // Task graph is now handled inside context.build_block()
+                let realm_worker_output_job_id = self
+                    .sync_proof
+                    .wait_for_block_proving_jobs_imm(next_checkpoint_id)
+                    .await?;
+                Ok(ProvingJobDataId::new(
+                    next_checkpoint_id,
+                    realm_worker_output_job_id,
+                ))
+            }
             Err(err) => {
                 self.store.rollback(next_checkpoint_id)?;
                 Err(err)

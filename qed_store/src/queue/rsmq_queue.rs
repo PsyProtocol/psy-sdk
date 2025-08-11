@@ -17,8 +17,7 @@ use qed_core::job::history_queue::{
 };
 use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID, QWorkerJobBenchmark};
 use qed_core::job::worker_queue::{
-    WorkerEventReceiverAsyncImm, WorkerEventReceiverSync, WorkerEventTransmitterAsyncImm,
-    WorkerEventTransmitterSync,
+    WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm,
 };
 use rsmq::{
     PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqConnectionSync, RsmqError,
@@ -669,6 +668,30 @@ impl WorkerEventTransmitterAsyncImm for RsmqQueue {
             sleep(Duration::from_millis(500)).await;
         }
     }
+
+    async fn wait_for_job_completion(&self, job_id: QProvingJobDataID) -> anyhow::Result<()> {
+        let queue_id = QueueId::WorkerNotification {
+            notifications_queue_suffix: self.notifications_queue_key().clone(),
+        };
+        loop {
+            if let Some(bytes) = self.pop_message(&queue_id).await? {
+                if bytes.len() == 24 {
+                    match QProvingJobDataID::try_from_byte_vec(&bytes) {
+                        Ok(notified_job) => {
+                            if notified_job == job_id {
+                                return Ok(());
+                            }
+                        }
+                        Err(err) => error!(
+                            "error deserializing job id in wait_for_job_completion: {:?}",
+                            err
+                        ),
+                    }
+                }
+            }
+            sleep(Duration::from_millis(500)).await;
+        }
+    }
 }
 
 // Sync queue types from worker_queue_redis
@@ -781,125 +804,5 @@ impl RedisQueue {
             tracing::info!("🔧 RSMQ queue `{name}` created");
         }
         Ok(())
-    }
-}
-
-// Wrapper types from wq_mut.rs
-#[derive(Clone)]
-pub struct QEDArcImmutableEventProcessorWrapper<P> {
-    pub inner: Arc<RwLock<P>>,
-}
-
-impl<P> QEDArcImmutableEventProcessorWrapper<P> {
-    pub fn new(inner: P) -> Self {
-        Self {
-            inner: Arc::new(RwLock::new(inner)),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct QEDRedisEventProcessor {
-    pub job_queue: RedisQueue,
-    pub benckmarks_enabled: bool,
-    pub benchmarks: Vec<QWorkerJobBenchmark>,
-}
-
-impl QEDRedisEventProcessor {
-    pub fn new(dispatcher: RedisQueue) -> Self {
-        Self::new_with_config(dispatcher, false)
-    }
-
-    pub fn new_with_config(dispatcher: RedisQueue, benckmarks_enabled: bool) -> Self {
-        Self {
-            job_queue: dispatcher,
-            benckmarks_enabled,
-            benchmarks: Vec::new(),
-        }
-    }
-
-    pub fn to_imm(self) -> QEDArcImmutableEventProcessorWrapper<Self> {
-        QEDArcImmutableEventProcessorWrapper::new(self)
-    }
-}
-
-impl WorkerEventReceiverSync for QEDRedisEventProcessor {
-    fn wait_for_next_job_mut(&mut self) -> anyhow::Result<QProvingJobDataID> {
-        loop {
-            match self.job_queue.queue.pop_message::<Vec<u8>>(Q_JOB)? {
-                Some(RsmqMessage { message, .. }) => return Ok(serde_json::from_slice(&message)?),
-                None => {
-                    std::thread::sleep(Duration::from_millis(250));
-                    continue;
-                }
-            }
-        }
-    }
-
-    fn enqueue_jobs_mut(&mut self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
-        for job in jobs {
-            self.job_queue
-                .queue
-                .send_message(Q_JOB, serde_json::to_vec(&job)?, None)?;
-        }
-        Ok(())
-    }
-
-    fn notify_core_goal_completed_mut(&mut self, _job: QProvingJobDataID) -> anyhow::Result<()> {
-        self.job_queue.queue.send_message(
-            Q_NOTIFICATIONS,
-            serde_json::to_vec(&QueueNotification::CoreJobCompleted)?,
-            None,
-        )?;
-        Ok(())
-    }
-
-    fn record_job_bench_mut(
-        &mut self,
-        job: QProvingJobDataID,
-        duration: u64,
-    ) -> anyhow::Result<()> {
-        if self.benckmarks_enabled {
-            self.benchmarks.push(QWorkerJobBenchmark {
-                job_id: job.to_fixed_bytes(),
-                duration,
-            });
-        }
-        Ok(())
-    }
-}
-
-impl WorkerEventTransmitterSync for QEDRedisEventProcessor {
-    fn enqueue_jobs_mut(&mut self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
-        for job in jobs {
-            self.job_queue
-                .queue
-                .send_message(Q_JOB, serde_json::to_vec(&job)?, None)?;
-        }
-        Ok(())
-    }
-
-    fn wait_for_block_proving_jobs_mut(&mut self, _checkpoint_id: u64) -> anyhow::Result<bool> {
-        loop {
-            match self
-                .job_queue
-                .queue
-                .pop_message::<Vec<u8>>(Q_NOTIFICATIONS)?
-            {
-                Some(RsmqMessage { message, .. }) => {
-                    match serde_json::from_slice::<QueueNotification>(&message) {
-                        Ok(QueueNotification::CoreJobCompleted) => return Ok(true),
-                        Err(_) => {
-                            std::thread::sleep(Duration::from_millis(500));
-                            continue;
-                        }
-                    }
-                }
-                None => {
-                    std::thread::sleep(Duration::from_millis(500));
-                    continue;
-                }
-            }
-        }
     }
 }

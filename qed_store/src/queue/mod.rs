@@ -20,11 +20,7 @@ pub mod worker_queue_redis {
             Q_CMD, Q_JOB, Q_NOTIFICATIONS, CE_NOTIFICATIONS, Q_HIDDEN, Q_DELAY, Q_CAP
         };
     }
-    pub mod wq_mut {
-        pub use crate::queue::rsmq_queue::{
-            QEDArcImmutableEventProcessorWrapper, QEDRedisEventProcessor
-        };
-    }
+    // Legacy sync Redis types removed - use RsmqQueue for async operations
 }
 
 pub const PROOF_STORE_KEY_PREFIX_1: &'static str = "PSV1";

@@ -103,6 +103,7 @@ pub enum DPNOpType {
     U32Exp = 76,
 
     CheckSecpSign = 77,
+    HashTwoToOne = 78,
 }
 
 impl From<u16> for DPNOpType {
@@ -177,6 +178,7 @@ impl From<u16> for DPNOpType {
             75 => DPNOpType::U32Mod,
             76 => DPNOpType::U32Exp,
             77 => DPNOpType::CheckSecpSign,
+            78 => DPNOpType::HashTwoToOne,
             _ => panic!("Unknown DPNOpType: {}", value),
         }
     }
@@ -298,6 +300,7 @@ impl DPNOpType {
             DPNOpType::U32Mod => DPNBuiltInDataType::U32Target,
             DPNOpType::U32Exp => DPNBuiltInDataType::U32Target,
             DPNOpType::CheckSecpSign => DPNBuiltInDataType::Bool,
+            DPNOpType::HashTwoToOne => DPNBuiltInDataType::HashOut,
         }
     }
     pub fn is_inputless(&self) -> bool{
@@ -424,6 +427,7 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::U32Mod => "U32Mod",
             DPNOpType::U32Exp => "U32Exp",
             DPNOpType::CheckSecpSign => "CheckSecpSign",
+            DPNOpType::HashTwoToOne => "HashTwoToOne",
         };
         write!(f, "DPNOpType::{}", r)
     }

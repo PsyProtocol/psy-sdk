@@ -785,6 +785,15 @@ IntrinsicExpression: ExprNode<F> = {
             }
         )
     },
+    <l:@L> <variable:HashTwoToOne> "(" <left:Expression> "," <right:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::HashTwoToOne {
+                left: expr_nodes.alloc_item(left),
+                right: expr_nodes.alloc_item(right),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
     <l:@L> <variable:CTX_GET_USER_ID> "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
             IntrinsicExprNode::GetUserId {
@@ -1119,6 +1128,7 @@ extern {
         ASSERT => Token::IntrinsicAssert,
         ASSERT_EQ => Token::IntrinsicAssertEq,
         Hash => Token::IntrinsicHash,
+        HashTwoToOne => Token::IntrinsicHashTwoToOne,
         MEM_TRANSMUTE => Token::IntrinsicMemTransmute,
         MEM_SIZE_OF => Token::IntrinsicMemSizeOf,
         STORAGE_READ => Token::IntrinsicStorageRead,

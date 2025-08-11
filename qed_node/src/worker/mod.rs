@@ -1,4 +1,3 @@
-pub mod event_proc_memory;
 pub mod simple_async_coord;
 pub mod simple_async_realm;
 pub mod worker_state;

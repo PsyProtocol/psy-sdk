@@ -779,6 +779,19 @@ impl DPNContext<SymFeltRef> for QExecContext {
         self.op_target_at_array::<4>(parent)
     }
 
+    fn hash_two_to_one(&mut self, left: &[SymFeltRef; 4], right: &[SymFeltRef; 4]) -> [SymFeltRef; 4] {
+        let mut inputs = Vec::new();
+        inputs.extend_from_slice(left);
+        inputs.extend_from_slice(right);
+        let op = SymFeltRefValue {
+            op_type: DPNOpType::HashTwoToOne,
+            const_param: 0,
+            inputs,
+        };
+        let parent = self.store.insert(op);
+        self.op_target_at_array::<4>(parent)
+    }
+
     fn split_bits(&mut self, value: SymFeltRef, num_bits: u64) -> Vec<SymFeltRef> {
         let op = SymFeltRefValue {
             op_type: DPNOpType::SplitBits,

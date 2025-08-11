@@ -29,12 +29,12 @@ DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVEL} cd qed_compiler/tests && ../../target/
 
 ci:
 	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
-        --package qed-ast \
-        --package qed-parser \
-        --package qed-sema \
-        --package qed-interpreter \
-        -- \
-        --nocapture
+	       --package qed-ast \
+	       --package qed-parser \
+	       --package qed-sema \
+	       --package qed-interpreter \
+	       -- \
+	       --nocapture
 	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/in_mod_attr_test.qed
 	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/should_panic_test.qed
 
@@ -55,6 +55,8 @@ ci:
 	@$(DARGO_CLI_EXECUTE) storage_test.qed
 	@$(DARGO_CLI_EXECUTE) trait_test.qed --parameters 2,3
 	@$(DARGO_CLI_EXECUTE) hash_test.qed
+	@$(DARGO_CLI_EXECUTE) hash_two_to_one_test.qed
+	@$(DARGO_CLI_EXECUTE) verify_proof_test.qed
 	@$(DARGO_CLI_EXECUTE) first_class_function_test.qed
 	@$(DARGO_CLI_EXECUTE) type_alias_test.qed
 	@$(DARGO_CLI_EXECUTE) const_test.qed --parameters 1

@@ -378,6 +378,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
 
     // std lib
     fn hash(&mut self, values: &[F]) -> [F; 4];
+    fn hash_two_to_one(&mut self, left: &[F; 4], right: &[F; 4]) -> [F; 4];
     fn split_bits(&mut self, value: F, num_bits: u64) -> Vec<F>;
     fn sum_bits(&mut self, bits: &[F]) -> F;
 

@@ -9,7 +9,10 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 use qed_common_circuit::{
-    builder::comparison::CircuitBuilderComparison,
+    builder::{
+        comparison::CircuitBuilderComparison,
+        hash::core::CircuitBuilderHashCore,
+    },
     crypto::secp256k1::{
         ecdsa::gadgets::{
             biguint::{BigUintTarget, CircuitBuilderBiguint},
@@ -363,6 +366,28 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             DPNOpType::HashNoPad => {
                 let targets = self.resolve_targets(&op.inputs);
                 let output = builder.hash_n_to_hash_no_pad::<QEDHasher>(targets);
+                self.hashes.push(output);
+            },
+            DPNOpType::HashTwoToOne => {
+                // Expecting 8 inputs: 4 for left hash, 4 for right hash
+                assert_eq!(op.inputs.len(), 8, "HashTwoToOne requires exactly 8 inputs");
+                let left = HashOutTarget {
+                    elements: [
+                        self.resolve_target(op.inputs[0]),
+                        self.resolve_target(op.inputs[1]),
+                        self.resolve_target(op.inputs[2]),
+                        self.resolve_target(op.inputs[3]),
+                    ],
+                };
+                let right = HashOutTarget {
+                    elements: [
+                        self.resolve_target(op.inputs[4]),
+                        self.resolve_target(op.inputs[5]),
+                        self.resolve_target(op.inputs[6]),
+                        self.resolve_target(op.inputs[7]),
+                    ],
+                };
+                let output = builder.hash_two_to_one::<QEDHasher>(left, right);
                 self.hashes.push(output);
             },
             DPNOpType::HashPad => unimplemented!(),

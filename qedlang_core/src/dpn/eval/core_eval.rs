@@ -198,6 +198,7 @@ impl ContextEval for SymFeltStore {
                     array[index as usize]
                 }
                 DPNOpType::HashNoPad => panic!("you cannot directly evaluate HashNoPad"),
+                DPNOpType::HashTwoToOne => panic!("you cannot directly evaluate HashTwoToOne"),
                 DPNOpType::HashPad => panic!("you cannot directly evaluate HashPad"),
                 DPNOpType::Select => {
                     let args = self.resolve_array_args(felt_ref, input, cache);
@@ -416,6 +417,18 @@ impl ContextEval for SymFeltStore {
                     let data = self.resolve_array_args_gl(felt_ref, input, cache);
                     let result = PoseidonHash::hash_no_pad(&data).to_vec();
                     result.iter().map(|x| x.to_canonical_u64()).collect()
+                },
+                DPNOpType::HashTwoToOne => {
+                    let inputs = self.resolve_array_args_gl(felt_ref, input, cache);
+                    assert_eq!(inputs.len(), 8, "HashTwoToOne requires exactly 8 inputs");
+                    let left = plonky2::hash::hash_types::HashOut {
+                        elements: [inputs[0], inputs[1], inputs[2], inputs[3]],
+                    };
+                    let right = plonky2::hash::hash_types::HashOut {
+                        elements: [inputs[4], inputs[5], inputs[6], inputs[7]],
+                    };
+                    let result = PoseidonHash::two_to_one(left, right);
+                    result.elements.iter().map(|x| x.to_canonical_u64()).collect()
                 },
                 DPNOpType::HashPad => {
                     let data = self.resolve_array_args_gl(felt_ref, input, cache);

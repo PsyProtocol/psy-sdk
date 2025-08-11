@@ -136,7 +136,7 @@ impl SimpleActorWorker {
             //let duration = start_time.elapsed().as_millis() as u64;
             //event_receiver.record_job_bench_mut(job_id, duration)?;
         }
-        if job_id.topic == QJobTopic::NotifyOrchestratorComplete {
+        if job_id.is_notify_complete() {
             event_receiver.notify_core_goal_completed_imm(job_id).await?;
             return Ok(());
         }

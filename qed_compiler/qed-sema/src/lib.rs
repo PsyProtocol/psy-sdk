@@ -655,6 +655,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     location,
                 }))
             }
+            IntrinsicExprNode::HashTwoToOne { left, right, location } => {
+                let left = self.visit_expr(left, ctx)?;
+                let right = self.visit_expr(right, ctx)?;
+
+                Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::HashTwoToOne {
+                    left: self.program.exprs.alloc_item(left),
+                    right: self.program.exprs.alloc_item(right),
+                    type_id: HASH_TYPE,
+                    location,
+                }))
+            }
             IntrinsicExprNode::InvokeSync {
                 contract_id,
                 method_id,

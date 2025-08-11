@@ -46,15 +46,14 @@ impl SimpleAsyncCoordinatorWorker {
         library: &L,
     ) -> anyhow::Result<QProvingJobDataID> {
         let mut job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All)
-        .await?;
+            .await?;
+
         while
             job.circuit_type != ProvingJobCircuitType::GenerateRollupStateTransitionProof &&  job.topic != QJobTopic::NotifyOrchestratorComplete {
-                job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All)
-        .await?;
-
+                job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All).await?;
         }
-                Ok(job)
 
+        Ok(job)
     }
     pub async fn process_next_job<
         PS: QProofStoreAsyncImm + Send + Sync,
@@ -102,7 +101,7 @@ impl SimpleAsyncCoordinatorWorker {
             hex::encode(job_id.to_fixed_bytes()),
             job_id
         ));
-        if job_id.topic == QJobTopic::NotifyOrchestratorComplete {
+        if job_id.is_notify_complete() {
             event_receiver
                 .notify_core_goal_completed_imm(job_id)
                 .await?;

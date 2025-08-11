@@ -1028,6 +1028,34 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             self.context.hash(&data.to_felts()),
                         ));
                     }
+                    CheckedIntrinsicExprNode::HashTwoToOne { left, right, type_id, .. } => {
+                        let left = self.interpret_expr(program, left.clone(), ctx)?;
+                        let right = self.interpret_expr(program, right.clone(), ctx)?;
+                        let left_felts = left.to_felts();
+                        let right_felts = right.to_felts();
+                        
+                        // Ensure we have exactly 4 elements for each side
+                        assert!(left_felts.len() == 4, "hash_two_to_one left input must be Hash (4 felts)");
+                        assert!(right_felts.len() == 4, "hash_two_to_one right input must be Hash (4 felts)");
+                        
+                        let left_array: [F; 4] = [
+                            left_felts[0].clone(),
+                            left_felts[1].clone(),
+                            left_felts[2].clone(),
+                            left_felts[3].clone(),
+                        ];
+                        let right_array: [F; 4] = [
+                            right_felts[0].clone(),
+                            right_felts[1].clone(),
+                            right_felts[2].clone(),
+                            right_felts[3].clone(),
+                        ];
+                        
+                        return Ok(CheckedValueRef::from_vec(
+                            type_id.clone(),
+                            self.context.hash_two_to_one(&left_array, &right_array).to_vec(),
+                        ));
+                    }
                     CheckedIntrinsicExprNode::MemTransmute {
                         data, target_type, ..
                     } => {

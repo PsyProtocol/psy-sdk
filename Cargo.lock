@@ -3916,6 +3916,8 @@ dependencies = [
  "clap",
  "dotenv",
  "fred",
+ "hex",
+ "jsonrpsee",
  "kvq",
  "minijinja",
  "plonky2",

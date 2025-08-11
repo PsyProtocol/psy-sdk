@@ -33,7 +33,10 @@ use qed_crypto::{
             },
             utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey},
         },
-        traits::qhashable::QFieldHashable,
+        traits::{
+            hasher::FieldQHasher,
+            qhashable::QFieldHashable,
+        },
     },
     signature::zk::data::ZKPublicKeyInfo,
 };
@@ -59,8 +62,11 @@ use qed_rollup_circuit::guta::gadgets::guta_header;
 use qed_data::{
     config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserTreeStore}, models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore,
 };
-use qed_store::node::coordinator::{
-    QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
+use qed_store::{
+    node::coordinator::{
+        QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
+    },
+    queue::task_queue::JobTaskStore,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -136,12 +142,14 @@ pub struct CoordinatorProcessorContext<
     HQ: CheckpointHistoryQueueEmitterAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
+    JTS: JobTaskStore,
 > {
     pub store: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub sync_queue: Arc<HQ>,
     pub prover_queue: Arc<WQ>,
     pub proof_store: Arc<PS>,
+    pub job_task_store: Arc<JTS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_config: CoordinatorConfig,
 }
@@ -151,8 +159,9 @@ impl<
         DQ: CheckpointDrainQueueConsumerAsyncImm,
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
-        PS: QProofStoreAsyncImm + Sync
-    > CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>
+        PS: QProofStoreAsyncImm + Sync,
+        JTS: JobTaskStore + Sync
+    > CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, JTS>
 {
     pub async fn new(
         coordinator_config: CoordinatorConfig,
@@ -161,6 +170,7 @@ impl<
         sync_queue: Arc<HQ>,
         prover_queue: Arc<WQ>,
         proof_store: Arc<PS>,
+        job_task_store: Arc<JTS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
@@ -170,6 +180,7 @@ impl<
             prover_queue,
             sync_queue,
             proof_store,
+            job_task_store,
             proof_verifier,
         })
     }
@@ -783,6 +794,9 @@ impl<
     pub async fn build_block(&mut self) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("coordinator STARTED new block");
+        
+        // Clear the task graph for this new block
+        self.job_task_store.clear_task_graph().await?;
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
@@ -813,7 +827,7 @@ impl<
 
         let root_state_transition_task = JobsTask::new(&[root_state_transition]);
         let notify_block_complete_task = JobsTask::new(&[notify_block_complete]);
-        self.proof_store
+        self.job_task_store
             .write_next_job_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
 
@@ -838,11 +852,11 @@ impl<
 
         let state_part_1_task = JobsTask::new(&[state_part_1_id]);
         let state_part_1_common_task = JobsTask::new(&[state_part_1_common_id]);
-        self.proof_store
+        self.job_task_store
             .write_next_job_tasks(&state_part_1_common_task, &root_state_transition_task)
             .await?;
 
-        self.proof_store
+        self.job_task_store
             .write_next_job_tasks(&state_part_1_task, &state_part_1_common_task)
             .await?;
         //self.proof_store  .write_next_jobs(&[state_part_2_id], &[state_part_2_common_id]).await?;
@@ -869,20 +883,20 @@ impl<
         let register_users_agg_task = JobsTask::new(&[register_users_agg_job_id]);
         let deploy_contracts_agg_task = JobsTask::new(&[deploy_contracts_agg_job_id]);
         let guta_agg_task = JobsTask::new(&[guta_agg_job_id]);
-        self.proof_store.write_next_job_tasks(&register_users_agg_task, &state_part_1_task).await?;
-        self.proof_store
+        self.job_task_store.write_next_job_tasks(&register_users_agg_task, &state_part_1_task).await?;
+        self.job_task_store
             .write_next_job_tasks(&deploy_contracts_agg_task, &state_part_1_task)
             .await?;
-        self.proof_store
+        self.job_task_store
             .write_next_job_tasks(&guta_agg_task, &state_part_1_task)
             .await?;
 
         let user_registration_tasks = user_registration_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
         let deploy_contracts_tasks = deploy_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
         let guta_tasks = guta_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
-        self.proof_store.write_multidimensional_job_tasks(&user_registration_tasks, &register_users_agg_task).await?;
-        self.proof_store.write_multidimensional_job_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
-        self.proof_store.write_multidimensional_job_tasks(&guta_tasks, &guta_agg_task).await?;
+        self.job_task_store.write_multidimensional_job_tasks(&user_registration_tasks, &register_users_agg_task).await?;
+        self.job_task_store.write_multidimensional_job_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
+        self.job_task_store.write_multidimensional_job_tasks(&guta_tasks, &guta_agg_task).await?;
 
         //let new_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
         /*let user_agg = AggStateTransition {
@@ -940,11 +954,61 @@ impl<
             withdrawal_tree_root,
             user_registration_tree_root: user_registration_transition.state_transition_end,
         };*/
+        self.job_task_store.finalize_and_save_topology().await?;
+        
+        info!("Waiting for block proving jobs for checkpoint {}", new_checkpoint_id);
+        let final_job_id = self.prover_queue
+            .wait_for_block_proving_jobs_imm(new_checkpoint_id)
+            .await?;
+        info!("Block proving jobs completed for checkpoint {}", new_checkpoint_id);
+        let last_user_reg_job = user_registration_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No user registration jobs found"))?;
+        let register_users_proof = self.proof_store
+            .get_proof_by_id::<C, D>(last_user_reg_job.get_output_id())
+            .await?;
+        let register_users_root = {
+            let left = QHashOut::try_from(&register_users_proof.public_inputs[0..4])?;
+            let right = QHashOut::try_from(&register_users_proof.public_inputs[4..8])?;
+            QEDHasher::q_two_to_one(left, right)
+        };
+        
+        let last_deploy_job = deploy_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No deploy contract jobs found"))?;
+        let deploy_contracts_proof = self.proof_store
+            .get_proof_by_id::<C, D>(last_deploy_job.get_output_id())
+            .await?;
+        let deploy_contracts_root = {
+            let left = QHashOut::try_from(&deploy_contracts_proof.public_inputs[0..4])?;
+            let right = QHashOut::try_from(&deploy_contracts_proof.public_inputs[4..8])?;
+            QEDHasher::q_two_to_one(left, right)
+        };
+        
+        let last_guta_job = guta_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No GUTA jobs found"))?;
+        let guta_proof = self.proof_store
+            .get_proof_by_id::<C, D>(last_guta_job.get_output_id())
+            .await?;
+        let gutas_root = {
+            let left = QHashOut::try_from(&guta_proof.public_inputs[0..4])?;
+            let right = QHashOut::try_from(&guta_proof.public_inputs[4..8])?;
+            QEDHasher::q_two_to_one(left, right)
+        };
+        
+        let pm_rewards_commitment = PMRewardCommitment {
+            register_users_root,
+            gutas_root,
+            deploy_contracts_root,
+        };
+        
         let partial_input = QCQEDCheckpointStateTransitionInputPartial{
                 part_1_header: part_1_input.input,
                 old_stats: last_checkpoint_leaf.stats,
                 block_time: F::from_canonical_u64(Utc::now().timestamp_millis() as u64),
                 final_random_seed_contribution: QHashOut::rand(),
+                pm_rewards_commitment,
         };
         eprintln!("DEBUGPRINT[728]: processor.rs:955: partial_input={}", serde_json::to_string_pretty(&partial_input).unwrap());
 
@@ -1038,6 +1102,9 @@ impl<
             .set_checkpoint_sync_info_imm(l2_sync.clone())
             .await?;
 
+        // Finalize the task graph and save the topology
+        self.job_task_store.finalize_and_save_topology().await?;
+        
         //todo! mark, should commit the txn
         self.sync_queue.chq_push_imm(l2_sync).await?;
 

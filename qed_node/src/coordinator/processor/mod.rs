@@ -2,7 +2,7 @@ use super::args::CoordinatorProcessorArgs;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::coordinator::state::processor::CoordinatorConfig;
 use crate::coordinator::state::processor::CoordinatorProcessorContext;
-use anyhow::bail;
+use anyhow::{bail, Context};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 use qed_core::job::{
@@ -44,8 +44,9 @@ pub struct CoordinatorProcessNode<
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     ER: WorkerEventReceiverAsyncImm,
+    JTS: JobTaskStore,
 > {
-    pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
+    pub ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, JTS>,
     pub journal_store: JL,
     pub edge_command_queue: Arc<HQ>,
     pub proof_store: PS,
@@ -63,10 +64,11 @@ impl<
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
-    > CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER>
+        JTS: JobTaskStore,
+    > CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER, JTS>
 {
     pub fn new(
-        ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>,
+        ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, JTS>,
         journal_store: JL,
         edge_command_queue: Arc<HQ>,
         proof_store: PS,
@@ -150,14 +152,15 @@ impl
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
+        JobTaskStoreImpl,
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
         let bb8_pool =
             new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
         info!("🐶 redis pool initialized");
-        let task_store = JobTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
-            .await?;
+        let task_store = Arc::new(JobTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
+            .await?);
         let q = ProofStoreRedisAsync::new(
             bb8_pool,
             cp_config.queue_args.queue_biz_key.clone(),
@@ -185,6 +188,9 @@ impl
         let qps = Arc::new(q.clone());
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
+        
+        // Use the JobTaskStore instance created above
+        let job_task_store = task_store.clone();
 
         let coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
@@ -193,6 +199,7 @@ impl
             qps.clone(),
             qps.clone(),
             qps.clone(),
+            job_task_store,
             Arc::clone(&proof_verifier),
         )
         .await?;
@@ -210,34 +217,17 @@ impl
             q,
             proof_verifier,
             coordinator_worker_circuits,
-            Arc::new(task_store),
+            task_store,
         ))
-    }
-
-    pub async fn build_block_inner(&mut self, next_checkpoint_id: u64) -> anyhow::Result<()> {
-        info!("building block: {:?}", next_checkpoint_id);
-        self.ctx.build_block().await?;
-        info!("waiting for block proving jobs: {:?}", next_checkpoint_id);
-        {
-            let mut task_graph = self.ctx.proof_store.task_graph.lock().await;
-            let sorted_tasks = task_graph.ts_layers();
-            self.job_task_store.save_task_topology_with_layers(sorted_tasks).await?;
-            task_graph.clear();
-        }
-
-        info!("🐶 waiting for block proving jobs");
-        self.ctx
-            .prover_queue
-            .wait_for_block_proving_jobs_imm(next_checkpoint_id)
-            .await?;
-        Ok(())
     }
 
     pub async fn build_block(&mut self) -> anyhow::Result<u64> {
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
 
-        if let Err(e) = self.build_block_inner(next_checkpoint_id).await {
+        info!("building block: {:?}", next_checkpoint_id);
+        
+        if let Err(e) = self.ctx.build_block().await {
             self.journal_store.rollback(next_checkpoint_id)?;
             return Err(e);
         }

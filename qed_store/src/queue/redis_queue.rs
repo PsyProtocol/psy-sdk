@@ -5,7 +5,7 @@ use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use kvq::traits::KVQSerializable;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::job::id::{JobsTask, JobsTaskGraph, ProvingJobDataId};
+use qed_core::job::id::{JobsTask, ProvingJobDataId};
 use redis::{AsyncCommands, RedisResult};
 use tracing::debug;
 
@@ -25,7 +25,7 @@ use qed_core::job::{
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
-use tokio::{sync::Mutex, time::sleep};
+use tokio::time::sleep;
 // Re-use constants from fred_queue
 use crate::queue::{
     PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX,
@@ -85,7 +85,6 @@ impl<T: BizKey> QueuePrefixKey for T {
 #[derive(Debug, Clone)]
 pub struct ProofStoreRedisAsync {
     pool: Pool<RedisConnectionManager>,
-    pub task_graph: Arc<Mutex<JobsTaskGraph>>,
     biz_key: String,
 }
 
@@ -99,7 +98,6 @@ impl ProofStoreRedisAsync {
     pub async fn new(pool: Pool<RedisConnectionManager>, biz_key: String) -> anyhow::Result<Self> {
         Ok(Self {
             pool,
-            task_graph: Arc::new(Mutex::new(JobsTaskGraph::new())),
             biz_key: biz_key,
         })
     }
@@ -197,9 +195,6 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         next_jobs: &[QProvingJobDataID],
     ) -> anyhow::Result<()> {
         self.write_next_jobs_core(jobs, next_jobs).await?;
-        let task = JobsTask::new(jobs);
-        let next_task = JobsTask::new(next_jobs);
-        self.task_graph.lock().await.add_dep(task, next_task);
         Ok(())
     }
 
@@ -210,53 +205,9 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
     ) -> anyhow::Result<()> {
         self.write_multidimensional_jobs_core(jobs_levels, next_jobs)
             .await?;
-        let job_levels_count = jobs_levels.len();
-        let tasks = jobs_levels
-            .iter()
-            .map(|jobs| JobsTask::new(jobs))
-            .collect::<Vec<_>>();
-        let next_task = JobsTask::new(next_jobs);
-        let mut task_graph = self.task_graph.lock().await;
-        for i in 0..job_levels_count {
-            let current_next_task = if i == job_levels_count - 1 {
-                &next_task
-            } else {
-                &tasks[i + 1]
-            };
-            let current_task = &tasks[i];
-            task_graph.add_dep(current_task.clone(), current_next_task.clone());
-        }
         Ok(())
     }
 
-    async fn write_next_job_tasks(
-        &self,
-        task: &JobsTask,
-        next_task: &JobsTask,
-    ) -> anyhow::Result<()> {
-        let mut task_graph = self.task_graph.lock().await;
-        task_graph.add_dep(next_task.clone(), task.clone());
-        Ok(())
-    }
-
-    async fn write_multidimensional_job_tasks(
-        &self,
-        tasks: &[JobsTask],
-        next_task: &JobsTask,
-    ) -> anyhow::Result<()> {
-        let mut task_graph = self.task_graph.lock().await;
-        let job_levels_count = tasks.len();
-        for i in 0..job_levels_count {
-            let current_next_task = if i == job_levels_count - 1 {
-                &next_task
-            } else {
-                &tasks[i + 1]
-            };
-            let current_task = &tasks[i];
-            task_graph.add_dep(current_next_task.clone(), current_task.clone());
-        }
-        Ok(())
-    }
 }
 
 #[async_trait]
@@ -380,6 +331,33 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
                             }
                             Err(e1) => eprintln!(
                                 "error deserializing job id in wait_for_block_proving_jobs_imm: {:?}",
+                                e1
+                            ),
+                        }
+                    }
+                }
+                None => {}
+            };
+            sleep(Duration::from_millis(500)).await;
+        }
+    }
+    
+    async fn wait_for_job_completion(&self, job_id: QProvingJobDataID) -> anyhow::Result<()> {
+        loop {
+            let mut con = self.pool.get().await?;
+            let job_res: Option<Vec<u8>> = con.lpop(&self.notifications_queue_key(), None).await?;
+            match job_res {
+                Some(g) => {
+                    if g.len() == 24 {
+                        match QProvingJobDataID::try_from_byte_vec(&g) {
+                            Ok(notified_job) => {
+                                // Check if this is the specific job we're waiting for
+                                if notified_job == job_id {
+                                    return Ok(());
+                                }
+                            }
+                            Err(e1) => eprintln!(
+                                "error deserializing job id in wait_for_job_completion: {:?}",
                                 e1
                             ),
                         }

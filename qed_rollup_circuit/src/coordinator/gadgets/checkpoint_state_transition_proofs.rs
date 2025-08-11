@@ -1,6 +1,6 @@
 use plonky2::{
     field::extension::Extendable,
-    hash::hash_types::{HashOut, HashOutTarget, RichField},
+    hash::hash_types::{HashOutTarget, RichField},
     iop::{target::Target, witness::Witness},
     plonk::{
         circuit_builder::CircuitBuilder,
@@ -102,6 +102,16 @@ impl QEDPart1StateDeltaResultGadget {
         let new_state_roots_hash = new_state_roots.to_hash::<H, F, D>(builder);
 
         let zero = builder.zero();
+        let register_users_root = builder.hash_two_to_one::<H>(
+            part_1_header.user_registration_tree_delta.state_transition_start,
+            part_1_header.user_registration_tree_delta.state_transition_end,
+        );
+        let deploy_contracts_root = builder.hash_two_to_one::<H>(
+            part_1_header.global_contract_tree_delta.state_transition_start,
+            part_1_header.global_contract_tree_delta.state_transition_end,
+        );
+        let gutas_root = part_1_header.global_user_tree_delta.to_hash::<H, F, D>(builder);
+
         let new_stats = QEDCheckpointLeafStatsGadget {
             fees_collected: part_1_header.global_user_tree_delta.stats.fees_collected,
             user_ops_processed: part_1_header
@@ -121,9 +131,9 @@ impl QEDPart1StateDeltaResultGadget {
             random_seed: builder
                 .hash_two_to_one::<H>(old_stats.random_seed, final_random_seed_contribution),
             pm_rewards_commitment: PMRewardCommitmentGadget {
-                register_users_root: builder.constant_hash(HashOut::ZERO),
-                gutas_root: builder.constant_hash(HashOut::ZERO),
-                deploy_contracts_root: builder.constant_hash(HashOut::ZERO),
+                register_users_root,
+                gutas_root,
+                deploy_contracts_root,
             },
             da_challenges_claimed: [zero; DA_CHALLENGE_WINDOW],
         };

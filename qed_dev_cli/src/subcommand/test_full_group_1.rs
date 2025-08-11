@@ -49,6 +49,7 @@ use qed_store::{controllers::local::{
     },
     node::coordinator::QEDCoordinatorStoreReaderAsync,
     queue::ProofStoreFred,
+    queue::task_queue::{JobTaskStore, JobTaskStoreImpl},
 };
 
 use super::super::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
@@ -90,6 +91,14 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let st = Arc::new(store_reader.clone());
 
     timer.lap("initialized store");
+    
+    // Create JobTaskStore for testing
+    let job_task_store = Arc::new(
+        JobTaskStoreImpl::new("redis://127.0.0.1/", 10)
+            .await
+            .expect("Failed to create JobTaskStore")
+    );
+    
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     timer.lap("created proof verifier");
 
@@ -116,6 +125,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         qps.clone(),
         qps.clone(),
         qps.clone(),
+        job_task_store.clone(),
         Arc::clone(&proof_verifier),
     )
     .await?;
@@ -178,6 +188,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         realm_qps.clone(),
         realm_qps.clone(),
         realm_qps.clone(),
+        job_task_store.clone(),
         Arc::clone(&proof_verifier),
     )
     .await?;

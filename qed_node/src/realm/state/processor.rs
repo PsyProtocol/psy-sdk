@@ -39,7 +39,10 @@ use qed_data::{
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
 use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
-use qed_store::node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm};
+use qed_store::{
+    node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
+    queue::task_queue::JobTaskStore,
+};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -101,12 +104,14 @@ pub struct RealmProcessorContext<
     HQ: CheckpointHistoryQueueConsumerAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
+    JTS: JobTaskStore,
 > {
     pub store: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub sync_queue: Arc<HQ>,
     pub prover_queue: Arc<WQ>,
     pub proof_store: Arc<PS>,
+    pub job_task_store: Arc<JTS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
     pub pending_register_users: Vec<MerkleProofCore<QHashOut<F>>>,
@@ -121,7 +126,8 @@ impl<
         HQ: CheckpointHistoryQueueConsumerAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
-    > RealmProcessorContext<SR, DQ, HQ, WQ, PS>
+        JTS: JobTaskStore,
+    > RealmProcessorContext<SR, DQ, HQ, WQ, PS, JTS>
 {
     pub async fn new(
         realm_config: RealmConfig,
@@ -130,6 +136,7 @@ impl<
         sync_queue: Arc<HQ>,
         prover_queue: Arc<WQ>,
         proof_store: Arc<PS>,
+        job_task_store: Arc<JTS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
@@ -139,6 +146,7 @@ impl<
             sync_queue,
             prover_queue,
             proof_store,
+            job_task_store,
             proof_verifier,
             pending_register_users: Vec::new(),
         })
@@ -744,6 +752,9 @@ impl<
     pub async fn build_block(&mut self) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("realm STARTED new block");
+        
+        // Clear the task graph for this new block
+        self.job_task_store.clear_task_graph().await?;
         //let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
@@ -759,7 +770,7 @@ impl<
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
         let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_realms_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
         println!("guta_jobs: {:?}",guta_jobs);
-        let finished_job = QProvingJobDataID::new_notify_realm_complete_witness(new_checkpoint_id, self.realm_config.realm_id);
+        let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
         let res = GUTARealmCheckpointResult{
             checkpoint_id: new_checkpoint_id,
             guta_stats: guta_transition.stats,
@@ -772,9 +783,12 @@ impl<
 
         let guta_tasks = guta_jobs.iter().map(|jobs| JobsTask::new(jobs)).collect::<Vec<_>>();
         let finished_job_task = JobsTask::new(&[finished_job]);
-        self.proof_store.write_multidimensional_job_tasks(&guta_tasks, &finished_job_task).await?;
+        self.job_task_store.write_multidimensional_job_tasks(&guta_tasks, &finished_job_task).await?;
 
         // self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
+        
+        // Finalize the task graph and save the topology
+        self.job_task_store.finalize_and_save_topology().await?;
 
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())
