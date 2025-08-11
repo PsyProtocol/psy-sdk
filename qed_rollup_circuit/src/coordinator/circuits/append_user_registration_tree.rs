@@ -58,10 +58,8 @@ where
             batch_append_gadget.new_root,
         );
 
-        // For leaf nodes, commitment equals worker_public_key
         let commitment = worker_public_key;
 
-        // Register public inputs in order: commitment, worker_public_key, register_users_circuit_whitelist, state_transition_hash
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&register_users_circuit_whitelist.elements);

@@ -59,10 +59,8 @@ where
             batch_append_gadget.new_root,
         );
 
-        // For leaf nodes, commitment equals worker_public_key
         let commitment = worker_public_key;
 
-        // Register public inputs in order: commitment, worker_public_key, register_users_circuit_whitelist, state_transition_hash
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&register_users_circuit_whitelist.elements);
@@ -84,7 +82,7 @@ where
             fingerprint,
         }
     }
-    
+
     pub fn prove_base(
         &self,
         register_users_circuit_whitelist: QHashOut<C::F>,
@@ -133,7 +131,6 @@ where
         &self,
         input: &QCAppendUserRegistrationTreeCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        // Using default for backward compatibility with trait
         self.prove_base(
             input.register_users_circuit_whitelist,
             QHashOut::default(),
@@ -185,7 +182,7 @@ where
             worker_public_key,
             &input.spiderman_append_proofs,
         )?;
-        
+
         Ok(result)
     }
 }

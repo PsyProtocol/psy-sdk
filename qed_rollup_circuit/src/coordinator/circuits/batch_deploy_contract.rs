@@ -58,10 +58,8 @@ where
             deploy_contract_batch_gadget.spiderman_gadget.new_root,
         );
 
-        // For leaf nodes, commitment equals worker_public_key
         let commitment = worker_public_key;
 
-        // Register public inputs in order: commitment, worker_public_key, deploy_contract_circuit_whitelist, state_transition_hash
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&deploy_contract_circuit_whitelist.elements);
@@ -84,7 +82,7 @@ where
             fingerprint,
         }
     }
-    
+
     pub fn prove_base(
         &self,
         deploy_contract_circuit_whitelist: QHashOut<C::F>,
@@ -187,7 +185,7 @@ where
             &input.spiderman_append_proof,
             &input.contract_leaves,
         )?;
-        
+
         Ok(result)
     }
 }

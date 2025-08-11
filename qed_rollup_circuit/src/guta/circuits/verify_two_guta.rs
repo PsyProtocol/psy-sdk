@@ -91,17 +91,14 @@ where
             D,
         >(&mut builder, a_guta_header, b_guta_header);
 
-        // Add worker_public_key and commitment as virtual inputs
         let worker_public_key = builder.add_virtual_hash();
-        
-        // For GUTA leaf nodes, commitment equals worker_public_key
+
         let commitment = worker_public_key;
 
         let public_inputs_hash = nca_state_transition_gadget
             .new_guta_header
             .to_hash::<C::Hasher, C::F, D>(&mut builder);
 
-        // Register public inputs in order: commitment, worker_public_key, guta_header_hash
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&public_inputs_hash.elements);
@@ -213,7 +210,7 @@ where
             library.get_group_inclusion_proof(job_id.circuit_type, dep_a_type)?;
         let child_b_verifier_data = library.get_verifier_data(dep_b_type)?;
         let guta_inclusion_proof_b =
-            library.get_group_inclusion_proof(job_id.circuit_type, dep_b_type)?;        
+            library.get_group_inclusion_proof(job_id.circuit_type, dep_b_type)?;
         let result = self.prove_base(
             worker_public_key,
             &VerifyTwoGUTAProofGadgetStandardInput {

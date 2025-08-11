@@ -130,6 +130,7 @@ where
             &input.partial.old_stats,
             input.partial.block_time,
             input.partial.final_random_seed_contribution,
+            &input.partial.pm_rewards_commitment,
             part_1_proof,
             part_1_verifier_data,
         )?;
