@@ -99,14 +99,14 @@ impl<const D: usize> VerifyAggUserRegistartionDeployContractsGUTAGadget<D> {
 
         user_reg_proof_common_data: &CommonCircuitData<F, D>,
         user_reg_transition_circuit_config: &TPAltCircuitFingerprintConfig<F>,
-        
+
         deploy_contracts_proof_common_data: &CommonCircuitData<F, D>,
         deploy_contracts_transition_circuit_config: &TPAltCircuitFingerprintConfig<F>,
 
 
         guta_proof_common_data: &CommonCircuitData<F, D>,
         guta_verifier_data_cap_height: usize,
-        guta_circuit_whitelist_root: QHashOut<F>, 
+        guta_circuit_whitelist_root: QHashOut<F>,
     ) -> Self  where C::Hasher: AlgebraicHasher<F> {
         let verify_register_users_gadget = VerifyStateTransitionProofGadget::<D>::add_virtual_to_with_config::<C,F>(
             builder,
@@ -121,7 +121,7 @@ impl<const D: usize> VerifyAggUserRegistartionDeployContractsGUTAGadget<D> {
 
         let verify_guta_gadget = VerifyGUTAProofGadget::<D>::add_virtual_to::<C,F>(
             builder,
-            guta_proof_common_data, 
+            guta_proof_common_data,
             guta_verifier_data_cap_height,
         );
 
@@ -163,7 +163,7 @@ impl<const D: usize> VerifyAggUserRegistartionDeployContractsGUTAGadget<D> {
         guta_verifier_data: &VerifierOnlyCircuitData<C, D>,
 
 
-    ) -> anyhow::Result<()> 
+    ) -> anyhow::Result<()>
     where
         C::Hasher: AlgebraicHasher<F> {
 

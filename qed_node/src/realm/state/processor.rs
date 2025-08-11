@@ -754,10 +754,10 @@ impl<
     pub async fn build_block(&mut self) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("realm STARTED new block");
-
+std::println!("processor.rs Line 757");
         self.task_store.clear_task_graph().await?;
         //let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
-
+std::println!("processor.rs Line 760");
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         // todo fix the bug!!!
         let pending_users = if self.pending_register_users.len() > 32 {
@@ -779,17 +779,17 @@ impl<
             checkpoint_tree_root: guta_transition.checkpoint_tree_root,
             proof_id: **(guta_jobs.last().as_ref().unwrap().last().as_ref().unwrap()),
         };
-
+std::println!("processor.rs Line 782");
         self.proof_store.set_bytes_by_id(finished_job, &bincode::serialize(&res).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
-
+std::println!("processor.rs Line 784");
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let finished_job_task = QProvingTask::new(&[finished_job]);
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
-
+std::println!("processor.rs Line 788");
         // self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
-
+std::println!("processor.rs Line 790");
         self.task_store.finalize_and_save_topology().await?;
-
+std::println!("processor.rs Line 792");
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())
     }

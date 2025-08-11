@@ -800,7 +800,7 @@ impl<
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
         //let last_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
-
+std::println!("processor.rs Line 803");
         //let state_roots = self.store.get_checkpoint_global_state_roots(last_l2_blockstate.checkpoint_id).await?;
         let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
@@ -813,25 +813,25 @@ impl<
             new_accounts,
             regsitered_users_start_pivot_siblings,
         ) = self.handle_user_registrations(new_checkpoint_id).await?;
-
-
-
+std::println!("processor.rs Line 816");
+std::println!("processor.rs Line 817");
+std::println!("processor.rs Line 818");
         let (guta_jobs, guta_transition) = self.handle_guta_from_realms(new_checkpoint_id).await?;
-
+std::println!("processor.rs Line 820");
         println!("new_checkpoint_id: {}",new_checkpoint_id);
-
+std::println!("processor.rs Line 822");
         let notify_block_complete = QProvingJobDataID::notify_block_complete(new_checkpoint_id);
         let root_state_transition =
             QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id);
-
+std::println!("processor.rs Line 826");
         let root_state_transition_task = QProvingTask::new(&[root_state_transition]);
         let notify_block_complete_task = QProvingTask::new(&[notify_block_complete]);
         self.task_store
             .write_next_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
-
+std::println!("processor.rs Line 832");
         let op_agg_group_parts_common_id = 6;
-
+std::println!("processor.rs Line 834");
         let state_part_1_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(
             new_checkpoint_id,
             op_agg_group_parts_common_id,
@@ -844,24 +844,24 @@ impl<
             1,
         );
         */
-
+std::println!("processor.rs Line 847");
         let state_part_1_id =
             QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id);
         //let state_part_2_id =QProvingJobDataID::block_agg_state_part_2_input_witness(new_checkpoint_id);
-
+std::println!("processor.rs Line 851");
         let state_part_1_task = QProvingTask::new(&[state_part_1_id]);
         let state_part_1_common_task = QProvingTask::new(&[state_part_1_common_id]);
         self.task_store
             .write_next_tasks(&state_part_1_common_task, &root_state_transition_task)
             .await?;
-
+std::println!("processor.rs Line 857");
         self.task_store
             .write_next_tasks(&state_part_1_task, &state_part_1_common_task)
             .await?;
         //self.proof_store  .write_next_jobs(&[state_part_2_id], &[state_part_2_common_id]).await?;
-
-
-
+std::println!("processor.rs Line 862");
+std::println!("processor.rs Line 863");
+std::println!("processor.rs Line 864");
         let op_agg_group_part_1_id = 11;
         let register_users_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(
             new_checkpoint_id,
@@ -878,7 +878,7 @@ impl<
             op_agg_group_part_1_id,
             2,
         );
-
+std::println!("processor.rs Line 881");
         let register_users_agg_task = QProvingTask::new(&[register_users_agg_job_id]);
         let deploy_contracts_agg_task = QProvingTask::new(&[deploy_contracts_agg_job_id]);
         let guta_agg_task = QProvingTask::new(&[guta_agg_job_id]);
@@ -889,14 +889,14 @@ impl<
         self.task_store
             .write_next_tasks(&guta_agg_task, &state_part_1_task)
             .await?;
-
+std::println!("processor.rs Line 892");
         let user_registration_tasks = user_registration_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let deploy_contracts_tasks = deploy_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         self.task_store.write_multidimensional_tasks(&user_registration_tasks, &register_users_agg_task).await?;
         self.task_store.write_multidimensional_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
         self.task_store.write_multidimensional_tasks(&guta_tasks, &guta_agg_task).await?;
-
+std::println!("processor.rs Line 899");
         //let new_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
         /*let user_agg = AggStateTransition {
             state_transition_start: last_user_tree_root,
@@ -938,14 +938,14 @@ impl<
             ],
         };
         eprintln!("DEBUGPRINT[727]: processor.rs:939: part_1_input={}", serde_json::to_string_pretty(&part_1_input).unwrap());
-
+std::println!("processor.rs Line 941");
         self.proof_store
             .set_bytes_by_id(
                 state_part_1_id.get_input_witness_id(),
                 &bincode::serialize(&part_1_input).map_err(|e| anyhow::anyhow!("{:?}", e))?,
             )
             .await?;
-
+std::println!("processor.rs Line 948");
         /*QEDCheckpointGlobalStateRoots {
             contract_tree_root: deploy_transition.state_transition_end,
             deposit_tree_root,
@@ -1010,16 +1010,16 @@ impl<
                 pm_rewards_commitment,
         };
         eprintln!("DEBUGPRINT[728]: processor.rs:955: partial_input={}", serde_json::to_string_pretty(&partial_input).unwrap());
-
+std::println!("processor.rs Line 1013");
         //let old_checkpoint_leaf = partial_input.get_old_checkpoint_leaf::<QEDHasher>();
         let new_checkpoint_leaf = partial_input.get_new_checkpoint_leaf::<QEDHasher>();
         eprintln!("DEBUGPRINT[592]: processor.rs:929: new_checkpoint_leaf={}", serde_json::to_string_pretty(&new_checkpoint_leaf).unwrap());
         let new_checkpoint_leaf_hash= new_checkpoint_leaf.qfhash::<QEDHasher>();
         eprintln!("DEBUGPRINT[593]: processor.rs:931: new_checkpoint_leaf_hash={}", serde_json::to_string_pretty(&new_checkpoint_leaf_hash).unwrap());
         //let old_checkpoint_leaf_hash= old_checkpoint_leaf.qfhash::<QEDHasher>();
-
+std::println!("processor.rs Line 1020");
         /*println!("stateroottss: {}, {:?}",serde_json::to_string_pretty(&state_roots).unwrap(), state_roots.qfhash::<QEDHasher>());
-
+std::println!("processor.rs Line 1022");
         println!("got: get_old_state_roots: {}, {:?}",serde_json::to_string_pretty(&partial_input.get_old_state_roots::<QEDHasher>()).unwrap(), partial_input.get_old_state_roots::<QEDHasher>().qfhash::<QEDHasher>());
         println!("[{}] 1ostr: {:?}",new_checkpoint_id, old_checkpoint_leaf.global_chain_root);
         println!("[{}] 1leafo: {:?}",new_checkpoint_id, old_checkpoint_leaf_hash);
@@ -1030,11 +1030,11 @@ impl<
         eprintln!("DEBUGPRINT[595]: processor.rs:943: previous_checkpoint_proof={}", serde_json::to_string_pretty(&previous_checkpoint_proof).unwrap());
         //println!("last_chpk_leaf_hash: {:?}, {}",last_checkpoint_leaf.qfhash::<QEDHasher>(), serde_json::to_string_pretty(&last_checkpoint_leaf).unwrap());
         //println!("previous_checkpoint_proof[{}]: {:?}", previous_checkpoint_proof.index, previous_checkpoint_proof.value);
-
+std::println!("processor.rs Line 1033");
         let checkpoint_dmp = self.store.set_checkpoint_tree_leaf_hash_imm(new_checkpoint_id, new_checkpoint_leaf_hash).await?;
         eprintln!("DEBUGPRINT[594]: processor.rs:947: checkpoint_dmp={}", serde_json::to_string_pretty(&checkpoint_dmp).unwrap());
-
-
+std::println!("processor.rs Line 1036");
+std::println!("processor.rs Line 1037");
         let checkpoint_tree_update_siblings = checkpoint_dmp.siblings.clone();
         let old_checkpoint_leaf_hash = checkpoint_dmp.old_value;
         let witness_checkpoint_state_transition = CircuitInputWithDependencies{
@@ -1046,17 +1046,17 @@ impl<
             dependencies: vec![state_part_1_id.get_output_id()],
         };
         eprintln!("DEBUGPRINT[589]: processor.rs:957: witness_checkpoint_state_transition={}", serde_json::to_string_pretty(&witness_checkpoint_state_transition).unwrap());
-
-
+std::println!("processor.rs Line 1049");
+std::println!("processor.rs Line 1050");
         self.proof_store
             .set_bytes_by_id(
                 root_state_transition.get_input_witness_id(),
                 &bincode::serialize(&witness_checkpoint_state_transition).map_err(|e| anyhow::anyhow!("{:?}", e))?,
             )
             .await?;
-
-
-
+std::println!("processor.rs Line 1057");
+std::println!("processor.rs Line 1058");
+std::println!("processor.rs Line 1059");
         let new_l2_block_state = QEDL2BlockState {
             checkpoint_id: last_l2_blockstate.checkpoint_id + 1,
             next_add_withdrawal_id: last_l2_blockstate.next_add_withdrawal_id,
@@ -1086,7 +1086,7 @@ impl<
         self.store
             .set_l2_block_state_imm(&new_l2_block_state)
             .await?;
-
+std::println!("processor.rs Line 1089");
         let l2_sync = QCheckpointSyncInfoCompact {
             l2_block_state: new_l2_block_state,
             stats: new_checkpoint_leaf.stats,
@@ -1100,19 +1100,19 @@ impl<
         self.store
             .set_checkpoint_sync_info_imm(l2_sync.clone())
             .await?;
-
+std::println!("processor.rs Line 1103");
         self.task_store.finalize_and_save_topology().await?;
         
         //todo! mark, should commit the txn
         self.sync_queue.chq_push_imm(l2_sync).await?;
-
+std::println!("processor.rs Line 1108");
         tracing::info!(
             "lastest block state: {:?}",
             new_l2_block_state,
         );
-
+std::println!("processor.rs Line 1113");
         info!("coordinator FINISHED block {} in {}ms", new_l2_block_state.checkpoint_id, start.elapsed().as_millis());
-
+std::println!("processor.rs Line 1115");
         Ok(())
     }
 }

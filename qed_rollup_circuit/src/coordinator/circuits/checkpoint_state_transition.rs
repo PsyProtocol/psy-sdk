@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::{
-    hash::hash_types::HashOut,
-    iop::witness::PartialWitness,
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
@@ -46,6 +46,7 @@ use crate::coordinator::gadgets::{
 pub struct QEDCheckpointStateTransitionCircuit<C: GenericConfig<D>, const D: usize> {
     pub child_proofs_gadget: CheckpointStateTransitionChildProofsGadget<D>,
     pub core_checkpoint_gadget: CheckpointStateTransitionCoreGadget,
+    pub worker_public_key: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -113,17 +114,20 @@ where
             circuit_data,
             child_proofs_gadget,
             core_checkpoint_gadget,
+            worker_public_key,
             fingerprint,
         }
     }
 
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         input: &QCQEDCheckpointStateTransitionInput<C::F>,
         part_1_proof: &ProofWithPublicInputs<C::F, C, D>,
         part_1_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
 
         self.child_proofs_gadget.set_witness_params(
@@ -201,6 +205,7 @@ where
         let part_1_verifier_data = library.get_verifier_data(part_1_proof_type)?;
 
         let result = self.prove_base(
+            worker_public_key,
             &r.input,
             &part_1_proof,
             &part_1_verifier_data,

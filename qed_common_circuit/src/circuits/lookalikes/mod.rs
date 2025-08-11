@@ -36,6 +36,22 @@ where
     get_agg_state_transition_type_d_lookalike_circuit_data::<C, D>().common
 }
 
+pub fn get_agg_user_registration_deploy_guta_type_f_lookalike_circuit_data<C: GenericConfig<D>, const D: usize>(
+) -> CircuitData<C::F, C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
+    get_lookalike_custom::<C, D>(QCircuitCommonGatesType::F, 12, 16)
+}
+
+pub fn get_agg_user_registration_deploy_guta_type_f_common_data<C: GenericConfig<D>, const D: usize>(
+) -> CommonCircuitData<C::F, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
+    get_agg_user_registration_deploy_guta_type_f_lookalike_circuit_data::<C, D>().common
+}
+
 pub fn get_end_cap_type_e_lookalike_circuit_data<C: GenericConfig<D>, const D: usize>(
 ) -> CircuitData<C::F, C, D>
 where

@@ -31,6 +31,7 @@ pub enum QCircuitCommonGatesType {
     C = 2,
     D = 3,
     E = 4,
+    F = 5,
 }
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
@@ -165,6 +166,7 @@ pub enum ProvingJobCircuitType {
     TypeC = 226,
     TypeD = 227,
     TypeE = 228,
+    TypeF = 229,
     Unknown = 255,
 }
 
@@ -364,6 +366,7 @@ impl TryFrom<u8> for ProvingJobCircuitType {
             226 => Ok(ProvingJobCircuitType::TypeC),
             227 => Ok(ProvingJobCircuitType::TypeD),
             228 => Ok(ProvingJobCircuitType::TypeE),
+            229 => Ok(ProvingJobCircuitType::TypeF),
             255 => Ok(ProvingJobCircuitType::Unknown),
             _ => Err(anyhow::format_err!(
                 "Invalid ProvingJobCircuitType value: {}",

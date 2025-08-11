@@ -28,6 +28,7 @@ pub struct AggStateTransitionDummyCircuit<C: GenericConfig<D>, const D: usize>
 {
     pub state_transition_hash: HashOutTarget,
     pub allowed_circuit_hashes_root: HashOutTarget,
+    pub worker_public_key: HashOutTarget,
 
     // end circuit targets
     pub circuit_data: CircuitData<C::F, C, D>,
@@ -63,18 +64,21 @@ where
         Self {
             state_transition_hash,
             allowed_circuit_hashes_root,
+            worker_public_key,
             circuit_data,
             fingerprint,
         }
     }
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         state_transition_hash: QHashOut<C::F>,
         allowed_circuit_hashes_root: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         //tracing::info!("agg_fingerprint: {}", agg_fingerprint.to_string());
         //tracing::info!("leaf_fingerprint: {}", leaf_fingerprint.to_string());
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
         pw.set_hash_target(self.state_transition_hash, state_transition_hash.0)?;
         pw.set_hash_target(
             self.allowed_circuit_hashes_root,
@@ -128,7 +132,9 @@ where
         &self,
         input: &DummyAggStateTransition<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        // Note: prove_standard doesn't have worker_public_key, so we use default
         self.prove_base(
+            QHashOut::default(),
             input.state_transition_hash,
             input.allowed_circuit_hashes_root,
         )
@@ -166,11 +172,15 @@ where
         store: &S,
         _library: &L,
         job_id: QProvingJobDataID,
-        _worker_public_key: QHashOut<C::F>,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: DummyAggStateTransition<C::F> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
-        self.prove_standard(&r)
+        self.prove_base(
+            worker_public_key,
+            r.state_transition_hash,
+            r.allowed_circuit_hashes_root,
+        )
     }
 }
