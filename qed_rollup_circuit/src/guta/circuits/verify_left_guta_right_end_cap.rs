@@ -80,6 +80,8 @@ where
             b_guta_header,
         );
 
+        let worker_public_key = builder.add_virtual_hash();
+
         let a_commitment = HashOutTarget {
             elements: [
                 a_guta_gadget.proof_target.public_inputs[0],
@@ -88,8 +90,6 @@ where
                 a_guta_gadget.proof_target.public_inputs[3],
             ]
         };
-
-        let worker_public_key = builder.add_virtual_hash();
 
         let commitment = builder.hash_two_to_one::<C::Hasher>(a_commitment, worker_public_key);
 

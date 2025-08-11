@@ -6,7 +6,7 @@ use qed_crypto::{common::{circuit_library::{CircuitInfoLibrary, CircuitInfoLibra
 
 use crate::guta::guta_helper::QEDGUTACircuitManager;
 
-use super::circuits::{agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTACircuit, append_user_registration_tree::BatchAppendUserRegistrationTreeCircuit, batch_deploy_contract::BatchDeployContractsCircuit, checkpoint_state_transition::QEDCheckpointStateTransitionCircuit};
+use super::circuits::{agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTACircuit, batch_append_user_registration_tree::BatchAppendUserRegistrationTreeCircuit, batch_deploy_contract::BatchDeployContractsCircuit, checkpoint_state_transition::QEDCheckpointStateTransitionCircuit};
 
 
 #[derive(Debug)]
@@ -19,7 +19,7 @@ where
     pub append_register_users_circuit_whitelist: QHashOut<C::F>,
     pub batch_deploy_contracts: BatchDeployContractsCircuit<C, D>,
     pub batch_deploy_contracts_circuit_whitelist: QHashOut<C::F>,
-    
+
     pub agg_state_transition: AggStateTransitionCircuit<C, D>,
     pub dummy_agg_state_transition: AggStateTransitionDummyCircuit<C, D>,
     pub agg_user_register_deploy_contracts_guta: VerifyAggUserRegistartionDeployContractsGUTACircuit<C, D>,
@@ -53,18 +53,18 @@ where
 
 
         let agg_state_transition = AggStateTransitionCircuit::new(
-            &append_user_registration_tree.get_common_circuit_data_ref(), 
+            &append_user_registration_tree.get_common_circuit_data_ref(),
             append_user_registration_tree.get_verifier_config_ref().constants_sigmas_cap.height(),
         );
-        
+
         let dummy_agg_state_transition = AggStateTransitionDummyCircuit::new();
 
-        
+
         let append_register_users_circuit_whitelist = C::Hasher::two_to_one(
             &append_user_registration_tree.get_fingerprint(),
             &agg_state_transition.get_fingerprint(),
         );
-        
+
         let batch_deploy_contracts_circuit_whitelist = C::Hasher::two_to_one(
             &batch_deploy_contracts.get_fingerprint(),
             &agg_state_transition.get_fingerprint(),
@@ -185,7 +185,7 @@ where
             self.checkpoint_root_transition.get_fingerprint(),
             self.checkpoint_root_transition.get_verifier_config_ref().into()
         );
-        
+
 
         self.guta_circuits.register_library(library);
     }
@@ -195,11 +195,11 @@ where
 impl<
         C: GenericConfig<D> + 'static,
         const D: usize,
-> QNextGenWorkerGenericInfo for QEDCoordinatorCircuitManager<C, D> 
+> QNextGenWorkerGenericInfo for QEDCoordinatorCircuitManager<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,{
-    
+
     fn can_process_job(&self, job_id: QProvingJobDataID) -> bool {
         match job_id.circuit_type {
             ProvingJobCircuitType::AppendUserRegistrationTree => true,

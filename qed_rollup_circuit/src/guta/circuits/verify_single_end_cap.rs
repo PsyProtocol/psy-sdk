@@ -27,6 +27,7 @@ where
 {
     pub guta_circuit_whitelist_root_hash: HashOutTarget,
     pub a_end_cap_gadget: VerifyEndCapProofGadget<D>,
+    pub worker_public_key: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -60,10 +61,17 @@ where
             guta_circuit_whitelist_root_hash,
         );
 
+        let worker_public_key = builder.add_virtual_hash();
+        let commitment = worker_public_key; // For leaf circuits, commitment = worker_public_key
+        
         let public_inputs_hash = a_end_cap_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
-        pad_circuit_degree(&mut builder, 12);
+        
+        // Register 12 public inputs: commitment, worker_public_key, header_hash
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&public_inputs_hash.elements);
-
+        
+        pad_circuit_degree(&mut builder, 12);
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(
@@ -73,6 +81,7 @@ where
         Self {
             guta_circuit_whitelist_root_hash,
             a_end_cap_gadget,
+            worker_public_key,
             circuit_data,
             fingerprint,
         }
@@ -80,12 +89,14 @@ where
 
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         input: &VerifySingleEndCapInput<C::F>,
         child_a_proof: &ProofWithPublicInputs<C::F, C, D>,
         end_cap_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0)?;
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
         self.a_end_cap_gadget.set_witness(
             &mut pw,
@@ -152,6 +163,7 @@ where
         let child_a_verifier_data = library.get_verifier_data(dep_a_type)?;
 
         let result = self.prove_base(
+            worker_public_key,
             &r.input,
             &child_a_proof,
             &child_a_verifier_data,

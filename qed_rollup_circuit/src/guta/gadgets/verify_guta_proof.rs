@@ -62,15 +62,15 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
 
         assert_eq!(
             proof_target.public_inputs.len(),
-            4,
-            "children proofs should have 4 public inputs"
+            12,
+            "GUTA proofs should have 12 public inputs"
         );
         let proof_public_input_hash = HashOutTarget {
             elements: [
-                proof_target.public_inputs[0],
-                proof_target.public_inputs[1],
-                proof_target.public_inputs[2],
-                proof_target.public_inputs[3],
+                proof_target.public_inputs[8],
+                proof_target.public_inputs[9],
+                proof_target.public_inputs[10],
+                proof_target.public_inputs[11],
             ],
         };
 

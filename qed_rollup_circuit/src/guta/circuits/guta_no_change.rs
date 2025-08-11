@@ -38,6 +38,7 @@ use crate::guta::gadgets::guta_no_change_gadget::GUTANoChangeGadget;
 pub struct GUTANoChangeCircuit<C: GenericConfig<D>, const D: usize> {
     no_change_gadget: GUTANoChangeGadget,
     guta_circuit_whitelist: HashOutTarget,
+    worker_public_key: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -59,10 +60,15 @@ where
             checkpoint_tree_height,
         );
 
+        let worker_public_key = builder.add_virtual_hash();
+        let commitment = worker_public_key;
+        
         let public_inputs_hash = no_change_gadget
             .new_guta_header
             .to_hash::<C::Hasher, C::F, D>(&mut builder);
 
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&public_inputs_hash.elements);
         builder.add_qed_type_c_common_gates();
         pad_circuit_degree(&mut builder, 12);
@@ -75,6 +81,7 @@ where
         Self {
             no_change_gadget,
             guta_circuit_whitelist,
+            worker_public_key,
 
             circuit_data,
             fingerprint,
@@ -83,6 +90,7 @@ where
 
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         guta_circuit_whitelist_root: QHashOut<C::F>,
         checkpoint_tree_proof: &MerkleProofCore<QHashOut<C::F>>,
         checkpoint_leaf: &QEDCheckpointLeafCompactWithStateRoots<C::F>,
@@ -90,6 +98,7 @@ where
         let mut pw = PartialWitness::<C::F>::new();
 
         pw.set_hash_target(self.guta_circuit_whitelist, guta_circuit_whitelist_root.0)?;
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
         self.no_change_gadget.set_witness_params(
             &mut pw,
@@ -148,6 +157,7 @@ where
             .root;
 
         let result = self.prove_base(
+            worker_public_key,
             guta_whitelist_root,
             &r.checkpoint_tree_proof,
             &r.checkpoint_leaf,

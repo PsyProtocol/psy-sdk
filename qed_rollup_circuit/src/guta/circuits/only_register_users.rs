@@ -24,6 +24,7 @@ pub struct GUTAOnlyRegisterUsersCircuit<C: GenericConfig<D>, const D: usize>
     register_batch_gadget: GUTAOnlyRegisterUsersGadget,
     guta_circuit_whitelist: HashOutTarget,
     checkpoint_tree_root: HashOutTarget,
+    worker_public_key: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -64,8 +65,14 @@ where
             max_users,
         );
 
+        let worker_public_key = builder.add_virtual_hash();
+        let commitment = worker_public_key; // For leaf circuits, commitment = worker_public_key
+        
         let public_inputs_hash = register_batch_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
+        // Register 12 public inputs: commitment, worker_public_key, header_hash
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&public_inputs_hash.elements);
         builder.add_qed_type_c_common_gates();
         //builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
@@ -79,6 +86,7 @@ where
             register_batch_gadget,
             guta_circuit_whitelist,
             checkpoint_tree_root,
+            worker_public_key,
 
             circuit_data,
             fingerprint,
@@ -87,6 +95,7 @@ where
 
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         guta_circuit_whitelist_root: QHashOut<C::F>,
         checkpoint_tree_root: QHashOut<C::F>,
         guta_register_user_inputs: &[GUTARegisterUserFullInput<C::F>],
@@ -108,6 +117,10 @@ where
         pw.set_hash_target(
             self.checkpoint_tree_root,
             checkpoint_tree_root.0,
+        )?;
+        pw.set_hash_target(
+            self.worker_public_key,
+            worker_public_key.0,
         )?;
 
 
@@ -171,6 +184,7 @@ where
 
 
         let result = self.prove_base(
+            worker_public_key,
             guta_whitelist_root,
             r.checkpoint_tree_root,
             &r.guta_register_user_inputs,

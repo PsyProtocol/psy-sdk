@@ -155,6 +155,7 @@ C::Hasher:
 
     pub fn proof_start_dbg(&self, ex_input: VerifyTwoEndCapCircuitWithIdsInput<F>, end_cap_verifier_data: &VerifierOnlyCircuitData<C,D> ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         self.guta_circuits.verify_two_end_cap.prove_base(
+            QHashOut::default(),
             &ex_input.input,
             &self.proof_store.get_proof_by_id(ex_input.proof_a_id)?,
             &self.proof_store.get_proof_by_id(ex_input.proof_b_id)?,
