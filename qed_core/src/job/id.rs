@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
@@ -341,7 +340,7 @@ pub struct JobsTask {
 
 impl JobsTask {
     pub fn new(job_ids: &[QProvingJobDataID]) -> Self {
-        let task_id = TaskId::new_debug();
+        let task_id = TaskId::new();
         Self {
             task_id,
             job_ids: job_ids.to_vec(),
@@ -352,9 +351,6 @@ impl JobsTask {
         self.task_id
     }
 }
-/// Static counter for generating sequential debug IDs
-static DEBUG_COUNTER: AtomicU64 = AtomicU64::new(1);
-static DEBUG_LAYER_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TaskId(pub Uuid);
@@ -363,101 +359,11 @@ impl TaskId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
-
-    /// Creates a sequential TaskId for debugging
-    /// Returns IDs like "task-001", "task-002", etc.
-    pub fn new_debug() -> Self {
-        let counter = DEBUG_COUNTER.fetch_add(1, Ordering::SeqCst);
-        // Create a deterministic UUID from the counter
-        let mut bytes = [0u8; 16];
-        bytes[..8].copy_from_slice(&counter.to_le_bytes());
-        TaskId(Uuid::from_bytes(bytes))
-    }
-    pub fn new_layer_debug() -> Self {
-        let counter = DEBUG_LAYER_COUNTER.fetch_add(1, Ordering::SeqCst);
-        let mut bytes = [0u8; 16];
-        bytes[..8].copy_from_slice(&counter.to_le_bytes());
-        TaskId(Uuid::from_bytes(bytes))
-    }
-
-    /// Get the inner UUID
-    pub fn as_uuid(&self) -> &Uuid {
-        &self.0
-    }
-
-    /// Convert to bytes for storage
-    pub fn to_bytes(&self) -> [u8; 16] {
-        *self.0.as_bytes()
-    }
-
-    /// Create from bytes
-    pub fn from_bytes(bytes: [u8; 16]) -> Self {
-        Self(Uuid::from_bytes(bytes))
-    }
-
-    /// Serialize to a byte vector using bincode
-    pub fn to_vec(&self) -> Result<Vec<u8>> {
-        bincode::serialize(self).context("Failed to serialize TaskId")
-    }
-
-    /// Deserialize from bytes using bincode
-    pub fn from_slice(bytes: &[u8]) -> Result<Self> {
-        bincode::deserialize(bytes).context("Failed to deserialize TaskId")
-    }
-
-    /// Serialize to a compact string representation
-    pub fn to_string(&self) -> String {
-        self.0.to_string()
-    }
-
-    /// Parse from string representation
-    pub fn from_str(s: &str) -> Result<Self> {
-        Ok(Self(Uuid::parse_str(s)?))
-    }
 }
-// Implement Display for convenient string conversion
+
 impl std::fmt::Display for TaskId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
-    }
-}
-
-// Implement FromStr for parsing
-impl std::str::FromStr for TaskId {
-    type Err = uuid::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(Uuid::parse_str(s)?))
-    }
-}
-
-// For Redis operations, implement conversion to/from Vec<u8>
-impl From<TaskId> for Vec<u8> {
-    fn from(task_id: TaskId) -> Self {
-        task_id.to_vec().unwrap_or_else(|_| task_id.to_bytes().to_vec())
-    }
-}
-
-impl TryFrom<Vec<u8>> for TaskId {
-    type Error = anyhow::Error;
-
-    fn try_from(bytes: Vec<u8>) -> Result<Self> {
-        Self::from_slice(&bytes)
-    }
-}
-
-impl TryFrom<&[u8]> for TaskId {
-    type Error = anyhow::Error;
-
-    fn try_from(bytes: &[u8]) -> Result<Self> {
-        Self::from_slice(bytes)
-    }
-}
-
-//Implement AsRef for more ergonomic usage
-impl AsRef<Uuid> for TaskId {
-    fn as_ref(&self) -> &Uuid {
-        &self.0
     }
 }
 
@@ -503,7 +409,7 @@ impl JobsTaskGraph {
         let mut sorted_layers = Vec::new();
         let ts_order = self.graph.ts_order();
         for current_layer in ts_order {
-            let layer_id = LayerId::new_layer_debug();
+            let layer_id = LayerId::new();
             let mut job_ids = Vec::new();
             let task_ids = current_layer.clone();
             for &task_id in &task_ids {
