@@ -295,16 +295,6 @@ impl JobTaskStoreImpl {
 
         Ok(status)
     }
-
-    // Convert topologically sorted layers to TaskLayers
-    // fn create_task_layers(layers: Vec<Vec<LayerId>>) -> Vec<TaskLayer> {
-    //     layers.into_iter()
-    //         .map(|layer_ids| {
-    //             let layer_id = TaskId::new_debug();
-    //             TaskLayer::new(layer_id, layer_ids)
-    //         })
-    //         .collect()
-    // }
 }
 
 #[async_trait]
@@ -315,7 +305,7 @@ pub trait JobTaskStore {
     async fn get_current_layer_info(&self) -> Result<Option<LayerId>>;
     async fn count_pending_jobs_in_current_layer(&self) -> Result<u64>;
 
-        // Legacy operations (kept for compatibility)
+    // Legacy operations (kept for compatibility)
     async fn save_job_dependency_graph(&self, graph: &JobsTaskGraph, checkpoint_id: u64) -> Result<()> ;
     async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<JobsTaskGraph> ;
 }
@@ -350,10 +340,6 @@ impl JobTaskStore for JobTaskStoreImpl {
 
         // Step 3: Send all layers to the Redis list
         self.push_layers(&layers).await?;
-        info!("⭐ Pushed {} layers to Redis sorted set, debug_print start ", layers.len());
-        self.debug_print_all_layers().await?;
-        info!("⭐ Pushed {} layers to Redis sorted set, debug_print end ", layers.len());
-
         info!("Successfully saved {} layers", layers.len());
         Ok(())
     }
@@ -440,10 +426,9 @@ impl JobTaskStore for JobTaskStoreImpl {
                         }
                         Err(e) => {
                             error!("Failed to pop layer {}: {}. Layer will remain in list.", job.layer_id, e);
-                            //todo! print all the layer
                             info!("❌ Failed to pop layer, debug_print start ");
                             self.debug_print_all_layers().await?;
-                            info!("❌ Failed to pop layer, debug_print start ");
+                            info!("❌ Failed to pop layer, debug_print end ");
 
                         }
                     }
@@ -568,154 +553,4 @@ impl JobTaskStoreImpl {
         Ok(())
     }
 
-    /// Get detailed queue statistics for a specific layer
-    pub async fn get_queue_stats_for_layer(&self, layer_id: &LayerId) -> Result<QueueStats> {
-        let queue_id = self.layer_queue_id(layer_id);
-        self.rsmq.get_queue_stats(&queue_id).await
-    }
-
-    /// Validate layer consistency
-    pub async fn validate_layer_consistency(&self) -> Result<Vec<String>> {
-        let mut issues = Vec::new();
-        let all_layers = self.get_all_layers().await?;
-
-        // Check for duplicate layer IDs
-        let mut seen_ids = HashSet::new();
-        for layer in &all_layers {
-            if !seen_ids.insert(layer) {
-                issues.push(format!("Duplicate layer ID found: {}", layer));
-            }
-        }
-
-        // Check for empty layers
-        for (index, layer) in all_layers.iter().enumerate() {
-
-            // Check queue existence and stats using RsmqQueue
-            let queue_id = self.layer_queue_id(&layer);
-            match self.rsmq.get_queue_stats(&queue_id).await {
-                Ok(stats) => {
-                    // Check for orphaned messages (messages in queue but layer should be complete)
-                    if index > 0 && stats.total_messages > 0 {
-                        issues.push(format!(
-                            "Layer[{}] with ID {} is not current but has {} messages in queue",
-                            index, layer, stats.total_messages
-                        ));
-                    }
-                }
-                Err(_) => {
-                    issues.push(format!(
-                        "Layer[{}] with ID {} has no corresponding queue",
-                        index, layer
-                    ));
-                }
-            }
-        }
-
-        // Check if current layer matches head of list
-        if let Some(current) = self.peek_current_layer().await? {
-            if let Some(head) = all_layers.first() {
-                if &current != head {
-                    issues.push(format!(
-                        "Current layer {} doesn't match list head {}",
-                        current, head
-                    ));
-                }
-            }
-        }
-
-        if issues.is_empty() {
-            info!("Layer consistency check passed");
-        } else {
-            error!("Layer consistency check found {} issues", issues.len());
-            for issue in &issues {
-                error!("  - {}", issue);
-            }
-        }
-
-        Ok(issues)
-    }
-
-  
-
-    /// Get hidden message count for a layer (messages being processed)
-    pub async fn get_hidden_message_count(&self, layer_id: &LayerId) -> Result<u64> {
-        let queue_id = self.layer_queue_id(layer_id);
-        let stats = self.rsmq.get_queue_stats(&queue_id).await?;
-        Ok(stats.hidden_messages)
-    }
-
-    /// Check if there are any stuck messages (hidden for too long)
-    pub async fn check_for_stuck_messages(&self) -> Result<Vec<(LayerId, u64)>> {
-        let mut stuck_layers = Vec::new();
-        let all_layers = self.get_all_layers().await?;
-
-        for layer in all_layers {
-            let hidden_count = self.get_hidden_message_count(&layer).await?;
-            if hidden_count > 0 {
-                stuck_layers.push((layer, hidden_count));
-            }
-        }
-
-        if !stuck_layers.is_empty() {
-            warn!("Found {} layers with hidden messages", stuck_layers.len());
-            for (layer_id, count) in &stuck_layers {
-                warn!("  Layer {} has {} hidden messages", layer_id, count);
-            }
-        }
-
-        Ok(stuck_layers)
-    }
-
-    /// Get a summary of the entire system state
-    pub async fn get_system_health_report(&self) -> Result<String> {
-        let mut report = String::new();
-        report.push_str("=== System Health Report ===\n");
-
-        // Basic stats
-        let all_layers = self.get_all_layers().await?;
-        let current_layer = self.peek_current_layer().await?;
-
-        report.push_str(&format!("Total layers: {}\n", all_layers.len()));
-
-        if let Some(current) = current_layer {
-            report.push_str(&format!("Current layer: {}\n", current));
-        } else {
-            report.push_str("Current layer: None (all completed or empty)\n");
-        }
-
-        // Queue statistics
-        report.push_str("\nQueue Statistics:\n");
-        let mut total_pending = 0u64;
-        let mut total_hidden = 0u64;
-
-        for layer in &all_layers {
-            let queue_id = self.layer_queue_id(&layer);
-            if let Ok(stats) = self.rsmq.get_queue_stats(&queue_id).await {
-                let visible = stats.total_messages - stats.hidden_messages;
-                total_pending += stats.total_messages;
-                total_hidden += stats.hidden_messages;
-
-                report.push_str(&format!(
-                    "  Layer {}: {} total, {} visible, {} hidden\n",
-                    layer, stats.total_messages, visible, stats.hidden_messages
-                ));
-            }
-        }
-
-        report.push_str(&format!("\nTotal pending jobs: {}\n", total_pending));
-        report.push_str(&format!("Total hidden jobs: {}\n", total_hidden));
-
-        // Consistency check
-        let issues = self.validate_layer_consistency().await?;
-        if issues.is_empty() {
-            report.push_str("\n✓ System consistency check: PASSED\n");
-        } else {
-            report.push_str(&format!("\n✗ System consistency check: {} issues found\n", issues.len()));
-            for issue in issues {
-                report.push_str(&format!("  - {}\n", issue));
-            }
-        }
-
-        Ok(report)
-    }
 }
