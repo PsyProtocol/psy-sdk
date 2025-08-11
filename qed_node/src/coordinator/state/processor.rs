@@ -197,7 +197,6 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
                 self.coordinator_config.deploy_contract_channel_id,
-                checkpoint_id,
             )
             .await?;
 
@@ -304,7 +303,7 @@ impl<
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
         let user_registrations = self
             .checkpoint_queue
-            .cdq_drain_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID, 0)
+            .cdq_drain_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID)
             .await?;
         eprintln!("DEBUGPRINT[724]: processor.rs:326: user_registrations={}", serde_json::to_string_pretty(&user_registrations).unwrap());
 
@@ -406,7 +405,6 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(
                 self.coordinator_config.guta_channel_id,
-                checkpoint_id,
             )
             .await?;
         eprintln!("DEBUGPRINT[530]: processor.rs:406: guta_queue_items={}", serde_json::to_string_pretty(&guta_queue_items).unwrap());
@@ -1058,7 +1056,6 @@ impl<
             .checkpoint_queue
             .cdq_peek_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
                 self.coordinator_config.deploy_contract_channel_id,
-                checkpoint_id,
             )
             .await?;
 
@@ -1073,7 +1070,6 @@ impl<
             .checkpoint_queue
             .cdq_peek_imm::<ZKPublicKeyInfo<F>>(
                 COORD_API_REGISTER_USER_CHANNEL_ID,
-                0,
             )
             .await?;
 
@@ -1087,7 +1083,6 @@ impl<
             .checkpoint_queue
             .cdq_peek_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(
                 self.coordinator_config.guta_channel_id,
-                checkpoint_id,
             )
             .await?;
         info!("DEBUGPRINT[1093]: processor.rs:1093: guta_items={}", serde_json::to_string_pretty(&guta_items).unwrap());

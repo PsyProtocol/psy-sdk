@@ -173,8 +173,8 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedisAsync {
         let metadata: qed_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
         let key = format!(
-            "{}-{}_{}",
-            checkpoint_queue_prefix, metadata.channel_id, metadata.checkpoint_id
+            "{}-{}",
+            checkpoint_queue_prefix, metadata.channel_id,
         );
         tracing::debug!("Pushing job id to queue: {:?}", key);
         let mut con = self.pool.get().await?;
@@ -189,13 +189,12 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
     async fn cdq_drain_imm<T: DQSerializable>(
         &self,
         channel_id: u64,
-        checkpoint_id: u64,
     ) -> anyhow::Result<Vec<T>> {
         let checkpoint_queue_prefix =
             format!("{}-{}", self.worker_queue_id, PS_DRAIN_QUEUE_KEY_PREFIX);
         let key = format!(
-            "{}-{}_{}",
-            checkpoint_queue_prefix, channel_id, checkpoint_id
+            "{}-{}",
+            checkpoint_queue_prefix, channel_id
         );
         let mut con = self.pool.get().await?;
         let members: Vec<Vec<u8>> = con.lrange(key.clone(), 0, -1).await?;
@@ -211,13 +210,12 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
     async fn cdq_peek_imm<T: DQSerializable>(
         &self,
         channel_id: u64,
-        checkpoint_id: u64,
     ) -> anyhow::Result<Vec<T>> {
         let checkpoint_queue_prefix =
             format!("{}-{}", self.worker_queue_id, PS_DRAIN_QUEUE_KEY_PREFIX);
         let key = format!(
-            "{}-{}_{}",
-            checkpoint_queue_prefix, channel_id, checkpoint_id
+            "{}-{}",
+            checkpoint_queue_prefix, channel_id
         );
         let mut con = self.pool.get().await?;
         let members: Vec<Vec<u8>> = con.lrange(key, 0, -1).await?;
