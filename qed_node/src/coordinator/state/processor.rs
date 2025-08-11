@@ -827,7 +827,7 @@ impl<
         let root_state_transition_task = QProvingTask::new(&[root_state_transition]);
         let notify_block_complete_task = QProvingTask::new(&[notify_block_complete]);
         self.task_store
-            .write_next_job_tasks(&root_state_transition_task, &notify_block_complete_task)
+            .write_next_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
 
         let op_agg_group_parts_common_id = 6;
@@ -852,11 +852,11 @@ impl<
         let state_part_1_task = QProvingTask::new(&[state_part_1_id]);
         let state_part_1_common_task = QProvingTask::new(&[state_part_1_common_id]);
         self.task_store
-            .write_next_job_tasks(&state_part_1_common_task, &root_state_transition_task)
+            .write_next_tasks(&state_part_1_common_task, &root_state_transition_task)
             .await?;
 
         self.task_store
-            .write_next_job_tasks(&state_part_1_task, &state_part_1_common_task)
+            .write_next_tasks(&state_part_1_task, &state_part_1_common_task)
             .await?;
         //self.proof_store  .write_next_jobs(&[state_part_2_id], &[state_part_2_common_id]).await?;
 
@@ -882,20 +882,20 @@ impl<
         let register_users_agg_task = QProvingTask::new(&[register_users_agg_job_id]);
         let deploy_contracts_agg_task = QProvingTask::new(&[deploy_contracts_agg_job_id]);
         let guta_agg_task = QProvingTask::new(&[guta_agg_job_id]);
-        self.task_store.write_next_job_tasks(&register_users_agg_task, &state_part_1_task).await?;
+        self.task_store.write_next_tasks(&register_users_agg_task, &state_part_1_task).await?;
         self.task_store
-            .write_next_job_tasks(&deploy_contracts_agg_task, &state_part_1_task)
+            .write_next_tasks(&deploy_contracts_agg_task, &state_part_1_task)
             .await?;
         self.task_store
-            .write_next_job_tasks(&guta_agg_task, &state_part_1_task)
+            .write_next_tasks(&guta_agg_task, &state_part_1_task)
             .await?;
 
         let user_registration_tasks = user_registration_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let deploy_contracts_tasks = deploy_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
-        self.task_store.write_multidimensional_job_tasks(&user_registration_tasks, &register_users_agg_task).await?;
-        self.task_store.write_multidimensional_job_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
-        self.task_store.write_multidimensional_job_tasks(&guta_tasks, &guta_agg_task).await?;
+        self.task_store.write_multidimensional_tasks(&user_registration_tasks, &register_users_agg_task).await?;
+        self.task_store.write_multidimensional_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
+        self.task_store.write_multidimensional_tasks(&guta_tasks, &guta_agg_task).await?;
 
         //let new_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
         /*let user_agg = AggStateTransition {

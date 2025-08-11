@@ -784,7 +784,7 @@ impl<
 
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let finished_job_task = QProvingTask::new(&[finished_job]);
-        self.task_store.write_multidimensional_job_tasks(&guta_tasks, &finished_job_task).await?;
+        self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
 
         // self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
 

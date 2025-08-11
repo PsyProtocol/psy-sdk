@@ -351,8 +351,8 @@ pub trait QProvingTaskStore {
     async fn count_pending_jobs_in_current_layer(&self) -> Result<u64>;
 
     // Task graph management methods
-    async fn write_next_job_tasks(&self, task: &QProvingTask, next_task: &QProvingTask) -> Result<()>;
-    async fn write_multidimensional_job_tasks(&self, tasks: &[QProvingTask], next_task: &QProvingTask) -> Result<()>;
+    async fn write_next_tasks(&self, task: &QProvingTask, next_task: &QProvingTask) -> Result<()>;
+    async fn write_multidimensional_tasks(&self, tasks: &[QProvingTask], next_task: &QProvingTask) -> Result<()>;
     async fn get_task_graph(&self) -> QProvingTaskGraph;
     async fn clear_task_graph(&self) -> Result<()>;
     async fn finalize_and_save_topology(&self) -> Result<()>;
@@ -519,13 +519,13 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             .context("Failed to deserialize job graph")
     }
 
-    async fn write_next_job_tasks(&self, task: &QProvingTask, next_task: &QProvingTask) -> Result<()> {
+    async fn write_next_tasks(&self, task: &QProvingTask, next_task: &QProvingTask) -> Result<()> {
         let mut task_graph = self.task_graph.lock().await;
         task_graph.add_dep(next_task.clone(), task.clone());
         Ok(())
     }
 
-    async fn write_multidimensional_job_tasks(&self, tasks: &[QProvingTask], next_task: &QProvingTask) -> Result<()> {
+    async fn write_multidimensional_tasks(&self, tasks: &[QProvingTask], next_task: &QProvingTask) -> Result<()> {
         let mut task_graph = self.task_graph.lock().await;
         let job_levels_count = tasks.len();
         for i in 0..job_levels_count {
