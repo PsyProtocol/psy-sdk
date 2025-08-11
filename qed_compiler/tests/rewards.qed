@@ -1,31 +1,3 @@
-fn get_user_id() -> Felt {
-    42
-}
-
-fn get_user_public_key(user_id: Felt) -> Felt {
-    user_id * 1000
-}
-
-fn get_register_users_root(checkpoint_id: Felt) -> Hash {
-    hash([checkpoint_id, 1, 0, 0])
-}
-
-fn get_gutas_root(checkpoint_id: Felt) -> Hash {
-    hash([checkpoint_id, 2, 0, 0])
-}
-
-fn get_deploy_contracts_root(checkpoint_id: Felt) -> Hash {
-    hash([checkpoint_id, 3, 0, 0])
-}
-
-fn get_contract_id() -> Felt {
-    999
-}
-
-fn hash_to_felt(h: Hash) -> Felt {
-    h[0]
-}
-
 #[derive(Storage, StorageRef)]
 struct MerkleProof {
     pub value: Hash,
@@ -111,7 +83,6 @@ impl ContractRef {
         let nullifier_ref = c.nullifiers.index(nullifier_idx);
         assert(!nullifier_ref.get().used, "already claimed");
 
-        let user_public_key = get_user_public_key(user_id);
         let mut total_reward = 0;
         let mut i = 0;
 
@@ -120,7 +91,7 @@ impl ContractRef {
             let expected_root = Self::get_expected_root(checkpoint_id, claim.job_type);
 
             assert(Self::verify_proof(claim.proof, expected_root), "invalid proof");
-            assert(hash_to_felt(claim.proof.value) == user_public_key, "wrong public key");
+            assert(claim.proof.value == get_user_public_key_hash(), "wrong public key");
 
             total_reward += claim.reward;
             i += 1;

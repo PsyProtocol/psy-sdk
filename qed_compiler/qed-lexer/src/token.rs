@@ -71,6 +71,14 @@ pub enum Token<'input> {
     IntrinsicCtxGetContractId,
     #[token("__ctx_get_checkpoint_id")]
     IntrinsicCtxGetCheckpointId,
+    #[token("__ctx_get_checkpoint_stats")]
+    IntrinsicCtxGetCheckpointStats,
+    #[token("__ctx_get_register_users_root")]
+    IntrinsicCtxGetRegisterUsersRoot,
+    #[token("__ctx_get_gutas_root")]
+    IntrinsicCtxGetGutasRoot,
+    #[token("__ctx_get_deploy_contracts_root")]
+    IntrinsicCtxGetDeployContractsRoot,
     #[token("__ctx_get_last_nonce")]
     IntrinsicCtxGetLastNonce,
     #[token("__ctx_get_user_public_key_hash")]

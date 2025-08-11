@@ -815,6 +815,38 @@ IntrinsicExpression: ExprNode<F> = {
             }
         )
     },
+    <l:@L> <variable:CTX_GET_CHECKPOINT_STATS> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetCheckpointStats {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_REGISTER_USERS_ROOT> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetRegisterUsersRoot {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_GUTAS_ROOT> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetGutasRoot {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_DEPLOY_CONTRACTS_ROOT> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetDeployContractsRoot {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
     <l:@L> <variable:CTX_GET_LAST_NONCE> "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
             IntrinsicExprNode::GetLastNonce {
@@ -1138,6 +1170,10 @@ extern {
         CTX_GET_USER_ID => Token::IntrinsicCtxGetUserId,
         CTX_GET_CONTRACT_ID => Token::IntrinsicCtxGetContractId,
         CTX_GET_CHECKPOINT_ID => Token::IntrinsicCtxGetCheckpointId,
+        CTX_GET_CHECKPOINT_STATS => Token::IntrinsicCtxGetCheckpointStats,
+        CTX_GET_REGISTER_USERS_ROOT => Token::IntrinsicCtxGetRegisterUsersRoot,
+        CTX_GET_GUTAS_ROOT => Token::IntrinsicCtxGetGutasRoot,
+        CTX_GET_DEPLOY_CONTRACTS_ROOT => Token::IntrinsicCtxGetDeployContractsRoot,
         CTX_GET_LAST_NONCE => Token::IntrinsicCtxGetLastNonce,
         CTX_GET_USER_PUBLIC_KEY_HASH => Token::IntrinsicCtxGetUserPublicKeyHash,
         CTX_GET_STATE_HASH_AT => Token::IntrinsicCtxGetStateHashAt,
