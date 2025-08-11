@@ -284,6 +284,7 @@ impl WalletSession {
             .add_private_key_get_info(SimpleQEDPrivateKey { private_key });
         let public_key = pk_info.qfhash::<QEDHasher>();
         let checkpoint_id = self.st_provider.get_latest_l2_block_state().await?.checkpoint_id;
+        tracing::info!("add_user: checkpoint_id: {}", checkpoint_id);
 
         let (user_id, nonce, user_state) = match self.st_provider.get_user_id(public_key).await {
             Ok(user_id) => match self.st_provider.get_user_leaf_data(checkpoint_id, user_id).await {
@@ -356,11 +357,13 @@ impl WalletSession {
             "exec contract call: {}",
             serde_json::to_string_pretty(&contract_call_args)?
         );
-        tracing::info!("start session");
+        let result = self.st_provider.get_latest_l2_block_state().await?;
+        tracing::info!("start session on checkpoint: {}", result.checkpoint_id);
         self.start_session(pk_hash).await?;
         tracing::info!("prove contract calls");
         self.prove_contract_calls(pk_hash, contract_call_args).await?;
-        tracing::info!("sign and submit");
+        let result = self.st_provider.get_latest_l2_block_state().await?;
+        tracing::info!("sign and submit on checkpoint: {}",result.checkpoint_id);
         self.sign_and_submit(pk_hash).await?;
         Ok(())
     }

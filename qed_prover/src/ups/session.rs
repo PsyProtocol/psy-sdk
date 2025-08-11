@@ -155,26 +155,28 @@ impl<
     pub async fn get_ups_start_witness(
         &mut self,
     ) -> anyhow::Result<UPSStartStepInput<F>> {
+        let start_checkpoint_id = self.lps.get_current_start_checkpoint_id_u64();
         tracing::info!(
             "resolve checkpoint tree proof at checkpoint {}, leaf checkpoint {}",
             self.lps.get_current_write_checkpoint_id_u64(),
-            self.lps.get_current_start_checkpoint_id_u64()
+            start_checkpoint_id
         );
         let checkpoint_tree_proof= self.lps.cmd_store.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetCheckpointTreeMerkleProof(QSRMerkleCmdGetCheckpointTreeMerkleProof{
-            checkpoint_id: self.lps.get_current_write_checkpoint_id_u64(),
-            leaf_checkpoint_id: self.lps.get_current_start_checkpoint_id_u64(),
+            checkpoint_id: start_checkpoint_id,
+            leaf_checkpoint_id: start_checkpoint_id,
         })).await?;
 
         tracing::info!(
-            "resolve user tree proof at checkpoint {}, user {}",
+            "resolve user tree proof at checkpoint {}, start checkpoint {}, user {}",
             self.lps.get_current_write_checkpoint_id_u64(),
+            start_checkpoint_id,
             self.lps.get_current_user_id_64(),
         );
         let user_tree_proof =
             self.lps.cmd_store
                 .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserTreeMerkleProof(
                     QSRMerkleCmdGetUserTreeMerkleProof {
-                        checkpoint_id: self.lps.get_current_write_checkpoint_id_u64(),
+                        checkpoint_id: start_checkpoint_id,
                         user_id: self.lps.get_current_user_id_64(),
                     },
                 )).await?;
