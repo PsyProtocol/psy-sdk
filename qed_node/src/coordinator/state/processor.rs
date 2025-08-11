@@ -1062,6 +1062,8 @@ impl<
             )
             .await?;
 
+        info!("DEBUGPRINT[1065]: processor.rs:1065: deploy_items={}", serde_json::to_string_pretty(&deploy_items).unwrap());
+
         if !deploy_items.is_empty() {
             return Ok(true);
         }
@@ -1075,6 +1077,7 @@ impl<
             )
             .await?;
 
+        info!("DEBUGPRINT[1080]: processor.rs:1080: user_reg_items={}", serde_json::to_string_pretty(&user_reg_items).unwrap());
         if !user_reg_items.is_empty() {
             return Ok(true);
         }
@@ -1087,7 +1090,7 @@ impl<
                 checkpoint_id,
             )
             .await?;
-
+        info!("DEBUGPRINT[1093]: processor.rs:1093: guta_items={}", serde_json::to_string_pretty(&guta_items).unwrap());
         Ok(!guta_items.is_empty())
     }
 
