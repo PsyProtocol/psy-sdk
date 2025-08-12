@@ -478,7 +478,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for DrainQueueFred {
         let bytes = item.to_bytes()?;
         self.pool
             .lpush::<(), String, &[u8]>(
-                    format!("CDQ_2_{}_{}", self.biz_key ,metadata.channel_id),
+                    format!("{}_{}", self.checkpoint_drain_queue_key(), metadata.channel_id),
                 &bytes,
             )
             .await?;
@@ -492,7 +492,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Vec<T>> {
-        let key = format!("CDQ_2_{}_{}", self.biz_key, channel_id);
+        let key = format!("{}_{}", self.checkpoint_drain_queue_key(), channel_id);
         let members: Vec<Vec<u8>> = self
             .pool
             .lrange::<Vec<Vec<u8>>, String>(key.clone(), 0, -1)
@@ -510,7 +510,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Vec<T>> {
-        let key = format!("CDQ_2_{}_{}", self.biz_key, channel_id);
+        let key = format!("{}_{}", self.checkpoint_drain_queue_key(), channel_id);
         let members: Vec<Vec<u8>> = self
             .pool
             .lrange::<Vec<Vec<u8>>, String>(key, 0, -1)

@@ -108,7 +108,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("pushed items");
 
-    let drained_items = q.cdq_drain_imm::<TestItem>(1337, 2).await?;
+    let drained_items = q.cdq_drain_imm::<TestItem>(1337).await?;
     timer.lap("drained items");
     println!("ditems_len: {}", drained_items.len());
     //println!("drained_items: {:?}", drained_items);
@@ -157,7 +157,7 @@ async fn run_fred_test2() -> anyhow::Result<()> {
     let _ = res2.await??;
     timer.lap("pushed items");
 
-    let drained_items = q.cdq_drain_imm::<TestItem>(1337, 2).await?;
+    let drained_items = q.cdq_drain_imm::<TestItem>(1337).await?;
     timer.lap("drained items");
     println!("ditems_len: {}", drained_items.len());
     //println!("drained_items: {:?}", drained_items);
@@ -182,7 +182,7 @@ async fn run_fred_test() -> anyhow::Result<()> {
     }
     timer.lap("pushed items");
 
-    let drained_items = q.cdq_drain_imm::<TestItem>(1337, 2).await?;
+    let drained_items = q.cdq_drain_imm::<TestItem>(1337).await?;
     timer.lap("drained items");
     println!("ditems_len: {}", drained_items.len());
     //println!("drained_items: {:?}", drained_items);

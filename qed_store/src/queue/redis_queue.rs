@@ -51,6 +51,8 @@ pub trait QueuePrefixKey {
 
     // realm sync checkpoint key prefix PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX
     fn realm_sync_checkpoint_key(&self) -> String;
+
+    fn checkpoint_drain_queue_key(&self) -> String;
 }
 
 // fixed prefix + biz key
@@ -82,6 +84,10 @@ impl<T: BizKey> QueuePrefixKey for T {
 
     fn realm_sync_checkpoint_key(&self) -> String {
         format!("{}-{}", PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX, self.biz_key())
+    }
+
+    fn checkpoint_drain_queue_key(&self) -> String {
+        format!("CDQ_2_{}", self.biz_key())
     }
 }
 
@@ -630,9 +636,9 @@ impl<T: HQSerializable> NotificationQueue<T> for ProofStoreRedisAsync {
             let result: Option<Vec<u8>> = conn.lpop(key.as_str(), None).await?;
             match result {
                 Some(result) => {
-                    match T::from_bytes(&result) {
-                        Ok(item) => return Ok(item),
-                        Err(err) => return Err(anyhow::anyhow!("Failed to parse item: {:?}", err)),
+                    return match T::from_bytes(&result) {
+                        Ok(item) => Ok(item),
+                        Err(err) => Err(anyhow::anyhow!("Failed to parse item: {:?}", err)),
                     }
                 }
                 None => {
