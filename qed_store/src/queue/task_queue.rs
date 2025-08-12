@@ -85,7 +85,7 @@ impl JobTaskStoreImpl {
 
         // Use the unified RsmqQueue instead of RsmqTaskQueue
         let rsmq = Arc::new(
-            RsmqQueue::new(redis_url, pool_size, "job_task_store") //no
+            RsmqQueue::new(redis_url, pool_size, "job_task_store")
                 .await
                 .context("Failed to create RSMQ queue")?
         );
