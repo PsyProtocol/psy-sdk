@@ -5,7 +5,7 @@ LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_c
 
 default: build-release wasm-build
 
-build-release:
+build-release: config_gen_v2
 	@RUSTFLAGS="-A warnings"  cargo build --release
 
 check:

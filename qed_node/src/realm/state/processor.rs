@@ -776,8 +776,7 @@ impl<
         let finished_job_task = JobsTask::new(&[finished_job]);
         self.proof_store.write_multidimensional_job_tasks(&guta_tasks, &finished_job_task).await?;
 
-        self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
-
+        // self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
 
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())

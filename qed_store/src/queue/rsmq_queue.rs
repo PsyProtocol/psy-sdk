@@ -14,11 +14,11 @@ use qed_core::job::history_queue::{
 };
 use qed_core::job::id::{QProvingJobDataID, ProvingJobDataId, QWorkerJobBenchmark};
 use qed_core::job::worker_queue::{
-    WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm, 
+    WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm,
     WorkerEventReceiverSync, WorkerEventTransmitterSync
 };
 use rsmq::{PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqError, RsmqOptions,
-    RsmqConnectionSync, RsmqSync, RsmqMessage};
+           RsmqConnectionSync, RsmqSync, RsmqMessage};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::fmt::{Debug, Formatter};
@@ -26,9 +26,10 @@ use std::str::FromStr;
 use std::time::Duration;
 use std::sync::{Arc, RwLock};
 use tokio::time::sleep;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use crate::queue::{BizKey, QueuePrefixKey};
-
+use anyhow::{anyhow, Result};
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum QueueId {
     WorkerEvent {
         queue_biz_key: String,
@@ -77,7 +78,56 @@ impl QueueId {
         }
     }
 }
+/// Queue statistics
+#[derive(Debug, Clone, Default)]
+pub struct QueueStats {
+    pub queue_name: String,
+    pub total_messages: u64,
+    pub hidden_messages: u64,
+    pub total_sent: u64,
+    pub total_received: u64,
+    pub created_at: u64,
+    pub modified_at: u64,
+}
 
+
+// ===== RSMQ Pool Creation =====
+
+/// Creates an RSMQ connection pool from Redis URL
+pub async fn create_rsmq_pool(redis_url: &str, pool_size: usize) -> Result<PooledRsmq> {
+    let url = url::Url::parse(redis_url)?;
+    let mut rsmq_options = RsmqOptions::default();
+
+    if let Some(host) = url.host() {
+        rsmq_options.host = host.to_string();
+    }
+
+    if let Some(port) = url.port() {
+        rsmq_options.port = port;
+    }
+
+    let path = url.path();
+    if path.starts_with('/') && path.len() > 1 {
+        let db_index_str = &path[1..];
+        let db = u8::from_str(db_index_str)?;
+        rsmq_options.db = db;
+    }
+
+    debug!(
+        "Creating RSMQ pool - Host: {}, Port: {}, DB: {}, Pool size: {}",
+        rsmq_options.host, rsmq_options.port, rsmq_options.db, pool_size
+    );
+
+    let pool_options = PoolOptions {
+        max_size: Some(pool_size as u32),
+        min_idle: Some((pool_size / 2) as u32),
+    };
+
+    Ok(PooledRsmq::new(rsmq_options, pool_options).await?)
+}
+// ===== Main Queue Implementation =====
+
+/// Unified RSMQ queue implementation
 pub struct RsmqQueue {
     pub pool: PooledRsmq,
     pub biz_key: String,
@@ -92,34 +142,9 @@ impl BizKey for RsmqQueue {
 impl Debug for RsmqQueue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RsmqQueue")
-            .field("worker_queue_key", &self.worker_queue_key())
-            .field("notifications_queue_key", &self.notifications_queue_key())
+            .field("biz_key", &self.biz_key)
             .finish()
     }
-}
-
-pub async fn new_rsmq_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<PooledRsmq> {
-    let url = url::Url::parse(redis_url)?;
-    let mut rsmq_option = RsmqOptions::default();
-    if let Some(host) = url.host() {
-        rsmq_option.host = host.to_string();
-    }
-    if let Some(port) = url.port() {
-        rsmq_option.port = port;
-    }
-    let path = url.path();
-    if path.starts_with('/') && path.len() > 1 {
-        let db_index_str = &path[1..];
-        let db = u8::from_str(db_index_str)?;
-        rsmq_option.db = db;
-    }
-    info!(?redis_url, host=?rsmq_option.host, port=?rsmq_option.port, db=?rsmq_option.db, "new rsmq pool");
-    let pool_option = PoolOptions {
-        max_size: Some(pool_size as u32),
-        min_idle: None,
-    };
-    let pool = PooledRsmq::new(rsmq_option, pool_option).await?;
-    Ok(pool)
 }
 
 impl RsmqQueue {
@@ -127,26 +152,25 @@ impl RsmqQueue {
         redis_url: &str,
         pool_size: usize,
         biz_key: impl ToString,
-    ) -> anyhow::Result<Self> {
-        let pool = new_rsmq_pool(redis_url, pool_size).await?;
-        let client = Self {
+    ) -> Result<Self> {
+        let pool = create_rsmq_pool(redis_url, pool_size).await?;
+        Ok(Self {
             pool,
             biz_key: biz_key.to_string(),
-        };
-        Ok(client)
+        })
     }
-    pub async fn create_queue_if_not_exists(&self, queue: &QueueId) -> anyhow::Result<()> {
+
+    pub async fn create_queue_if_not_exists(&self, queue: &QueueId) -> Result<()> {
         let queue_id = queue.get_queue_id();
         match self.pool.get_queue_attributes(&queue_id).await {
             Ok(_) => Ok(()),
             Err(RsmqError::QueueNotFound) => {
-                let ret = self.pool.create_queue(&queue_id, None, None, None).await;
-                match ret {
+                match self.pool.create_queue(&queue_id, None, None, None).await {
                     Ok(()) | Err(RsmqError::QueueExists) => Ok(()),
-                    Err(err) => Err(err)?,
+                    Err(err) => Err(err.into()),
                 }
             }
-            Err(err) => Err(err)?,
+            Err(err) => Err(err.into()),
         }
     }
 
@@ -154,41 +178,313 @@ impl RsmqQueue {
         &self,
         queue: &QueueId,
         message: E,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
-        let bytes = message.into();
-        self.pool.send_message(&queue_id, bytes, None).await?;
+        self.pool.send_message(&queue_id, message, None).await?;
         Ok(())
     }
     pub async fn receive_message(
         &self,
         queue: &QueueId,
         hidden: Option<Duration>,
-    ) -> anyhow::Result<Option<Vec<u8>>> {
+    ) -> Result<Option<Vec<u8>>> {
         self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
-        let message = self
-            .pool
+        let message = self.pool
             .receive_message::<Vec<u8>>(&queue_id, hidden)
             .await?;
         Ok(message.map(|msg| msg.message))
     }
 
-    pub async fn delete_message(&self, queue: &QueueId, message_id: &str) -> anyhow::Result<()> {
+    pub async fn receive_message_with_id(
+        &self,
+        queue: &QueueId,
+        hidden: Option<Duration>,
+    ) -> Result<Option<RsmqMessage<Vec<u8>>>> {
         self.create_queue_if_not_exists(queue).await?;
+        let queue_id = queue.get_queue_id();
+        Ok(self.pool.receive_message(&queue_id, hidden).await?)
+    }
+
+    pub async fn delete_message(&self, queue: &QueueId, message_id: &str) -> Result<()> {
         let queue_id = queue.get_queue_id();
         self.pool.delete_message(&queue_id, message_id).await?;
         Ok(())
     }
 
-    pub async fn pop_message(&self, queue: &QueueId) -> anyhow::Result<Option<Vec<u8>>> {
+    pub async fn pop_message(&self, queue: &QueueId) -> Result<Option<Vec<u8>>> {
         self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
         let message = self.pool.pop_message::<Vec<u8>>(&queue_id).await?;
         Ok(message.map(|msg| msg.message))
     }
+
+    // ===== Type-safe serialization methods =====
+
+    /// Send a serializable object to the queue
+    pub async fn send_object<T: Serialize>(&self, queue: &QueueId, obj: &T) -> Result<()> {
+        let bytes = bincode::serialize(obj)?;
+        self.send_message(queue, bytes).await
+    }
+
+    /// Send a JSON-serializable object to the queue
+    pub async fn send_json<T: Serialize>(&self, queue: &QueueId, obj: &T) -> Result<()> {
+        let json = serde_json::to_vec(obj)?;
+        self.send_message(queue, json).await
+    }
+
+    /// Receive and deserialize an object from the queue
+    pub async fn receive_object<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue: &QueueId,
+        hidden: Option<Duration>,
+    ) -> Result<Option<T>> {
+        match self.receive_message(queue, hidden).await? {
+            Some(bytes) => Ok(Some(bincode::deserialize(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Receive and deserialize a JSON object from the queue
+    pub async fn receive_json<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue: &QueueId,
+        hidden: Option<Duration>,
+    ) -> Result<Option<T>> {
+        match self.receive_message(queue, hidden).await? {
+            Some(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Receive an object with message ID for acknowledgment
+    pub async fn receive_object_with_id<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue: &QueueId,
+        hidden: Option<Duration>,
+    ) -> Result<Option<(T, String)>> {
+        match self.receive_message_with_id(queue, hidden).await? {
+            Some(msg) => {
+                let obj = bincode::deserialize(&msg.message)?;
+                Ok(Some((obj, msg.id)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Pop and deserialize an object from the queue
+    pub async fn pop_object<T: for<'de> Deserialize<'de>>(&self, queue: &QueueId) -> Result<Option<T>> {
+        match self.pop_message(queue).await? {
+            Some(bytes) => Ok(Some(bincode::deserialize(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Pop and deserialize a JSON object from the queue
+    pub async fn pop_json<T: for<'de> Deserialize<'de>>(&self, queue: &QueueId) -> Result<Option<T>> {
+        match self.pop_message(queue).await? {
+            Some(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Send multiple objects in batch
+    pub async fn send_batch<T: Serialize>(&self, queue: &QueueId, items: &[T]) -> Result<()> {
+        for item in items {
+            self.send_object(queue, item).await?;
+        }
+        Ok(())
+    }
+
+    /// Receive multiple objects (up to limit)
+    pub async fn receive_batch<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue: &QueueId,
+        limit: usize,
+        hidden: Option<Duration>,
+    ) -> Result<Vec<T>> {
+        let mut results = Vec::with_capacity(limit.min(100));
+        for _ in 0..limit {
+            match self.receive_object(queue, hidden).await? {
+                Some(obj) => results.push(obj),
+                None => break,
+            }
+        }
+        Ok(results)
+    }
+
+    /// Pop all messages from queue and deserialize
+    pub async fn pop_all<T: for<'de> Deserialize<'de>>(&self, queue: &QueueId) -> Result<Vec<T>> {
+        let mut results = Vec::new();
+        while let Some(obj) = self.pop_object(queue).await? {
+            results.push(obj);
+        }
+        Ok(results)
+    }
+
+    pub async fn get_queue_length(&self, queue: &QueueId) -> Result<u64> {
+        let queue_id = queue.get_queue_id();
+        match self.pool.get_queue_attributes(&queue_id).await {
+            Ok(attr) => Ok(attr.msgs),
+            Err(RsmqError::QueueNotFound) => Ok(0),
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    pub async fn delete_queue(&self, queue: &QueueId) -> Result<()> {
+        let queue_id = queue.get_queue_id();
+        self.pool.delete_queue(&queue_id).await?;
+        Ok(())
+    }
+
+    pub async fn get_queue_stats(&self, queue: &QueueId) -> Result<QueueStats> {
+        let queue_id = queue.get_queue_id();
+        match self.pool.get_queue_attributes(&queue_id).await {
+            Ok(attr) => Ok(QueueStats {
+                queue_name: queue_id,
+                total_messages: attr.msgs,
+                hidden_messages: attr.hiddenmsgs,
+                total_sent: attr.totalsent,
+                total_received: attr.totalrecv,
+                created_at: attr.created,
+                modified_at: attr.modified,
+            }),
+            Err(RsmqError::QueueNotFound) => Ok(QueueStats {
+                queue_name: queue_id,
+                ..Default::default()
+            }),
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    pub async fn change_message_visibility(
+        &self,
+        queue: &QueueId,
+        message_id: &str,
+        visibility: Duration,
+    ) -> Result<()> {
+        let queue_id = queue.get_queue_id();
+
+        // RSMQ uses this Redis command internally
+        self.pool.change_message_visibility(
+            &queue_id,
+            message_id,
+            visibility
+        ).await?;
+
+        Ok(())
+    }
+
 }
+
+// ===== Task Queue Implementation =====
+
+/// Task queue implementation (wrapper around RsmqQueue for compatibility)
+pub struct RsmqTaskQueue {
+    inner: RsmqQueue,
+}
+
+impl RsmqTaskQueue {
+    pub async fn new(redis_url: &str, pool_size: usize) -> Result<Self> {
+        let inner = RsmqQueue::new(redis_url, pool_size, "task_queue").await?;
+        Ok(Self { inner })
+    }
+
+    pub async fn create_queue_if_not_exists(&self, queue_name: &str) -> Result<()> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.create_queue_if_not_exists(&queue_id).await
+    }
+
+    // ===== Raw message methods =====
+
+    pub async fn send_message<E>(&self, queue_name: &str, message: E) -> Result<()>
+    where
+        E: Into<RedisBytes> + Send,
+    {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.send_message(&queue_id, message).await
+    }
+
+    pub async fn receive_message_with_id(
+        &self,
+        queue_name: &str,
+        hidden: Option<Duration>,
+    ) -> Result<Option<RsmqMessage<Vec<u8>>>> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.receive_message_with_id(&queue_id, hidden).await
+    }
+
+    pub async fn delete_message(&self, queue_name: &str, message_id: &str) -> Result<()> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.delete_message(&queue_id, message_id).await
+    }
+
+    // ===== Type-safe serialization methods =====
+
+    /// Send a serializable object to the queue
+    pub async fn send_object<T: Serialize>(&self, queue_name: &str, obj: &T) -> Result<()> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.send_object(&queue_id, obj).await
+    }
+
+    /// Receive and deserialize an object with ID
+    pub async fn receive_object_with_id<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue_name: &str,
+        hidden: Option<Duration>,
+    ) -> Result<Option<(T, String)>> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.receive_object_with_id(&queue_id, hidden).await
+    }
+
+    /// Pop and deserialize an object
+    pub async fn pop_object<T: for<'de> Deserialize<'de>>(
+        &self,
+        queue_name: &str,
+    ) -> Result<Option<T>> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.pop_object(&queue_id).await
+    }
+
+    /// Send multiple objects in batch
+    pub async fn send_batch<T: Serialize>(&self, queue_name: &str, items: &[T]) -> Result<()> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.send_batch(&queue_id, items).await
+    }
+
+    pub async fn get_queue_length(&self, queue_name: &str) -> Result<u64> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.get_queue_length(&queue_id).await
+    }
+
+    pub async fn delete_queue(&self, queue_name: &str) -> Result<()> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: queue_name.to_string(),
+        };
+        self.inner.delete_queue(&queue_id).await
+    }
+}
+
+// ===== Trait Implementations =====
 
 #[async_trait]
 impl CheckpointDrainQueueEmitterAsyncImm for RsmqQueue {
@@ -265,11 +561,11 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
             let checkpoint_id = u64::from_le_bytes(bytes[..8].try_into()?);
             if let Some(cur_id) = current_checkpoint_id {
                 if cur_id + 1 != checkpoint_id {
-                    anyhow::bail!(
-                        "Get wrong checkpoint id, expect {}, but get {}",
-                        cur_id,
+                    return Err(anyhow!(
+                        "Wrong checkpoint id, expect {}, but got {}",
+                        cur_id + 1,
                         checkpoint_id
-                    );
+                    ));
                 }
             }
             current_checkpoint_id = Some(checkpoint_id);
@@ -303,7 +599,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
             };
         }
     }
-    
+
     async fn is_empty(&self) -> anyhow::Result<bool> {
         // Check if sync proof queue is empty
         let queue_id = QueueId::SyncProof {
@@ -461,7 +757,7 @@ impl KVQSerializable for CEQueueNotification {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
-    
+
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
@@ -561,7 +857,7 @@ impl QEDRedisEventProcessor {
     pub fn new(dispatcher: RedisQueue) -> Self {
         Self::new_with_config(dispatcher, false)
     }
-    
+
     pub fn new_with_config(dispatcher: RedisQueue, benckmarks_enabled: bool) -> Self {
         Self {
             job_queue: dispatcher,
@@ -569,7 +865,7 @@ impl QEDRedisEventProcessor {
             benchmarks: Vec::new(),
         }
     }
-    
+
     pub fn to_imm(self) -> QEDArcImmutableEventProcessorWrapper<Self> {
         QEDArcImmutableEventProcessorWrapper::new(self)
     }
