@@ -59,37 +59,33 @@ sleep 30
 
 run_make_command "make deploy-contract" "Deploy Contract"
 run_make_command "make register-user" "Register User"
-# run_make_command "make build-block" "Build Block 1"
 echo "wait for block 1 to be committed"
-# wait for block 2 to be committed
 sleep 30s
-run_make_command "make build-block" "Build Block 1"
+run_make_command "make build-block" "Make build Block 2"
+echo "wait for block 2 to be committed"
 sleep 30s
 run_make_command "make mint" "Mint"
-# run_make_command "make build-block" "Build Block 2"
-echo "wait for block 2 to be committed"
-# wait for block 2 to be committed
+echo "wait for block 3 to be committed"
 sleep 30s
 
 get_user_token_info
 
 run_make_command "make transfer" "Transfer"
-echo "wait for block 3 to be committed"
+echo "wait for block 4 to be committed"
 sleep 30s
-run_make_command "make build-block" "Build Block 4"
+run_make_command "make build-block" "Make build Block 5"
+echo "wait for block 5 to be committed"
 sleep 30s
 get_user_token_info
 
 run_make_command "make claim" "Claim"
-# run_make_command "make build-block" "Build Block 4"
-echo "wait for block 5 to be committed"
+echo "wait for block 6 to be committed"
 sleep 30s
 
 get_user_token_info
 
 run_make_command "make return-back" "return-back"
-# run_make_command "make build-block" "Build Block 5"
-echo "wait for block 6 to be committed"
+echo "wait for block 7 to be committed"
 sleep 30s
 
 get_user_token_info

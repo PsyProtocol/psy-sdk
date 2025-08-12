@@ -28,32 +28,29 @@ mkdir -p "$LOG_DIR"
 
 # Define log files for each service
 COORDINATOR_PROCESSOR_LOG="$LOG_DIR/coordinator-processor-tikv.log"
-COORDINATOR_WORKER_LOG="$LOG_DIR/coordinator-worker.log"
 REALM_PROCESSOR_LOG="$LOG_DIR/realm-processor-tikv.log"
-REALM_WORKER_LOG="$LOG_DIR/realm-worker.log"
 COORDINATOR_EDGE_LOG="$LOG_DIR/coordinator-edge-tikv.log"
 REALM_EDGE_LOG="$LOG_DIR/realm-edge-tikv.log"
 
 REALM_PROCESSOR1_LOG="$LOG_DIR/realm-processor1-tikv.log"
-REALM_WORKER1_LOG="$LOG_DIR/realm-worker1.log"
 REALM_EDGE1_LOG="$LOG_DIR/realm-edge1-tikv.log"
 
-LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
+WORKER_LOG="$LOG_DIR/worker.log"
+
+LOCAL_PROVE_PROXY_LOG="$LOG_DIR/local-user-prover.log"
 WEB_WALLET_LOG="$LOG_DIR/web_wallet.log"
 
 # Clear log files at startup
 echo "Clearing log files..."
 : > "$COORDINATOR_PROCESSOR_LOG"
-: > "$COORDINATOR_WORKER_LOG"
 : > "$REALM_PROCESSOR_LOG"
-: > "$REALM_WORKER_LOG"
 : > "$COORDINATOR_EDGE_LOG"
 : > "$REALM_EDGE_LOG"
 : > "$REALM_PROCESSOR1_LOG"
-: > "$REALM_WORKER1_LOG"
 : > "$REALM_EDGE1_LOG"
-: > "$LOCAL_USER_PROVER_LOG"
+: > "$LOCAL_PROVE_PROXY_LOG"
 : > "$WEB_WALLET_LOG"
+: > "$WORKER_LOG"
 
 # Array to store PIDs of background processes
 declare -a PIDS=()
@@ -98,15 +95,11 @@ make init-tikv
 # Group 1: Start processor and worker services in background (using TiKV)
 run_service "make run-coordinator-processor-tikv" "coordinator-processor-tikv" "$COORDINATOR_PROCESSOR_LOG" &
 PIDS+=($!)
-run_service "make run-coordinator-worker" "coordinator-worker" "$COORDINATOR_WORKER_LOG" &
-PIDS+=($!)
 run_service "make run-realm-processor-tikv" "realm-processor-tikv" "$REALM_PROCESSOR_LOG" &
 PIDS+=($!)
 run_service "make run-realm-processor1-tikv" "realm-processor1-tikv" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
-run_service "make run-realm-worker" "realm-worker" "$REALM_WORKER_LOG" &
-PIDS+=($!)
-run_service "make run-realm-worker1" "realm-worker" "$REALM_WORKER1_LOG" &
+run_service "make run-worker" "worker" "$WORKER_LOG" &
 PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors/workers)
@@ -119,9 +112,11 @@ run_service "make run-realm-edge1-tikv" "realm-edge1-tikv" "$REALM_EDGE1_LOG" &
 PIDS+=($!)
 
 sleep 1
-run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &
-PIDS+=($!)
+# run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &
+# PIDS+=($!)
 run_service "make run-web-wallet" "web-wallet" "$WEB_WALLET_LOG" &
+PIDS+=($!)
+run_service "make run-prove-proxy" "local-prove-proxy" "$LOCAL_PROVE_PROXY_LOG" &
 PIDS+=($!)
 
 # Wait for all background processes
