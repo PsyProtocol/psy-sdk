@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::{
-    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::HashOut, iop::
-        witness::PartialWitness, plonk::{
+    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::
+        witness::{PartialWitness, WitnessWrite}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
@@ -23,6 +23,7 @@ use crate::guta::gadgets::verify_guta_proof_to_line::VerifyGUTAProofToLineGadget
 pub struct GUTAVerifyGUTAToCapCircuit<C: GenericConfig<D>, const D: usize>
 {
     pub verify_to_line_gadget: VerifyGUTAProofToLineGadget<D>,
+    pub worker_public_key_target: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -70,6 +71,7 @@ where
             circuit_data,
             fingerprint,
             verify_to_line_gadget,
+            worker_public_key_target: worker_public_key,
         }
     }
 
@@ -80,6 +82,7 @@ where
         proof: &ProofWithPublicInputs<C::F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         top_line_siblings: &[QHashOut<C::F>],
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
 
         let mut pw = PartialWitness::<C::F>::new();
@@ -92,6 +95,8 @@ where
             verifier_data,
             top_line_siblings,
         )?;
+
+        pw.set_hash_target(self.worker_public_key_target, worker_public_key.0);
 
         self.circuit_data.prove(pw)
 
@@ -160,6 +165,7 @@ where
             &child_a_proof,
             &child_a_verifier_data,
             &r.input.top_line_siblings,
+            worker_public_key,
         )?;
 
         Ok(result)

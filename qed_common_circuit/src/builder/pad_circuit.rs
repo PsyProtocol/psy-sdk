@@ -32,26 +32,47 @@ Circuits which need to have the same common circuit data as:
 Identifier: **Type C**
 <description>
 Circuits which need to have the same common circuit data as:
-    - A VerifyTwoGUTA Circuit
+    [
+        GUTALeftGUTARightEndCap,
+        GUTATwoEndCap,
+        GUTAVerifyToCap,
+        GUTALeftEndCapRightGUTA,
+        GUTATwoGUTA,
+        GUTAOnlyRegisterUsers,
+        GUTASingleEndCap,
+        GUTANoChange,
+        GUTARegisterUsers
+    ]
 </description>
 ======================================
 Identifier: **Type D**
 <description>
 Circuits which need to have the same common circuit data as:
-    - Agg State Transition Circuit
-    - Dummy Agg State Transition Circuit
+    [
+        BatchDeployContractsAggregate,
+        BatchDeployContracts,
+        DummyBatchDeployContractsAggregate,
+        GenerateRollupStateTransitionProof,
+        DummyAppendUserRegistrationTreeAggregate,
+        AppendUserRegistrationTreeAggregate,
+        AppendUserRegistrationTree,
+    ]
 </description>
 ======================================
 Identifier: **Type E**
 <description>
 Circuits which need to have the same common circuit data as:
-    - A UPS End Cap Circuit
+    [
+        UserEndCap,
+    ]
 </description>
 ======================================
 Identifier: **Type F**
 <description>
 Circuits which need to have the same common circuit data as:
-    - Agg User Registration Deploy Guta Circuit
+    [
+        AggUserRegisterDeployContractsGUTA,
+    ]
 </description>
 ======================================
 */
