@@ -233,7 +233,7 @@ impl<
                 .await?;
         }
 
-        self.coord_proc.build_block().await?;
+        self.coord_proc.build_block(0).await?;
         SimpleAsyncCoordinatorWorker::run_worker_until_done::<
             _,
             _,
@@ -331,7 +331,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("finished building wallet/zksig/helper circuits");
     timer.lap("deployed contract and registered users");
 
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
 
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
         _,

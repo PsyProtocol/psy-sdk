@@ -17,6 +17,7 @@ pub struct QEDCheckpointSyncInfoCompact<F: RichField> {
     pub regsitered_users_start_pivot_siblings: Vec<QHashOut<F>>,
     pub registered_users: Vec<ZKPublicKeyInfo<F>>,
     pub old_checkpoint_leaf_hash: QHashOut<F>,
+    pub slot: u64,
 }
 
 impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
@@ -80,6 +81,7 @@ impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
             checkpoint_tree_update_proof,
             regsitered_users_start_pivot_siblings: self.regsitered_users_start_pivot_siblings,
             registered_users: self.registered_users,
+            slot: self.slot,
         }
 
 
@@ -96,6 +98,7 @@ impl<F: RichField> From<QEDCheckpointSyncInfo<F>> for QEDCheckpointSyncInfoCompa
             regsitered_users_start_pivot_siblings: value.regsitered_users_start_pivot_siblings,
             registered_users: value.registered_users,
             old_checkpoint_leaf_hash: value.checkpoint_tree_update_proof.old_value,
+            slot: value.slot,
         }
         
     }
@@ -110,6 +113,7 @@ impl<F: RichField> From<&QEDCheckpointSyncInfo<F>> for QEDCheckpointSyncInfoComp
             regsitered_users_start_pivot_siblings: value.regsitered_users_start_pivot_siblings.clone(),
             registered_users: value.registered_users.clone(),
             old_checkpoint_leaf_hash: value.checkpoint_tree_update_proof.old_value,
+            slot: value.slot,
         }
         
     }
@@ -156,6 +160,7 @@ pub struct QEDCheckpointSyncInfo<F: RichField> {
     pub checkpoint_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
     pub regsitered_users_start_pivot_siblings: Vec<QHashOut<F>>,
     pub registered_users: Vec<ZKPublicKeyInfo<F>>,
+    pub slot: u64,
 }
 impl<F: RichField> QEDCheckpointSyncInfo<F> {
 

@@ -337,17 +337,17 @@ impl WalletSession {
             .await?,
         };
         let public_key = pk_info.qfhash::<QEDHasher>();
-        tracing::info!(
-            "add user {} with type {:?}",
-            public_key.to_string(),
-            sign_type
-        );
-
         let checkpoint_id = self
             .st_provider
             .get_latest_l2_block_state()
             .await?
             .checkpoint_id;
+        tracing::info!(
+            "add user {} with type {:?}, on checkpoint_id {}",
+            public_key.to_string(),
+            sign_type,
+            checkpoint_id
+        );
 
         let (user_id, nonce, user_state) = match self.st_provider.get_user_id(public_key).await {
             Ok(user_id) => match self
@@ -446,12 +446,13 @@ impl WalletSession {
             "exec contract call: {}",
             serde_json::to_string_pretty(&contract_call_args)?
         );
-        tracing::info!("start session");
+        let result = self.st_provider.get_latest_l2_block_state().await?;
+        tracing::info!("start session on checkpoint: {}", result.checkpoint_id);
         self.start_session(pk_hash).await?;
         tracing::info!("prove contract calls");
-        self.prove_contract_calls(pk_hash, contract_call_args)
-            .await?;
-        tracing::info!("sign and submit");
+        self.prove_contract_calls(pk_hash, contract_call_args).await?;
+        let result = self.st_provider.get_latest_l2_block_state().await?;
+        tracing::info!("sign and submit on checkpoint: {}",result.checkpoint_id);
         self.sign_and_submit_with_sign_type(
             pk_hash,
             sign_type,

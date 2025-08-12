@@ -9,3 +9,5 @@ pub mod verifier;
 const D: usize = 2;
 pub type ConcreteProofWithPublicInputs =
     ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, D>;
+pub mod slot;
+pub mod clock;
