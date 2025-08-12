@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::{
-    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::HashOut, iop::
-        witness::PartialWitness, plonk::{
+    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::
+        witness::{PartialWitness, WitnessWrite}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
@@ -26,6 +26,7 @@ where
     pub a_end_cap_gadget: VerifyEndCapProofGadget<D>,
     pub b_guta_gadget: VerifyGUTAProofGadget<D>,
     pub nca_state_transition_gadget: TwoNCAStateTransitionGadget,
+    pub worker_public_key_target: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -102,11 +103,13 @@ where
             fingerprint,
             a_end_cap_gadget,
             b_guta_gadget,
+            worker_public_key_target: worker_public_key,
         }
     }
 
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         input: &VerifyLeftEndCapRightGUTAInput<C::F>,
         child_a_proof: &ProofWithPublicInputs<C::F, C, D>,
         end_cap_verifier_data: &VerifierOnlyCircuitData<C, D>,
@@ -114,6 +117,8 @@ where
         child_b_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
+
+        pw.set_hash_target(self.worker_public_key_target, worker_public_key.0)?;
 
         self.a_end_cap_gadget.set_witness(
             &mut pw,
@@ -203,6 +208,7 @@ where
 
 
         let result = self.prove_base(
+            worker_public_key,
             &VerifyLeftEndCapRightGUTAInput { checkpoint_tree_root: r.input.checkpoint_tree_root, stats_b:r.input.stats_b, a_end_cap: r.input.a_end_cap, nca_proof: r.input.nca_proof, guta_inclusion_proof_b},
             &child_a_proof,
             &child_a_verifier_data,

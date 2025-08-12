@@ -30,8 +30,8 @@ async fn main() -> anyhow::Result<()> {
         Commands::RealmProcessor { config } => {
             realm_processor::run(config).await?;
         }
-        Commands::Worker { edge_url } => {
-            worker::run(edge_url).await?;
+        Commands::Worker { edge_url, public_key } => {
+            worker::run(edge_url, public_key).await?;
         }
     };
     Ok::<_, anyhow::Error>(())

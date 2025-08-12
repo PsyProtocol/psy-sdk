@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::{
-    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::HashOut, iop::
-        witness::PartialWitness, plonk::{
+    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::
+        witness::{PartialWitness, WitnessWrite}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
@@ -22,6 +22,7 @@ use crate::guta::gadgets::guta_register_users_batch::GUTARegisterUsersBatchGadge
 pub struct GUTAVerifyGUTARegisterUsersCircuit<C: GenericConfig<D>, const D: usize>
 {
     pub register_batch_gadget: GUTARegisterUsersBatchGadget<D>,
+    pub worker_public_key_target: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -80,11 +81,13 @@ where
             circuit_data,
             fingerprint,
             register_batch_gadget,
+            worker_public_key_target: worker_public_key,
         }
     }
 
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         guta_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
         guta_proof_header: &GlobalUserTreeAggregatorHeader<C::F>,
         proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -93,6 +96,8 @@ where
         guta_register_user_inputs: &[GUTARegisterUserFullInput<C::F>],
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
+
+        pw.set_hash_target(self.worker_public_key_target, worker_public_key.0)?;
 
 
         let default_user_state_tree_root = QHashOut::from_values(
@@ -173,6 +178,7 @@ where
             library.get_group_inclusion_proof(job_id.circuit_type, dep_a_type)?;
 
         let result = self.prove_base(
+            worker_public_key,
             &guta_inclusion_proof_a,
             &r.input.guta_proof_header,
             &child_a_proof,

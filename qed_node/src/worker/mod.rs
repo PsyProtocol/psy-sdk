@@ -17,12 +17,16 @@ use crate::common::{
     verifier::get_cached_generic_verifier,
 };
 
-pub async fn run_worker(edge_urls: Vec<String>) -> anyhow::Result<()> {
+use qed_core::data::qhashout::QHashOut;
+use plonky2::field::goldilocks_field::GoldilocksField;
+
+pub async fn run_worker(edge_urls: Vec<String>, worker_public_key: QHashOut<GoldilocksField>) -> anyhow::Result<()> {
     for edge_url in edge_urls {
         info!("Running worker for edge: {}", edge_url);
         let job_client = JobClient::new(edge_url).await?;
+        let worker_key = worker_public_key;
         tokio::spawn(async move {
-            run_scheduler_worker(job_client.clone(), job_client)
+            run_scheduler_worker(job_client.clone(), job_client, worker_key)
                 .await
                 .expect("Failed to run scheduler worker");
         });
@@ -33,10 +37,10 @@ pub async fn run_worker(edge_urls: Vec<String>) -> anyhow::Result<()> {
 async fn run_scheduler_worker(
     job_receiver: impl JobReceiver,
     store: impl QProofStoreReaderAsync + Send + Sync,
+    worker_public_key: QHashOut<GoldilocksField>,
 ) -> anyhow::Result<()> {
-    use qed_core::config::network_constants::DEFAULT_WORKER_PUBLIC_KEY;
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
-    let prover = QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, DEFAULT_WORKER_PUBLIC_KEY);
+    let prover = QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, worker_public_key);
     let library = &proof_verifier.library;
     loop {
         tokio::time::sleep(Duration::from_millis(500)).await;

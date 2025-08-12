@@ -115,9 +115,6 @@ pub struct RealmProcessorContext<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
     pub pending_register_users: Vec<MerkleProofCore<QHashOut<F>>>,
-    //chkpoint_id: u64,
-    //pub checkpoint_id: u64,
-    //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
 }
 
 impl<
@@ -179,6 +176,7 @@ impl<
 
         Ok(())
     }
+
     pub async fn handle_guta_state_updates_from_users(
         &self,
         checkpoint_id: u64,
@@ -213,7 +211,6 @@ impl<
         if pending_register_users.len() != 0 {
             if jobs.len() == 0 {
                 tracing::debug!("No jobs to process");
-                //assert!(pending_register_users.len() <= 64, "we do not support batches of more than 64 register users for ");
                 if pending_register_users.len() <= 64 {
                     let uleaves = pending_register_users
                         .iter()
@@ -238,7 +235,6 @@ impl<
                         .store
                         .injest_user_leaves_imm(checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, &uleaves)
                         .await?;
-                    // tracing::debug!(dmps = ?dmps[0], dmps_json = ?dmps[0], dmps_verify = ?dmps[0].verify::<QEDHasher>(), "DMP details");
 
                     let regs = dmps
                         .into_iter()
@@ -327,23 +323,6 @@ impl<
                 .store
                 .get_checkpoint_leaf_data(last_checkpoint_id)
                 .await?;
-                /*
-            let guta_header = GlobalUserTreeAggregatorHeader {
-                guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
-                checkpoint_tree_root: checkpoint_tree_proof.root,
-                state_transition: SubTreeNodeStateTransition {
-                    old_node_value: roots.user_tree_root,
-                    new_node_value: roots.user_tree_root,
-                    node_index: F::ZERO,
-                    node_level: F::ZERO,
-                },
-                stats: GUTAStats {
-                    fees_collected: F::ZERO,
-                    user_ops_processed: F::ZERO,
-                    total_transactions: F::ZERO,
-                    slots_modified: F::ZERO,
-                },
-            };*/
             let input = GUTANoChangeFullInput {
                 checkpoint_tree_proof,
                 checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
@@ -360,11 +339,11 @@ impl<
             );
 
             self.proof_store
-            .set_bytes_by_id(
-                w_id,
-                &bincode::serialize(&input).map_err(|e| anyhow::anyhow!("{:?}", e))?,
-            )
-            .await?;
+                .set_bytes_by_id(
+                    w_id,
+                    &bincode::serialize(&input).map_err(|e| anyhow::anyhow!("{:?}", e))?,
+                )
+                .await?;
 
             return Ok((vec![vec![w_id]], guta, proof));
         }
@@ -459,7 +438,6 @@ impl<
             .await?;
         tracing::debug!(guta_queue_items = ?guta_queue_items, "GUTA queue items for aggregation");
 
-        // tracing::debug!(guta_queue_items = ?guta_queue_items, "Got GUTA from realms");
         if guta_queue_items.len() == 0 {
             tracing::debug!("No GUTA queue items to aggregate");
             let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
@@ -562,7 +540,6 @@ impl<
         }
 
         // start real stuff
-
         let mnu = guta_queue_items
             .iter()
             .map(|x| QMerkleNode {
@@ -746,17 +723,16 @@ impl<
         let start = Instant::now();
         info!("realm STARTED new block");
         self.task_store.clear_task_graph().await?;
-        //let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         // todo fix the bug!!!
         let pending_users = if self.pending_register_users.len() > 32 {
-            self.pending_register_users.split_off(self.pending_register_users.len()-32)
+            self.pending_register_users.split_off(self.pending_register_users.len() - 32)
         }else{
             let q = self.pending_register_users.clone();
             self.pending_register_users = vec![];
             q
         };
-        let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
+        let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
         let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
         tracing::info!(guta_jobs = ?guta_jobs, "Generated GUTA jobs");
@@ -772,7 +748,6 @@ impl<
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let finished_job_task = QProvingTask::new(&[finished_job]);
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
-        // self.prover_queue.enqueue_jobs_imm(&guta_jobs[0]).await?;
         self.task_store.finalize_and_save_topology().await?;
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())

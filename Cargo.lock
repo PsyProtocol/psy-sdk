@@ -4081,6 +4081,8 @@ dependencies = [
  "anyhow",
  "clap",
  "dotenv",
+ "plonky2",
+ "qed_core",
  "qed_node",
  "qed_rollup_utils",
  "tokio",

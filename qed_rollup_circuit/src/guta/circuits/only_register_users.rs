@@ -67,7 +67,7 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
         let commitment = worker_public_key; // For leaf circuits, commitment = worker_public_key
-        
+
         let public_inputs_hash = register_batch_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         // Register 12 public inputs: commitment, worker_public_key, header_hash
@@ -129,6 +129,8 @@ where
             guta_register_user_inputs,
             default_user_state_tree_root,
         )?;
+
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
         let p = self.circuit_data.prove(pw)?;
         Ok(p)

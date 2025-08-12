@@ -41,5 +41,7 @@ pub enum Commands {
     Worker {
         #[arg(long = "edge-url", action = ArgAction::Append)]
         edge_url: Vec<String>,
+        #[arg(long = "public-key", help = "Worker public key in hex format (64 hex chars). If not specified, uses DEFAULT_WORKER_PUBLIC_KEY")]
+        public_key: Option<String>,
     },
 }
