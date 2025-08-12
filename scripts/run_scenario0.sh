@@ -62,9 +62,9 @@ run_make_command "make register-user" "Register User"
 # run_make_command "make build-block" "Build Block 1"
 echo "wait for block 1 to be committed"
 # wait for block 2 to be committed
-sleep 15s
+sleep 30s
 run_make_command "make build-block" "Build Block 1"
-sleep 15s
+sleep 30s
 run_make_command "make mint" "Mint"
 # run_make_command "make build-block" "Build Block 2"
 echo "wait for block 2 to be committed"
@@ -75,9 +75,9 @@ get_user_token_info
 
 run_make_command "make transfer" "Transfer"
 echo "wait for block 3 to be committed"
-sleep 15s
+sleep 30s
 run_make_command "make build-block" "Build Block 4"
-sleep 15s
+sleep 30s
 get_user_token_info
 
 run_make_command "make claim" "Claim"
