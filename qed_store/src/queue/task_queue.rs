@@ -198,7 +198,7 @@ impl JobTaskStoreImpl {
                 }
             }
             Some(n) => {
-                info!("Layer {:?} is at position {}, not at head", expected_layer_id, n);
+                warn!("⚠️ Layer {:?} is at position {}, not at head", expected_layer_id, n);
                 Ok(None)
             }
             None => {
@@ -321,15 +321,11 @@ impl JobTaskStoreImpl {
             });
         }
 
-        // Step 2: Check if the specific message is hidden by trying to extend its visibility
-        // This will ONLY succeed if:
-        // - The message exists in the queue
-        // - The message is currently hidden (being processed)
+        // Step 2: Trying to change message visibility, extending the visibility timeout
         let queue_id = self.layer_queue_id(&job.layer_id);
 
         match self.rsmq.change_message_visibility(&queue_id, &job.msg_id, VISIBILITY_TIMEOUT).await {
             Ok(_) => {
-                // Success! Message exists and is hidden
                 debug!(
                     "Job {} validated: message {} is hidden and visibility extended",
                     job, job.msg_id

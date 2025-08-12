@@ -367,7 +367,6 @@ impl RsmqQueue {
         let queue_id = queue.get_queue_id();
 
         // RSMQ uses this Redis command internally
-        // You need to check RSMQ's internal structure
         self.pool.change_message_visibility(
             &queue_id,
             message_id,

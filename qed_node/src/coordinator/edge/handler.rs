@@ -1379,7 +1379,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             }
             JobValidationStatus::MessageNotHidden => {
                 error!(
-                "⚠️ Worker submitted proof for non-hidden job {:?}, msg_id: {}",
+                    "⚠️ Worker submitted proof for non-hidden job {:?}, msg_id: {}",
                     job_id, job.msg_id
                 );
                 self.log_suspicious_activity(&job, "message_not_hidden").await;
