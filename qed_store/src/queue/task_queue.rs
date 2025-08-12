@@ -519,7 +519,7 @@ impl JobTaskStore for JobTaskStoreImpl {
             debug!("Layer {} has {} remaining jobs", job.layer_id, remaining);
         }
 
-        info!("Topology saved successfully");
+        info!("Job completion acknowledged successfully");
         Ok(())
     }
 
