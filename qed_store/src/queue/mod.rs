@@ -4,14 +4,10 @@ pub mod fred_queue;
 pub mod redis_queue;
 pub mod task_queue;
 
-// Re-export commonly used items
 pub use pool::{new_fred_pool, new_redis_async_pool};
 pub use rsmq_queue::*;
-// Re-export from fred_queue for backward compatibility
 pub use fred_queue::{DrainQueueFred, ProofStoreFred};
-// Re-export from redis_queue
 pub use redis_queue::{ProofStoreRedisAsync, Queue, SyncCheckpointQueue, BizKey, QueuePrefixKey};
-// Re-export worker_queue_redis types from rsmq_queue
 pub mod worker_queue_redis {
     pub mod redis_queue {
         pub use crate::queue::rsmq_queue::{
@@ -20,7 +16,6 @@ pub mod worker_queue_redis {
             Q_CMD, Q_JOB, Q_NOTIFICATIONS, CE_NOTIFICATIONS, Q_HIDDEN, Q_DELAY, Q_CAP
         };
     }
-    // Legacy sync Redis types removed - use RsmqQueue for async operations
 }
 
 pub const PROOF_STORE_KEY_PREFIX_1: &'static str = "PSV1";

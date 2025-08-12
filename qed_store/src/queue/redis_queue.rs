@@ -341,30 +341,21 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
             sleep(Duration::from_millis(500)).await;
         }
     }
-
-    async fn wait_for_job_completion(&self, job_id: QProvingJobDataID) -> anyhow::Result<()> {
+    
+    async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
+        &self, 
+        job_id: QProvingJobDataID
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
+    where
+        C::Hasher: plonky2::plonk::config::AlgebraicHasher<C::F>
+    {
         loop {
-            let mut con = self.pool.get().await?;
-            let job_res: Option<Vec<u8>> = con.lpop(&self.notifications_queue_key(), None).await?;
-            match job_res {
-                Some(g) => {
-                    if g.len() == 24 {
-                        match QProvingJobDataID::try_from_byte_vec(&g) {
-                            Ok(notified_job) => {
-                                if notified_job == job_id {
-                                    return Ok(());
-                                }
-                            }
-                            Err(e1) => eprintln!(
-                                "error deserializing job id in wait_for_job_completion: {:?}",
-                                e1
-                            ),
-                        }
-                    }
+            match self.get_proof_by_id::<C, D>(job_id.get_output_id()).await {
+                Ok(proof) => return Ok(proof),
+                Err(_) => {
+                    sleep(Duration::from_millis(500)).await;
                 }
-                None => {}
-            };
-            sleep(Duration::from_millis(500)).await;
+            }
         }
     }
 }
