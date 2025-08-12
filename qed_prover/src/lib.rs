@@ -84,9 +84,8 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     let rpc_server_impl = RpcServerImpl::new(store_rpc, wallet_session);
 
     let handle = server.start(rpc_server_impl.into_rpc());
-
-    tokio::spawn(handle.stopped());
-    Ok(futures::future::pending::<()>().await)
+    handle.stopped().await;
+    Ok(())
 }
 
 
@@ -114,7 +113,6 @@ pub async fn run_prove_proxy_server(
         .await?;
 
     let handle = server.start(prove_proxy.into_rpc());
-
-    tokio::spawn(handle.stopped());
-    Ok(futures::future::pending::<()>().await)
+    handle.stopped().await;
+    Ok(())
 }

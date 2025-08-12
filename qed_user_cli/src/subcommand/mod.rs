@@ -6,6 +6,8 @@ use qed_prover::local::args::{ProverArgs, WalletSessionArgs};
 
 pub mod args;
 pub mod deploy_contract;
+pub mod prove_proxy;
+pub mod local_prover;
 
 cfg_if::cfg_if! {
     if #[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))] {
