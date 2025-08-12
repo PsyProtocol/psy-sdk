@@ -193,6 +193,7 @@ impl<
         self.proof_verifier
             .verify_proof_of_type(circuit_type, proof)
     }
+
     pub async fn handle_deploy_contracts(
         &self,
         checkpoint_id: u64,
@@ -200,7 +201,6 @@ impl<
         Vec<Vec<QProvingJobDataID>>,
         AggStateTransition<F>,
         u32,
-        //Vec<ZKPublicKeyInfo<F>>,
     )> {
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
 
@@ -213,7 +213,6 @@ impl<
             )
             .await?;
 
-
         let new_contract_leaves = deploy_contract_items
             .iter()
             .map(|x| QEDContractLeaf {
@@ -224,8 +223,6 @@ impl<
                 ),
             })
             .collect::<Vec<_>>();
-
-
 
         let new_hashes = new_contract_leaves
             .iter()
@@ -298,7 +295,6 @@ impl<
                 state_transition_end: new_contract_tree_root,
             },
             next_contract_id,
-            //user_registrations,
         ))
     }
 
@@ -318,7 +314,6 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID, 0)
             .await?;
-        eprintln!("DEBUGPRINT[724]: processor.rs:326: user_registrations={}", serde_json::to_string_pretty(&user_registrations).unwrap());
 
         let start_registration_user_id = last_l2_blockstate.next_user_id;
 
@@ -530,41 +525,39 @@ impl<
             );
 
             let new_nodes = guta_queue_items
-            .iter()
-            .map(|x| {
-                assert_eq!(
-                    x.top_line_proof.index, x.realm_id,
-                    "right now guta proofs with top line are not allowed"
-                );
-                SimpleMerkleNode {
-                    key: SimpleMerkleNodeKey {
-                        level: self.coordinator_config.realm_root_level,
-                        index: x.realm_id,
-                    },
-                    value: x.top_line_proof.new_root,
-                }
-            })
-            .collect::<Vec<_>>();
+                .iter()
+                .map(|x| {
+                    assert_eq!(
+                        x.top_line_proof.index, x.realm_id,
+                        "right now guta proofs with top line are not allowed"
+                    );
+                    SimpleMerkleNode {
+                        key: SimpleMerkleNodeKey {
+                            level: self.coordinator_config.realm_root_level,
+                            index: x.realm_id,
+                        },
+                        value: x.top_line_proof.new_root,
+                    }
+                })
+                .collect::<Vec<_>>();
 
-        let mut res = self
-            .store
-            .injest_user_tree_nodes_imm(checkpoint_id, 0, &new_nodes)
-            .await?;
+            let mut res = self
+                .store
+                .injest_user_tree_nodes_imm(checkpoint_id, 0, &new_nodes)
+                .await?;
             eprintln!("DEBUGPRINT[557]: processor.rs:536: res={}", serde_json::to_string_pretty(&res).unwrap());
-        //for local testing conv
-        let good_old = self.store.get_user_top_tree_cap_root(checkpoint_id-1, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index).await?;
-        eprintln!("DEBUGPRINT[564]: processor.rs:538: good_old={}", good_old);
+            //for local testing conv
+            let good_old = self.store.get_user_top_tree_cap_root(checkpoint_id-1, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index).await?;
+            eprintln!("DEBUGPRINT[564]: processor.rs:538: good_old={}", good_old);
 
-        res.link_proof.old_value = good_old;
+            res.link_proof.old_value = good_old;
 
-        self.proof_store
+            self.proof_store
                 .set_bytes_by_id(
                     id.get_input_witness_id(),
                     &bincode::serialize(&r_with_deps)?,
                 )
                 .await?;
-
-
 
             return Ok((vec![vec![id]],r_with_deps.input.get_new_guta_header::<QEDHasher>()))// r_with_deps.input.guta_proof_header));
         }
@@ -595,12 +588,6 @@ impl<
             .injest_user_tree_nodes_imm(checkpoint_id, 0, &new_nodes)
             .await?;
         eprintln!("DEBUGPRINT[640]: processor.rs:604: res={}", serde_json::to_string_pretty(&res).unwrap());
-        /*
-        res.nca_proofs.iter().enumerate().map(|(i, p)| {
-            let (left_dep_ind, right_dep_ind ) = res.dependencies[i];
-
-
-        })*/
 
         let mut witnesses = Vec::with_capacity(res.nca_proofs.len());
 
@@ -779,89 +766,40 @@ impl<
             eprintln!("DEBUGPRINT[527]: processor.rs:737: guta_hash={}", serde_json::to_string_pretty(&guta.qfhash::<QEDHasher>()).unwrap());
         }
 
-        /*self.proof_store.set_bytes_by_id(input_id, &bincode::serialize(&queue_item).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
-
-        let d = WithDrainQueueMetadata::<QProvingJobDataID>::new_params(
-            self.guta_channel_id,
-            checkpoint_id,
-            queue_item.realm_id,
-            input_id,
-        );*/
-
         Ok((levels, guta))
     }
 
-    pub async fn build_block(&mut self) -> anyhow::Result<()> {
-        let start = Instant::now();
-        info!("coordinator STARTED new block");
-        
-        self.task_store.clear_task_graph().await?;
-        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
-        let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
-        let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
-        //let last_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
-std::println!("processor.rs Line 803");
-        //let state_roots = self.store.get_checkpoint_global_state_roots(last_l2_blockstate.checkpoint_id).await?;
-        let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
-        let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
-        info!("💥 coordinator processor build block checkpoint_id: {}", new_checkpoint_id);
-        let (deploy_jobs, deploy_transition, next_contract_id) =
-            self.handle_deploy_contracts(new_checkpoint_id).await?;
-        let (
-            user_registration_jobs,
-            user_registration_transition,
-            new_accounts,
-            regsitered_users_start_pivot_siblings,
-        ) = self.handle_user_registrations(new_checkpoint_id).await?;
-std::println!("processor.rs Line 816");
-std::println!("processor.rs Line 817");
-std::println!("processor.rs Line 818");
-        let (guta_jobs, guta_transition) = self.handle_guta_from_realms(new_checkpoint_id).await?;
-std::println!("processor.rs Line 820");
-        println!("new_checkpoint_id: {}",new_checkpoint_id);
-std::println!("processor.rs Line 822");
+    pub async fn plan_jobs(
+        &mut self,
+        new_checkpoint_id: u64,
+        user_registration_jobs: &Vec<Vec<QProvingJobDataID>>,
+        deploy_jobs: &Vec<Vec<QProvingJobDataID>>,
+        guta_jobs: &Vec<Vec<QProvingJobDataID>>,
+    ) -> anyhow::Result<(QProvingJobDataID,QProvingJobDataID)> {
         let notify_block_complete = QProvingJobDataID::notify_block_complete(new_checkpoint_id);
         let root_state_transition =
             QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id);
-std::println!("processor.rs Line 826");
         let root_state_transition_task = QProvingTask::new(&[root_state_transition]);
         let notify_block_complete_task = QProvingTask::new(&[notify_block_complete]);
         self.task_store
             .write_next_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
-std::println!("processor.rs Line 832");
         let op_agg_group_parts_common_id = 6;
-std::println!("processor.rs Line 834");
         let state_part_1_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(
             new_checkpoint_id,
             op_agg_group_parts_common_id,
             0,
         );
-/*
-        let state_part_2_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(
-            new_checkpoint_id,
-            op_agg_group_parts_common_id,
-            1,
-        );
-        */
-std::println!("processor.rs Line 847");
         let state_part_1_id =
             QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id);
-        //let state_part_2_id =QProvingJobDataID::block_agg_state_part_2_input_witness(new_checkpoint_id);
-std::println!("processor.rs Line 851");
         let state_part_1_task = QProvingTask::new(&[state_part_1_id]);
         let state_part_1_common_task = QProvingTask::new(&[state_part_1_common_id]);
         self.task_store
             .write_next_tasks(&state_part_1_common_task, &root_state_transition_task)
             .await?;
-std::println!("processor.rs Line 857");
         self.task_store
             .write_next_tasks(&state_part_1_task, &state_part_1_common_task)
             .await?;
-        //self.proof_store  .write_next_jobs(&[state_part_2_id], &[state_part_2_common_id]).await?;
-std::println!("processor.rs Line 862");
-std::println!("processor.rs Line 863");
-std::println!("processor.rs Line 864");
         let op_agg_group_part_1_id = 11;
         let register_users_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(
             new_checkpoint_id,
@@ -878,7 +816,6 @@ std::println!("processor.rs Line 864");
             op_agg_group_part_1_id,
             2,
         );
-std::println!("processor.rs Line 881");
         let register_users_agg_task = QProvingTask::new(&[register_users_agg_job_id]);
         let deploy_contracts_agg_task = QProvingTask::new(&[deploy_contracts_agg_job_id]);
         let guta_agg_task = QProvingTask::new(&[guta_agg_job_id]);
@@ -889,23 +826,56 @@ std::println!("processor.rs Line 881");
         self.task_store
             .write_next_tasks(&guta_agg_task, &state_part_1_task)
             .await?;
-std::println!("processor.rs Line 892");
         let user_registration_tasks = user_registration_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let deploy_contracts_tasks = deploy_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         self.task_store.write_multidimensional_tasks(&user_registration_tasks, &register_users_agg_task).await?;
         self.task_store.write_multidimensional_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
         self.task_store.write_multidimensional_tasks(&guta_tasks, &guta_agg_task).await?;
-std::println!("processor.rs Line 899");
-        //let new_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
-        /*let user_agg = AggStateTransition {
-            state_transition_start: last_user_tree_root,
-            state_transition_end: new_user_tree_root,
-        };
-        let user_agg_alt = AggStateTransition {
-            state_transition_start: guta_transition.state_transition.old_node_value,
-            state_transition_end: guta_transition.state_transition.new_node_value,
-        };*/
+
+        Ok((state_part_1_id, root_state_transition))
+    }
+
+    pub async fn build_block(&mut self) -> anyhow::Result<()> {
+        let start = Instant::now();
+        info!("coordinator STARTED new block");
+        
+        self.task_store.clear_task_graph().await?;
+
+        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
+        let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
+        let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
+        let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
+
+        info!("💥 coordinator processor build block checkpoint_id: {}", new_checkpoint_id);
+        let (deploy_jobs, deploy_transition, next_contract_id) =
+            self.handle_deploy_contracts(new_checkpoint_id).await?;
+        let (
+            user_registration_jobs,
+            user_registration_transition,
+            new_accounts,
+            regsitered_users_start_pivot_siblings,
+        ) = self.handle_user_registrations(new_checkpoint_id).await?;
+        let (guta_jobs, guta_transition) = self.handle_guta_from_realms(new_checkpoint_id).await?;
+        let root_deploy_job = deploy_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No deploy contract jobs found"))?;
+        let rooot_user_registration_job = user_registration_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No user registration jobs found"))?;
+        let root_guta_job = guta_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No GUTA jobs found"))?;
+
+        println!("new_checkpoint_id: {}",new_checkpoint_id);
+        let (state_part_1_id, root_state_transition) = self.plan_jobs(
+            new_checkpoint_id,
+            &user_registration_jobs,
+            &deploy_jobs,
+            &guta_jobs,
+        ).await?;
+
         let part_1_input = CircuitInputWithDependencies {
             input: QCAggUserRegistartionDeployContractsGUTAInput {
                 register_users_state_transition: if user_registration_transition.state_transition_start == QHashOut::ZERO {
@@ -927,32 +897,19 @@ std::println!("processor.rs Line 899");
                 guta_proof_header: guta_transition,
             },
             dependencies: vec![
-                user_registration_jobs
-                    .last()
-                    .as_ref()
-                    .unwrap()
-                    .last()
-                    .unwrap().get_output_id(),
-                deploy_jobs.last().as_ref().unwrap().last().unwrap().get_output_id(),
-                guta_jobs.last().as_ref().unwrap().last().unwrap().get_output_id(),
+                rooot_user_registration_job.get_output_id(),
+                root_deploy_job.get_output_id(),
+                root_guta_job.get_output_id(),
             ],
         };
         eprintln!("DEBUGPRINT[727]: processor.rs:939: part_1_input={}", serde_json::to_string_pretty(&part_1_input).unwrap());
-std::println!("processor.rs Line 941");
         self.proof_store
             .set_bytes_by_id(
                 state_part_1_id.get_input_witness_id(),
                 &bincode::serialize(&part_1_input).map_err(|e| anyhow::anyhow!("{:?}", e))?,
             )
             .await?;
-std::println!("processor.rs Line 948");
-        /*QEDCheckpointGlobalStateRoots {
-            contract_tree_root: deploy_transition.state_transition_end,
-            deposit_tree_root,
-            user_tree_root: guta_transition.state_transition.new_node_value,
-            withdrawal_tree_root,
-            user_registration_tree_root: user_registration_transition.state_transition_end,
-        };*/
+
         self.task_store.finalize_and_save_topology().await?;
         
         info!("Waiting for block proving jobs for checkpoint {}", new_checkpoint_id);
@@ -960,11 +917,9 @@ std::println!("processor.rs Line 948");
             .wait_for_block_proving_jobs_imm(new_checkpoint_id)
             .await?;
         info!("Block proving jobs completed for checkpoint {}", new_checkpoint_id);
-        let last_user_reg_job = user_registration_jobs.last()
-            .and_then(|jobs| jobs.last())
-            .ok_or_else(|| anyhow::anyhow!("No user registration jobs found"))?;
+
         let register_users_proof = self.proof_store
-            .get_proof_by_id::<C, D>(last_user_reg_job.get_output_id())
+            .get_proof_by_id::<C, D>(rooot_user_registration_job.get_output_id())
             .await?;
         let register_users_root = {
             let left = QHashOut::try_from(&register_users_proof.public_inputs[0..4])?;
@@ -972,11 +927,8 @@ std::println!("processor.rs Line 948");
             QEDHasher::q_two_to_one(left, right)
         };
         
-        let last_deploy_job = deploy_jobs.last()
-            .and_then(|jobs| jobs.last())
-            .ok_or_else(|| anyhow::anyhow!("No deploy contract jobs found"))?;
         let deploy_contracts_proof = self.proof_store
-            .get_proof_by_id::<C, D>(last_deploy_job.get_output_id())
+            .get_proof_by_id::<C, D>(root_deploy_job.get_output_id())
             .await?;
         let deploy_contracts_root = {
             let left = QHashOut::try_from(&deploy_contracts_proof.public_inputs[0..4])?;
@@ -984,11 +936,8 @@ std::println!("processor.rs Line 948");
             QEDHasher::q_two_to_one(left, right)
         };
         
-        let last_guta_job = guta_jobs.last()
-            .and_then(|jobs| jobs.last())
-            .ok_or_else(|| anyhow::anyhow!("No GUTA jobs found"))?;
         let guta_proof = self.proof_store
-            .get_proof_by_id::<C, D>(last_guta_job.get_output_id())
+            .get_proof_by_id::<C, D>(root_guta_job.get_output_id())
             .await?;
         let gutas_root = {
             let left = QHashOut::try_from(&guta_proof.public_inputs[0..4])?;
@@ -1003,38 +952,21 @@ std::println!("processor.rs Line 948");
         };
         
         let partial_input = QCQEDCheckpointStateTransitionInputPartial{
-                part_1_header: part_1_input.input,
-                old_stats: last_checkpoint_leaf.stats,
-                block_time: F::from_canonical_u64(Utc::now().timestamp_millis() as u64),
-                final_random_seed_contribution: QHashOut::rand(),
-                pm_rewards_commitment,
+            part_1_header: part_1_input.input,
+            old_stats: last_checkpoint_leaf.stats,
+            block_time: F::from_canonical_u64(Utc::now().timestamp_millis() as u64),
+            final_random_seed_contribution: QHashOut::rand(),
+            pm_rewards_commitment,
         };
         eprintln!("DEBUGPRINT[728]: processor.rs:955: partial_input={}", serde_json::to_string_pretty(&partial_input).unwrap());
-std::println!("processor.rs Line 1013");
-        //let old_checkpoint_leaf = partial_input.get_old_checkpoint_leaf::<QEDHasher>();
         let new_checkpoint_leaf = partial_input.get_new_checkpoint_leaf::<QEDHasher>();
         eprintln!("DEBUGPRINT[592]: processor.rs:929: new_checkpoint_leaf={}", serde_json::to_string_pretty(&new_checkpoint_leaf).unwrap());
         let new_checkpoint_leaf_hash= new_checkpoint_leaf.qfhash::<QEDHasher>();
         eprintln!("DEBUGPRINT[593]: processor.rs:931: new_checkpoint_leaf_hash={}", serde_json::to_string_pretty(&new_checkpoint_leaf_hash).unwrap());
-        //let old_checkpoint_leaf_hash= old_checkpoint_leaf.qfhash::<QEDHasher>();
-std::println!("processor.rs Line 1020");
-        /*println!("stateroottss: {}, {:?}",serde_json::to_string_pretty(&state_roots).unwrap(), state_roots.qfhash::<QEDHasher>());
-std::println!("processor.rs Line 1022");
-        println!("got: get_old_state_roots: {}, {:?}",serde_json::to_string_pretty(&partial_input.get_old_state_roots::<QEDHasher>()).unwrap(), partial_input.get_old_state_roots::<QEDHasher>().qfhash::<QEDHasher>());
-        println!("[{}] 1ostr: {:?}",new_checkpoint_id, old_checkpoint_leaf.global_chain_root);
-        println!("[{}] 1leafo: {:?}",new_checkpoint_id, old_checkpoint_leaf_hash);
-        println!("[{}] 1nstr: {:?}",new_checkpoint_id, new_checkpoint_leaf.global_chain_root);
-        println!("[{}] 1leafn: {:?}",new_checkpoint_id, new_checkpoint_leaf_hash);
-        */
         let previous_checkpoint_proof = self.store.get_checkpoint_tree_merkle_proof(last_l2_blockstate.checkpoint_id, last_l2_blockstate.checkpoint_id).await?;
         eprintln!("DEBUGPRINT[595]: processor.rs:943: previous_checkpoint_proof={}", serde_json::to_string_pretty(&previous_checkpoint_proof).unwrap());
-        //println!("last_chpk_leaf_hash: {:?}, {}",last_checkpoint_leaf.qfhash::<QEDHasher>(), serde_json::to_string_pretty(&last_checkpoint_leaf).unwrap());
-        //println!("previous_checkpoint_proof[{}]: {:?}", previous_checkpoint_proof.index, previous_checkpoint_proof.value);
-std::println!("processor.rs Line 1033");
         let checkpoint_dmp = self.store.set_checkpoint_tree_leaf_hash_imm(new_checkpoint_id, new_checkpoint_leaf_hash).await?;
         eprintln!("DEBUGPRINT[594]: processor.rs:947: checkpoint_dmp={}", serde_json::to_string_pretty(&checkpoint_dmp).unwrap());
-std::println!("processor.rs Line 1036");
-std::println!("processor.rs Line 1037");
         let checkpoint_tree_update_siblings = checkpoint_dmp.siblings.clone();
         let old_checkpoint_leaf_hash = checkpoint_dmp.old_value;
         let witness_checkpoint_state_transition = CircuitInputWithDependencies{
@@ -1046,17 +978,12 @@ std::println!("processor.rs Line 1037");
             dependencies: vec![state_part_1_id.get_output_id()],
         };
         eprintln!("DEBUGPRINT[589]: processor.rs:957: witness_checkpoint_state_transition={}", serde_json::to_string_pretty(&witness_checkpoint_state_transition).unwrap());
-std::println!("processor.rs Line 1049");
-std::println!("processor.rs Line 1050");
         self.proof_store
             .set_bytes_by_id(
                 root_state_transition.get_input_witness_id(),
                 &bincode::serialize(&witness_checkpoint_state_transition).map_err(|e| anyhow::anyhow!("{:?}", e))?,
             )
             .await?;
-std::println!("processor.rs Line 1057");
-std::println!("processor.rs Line 1058");
-std::println!("processor.rs Line 1059");
         let new_l2_block_state = QEDL2BlockState {
             checkpoint_id: last_l2_blockstate.checkpoint_id + 1,
             next_add_withdrawal_id: last_l2_blockstate.next_add_withdrawal_id,
@@ -1068,25 +995,13 @@ std::println!("processor.rs Line 1059");
             next_contract_id: next_contract_id,
         };
         eprintln!("DEBUGPRINT[590]: processor.rs:979: new_l2_block_state={}", serde_json::to_string_pretty(&new_l2_block_state).unwrap());
-        // self.prover_queue
-        //     .enqueue_jobs_imm(
-        //         &([
-        //             guta_jobs[0].to_vec(),
-        //             deploy_jobs[0].to_vec(),
-        //             user_registration_jobs[0].to_vec(),
-        //         ]
-        //         .concat()),
-        //     )
-        //     .await?;
-            let lf_state = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;
-            //println!("set new leaf: {:#?}\n\nnew_leaf_hash {}: {:?},\nlf: {:?}, {:?}",new_checkpoint_leaf,new_checkpoint_id,new_checkpoint_leaf.qfhash::<QEDHasher>(),lf_state,lf_state.qfhash::<QEDHasher>());
+        let lf_state = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;
         self.store
             .set_checkpoint_leaf_data_imm(new_checkpoint_id, &new_checkpoint_leaf)
             .await?;
         self.store
             .set_l2_block_state_imm(&new_l2_block_state)
             .await?;
-std::println!("processor.rs Line 1089");
         let l2_sync = QCheckpointSyncInfoCompact {
             l2_block_state: new_l2_block_state,
             stats: new_checkpoint_leaf.stats,
@@ -1100,19 +1015,14 @@ std::println!("processor.rs Line 1089");
         self.store
             .set_checkpoint_sync_info_imm(l2_sync.clone())
             .await?;
-std::println!("processor.rs Line 1103");
-        self.task_store.finalize_and_save_topology().await?;
         
         //todo! mark, should commit the txn
         self.sync_queue.chq_push_imm(l2_sync).await?;
-std::println!("processor.rs Line 1108");
         tracing::info!(
             "lastest block state: {:?}",
             new_l2_block_state,
         );
-std::println!("processor.rs Line 1113");
         info!("coordinator FINISHED block {} in {}ms", new_l2_block_state.checkpoint_id, start.elapsed().as_millis());
-std::println!("processor.rs Line 1115");
         Ok(())
     }
 }

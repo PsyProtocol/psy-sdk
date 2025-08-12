@@ -240,7 +240,6 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
     loop {
         loop {
-            info!("waiting for produce block");
             match coordinator_processor.wait_for_produce_block().await {
                 Ok(true) => break,
                 Ok(false) => {

@@ -221,8 +221,8 @@ where
         };
 
         // Calculate new commitment: hash(hash(left_commitment, right_commitment), worker_public_key)
-        let children_hash = builder.hash_two_to_one::<PoseidonHash>(left_child_commitment, right_child_commitment);
-        let commitment = builder.hash_two_to_one::<PoseidonHash>(children_hash, worker_public_key);
+        let children_hash = builder.hash_two_to_one::<C::Hasher>(left_child_commitment, right_child_commitment);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(children_hash, worker_public_key);
         builder.connect_hashes(
             left_child_allowed_circuit_hashes_root,
             header_gadget.allowed_circuit_hashes_root,
