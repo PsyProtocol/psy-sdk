@@ -502,7 +502,7 @@ impl JobTaskStore for JobTaskStoreImpl {
                             if let Some(next_layer) = self.peek_current_layer().await? {
                                 info!("Next layer is {}", next_layer);
                             } else {
-                                info!("All layers completed2!");
+                                info!("All layers completed (final check)!");
                             }
                         }
                         Err(e) => {
