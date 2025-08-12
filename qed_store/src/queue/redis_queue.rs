@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use auto_impl::auto_impl;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
-use redis::{AsyncCommands, RedisResult};
+use redis::{AsyncCommands, HashFieldExpirationOptions, RedisResult, SetExpiry};
 use kvq::traits::KVQSerializable;
 use qed_core::job::{id::{JobsTask, JobsTaskGraph, ProvingJobDataId}};
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -154,16 +154,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
     ) -> anyhow::Result<()> {
         tracing::info!(?id, "Setting proof by id");
         let data = bincode::serialize(&proof).unwrap();
-
-        let mut con = self.pool.get().await?;
-        let _: bool = con.hset_nx(
-            &self.proof_store_key(),
-            id.to_fixed_bytes().as_slice(),
-            data.as_slice(),
-        )
-        .await
-        .unwrap();
-
+        self.set_bytes_by_id(id, &data).await?;
         Ok(())
     }
     async fn set_bytes_by_id_batch(
@@ -175,8 +166,15 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
     async fn set_bytes_by_id(&self, id: QProvingJobDataID, data: &[u8]) -> anyhow::Result<()> {
         tracing::info!(?id, "Setting bytes by id, data.len = {}", data.len());
         let mut con = self.pool.get().await?;
-        let _: bool = con.hset_nx(&self.proof_store_key(), id.to_fixed_bytes().as_slice(), data)
-            .await?;
+        let expiration_options =
+            HashFieldExpirationOptions::default().set_expiration(SetExpiry::EX(3600));
+        con.hset_ex(
+            &self.proof_store_key(),
+            &expiration_options,
+            &[(&id.to_fixed_bytes(), data)],
+        )
+        .await?;
+
         Ok(())
     }
 

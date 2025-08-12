@@ -1,7 +1,7 @@
 // std
 use std::sync::Arc;
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use chrono::Utc;
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
@@ -878,6 +878,14 @@ impl CoordinatorEdgeHandler {
         self.store
             .get_user_tree_merkle_proof_f(checkpoint_id, user_id)
     }
+
+    async fn log_suspicious_activity(&self, job: &QJob, reason: &str) {
+        //todo! add some operation to log suspicious activity or ban user
+        error!(
+            "🚨 SECURITY ALERT: Invalid job submission - Reason: {}, Job: {:?}, Layer: {}, MsgId: {}",
+            reason, job.job_id, job.layer_id, job.msg_id
+        );
+    }
 }
 
 
@@ -888,7 +896,7 @@ use super::rpc::CoordinatorEdgeRpcServer;
 use super::error::RpcError;
 use super::types::LatestCheckpointResponse;
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
-use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl, QJob};
+use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl, JobValidationStatus, QJob};
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
@@ -1296,12 +1304,13 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .await
             .map_err(RpcError::Anyhow)
     }
+
 }
 
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
-        let j = match self.job_task_store.claim_job_from_current_task().await {
+        let j = match self.job_task_store.claim_job_from_current_layer().await {
             Ok(job) => job,
             Err(e) => {
                 error!("Error claiming job from current task: {:?}", e);
@@ -1332,11 +1341,62 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
 
     async fn set_proof_by_id(&self, job: QJob, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()> {
         let job_id = job.job_id;
+
+        // CRITICAL: Validate job ownership before processing proof
+        let validation_status = self.job_task_store.validate_job_ownership(&job).await
+            .map_err(|e| RpcError::Anyhow(anyhow!("Failed to validate job: {}", e)))?;
+
+        match validation_status {
+            JobValidationStatus::Valid => {
+                info!("✅ Job {:?} validated successfully, proceeding with proof", job_id);
+            }
+            JobValidationStatus::NoActiveLayer => {
+                error!("⚠️ No active layer when submitting proof for job {:?}", job_id);
+                return Err(RpcError::Anyhow(anyhow!(
+                    "System error: no active layer"
+                )));
+            }
+            JobValidationStatus::WrongLayer { expected, provided } => {
+                error!(
+                "⚠️ Worker submitted job {:?} for wrong layer: expected {}, got {}",
+                job_id, expected, provided
+            );
+                self.log_suspicious_activity(&job, "wrong_layer").await;
+                return Err(RpcError::Anyhow(anyhow!(
+                    "Invalid submission: wrong layer (expected {}, got {})",
+                    expected, provided
+                )));
+            }
+            JobValidationStatus::MessageNotFound => {
+                error!(
+                    "⚠️ Worker submitted proof for non-existent job {:?}, msg_id: {}",
+                    job_id, job.msg_id
+                );
+                self.log_suspicious_activity(&job, "message_not_found").await;
+                return Err(RpcError::Anyhow(anyhow!(
+                    "Invalid submission: job not found"
+                )));
+            }
+            JobValidationStatus::MessageNotHidden => {
+                error!(
+                    "⚠️ Worker submitted proof for non-hidden job {:?}, msg_id: {}",
+                    job_id, job.msg_id
+                );
+                self.log_suspicious_activity(&job, "message_not_hidden").await;
+                return Err(RpcError::Anyhow(anyhow!(
+                    "Invalid submission: job not being processed"
+                )));
+            }
+        }
+
         if let Some(proof) = proof {
-            info!("Setting proof by id: {:?}", job_id);
+            info!("Verifying proof for validated job: {:?}", job_id);
+            self.ctx.proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)
+                .map_err(|e| RpcError::Anyhow(e.into()))?;
             // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
             let output_id = job_id.get_output_id();
             self.proof_store.set_proof_by_id(output_id, &proof).await.map_err(RpcError::Anyhow)?;
+            info!("✅ Proof stored successfully for job {:?}", job_id);
 
         }
         // remove the job from the current task, no matter if proof is None or Some

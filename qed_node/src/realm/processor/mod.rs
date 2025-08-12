@@ -220,8 +220,8 @@ impl RealmProcessor {
         context.build_block().await?;
         {
             let mut task_graph = context.proof_store.task_graph.lock().await;
-            let sorted_tasks = task_graph.ts_task();
-            self.job_task_store.save_task_topology(sorted_tasks).await?;
+            let sorted_tasks = task_graph.ts_layers();
+            self.job_task_store.save_task_topology_with_layers(sorted_tasks).await?;
             task_graph.clear();
         }
         let realm_worker_output_job_id = self
