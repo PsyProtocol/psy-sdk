@@ -299,7 +299,7 @@ async fn main() -> anyhow::Result<()> {
         }
         
         // wallet session
-        Commands::WalletSession(wallet_session_args) => session::run(wallet_session_args)?,
+        Commands::WalletSession(wallet_session_args) => submit_end_cap_proof::run_multi(wallet_session_args)?,
         Commands::LocalProver(prover_args) => qed_prover::run_server(prover_args).await?,
         Commands::ProveProxy(prove_proxy_args) => {
             qed_prover::run_prove_proxy_server(prove_proxy_args).await?

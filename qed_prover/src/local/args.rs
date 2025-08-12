@@ -27,12 +27,13 @@ pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>
     serde_json::from_str(s).map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))
 }
 
-#[derive(Clone, Args)]
+#[derive(Clone, Args, Serialize, Deserialize)]
 pub struct WalletSessionArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(
         long,
+        short,
         default_value = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
         env
     )]
