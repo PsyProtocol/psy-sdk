@@ -35,7 +35,9 @@ REALM_EDGE_LOG="$LOG_DIR/realm-edge-tikv.log"
 REALM_PROCESSOR1_LOG="$LOG_DIR/realm-processor1-tikv.log"
 REALM_EDGE1_LOG="$LOG_DIR/realm-edge1-tikv.log"
 
-WORKER_LOG="$LOG_DIR/worker.log"
+WORKER0_LOG="$LOG_DIR/worker0.log"
+WORKER1_LOG="$LOG_DIR/worker1.log"
+WORKER2_LOG="$LOG_DIR/worker2.log"
 
 LOCAL_PROVE_PROXY_LOG="$LOG_DIR/local-user-prover.log"
 WEB_WALLET_LOG="$LOG_DIR/web_wallet.log"
@@ -50,7 +52,9 @@ echo "Clearing log files..."
 : > "$REALM_EDGE1_LOG"
 : > "$LOCAL_PROVE_PROXY_LOG"
 : > "$WEB_WALLET_LOG"
-: > "$WORKER_LOG"
+: > "$WORKER0_LOG"
+: > "$WORKER1_LOG"
+: > "$WORKER2_LOG"
 
 # Array to store PIDs of background processes
 declare -a PIDS=()
@@ -99,7 +103,11 @@ run_service "make run-realm-processor-tikv" "realm-processor-tikv" "$REALM_PROCE
 PIDS+=($!)
 run_service "make run-realm-processor1-tikv" "realm-processor1-tikv" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
-run_service "make run-worker" "worker" "$WORKER_LOG" &
+run_service "make run-worker" "worker0" "$WORKER0_LOG" &
+PIDS+=($!)
+run_service "make run-worker" "worker1" "$WORKER1_LOG" &
+PIDS+=($!)
+run_service "make run-worker" "worker2" "$WORKER2_LOG" &
 PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors/workers)
