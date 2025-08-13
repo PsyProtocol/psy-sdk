@@ -27,14 +27,7 @@ pub const PS_DRAIN_QUEUE_KEY_PREFIX: &'static str = "PSDQV1_";
 pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
 pub const PS_NOTIFICATIONS_QUEUE_KEY_PREFIX: &'static str = "PSNQV1";
 pub const PS_HISTORY_QUEUE_KEY_PREFIX: &'static str = "PSHQV1";
-pub const REAML_PROOF_KEY: &str = "REALM_PROOF";
 pub const PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX: &'static str = "PSSQV1";
-
-#[async_trait]
-pub trait SyncProofQueue {
-    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()>;
-    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId>;
-}
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -440,33 +433,6 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
         let realm_sync_checkpoint_key = self.realm_sync_checkpoint_key();
         let length: usize = self.pool.llen(&realm_sync_checkpoint_key).await?;
         Ok(length == 0)
-    }
-}
-
-#[async_trait]
-impl SyncProofQueue for ProofStoreFred {
-    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()> {
-        let realm_proof_key = self.realm_proof_key();
-        self.pool()
-            .rpush::<(), &str, Vec<u8>>(&realm_proof_key, item.to_bytes()?)
-            .await?;
-        Ok(())
-    }
-
-    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId> {
-        let realm_proof_key = self.realm_proof_key();
-        let result: FredResult<(String, Vec<u8>)> = self.pool().blpop(realm_proof_key, 0.0).await;
-
-        match result {
-            Ok((_, bytes)) => match ProvingJobDataId::from_bytes(&bytes) {
-                Ok(id) => Ok(id),
-                Err(err) => Err(anyhow::anyhow!(
-                    "Failed to parse ProvingJobDataId: {:?}",
-                    err
-                )),
-            },
-            Err(err) => Err(anyhow::anyhow!("Error getting job_id from Redis {:?}", err)),
-        }
     }
 }
 

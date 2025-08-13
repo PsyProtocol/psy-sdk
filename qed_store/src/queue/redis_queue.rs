@@ -3,12 +3,8 @@ use std::{sync::Arc, time::Duration};
 use auto_impl::auto_impl;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
-use redis::{AsyncCommands, HashFieldExpirationOptions, RedisResult, SetExpiry};
-use kvq::traits::KVQSerializable;
-use qed_core::job::id::{JobsTask, JobsTaskGraph, ProvingJobDataId};
-use qed_data::qdata::checkpoint::CheckpointSyncInfo;
-use plonky2::field::goldilocks_field::GoldilocksField;
-use tracing::debug;
+use redis::{AsyncCommands, HashFieldExpirationOptions, SetExpiry};
+use qed_core::job::id::{JobsTask, JobsTaskGraph};
 
 use async_trait::async_trait;
 use kvq::traits::KVQPair;
@@ -27,9 +23,7 @@ use qed_core::job::{
 };
 use tokio::{sync::Mutex, time::sleep};
 // Re-use constants from fred_queue
-use crate::queue::fred_queue::{
-    SyncProofQueue, PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX, PS_WORKER_QUEUE_KEY_PREFIX, REAML_PROOF_KEY
-};
+use crate::queue::fred_queue::{PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX, PS_WORKER_QUEUE_KEY_PREFIX};
 
 #[auto_impl(&, Box, Arc)]
 pub trait BizKey {
@@ -45,9 +39,6 @@ pub trait QueuePrefixKey {
 
     // checkpoint history queue key prefix PS_HISTORY_QUEUE_KEY_PREFIX
     fn checkpoint_history_queue_prefix_key(&self) -> String;
-
-    // realm proof key prefix REAML_PROOF_KEY
-    fn realm_proof_key(&self) -> String;
 
     // realm sync checkpoint key prefix PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX
     fn realm_sync_checkpoint_key(&self) -> String;
@@ -76,10 +67,6 @@ impl<T: BizKey> QueuePrefixKey for T {
 
     fn checkpoint_history_queue_prefix_key(&self) -> String {
         format!("{}-{}", PS_HISTORY_QUEUE_KEY_PREFIX, self.biz_key())
-    }
-
-    fn realm_proof_key(&self) -> String {
-        format!("{}-{}", REAML_PROOF_KEY, self.biz_key())
     }
 
     fn realm_sync_checkpoint_key(&self) -> String {
@@ -492,118 +479,6 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedisAsync {
         let mut conn = self.pool.get().await?;
         let length: u64 = conn.llen(&realm_sync_checkpoint_key).await?;
         Ok(length == 0)
-    }
-}
-
-#[async_trait]
-impl SyncProofQueue for ProofStoreRedisAsync {
-    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()> {
-        let realm_proof_key = self.realm_proof_key();
-        let mut conn = self.pool().get().await?;
-        conn.rpush(&realm_proof_key, item.to_bytes()?)
-            .await?;
-        Ok(())
-    }
-
-    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId> {
-        let realm_proof_key = self.realm_proof_key();
-        let mut conn = self.pool().get().await?;
-        let result: RedisResult<(String, Vec<u8>)> = conn.blpop(realm_proof_key, 0.0).await;
-
-        match result {
-            Ok((_, bytes)) => match ProvingJobDataId::from_bytes(&bytes) {
-                Ok(id) => Ok(id),
-                Err(err) => Err(anyhow::anyhow!(
-                    "Failed to parse ProvingJobDataId: {:?}",
-                    err
-                )),
-            },
-            Err(err) => Err(anyhow::anyhow!("Error getting job_id from Redis {:?}", err)),
-        }
-    }
-}
-
-// Checkpoint queue types
-pub type F = GoldilocksField;
-
-#[async_trait]
-pub trait SyncCheckpointQueue {
-    async fn produce_checkpoint_async_info(
-        &self,
-        item: CheckpointSyncInfo<F>,
-    ) -> anyhow::Result<()>;
-    async fn is_empty(&self) -> anyhow::Result<bool>;
-    async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo<F>>;
-}
-
-#[derive(Clone, Debug)]
-pub struct Queue {
-    pool: Pool<RedisConnectionManager>,
-    biz_key: String,
-}
-
-impl BizKey for Queue {
-    fn biz_key(&self) -> String {
-        self.biz_key.clone()
-    }
-}
-
-impl Queue {
-    pub async fn new(url: &str, pool_size: usize, biz_key: String) -> anyhow::Result<Self> {
-        let manager = RedisConnectionManager::new(url)?;
-        let pool = Pool::builder()
-            .max_size(pool_size as u32)
-            .build(manager).await?;
-
-        Ok(Self {
-            pool,
-            biz_key,
-        })
-    }
-
-    pub fn pool(&self) -> Pool<RedisConnectionManager> {
-        self.pool.clone()
-    }
-}
-
-#[async_trait]
-impl SyncCheckpointQueue for Queue {
-    async fn produce_checkpoint_async_info(
-        &self,
-        item: CheckpointSyncInfo<F>,
-    ) -> anyhow::Result<()> {
-        debug!("Producing checkpoint async info to Redis: checkpoint_id before: {}", item.compact.l2_block_state.checkpoint_id);
-        let mut conn = self.pool.get().await?;
-        conn.rpush(self.realm_sync_checkpoint_key().as_str(), item.to_bytes()?)
-            .await?;
-
-        debug!("Checkpoint async info produced to Redis: checkpoint_id after: {}", item.compact.l2_block_state.checkpoint_id);
-        Ok(())
-    }
-
-    async fn is_empty(&self) -> anyhow::Result<bool> {
-        let mut conn = self.pool.get().await?;
-        let length: u64 = conn.llen(self.realm_sync_checkpoint_key()).await?;
-        Ok(length == 0)
-    }
-
-    async fn consume_checkpoint_async_info(&self) -> anyhow::Result<CheckpointSyncInfo<F>> {
-        let mut conn = self.pool.get().await?;
-        let result: RedisResult<(String, Vec<u8>)> = conn.blpop(self.realm_sync_checkpoint_key().as_str(), 0.0).await;
-
-        match result {
-            Ok((_, bytes)) => match CheckpointSyncInfo::from_bytes(&bytes) {
-                Ok(info) => Ok(info),
-                Err(err) => Err(anyhow::anyhow!(
-                    "Failed to parse CheckpointSyncInfo: {:?}",
-                    err
-                )),
-            },
-            Err(err) => Err(anyhow::anyhow!(
-                "Error getting checkpoint info from Redis {:?}",
-                err
-            )),
-        }
     }
 }
 

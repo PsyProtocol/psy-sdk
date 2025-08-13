@@ -8,9 +8,9 @@ pub mod task_queue;
 pub use pool::{new_fred_pool, new_redis_async_pool};
 pub use rsmq_queue::*;
 // Re-export from fred_queue for backward compatibility
-pub use fred_queue::{DrainQueueFred, ProofStoreFred, SyncProofQueue};
+pub use fred_queue::{DrainQueueFred, ProofStoreFred};
 // Re-export from redis_queue
-pub use redis_queue::{ProofStoreRedisAsync, Queue, SyncCheckpointQueue, BizKey, QueuePrefixKey};
+pub use redis_queue::{ProofStoreRedisAsync, BizKey, QueuePrefixKey};
 // Re-export worker_queue_redis types from rsmq_queue
 pub mod worker_queue_redis {
     pub mod redis_queue {
