@@ -1,6 +1,6 @@
 use crate::queue::fred_queue::{
     PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX,
-    PS_WORKER_QUEUE_KEY_PREFIX, SyncProofQueue,
+    PS_WORKER_QUEUE_KEY_PREFIX,
 };
 use async_trait::async_trait;
 use qed_core::config::network_constants::{COORDINATOR_TO_REALM_CHANNEL, REALM_TO_COORDINATOR_CHANNEL};
@@ -12,7 +12,7 @@ use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, HQSerializable,
     HistoryQueueMetadata, HistoryQueueMetadataTagged,
 };
-use qed_core::job::id::{QProvingJobDataID, ProvingJobDataId, QWorkerJobBenchmark};
+use qed_core::job::id::{QProvingJobDataID, QWorkerJobBenchmark};
 use qed_core::job::worker_queue::{
     WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm,
     WorkerEventReceiverSync, WorkerEventTransmitterSync
@@ -599,18 +599,6 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
             };
         }
     }
-
-    async fn is_empty(&self) -> anyhow::Result<bool> {
-        // Check if sync proof queue is empty
-        let queue_id = QueueId::SyncProof {
-            queue_biz_key: self.realm_sync_checkpoint_key().clone(),
-        };
-        match self.pool.get_queue_attributes(&queue_id.get_queue_id()).await {
-            Ok(attrs) => Ok(attrs.msgs == 0),
-            Err(RsmqError::QueueNotFound) => Ok(true),
-            Err(e) => Err(e.into()),
-        }
-    }
 }
 
 #[async_trait]
@@ -686,34 +674,6 @@ impl WorkerEventTransmitterAsyncImm for RsmqQueue {
                 }
             }
             sleep(Duration::from_millis(500)).await;
-        }
-    }
-}
-
-#[async_trait]
-impl SyncProofQueue for RsmqQueue {
-    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()> {
-        let queue_id = QueueId::SyncProof {
-            queue_biz_key: self.realm_proof_key().clone(),
-        };
-        self.send_message(&queue_id, item.to_bytes()?).await
-    }
-
-    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId> {
-        let queue_id = QueueId::SyncProof {
-            queue_biz_key: self.realm_proof_key().clone(),
-        };
-        match self.pop_message(&queue_id).await? {
-            None => {
-                anyhow::bail!("No message in queue");
-            }
-            Some(bytes) => match ProvingJobDataId::from_bytes(&bytes) {
-                Ok(id) => Ok(id),
-                Err(err) => Err(anyhow::anyhow!(
-                    "Failed to parse ProvingJobDataId: {:?}",
-                    err
-                )),
-            },
         }
     }
 }

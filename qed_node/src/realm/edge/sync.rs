@@ -55,10 +55,6 @@ where
         loop {
             tokio::time::sleep(SYNC_INTERVAL).await;
 
-            if !self.should_process_sync_cycle().await {
-                continue;
-            }
-
             if !self.update_local_checkpoint().await {
                 continue;
             }
@@ -80,22 +76,6 @@ where
             self.sync_missing_checkpoints().await;
 
             debug!("Finished sync cycle. Waiting for next interval...");
-        }
-    }
-
-    async fn should_process_sync_cycle(&self) -> bool {
-        match self.sync_queue.is_empty().await {
-            Ok(is_empty) => {
-                if !is_empty {
-                    debug!("sync queue is not empty. Waiting for next interval...");
-                    return false;
-                }
-                true
-            }
-            Err(e) => {
-                error!("Failed to check if interval sync queue {:?}", e);
-                false
-            }
         }
     }
 
