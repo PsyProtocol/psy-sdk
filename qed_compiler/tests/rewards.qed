@@ -1,16 +1,20 @@
 #[derive(Storage, StorageRef)]
-struct MerkleProof {
-    pub value: Hash,
-    pub siblings: [Hash; 32],
-    pub is_left: [bool; 32],
-    pub depth: Felt,
+struct JobProofSibling {
+    pub sibling_hash: [Felt; 4],
+    pub is_left: Felt,
+}
+
+#[derive(Storage, StorageRef)]
+struct JobProof {
+    pub value: [Felt; 4],
+    pub siblings: [JobProofSibling; 32],
+    pub root: [Felt; 4],
 }
 
 #[derive(Storage, StorageRef)]
 struct JobClaim {
-    pub job_id: Felt,
     pub job_type: Felt,
-    pub proof: MerkleProof,
+    pub proof: JobProof,
     pub reward: Felt,
 }
 
@@ -22,7 +26,7 @@ struct OtherUserInfo {
 
 #[derive(Storage, StorageRef)]
 struct Nullifier {
-    pub used: bool,
+    pub used: Felt,
 }
 
 #[contract]
@@ -38,23 +42,42 @@ impl ContractRef {
         checkpoint_id * 1024 + (user_id % 1024)
     }
 
-    pub fn verify_proof(proof: MerkleProof, root: Hash) -> bool {
+    pub fn verify_proof(proof: JobProof, expected_root: [Felt; 4]) -> bool {
         let mut current = proof.value;
-        let mut i = 0;
-        while i < proof.depth {
-            let sibling = proof.siblings[i];
-            if proof.is_left[i] {
-                current = hash_two_to_one(sibling, current);
-            } else {
-                current = hash_two_to_one(current, sibling);
+
+        for i in 0u32..32u32 {
+            let idx = i as Felt;
+            let sibling = proof.siblings[idx];
+            // Check if hash is non-zero (process only non-zero siblings)
+            let is_nonzero = (sibling.sibling_hash[0] != 0 || sibling.sibling_hash[1] != 0 ||
+                             sibling.sibling_hash[2] != 0 || sibling.sibling_hash[3] != 0);
+
+            if is_nonzero {
+                if sibling.is_left == 1 {
+                    let combined = hash_two_to_one(sibling.sibling_hash, current);
+                    current[0] = combined[0];
+                    current[1] = combined[1];
+                    current[2] = combined[2];
+                    current[3] = combined[3];
+                } else {
+                    let combined = hash_two_to_one(current, sibling.sibling_hash);
+                    current[0] = combined[0];
+                    current[1] = combined[1];
+                    current[2] = combined[2];
+                    current[3] = combined[3];
+                };
             };
-            i += 1;
         }
-        current[0] == root[0] && current[1] == root[1] &&
-        current[2] == root[2] && current[3] == root[3]
+
+        let root_matches = current[0] == proof.root[0] && current[1] == proof.root[1] &&
+                          current[2] == proof.root[2] && current[3] == proof.root[3];
+        let expected_matches = proof.root[0] == expected_root[0] && proof.root[1] == expected_root[1] &&
+                               proof.root[2] == expected_root[2] && proof.root[3] == expected_root[3];
+
+        root_matches && expected_matches
     }
 
-    pub fn get_expected_root(checkpoint_id: Felt, job_type: Felt) -> Hash {
+    pub fn get_expected_root(checkpoint_id: Felt, job_type: Felt) -> [Felt; 4] {
         if job_type == 0 {
             get_register_users_root(checkpoint_id)
         } else if job_type == 1 {
@@ -62,42 +85,45 @@ impl ContractRef {
         } else if job_type == 2 {
             get_deploy_contracts_root(checkpoint_id)
         } else {
-            assert(false, "invalid job type");
-            hash([0, 0, 0, 0])
+            // Return zero root for invalid job types
+            [0, 0, 0, 0]
         }
     }
 
-    pub fn claim_batch_rewards(
+    pub fn claim_batch_job_rewards(
         checkpoint_id: Felt,
-        claims: [JobClaim; 32],
-        claim_count: Felt
+        claims: [JobClaim; 32]
     ) {
         let c = ContractRef::new(ContractMetadata::current());
         let user_id = get_user_id();
 
         assert(checkpoint_id < 65536, "checkpoint_id out of bounds");
         assert(user_id < 1073741824, "user_id out of bounds");
-        assert(claim_count <= 32, "too many claims");
 
         let nullifier_idx = Self::get_nullifier_index(checkpoint_id, user_id);
         let nullifier_ref = c.nullifiers.index(nullifier_idx);
-        assert(!nullifier_ref.get().used, "already claimed");
+        assert(nullifier_ref.get().used == 0, "already claimed");
 
         let mut total_reward = 0;
-        let mut i = 0;
 
-        while i < claim_count {
-            let claim = claims[i];
-            let expected_root = Self::get_expected_root(checkpoint_id, claim.job_type);
+        for i in 0u32..32u32 {
+            let idx = i as Felt;
+            let claim = claims[idx];
 
-            assert(Self::verify_proof(claim.proof, expected_root), "invalid proof");
-            assert(claim.proof.value == get_user_public_key_hash(), "wrong public key");
-
-            total_reward += claim.reward;
-            i += 1;
+            if claim.reward > 0 {
+                let expected_root = Self::get_expected_root(checkpoint_id, claim.job_type);
+                assert(Self::verify_proof(claim.proof, expected_root), "invalid proof");
+                let user_key = get_user_public_key_hash();
+                assert(claim.proof.value[0] == user_key[0] &&
+                       claim.proof.value[1] == user_key[1] &&
+                       claim.proof.value[2] == user_key[2] &&
+                       claim.proof.value[3] == user_key[3], "wrong public key");
+                total_reward = total_reward + claim.reward;
+            };
         }
 
-        nullifier_ref.set(new Nullifier { used: true });
+        assert(total_reward > 0, "no valid claims");
+        nullifier_ref.set(new Nullifier { used: 1 });
         c.balance.set(c.balance.get() + total_reward);
     }
 

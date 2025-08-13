@@ -112,6 +112,43 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         }
     }
 
+    pub fn calculate_type_size(&mut self, type_id: TypeId, ctx: &TypeCheckerVisitorContext<F, C>) -> usize {
+        match &ctx.symbols[type_id] {
+            Type::Felt | Type::Bool | Type::U32 => 1,
+            Type::Struct(s) => s
+                .fields
+                .iter()
+                .map(|(_, field)| self.calculate_type_size(field.ty, ctx))
+                .sum(),
+            Type::Array(arr) => {
+                let element_size = self.calculate_type_size(arr.inner_ty, ctx);
+
+                let array_size = match &ctx.symbols[arr.size_ty] {
+                    Type::Const(const_node) => {
+                        let const_value_ref = &ctx.symbols[const_node.value];
+                        match &*const_value_ref.borrow() {
+                            CheckedValue::Felt(f) => {
+                                self.context.get_constant_value(f.clone()) as usize
+                            }
+                            CheckedValue::U32(f) => {
+                                self.context.get_constant_value(f.clone()) as usize
+                            }
+                            _ => panic!("Array size must be a numeric constant"),
+                        }
+                    }
+                    _ => panic!("Array size must be a const type"),
+                };
+
+                element_size * array_size
+            }
+            Type::Tuple(elements) => elements
+                .iter()
+                .map(|&ty| self.calculate_type_size(ty, ctx))
+                .sum(),
+            _ => panic!("Unsupported type for size calculation: {:?}", ctx.symbols[type_id]),
+        }
+    }
+
     pub fn to_input(&mut self, ty: TypeId, symbols: &SymbolTable<F>) -> CheckedValue<F> {
         match symbols[ty].clone() {
             Type::Felt => CheckedValue::Felt(self.context.add_input()),
@@ -146,7 +183,35 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     .unwrap();
                 CheckedValue::Struct(type_id, result)
             }
-            _ => todo!(),
+            Type::Array(arr) => {
+                let size = match &symbols[arr.size_ty] {
+                    Type::Const(const_node) => {
+                        let const_value_ref = &symbols[const_node.value];
+                        match &*const_value_ref.borrow() {
+                            CheckedValue::Felt(f) => {
+                                self.context.get_constant_value(f.clone()) as usize
+                            }
+                            CheckedValue::U32(f) => {
+                                self.context.get_constant_value(f.clone()) as usize
+                            }
+                            _ => panic!("Array size must be a numeric constant"),
+                        }
+                    }
+                    _ => panic!("Array size must be a const type"),
+                };
+
+                let mut elements = Vec::new();
+                for _ in 0..size {
+                    elements.push(CheckedValueRef::new_rc(self.to_input(arr.inner_ty.clone(), symbols)));
+                }
+
+                let type_id = symbols
+                    .get_type_id(Some(arr.scope_id), symbols[ty].key())
+                    .unwrap();
+
+                CheckedValue::Array(type_id, elements)
+            }
+            other => panic!("Unsupported type in to_input: {:?}", other),
         }
     }
 
@@ -340,7 +405,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         for parameter in node.parameters.iter() {
             method_args.push((
                 ctx.program[parameter.name.id].to_string(),
-                ctx.size_of(parameter.ty.clone()),
+                self.calculate_type_size(parameter.ty.clone(), ctx),
             ));
         }
 
@@ -1033,10 +1098,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         let right = self.interpret_expr(program, right.clone(), ctx)?;
                         let left_felts = left.to_felts();
                         let right_felts = right.to_felts();
-                        
+
                         assert!(left_felts.len() == 4, "hash_two_to_one left input must be Hash (4 felts)");
                         assert!(right_felts.len() == 4, "hash_two_to_one right input must be Hash (4 felts)");
-                        
+
                         let left_array: [F; 4] = [
                             left_felts[0].clone(),
                             left_felts[1].clone(),
@@ -1049,7 +1114,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             right_felts[2].clone(),
                             right_felts[3].clone(),
                         ];
-                        
+
                         return Ok(CheckedValueRef::from_vec(
                             type_id.clone(),
                             self.context.hash_two_to_one(&left_array, &right_array).to_vec(),
@@ -1066,8 +1131,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         ));
                     }
                     CheckedIntrinsicExprNode::MemSizeOf { query_type: ty, .. } => {
+                        let size = self.calculate_type_size(ty.clone(), ctx);
                         return Ok(CheckedValueRef::from_felt(
-                            self.context.op_const(ctx.size_of(ty.clone()) as u64),
+                            self.context.op_const(size as u64),
                         ));
                     }
                     CheckedIntrinsicExprNode::StorageReadRange {
@@ -1119,11 +1185,12 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             .interpret_expr(program, method_id.clone(), ctx)?
                             .to_felt();
                         let inputs = self.interpret_expr(program, *inputs, ctx)?.to_vec();
+                        let output_size = self.calculate_type_size(type_id.clone(), ctx);
                         let outputs = self.context.cinvoke_external_contract_function_sync(
                             contract_id,
                             method_id,
                             inputs,
-                            ctx.size_of(type_id.clone()).try_into().unwrap(),
+                            output_size.try_into().unwrap(),
                         );
                         return Ok(CheckedValueRef::decode_felts(
                             &outputs,
