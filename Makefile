@@ -5,7 +5,7 @@ LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_c
 
 default: build-release wasm-build
 
-build-release:
+build-release: config_gen_v2
 	@RUSTFLAGS="-A warnings"  cargo build --release
 
 check:
@@ -219,7 +219,7 @@ init-tikv:
 	@echo "Starting TiKV cluster..."
 	@docker-compose -f ./scripts/docker-compose.tikv.yml up -d
 	@echo "Waiting for TiKV to be ready..."
-	@sleep 30
+	@sleep 15
 	@echo "TiKV cluster is ready"
 
 shutdown-tikv:
@@ -319,6 +319,9 @@ deploy-contract:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
 	@echo "USER1 deploying contract 1..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
+
+multi-contract-call:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli wallet-session -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}
 
 mint:
 	@echo "All users minting 1000 tokens..."

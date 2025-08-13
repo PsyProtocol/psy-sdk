@@ -1,7 +1,7 @@
 // std
 use std::sync::Arc;
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use chrono::Utc;
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
@@ -13,10 +13,7 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 
 // qed_core
 use qed_core::data::qhashout::QHashOut;
-use qed_core::job::drain_queue::{
-    CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
-    WithDrainQueueMetadata,
-};
+use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DrainQueueMetadataTagged, WithDrainQueueMetadata};
 use qed_core::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
 use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 
@@ -25,7 +22,7 @@ use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 
 // qed_data
-use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
+use qed_data::guta::api::{SubmitGUTARealmResultAPINoProofInput, SubmitGUTARealmResultAPIQueueItem};
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
@@ -169,7 +166,7 @@ impl CoordinatorEdgeHandler {
         input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
         proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
     ) -> anyhow::Result<()> {
-        debug!("submit_guta input: {:?}", input);
+        debug!("submit_guta input: {}", serde_json::to_string_pretty(&input).unwrap());
         let checkpoint_queue = self.ctx.checkpoint_queue.clone();
         let proof_store = self.ctx.proof_store.clone();
         let config = self.ctx.coordinator_config.clone();
@@ -227,7 +224,7 @@ impl CoordinatorEdgeHandler {
         }
 
         // build queue item
-        let queue_item =
+        let queue_item: SubmitGUTARealmResultAPIQueueItem<GoldilocksField> =
             input.to_queue_item(config.guta_channel_id, config.realm_root_level as u32);
         let proof_id = queue_item.proof_id;
         info!(
@@ -235,11 +232,15 @@ impl CoordinatorEdgeHandler {
             proof_id.task_index
         );
 
+
         // write to proof store
         proof_store.set_proof_by_id(proof_id, &proof).await?;
         info!("✅ wrote guta result to proof store");
-        checkpoint_queue.cdq_push_imm(queue_item).await?;
+        checkpoint_queue.cdq_push_imm(queue_item.clone()).await?;
         info!("✅ wrote guta result to proof store end");
+        let metadata = queue_item.get_dq_metadata();
+        let items:Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> = checkpoint_queue.cdq_peek_imm(metadata.channel_id).await?;
+        info!("DEBUGPRINT[237]: handler.rs:237: items={}, metadata = {:?}", serde_json::to_string_pretty(&items).unwrap(), metadata);
 
         Ok(())
     }
@@ -249,7 +250,7 @@ impl CoordinatorEdgeHandler {
         let next_checkpoint = latest + 1;
 
         // Use CheckpointHistoryQueue instead of RedisQueue
-        self.history_queue.chq_push_imm(
+        self.history_queue.produce_item(
             CEQueueNotification::StartProduceBlock { next_checkpoint }
         ).await?;
 
@@ -275,10 +276,11 @@ impl CoordinatorEdgeHandler {
 
         // Convert compact to full sync info with all required fields
         let sync_info = CheckpointSyncInfo {
+            pending_checkpoint_id: None, // todo if something pending, we need to get it from db
             latest_checkpoint_id: latest,
             description: None,
             source_coordinator_edge_id: None,
-            sync_timestamp: chrono::Utc::now().timestamp() as u64,
+            sync_timestamp: Utc::now().timestamp() as u64,
             compact,
         };
         Ok(sync_info)
@@ -878,17 +880,27 @@ impl CoordinatorEdgeHandler {
         self.store
             .get_user_tree_merkle_proof_f(checkpoint_id, user_id)
     }
+
+    async fn log_suspicious_activity(&self, job: &QJob, reason: &str) {
+        //todo! add some operation to log suspicious activity or ban user
+        error!(
+            "🚨 SECURITY ALERT: Invalid job submission - Reason: {}, Job: {:?}, Layer: {}, MsgId: {}",
+            reason, job.job_id, job.layer_id, job.msg_id
+        );
+    }
 }
 
 
 
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use super::rpc::CoordinatorEdgeRpcServer;
 use super::error::RpcError;
 use super::types::LatestCheckpointResponse;
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
-use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl, QJob};
+use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl,JobValidationStatus, QJob};
+use qed_store::queue::redis_queue::NotificationQueue;
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
@@ -1296,12 +1308,13 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .await
             .map_err(RpcError::Anyhow)
     }
+
 }
 
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
-        let j = match self.job_task_store.claim_job_from_current_task().await {
+        let j = match self.job_task_store.claim_job_from_current_layer().await {
             Ok(job) => job,
             Err(e) => {
                 error!("Error claiming job from current task: {:?}", e);
@@ -1332,11 +1345,62 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
 
     async fn set_proof_by_id(&self, job: QJob, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()> {
         let job_id = job.job_id;
+
+        // CRITICAL: Validate job ownership before processing proof
+        let validation_status = self.job_task_store.validate_job_ownership(&job).await
+            .map_err(|e| RpcError::Anyhow(anyhow!("Failed to validate job: {}", e)))?;
+
+        match validation_status {
+            JobValidationStatus::Valid => {
+                info!("✅ Job {:?} validated successfully, proceeding with proof", job_id);
+            }
+            JobValidationStatus::NoActiveLayer => {
+                error!("⚠️ No active layer when submitting proof for job {:?}", job_id);
+                return Err(RpcError::Anyhow(anyhow!(
+                    "System error: no active layer"
+                )));
+            }
+            JobValidationStatus::WrongLayer { expected, provided } => {
+                error!(
+                "⚠️ Worker submitted job {:?} for wrong layer: expected {}, got {}",
+                job_id, expected, provided
+            );
+                self.log_suspicious_activity(&job, "wrong_layer").await;
+                return Err(RpcError::Anyhow(anyhow!(
+                    "Invalid submission: wrong layer (expected {}, got {})",
+                    expected, provided
+                )));
+            }
+            JobValidationStatus::MessageNotFound => {
+                error!(
+                    "⚠️ Worker submitted proof for non-existent job {:?}, msg_id: {}",
+                    job_id, job.msg_id
+                );
+                self.log_suspicious_activity(&job, "message_not_found").await;
+                return Err(RpcError::Anyhow(anyhow!(
+                    "Invalid submission: job not found"
+                )));
+            }
+            JobValidationStatus::MessageNotHidden => {
+                error!(
+                    "⚠️ Worker submitted proof for non-hidden job {:?}, msg_id: {}",
+                    job_id, job.msg_id
+                );
+                self.log_suspicious_activity(&job, "message_not_hidden").await;
+                return Err(RpcError::Anyhow(anyhow!(
+                    "Invalid submission: job not being processed"
+                )));
+            }
+        }
+
         if let Some(proof) = proof {
-            info!("Setting proof by id: {:?}", job_id);
+            info!("Verifying proof for validated job: {:?}", job_id);
+            self.ctx.proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)
+                .map_err(|e| RpcError::Anyhow(e.into()))?;
             // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
             let output_id = job_id.get_output_id();
             self.proof_store.set_proof_by_id(output_id, &proof).await.map_err(RpcError::Anyhow)?;
+            info!("✅ Proof stored successfully for job {:?}", job_id);
 
         }
         // remove the job from the current task, no matter if proof is None or Some

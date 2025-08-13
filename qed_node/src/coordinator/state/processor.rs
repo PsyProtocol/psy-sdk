@@ -198,7 +198,6 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
                 self.coordinator_config.deploy_contract_channel_id,
-                checkpoint_id,
             )
             .await?;
 
@@ -305,7 +304,7 @@ impl<
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
         let user_registrations = self
             .checkpoint_queue
-            .cdq_drain_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID, 0)
+            .cdq_drain_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID)
             .await?;
         eprintln!("DEBUGPRINT[724]: processor.rs:326: user_registrations={}", serde_json::to_string_pretty(&user_registrations).unwrap());
 
@@ -407,7 +406,6 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(
                 self.coordinator_config.guta_channel_id,
-                checkpoint_id,
             )
             .await?;
         eprintln!("DEBUGPRINT[530]: processor.rs:406: guta_queue_items={}", serde_json::to_string_pretty(&guta_queue_items).unwrap());
@@ -780,7 +778,7 @@ impl<
         Ok((levels, guta))
     }
 
-    pub async fn build_block(&mut self) -> anyhow::Result<()> {
+    pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("coordinator STARTED new block");
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
@@ -1002,19 +1000,19 @@ impl<
             total_deposits_claimed_epoch: last_l2_blockstate.total_deposits_claimed_epoch,
             next_user_id: last_l2_blockstate.next_user_id + new_accounts.len() as u64,
             end_balance: last_l2_blockstate.end_balance,
-            next_contract_id: next_contract_id,
+            next_contract_id,
         };
         eprintln!("DEBUGPRINT[590]: processor.rs:979: new_l2_block_state={}", serde_json::to_string_pretty(&new_l2_block_state).unwrap());
-        self.prover_queue
-            .enqueue_jobs_imm(
-                &([
-                    guta_jobs[0].to_vec(),
-                    deploy_jobs[0].to_vec(),
-                    user_registration_jobs[0].to_vec(),
-                ]
-                .concat()),
-            )
-            .await?;
+        // self.prover_queue
+        //     .enqueue_jobs_imm(
+        //         &([
+        //             guta_jobs[0].to_vec(),
+        //             deploy_jobs[0].to_vec(),
+        //             user_registration_jobs[0].to_vec(),
+        //         ]
+        //         .concat()),
+        //     )
+        //     .await?;
             let lf_state = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;
             //println!("set new leaf: {:#?}\n\nnew_leaf_hash {}: {:?},\nlf: {:?}, {:?}",new_checkpoint_leaf,new_checkpoint_id,new_checkpoint_leaf.qfhash::<QEDHasher>(),lf_state,lf_state.qfhash::<QEDHasher>());
         self.store
@@ -1032,10 +1030,11 @@ impl<
             regsitered_users_start_pivot_siblings,
             registered_users: new_accounts,
             old_checkpoint_leaf_hash,
+            slot,
         };
         eprintln!("DEBUGPRINT[591]: processor.rs:1007: l2_sync={}", serde_json::to_string_pretty(&l2_sync).unwrap());
         self.store
-            .set_checkpoint_sync_info_imm(l2_sync.clone())
+            .set_checkpoint_sync_info_imm(l2_sync.clone())// todo
             .await?;
 
         //todo! mark, should commit the txn
@@ -1050,4 +1049,45 @@ impl<
 
         Ok(())
     }
+
+
+    pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
+        // Check deploy contracts queue
+        let deploy_items = self
+            .checkpoint_queue
+            .cdq_peek_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
+                self.coordinator_config.deploy_contract_channel_id,
+            )
+            .await?;
+
+        info!("DEBUGPRINT[1065]: processor.rs:1065: deploy_items={}", serde_json::to_string_pretty(&deploy_items).unwrap());
+
+        if !deploy_items.is_empty() {
+            return Ok(true);
+        }
+
+        // Check user registration queue
+        let user_reg_items = self
+            .checkpoint_queue
+            .cdq_peek_imm::<ZKPublicKeyInfo<F>>(
+                COORD_API_REGISTER_USER_CHANNEL_ID,
+            )
+            .await?;
+
+        info!("DEBUGPRINT[1080]: processor.rs:1080: user_reg_items={}", serde_json::to_string_pretty(&user_reg_items).unwrap());
+        if !user_reg_items.is_empty() {
+            return Ok(true);
+        }
+
+        // Check GUTA queue
+        let guta_items = self
+            .checkpoint_queue
+            .cdq_peek_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(
+                self.coordinator_config.guta_channel_id,
+            )
+            .await?;
+        info!("DEBUGPRINT[1093]: processor.rs:1093: guta_items={}", serde_json::to_string_pretty(&guta_items).unwrap());
+        Ok(!guta_items.is_empty())
+    }
+
 }

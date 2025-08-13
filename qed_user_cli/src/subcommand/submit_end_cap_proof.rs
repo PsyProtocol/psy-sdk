@@ -6,6 +6,7 @@ use qed_core::config::network_constants::{
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+use qed_prover::local::args::WalletSessionArgs;
 use qed_prover::session::WalletSession;
 use qed_prover::wallet::simple_sign::SoftwareDefinedSignGadget;
 use qed_prover::wallet::software_defined_circuit::{
@@ -19,8 +20,19 @@ use qed_prover::{
     wallet::software_defined_circuit::SoftwareDefinedSignatureInput,
 };
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use serde::{Deserialize, Serialize};
 
 use super::args::SubmitEndCapArgs;
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ExecContractCallArgs {
+    pub rpc_config: RpcConfig,
+    pub private_key: QHashOut<GoldilocksField>,
+    pub contract_id: u64,
+    pub contract_call_args: Vec<ContractCallArgs>,
+    pub sign_type: SignType,
+    pub sign_inputs: Vec<u64>,
+}
 
 pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     tracing::info!(
@@ -39,7 +51,48 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
 
-    let mut wallet_session = WalletSession::new(&rpc_config)?;
+    let exec_contract_call_args = ExecContractCallArgs {
+        rpc_config,
+        private_key,
+        contract_id: args.contract_id,
+        contract_call_args,
+        sign_type: args.sign_type,
+        sign_inputs: args.sign_inputs,
+    };
+
+    run_inner(exec_contract_call_args)?;
+    Ok(())
+}
+
+pub fn run_multi(args: WalletSessionArgs) -> anyhow::Result<()> {
+    tracing::info!(
+        "local proving start with {}",
+        serde_json::to_string_pretty(&args)?
+    );
+    let contract_call_args: Vec<ContractCallArgs> =
+        serde_json::from_str(&std::fs::read_to_string(&args.contract_calls)?)?;
+
+    let config_str = std::fs::read_to_string(&args.rpc_config)?;
+    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
+        .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
+
+    let exec_contract_call_args = ExecContractCallArgs {
+        rpc_config,
+        private_key,
+        contract_id: args.contract_id,
+        contract_call_args,
+        sign_type: args.sign_type,
+        sign_inputs: args.sign_inputs,
+    };
+
+    run_inner(exec_contract_call_args)?;
+    Ok(())
+}
+
+pub fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
+    let mut wallet_session = WalletSession::new(&args.rpc_config)?;
     let fingerprint = if args.sign_type == SignType::SoftwareDefinedSign {
         let user_sdc: DPNFunctionCircuitDefinition =
             serde_json::from_str(&std::fs::read_to_string("sdc.json")?)?;
@@ -73,11 +126,11 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         None
     };
     let user_pk_hash =
-        wallet_session.add_user_with_type(private_key, args.sign_type.clone(), fingerprint)?;
+        wallet_session.add_user_with_type(args.private_key, args.sign_type.clone(), fingerprint)?;
 
     wallet_session.exec_contract_call_with_sign_type(
         user_pk_hash,
-        contract_call_args,
+        args.contract_call_args,
         args.sign_type.clone(),
         fingerprint,
         Some(args.contract_id),

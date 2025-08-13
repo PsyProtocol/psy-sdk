@@ -67,21 +67,6 @@ impl<
             .checkpoint_id)
     }
 
-    pub async fn ensure_checkpoint_hash_valid(
-        &self,
-        checkpoint_id: F,
-        checkpoint_root_hash: QHashOut<F>,
-    ) -> anyhow::Result<()> {
-        let expected = self
-            .store_reader
-            .get_checkpoint_tree_root_f(checkpoint_id)
-            .await?;
-        if expected != checkpoint_root_hash {
-            anyhow::bail!("invalid checkpoint_root_hash");
-        }
-        Ok(())
-    }
-
     pub async fn handle_recv_end_cap_from_user(
         &self,
         input: SubmitUserEndCapNonProofInput<F>,
@@ -130,16 +115,16 @@ impl<
 
         let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
         let checkpoint_id = self.get_checkpoint_id_async().await?;
-        let next_checkpoint_id = checkpoint_id + 2;
+        let next_checkpoint_id = checkpoint_id + 1;//todo fix bug?
         if end_cap_checkpoint_id > checkpoint_id {
             tracing::info!("ensure end cap checkpoint id: {} {} {}", checkpoint_id, end_cap_checkpoint_id, next_checkpoint_id);
             anyhow::bail!("invalid checkpoint id");
         }
 
-        tracing::info!("get_checkpoint_tree_merkle_proof");
+        tracing::info!("get_checkpoint_tree_merkle_proof, checkpoint_id={}, end_cap_checkpoint_id={}", checkpoint_id, end_cap_checkpoint_id);
         let checkpoint_tree_proof = self
             .store_reader
-            .get_checkpoint_tree_merkle_proof(checkpoint_id, end_cap_checkpoint_id)
+            .get_checkpoint_tree_merkle_proof(end_cap_checkpoint_id, end_cap_checkpoint_id)
             .await?;
 
         if checkpoint_tree_proof.root != input.core.state_transition.checkpoint_tree_root_hash {
