@@ -1467,7 +1467,7 @@ impl StateReaderGadget {
                     let requested_checkpoint_state_roots = QEDCheckpointGlobalStateRootsGadget::create_virtual(builder);
                     let state_roots_hash = requested_checkpoint_state_roots.to_hash::<H, F, D>(builder);
 
-                    let checkpoint_leaf_hash = builder.hash_two_to_one::<H>(checkpoint_stats_hash, state_roots_hash);
+                    let checkpoint_leaf_hash = builder.hash_two_to_one::<H>(state_roots_hash, checkpoint_stats_hash);
 
                     builder.connect_hashes(
                         historical_proof.current_value,
