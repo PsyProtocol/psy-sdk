@@ -101,9 +101,9 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     timer.lap("created proof verifier");
 
-    use qed_core::config::network_constants::DEFAULT_WORKER_PUBLIC_KEY;
+    use qed_core::config::network_constants::get_default_worker_public_key;
     let coordinator_worker_circuits =
-        QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, DEFAULT_WORKER_PUBLIC_KEY);
+        QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<GoldilocksField>());
 
     timer.lap("built coordinator worker circuits");
 

@@ -10,6 +10,7 @@ All circuits follow a consistent public inputs layout:
 - **[0..4]**: commitment
 - **[4..8]**: worker_public_key
 - **[8..12]**: circuit-specific hash (usually the hash of the main data structure)
+- **[12..16]**: additional data (optional, circuit-specific)
 
 ## Realm Proving Jobs
 
@@ -46,8 +47,8 @@ graph TB
 | Circuit | Type | Public Inputs | Commitment Calculation |
 |---------|------|---------------|------------------------|
 | ProcessUserOp | Leaf | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..12]: user_op_hash | commitment = worker_public_key |
-| AggregateUserOps | Intermediate | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..12]: agg_hash | commitment = hash(left.commitment, right.commitment) |
-| RealmStateTransition | Root | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..12]: state_transition_hash | commitment = hash of all child commitments |
+| AggregateUserOps | Intermediate | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..12]: agg_hash | commitment = hash(hash(left.commitment, right.commitment), worker_public_key) |
+| RealmStateTransition | Root | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..12]: state_transition_hash | commitment = hash(hash(children), worker_public_key) |
 
 ## Coordinator Proving Jobs
 
@@ -161,16 +162,15 @@ graph LR
 | GUTANoChange | No state changes in checkpoint | None | commitment = worker_public_key |
 | GUTASingleEndCap | Single realm had updates | None | commitment = worker_public_key |
 | GUTAOnlyRegisterUsers | Only user registrations, no ops | None | commitment = worker_public_key |
-| GUTARegisterUsers | User registrations with ops | None | commitment = worker_public_key |
-| **Aggregation Circuits** |
-| GUTATwoGUTA | Aggregate two GUTA proofs | 2 GUTA | commitment = hash(a.commitment, b.commitment) |
-| GUTATwoEndCap | Aggregate two EndCap proofs | 2 EndCap | commitment = hash(worker_public_key, worker_public_key)* |
-| GUTALeftGUTARightEndCap | GUTA on left, EndCap on right | 1 GUTA + 1 EndCap | commitment = hash(a.commitment, worker_public_key) |
-| GUTALeftEndCapRightGUTA | EndCap on left, GUTA on right | 1 EndCap + 1 GUTA | commitment = hash(worker_public_key, b.commitment)* |
-| **Special Circuits** |
-| GUTAVerifyToCap | Verify GUTA to tree cap | 1 GUTA | commitment = worker_public_key |
-
-*Note: These circuits currently have incorrect commitment calculations that need fixing.
+| GUTARegisterUsers | User registrations with ops | 1 GUTA | commitment = hash(child.commitment, worker_public_key) |
+| GUTATwoEndCap | Aggregate two EndCap proofs | None | commitment = worker_public_key |
+| **Two Children Aggregation** |
+| GUTATwoGUTA | Aggregate two GUTA proofs | 2 GUTA | commitment = hash(hash(a.commitment, b.commitment), worker_public_key) |
+| GUTALeftGUTARightEndCap | GUTA on left, EndCap on right | 1 GUTA + 1 EndCap | commitment = hash(hash(a.commitment, b.commitment), worker_public_key) |
+| GUTALeftEndCapRightGUTA | EndCap on left, GUTA on right | 1 EndCap + 1 GUTA | commitment = hash(hash(a.commitment, b.commitment), worker_public_key) |
+| **Single Child Circuits** |
+| GUTAVerifyToCap | Verify GUTA to tree cap | 1 GUTA | commitment = hash(child.commitment, worker_public_key) |
+| GUTAVerifyGUTARegisterUsers | GUTA with user registrations | 1 GUTA | commitment = hash(child.commitment, worker_public_key) |
 
 ## State Part 1 (AggUserRegistrationDeployContractsGUTA)
 
@@ -183,9 +183,9 @@ This circuit aggregates the three main trees:
 
 ### Public Inputs Layout
 - **[0..4]**: state_transition_hash
-- **[4..8]**: register_users_root = hash(register_users_proof.commitment, register_users_proof.worker_public_key)
-- **[8..12]**: deploy_contracts_root = hash(deploy_contracts_proof.commitment, deploy_contracts_proof.worker_public_key)
-- **[12..16]**: gutas_root = hash(guta_proof.commitment, guta_proof.worker_public_key)
+- **[4..8]**: register_users_root (directly from register_users_proof[0..4])
+- **[8..12]**: deploy_contracts_root (directly from deploy_contracts_proof[0..4])
+- **[12..16]**: gutas_root (directly from guta_proof[0..4])
 
 ### PM Rewards Commitment
 The PM (Prover/Miner) Rewards Commitment is calculated from these three roots:
@@ -235,6 +235,53 @@ graph LR
     CST --> NOTIFY
 ```
 
+## Commitment Calculation Rules
+
+The commitment calculation follows a consistent pattern across all circuits:
+
+### 1. Leaf Circuits (No Child Proofs)
+```rust
+commitment = worker_public_key
+```
+Examples: GUTANoChange, BatchDeployContracts, AppendUserRegistrationTree
+
+### 2. Single Child Circuits (One Child Proof)
+```rust
+commitment = hash(child.commitment, worker_public_key)
+```
+Examples: GUTAVerifyToCap, GUTAVerifyGUTARegisterUsers
+
+### 3. Two Children Circuits (Two Child Proofs)
+```rust
+commitment = hash(hash(left.commitment, right.commitment), worker_public_key)
+```
+Examples: GUTATwoGUTA, AggStateTransition, GUTALeftGUTARightEndCap
+
+### Why This Design?
+- **Leaf nodes**: The commitment IS the worker's identity, proving who did the work
+- **Aggregation nodes**: The commitment combines children's work with the aggregator's identity
+- **Merkle proof generation**: This forms a proper tree structure for generating proofs of participation
+
+## Coordinator Main Circuits
+
+### Register Users Tree Circuits
+| Circuit | Type | Children | Commitment |
+|---------|------|----------|------------|
+| AppendUserRegistrationTree | Leaf | None | worker_public_key |
+| AggStateTransition | Aggregation | 2 | hash(hash(left, right), worker_pk) |
+
+### Deploy Contracts Tree Circuits
+| Circuit | Type | Children | Commitment |
+|---------|------|----------|------------|
+| BatchDeployContracts | Leaf | None | worker_public_key |
+| AggStateTransition | Aggregation | 2 | hash(hash(left, right), worker_pk) |
+
+### Final Aggregation Circuits
+| Circuit | Type | Purpose |
+|---------|------|---------|
+| AggUserRegistrationDeployContractsGUTA | Aggregation | Combines all three trees into State Part 1 |
+| CheckpointStateTransition | Root | Creates final checkpoint proof |
+
 ## Key Design Principles
 
 1. **Consistent Public Inputs**: All circuits follow the same [commitment, worker_public_key, data_hash] layout
@@ -242,3 +289,4 @@ graph LR
 3. **Parallel Processing**: The three trees can be processed in parallel
 4. **Commitment Chain**: Commitments flow up from leaves to root, enabling reward distribution
 5. **Flexibility**: GUTA circuits handle various scenarios (no changes, single realm, multiple realms)
+6. **Worker Tracking**: Every circuit includes the worker's public key who computed that proof

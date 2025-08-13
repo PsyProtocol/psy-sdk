@@ -12,7 +12,7 @@ use qed_common_circuit::{
     builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
-use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
+use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::spiderman::SpidermanUpdateProof, traits::hasher::MerkleZeroHasher}};
 use qed_data::{protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput, qdata::contract::QEDContractLeaf};
 
@@ -131,10 +131,9 @@ where
         &self,
         input: &QCBatchDeployContractsCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        // Using default for backward compatibility with trait
         self.prove_base(
             input.deploy_contract_circuit_whitelist,
-            QHashOut::default(),
+            get_default_worker_public_key(),
             &input.spiderman_append_proof,
             &input.contract_leaves,
         )

@@ -104,62 +104,32 @@ where
             .header
             .get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
 
-        let register_users_root = builder.hash_two_to_one::<C::Hasher>(
-            HashOutTarget {
-                elements: [
-                    verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[0],
-                    verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[1],
-                    verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[2],
-                    verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[3],
-                ]
-            },
-            HashOutTarget {
-                elements: [
-                    verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[4],
-                    verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[5],
-                    verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[6],
-                    verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[7],
-                ]
-            }
-        );
+        let register_users_root = HashOutTarget {
+            elements: [
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[0],
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[1],
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[2],
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[3],
+            ]
+        };
 
-        let deploy_contracts_root = builder.hash_two_to_one::<C::Hasher>(
-            HashOutTarget {
-                elements: [
-                    verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[0],
-                    verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[1],
-                    verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[2],
-                    verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[3],
-                ]
-            },
-            HashOutTarget {
-                elements: [
-                    verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[4],
-                    verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[5],
-                    verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[6],
-                    verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[7],
-                ]
-            }
-        );
+        let deploy_contracts_root = HashOutTarget {
+            elements: [
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[0],
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[1],
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[2],
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[3],
+            ]
+        };
 
-        let gutas_root = builder.hash_two_to_one::<C::Hasher>(
-            HashOutTarget {
-                elements: [
-                    verifier_gadget.verify_guta_gadget.proof_target.public_inputs[0],
-                    verifier_gadget.verify_guta_gadget.proof_target.public_inputs[1],
-                    verifier_gadget.verify_guta_gadget.proof_target.public_inputs[2],
-                    verifier_gadget.verify_guta_gadget.proof_target.public_inputs[3],
-                ]
-            },
-            HashOutTarget {
-                elements: [
-                    verifier_gadget.verify_guta_gadget.proof_target.public_inputs[4],
-                    verifier_gadget.verify_guta_gadget.proof_target.public_inputs[5],
-                    verifier_gadget.verify_guta_gadget.proof_target.public_inputs[6],
-                    verifier_gadget.verify_guta_gadget.proof_target.public_inputs[7],
-                ]
-            }
-        );
+        let gutas_root = HashOutTarget {
+            elements: [
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[0],
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[1],
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[2],
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[3],
+            ]
+        };
 
         builder.register_public_inputs(&state_transition_hash.elements);
         builder.register_public_inputs(&register_users_root.elements);

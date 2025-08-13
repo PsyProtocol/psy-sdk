@@ -749,6 +749,12 @@ impl<
         let finished_job_task = QProvingTask::new(&[finished_job]);
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
         self.task_store.finalize_and_save_topology().await?;
+
+        let task_graph = self.task_store.get_task_graph().await;
+        self.task_store.save_job_dependency_graph(&task_graph, new_checkpoint_id).await
+            .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
+        tracing::info!("Saved realm job dependency graph for checkpoint {}", new_checkpoint_id);
+
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())
     }

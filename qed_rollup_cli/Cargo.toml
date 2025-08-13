@@ -13,3 +13,4 @@ tokio = { workspace = true }
 anyhow = { workspace = true }
 qed_rollup_utils = { workspace = true }
 tracing = { workspace = true }
+serde_json = { workspace = true }

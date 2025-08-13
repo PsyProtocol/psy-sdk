@@ -14,7 +14,7 @@ use qed_core::{
     job::{
         drain_queue::{CheckpointDrainQueueConsumerAsyncImm, WithDrainQueueMetadata},
         history_queue::CheckpointHistoryQueueEmitterAsyncImm,
-        id::{QProvingTask, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+        id::{QProvingTask, QProvingTaskGraph, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
@@ -832,13 +832,18 @@ impl<
 
         self.task_store.finalize_and_save_topology().await?;
 
+        let task_graph = self.task_store.get_task_graph().await;
+        self.task_store.save_job_dependency_graph(&task_graph, new_checkpoint_id).await
+            .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
+        tracing::info!("Saved job dependency graph for checkpoint {}", new_checkpoint_id);
+
         Ok((state_part_1_id, root_state_transition))
     }
 
     pub async fn build_block(&mut self) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("coordinator STARTED new block");
-        
+
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
@@ -879,12 +884,12 @@ impl<
         let register_users_proof = self.prover_queue
             .wait_for_job_proof::<C, D>(*rooot_user_registration_job)
             .await?;
-        
+
         debug!("Waiting for deploy contracts aggregation job to complete for checkpoint {}", new_checkpoint_id);
         let deploy_contracts_proof = self.prover_queue
             .wait_for_job_proof::<C, D>(*root_deploy_job)
             .await?;
-        
+
         debug!("Waiting for GUTA aggregation job to complete for checkpoint {}", new_checkpoint_id);
         let guta_proof = self.prover_queue
             .wait_for_job_proof::<C, D>(*root_guta_job)
@@ -923,29 +928,17 @@ impl<
                 &bincode::serialize(&part_1_input).map_err(|e| anyhow::anyhow!("{:?}", e))?,
             )
             .await?;
-        
-        let register_users_root = {
-            let left = QHashOut::try_from(&register_users_proof.public_inputs[0..4])?;
-            let right = QHashOut::try_from(&register_users_proof.public_inputs[4..8])?;
-            QEDHasher::q_two_to_one(left, right)
-        };
-        let deploy_contracts_root = {
-            let left = QHashOut::try_from(&deploy_contracts_proof.public_inputs[0..4])?;
-            let right = QHashOut::try_from(&deploy_contracts_proof.public_inputs[4..8])?;
-            QEDHasher::q_two_to_one(left, right)
-        };
-        let gutas_root = {
-            let left = QHashOut::try_from(&guta_proof.public_inputs[0..4])?;
-            let right = QHashOut::try_from(&guta_proof.public_inputs[4..8])?;
-            QEDHasher::q_two_to_one(left, right)
-        };
+
+        let register_users_root = QHashOut::try_from(&register_users_proof.public_inputs[0..4])?;
+        let deploy_contracts_root = QHashOut::try_from(&deploy_contracts_proof.public_inputs[0..4])?;
+        let gutas_root = QHashOut::try_from(&guta_proof.public_inputs[0..4])?;
         
         let pm_rewards_commitment = PMRewardCommitment {
             register_users_root,
             gutas_root,
             deploy_contracts_root,
         };
-        
+
         let partial_input = QCQEDCheckpointStateTransitionInputPartial{
             part_1_header: part_1_input.input,
             old_stats: last_checkpoint_leaf.stats,
@@ -1020,7 +1013,7 @@ impl<
         self.store
             .set_checkpoint_sync_info_imm(l2_sync.clone())
             .await?;
-        
+
         info!("coordinator FINISHED block {} in {}ms", new_l2_block_state.checkpoint_id, start.elapsed().as_millis());
         Ok(())
     }

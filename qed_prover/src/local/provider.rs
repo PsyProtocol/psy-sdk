@@ -6,6 +6,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use qed_core::job::id::QProvingJobDataID;
 use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::circuits::{
     PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
     PortableQTreeRecursionCircuitsTrait,
@@ -333,6 +334,66 @@ impl RpcProvider {
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
+    }
+    
+    pub async fn get_job_proof_from_realm(&self, realm_id: u64, job_id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
+        let realm_urls = self.realm_configs.get(&realm_id)
+            .ok_or(anyhow::format_err!("Realm {} not configured", realm_id))?;
+        let url = &realm_urls[0];
+        
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "get_proof_by_id",
+            "params": [format!("{:?}", job_id)],
+            "id": 1
+        });
+        
+        let response = self.client
+            .post(url)
+            .json(&request)
+            .send()
+            .await?
+            .json::<serde_json::Value>()
+            .await?;
+            
+        if let Some(error) = response.get("error") {
+            return Err(anyhow::format_err!("RPC error: {:?}", error));
+        }
+        
+        let result = response.get("result")
+            .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
+        
+        let proof_bytes = serde_json::from_value::<Vec<u8>>(result.clone())?;
+        Ok(proof_bytes)
+    }
+    
+    pub async fn get_job_proof_from_coordinator(&self, job_id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
+        let url = self.get_coordinator_url()?;
+        
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "get_proof_by_id",
+            "params": [format!("{:?}", job_id)],
+            "id": 1
+        });
+        
+        let response = self.client
+            .post(url)
+            .json(&request)
+            .send()
+            .await?
+            .json::<serde_json::Value>()
+            .await?;
+            
+        if let Some(error) = response.get("error") {
+            return Err(anyhow::format_err!("RPC error: {:?}", error));
+        }
+        
+        let result = response.get("result")
+            .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
+        
+        let proof_bytes = serde_json::from_value::<Vec<u8>>(result.clone())?;
+        Ok(proof_bytes)
     }
 
     pub const fn get_realm_id(&self, user_id: u64) -> u64 {

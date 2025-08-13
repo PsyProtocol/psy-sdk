@@ -15,6 +15,7 @@ cfg_if::cfg_if! {
         pub mod random_wallet;
         pub mod register_user;
         pub mod submit_end_cap_proof;
+        pub mod claim_rewards;
     }
 }
 
@@ -94,4 +95,7 @@ pub enum Commands {
     // local proving
     LocalProver(ProverArgs),
     ProveProxy(ProveProxyArgs),
+    
+    // rewards claiming
+    ClaimRewards(crate::subcommand::args::ClaimRewardsArgs),
 }

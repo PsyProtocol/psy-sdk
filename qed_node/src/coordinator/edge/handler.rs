@@ -1413,6 +1413,9 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         let job_id = job.job_id;
         if let Some(proof) = proof {
             info!("Setting proof by id: {:?}", job_id);
+            
+            crate::common::log_proof_details("Coordinator", job_id, &proof);
+            
             self.ctx.proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)
                 .map_err(|e| RpcError::Anyhow(e.into()))?;
             // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;

@@ -1,3 +1,4 @@
+use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_common_circuit::circuits::{lookalikes::{get_agg_state_transition_type_d_common_data, get_agg_user_registration_deploy_guta_type_f_common_data, get_end_cap_type_e_common_data, get_guta_type_c_common_data}, traits::qstandard::QStandardCircuit};
 use qed_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
@@ -18,6 +19,7 @@ fn run_gen_config() -> anyhow::Result<(String, String)> {
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
+    type F = GoldilocksField;
 
     let mut gcv = GenericCircuitVerifier::<C,D>::new();
 
@@ -34,12 +36,12 @@ fn run_gen_config() -> anyhow::Result<(String, String)> {
     );
 
 
-    use qed_core::config::network_constants::DEFAULT_WORKER_PUBLIC_KEY;
+    use qed_core::config::network_constants::get_default_worker_public_key;
     let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
         main_circuits.ups_end_cap.get_common_circuit_data_ref(),
         main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),
         main_circuits.ups_end_cap.get_fingerprint(),
-        DEFAULT_WORKER_PUBLIC_KEY,
+        get_default_worker_public_key::<F>(),
     );
 
     gcv.register_circuit_triplet(
@@ -79,7 +81,7 @@ fn run_gen_config() -> anyhow::Result<(String, String)> {
         ProvingJobCircuitType::GUTANoChange,
         guta_circuits.no_change.get_verifier_triplet(),
     );
-    let coordinator_circuits = QEDCoordinatorCircuitManager::<C,D>::new_with_guta(guta_circuits, DEFAULT_WORKER_PUBLIC_KEY);
+    let coordinator_circuits = QEDCoordinatorCircuitManager::<C,D>::new_with_guta(guta_circuits, get_default_worker_public_key::<F>());
 
     coordinator_circuits.register_library(&mut gcv.library);
 

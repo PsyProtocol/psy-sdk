@@ -536,7 +536,6 @@ pub enum Color {
 pub struct JobProofSibling {
     pub hash: QHashOut<F>,
     pub is_left: bool,
-    pub parent_public_key: Option<QHashOut<F>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -727,85 +726,65 @@ impl QProvingTaskGraph {
 
         while current_level < task_levels.len() - 1 {
             let current_task = &self.tasks[&current_task_id];
+            let current_job = current_task.job_ids[current_job_index];
 
-            let sibling_index = if current_job_index % 2 == 0 {
-                if current_job_index + 1 < current_task.job_ids.len() {
-                    Some(current_job_index + 1)
-                } else {
-                    None
-                }
-            } else {
-                Some(current_job_index - 1)
+            let sibling_idx = match current_job_index {
+                idx if idx % 2 == 0 && idx + 1 < current_task.job_ids.len() => Some(idx + 1),
+                idx if idx % 2 == 1 => Some(idx - 1),
+                _ => None,
             };
 
-            if sibling_index.is_none() {
-                if let Some(parent_tasks) = self.dependents.get(&current_task_id) {
-                    for &parent_task_id in parent_tasks {
-                        let parent_task = &self.tasks[&parent_task_id];
-                        if let Some(promoted_idx) = parent_task
-                            .job_ids
-                            .iter()
-                            .position(|&id| id == current_task.job_ids[current_job_index])
-                        {
-                            current_task_id = parent_task_id;
-                            current_job_index = promoted_idx;
-                            current_level += 1;
-                            continue;
-                        }
-                    }
-                }
-                break;
-            }
+            if let Some(idx) = sibling_idx {
+                let sibling_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> =
+                    proof_store.get_proof_by_id(current_task.job_ids[idx].get_output_id()).await?;
 
-            let sibling_idx = sibling_index.unwrap();
-            let sibling_job_id = current_task.job_ids[sibling_idx];
-            let sibling_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> = proof_store
-                .get_proof_by_id(sibling_job_id.get_output_id())
-                .await?;
-
-            let sibling_commitment = if sibling_proof.public_inputs.len() >= 4 {
                 let mut elements = [F::ZERO; 4];
                 elements.copy_from_slice(&sibling_proof.public_inputs[0..4]);
-                QHashOut(HashOut { elements })
-            } else {
-                return Err(anyhow::anyhow!(
-                    "Invalid sibling proof public inputs length"
-                ));
-            };
 
-            siblings.push(JobProofSibling {
-                hash: sibling_commitment,
-                is_left: sibling_idx < current_job_index,
-                parent_public_key: None,
-            });
+                siblings.push(JobProofSibling {
+                    hash: QHashOut(HashOut { elements }),
+                    is_left: idx < current_job_index,
+                });
+            }
 
-            if let Some(parent_tasks) = self.dependents.get(&current_task_id) {
-                if let Some(&parent_task_id) = parent_tasks.iter().next() {
-                    current_job_index = current_job_index / 2;
+            let parent_info = self.dependents
+                .get(&current_task_id)
+                .and_then(|parents| parents.iter().next())
+                .and_then(|&parent_id| {
+                    let parent_task = &self.tasks[&parent_id];
+                    parent_task.job_ids.iter()
+                        .position(|&id| {
+                            if sibling_idx.is_none() {
+                                id == current_job
+                            } else {
+                                current_job_index / 2 < parent_task.job_ids.len() &&
+                                id == parent_task.job_ids[current_job_index / 2]
+                            }
+                        })
+                        .map(|idx| (parent_id, idx))
+                });
 
-                    let parent_job_id = self.tasks[&parent_task_id].job_ids[current_job_index];
-                    let parent_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> =
-                        proof_store
-                            .get_proof_by_id(parent_job_id.get_output_id())
-                            .await?;
+            match parent_info {
+                Some((parent_id, parent_idx)) => {
+                    if sibling_idx.is_some() {
+                        let parent_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> =
+                            proof_store.get_proof_by_id(self.tasks[&parent_id].job_ids[parent_idx].get_output_id()).await?;
 
-                    if parent_proof.public_inputs.len() >= 8 {
-                        let mut elements = [F::ZERO; 4];
-                        elements.copy_from_slice(&parent_proof.public_inputs[4..8]);
-                        let parent_public_key = QHashOut(HashOut { elements });
-
-                        if let Some(last_sibling) = siblings.last_mut() {
-                            last_sibling.parent_public_key = Some(parent_public_key);
+                        if parent_proof.public_inputs.len() >= 8 {
+                            let mut elements = [F::ZERO; 4];
+                            elements.copy_from_slice(&parent_proof.public_inputs[4..8]);
+                            siblings.push(JobProofSibling {
+                                hash: QHashOut(HashOut { elements }),
+                                is_left: false,
+                            });
                         }
                     }
 
-                    current_task_id = parent_task_id;
+                    current_task_id = parent_id;
+                    current_job_index = parent_idx;
                     current_level += 1;
-                } else {
-                    break;
                 }
-            } else {
-                break;
+                None => break,
             }
         }
 
@@ -898,13 +877,6 @@ impl QProvingTaskGraph {
                 [current_hash.0, sibling.hash.0]
             };
             current_hash = QHashOut(PoseidonHash::two_to_one(hash_array[0], hash_array[1]));
-
-            if let Some(parent_public_key) = sibling.parent_public_key {
-                current_hash = QHashOut(PoseidonHash::two_to_one(
-                    current_hash.0,
-                    parent_public_key.0,
-                ));
-            }
         }
 
         current_hash
@@ -1608,16 +1580,19 @@ mod tests {
             QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 0, 0);
         let value = QHashOut::<GoldilocksField>::from_values(1, 2, 3, 4);
 
+        // Test with siblings including parent public key as a separate sibling
         let siblings = vec![
             JobProofSibling {
                 hash: QHashOut::from_values(5, 6, 7, 8),
                 is_left: true,
-                parent_public_key: None,
             },
             JobProofSibling {
                 hash: QHashOut::from_values(9, 10, 11, 12),
                 is_left: false,
-                parent_public_key: Some(QHashOut::from_values(13, 14, 15, 16)),
+            },
+            JobProofSibling {
+                hash: QHashOut::from_values(13, 14, 15, 16), // parent public key as sibling
+                is_left: false,
             },
         ];
 
@@ -1629,9 +1604,6 @@ mod tests {
                 [current.0, sibling.hash.0]
             };
             current = QHashOut(PoseidonHash::two_to_one(hash_array[0], hash_array[1]));
-            if let Some(parent_public_key) = sibling.parent_public_key {
-                current = QHashOut(PoseidonHash::two_to_one(current.0, parent_public_key.0));
-            }
         }
 
         let proof = JobProof {

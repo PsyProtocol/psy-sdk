@@ -12,7 +12,7 @@ use qed_common_circuit::{
     builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
-use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
+use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::spiderman::SpidermanUpdateProof, traits::hasher::MerkleZeroHasher}};
 use qed_data::protocol::circuit_inputs::append_user_registration_tree::QCAppendUserRegistrationTreeCircuitInput;
 
@@ -133,7 +133,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base(
             input.register_users_circuit_whitelist,
-            QHashOut::default(),
+            get_default_worker_public_key(),
             &input.spiderman_append_proofs,
         )
     }

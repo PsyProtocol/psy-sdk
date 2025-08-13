@@ -1,5 +1,5 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use qed_core::data::qhashout::QHashOut;
+use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut};
 use qed_data::{guta::proof_input::GUTARegisterUserFullInput, qdata::user::QEDUserLeaf};
 
 use crate::guta::gadgets::guta_stats::GUTAStatsGadget;
@@ -64,7 +64,7 @@ impl GUTAOnlyRegisterUsersGadget {
         guta_register_user_inputs: &[GUTARegisterUserFullInput<F>],
         default_user_state_tree_root: QHashOut<F>,
     ) -> anyhow::Result<()> {
-        let dummy_public_key = QHashOut::from_values(1, 1, 1, 1);
+        let dummy_public_key = get_default_worker_public_key();
         let dummy_user_leaf_hash = QEDUserLeaf::new_user_default(F::ZERO, dummy_public_key, default_user_state_tree_root).alghash::<H>();
 
         self.register_users_gadget.set_witness_params(

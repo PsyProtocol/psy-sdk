@@ -38,6 +38,7 @@ use qed_core::
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
+    type F = GoldilocksField;
     const D: usize = 2;
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
@@ -75,9 +76,9 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     timer.lap("created proof verifier");
 
-    use qed_core::config::network_constants::DEFAULT_WORKER_PUBLIC_KEY;
+    use qed_core::config::network_constants::get_default_worker_public_key;
     let coordinator_worker_circuits =
-        QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, DEFAULT_WORKER_PUBLIC_KEY);
+        QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<F>());
 
     timer.lap("built coordinator worker circuits");
 

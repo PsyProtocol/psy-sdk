@@ -751,6 +751,9 @@ where
         let job_id = job.job_id;
         if let Some(proof) = proof {
             info!("Setting proof by id: {:?}", job_id);
+            
+            crate::common::log_proof_details("Realm", job_id, &proof);
+            
             self.ctx.proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)
                 .map_err(|e| RpcError::Anyhow(e.into()))?;
             let output_id = job_id.get_output_id();

@@ -14,6 +14,7 @@ pub mod get_user_id_from_registration_id;
 pub mod generate;
 pub mod launch;
 pub mod get_job_proof;
+pub mod qhash;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -31,55 +32,58 @@ pub struct Cli {
 pub enum Commands {
     #[command(about = "Run test full group 1 (from qed_test_sandbox)")]
     TestFullGroup1(TestFullGroup1Args),
-    
+
     #[command(about = "Run test register v2 (from qed_test_sandbox)")]
     TestRegisterV2(TestRegisterV2Args),
-    
+
     #[command(about = "Run benchmark full group 1")]
     BenchmarkFullGroup1(BenchmarkFullGroup1Args),
-    
+
     #[command(about = "Run benchmark full group 2")]
     BenchmarkFullGroup2(BenchmarkFullGroup2Args),
-    
+
     #[command(about = "Run benchmark full group 3")]
     BenchmarkFullGroup3(BenchmarkFullGroup3Args),
-    
+
     #[command(about = "Run benchmark register v2")]
     BenchmarkRegisterV2(BenchmarkRegisterV2Args),
-    
+
     #[command(about = "Generate JWT access token")]
     GenerateToken(GenerateTokenArgs),
-    
+
     #[command(about = "Produce a new block")]
     ProduceBlock(ProduceBlockArgs),
-    
+
     #[command(about = "Register a new user")]
     RegisterUser(RegisterUserArgs),
-    
+
     #[command(about = "Register random users in batch")]
     RandomRegisterUserBatch(RandomArgs),
-    
+
     #[command(about = "Get user ID and realm from registration ID")]
     GetUserIdFromRegistrationId(GetUserIdFromRegistrationIdArgs),
-    
+
     #[command(about = "Generate deployment configurations from config.json")]
     Generate(GenerateArgs),
-    
+
     #[command(about = "Run the entire QED network locally")]
     Run(RunArgs),
-    
+
     #[command(about = "Launch QED network for development (inspired by polkadot-launch)")]
     Launch(LaunchArgs),
-    
+
     #[command(about = "Get job proof for reward claiming")]
     GetJobProof(GetJobProofArgs),
+
+    #[command(name = "q-hash", about = "QHashOut utility commands")]
+    QHash(qhash::QHashArgs),
 }
 
 #[derive(Parser)]
 pub struct TestFullGroup1Args {
     #[arg(long, default_value = "redis://127.0.0.1:6379")]
     pub redis_url: String,
-    
+
     #[arg(long, default_value = "db")]
     pub db_path: String,
 }
@@ -88,7 +92,7 @@ pub struct TestFullGroup1Args {
 pub struct TestRegisterV2Args {
     #[arg(long, default_value = "redis://127.0.0.1:6379")]
     pub redis_url: String,
-    
+
     #[arg(long, default_value = "db")]
     pub db_path: String,
 }
@@ -97,7 +101,7 @@ pub struct TestRegisterV2Args {
 pub struct BenchmarkFullGroup1Args {
     #[arg(long, default_value = "redis://127.0.0.1:6379")]
     pub redis_url: String,
-    
+
     #[arg(long, default_value = "10")]
     pub num_workers: usize,
 }
@@ -106,7 +110,7 @@ pub struct BenchmarkFullGroup1Args {
 pub struct BenchmarkFullGroup2Args {
     #[arg(long, default_value = "redis://127.0.0.1:6379")]
     pub redis_url: String,
-    
+
     #[arg(long, default_value = "10")]
     pub num_workers: usize,
 }
@@ -115,7 +119,7 @@ pub struct BenchmarkFullGroup2Args {
 pub struct BenchmarkFullGroup3Args {
     #[arg(long, default_value = "redis://127.0.0.1:6379")]
     pub redis_url: String,
-    
+
     #[arg(long, default_value = "10")]
     pub num_workers: usize,
 }
@@ -124,7 +128,7 @@ pub struct BenchmarkFullGroup3Args {
 pub struct BenchmarkRegisterV2Args {
     #[arg(long, default_value = "redis://127.0.0.1:6379")]
     pub redis_url: String,
-    
+
     #[arg(long, default_value = "1")]
     pub num_users: usize,
 }
@@ -180,7 +184,7 @@ pub struct GenerateArgs {
 pub enum GenerateCommands {
     #[command(about = "Generate docker-compose.yml from config.json")]
     DockerCompose(GenerateDockerComposeArgs),
-    
+
     #[command(about = "Generate AWS CloudFormation templates from config.json")]
     Aws(GenerateAwsArgs),
 }
@@ -189,16 +193,16 @@ pub enum GenerateCommands {
 pub struct RunArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub config: String,
-    
+
     #[arg(long, help = "Backend type (lmdbx or scylla)")]
     pub backend: Option<String>,
-    
+
     #[arg(long, help = "Run in detached mode")]
     pub detach: bool,
-    
+
     #[arg(long, help = "Stop all running services")]
     pub stop: bool,
-    
+
     #[arg(long, help = "Override log level for all services")]
     pub log_level: Option<String>,
 }
@@ -207,7 +211,7 @@ pub struct RunArgs {
 pub struct GenerateDockerComposeArgs {
     #[arg(long, default_value = "docker-compose.yml", help = "Output file path")]
     pub output: String,
-    
+
     #[arg(long, help = "Backend type (lmdbx or scylla)")]
     pub backend: Option<String>,
 }
@@ -216,13 +220,13 @@ pub struct GenerateDockerComposeArgs {
 pub struct GenerateAwsArgs {
     #[arg(long, default_value = "./aws", help = "Output directory for AWS deployment files")]
     pub output_dir: String,
-    
+
     #[arg(long, help = "Force overwrite existing files")]
     pub force: bool,
-    
+
     #[arg(long, default_value = "balanced", help = "Instance optimization strategy: cost-optimized, performance-optimized, or balanced")]
     pub optimization_strategy: String,
-    
+
     #[arg(long, help = "Automatically set EC2 instance types based on recommendations")]
     pub auto_instance_types: bool,
 }
@@ -231,7 +235,7 @@ pub struct GenerateAwsArgs {
 pub struct LaunchArgs {
     #[arg(long, short = 'c', help = "Path to config.json file (default: config.json)")]
     pub config: Option<String>,
-    
+
     #[arg(long, short = 'v', help = "Verbose output")]
     pub verbose: bool,
 }
@@ -240,13 +244,13 @@ pub struct LaunchArgs {
 pub struct GetJobProofArgs {
     #[arg(long, help = "Checkpoint ID")]
     pub checkpoint_id: u64,
-    
+
     #[arg(long, help = "Job ID in hex format")]
     pub job_id: String,
-    
+
     #[arg(long, default_value = "http://localhost:5551", help = "Coordinator edge RPC URL")]
     pub coordinator_url: String,
-    
+
     #[arg(long, help = "Realm edge RPC URL (optional, will be determined from job ID if not provided)")]
     pub realm_url: Option<String>,
 }

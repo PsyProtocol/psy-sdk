@@ -211,9 +211,8 @@ run-realm-edge1:
 
 run-worker:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
-      --edge-url=http://127.0.0.1:8545 \
-      --edge-url=http://127.0.0.1:8546 \
-      --edge-url=http://127.0.0.1:8547
+      --config=./config.json \
+      --public-key=${CURRENT_USER_PUBLIC_KEY}
 
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 

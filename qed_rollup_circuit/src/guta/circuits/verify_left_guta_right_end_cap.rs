@@ -90,8 +90,18 @@ where
                 a_guta_gadget.proof_target.public_inputs[3],
             ]
         };
+        
+        let b_commitment = HashOutTarget {
+            elements: [
+                b_end_cap_gadget.proof_target.public_inputs[0],
+                b_end_cap_gadget.proof_target.public_inputs[1],
+                b_end_cap_gadget.proof_target.public_inputs[2],
+                b_end_cap_gadget.proof_target.public_inputs[3],
+            ]
+        };
 
-        let commitment = builder.hash_two_to_one::<C::Hasher>(a_commitment, worker_public_key);
+        let children_commitment = builder.hash_two_to_one::<C::Hasher>(a_commitment, b_commitment);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(children_commitment, worker_public_key);
 
         let public_inputs_hash = nca_state_transition_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 

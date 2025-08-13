@@ -16,7 +16,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
+use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::{data::CircuitInputWithDependencies, AggStateTransitionInput}};
 
 use crate::{
@@ -398,7 +398,7 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         input: &AggStateTransitionInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let worker_public_key = QHashOut::default();
+        let worker_public_key = get_default_worker_public_key();
         self.prove_base(
             agg_fingerprint,
             agg_verifier_data,

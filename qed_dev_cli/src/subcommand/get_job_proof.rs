@@ -27,9 +27,6 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
         println!("  Sibling[{}]:", idx);
         println!("    Hash: {:?}", sibling.hash);
         println!("    Is Left: {}", sibling.is_left);
-        if let Some(parent_key) = &sibling.parent_public_key {
-            println!("    Parent Public Key: {:?}", parent_key);
-        }
     }
 
     println!("\n=== JSON Output ===");

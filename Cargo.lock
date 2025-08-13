@@ -4085,6 +4085,7 @@ dependencies = [
  "qed_core",
  "qed_node",
  "qed_rollup_utils",
+ "serde_json",
  "tokio",
  "tracing",
 ]
@@ -4148,6 +4149,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bincode",
  "cfg-if",
  "clap",
  "console_error_panic_hook",

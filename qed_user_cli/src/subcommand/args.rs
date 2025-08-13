@@ -425,3 +425,34 @@ pub struct L2BlockStateArgs {
     pub checkpoint_id: u64,
 }
 
+#[derive(Clone, Args, Serialize, Deserialize)]
+pub struct ClaimRewardsArgs {
+    #[clap(env, long, default_value = "config.json", env)]
+    pub rpc_config: String,
+
+    /// Private key for signing the transaction
+    #[clap(long, short)]
+    pub private_key: String,
+
+    /// Checkpoint ID for the rewards claim
+    #[arg(long)]
+    pub checkpoint_id: u64,
+
+    /// Contract ID for the rewards contract
+    #[arg(long, default_value = "0")]
+    pub contract_id: u64,
+
+    /// Job specifications in format "job_id:location" where location is either "realm:id" or "coordinator"
+    /// Example: --job "12345:realm:0" --job "67890:coordinator"
+    #[arg(long = "job", action = clap::ArgAction::Append)]
+    pub jobs: Vec<String>,
+
+    /// Sign type (zk, secp256k1, software_defined)
+    #[clap(long, short, default_value = "zk")]
+    pub sign_type: SignType,
+
+    /// Optional fingerprint (defaults to standard circuit fingerprint)
+    #[clap(long)]
+    pub fingerprint: Option<String>,
+}
+

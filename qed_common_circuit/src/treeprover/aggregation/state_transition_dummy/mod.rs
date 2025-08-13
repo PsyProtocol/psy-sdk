@@ -9,7 +9,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
+use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::DummyAggStateTransition};
 
 use crate::{
@@ -132,9 +132,8 @@ where
         &self,
         input: &DummyAggStateTransition<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        // Note: prove_standard doesn't have worker_public_key, so we use default
         self.prove_base(
-            QHashOut::default(),
+            get_default_worker_public_key(),
             input.state_transition_hash,
             input.allowed_circuit_hashes_root,
         )

@@ -58,6 +58,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::GetJobProof(args) => {
             subcommand::get_job_proof::run(args).await?;
         }
+        Commands::QHash(args) => {
+            subcommand::qhash::run(args)?;
+        }
     }
     
     Ok(())
