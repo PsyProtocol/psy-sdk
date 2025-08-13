@@ -599,18 +599,6 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
             };
         }
     }
-
-    async fn is_empty(&self) -> anyhow::Result<bool> {
-        // Check if sync proof queue is empty
-        let queue_id = QueueId::SyncProof {
-            queue_biz_key: self.realm_sync_checkpoint_key().clone(),
-        };
-        match self.pool.get_queue_attributes(&queue_id.get_queue_id()).await {
-            Ok(attrs) => Ok(attrs.msgs == 0),
-            Err(RsmqError::QueueNotFound) => Ok(true),
-            Err(e) => Err(e.into()),
-        }
-    }
 }
 
 #[async_trait]

@@ -23,7 +23,7 @@ use qed_core::job::{
 };
 use tokio::{sync::Mutex, time::sleep};
 // Re-use constants from fred_queue
-use crate::queue::fred_queue::{PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX, PS_WORKER_QUEUE_KEY_PREFIX};
+use crate::queue::fred_queue::{PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, PS_WORKER_QUEUE_KEY_PREFIX};
 
 #[auto_impl(&, Box, Arc)]
 pub trait BizKey {
@@ -39,9 +39,6 @@ pub trait QueuePrefixKey {
 
     // checkpoint history queue key prefix PS_HISTORY_QUEUE_KEY_PREFIX
     fn checkpoint_history_queue_prefix_key(&self) -> String;
-
-    // realm sync checkpoint key prefix PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX
-    fn realm_sync_checkpoint_key(&self) -> String;
 
     fn checkpoint_drain_queue_key(&self) -> String;
 }
@@ -67,10 +64,6 @@ impl<T: BizKey> QueuePrefixKey for T {
 
     fn checkpoint_history_queue_prefix_key(&self) -> String {
         format!("{}-{}", PS_HISTORY_QUEUE_KEY_PREFIX, self.biz_key())
-    }
-
-    fn realm_sync_checkpoint_key(&self) -> String {
-        format!("{}-{}", PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX, self.biz_key())
     }
 
     fn checkpoint_drain_queue_key(&self) -> String {
@@ -471,14 +464,6 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedisAsync {
             ))
             .await?;
         Ok(T::from_bytes(&result)?)
-    }
-
-    async fn is_empty(&self) -> anyhow::Result<bool> {
-        // Check if REALM_CHECKPOINT queue is empty
-        let realm_sync_checkpoint_key = self.realm_sync_checkpoint_key();
-        let mut conn = self.pool.get().await?;
-        let length: u64 = conn.llen(&realm_sync_checkpoint_key).await?;
-        Ok(length == 0)
     }
 }
 

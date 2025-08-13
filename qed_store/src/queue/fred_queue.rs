@@ -27,7 +27,6 @@ pub const PS_DRAIN_QUEUE_KEY_PREFIX: &'static str = "PSDQV1_";
 pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
 pub const PS_NOTIFICATIONS_QUEUE_KEY_PREFIX: &'static str = "PSNQV1";
 pub const PS_HISTORY_QUEUE_KEY_PREFIX: &'static str = "PSHQV1";
-pub const PS_REAML_CHECKPOINT_QUEUE_KEY_PREFIX: &'static str = "PSSQV1";
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -426,13 +425,6 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
             ))
             .await?;
         Ok(T::from_bytes(&result)?)
-    }
-    
-    async fn is_empty(&self) -> anyhow::Result<bool> {
-        // Check if REALM_CHECKPOINT queue is empty
-        let realm_sync_checkpoint_key = self.realm_sync_checkpoint_key();
-        let length: usize = self.pool.llen(&realm_sync_checkpoint_key).await?;
-        Ok(length == 0)
     }
 }
 
