@@ -37,8 +37,6 @@ where
             contract_tree_height: usize,
             batch_sub_tree_height: usize,
         ) -> Self {
-
-
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
@@ -89,7 +87,6 @@ where
         worker_public_key: QHashOut<C::F>,
         spiderman_append_proof: &SpidermanUpdateProof<QHashOut<C::F>>,
         contract_leaves: &[QEDContractLeaf<C::F>],
-
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.deploy_contract_circuit_whitelist, deploy_contract_circuit_whitelist.0)?;

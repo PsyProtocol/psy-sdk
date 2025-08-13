@@ -20,7 +20,7 @@ pub enum QHashCommands {
         #[arg(help = "String to convert to QHashOut")]
         value: String,
     },
-    
+
     #[command(about = "Create QHashOut from 4 u64 values")]
     FromValues {
         #[arg(help = "First u64 value")]
@@ -32,13 +32,13 @@ pub enum QHashCommands {
         #[arg(help = "Fourth u64 value")]
         d: u64,
     },
-    
+
     #[command(about = "Hash a single QHashOut")]
     Hash {
         #[arg(help = "QHashOut string to hash")]
         value: String,
     },
-    
+
     #[command(about = "Hash two QHashOut values together")]
     TwoToOne {
         #[arg(help = "First QHashOut string")]
@@ -46,7 +46,7 @@ pub enum QHashCommands {
         #[arg(help = "Second QHashOut string")]
         right: String,
     },
-    
+
     #[command(about = "Hash many QHashOut values")]
     HashMany {
         #[arg(help = "QHashOut strings to hash", num_args = 1..)]
@@ -58,16 +58,28 @@ pub fn run(args: QHashArgs) -> Result<()> {
     match args.command {
         QHashCommands::FromString { value } => {
             let hash = QHashOut::<F>::from_string_or_panic(&value);
-            println!("{}", hash.to_string());
+            println!("Hash: {}", hash.to_string());
+            println!("Elements: [{}, {}, {}, {}]",
+                hash.0.elements[0].0,
+                hash.0.elements[1].0,
+                hash.0.elements[2].0,
+                hash.0.elements[3].0
+            );
             Ok(())
         }
-        
+
         QHashCommands::FromValues { a, b, c, d } => {
             let hash = QHashOut::<F>::from_values(a, b, c, d);
-            println!("{}", hash.to_string());
+            println!("Hash: {}", hash.to_string());
+            println!("Elements: [{}, {}, {}, {}]",
+                hash.0.elements[0].0,
+                hash.0.elements[1].0,
+                hash.0.elements[2].0,
+                hash.0.elements[3].0
+            );
             Ok(())
         }
-        
+
         QHashCommands::Hash { value } => {
             let input = QHashOut::<F>::from_string_or_panic(&value);
             let output = QEDHasher::q_hash_many(&[
@@ -79,21 +91,21 @@ pub fn run(args: QHashArgs) -> Result<()> {
             println!("{}", output.to_string());
             Ok(())
         }
-        
+
         QHashCommands::TwoToOne { left, right } => {
             let left_hash = QHashOut::<F>::from_string_or_panic(&left);
             let right_hash = QHashOut::<F>::from_string_or_panic(&right);
-            
+
             let output = QEDHasher::q_two_to_one(left_hash, right_hash);
             println!("{}", output.to_string());
             Ok(())
         }
-        
+
         QHashCommands::HashMany { values } => {
             if values.is_empty() {
                 return Err(anyhow::format_err!("No values provided to hash"));
             }
-            
+
             let mut inputs = Vec::new();
             for value in values {
                 let hash = QHashOut::<F>::from_string_or_panic(&value);
@@ -102,7 +114,7 @@ pub fn run(args: QHashArgs) -> Result<()> {
                 inputs.push(hash.0.elements[2]);
                 inputs.push(hash.0.elements[3]);
             }
-            
+
             let output = QEDHasher::q_hash_many(&inputs);
             println!("{}", output.to_string());
             Ok(())

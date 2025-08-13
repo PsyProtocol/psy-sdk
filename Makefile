@@ -3,10 +3,7 @@ export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 PROFILE := release
 LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
 
-default: build-release wasm-build
-
-build-release: config_gen_v2
-	@RUSTFLAGS="-A warnings"  cargo build --release
+default: build wasm-build
 
 check:
 	@cargo check --all-targets --examples
@@ -16,7 +13,7 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: config_gen_v2
-	@cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server
 
 fmt:
 	@cargo fmt
@@ -102,7 +99,7 @@ config_gen_v2:
 #                                   TMP                                        #
 ################################################################################
 PROJECT_DIR              := $(PWD)/examples
-FILE                     := $(PWD)/examples/src/main.qed
+FILE                     := $(PWD)/examples/token/src/main.qed
 PARAMETERS               :=
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
 USER0_PUBLIC_KEY         := 6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5
@@ -130,17 +127,20 @@ COORDINATOR_RPC_URL      := $(shell jq -r '.network.coordinator_configs[].rpc_ur
 REALM_RPC_URL            := $(shell jq -r '.network.realm_configs[0].rpc_url[]' config.json)
 
 init:
-	@./target/${PROFILE}/dargo new ${PROJECT_DIR}
-	@cp qed_compiler/tests/new_token.qed ${FILE}
+	# Create main project directory
+	@mkdir -p ${PROJECT_DIR}
+	# Create token contract subdirectory
+	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/token
+	@cp qed_compiler/tests/new_token.qed ${PROJECT_DIR}/token/src/main.qed
+	# Create rewards contract subdirectory
+	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/rewards
+	@cp qed_compiler/tests/rewards.qed ${PROJECT_DIR}/rewards/src/main.qed
 	@mkdir -p $(PWD)/db
 	@echo "Starting Redis containers..."
 	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
 	@sleep 10
-	@docker exec qed-redis-coordinator redis-cli FLUSHALL
-	@docker exec qed-redis-realm0 redis-cli FLUSHALL
-	@docker exec qed-redis-realm1 redis-cli FLUSHALL
 	# @echo "Starting ScyllaDB containers..."
 	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
 	# @docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
@@ -148,20 +148,13 @@ init:
 	@echo "Waiting for databases to be ready..."
 	@sleep 10
 
-clear-db:
-	@echo "Clearing lmdbx databases..."
-	@rm -fr ${PWD}/db/coordinator/*
-	@rm -fr ${PWD}/db/realm0/*
-	@rm -fr ${PWD}/db/realm1/*
-	@echo "Clearing redis databases..."
-	@redis-cli -p 6379 FLUSHALL
-	@redis-cli -p 6380 FLUSHALL
-	@redis-cli -p 6381 FLUSHALL
-
 .PHONY: shutdown
 shutdown:
 	@echo "Stopping and removing database containers..."
 	@docker rm -f qed-redis-coordinator qed-redis-realm0 qed-redis-realm1 > /dev/null 2>&1 || true
+	@docker exec qed-redis-coordinator redis-cli FLUSHALL > /dev/null 2>&1 || true
+	@docker exec qed-redis-realm0 redis-cli FLUSHALL > /dev/null 2>&1 || true
+	@docker exec qed-redis-realm1 redis-cli FLUSHALL > /dev/null 2>&1 || true
 	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
 	@rm -fr ${PROJECT_DIR} ${PWD}/db > /dev/null 2>&1 || true
 
@@ -175,7 +168,10 @@ interpret:
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo execute --debug --entry-path ${FILE} --parameters ${PARAMETERS}
 
 compile:
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo compile --entry-path ${FILE} --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
+	# Compile token contract
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
+	# Compile rewards contract
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names claim_batch_job_rewards
 
 run-coordinator-processor:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --database lmdbx --lmdbx-path ${PWD}/db/coordinator
@@ -312,10 +308,12 @@ random-register-user-batch:
 
 deploy-contract:
 	@echo "Deploying contracts..."
-	@echo "USER0 deploying contract 0..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
-	@echo "USER1 deploying contract 1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/target/examples.json
+	@echo "USER0 deploying token contract..."
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
+	@echo "USER1 deploying token contract..."
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
+	@echo "USER0 deploying rewards contract..."
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/rewards/target/rewards.json
 
 mint:
 	@echo "All users minting 1000 tokens..."
