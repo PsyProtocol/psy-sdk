@@ -762,14 +762,29 @@ where
     }
 }
 
-pub async fn spawn_realm_job_update_task(
+pub async fn spawn_realm_job_update_task<
+    SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+    DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
+    PS: QProofStoreAsyncImm + Sync + Send + 'static,
+>(
     proof_store: Arc<ProofStoreRedisAsync>,
     realm_id: u64,
     coordinator_addr: String,
+    ctx: Arc<RealmEdgeContext<SR, DQ, PS>>, 
 ) -> anyhow::Result<()> {
     info!("realm job listener spawned");
     tokio::spawn(async move {
-        let mut last_checkpoint = 0u64;
+        let mut last_checkpoint = match ctx.get_checkpoint_id_async().await {
+            Ok(checkpoint) => {
+                let next_checkpoint = checkpoint + 1;
+                info!("Starting realm job update task from checkpoint: {} (latest local: {})", next_checkpoint, checkpoint);
+                next_checkpoint
+            },
+            Err(e) => {
+                warn!("Failed to get latest local checkpoint, starting from 0: {}", e);
+                0u64
+            }
+        };
         loop {
             // Listen for new proof job IDs from the history queue
             match proof_store
@@ -858,7 +873,7 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
 
     let input = SubmitGUTARealmResultAPINoProofInput {
         realm_id,
-        checkpoint_id: realm_result.checkpoint_id,
+        checkpoint_id: realm_result.checkpoint_id,//todo
         guta_stats: realm_result.guta_stats,
         top_line_proof: realm_result.top_line_proof,
         checkpoint_tree_root: realm_result.checkpoint_tree_root,
