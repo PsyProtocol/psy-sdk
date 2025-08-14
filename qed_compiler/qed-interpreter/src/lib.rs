@@ -1254,7 +1254,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         location,
                     } => {
                         let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
-                        let checkpoint_id_value = checkpoint_id.to_felts().first().unwrap().clone();
+                        let checkpoint_id_value = checkpoint_id.to_felt();
                         let root = self.context.get_register_users_root(checkpoint_id_value);
                         return Ok(CheckedValueRef::from_vec(type_id.clone(), root.to_vec()));
                     }
@@ -1264,7 +1264,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         location,
                     } => {
                         let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
-                        let checkpoint_id_value = checkpoint_id.to_felts().first().unwrap().clone();
+                        let checkpoint_id_value = checkpoint_id.to_felt();
                         let root = self.context.get_gutas_root(checkpoint_id_value);
                         return Ok(CheckedValueRef::from_vec(type_id.clone(), root.to_vec()));
                     }
@@ -1274,7 +1274,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         location,
                     } => {
                         let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
-                        let checkpoint_id_value = checkpoint_id.to_felts().first().unwrap().clone();
+                        let checkpoint_id_value = checkpoint_id.to_felt();
                         let root = self.context.get_deploy_contracts_root(checkpoint_id_value);
                         return Ok(CheckedValueRef::from_vec(type_id.clone(), root.to_vec()));
                     }

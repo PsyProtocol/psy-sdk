@@ -669,8 +669,9 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn assert_eq(&mut self, left: SymFeltRef, right: SymFeltRef, message: &'static str) {
+        let cond_left = self.op_select(self.current_condition, left, right);
         self.assertions.push(SymRefAssertion {
-            left,
+            left: cond_left,
             right,
             message,
         });
@@ -863,24 +864,18 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
     
     fn get_register_users_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
-        // Get full checkpoint stats
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        // Extract register_users_root (indices 18-21 after basic stats and random_seed)
-        [stats[18].clone(), stats[19].clone(), stats[20].clone(), stats[21].clone()]
+        [stats[10].clone(), stats[11].clone(), stats[12].clone(), stats[13].clone()]
     }
     
     fn get_gutas_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
-        // Get full checkpoint stats
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        // Extract gutas_root (indices 22-25)
-        [stats[22].clone(), stats[23].clone(), stats[24].clone(), stats[25].clone()]
+        [stats[14].clone(), stats[15].clone(), stats[16].clone(), stats[17].clone()]
     }
     
     fn get_deploy_contracts_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
-        // Get full checkpoint stats
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        // Extract deploy_contracts_root (indices 26-29)
-        [stats[26].clone(), stats[27].clone(), stats[28].clone(), stats[29].clone()]
+        [stats[18].clone(), stats[19].clone(), stats[20].clone(), stats[21].clone()]
     }
 
     fn op_get_state_felt(

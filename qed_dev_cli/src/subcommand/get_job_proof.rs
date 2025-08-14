@@ -18,7 +18,6 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
     let proof = generate_batch_proof(&args.coordinator_url, args.checkpoint_id, job_id).await?;
 
     println!("\n=== Job Proof ===");
-    println!("Job ID: {:?}", proof.job_id);
     println!("Value: {:?}", proof.value);
     println!("Root: {:?}", proof.root);
     println!("Number of siblings: {}", proof.siblings.len());

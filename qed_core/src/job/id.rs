@@ -532,18 +532,112 @@ pub enum Color {
     Black,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct JobProofSibling {
+    #[serde(rename = "sibling_hash")]
     pub hash: QHashOut<F>,
     pub is_left: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct JobProof {
-    pub job_id: QProvingJobDataID,
     pub value: QHashOut<F>,
-    pub siblings: Vec<JobProofSibling>,
+    pub siblings: [JobProofSibling; 32],
     pub root: QHashOut<F>,
+}
+
+// Custom serialization for JobProof to handle large array
+impl Serialize for JobProof {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("JobProof", 3)?;
+        state.serialize_field("value", &self.value)?;
+        state.serialize_field("siblings", &self.siblings.to_vec())?;
+        state.serialize_field("root", &self.root)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for JobProof {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{self, MapAccess, SeqAccess, Visitor};
+        use std::fmt;
+
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "snake_case")]
+        enum Field { Value, Siblings, Root }
+
+        struct JobProofVisitor;
+
+        impl<'de> Visitor<'de> for JobProofVisitor {
+            type Value = JobProof;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct JobProof")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<JobProof, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut value = None;
+                let mut siblings = None;
+                let mut root = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Value => {
+                            if value.is_some() {
+                                return Err(de::Error::duplicate_field("value"));
+                            }
+                            value = Some(map.next_value()?);
+                        }
+                        Field::Siblings => {
+                            if siblings.is_some() {
+                                return Err(de::Error::duplicate_field("siblings"));
+                            }
+                            let siblings_vec: Vec<JobProofSibling> = map.next_value()?;
+                            let mut siblings_array = [JobProofSibling {
+                                hash: QHashOut::ZERO,
+                                is_left: false,
+                            }; 32];
+                            for (i, s) in siblings_vec.iter().enumerate() {
+                                if i < 32 {
+                                    siblings_array[i] = *s;
+                                }
+                            }
+                            siblings = Some(siblings_array);
+                        }
+                        Field::Root => {
+                            if root.is_some() {
+                                return Err(de::Error::duplicate_field("root"));
+                            }
+                            root = Some(map.next_value()?);
+                        }
+                    }
+                }
+
+                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
+                let siblings = siblings.ok_or_else(|| de::Error::missing_field("siblings"))?;
+                let root = root.ok_or_else(|| de::Error::missing_field("root"))?;
+
+                Ok(JobProof {
+                    value,
+                    siblings,
+                    root,
+                })
+            }
+        }
+
+        const FIELDS: &'static [&'static str] = &["value", "siblings", "root"];
+        deserializer.deserialize_struct("JobProof", FIELDS, JobProofVisitor)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -790,10 +884,21 @@ impl QProvingTaskGraph {
 
         let root = self.compute_root_from_proof(&leaf_value, &siblings);
 
+        // Pad siblings to fixed size with zero hashes
+        let mut siblings_array = [JobProofSibling {
+            hash: QHashOut::ZERO,
+            is_left: false,
+        }; 32];
+
+        for (i, sibling) in siblings.iter().enumerate() {
+            if i < 32 {
+                siblings_array[i] = sibling.clone();
+            }
+        }
+
         Ok(JobProof {
-            job_id: leaf_job_id,
             value: leaf_value,
-            siblings,
+            siblings: siblings_array,
             root,
         })
     }
@@ -859,7 +964,7 @@ impl QProvingTaskGraph {
     }
 
     pub fn verify_proof(&self, proof: &JobProof) -> bool {
-        let computed_root = self.compute_root_from_proof(&proof.value, &proof.siblings);
+        let computed_root = self.compute_root_from_proof_array(&proof.value, &proof.siblings);
         computed_root == proof.root
     }
 
@@ -871,6 +976,30 @@ impl QProvingTaskGraph {
         let mut current_hash = *value;
 
         for sibling in siblings {
+            let hash_array = if sibling.is_left {
+                [sibling.hash.0, current_hash.0]
+            } else {
+                [current_hash.0, sibling.hash.0]
+            };
+            current_hash = QHashOut(PoseidonHash::two_to_one(hash_array[0], hash_array[1]));
+        }
+
+        current_hash
+    }
+
+    fn compute_root_from_proof_array(
+        &self,
+        value: &QHashOut<F>,
+        siblings: &[JobProofSibling; 32],
+    ) -> QHashOut<F> {
+        let mut current_hash = *value;
+
+        for sibling in siblings {
+            // Skip zero siblings (padding)
+            if sibling.hash == QHashOut::ZERO {
+                break;
+            }
+
             let hash_array = if sibling.is_left {
                 [sibling.hash.0, current_hash.0]
             } else {
