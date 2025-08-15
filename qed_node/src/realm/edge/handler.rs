@@ -3,10 +3,10 @@ use super::rpc::RealmEdgeRpcServer;
 use crate::common::jobs::{JobSchedulerRpcServer};
 use crate::common::ConcreteProofWithPublicInputs;
 use crate::realm::state::edge::RealmEdgeContext;
-use crate::realm::{C, D, F, H};
+use crate::realm::{C, D, F};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
-use jsonrpsee::http_client::{HeaderMap, HeaderValue};
+use jsonrpsee::http_client::{HeaderMap, HeaderValue, HttpClient, HttpClientBuilder};
 use jsonrpsee::rpc_params;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{field::types::PrimeField64, plonk::proof::ProofWithPublicInputs};
@@ -38,7 +38,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use anyhow::anyhow;
 use jsonrpsee::types::{ErrorCode, ErrorObject};
-use tokio::sync::Mutex;
+
 use tracing::{debug, error, info, warn};
 use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl, JobValidationStatus, QJob};
 
@@ -770,9 +770,14 @@ pub async fn spawn_realm_job_update_task<
     proof_store: Arc<ProofStoreRedisAsync>,
     realm_id: u64,
     coordinator_addr: String,
-    ctx: Arc<RealmEdgeContext<SR, DQ, PS>>, 
+    ctx: Arc<RealmEdgeContext<SR, DQ, PS>>,
+    retry_config: Option<RetryConfig>,
 ) -> anyhow::Result<()> {
     info!("realm job listener spawned");
+    
+    // Create RealmProofSender instance once
+    let proof_sender = Arc::new(RealmProofSender::new(realm_id, coordinator_addr, retry_config)?);
+    
     tokio::spawn(async move {
         let mut last_checkpoint = match ctx.get_checkpoint_id_async().await {
             Ok(checkpoint) => {
@@ -797,10 +802,11 @@ pub async fn spawn_realm_job_update_task<
                 Ok(job_id) => {
                     info!(?job_id, "Received proof from realm processor");
                     last_checkpoint = job_id.checkpoint_id + 1;
-                    // if job_id.job_id.circuit_type != GUTANoChange {
-                    send_realm_proof(proof_store.clone(), job_id, realm_id, &coordinator_addr)
-                        .await;
-                    // }
+                    
+                    // Use the RealmProofSender instance
+                    if let Err(err) = proof_sender.send_proof(ctx.proof_store.clone(), job_id).await {
+                        error!("Failed to send realm proof: {:?}", err);
+                    }
                 }
                 Err(err) => {
                     error!("Error getting job_id from history queue: {:?}", err);
@@ -813,109 +819,171 @@ pub async fn spawn_realm_job_update_task<
     Ok(())
 }
 
-async fn send_realm_proof<PS: QProofStoreAsyncImm>(
-    proof_store: Arc<PS>,
-    job_info: ProvingJobDataId,
+/// Configuration for retry mechanisms in RealmProofSender
+#[derive(Clone, Debug)]
+pub struct RetryConfig {
+    pub max_retries: u32,
+    pub base_delay_ms: u64,
+    pub exponential_backoff: bool,
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_retries: 5,
+            base_delay_ms: 1000,
+            exponential_backoff: true,
+        }
+    }
+}
+
+/// Handles sending realm proofs to coordinator with optimized HTTP client reuse and retry mechanisms
+pub struct RealmProofSender {
     realm_id: u64,
-    coordinator_addr: &str,
-) {
-    let mut retries_count = 0;
+    http_client: HttpClient,
+    retry_config: RetryConfig,
+}
 
-    info!(?job_info.job_id, "send_realm_proof start");
-    let bytes = loop {
-        match proof_store.get_bytes_by_id(job_info.job_id).await {
-            Ok(bytes) if !bytes.is_empty() => break bytes,
-            Ok(bytes) => {
-                warn!("bytes is empty");
-            }
-            Err(err) => {
-                error!("Failed to get bytes by job_id: {:?}", err);
-            }
-        };
-        retries_count += 1;
-        if (retries_count == 5) {
-            error!("Failed to get bytes by job_jd");
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(3000)).await;
-    };
-    let preview_len = bytes.len().min(100);
-    let hex_preview = hex::encode(&bytes[..preview_len]);
-    debug!(
-        "The bytes from job_info.job_id: len = {}, head[0..{}] = {}",
-        bytes.len(),
-        preview_len,
-        hex_preview
-    );
-    let realm_result: GUTARealmCheckpointResult<QEDFelt> = match bincode::deserialize(&bytes) {
-        Ok(result) => result,
-        Err(err) => {
-            error!("Failed to deserialize realm_result: {:?}", err);
-            return;
-        }
-    };
-    let proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2> = match proof_store
-        .get_proof_by_id(realm_result.proof_id.get_output_id())
-        .await
+impl RealmProofSender {
+    /// Create a new RealmProofSender instance
+    pub fn new(realm_id: u64, coordinator_addr: String, retry_config: Option<RetryConfig>) -> anyhow::Result<Self> {
+        let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set in .env");
+        let jwt_token = generate_jwt_token(&secret, realm_id)?;
+        let bearer_token_value = format!("Bearer {}", jwt_token);
+        let header_value = HeaderValue::from_str(&bearer_token_value)?;
+
+        let mut headers = HeaderMap::new();
+        headers.insert("Authorization", header_value);
+
+        let http_client = HttpClientBuilder::default()
+            .set_headers(headers)
+            .build(&coordinator_addr)?;
+
+        Ok(Self {
+            realm_id,
+            http_client,
+            retry_config: retry_config.unwrap_or_default(),
+        })
+    }
+
+    /// Generic retry function for any async operation
+    async fn retry_with_backoff<T, F, Fut, E>(&self, operation_name: &str, mut operation: F) -> anyhow::Result<T>
+    where
+        F: FnMut() -> Fut,
+        Fut: std::future::Future<Output = Result<T, E>>,
+        E: std::fmt::Debug,
     {
-        Ok(proof) => {
-            eprintln!(
-                "DEBUGPRINT[686]: context.rs:885: proof={}",
-                serde_json::to_string_pretty(&proof.public_inputs).unwrap()
-            );
-            proof
-        }
-        Err(err) => {
-            error!("Failed to get proof_by_id: {:?}", err);
-            return;
-        }
-    };
+        for attempt in 0..self.retry_config.max_retries {
+            match operation().await {
+                Ok(result) => return Ok(result),
+                Err(err) => {
+                    error!("{} failed: {:?}, attempt {}/{}", operation_name, err, attempt + 1, self.retry_config.max_retries);
 
-    let input = SubmitGUTARealmResultAPINoProofInput {
-        realm_id,
-        checkpoint_id: realm_result.checkpoint_id,//todo
-        guta_stats: realm_result.guta_stats,
-        top_line_proof: realm_result.top_line_proof,
-        checkpoint_tree_root: realm_result.checkpoint_tree_root,
-        circuit_type: realm_result.proof_id.circuit_type,
-    };
-    let mut retry_count = 0;
-    let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set in .env");
-
-    let jwt_token = generate_jwt_token(&secret, realm_id).expect("Failed to generate JWT token");
-    let bearer_token_value = format!("Bearer {}", jwt_token);
-    let header_value =
-        HeaderValue::from_str(&bearer_token_value).expect("Failed to create header value");
-    let mut headers = HeaderMap::new();
-    headers.insert("Authorization", header_value);
-
-    while retry_count < 5 {
-        info!("Sending job to coordinator, retry_count = {}", retry_count);
-        let client = jsonrpsee::http_client::HttpClientBuilder::default()
-            .set_headers(headers.clone())
-            .build(coordinator_addr);
-
-        match client {
-            Ok(client) => {
-                let params = rpc_params![input.clone(), proof.clone()];
-                match client.request::<String, _>("qed_submit_guta", params).await {
-                    Ok(result) => {
-                        info!(
-                            "Successfully submitted job to coordinator, result: {}",
-                            result
-                        );
-                        return;
-                    }
-                    Err(err) => {
-                        error!("Failed to call coordinator API: {:?}", err);
+                    if attempt < self.retry_config.max_retries - 1 {
+                        let delay = if self.retry_config.exponential_backoff {
+                            Duration::from_millis(self.retry_config.base_delay_ms * 2_u64.pow(attempt))
+                        } else {
+                            Duration::from_millis(self.retry_config.base_delay_ms)
+                        };
+                        tokio::time::sleep(delay).await;
                     }
                 }
             }
-            Err(err) => {
-                error!("Failed to create RPC client: {:?}", err);
-            }
         }
-        retry_count += 1;
-        tokio::time::sleep(Duration::from_secs(1u64.pow(retry_count as u32))).await;
+
+        Err(anyhow!("{} failed after {} attempts", operation_name, self.retry_config.max_retries))
+    }
+
+    /// Send realm proof to coordinator with unified retry mechanism
+    pub async fn send_proof<PS: QProofStoreAsyncImm>(
+        &self,
+        proof_store: Arc<PS>,
+        job_info: ProvingJobDataId,
+    ) -> anyhow::Result<()> {
+        info!(?job_info.job_id, "send_realm_proof start");
+
+        // Get bytes with retry
+        let bytes = self.get_bytes_with_retry(proof_store.clone(), job_info.job_id).await?;
+
+        let preview_len = bytes.len().min(100);
+        let hex_preview = hex::encode(&bytes[..preview_len]);
+        debug!(
+            "The bytes from job_info.job_id: len = {}, head[0..{}] = {}",
+            bytes.len(),
+            preview_len,
+            hex_preview
+        );
+
+        // Deserialize realm result
+        let realm_result: GUTARealmCheckpointResult<QEDFelt> = bincode::deserialize(&bytes)?;
+
+        // Get proof with retry
+        let proof = self.get_proof_with_retry(proof_store, realm_result.proof_id.get_output_id()).await?;
+
+        eprintln!(
+            "DEBUGPRINT[686]: context.rs:885: proof={}",
+            serde_json::to_string_pretty(&proof.public_inputs).unwrap()
+        );
+
+        let input = SubmitGUTARealmResultAPINoProofInput::<QEDFelt> {
+            realm_id: self.realm_id,
+            checkpoint_id: realm_result.checkpoint_id,
+            guta_stats: realm_result.guta_stats,
+            top_line_proof: realm_result.top_line_proof,
+            checkpoint_tree_root: realm_result.checkpoint_tree_root,
+            circuit_type: realm_result.proof_id.circuit_type,
+        };
+
+        // Submit with retry
+        self.submit_with_retry(input, proof).await?;
+
+        Ok(())
+    }
+
+    /// Get bytes from proof store with retry mechanism
+    async fn get_bytes_with_retry<PS: QProofStoreAsyncImm>(
+        &self,
+        proof_store: Arc<PS>,
+        job_id: QProvingJobDataID,
+    ) -> anyhow::Result<Vec<u8>> {
+        self.retry_with_backoff("get_bytes_by_id", || async {
+            match proof_store.get_bytes_by_id(job_id).await {
+                Ok(bytes) if !bytes.is_empty() => Ok(bytes),
+                Ok(_) => {
+                    Err(anyhow!("empty bytes"))
+                }
+                Err(err) => Err(err),
+            }
+        }).await
+    }
+
+    /// Get proof from proof store with retry mechanism
+    async fn get_proof_with_retry<PS: QProofStoreAsyncImm>(
+        &self,
+        proof_store: Arc<PS>,
+        proof_id: QProvingJobDataID,
+    ) -> anyhow::Result<ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>> {
+        self.retry_with_backoff("get_proof_by_id", || async {
+            proof_store.get_proof_by_id(proof_id).await
+        }).await
+    }
+
+    /// Submit request to coordinator with retry mechanism
+    async fn submit_with_retry(
+        &self,
+        input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
+        proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
+    ) -> anyhow::Result<()> {
+        self.retry_with_backoff("submit_guta_proof", || async {
+            info!("Sending job to coordinator");
+            let params = rpc_params![input.clone(), proof.clone()];
+            match self.http_client.request::<String, _>("qed_submit_guta", params).await {
+                Ok(result) => {
+                    info!("Successfully submitted job to coordinator, result: {}", result);
+                    Ok(())
+                }
+                Err(err) => Err(err),
+            }
+        }).await
     }
 }
