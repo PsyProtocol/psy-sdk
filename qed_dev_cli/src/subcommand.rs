@@ -13,6 +13,7 @@ pub mod register_user;
 pub mod get_user_id_from_registration_id;
 pub mod generate;
 pub mod launch;
+pub mod stress_test;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -228,6 +229,24 @@ pub struct LaunchArgs {
     #[arg(long, short = 'c', help = "Path to config.json file (default: config.json)")]
     pub config: Option<String>,
     
+    #[arg(long, short = 'v', help = "Verbose output")]
+    pub verbose: bool,
+}
+
+#[derive(Parser)]
+pub struct StressTestArgs {
+    #[arg(long, default_value = "config.json", help = "Path to config.json file")]
+    pub config: String,
+
+    #[arg(long, default_value = "transfer", help = "Task type (transfer, ...future task types)")]
+    pub task_type: String,
+
+    #[arg(long, default_value = "4", help = "Number of concurrent tasks")]
+    pub concurrent_tasks: usize,
+
+    #[arg(long, help = "Number of transaction tasks to execute (omit for unlimited)")]
+    pub max_task: Option<u64>,
+
     #[arg(long, short = 'v', help = "Verbose output")]
     pub verbose: bool,
 }
