@@ -67,3 +67,6 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &Concre
         }
     }
 }
+
+pub mod slot;
+pub mod clock;

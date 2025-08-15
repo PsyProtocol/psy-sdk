@@ -1,0 +1,23 @@
+[
+    {
+        "contract_id": 0,
+        "method_name": "simple_mint",
+        "inputs": [
+            1000
+        ]
+    },
+    {
+        "contract_id": 0,
+        "method_name": "simple_mint",
+        "inputs": [
+            1000
+        ]
+    },
+    {
+        "contract_id": 0,
+        "method_name": "simple_mint",
+        "inputs": [
+            1000
+        ]
+    }
+]

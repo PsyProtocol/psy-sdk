@@ -19,27 +19,6 @@ const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub type LayerId = TaskId;
 
-/// Represents a layer of tasks that can be executed in parallel
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TaskLayer {
-    pub layer_id: LayerId,
-    pub task_ids: Vec<TaskId>,
-}
-
-impl TaskLayer {
-    pub fn new(layer_id: LayerId, task_ids: Vec<TaskId>) -> Self {
-        Self { layer_id, task_ids }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.task_ids.is_empty()
-    }
-
-    pub fn contains(&self, task_id: &TaskId) -> bool {
-        self.task_ids.contains(task_id)
-    }
-}
-
 /// Represents a single proving job with task assignment
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct QJob<T = String> {
@@ -117,7 +96,7 @@ impl QProvingTaskStoreImpl {
         );
 
         let rsmq = Arc::new(
-            RsmqQueue::new(redis_url, pool_size, "task_store")
+            RsmqQueue::new(redis_url, pool_size, "job_task_store")
                 .await
                 .context("Failed to create RSMQ queue")?
         );
@@ -138,7 +117,7 @@ impl QProvingTaskStoreImpl {
     /// Get the checkpoint-specific layers key
     #[inline]
     fn layers_key(&self) -> String {
-        format!("{}:layer_lists", TASK_COMMON_PREFIX)
+        format!("{}:layers_zset", TASK_COMMON_PREFIX)
     }
 
     /// Generate queue name for a layer (includes checkpoint)
@@ -164,99 +143,80 @@ impl QProvingTaskStoreImpl {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layers_key();
 
-        // Push each layer to the tail of the list
-        for layer in layers {
-            let task_layer = TaskLayer::new(layer.layer_id, layer.task_ids.clone());
-            let serialized = bincode::serialize(&task_layer)?;
-            conn.rpush(&layers_key, serialized).await?;
+        // Use timestamp + sequence for unique, ordered scores
+        let base_score = chrono::Utc::now().timestamp_millis() as f64;
+
+        // Use pipeline for efficiency
+        let mut pipe = redis::pipe();
+        pipe.atomic();
+
+        for (idx, layer) in layers.iter().enumerate() {
+            let serialized = bincode::serialize(&layer.layer_id)?;
+            // Score ensures ordering: earlier layers have lower scores
+            let score = base_score + (idx as f64);
+            pipe.zadd(&layers_key, serialized, score);
         }
 
-        debug!("Pushed {} layers to list", layers.len());
+        pipe.query_async(&mut *conn).await?;
+
+        info!("Pushed {} layers to sorted set", layers.len());  // Changed from "list"
         Ok(())
     }
 
     /// Peek at the current layer (head of list) without removing
-    async fn peek_current_layer(&self) -> Result<Option<TaskLayer>> {
+    async fn peek_current_layer(&self) -> Result<Option<LayerId>> {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layers_key();
 
         // Get the first element without removing it
-        let bytes: Option<Vec<u8>> = conn.lindex(&layers_key, 0).await?;
+        // ZRANGE gets elements by rank (0 = lowest score = first layer)
+        let result: Vec<Vec<u8>> = redis::cmd("ZRANGE")
+            .arg(&layers_key)
+            .arg(0)  // start rank
+            .arg(0)  // end rank (just get first element)
+            .query_async(&mut *conn)
+            .await?;
 
-        match bytes {
+        match result.first() {
             Some(data) => {
-                let layer = bincode::deserialize(&data)?;
+                let layer = bincode::deserialize(data)?;
                 Ok(Some(layer))
             }
-            None => Ok(None),
+            None => Ok(None)
         }
     }
 
-    /// Pop the current layer only if it matches the expected layer ID
-    async fn pop_current_layer(&self, expected_layer_id: &LayerId) -> Result<Option<TaskLayer>> {
+    /// Atomically pop the top layer only if it matches the expected layer ID
+    async fn pop_current_layer(&self, expected_layer_id: &LayerId) -> Result<Option<LayerId>> {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layers_key();
 
-        // First, peek at the current layer to check if it matches
-        let peek_bytes: Option<Vec<u8>> = conn.lindex(&layers_key, 0).await?;
+        // Check if this layer is actually at position 0
+        let rank = self.get_layer_rank(expected_layer_id).await?;
 
-        match peek_bytes {
-            Some(data) => {
-                let layer: TaskLayer = bincode::deserialize(&data)?;
+        match rank {
+            Some(0) => {
+                // It's the first element, safe to remove
+                let expected_serialized = bincode::serialize(expected_layer_id)?;
+                let removed: i32 = conn.zrem(&layers_key, &expected_serialized).await?;
 
-                // Check if the layer ID matches the expected one
-                if layer.layer_id != *expected_layer_id {
-                    warn!(
-                        "Layer mismatch: expected {}, found {}. Abandoning pop operation.",
-                        expected_layer_id, layer.layer_id
-                    );
-                    return Err(anyhow!(
-                        "Layer ID mismatch: expected {}, found {}",
-                        expected_layer_id,
-                        layer.layer_id
-                    ));
-                }
-
-                // Layer matches, now actually pop it
-                let pop_bytes: Option<Vec<u8>> = conn.lpop(&layers_key, None).await?;
-
-                match pop_bytes {
-                    Some(pop_data) => {
-                        let popped_layer: TaskLayer = bincode::deserialize(&pop_data)?;
-                        info!(
-                            "Successfully popped layer {}",
-                            popped_layer.layer_id,
-                        );
-                        Ok(Some(popped_layer))
-                    }
-                    None => {
-                        // This shouldn't happen, but handle it gracefully
-                        error!("Layer disappeared between peek and pop for checkpoint");
-                        Ok(None)
-                    }
+                if removed > 0 {
+                    info!("Successfully popped layer {:?} from head", expected_layer_id);
+                    Ok(Some(*expected_layer_id))
+                } else {
+                    // Shouldn't happen, but handle gracefully
+                    warn!("Layer was at rank 0 but couldn't be removed");
+                    Ok(None)
                 }
             }
-            None => {
-                debug!("No layers to pop");
+            Some(n) => {
+                warn!("⚠️ Layer {:?} is at position {}, not at head", expected_layer_id, n);
                 Ok(None)
             }
-        }
-    }
-
-    /// Force pop the current layer without checking (for emergency/admin use)
-    async fn force_pop_current_layer(&self) -> Result<Option<TaskLayer>> {
-        let mut conn = self.redis_pool.get().await?;
-        let layers_key = self.layers_key();
-
-        let bytes: Option<Vec<u8>> = conn.lpop(&layers_key, None).await?;
-
-        match bytes {
-            Some(data) => {
-                let layer: TaskLayer = bincode::deserialize(&data)?;
-                warn!("Force popped layer {}", layer.layer_id);
-                Ok(Some(layer))
+            None => {
+                info!("Layer {:?} not found in sorted set", expected_layer_id);
+                Ok(None)
             }
-            None => Ok(None),
         }
     }
 
@@ -264,15 +224,22 @@ impl QProvingTaskStoreImpl {
     async fn get_layer_count(&self) -> Result<usize> {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layers_key();
-        let count: usize = conn.llen(&layers_key).await?;
+        let count: usize = conn.zcard(&layers_key).await?;
         Ok(count)
     }
 
     /// Get all layers without removing them (for monitoring)
-    async fn get_all_layers(&self) -> Result<Vec<TaskLayer>> {
+    async fn get_all_layers(&self) -> Result<Vec<LayerId>> {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layers_key();
-        let all_bytes: Vec<Vec<u8>> = conn.lrange(&layers_key, 0, -1).await?;
+
+        // FIX: Use ZRANGE for sorted sets, not lrange
+        let all_bytes: Vec<Vec<u8>> = redis::cmd("ZRANGE")
+            .arg(&layers_key)
+            .arg(0)   // start index
+            .arg(-1)  // end index (all elements)
+            .query_async(&mut *conn)
+            .await?;
 
         let mut layers = Vec::with_capacity(all_bytes.len());
         for bytes in all_bytes {
@@ -285,8 +252,19 @@ impl QProvingTaskStoreImpl {
     /// Check if a layer is complete
     async fn is_layer_complete(&self, layer_id: &LayerId) -> Result<bool> {
         let queue_id = self.layer_queue_id(layer_id);
-        let count = self.rsmq.get_queue_length(&queue_id).await?;
-        Ok(count == 0)
+        let stats = self.rsmq.get_queue_stats(&queue_id).await?;
+
+        // Layer is only complete when BOTH visible and hidden messages are 0
+        let is_complete = stats.total_messages == 0 && stats.hidden_messages == 0;
+
+        if !is_complete && stats.total_messages == 0 {
+            // Log when we have only hidden messages (jobs being processed)
+            warn!(
+                "❗ Layer {} has {} hidden messages still being processed",
+                layer_id, stats.hidden_messages
+            );
+        }
+        Ok(is_complete)
     }
 
     /// Get queue statistics for monitoring
@@ -295,9 +273,9 @@ impl QProvingTaskStoreImpl {
         let mut stats = HashMap::with_capacity(layers.len());
 
         for layer in layers {
-            let queue_id = self.layer_queue_id(&layer.layer_id);
+            let queue_id = self.layer_queue_id(&layer);
             if let Ok(count) = self.rsmq.get_queue_length(&queue_id).await {
-                stats.insert(layer.layer_id, count);
+                stats.insert(layer, count);
             }
         }
 
@@ -313,33 +291,103 @@ impl QProvingTaskStoreImpl {
         let mut status = format!("Total Layers: {}\n", layers.len());
 
         if let Some(current) = current_layer {
-            status.push_str(&format!("Current Layer: {}\n", current.layer_id));
+            status.push_str(&format!("Current Layer: {}\n", current));
         } else {
             status.push_str("Current Layer: None (all completed)\n");
         }
 
         for layer in layers {
-            let count = stats.get(&layer.layer_id).copied().unwrap_or(0);
+            let count = stats.get(&layer).copied().unwrap_or(0);
             status.push_str(&format!(
-                "  Layer {}: {} tasks, {} pending jobs\n",
-                layer.layer_id,
-                layer.task_ids.len(),
+                "  Layer {}: {} pending jobs\n",
+                layer,
                 count
             ));
         }
 
         Ok(status)
     }
+}
 
-    /// Convert topologically sorted layers to TaskLayers
-    fn create_task_layers(layers: Vec<Vec<LayerId>>) -> Vec<TaskLayer> {
-        layers.into_iter()
-            .map(|layer_ids| {
-                let layer_id = TaskId::new_debug();
-                TaskLayer::new(layer_id, layer_ids)
-            })
-            .collect()
+impl QProvingTaskStoreImpl {
+    /// Validate that a specific job is currently being processed by a worker
+    /// Returns a detailed status of the validation
+    pub async fn validate_job_ownership(&self, job: &QJob) -> Result<JobValidationStatus> {
+        // Step 1: Check if the layer is the current layer
+        let current_layer = match self.peek_current_layer().await? {
+            Some(layer) => layer,
+            None => {
+                warn!("No active layer when validating job {}", job);
+                return Ok(JobValidationStatus::NoActiveLayer);
+            }
+        };
+
+        if current_layer != job.task_id {
+            warn!(
+                "Job {} claims layer {} but current layer is {}",
+                job, job.task_id, current_layer
+            );
+            return Ok(JobValidationStatus::WrongLayer {
+                expected: current_layer,
+                provided: job.task_id,
+            });
+        }
+
+        // Step 2: Trying to change message visibility, extending the visibility timeout
+        let queue_id = self.layer_queue_id(&job.task_id);
+
+        match self.rsmq.change_message_visibility(&queue_id, &job.msg_id, VISIBILITY_TIMEOUT).await {
+            Ok(_) => {
+                debug!(
+                    "Job {} validated: message {} is hidden and visibility extended",
+                    job, job.msg_id
+                );
+                Ok(JobValidationStatus::Valid)
+            }
+            Err(e) => {
+                // Failed - analyze the error to determine why
+                let error_str = e.to_string().to_lowercase();
+
+                if error_str.contains("not found") || error_str.contains("does not exist") {
+                    warn!(
+                        "Job {} validation failed: message {} not found in queue",
+                        job, job.msg_id
+                    );
+                    Ok(JobValidationStatus::MessageNotFound)
+                } else if error_str.contains("visible") || error_str.contains("not hidden") {
+                    warn!(
+                        "Job {} validation failed: message {} is visible (not being processed)",
+                        job, job.msg_id
+                    );
+                    Ok(JobValidationStatus::MessageNotHidden)
+                } else {
+                    // Unexpected error - propagate it
+                    error!("Unexpected error validating job {}: {}", job, e);
+                    Err(e)
+                }
+            }
+        }
     }
+
+    /// Simplified validation that just returns true/false
+    pub async fn is_job_valid(&self, job: &QJob) -> Result<bool> {
+        match self.validate_job_ownership(job).await? {
+            JobValidationStatus::Valid => Ok(true),
+            _ => Ok(false),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum JobValidationStatus {
+    Valid,
+    NoActiveLayer,
+    WrongLayer {
+        expected: LayerId,
+        provided: LayerId
+    },
+    MessageNotFound,
+    MessageNotHidden,
 }
 
 #[async_trait]
@@ -347,7 +395,7 @@ pub trait QProvingTaskStore {
     async fn save_task_topology_with_layers(&self, graph: Vec<JobsLayer>) -> Result<()>;
     async fn claim_job_from_current_layer(&self) -> Result<Option<QJob>>;
     async fn acknowledge_job_completion(&self, job: &QJob) -> Result<()>;
-    async fn get_current_layer_info(&self) -> Result<Option<TaskLayer>>;
+    async fn get_current_layer_info(&self) -> Result<Option<LayerId>>;
     async fn count_pending_jobs_in_current_layer(&self) -> Result<u64>;
 
     // Task graph management methods
@@ -392,7 +440,6 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
         // Step 3: Send all layers to the Redis list
         self.push_layers(&layers).await?;
-
         info!("Successfully saved {} layers", layers.len());
         Ok(())
     }
@@ -407,45 +454,22 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             }
         };
 
-        let queue_id = self.layer_queue_id(&current_layer.layer_id);
+        let queue_id = self.layer_queue_id(&current_layer);
 
         // Try to claim a job from the current layer's merged queue
         match self.rsmq.receive_object_with_id::<QJob>(&queue_id, Some(VISIBILITY_TIMEOUT)).await? {
             Some((job, msg_id)) => {
-                debug!("Claimed {} from layer {}", job, current_layer.layer_id);
+                debug!("Claimed {} from layer {}", job, current_layer);
                 Ok(Some(job.with_msg_id(msg_id)))
             }
             None => {
-                // The Current layer queue is empty, check if layer is complete
-                if self.is_layer_complete(&current_layer.layer_id).await? {
-                    info!("Layer {} completed, removing from list", current_layer.layer_id);
-
-                    // Pop the completed layer from head with verification
-                    match self.pop_current_layer(&current_layer.layer_id).await {
-                        Ok(_) => {
-                            // Successfully popped, try to claim from next layer
-                            if self.peek_current_layer().await?.is_some() {
-                                Box::pin(self.claim_job_from_current_layer()).await
-                            } else {
-                                info!("All layers completed");
-                                Ok(None)
-                            }
-                        }
-                        Err(e) => {
-                            error!("Failed to pop layer: {}. Abandoning task.", e);
-                            Ok(None)
-                        }
-                    }
-                } else {
-                    // Layer not complete but no jobs available (might be processing)
                     Ok(None)
-                }
             }
         }
     }
 
     async fn acknowledge_job_completion(&self, job: &QJob) -> Result<()> {
-        debug!("Acknowledging {}", job);
+        info!("Acknowledging job completion  {}", job);
 
         let queue_id = self.layer_queue_id(&job.task_id);
 
@@ -461,19 +485,51 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
             // Check if this is the current layer and remove it if complete
             if let Some(current_layer) = self.peek_current_layer().await? {
-                if current_layer.contains(&job.task_id) && self.is_layer_complete(&current_layer.layer_id).await? {
-                    match self.pop_current_layer(&current_layer.layer_id).await {
-                        Ok(_) => {
+                if current_layer == job.task_id && self.is_layer_complete(&job.task_id).await? {
+                    match self.pop_current_layer(&job.task_id).await {
+                        Ok(s) => {
+                            match s {
+                                Some(popped_layer) => {
+                                    // Actually popped the layer
+                                    info!("Successfully removed completed layer {} from list", popped_layer);
+
+                                    if let Some(next_layer) = self.peek_current_layer().await? {
+                                        info!("Next layer is {}", next_layer);
+                                    } else {
+                                        info!("All layers completed!");
+                                    }
+                                }
+                                None => {
+                                    // pop_current_layer returned Ok(None) - layer wasn't at top or didn't match
+                                    warn!(
+                                       "Layer {} is complete but couldn't be popped (not at top or already removed by another thread)",
+                                    job.task_id
+                                     );
+
+                                    // Debug: Check what's actually at the top
+                                    if let Some(actual_top) = self.peek_current_layer().await? {
+                                        warn!("Current top layer is actually: {}", actual_top);
+                                    }
+
+                                    // Print all layers for debugging
+                                    info!("⚠️ Layer pop returned None, debugging layers:");
+                                    self.debug_print_all_layers().await?;
+                                }
+                            }
                             info!("Removed completed layer {} from list", job.task_id);
 
                             if let Some(next_layer) = self.peek_current_layer().await? {
-                                info!("Next layer is {}", next_layer.layer_id);
+                                info!("Next layer is {}", next_layer);
                             } else {
-                                info!("All layers completed!");
+                                info!("All layers completed (final check)!");
                             }
                         }
                         Err(e) => {
                             error!("Failed to pop layer {}: {}. Layer will remain in list.", job.task_id, e);
+                            info!("❌ Failed to pop layer, debug_print start ");
+                            self.debug_print_all_layers().await?;
+                            info!("❌ Failed to pop layer, debug_print end ");
+
                         }
                     }
                 }
@@ -482,11 +538,11 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             debug!("Layer {} has {} remaining jobs", job.task_id, remaining);
         }
 
-        info!("Topology saved successfully");
+        info!("Job completion acknowledged successfully");
         Ok(())
     }
 
-    async fn get_current_layer_info(&self) -> Result<Option<TaskLayer>> {
+    async fn get_current_layer_info(&self) -> Result<Option<LayerId>> {
         self.peek_current_layer().await
     }
 
@@ -494,7 +550,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         let layer = self.peek_current_layer().await?
             .ok_or_else(|| anyhow!("No current layer"))?;
 
-        let queue_id = self.layer_queue_id(&layer.layer_id);
+        let queue_id = self.layer_queue_id(&layer);
         self.rsmq.get_queue_length(&queue_id).await
             .context("Failed to get queue length")
     }
@@ -562,39 +618,25 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
 // Implementation-specific methods
 impl QProvingTaskStoreImpl {
-    /// Get status of a specific layer
-    pub async fn get_layer_status(&self, layer_id: LayerId) -> Result<(usize, u64)> {
-        let layers = self.get_all_layers().await?;
-        let layer = layers.iter()
-            .find(|l| l.layer_id == layer_id)
-            .ok_or_else(|| anyhow!("Layer {} not found", layer_id))?;
 
-        let queue_id = self.layer_queue_id(&layer_id);
-        let pending = self.rsmq.get_queue_length(&queue_id).await?;
+    async fn layer_exists(&self, layer_id: &LayerId) -> Result<bool> {
+        let mut conn = self.redis_pool.get().await?;
+        let layers_key = self.layers_key();
+        let serialized = bincode::serialize(layer_id)?;
 
-        Ok((layer.task_ids.len(), pending))
+        // ZSCORE returns the score if member exists, None otherwise
+        let score: Option<f64> = conn.zscore(&layers_key, &serialized).await?;
+        Ok(score.is_some())
     }
+    /// Get the position (rank) of a layer in the sorted set
+    async fn get_layer_rank(&self, layer_id: &LayerId) -> Result<Option<isize>> {
+        let mut conn = self.redis_pool.get().await?;
+        let layers_key = self.layers_key();
+        let serialized = bincode::serialize(layer_id)?;
 
-    /// Manually remove current layer (for admin/debugging)
-    pub async fn force_complete_current_layer(&self) -> Result<()> {
-        if let Some(layer) = self.force_pop_current_layer().await? {
-            info!("Forcefully removed layer {} from list", layer.layer_id);
-
-            // Also clear its queue
-            let queue_id = self.layer_queue_id(&layer.layer_id);
-            let _ = self.rsmq.delete_queue(&queue_id).await;
-        }
-        Ok(())
-    }
-
-    /// Get all jobs from current layer (for monitoring)
-    pub async fn peek_current_layer_jobs(&self) -> Result<Vec<QJob>> {
-        let layer = self.peek_current_layer().await?
-            .ok_or_else(|| anyhow!("No current layer"))?;
-
-        let queue_id = self.layer_queue_id(&layer.layer_id);
-        // Note: This will drain the queue, use carefully!
-        self.rsmq.pop_all::<QJob>(&queue_id).await
+        // ZRANK returns 0-based rank (position) in ascending order
+        let rank: Option<isize> = conn.zrank(&layers_key, &serialized).await?;
+        Ok(rank)
     }
 
     /// Check how many layers are remaining
@@ -604,3 +646,51 @@ impl QProvingTaskStoreImpl {
 
 }
 
+
+impl QProvingTaskStoreImpl {
+    /// Print detailed debug information about all layers
+    pub async fn debug_print_all_layers(&self) -> Result<()> {
+        info!("=== Layer System Debug Report ===");
+
+        // Get all layers
+        let all_layers = self.get_all_layers().await?;
+        info!("Total layers in list: {}", all_layers.len());
+
+        // Get current layer
+        let current_layer = self.peek_current_layer().await?;
+        if let Some(ref current) = current_layer {
+            info!("Current layer (head): {}", current);
+        } else {
+            info!("No current layer (list is empty)");
+        }
+
+        // Print each layer with details
+        for (index, layer) in all_layers.iter().enumerate() {
+            let queue_id = self.layer_queue_id(&layer);
+            let queue_stats = self.rsmq.get_queue_stats(&queue_id).await?;
+
+            info!(
+                "Layer[{}]: {} {}",
+                index,
+                layer,
+                if current_layer.as_ref().map_or(false, |c| c == layer) {
+                    ">>> CURRENT <<<"
+                } else {
+                    ""
+                }
+            );
+            info!("  ID: {}", layer);
+            info!("  Queue statistics:");
+            info!("    - Total messages: {}", queue_stats.total_messages);
+            info!("    - Visible messages: {}", queue_stats.total_messages - queue_stats.hidden_messages);
+            info!("    - Hidden messages: {}", queue_stats.hidden_messages);
+            info!("    - Total sent: {}", queue_stats.total_sent);
+            info!("    - Total received: {}", queue_stats.total_received);
+
+        }
+
+        info!("=== End Debug Report ===");
+        Ok(())
+    }
+
+}

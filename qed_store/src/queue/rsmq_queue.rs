@@ -15,10 +15,12 @@ use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, HQSerializable,
     HistoryQueueMetadata, HistoryQueueMetadataTagged,
 };
-use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID, QWorkerJobBenchmark};
+use qed_core::job::id::{QProvingJobDataID, QWorkerJobBenchmark};
+use qed_core::job::traits::QProofStoreReaderAsync;
 use qed_core::job::worker_queue::{
     WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm,
 };
+use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use rsmq::{
     PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqConnectionSync, RsmqError,
     RsmqMessage, RsmqOptions, RsmqSync,
@@ -65,9 +67,9 @@ impl QueueId {
             QueueId::CheckpointDrain {
                 queue_biz_key,
                 channel_id,
-                checkpoint_id,
+                ..
             } => {
-                format!("{}-{}_{}", queue_biz_key, channel_id, checkpoint_id)
+                format!("{}-{}", queue_biz_key, channel_id)
             }
             QueueId::CheckpointHistory {
                 checkpoint_history_queue_prefix_key,
@@ -358,6 +360,25 @@ impl RsmqQueue {
             Err(err) => Err(err.into()),
         }
     }
+
+    pub async fn change_message_visibility(
+        &self,
+        queue: &QueueId,
+        message_id: &str,
+        visibility: Duration,
+    ) -> Result<()> {
+        let queue_id = queue.get_queue_id();
+
+        // RSMQ uses this Redis command internally
+        self.pool.change_message_visibility(
+            &queue_id,
+            message_id,
+            visibility
+        ).await?;
+
+        Ok(())
+    }
+
 }
 
 // ===== Task Queue Implementation =====
@@ -488,18 +509,55 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
     async fn cdq_drain_imm<T: DQSerializable>(
         &self,
         channel_id: u64,
-        checkpoint_id: u64,
     ) -> anyhow::Result<Vec<T>> {
         let queue_id = QueueId::CheckpointDrain {
             queue_biz_key: self.worker_queue_key().clone(),
             channel_id,
-            checkpoint_id,
+            checkpoint_id: 0,//todo remove this field
         };
         let mut members = vec![];
         while let Some(message) = self.pop_message(&queue_id).await? {
             members.push(message);
         }
         members.into_iter().map(|x| T::from_bytes(&x)).collect()
+    }
+
+    async fn cdq_peek_imm<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<Vec<T>> {
+        let queue_id = QueueId::CheckpointDrain {
+            queue_biz_key: self.worker_queue_key().clone(),
+            channel_id,
+            checkpoint_id: 0, // Not used for peeking
+        };
+        
+        let mut members = vec![];
+        let mut peeked_messages = vec![];
+        
+        // Receive messages with visibility timeout to peek at them
+        // We'll collect them and then change visibility back to 0
+        while let Some(msg) = self.receive_message_with_id(&queue_id, Some(Duration::from_secs(1))).await? {
+            let data = T::from_bytes(&msg.message)?;
+            members.push(data);
+            peeked_messages.push(msg.id);
+            
+            // Limit peek to reasonable amount to avoid blocking
+            if members.len() >= 100 {
+                break;
+            }
+        }
+        
+        // Reset visibility for all peeked messages to make them immediately available again
+        for msg_id in peeked_messages {
+            // Set visibility to 0 to make message immediately available
+            if let Err(e) = self.change_message_visibility(&queue_id, &msg_id, Duration::from_secs(0)).await {
+                // Log but don't fail - message might have been consumed by another process
+                debug!("Failed to reset visibility for message {}: {:?}", msg_id, e);
+            }
+        }
+        
+        Ok(members)
     }
 }
 
@@ -575,22 +633,6 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
             };
         }
     }
-
-    async fn is_empty(&self) -> anyhow::Result<bool> {
-        // Check if sync proof queue is empty
-        let queue_id = QueueId::SyncProof {
-            queue_biz_key: self.realm_sync_checkpoint_key().clone(),
-        };
-        match self
-            .pool
-            .get_queue_attributes(&queue_id.get_queue_id())
-            .await
-        {
-            Ok(attrs) => Ok(attrs.msgs == 0),
-            Err(RsmqError::QueueNotFound) => Ok(true),
-            Err(e) => Err(e.into()),
-        }
-    }
 }
 
 #[async_trait]
@@ -629,6 +671,85 @@ impl WorkerEventReceiverAsyncImm for RsmqQueue {
     }
 }
 
+// Implement QProofStoreReaderAsync for RsmqQueue 
+// Note: RsmqQueue doesn't have direct storage, so we provide stub implementations
+// In practice, a separate storage backend should be used alongside RsmqQueue
+#[async_trait]
+impl QProofStoreReaderAsync for RsmqQueue {
+    async fn contains_id(&self, _id: QProvingJobDataID) -> anyhow::Result<bool> {
+        // RsmqQueue is a queue-only implementation, not a storage backend
+        // This is a stub implementation - in production, use ProofStoreRedisAsync or ProofStoreFred
+        Ok(false)
+    }
+
+    async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        // RsmqQueue is a queue-only implementation, not a storage backend
+        // This is a stub implementation - in production, use ProofStoreRedisAsync or ProofStoreFred
+        Err(anyhow::anyhow!("RsmqQueue does not support proof storage. Use ProofStoreRedisAsync or ProofStoreFred for proof storage. Requested id: {:?}", id))
+    }
+
+    async fn get_bytes_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
+        // RsmqQueue is a queue-only implementation, not a storage backend
+        // This is a stub implementation - in production, use ProofStoreRedisAsync or ProofStoreFred
+        Err(anyhow::anyhow!("RsmqQueue does not support data storage. Use ProofStoreRedisAsync or ProofStoreFred for data storage. Requested id: {:?}", id))
+    }
+}
+
+#[async_trait]
+impl WorkerEventTransmitterAsyncImm for RsmqQueue {
+    async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
+        let queue_id = QueueId::WorkerEvent {
+            queue_biz_key: self.worker_queue_key().clone(),
+        };
+        for job in jobs {
+            let bytes = job.to_fixed_bytes().to_vec();
+            self.send_message(&queue_id, bytes).await?;
+        }
+        Ok(())
+    }
+
+    async fn wait_for_block_proving_jobs_imm(
+        &self,
+        _checkpoint_id: u64,
+    ) -> anyhow::Result<QProvingJobDataID> {
+        let queue_id = QueueId::WorkerNotification {
+            notifications_queue_suffix: self.notifications_queue_key().clone(),
+        };
+        loop {
+            if let Some(bytes) = self.pop_message(&queue_id).await? {
+                if bytes.len() == 24 {
+                    match QProvingJobDataID::try_from_byte_vec(&bytes) {
+                        Ok(job) => {
+                            if job.is_notify_complete() {
+                                return Ok(job);
+                            }
+                        }
+                        Err(err) => error!(
+                            "error deserializing job id in wait_for_block_proving_jobs_imm: {:?}",
+                            err
+                        ),
+                    }
+                }
+            }
+            sleep(Duration::from_millis(500)).await;
+        }
+    }
+    
+    async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
+        &self, 
+        job_id: QProvingJobDataID
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
+    where
+        C::Hasher: plonky2::plonk::config::AlgebraicHasher<C::F>
+    {
+        // RsmqQueue is a queue-only implementation, not a storage backend
+        // This is a stub implementation - in production, use ProofStoreRedisAsync or ProofStoreFred
+        Err(anyhow::anyhow!("RsmqQueue does not support proof storage. Use ProofStoreRedisAsync or ProofStoreFred for waiting on proofs. Requested job_id: {:?}", job_id))
+    }
+}
 
 // Sync queue types from worker_queue_redis
 pub const Q_HIDDEN: Option<Duration> = Some(Duration::from_secs(600));

@@ -1,5 +1,5 @@
 use std::{sync::Arc, time::Instant};
-
+use anyhow::bail;
 use kvq::traits::KVQPair;
 use plonky2::{
     field::
@@ -185,7 +185,6 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<CSTUserUpdate<QHashOut<F>>>(
                 CST_USER_UPDATE_CHANNEL_ID,
-                checkpoint_id,
             )
             .await?;
         tracing::debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
@@ -433,7 +432,6 @@ impl<
             .checkpoint_queue
             .cdq_drain_imm::<UserEndCapNonProofCoreInputQueueItem<F>>(
                 self.realm_config.guta_channel_id,
-                checkpoint_id,
             )
             .await?;
         tracing::debug!(guta_queue_items = ?guta_queue_items, "GUTA queue items for aggregation");
@@ -724,6 +722,12 @@ impl<
         info!("realm STARTED new block");
         self.task_store.clear_task_graph().await?;
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
+        info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
+        let has_tasks = self.has_pending_tasks(new_checkpoint_id).await?;
+        if !has_tasks {
+            bail!("No pending tasks for checkpoint {}, skipping block construction", new_checkpoint_id);
+        }
         // todo fix the bug!!!
         let pending_users = if self.pending_register_users.len() > 32 {
             self.pending_register_users.split_off(self.pending_register_users.len() - 32)
@@ -732,10 +736,8 @@ impl<
             self.pending_register_users = vec![];
             q
         };
-        let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
-        info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
         let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
-        tracing::info!(guta_jobs = ?guta_jobs, "Generated GUTA jobs");
+        println!("guta_jobs: {:?}",guta_jobs);
         let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
         let res = GUTARealmCheckpointResult{
             checkpoint_id: new_checkpoint_id,
@@ -757,5 +759,43 @@ impl<
 
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())
+    }
+
+    /// Check if there are pending tasks for the given checkpoint
+    pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
+        // Check if there are pending user registrations in the internal list
+        if !self.pending_register_users.is_empty() {
+            info!("Found {} pending user registrations in internal list", self.pending_register_users.len());
+            return Ok(true);
+        }
+
+        // Check if there are user operations in the GUTA queue
+        let guta_queue_items = self
+            .checkpoint_queue
+            .cdq_peek_imm::<UserEndCapNonProofCoreInputQueueItem<F>>(
+                self.realm_config.guta_channel_id,
+            )
+            .await?;
+
+        if !guta_queue_items.is_empty() {
+            info!("Found {} pending GUTA queue items", guta_queue_items.len());
+            return Ok(true);
+        }
+
+        // Check for contract state updates
+        let cst_updates = self
+            .checkpoint_queue
+            .cdq_peek_imm::<CSTUserUpdate<QHashOut<F>>>(
+                CST_USER_UPDATE_CHANNEL_ID,
+            )
+            .await?;
+
+        if !cst_updates.is_empty() {
+            info!("Found {} pending contract state updates", cst_updates.len());
+            return Ok(true);
+        }
+
+        info!("No pending tasks found for checkpoint {}", checkpoint_id);
+        Ok(false)
     }
 }

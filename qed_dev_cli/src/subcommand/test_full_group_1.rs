@@ -153,7 +153,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?;
     timer.lap("sent requests");
 
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
 
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
         _,
@@ -236,7 +236,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         )
         .await?;
 
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
         _,
         _,
@@ -437,7 +437,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
             &realm_proof,
         )
         .await?;
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
         _,
         _,

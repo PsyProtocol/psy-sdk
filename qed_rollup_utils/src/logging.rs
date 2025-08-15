@@ -17,7 +17,7 @@ pub fn setup_logging(log_level: String) -> anyhow::Result<()> {
             .with_file(true)
             .with_line_number(true)
             .with_target(true)
-            .with_ansi(true)
+            .with_ansi(false)
     } else {
         tracing_subscriber::fmt::layer()
             .with_thread_ids(false)
@@ -25,7 +25,7 @@ pub fn setup_logging(log_level: String) -> anyhow::Result<()> {
             .with_file(false)
             .with_line_number(false)
             .with_target(false)
-            .with_ansi(true)
+            .with_ansi(false)
     };
 
     tracing_subscriber::registry()

@@ -136,7 +136,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?;
     timer.lap("sent requests");
 
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
 
     let realm_config = RealmConfig::get_standard(0, 0);
 
@@ -189,7 +189,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         circuit_type:realm_result.proof_id.circuit_type,
     }, &realm_proof).await?;
 
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
 
     let latest=store_reader.get_latest_l2_block_state().await?;
     let new_sync = store_reader.get_checkpoint_sync_info_compact(latest.checkpoint_id).await?;
@@ -353,7 +353,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         checkpoint_tree_root: realm_result.checkpoint_tree_root,
         circuit_type:realm_result.proof_id.circuit_type,
     }, &realm_proof).await?;
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
 
 
     let latest=store_reader.get_latest_l2_block_state().await?;

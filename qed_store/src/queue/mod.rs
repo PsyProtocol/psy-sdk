@@ -7,7 +7,7 @@ pub mod task_queue;
 pub use pool::{new_fred_pool, new_redis_async_pool};
 pub use rsmq_queue::*;
 pub use fred_queue::{DrainQueueFred, ProofStoreFred};
-pub use redis_queue::{ProofStoreRedisAsync, Queue, SyncCheckpointQueue, BizKey, QueuePrefixKey};
+pub use redis_queue::{ProofStoreRedisAsync, BizKey, QueuePrefixKey};
 pub mod worker_queue_redis {
     pub mod redis_queue {
         pub use crate::queue::rsmq_queue::{

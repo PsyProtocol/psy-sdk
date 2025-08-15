@@ -2,11 +2,15 @@ pub mod simple_async_coord;
 pub mod simple_async_realm;
 pub mod worker_state;
 
+use qed_core::data::qhashout::QHashOut;
 use qed_core::job::{
     id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
     traits::QProofStoreReaderAsync,
 };
-use qed_crypto::common::worker::QNextGenWorkerGenericProverAsyncMut;
+use plonky2::field::goldilocks_field::GoldilocksField;
+use qed_crypto::common::{
+    simple_circuit_library::SimpleCircuitLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
+};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::{sync::Arc, time::Duration};
 use tracing::{debug, error, info, warn};
@@ -17,16 +21,20 @@ use crate::common::{
     verifier::get_cached_generic_verifier,
 };
 
-use qed_core::data::qhashout::QHashOut;
-use plonky2::field::goldilocks_field::GoldilocksField;
-
 pub async fn run_worker(edge_urls: Vec<String>, worker_public_key: QHashOut<GoldilocksField>) -> anyhow::Result<()> {
+    let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
+    let prover = Arc::new(QEDCoordinatorCircuitManager::<C, D>::new_with_library(
+        &proof_verifier.library,
+        worker_public_key,
+    ));
+    let library = Arc::new(proof_verifier.library.clone());
     for edge_url in edge_urls {
         info!("Running worker for edge: {}", edge_url);
         let job_client = JobClient::new(edge_url).await?;
-        let worker_key = worker_public_key;
+        let prover = prover.clone();
+        let library = library.clone();
         tokio::spawn(async move {
-            run_scheduler_worker(job_client.clone(), job_client, worker_key)
+            run_scheduler_worker(prover, library, job_client.clone(), job_client, worker_public_key)
                 .await
                 .expect("Failed to run scheduler worker");
         });
@@ -35,13 +43,12 @@ pub async fn run_worker(edge_urls: Vec<String>, worker_public_key: QHashOut<Gold
 }
 
 async fn run_scheduler_worker(
+    prover: Arc<QEDCoordinatorCircuitManager<C, D>>,
+    library: Arc<SimpleCircuitLibrary<F>>,
     job_receiver: impl JobReceiver,
     store: impl QProofStoreReaderAsync + Send + Sync,
     worker_public_key: QHashOut<GoldilocksField>,
 ) -> anyhow::Result<()> {
-    let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
-    let prover = QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, worker_public_key);
-    let library = &proof_verifier.library;
     loop {
         tokio::time::sleep(Duration::from_millis(500)).await;
         let job = match job_receiver.get_next_job().await {
@@ -52,14 +59,18 @@ async fn run_scheduler_worker(
                 continue;
             }
         };
-        debug!("Received job, task: {}", job.task_id);
+
+        debug!("Received job, layer: {}", job.task_id);
         let job_id = job.job_id;
         if !should_prove_job(job_id) {
             info!("skipping job proving: {:?}", job_id);
             job_receiver.submit_job_proof(job, None).await?;
             continue;
         }
-        match prover.worker_prove_mut_async(&store, library, job_id).await {
+        match prover
+            .worker_prove_mut_async(&store, library.as_ref(), job_id)
+            .await
+        {
             Ok(proof) => {
                 info!("Proved job: job_id={:?}", job_id);
                 if let Err(e) = job_receiver.submit_job_proof(job, Some(proof)).await {

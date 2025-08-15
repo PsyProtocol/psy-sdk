@@ -3966,6 +3966,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "auto_impl",
  "axum 0.8.4",
  "bb8",
  "bb8-redis",

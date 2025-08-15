@@ -3,6 +3,7 @@ use crate::config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROO
 use crate::data::qhashout::QHashOut;
 use crate::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
 use crate::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged};
+use crate::utils::graph::BidirectionalGraph;
 use anyhow::{Context, Result};
 use hex::FromHexError;
 use indexmap::{IndexMap, IndexSet};
@@ -18,6 +19,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 type F = GoldilocksField;
@@ -424,7 +426,7 @@ pub struct QProvingTask {
 
 impl QProvingTask {
     pub fn new(job_ids: &[QProvingJobDataID]) -> Self {
-        let task_id = TaskId::new_debug();
+        let task_id = TaskId::new();
         Self {
             task_id,
             job_ids: job_ids.to_vec(),
@@ -438,7 +440,7 @@ impl QProvingTask {
 static DEBUG_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct TaskId(Uuid);
+pub struct TaskId(pub Uuid);
 
 impl TaskId {
     pub fn new() -> Self {
@@ -524,7 +526,6 @@ impl AsRef<Uuid> for TaskId {
         &self.0
     }
 }
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Color {
     White,
@@ -642,137 +643,59 @@ impl<'de> Deserialize<'de> for JobProof {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QProvingTaskGraph {
-    pub tasks: IndexMap<TaskId, QProvingTask>,
-    pub dependencies: IndexMap<TaskId, IndexSet<TaskId>>,
-    pub dependents: IndexMap<TaskId, IndexSet<TaskId>>,
+    pub tasks: HashMap<TaskId, QProvingTask>,
+    pub graph: BidirectionalGraph<TaskId>,
 }
 
 impl QProvingTaskGraph {
     pub fn new() -> Self {
         Self {
-            tasks: IndexMap::new(),
-            dependencies: IndexMap::new(),
-            dependents: IndexMap::new(),
+            tasks: HashMap::new(),
+            graph: BidirectionalGraph::new(),
         }
     }
 
     pub fn clear(&mut self) {
         self.tasks.clear();
-        self.dependencies.clear();
-        self.dependents.clear();
+        self.graph.clear();
     }
 
     pub fn add_task(&mut self, task: QProvingTask) {
         let task_id = task.task_id();
         self.tasks.insert(task_id, task);
+        self.graph.add_node(task_id);
     }
 
     pub fn add_dep(&mut self, task: QProvingTask, dep_task: QProvingTask) {
-        self.dependencies
-            .entry(task.task_id())
-            .or_default()
-            .insert(dep_task.task_id());
-        self.dependents
-            .entry(dep_task.task_id())
-            .or_default()
-            .insert(task.task_id());
+        self.graph.add_edge(task.task_id(), dep_task.task_id());
         self.add_task(task);
         self.add_task(dep_task);
     }
 
-    pub fn ts_inner(
-        &self,
-        task: TaskId,
-        colors: &mut IndexMap<TaskId, Color>,
-        visitor: &mut impl FnMut(TaskId),
-    ) {
-        colors.insert(task, Color::Grey);
-        if let Some(deps) = self.dependencies.get(&task) {
-            for &dep in deps {
-                match colors.get(&dep) {
-                    Some(Color::Grey) => panic!("cycle detected"),
-                    Some(Color::Black) => {
-                        return;
-                    }
-                    None => self.ts_inner(dep, colors, visitor),
-                    _ => {}
-                }
-            }
-        }
-        visitor(task);
-        colors.insert(task, Color::Black);
-    }
-
     pub fn ts(&self) -> Vec<TaskId> {
-        let mut sorted = Vec::new();
-        let mut colors = IndexMap::new();
-
-        for &task_id in self.tasks.keys() {
-            if !colors.contains_key(&task_id) {
-                self.ts_inner(task_id, &mut colors, &mut |task| sorted.push(task));
-            }
-        }
-        sorted
+        let ts_order = self.graph.ts_order();
+        ts_order.into_iter().flatten().collect()
     }
 
     pub fn ts_layers(&self) -> Vec<JobsLayer> {
-        let mut in_degrees: IndexMap<TaskId, usize> = self
-            .tasks
-            .keys()
-            .map(|&task_id| {
-                let degree = self.dependencies.get(&task_id).map_or(0, |deps| deps.len());
-                (task_id, degree)
-            })
-            .collect();
-
-        let mut current_layer: Vec<TaskId> = in_degrees
-            .iter()
-            .filter_map(|(&task_id, &degree)| if degree == 0 { Some(task_id) } else { None })
-            .collect();
-
         let mut sorted_layers = Vec::new();
-        let mut processed_tasks_count = 0;
-
-        while !current_layer.is_empty() {
-            processed_tasks_count += current_layer.len();
-
+        let ts_order = self.graph.ts_order();
+        for current_layer in ts_order {
             let layer_id = LayerId::new();
             let mut job_ids = Vec::new();
             let task_ids = current_layer.clone();
-
             for &task_id in &task_ids {
                 if let Some(task) = self.tasks.get(&task_id) {
                     job_ids.extend(task.job_ids.clone());
                 }
             }
-
             sorted_layers.push(JobsLayer {
                 layer_id,
                 task_ids: task_ids.clone(),
                 job_ids,
             });
-
-            let mut next_layer = Vec::new();
-            for &task_id in &current_layer {
-                if let Some(dependents) = self.dependents.get(&task_id) {
-                    for &dependent_id in dependents {
-                        let degree = in_degrees.get_mut(&dependent_id).unwrap();
-                        *degree -= 1;
-                        if *degree == 0 {
-                            next_layer.push(dependent_id);
-                        }
-                    }
-                }
-            }
-
-            current_layer = next_layer;
         }
-
-        if processed_tasks_count != self.tasks.len() {
-            panic!("Cycle detected in the task graph.");
-        } else {
-            sorted_layers
-        }
+        sorted_layers
     }
 
     pub fn get_task(&self, task_id: TaskId) -> Option<&QProvingTask> {
@@ -841,10 +764,9 @@ impl QProvingTaskGraph {
                 });
             }
 
-            let parent_info = self.dependents
-                .get(&current_task_id)
+            let parent_info = self.graph.get_dependents(&current_task_id)
                 .and_then(|parents| parents.iter().next())
-                .and_then(|&parent_id| {
+                .and_then(|parent_id| {
                     let parent_task = &self.tasks[&parent_id];
                     parent_task.job_ids.iter()
                         .position(|&id| {
@@ -855,7 +777,7 @@ impl QProvingTaskGraph {
                                 id == parent_task.job_ids[current_job_index / 2]
                             }
                         })
-                        .map(|idx| (parent_id, idx))
+                        .map(|idx| (parent_id.clone(), idx))
                 });
 
             match parent_info {
@@ -924,7 +846,7 @@ impl QProvingTaskGraph {
 
         let mut current_level = Vec::new();
         for &task_id in self.tasks.keys() {
-            if !self.dependencies.contains_key(&task_id) || self.dependencies[&task_id].is_empty() {
+            if self.graph.get_dependencies(&task_id).map_or(true, |deps| deps.is_empty()) {
                 current_level.push(task_id);
                 processed.insert(task_id);
             }
@@ -940,9 +862,9 @@ impl QProvingTaskGraph {
             let mut next_level = Vec::new();
 
             for &task_id in &current_level {
-                if let Some(parent_tasks) = self.dependents.get(&task_id) {
+                if let Some(parent_tasks) = self.graph.get_dependents(&task_id) {
                     for &parent_task_id in parent_tasks {
-                        if let Some(parent_deps) = self.dependencies.get(&parent_task_id) {
+                        if let Some(parent_deps) = self.graph.get_dependencies(&parent_task_id) {
                             if parent_deps.iter().all(|dep| processed.contains(dep)) {
                                 if !processed.contains(&parent_task_id) {
                                     next_level.push(parent_task_id);
@@ -1735,10 +1657,20 @@ mod tests {
             current = QHashOut(PoseidonHash::two_to_one(hash_array[0], hash_array[1]));
         }
 
+        // Convert Vec to array
+        let mut siblings_array = [JobProofSibling {
+            hash: QHashOut::ZERO,
+            is_left: false,
+        }; 32];
+        for (i, sibling) in siblings.iter().enumerate() {
+            if i < 32 {
+                siblings_array[i] = sibling.clone();
+            }
+        }
+        
         let proof = JobProof {
-            job_id,
             value,
-            siblings,
+            siblings: siblings_array,
             root: current,
         };
 
@@ -1746,7 +1678,6 @@ mod tests {
 
         // Test with wrong root
         let wrong_proof = JobProof {
-            job_id,
             value,
             siblings: proof.siblings.clone(),
             root: QHashOut::from_values(0, 0, 0, 0),
