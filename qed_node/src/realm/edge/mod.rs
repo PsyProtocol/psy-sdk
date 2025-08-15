@@ -3,7 +3,7 @@ pub mod handler;
 pub mod rpc;
 mod sync;
 
-use super::handler::spawn_realm_job_update_task;
+use crate::realm::edge::sync::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
 use super::{config::RealmEdgeConfig, C, D};
 use crate::common::jobs::JobSchedulerRpcServer;
@@ -107,8 +107,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         "Realm Edge node started on {}",
         config.rpc.listen_addr.clone()
     );
-
-    let proof_store = creat_redis_store(config.clone()).await?;
 
     // Spawn task to send proof to coordinator
     spawn_realm_job_update_task(
