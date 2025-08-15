@@ -498,7 +498,7 @@ impl WalletSession {
                     tracing::info!("create new user session manager");
                     *user_session_mgr = UserSessionStateManager::new(
                         user_session_mgr.user_id,
-                        latest_nonce,
+                        user_session_mgr.nonce,
                         latest_l2_block_state.checkpoint_id,
                         self.st_provider.clone(),
                         self.circuit_info.clone(),
@@ -829,6 +829,9 @@ impl WalletSession {
             .rpc_provider
             .submit_end_cap_proof::<F>(req)
             .await?;
+
+        // update nonce
+        user_session_mgr.nonce = nonce + F::from_noncanonical_u64(1);
 
         Ok(())
     }
