@@ -11,6 +11,8 @@ use std::{
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
+use qed_crypto::hash::traits::qhashable::QFieldHashable as _;
+use qed_data::config::store_config::QEDHasher;
 use serde_json;
 use tokio::time;
 use tracing::{error, info, warn};
@@ -389,11 +391,7 @@ fn run_transfer_task_sync(
 
         let duration = start.elapsed().as_millis() as u64;
         stats.record_transaction(success, duration);
-
-        // Increment groups completed counter if transaction was successful
-        if success {
-            task_completed.fetch_add(1, Ordering::Relaxed);
-        }
+        task_completed.fetch_add(1, Ordering::Relaxed);
         transaction_count += 1;
     }
 
@@ -424,26 +422,22 @@ fn execute_transfer_transaction_sync(
     println!("pk_hash_to: {}", pk_hash_to);
 
     wallet_session.st_provider.produce_block::<F>()?;
-    thread::sleep(Duration::from_secs(30));
+    thread::sleep(Duration::from_secs(40));
     info!("🔑 Task {} - Registered user_from and user_to", task_id);
 
     wallet_session.add_user(private_key_from)?;
     wallet_session.add_user(private_key_to)?;
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;
-    // let pk_info_from = wallet_session.wallet.get_zk_pk_info(private_key_from)?;
-    // let pk_hash_from = pk_info_from.qfhash::<QEDHasher>();
+    let pk_info_from = wallet_session.wallet.get_zk_pk_info(private_key_from)?;
+    let pk_hash_from = pk_info_from.qfhash::<QEDHasher>();
     // println!("pk_hash_from: {}", pk_hash_from);
     let user_id_from = wallet_session.st_provider.get_user_id(pk_hash_from)?;
-    // let pk_info_to = wallet_session.wallet.get_zk_pk_info(private_key_to)?;
-    // let pk_hash_to = pk_info_to.qfhash::<QEDHasher>();
-    // println!("pk_hash_to: {}", pk_hash_to);
+    info!("👥 Task {} - User_id_from: {}", task_id, user_id_from);
+    let pk_info_to = wallet_session.wallet.get_zk_pk_info(private_key_to)?;
+    let pk_hash_to = pk_info_to.qfhash::<QEDHasher>();
     let user_id_to = wallet_session.st_provider.get_user_id(pk_hash_to)?;
-
-    info!(
-        "👥 Task {} - Registered user_id_from {} and user_id_to {} to wallet",
-        task_id, user_id_from, user_id_to
-    );
+    info!("👥 Task {} - User_id_to: {}", task_id, user_id_to);
 
     let mint_amount = 1000u64;
     info!(

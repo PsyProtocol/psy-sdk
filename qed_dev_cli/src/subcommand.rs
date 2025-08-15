@@ -70,6 +70,9 @@ pub enum Commands {
     
     #[command(about = "Launch QED network for development (inspired by polkadot-launch)")]
     Launch(LaunchArgs),
+
+    #[command(about = "Run stress test by continuously sending transactions")]
+    StressTest(StressTestArgs),
 }
 
 #[derive(Parser)]

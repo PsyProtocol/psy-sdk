@@ -55,6 +55,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::Launch(args) => {
             subcommand::launch::run(args).await?;
         }
+        Commands::StressTest(args) => {
+            subcommand::stress_test::run(args).await?;
+        }
     }
     
     Ok(())
