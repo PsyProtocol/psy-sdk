@@ -25,7 +25,7 @@ use crate::{
 };
 use dashmap::DashMap;
 use plonky2::{
-    field::{goldilocks_field::GoldilocksField, types::Field},
+    field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}},
     hash::poseidon::PoseidonHash,
     plonk::config::PoseidonGoldilocksConfig,
 };
@@ -486,6 +486,12 @@ impl WalletSession {
 
                 if latest_nonce == user_session_mgr.nonce
                     && latest_l2_block_state.checkpoint_id == user_session_mgr.current_checkpoint_id
+                    && user_session_mgr
+                        .mgr
+                        .current_ups_header
+                        .current_state
+                        .tx_count
+                        == F::ZERO
                 {
                     tracing::info!("user session manager already exists");
                 } else {
@@ -933,7 +939,7 @@ mod tests {
 
         let circuit_defs =
             serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(
-                Path::new(&project_path).join("../examples/target/examples.json.bak"),
+                Path::new(&project_path).join("../examples/target/examples.json"),
             )?)?;
 
         let mut wallet_session = super::WalletSession::new(&rpc_config)?;
@@ -944,13 +950,13 @@ mod tests {
         let user0 = wallet_session.register_user(private_key0)?;
         let user8388608 = wallet_session.register_user(private_key8388608)?;
 
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
 
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
 
         // add user0
         wallet_session.add_user(private_key0)?;
@@ -968,10 +974,10 @@ mod tests {
             }],
         )?;
 
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
 
         // user0 transfer 500 to user8388608
         wallet_session.exec_contract_call(
@@ -983,10 +989,10 @@ mod tests {
             }],
         )?;
 
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
 
         // user8388608 claim
         wallet_session.exec_contract_call(
@@ -998,10 +1004,10 @@ mod tests {
             }],
         )?;
 
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
 
         // user8388608 transfer 500 to user0
         wallet_session.exec_contract_call(
@@ -1013,10 +1019,10 @@ mod tests {
             }],
         )?;
 
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
 
         Ok(())
     }
@@ -1040,7 +1046,7 @@ mod tests {
         let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 
         let circuit_defs = serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(
-            &std::fs::read_to_string(Path::new(&project_path).join("../examples/target/.bak"))?,
+            &std::fs::read_to_string(Path::new(&project_path).join("../examples/target/examples.json"))?,
         )?;
 
         let mut wallet_session = super::WalletSession::new(&rpc_config)?;
@@ -1053,13 +1059,13 @@ mod tests {
         let user0 = wallet_session.register_user(private_key0)?;
         let user8388608 = wallet_session.register_user(private_key8388608)?;
 
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
 
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
 
         // add user0
         wallet_session.add_user(private_key0)?;
@@ -1077,10 +1083,10 @@ mod tests {
             }],
         )?;
 
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
 
         // user0 mint 1000 contract 1
         wallet_session.exec_contract_call(
@@ -1092,10 +1098,10 @@ mod tests {
             }],
         )?;
 
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
-        wallet_session.st_provider.produce_block::<F>()?;
-        thread::sleep(Duration::from_secs(10));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
+        // wallet_session.st_provider.produce_block::<F>()?;
+        thread::sleep(Duration::from_secs(20));
 
         Ok(())
     }
