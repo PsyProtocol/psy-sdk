@@ -59,8 +59,15 @@ pub fn run(args: RegisterUserArgs) -> Result<()> {
         SoftwareDefinedSignatureCircuit::<C, D, SoftwareDefinedSignatureGadget>::new(&sdc_input);
 
     // Parse private key
-    let private_key_base = QHashOut::<GoldilocksField>::from_str(&args.private_key)
-        .map_err(|e| anyhow::format_err!("Failed to parse private key: {}", e))?;
+    let private_key_base = match &args.private_key {
+        Some(key) => QHashOut::<GoldilocksField>::from_str(&key)
+            .map_err(|e| anyhow::format_err!("Failed to parse private key: {}", e))?,
+        None => {
+            let private_key = QHashOut::rand();
+            tracing::info!("random private key {:?}", private_key.to_string());
+            private_key
+        }
+    };
     // Get public key info
     let public_key_param = match SignType::from(args.sign_type.clone()) {
         SignType::ZKSign => SimpleQEDPrivateKey {
@@ -110,6 +117,9 @@ pub fn run(args: RegisterUserArgs) -> Result<()> {
     // Output the result
     let public_key_hash = public_key_info.qfhash::<QEDHasher>();
     println!("{{");
+    if args.private_key.is_none() {
+        println!("  \"private_key\": \"{}\",", private_key_base);
+    }
     println!("  \"public_key_hash\": \"{}\",", public_key_hash);
     println!("  \"fingerprint\": \"{}\",", public_key_info.fingerprint);
     println!(

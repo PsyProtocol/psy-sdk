@@ -212,7 +212,6 @@ impl
         .await?;
 
         use qed_core::config::network_constants::get_default_worker_public_key;
-        let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let coordinator_worker_circuits =
             QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<F>());
 

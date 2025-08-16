@@ -21,7 +21,7 @@ pub struct RegisterUserArgs {
     pub rpc_config: String,
     /// user private key
     #[clap(long, short)]
-    pub private_key: String,
+    pub private_key: Option<String>,
     #[clap(long, short, default_value = "zk")]
     pub sign_type: SignType,
     /// optional fingerprint (defaults to standard circuit fingerprint)
