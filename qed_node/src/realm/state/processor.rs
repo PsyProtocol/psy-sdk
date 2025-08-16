@@ -717,6 +717,26 @@ impl<
         Ok((levels, guta, res.link_proof))
     }
 
+    pub async fn plan_jobs(
+        &mut self,
+        new_checkpoint_id: u64,
+        guta_jobs: &Vec<Vec<QProvingJobDataID>>,
+        finished_job: QProvingJobDataID,
+    ) -> anyhow::Result<()> {
+        let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
+        let finished_job_task = QProvingTask::new(&[finished_job]);
+        self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
+        
+        self.task_store.finalize_and_save_topology().await?;
+
+        let task_graph = self.task_store.get_task_graph().await;
+        self.task_store.save_job_dependency_graph(&task_graph, new_checkpoint_id).await
+            .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
+        tracing::info!("Saved realm job dependency graph for checkpoint {}", new_checkpoint_id);
+        
+        Ok(())
+    }
+
     pub async fn build_block(&mut self) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("realm STARTED new block");
@@ -747,15 +767,8 @@ impl<
             proof_id: **(guta_jobs.last().as_ref().unwrap().last().as_ref().unwrap()),
         };
         self.proof_store.set_bytes_by_id(finished_job, &bincode::serialize(&res).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
-        let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
-        let finished_job_task = QProvingTask::new(&[finished_job]);
-        self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
-        self.task_store.finalize_and_save_topology().await?;
-
-        let task_graph = self.task_store.get_task_graph().await;
-        self.task_store.save_job_dependency_graph(&task_graph, new_checkpoint_id).await
-            .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
-        tracing::info!("Saved realm job dependency graph for checkpoint {}", new_checkpoint_id);
+        // Plan the job dependency graph
+        self.plan_jobs(new_checkpoint_id, &guta_jobs, finished_job).await?;
 
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(())
