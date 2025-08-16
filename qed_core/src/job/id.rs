@@ -412,7 +412,7 @@ pub struct QWorkerJobBenchmark {
 
 type LayerId = TaskId;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct JobsLayer {
+pub struct QProvingTaskLayer {
     pub layer_id: LayerId,
     pub task_ids: Vec<TaskId>,
     pub job_ids: Vec<QProvingJobDataID>,
@@ -677,7 +677,7 @@ impl QProvingTaskGraph {
         ts_order.into_iter().flatten().collect()
     }
 
-    pub fn ts_layers(&self) -> Vec<JobsLayer> {
+    pub fn ts_layers(&self) -> Vec<QProvingTaskLayer> {
         let mut sorted_layers = Vec::new();
         let ts_order = self.graph.ts_order();
         for current_layer in ts_order {
@@ -689,7 +689,7 @@ impl QProvingTaskGraph {
                     job_ids.extend(task.job_ids.clone());
                 }
             }
-            sorted_layers.push(JobsLayer {
+            sorted_layers.push(QProvingTaskLayer {
                 layer_id,
                 task_ids: task_ids.clone(),
                 job_ids,

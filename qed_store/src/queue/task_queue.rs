@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use scylla::_macro_internal::SerializeRow;
 use tracing::{debug, error, info, trace, warn};
-use qed_core::job::id::{JobsLayer, QProvingTask, QProvingTaskGraph, QProvingJobDataID, TaskId};
+use qed_core::job::id::{QProvingTaskLayer, QProvingTask, QProvingTaskGraph, QProvingJobDataID, TaskId};
 use tokio::sync::Mutex;
 use crate::queue::{new_redis_async_pool, QueueId, QueueStats, RsmqQueue};
 
@@ -135,7 +135,7 @@ impl QProvingTaskStoreImpl {
     }
 
     /// Push layers to the tail of the list
-    async fn push_layers(&self, layers: &[JobsLayer]) -> Result<()> {
+    async fn push_layers(&self, layers: &[QProvingTaskLayer]) -> Result<()> {
         if layers.is_empty() {
             return Ok(());
         }
@@ -392,7 +392,7 @@ pub enum JobValidationStatus {
 
 #[async_trait]
 pub trait QProvingTaskStore {
-    async fn save_task_topology_with_layers(&self, graph: Vec<JobsLayer>) -> Result<()>;
+    async fn save_task_topology_with_layers(&self, graph: Vec<QProvingTaskLayer>) -> Result<()>;
     async fn claim_job_from_current_layer(&self) -> Result<Option<QJob>>;
     async fn acknowledge_job_completion(&self, job: &QJob) -> Result<()>;
     async fn get_current_layer_info(&self) -> Result<Option<LayerId>>;
@@ -412,7 +412,7 @@ pub trait QProvingTaskStore {
 
 #[async_trait]
 impl QProvingTaskStore for QProvingTaskStoreImpl {
-    async fn save_task_topology_with_layers(&self, layers: Vec<JobsLayer>) -> Result<()> {
+    async fn save_task_topology_with_layers(&self, layers: Vec<QProvingTaskLayer>) -> Result<()> {
         info!("Saving task topology with layer support");
 
         // Step 1: Create an RSMQ queue for each layer and send jobs
