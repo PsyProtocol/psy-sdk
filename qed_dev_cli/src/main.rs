@@ -61,6 +61,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::QHash(args) => {
             subcommand::qhash::run(args)?;
         }
+        Commands::StressTest(args) => {
+            subcommand::stress_test::run(args).await?;
+        }
     }
     
     Ok(())

@@ -3,10 +3,10 @@ use super::rpc::RealmEdgeRpcServer;
 use crate::common::jobs::{JobSchedulerRpcServer};
 use crate::common::ConcreteProofWithPublicInputs;
 use crate::realm::state::edge::RealmEdgeContext;
-use crate::realm::{C, D, F, H};
+use crate::realm::{C, D, F};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
-use jsonrpsee::http_client::{HeaderMap, HeaderValue};
+use jsonrpsee::http_client::{HeaderMap, HeaderValue, HttpClient, HttpClientBuilder};
 use jsonrpsee::rpc_params;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{field::types::PrimeField64, plonk::proof::ProofWithPublicInputs};
@@ -37,7 +37,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use anyhow::anyhow;
 use jsonrpsee::types::{ErrorCode, ErrorObject};
-use tokio::sync::Mutex;
+
 use tracing::{debug, error, info, warn};
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob};
 

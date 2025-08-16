@@ -1,3 +1,4 @@
+use std::env;
 use crate::realm::F;
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,10 +8,22 @@ use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use serde::{Serialize, Deserialize};
 use tracing::{info, error, warn, debug};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use http::{HeaderMap, HeaderValue};
+use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::plonk::proof::ProofWithPublicInputs;
+use qed_core::config::network_constants::REALM_PROOF_SYNC_CHANNEL;
+use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_data::models::checkpoint::sync_info::CheckpointError;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_core::job::history_queue::{CheckpointHistoryQueueEmitterAsyncImm, CheckpointHistoryQueueConsumerAsyncImm};
+use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
+use qed_core::job::traits::QProofStoreAsyncImm;
+use qed_data::config::store_config::QEDFelt;
+use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
+use qed_rollup_utils::generate_jwt_token;
+use qed_store::queue::ProofStoreRedisAsync;
+use crate::realm::state::edge::RealmEdgeContext;
 
 const SYNC_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -228,4 +241,210 @@ pub async fn spawn_active_checkpoint_sync_task<
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LatestCheckpointResponse {
     pub checkpoint_id: u64,
+}
+
+pub async fn spawn_realm_job_update_task<
+    SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+    DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
+    PS: QProofStoreAsyncImm + Sync + Send + 'static,
+>(
+    proof_store: Arc<ProofStoreRedisAsync>,
+    realm_id: u64,
+    coordinator_addr: String,
+    ctx: Arc<RealmEdgeContext<SR, DQ, PS>>,
+    retry_config: Option<RetryConfig>,
+) -> Result<()> {
+    info!("realm job listener spawned");
+
+    // Create RealmProofSender instance once
+    let proof_sender = Arc::new(RealmProofSender::new(realm_id, coordinator_addr, retry_config)?);
+    let mut last_checkpoint = match ctx.get_checkpoint_id_async().await {
+        Ok(checkpoint) => {
+            let next_checkpoint = checkpoint + 1;
+            info!("Starting realm job update task from checkpoint: {} (latest local: {})", next_checkpoint, checkpoint);
+            next_checkpoint
+        },
+        Err(e) => {
+            warn!("Failed to get latest local checkpoint, starting from 0: {}", e);
+            0u64
+        }
+    };
+    tokio::spawn(async move {
+        loop {
+            // Listen for new proof job IDs from the history queue
+            match proof_store
+                .wait_for_next_item_imm::<ProvingJobDataId>(
+                    REALM_PROOF_SYNC_CHANNEL,
+                    last_checkpoint,
+                )
+                .await
+            {
+                Ok(job_id) => {
+                    info!(?job_id, "Received proof from realm processor");
+                    last_checkpoint = job_id.checkpoint_id + 1;
+
+                    // Use the RealmProofSender instance
+                    if let Err(err) = proof_sender.send_proof(ctx.proof_store.clone(), job_id).await {
+                        error!("Failed to send realm proof: {:?}", err);
+                    }
+                }
+                Err(err) => {
+                    error!("Error getting job_id from history queue: {:?}", err);
+                    // Avoid busy waiting on error
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                }
+            }
+        }
+    });
+    Ok(())
+}
+
+/// Configuration for retry mechanisms in RealmProofSender
+#[derive(Clone, Debug)]
+pub struct RetryConfig {
+    pub max_retries: u32,
+    pub base_delay_ms: u64,
+    pub exponential_backoff: bool,
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_retries: 5,
+            base_delay_ms: 1000,
+            exponential_backoff: true,
+        }
+    }
+}
+
+/// Handles sending realm proofs to coordinator with optimized HTTP client reuse and retry mechanisms
+pub struct RealmProofSender {
+    realm_id: u64,
+    http_client: HttpClient,
+    retry_config: RetryConfig,
+}
+
+impl RealmProofSender {
+    /// Create a new RealmProofSender instance
+    pub fn new(realm_id: u64, coordinator_addr: String, retry_config: Option<RetryConfig>) -> Result<Self> {
+        let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set in .env");
+        let jwt_token = generate_jwt_token(&secret, realm_id)?;
+        let bearer_token_value = format!("Bearer {}", jwt_token);
+        let header_value = HeaderValue::from_str(&bearer_token_value)?;
+
+        let mut headers = HeaderMap::new();
+        headers.insert("Authorization", header_value);
+
+        let http_client = HttpClientBuilder::default()
+            .set_headers(headers)
+            .build(&coordinator_addr)?;
+
+        Ok(Self {
+            realm_id,
+            http_client,
+            retry_config: retry_config.unwrap_or_default(),
+        })
+    }
+
+    /// Generic retry function for any async operation
+    async fn retry_with_backoff<T, F, Fut, E>(&self, operation_name: &str, mut operation: F) -> Result<T>
+    where
+        F: FnMut() -> Fut,
+        Fut: std::future::Future<Output =std::result::Result<T, E>>,
+        E: std::fmt::Debug,
+    {
+        for attempt in 0..self.retry_config.max_retries {
+            match operation().await {
+                Ok(result) => return Ok(result),
+                Err(err) => {
+                    error!("{} failed: {:?}, attempt {}/{}", operation_name, err, attempt + 1, self.retry_config.max_retries);
+
+                    if attempt < self.retry_config.max_retries - 1 {
+                        let delay = if self.retry_config.exponential_backoff {
+                            Duration::from_millis(self.retry_config.base_delay_ms * 2_u64.pow(attempt))
+                        } else {
+                            Duration::from_millis(self.retry_config.base_delay_ms)
+                        };
+                        tokio::time::sleep(delay).await;
+                    }
+                }
+            }
+        }
+
+        Err(anyhow!("{} failed after {} attempts", operation_name, self.retry_config.max_retries))
+    }
+
+    /// Send realm proof to coordinator with unified retry mechanism
+    pub async fn send_proof<PS: QProofStoreAsyncImm>(
+        &self,
+        proof_store: Arc<PS>,
+        job_info: ProvingJobDataId,
+    ) -> Result<()> {
+        info!(?job_info.job_id, "send_realm_proof start");
+        // Get bytes with retry
+        // let bytes = self.get_bytes_with_retry(proof_store.clone(), job_info.job_id).await?;
+        let bytes = proof_store.get_bytes_by_id(job_info.job_id).await?;
+        // Deserialize realm result
+        let realm_result: GUTARealmCheckpointResult<QEDFelt> = bincode::deserialize(&bytes)?;
+        // Get proof with retry
+        let proof =  proof_store.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
+        // let proof = self.get_proof_with_retry(proof_store, realm_result.proof_id.get_output_id()).await?;
+        let input = SubmitGUTARealmResultAPINoProofInput::<QEDFelt> {
+            realm_id: self.realm_id,
+            checkpoint_id: realm_result.checkpoint_id,
+            guta_stats: realm_result.guta_stats,
+            top_line_proof: realm_result.top_line_proof,
+            checkpoint_tree_root: realm_result.checkpoint_tree_root,
+            circuit_type: realm_result.proof_id.circuit_type,
+        };
+        // Submit with retry
+        self.submit_with_retry(input, proof).await
+    }
+
+    /// Get bytes from proof store with retry mechanism
+    async fn get_bytes_with_retry<PS: QProofStoreAsyncImm>(
+        &self,
+        proof_store: Arc<PS>,
+        job_id: QProvingJobDataID,
+    ) -> Result<Vec<u8>> {
+        self.retry_with_backoff("get_bytes_by_id", || async {
+            match proof_store.get_bytes_by_id(job_id).await {
+                Ok(bytes) if !bytes.is_empty() => Ok(bytes),
+                Ok(_) => {
+                    Err(anyhow!("empty bytes"))
+                }
+                Err(err) => Err(err),
+            }
+        }).await
+    }
+
+    /// Get proof from proof store with retry mechanism
+    async fn get_proof_with_retry<PS: QProofStoreAsyncImm>(
+        &self,
+        proof_store: Arc<PS>,
+        proof_id: QProvingJobDataID,
+    ) -> Result<ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>> {
+        self.retry_with_backoff("get_proof_by_id", || async {
+            proof_store.get_proof_by_id(proof_id).await
+        }).await
+    }
+
+    /// Submit request to coordinator with retry mechanism
+    async fn submit_with_retry(
+        &self,
+        input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
+        proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
+    ) -> Result<()> {
+        self.retry_with_backoff("submit_guta_proof", || async {
+            info!("Sending job to coordinator");
+            let params = rpc_params![input.clone(), proof.clone()];
+            match self.http_client.request::<String, _>("qed_submit_guta", params).await {
+                Ok(result) => {
+                    info!("Successfully submitted job to coordinator, result: {}", result);
+                    Ok(())
+                }
+                Err(err) => Err(err),
+            }
+        }).await
+    }
 }
