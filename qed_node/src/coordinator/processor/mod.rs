@@ -231,11 +231,11 @@ impl
     pub async fn build_block_inner(&mut self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<()> {
         info!("Building block for checkpoint {}", next_checkpoint_id);
         let now = Instant::now();
-        
+
         // Build block (task graph is handled inside ctx.build_block)
         self.ctx.build_block(slot).await?;
         info!("✅ Built block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
-        
+
         // Wait for all proving jobs to complete
         let prove_start = Instant::now();
         info!("🐶 Waiting for block proving jobs");
@@ -244,14 +244,14 @@ impl
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)
             .await?;
         info!("✅ Proved block {} in {}ms", next_checkpoint_id, prove_start.elapsed().as_millis());
-        
+
         Ok(())
     }
 
     pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<u64> {
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
-        
+
         // Check if there are pending tasks for this checkpoint
         if !self.ctx.has_pending_tasks(next_checkpoint_id).await
             .map_err(|e| anyhow::anyhow!("Failed to check pending tasks: {:?}", e))? {

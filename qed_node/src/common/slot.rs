@@ -15,13 +15,13 @@ pub trait Clock {
 // #[auto_impl(&, Box, Arc)]
 pub trait Slot: Clock {
     /// Convert a timestamp to its corresponding slot number
-    /// 
+    ///
     /// # Arguments
     /// * `timestamp` - The timestamp in milliseconds to convert
-    /// 
+    ///
     /// # Returns
     /// The slot number corresponding to the given timestamp
-    /// 
+    ///
     /// # Example
     /// ```
     /// let slot = clock.get_slot_from_timestamp(1753891200000); // Returns 0
@@ -31,13 +31,13 @@ pub trait Slot: Clock {
     }
 
     /// Convert a slot number to its start timestamp
-    /// 
+    ///
     /// # Arguments
     /// * `slot` - The slot number to convert
-    /// 
+    ///
     /// # Returns
     /// The start timestamp (in milliseconds) of the specified slot
-    /// 
+    ///
     /// # Example
     /// ```
     /// let timestamp = clock.get_timestamp_from_slot(1); // Returns SLOT0_TIMESTAMP + SLOT_SIZE
@@ -47,10 +47,10 @@ pub trait Slot: Clock {
     }
 
     /// Get the current slot number based on the current timestamp
-    /// 
+    ///
     /// # Returns
     /// The current slot number
-    /// 
+    ///
     /// # Example
     /// ```
     /// let current_slot = clock.get_current_slot();
@@ -60,10 +60,10 @@ pub trait Slot: Clock {
     }
 
     /// Get the start timestamp of the current slot
-    /// 
+    ///
     /// # Returns
     /// The start timestamp of the current slot in milliseconds
-    /// 
+    ///
     /// # Example
     /// ```
     /// let current_slot_start = clock.get_current_slot_timestamp();
@@ -73,10 +73,10 @@ pub trait Slot: Clock {
     }
 
     /// Get the start timestamp of the next slot
-    /// 
+    ///
     /// # Returns
     /// The start timestamp of the next slot in milliseconds
-    /// 
+    ///
     /// # Example
     /// ```
     /// let next_slot_start = clock.get_next_slot_timestamp();
@@ -86,10 +86,10 @@ pub trait Slot: Clock {
     }
 
     /// Calculate the remaining time until the next slot starts
-    /// 
+    ///
     /// # Returns
     /// The remaining time in milliseconds until the next slot starts
-    /// 
+    ///
     /// # Example
     /// ```
     /// let remaining_time = clock.get_retain_time_to_next_slot();
@@ -99,10 +99,10 @@ pub trait Slot: Clock {
     }
 
     /// Calculate the elapsed time within the current slot
-    /// 
+    ///
     /// # Returns
     /// The elapsed time in milliseconds since the current slot started
-    /// 
+    ///
     /// # Example
     /// ```
     /// let elapsed_time = clock.get_current_slot_elapsed_time();
@@ -112,13 +112,13 @@ pub trait Slot: Clock {
     }
 
     /// Calculate the remaining time until a specific slot starts
-    /// 
+    ///
     /// # Arguments
     /// * `slot` - The target slot number
-    /// 
+    ///
     /// # Returns
     /// `Ok(remaining_time)` if the slot is in the future, `Err` if the slot is in the past
-    /// 
+    ///
     /// # Example
     /// ```
     /// match clock.get_retain_time_to_slot(5) {
@@ -134,10 +134,10 @@ pub trait Slot: Clock {
     }
 
     /// Check if there is enough time to reach the next slot considering network cost
-    /// 
+    ///
     /// # Returns
     /// `true` if the remaining time is less than or equal to NETWORK_COST_TIME_MS
-    /// 
+    ///
     /// # Example
     /// ```
     /// if clock.is_can_reach_to_next_slot() {
@@ -149,14 +149,14 @@ pub trait Slot: Clock {
     }
 
     /// Check if there is enough time to reach a specific slot considering network cost
-    /// 
+    ///
     /// # Arguments
     /// * `slot` - The target slot number
-    /// 
+    ///
     /// # Returns
     /// `Ok(true)` if there is enough time to reach the slot, `Ok(false)` if not enough time,
     /// `Err` if the slot is in the past
-    /// 
+    ///
     /// # Example
     /// ```
     /// match clock.is_can_reach_to_slot(5) {
@@ -169,10 +169,10 @@ pub trait Slot: Clock {
     }
 
     /// Get the start timestamp of the previous slot
-    /// 
+    ///
     /// # Returns
     /// The start timestamp of the previous slot. If current slot is 0, returns the same as current slot
-    /// 
+    ///
     /// # Example
     /// ```
     /// let prev_slot_start = clock.get_previous_slot_timestamp();
@@ -182,13 +182,13 @@ pub trait Slot: Clock {
     }
 
     /// Get the end timestamp of a specific slot
-    /// 
+    ///
     /// # Arguments
     /// * `slot` - The slot number
-    /// 
+    ///
     /// # Returns
     /// The end timestamp of the specified slot (inclusive)
-    /// 
+    ///
     /// # Example
     /// ```
     /// let slot_end = clock.get_slot_end_timestamp(5);
@@ -198,14 +198,14 @@ pub trait Slot: Clock {
     }
 
     /// Check if a timestamp falls within a specific slot
-    /// 
+    ///
     /// # Arguments
     /// * `timestamp` - The timestamp to check
     /// * `slot` - The slot number to check against
-    /// 
+    ///
     /// # Returns
     /// `true` if the timestamp is within the specified slot, `false` otherwise
-    /// 
+    ///
     /// # Example
     /// ```
     /// let is_in_slot = clock.is_in_slot(1753891200000, 0);
@@ -215,10 +215,10 @@ pub trait Slot: Clock {
     }
 
     /// Calculate the remaining time in the current slot
-    /// 
+    ///
     /// # Returns
     /// The remaining time in milliseconds until the current slot ends
-    /// 
+    ///
     /// # Example
     /// ```
     /// let remaining_in_slot = clock.get_current_slot_remaining_time();
@@ -228,14 +228,14 @@ pub trait Slot: Clock {
     }
 
     /// Calculate the number of slots between two slot numbers
-    /// 
+    ///
     /// # Arguments
     /// * `from_slot` - The starting slot number
     /// * `to_slot` - The ending slot number
-    /// 
+    ///
     /// # Returns
     /// The number of slots between the two slot numbers (inclusive of to_slot, exclusive of from_slot)
-    /// 
+    ///
     /// # Example
     /// ```
     /// let slot_count = clock.get_slots_between(1, 5); // Returns 4
@@ -245,10 +245,10 @@ pub trait Slot: Clock {
     }
 
     /// Get the duration of a slot in milliseconds
-    /// 
+    ///
     /// # Returns
     /// The duration of a slot in milliseconds
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// let duration = clock.get_slot_duration(); // Returns 6000
@@ -258,13 +258,13 @@ pub trait Slot: Clock {
     }
 
     /// Check if a timestamp is valid
-    /// 
+    ///
     /// # Arguments
     /// * `timestamp` - The timestamp to validate
-    /// 
+    ///
     /// # Returns
     /// `true` if the timestamp is valid, `false` otherwise
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// let is_valid = clock.is_valid_timestamp(1753891200000); // Returns true
@@ -275,14 +275,14 @@ pub trait Slot: Clock {
     }
 
     /// Check if two timestamps are consecutive (in consecutive slots)
-    /// 
+    ///
     /// # Arguments
     /// * `timestamp1` - The first timestamp
     /// * `timestamp2` - The second timestamp
-    /// 
+    ///
     /// # Returns
     /// `true` if the timestamps are in consecutive slots, `false` otherwise
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// let are_consecutive = clock.are_timestamps_consecutive(1753891200000, 1753897200000); // Returns true
@@ -295,14 +295,14 @@ pub trait Slot: Clock {
     }
 
     /// Check if two timestamps are in the same slot
-    /// 
+    ///
     /// # Arguments
     /// * `timestamp1` - The first timestamp
     /// * `timestamp2` - The second timestamp
-    /// 
+    ///
     /// # Returns
     /// `true` if the timestamps are in the same slot, `false` otherwise
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// let same_slot = clock.are_timestamps_in_same_slot(1753891200000, 1753893000000); // Returns true
@@ -315,14 +315,14 @@ pub trait Slot: Clock {
     }
 
     /// Get the slot difference between two timestamps
-    /// 
+    ///
     /// # Arguments
     /// * `timestamp1` - The first timestamp
     /// * `timestamp2` - The second timestamp
-    /// 
+    ///
     /// # Returns
     /// The number of slots between the two timestamps
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// let slot_diff = clock.get_timestamp_slot_difference(1753891200000, 1753903200000); // Returns 2
@@ -335,14 +335,14 @@ pub trait Slot: Clock {
     }
 
     /// Get the time difference between two slots
-    /// 
+    ///
     /// # Arguments
     /// * `slot1` - The first slot number
     /// * `slot2` - The second slot number
-    /// 
+    ///
     /// # Returns
     /// The time difference in milliseconds between the two slots
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// let time_diff = clock.get_slot_time_difference(0, 5); // Returns 30000 (5 * SLOT_SIZE)
@@ -475,7 +475,7 @@ mod tests {
     #[test]
     fn test_get_retain_time_to_slot() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        
+
         // Test valid slot
         let result = clock.get_retain_time_to_slot(1);
         assert!(result.is_ok());
@@ -516,7 +516,7 @@ mod tests {
     #[test]
     fn test_is_can_reach_to_slot() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        
+
         // Test valid future slot with enough time
         let result = clock.is_can_reach_to_slot(1);
         assert!(result.is_ok());
@@ -557,10 +557,10 @@ mod tests {
     #[test]
     fn test_local_clock() {
         use crate::common::slot::LocalClock;
-        
+
         let clock = LocalClock;
         let timestamp = clock.get_current_timestamp();
-        
+
         // Verify timestamp is reasonable (not too old, not too far in future)
         let now = chrono::Utc::now().timestamp_millis() as u64;
         assert!(timestamp >= now - 1000); // Within 1 second
@@ -584,7 +584,7 @@ mod tests {
     #[test]
     fn test_get_slot_end_timestamp() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        
+
         assert_eq!(clock.get_slot_end_timestamp(0), SLOT0_TIMESTAMP + SLOT_SIZE - 1);
         assert_eq!(clock.get_slot_end_timestamp(1), SLOT0_TIMESTAMP + SLOT_SIZE * 2 - 1);
         assert_eq!(clock.get_slot_end_timestamp(10), SLOT0_TIMESTAMP + SLOT_SIZE * 11 - 1);
@@ -593,17 +593,17 @@ mod tests {
     #[test]
     fn test_is_in_slot() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        
+
         // Test timestamp in slot 0
         assert!(clock.is_in_slot(SLOT0_TIMESTAMP, 0));
         assert!(clock.is_in_slot(SLOT0_TIMESTAMP + SLOT_SIZE / 2, 0));
         assert!(clock.is_in_slot(SLOT0_TIMESTAMP + SLOT_SIZE - 1, 0));
-        
+
         // Test timestamp in slot 1
         assert!(clock.is_in_slot(SLOT0_TIMESTAMP + SLOT_SIZE, 1));
         assert!(clock.is_in_slot(SLOT0_TIMESTAMP + SLOT_SIZE + SLOT_SIZE / 2, 1));
         assert!(clock.is_in_slot(SLOT0_TIMESTAMP + SLOT_SIZE * 2 - 1, 1));
-        
+
         // Test timestamp not in slot
         assert!(!clock.is_in_slot(SLOT0_TIMESTAMP + SLOT_SIZE, 0));
         assert!(!clock.is_in_slot(SLOT0_TIMESTAMP, 1));
@@ -626,7 +626,7 @@ mod tests {
     #[test]
     fn test_get_slots_between() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        
+
         assert_eq!(clock.get_slots_between(0, 5), 5);
         assert_eq!(clock.get_slots_between(5, 10), 5);
         assert_eq!(clock.get_slots_between(0, 0), 0);
@@ -655,15 +655,15 @@ mod tests {
     #[test]
     fn test_are_timestamps_consecutive() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        
+
         // Test consecutive slots
         assert!(clock.are_timestamps_consecutive(SLOT0_TIMESTAMP, SLOT0_TIMESTAMP + SLOT_SIZE));
         assert!(clock.are_timestamps_consecutive(SLOT0_TIMESTAMP + SLOT_SIZE, SLOT0_TIMESTAMP + SLOT_SIZE * 2));
-        
+
         // Test non-consecutive slots
         assert!(!clock.are_timestamps_consecutive(SLOT0_TIMESTAMP, SLOT0_TIMESTAMP + SLOT_SIZE * 2));
         assert!(!clock.are_timestamps_consecutive(SLOT0_TIMESTAMP + SLOT_SIZE, SLOT0_TIMESTAMP));
-        
+
         // Test same slot
         assert!(!clock.are_timestamps_consecutive(SLOT0_TIMESTAMP, SLOT0_TIMESTAMP + 1000));
     }
@@ -671,15 +671,15 @@ mod tests {
     #[test]
     fn test_are_timestamps_in_same_slot() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        
+
         // Test same slot
         assert!(clock.are_timestamps_in_same_slot(SLOT0_TIMESTAMP, SLOT0_TIMESTAMP + 1000));
         assert!(clock.are_timestamps_in_same_slot(SLOT0_TIMESTAMP + 1000, SLOT0_TIMESTAMP + 2000));
-        
+
         // Test different slots
         assert!(!clock.are_timestamps_in_same_slot(SLOT0_TIMESTAMP, SLOT0_TIMESTAMP + SLOT_SIZE));
         assert!(!clock.are_timestamps_in_same_slot(SLOT0_TIMESTAMP + SLOT_SIZE, SLOT0_TIMESTAMP));
-        
+
         // Test edge cases
         assert!(clock.are_timestamps_in_same_slot(SLOT0_TIMESTAMP, SLOT0_TIMESTAMP + SLOT_SIZE - 1));
         assert!(!clock.are_timestamps_in_same_slot(SLOT0_TIMESTAMP + SLOT_SIZE - 1, SLOT0_TIMESTAMP + SLOT_SIZE));
@@ -688,12 +688,12 @@ mod tests {
     #[test]
     fn test_get_timestamp_slot_difference() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        
+
         // Test slot differences
         assert_eq!(clock.get_timestamp_slot_difference(SLOT0_TIMESTAMP, SLOT0_TIMESTAMP + SLOT_SIZE), 1);
         assert_eq!(clock.get_timestamp_slot_difference(SLOT0_TIMESTAMP, SLOT0_TIMESTAMP + SLOT_SIZE * 5), 5);
         assert_eq!(clock.get_timestamp_slot_difference(SLOT0_TIMESTAMP + SLOT_SIZE * 5, SLOT0_TIMESTAMP), 5);
-        
+
         // Test same slot
         assert_eq!(clock.get_timestamp_slot_difference(SLOT0_TIMESTAMP, SLOT0_TIMESTAMP + 1000), 0);
         assert_eq!(clock.get_timestamp_slot_difference(SLOT0_TIMESTAMP + 1000, SLOT0_TIMESTAMP), 0);
@@ -702,7 +702,7 @@ mod tests {
     #[test]
     fn test_get_slot_time_difference() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        
+
         // Test time differences
         assert_eq!(clock.get_slot_time_difference(0, 1), SLOT_SIZE);
         assert_eq!(clock.get_slot_time_difference(1, 0), SLOT_SIZE);
@@ -710,7 +710,7 @@ mod tests {
         assert_eq!(clock.get_slot_time_difference(5, 0), SLOT_SIZE * 5);
         assert_eq!(clock.get_slot_time_difference(10, 15), SLOT_SIZE * 5);
         assert_eq!(clock.get_slot_time_difference(15, 10), SLOT_SIZE * 5);
-        
+
         // Test same slot
         assert_eq!(clock.get_slot_time_difference(5, 5), 0);
     }

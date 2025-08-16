@@ -267,7 +267,7 @@ impl RealmProcessor {
         // Build block (task graph is handled inside context.build_block())
         context.build_block().await?;
         info!("Build block {} time: {} ms", next_checkpoint_id, now.elapsed().as_millis());
-        
+
         // Wait for proving jobs to complete
         let prove_start = Instant::now();
         let realm_worker_output_job_id = self

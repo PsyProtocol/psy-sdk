@@ -772,7 +772,7 @@ impl<
         user_registration_jobs: &Vec<Vec<QProvingJobDataID>>,
         deploy_jobs: &Vec<Vec<QProvingJobDataID>>,
         guta_jobs: &Vec<Vec<QProvingJobDataID>>,
-    ) -> anyhow::Result<(QProvingJobDataID, QProvingJobDataID, QProvingJobDataID, QProvingJobDataID, QProvingJobDataID)> {
+    ) -> anyhow::Result<(QProvingJobDataID, QProvingJobDataID)> {
         let notify_block_complete = QProvingJobDataID::notify_block_complete(new_checkpoint_id);
         let root_state_transition =
             QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id);
@@ -834,12 +834,15 @@ impl<
         self.task_store.write_multidimensional_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
         self.task_store.write_multidimensional_tasks(&guta_tasks, &guta_agg_task).await?;
 
-        Ok((state_part_1_id, root_state_transition, register_users_agg_job_id, deploy_contracts_agg_job_id, guta_agg_job_id))
+        Ok((state_part_1_id, root_state_transition))
     }
 
     pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("coordinator STARTED new block");
+        
+        self.task_store.clear_task_graph().await?;
+
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
@@ -856,10 +859,19 @@ impl<
         ) = self.handle_user_registrations(new_checkpoint_id).await?;
 
         let (guta_jobs, guta_transition) = self.handle_guta_from_realms(new_checkpoint_id).await?;
-
-        println!("new_checkpoint_id: {}",new_checkpoint_id);
         
-        let (state_part_1_id, root_state_transition, register_users_agg_job_id, deploy_contracts_agg_job_id, guta_agg_job_id) = self.plan_jobs(
+        let root_deploy_job = deploy_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No deploy contract jobs found"))?;
+        let rooot_user_registration_job = user_registration_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No user registration jobs found"))?;
+        let root_guta_job = guta_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No GUTA jobs found"))?;
+
+        tracing::info!(new_checkpoint_id = new_checkpoint_id, "Building new checkpoint");
+        let (state_part_1_id, root_state_transition) = self.plan_jobs(
             new_checkpoint_id,
             &user_registration_jobs,
             &deploy_jobs,
@@ -872,16 +884,6 @@ impl<
         self.task_store.save_job_dependency_graph(&task_graph, new_checkpoint_id).await
             .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
         tracing::info!("Saved job dependency graph for checkpoint {}", new_checkpoint_id);
-
-        let rooot_user_registration_job = user_registration_jobs.last()
-            .and_then(|jobs| jobs.last())
-            .ok_or_else(|| anyhow::anyhow!("No user registration jobs found"))?;
-        let root_deploy_job = deploy_jobs.last()
-            .and_then(|jobs| jobs.last())
-            .ok_or_else(|| anyhow::anyhow!("No deploy contract jobs found"))?;
-        let root_guta_job = guta_jobs.last()
-            .and_then(|jobs| jobs.last())
-            .ok_or_else(|| anyhow::anyhow!("No GUTA jobs found"))?;
 
         debug!("Waiting for user registration aggregation job to complete for checkpoint {}", new_checkpoint_id);
         let register_users_proof = self.prover_queue

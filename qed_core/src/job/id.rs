@@ -736,12 +736,16 @@ impl QProvingTaskGraph {
             return Err(anyhow::anyhow!("Invalid proof public inputs length"));
         };
 
-        let mut siblings = Vec::new();
+        let mut siblings = [JobProofSibling {
+            hash: QHashOut::ZERO,
+            is_left: false,
+        }; 32];
+        let mut sibling_count = 0;
         let mut current_task_id = leaf_task_id;
         let mut current_job_index = leaf_job_index;
         let mut current_level = leaf_level;
 
-        while current_level < task_levels.len() - 1 {
+        while current_level < task_levels.len() - 1 && sibling_count < 32 {
             let current_task = &self.tasks[&current_task_id];
             let current_job = current_task.job_ids[current_job_index];
 
@@ -758,10 +762,11 @@ impl QProvingTaskGraph {
                 let mut elements = [F::ZERO; 4];
                 elements.copy_from_slice(&sibling_proof.public_inputs[0..4]);
 
-                siblings.push(JobProofSibling {
+                siblings[sibling_count] = JobProofSibling {
                     hash: QHashOut(HashOut { elements }),
                     is_left: idx < current_job_index,
-                });
+                };
+                sibling_count += 1;
             }
 
             let parent_info = self.graph.get_dependents(&current_task_id)
@@ -782,17 +787,18 @@ impl QProvingTaskGraph {
 
             match parent_info {
                 Some((parent_id, parent_idx)) => {
-                    if sibling_idx.is_some() {
+                    if sibling_idx.is_some() && sibling_count < 32 {
                         let parent_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> =
                             proof_store.get_proof_by_id(self.tasks[&parent_id].job_ids[parent_idx].get_output_id()).await?;
 
                         if parent_proof.public_inputs.len() >= 8 {
                             let mut elements = [F::ZERO; 4];
                             elements.copy_from_slice(&parent_proof.public_inputs[4..8]);
-                            siblings.push(JobProofSibling {
+                            siblings[sibling_count] = JobProofSibling {
                                 hash: QHashOut(HashOut { elements }),
                                 is_left: false,
-                            });
+                            };
+                            sibling_count += 1;
                         }
                     }
 
@@ -804,23 +810,11 @@ impl QProvingTaskGraph {
             }
         }
 
-        let root = self.compute_root_from_proof(&leaf_value, &siblings);
-
-        // Pad siblings to fixed size with zero hashes
-        let mut siblings_array = [JobProofSibling {
-            hash: QHashOut::ZERO,
-            is_left: false,
-        }; 32];
-
-        for (i, sibling) in siblings.iter().enumerate() {
-            if i < 32 {
-                siblings_array[i] = sibling.clone();
-            }
-        }
+        let root = self.compute_root_from_proof(&leaf_value, &siblings[..sibling_count]);
 
         Ok(JobProof {
             value: leaf_value,
-            siblings: siblings_array,
+            siblings,
             root,
         })
     }
