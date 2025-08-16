@@ -116,9 +116,7 @@ pub trait CheckpointDrainQueueConsumerAsyncImm {
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Vec<T>>;
-    
-    /// Peek at items in the queue without consuming them
-    /// Returns the items that would be drained by cdq_drain_imm
+
     async fn cdq_peek_imm<T: DQSerializable>(
         &self,
         channel_id: u64,

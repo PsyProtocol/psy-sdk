@@ -96,7 +96,7 @@ impl QProvingTaskStoreImpl {
         );
 
         let rsmq = Arc::new(
-            RsmqQueue::new(redis_url, pool_size, "job_task_store")
+            RsmqQueue::new(redis_url, pool_size, "task_store")
                 .await
                 .context("Failed to create RSMQ queue")?
         );

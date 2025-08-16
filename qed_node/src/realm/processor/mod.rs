@@ -46,7 +46,7 @@ pub struct RealmProcessor {
     pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
     pub store: Arc<JournalStore<QEDStore>>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub job_task_store: Arc<QProvingTaskStoreImpl>,
+    pub task_store: Arc<QProvingTaskStoreImpl>,
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: u64,
 }
@@ -87,7 +87,7 @@ impl RealmProcessor {
             sync_checkpoint,
             store: store_reader,
             proof_verifier,
-            job_task_store: Arc::new(task_store),
+            task_store: Arc::new(task_store),
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: 0,
         };
@@ -112,7 +112,7 @@ impl RealmProcessor {
             realm_qps.clone(),
             realm_qps.clone(),
             realm_qps.clone(),
-            self.job_task_store.clone(),
+            self.task_store.clone(),
             self.proof_verifier.clone(),
         ).await?;
         info!("Realm Processor started");
@@ -264,20 +264,17 @@ impl RealmProcessor {
         next_checkpoint_id: u64,
     ) -> anyhow::Result<ProvingJobDataId> {
         let now = Instant::now();
+        // Build block (task graph is handled inside context.build_block())
         context.build_block().await?;
         info!("Build block {} time: {} ms", next_checkpoint_id, now.elapsed().as_millis());
-        let now = Instant::now();
-        {
-            let task_graph = self.job_task_store.get_task_graph().await;
-            let sorted_tasks = task_graph.ts_layers();
-            self.job_task_store.save_task_topology_with_layers(sorted_tasks).await?;
-            self.job_task_store.clear_task_graph().await?;
-        }
+        
+        // Wait for proving jobs to complete
+        let prove_start = Instant::now();
         let realm_worker_output_job_id = self
             .sync_proof
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)
             .await?;
-        info!("Prove block {} time: {}ms", next_checkpoint_id, now.elapsed().as_millis());
+        info!("Prove block {} time: {}ms", next_checkpoint_id, prove_start.elapsed().as_millis());
         Ok(ProvingJobDataId::new(
             next_checkpoint_id,
             realm_worker_output_job_id,

@@ -766,33 +766,13 @@ impl<
         Ok((levels, guta))
     }
 
-    pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<()> {
-        let start = Instant::now();
-        info!("coordinator STARTED new block");
-        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
-        let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
-        let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
-        //let last_user_tree_root = self.store.get_user_tree_root(last_l2_blockstate.checkpoint_id).await?;
-
-        //let state_roots = self.store.get_checkpoint_global_state_roots(last_l2_blockstate.checkpoint_id).await?;
-        let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
-        let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
-        info!("💥 coordinator processor build block checkpoint_id: {}", new_checkpoint_id);
-        let (deploy_jobs, deploy_transition, next_contract_id) =
-            self.handle_deploy_contracts(new_checkpoint_id).await?;
-        let (
-            user_registration_jobs,
-            user_registration_transition,
-            new_accounts,
-            regsitered_users_start_pivot_siblings,
-        ) = self.handle_user_registrations(new_checkpoint_id).await?;
-
-
-
-        let (guta_jobs, guta_transition) = self.handle_guta_from_realms(new_checkpoint_id).await?;
-
-        println!("new_checkpoint_id: {}",new_checkpoint_id);
-
+    pub async fn plan_jobs(
+        &mut self,
+        new_checkpoint_id: u64,
+        user_registration_jobs: &Vec<Vec<QProvingJobDataID>>,
+        deploy_jobs: &Vec<Vec<QProvingJobDataID>>,
+        guta_jobs: &Vec<Vec<QProvingJobDataID>>,
+    ) -> anyhow::Result<(QProvingJobDataID, QProvingJobDataID, QProvingJobDataID, QProvingJobDataID, QProvingJobDataID)> {
         let notify_block_complete = QProvingJobDataID::notify_block_complete(new_checkpoint_id);
         let root_state_transition =
             QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id);
@@ -801,6 +781,7 @@ impl<
         self.task_store
             .write_next_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
+        
         let op_agg_group_parts_common_id = 6;
         let state_part_1_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(
             new_checkpoint_id,
@@ -817,6 +798,7 @@ impl<
         self.task_store
             .write_next_tasks(&state_part_1_task, &state_part_1_common_task)
             .await?;
+        
         let op_agg_group_part_1_id = 11;
         let register_users_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(
             new_checkpoint_id,
@@ -836,6 +818,7 @@ impl<
         let register_users_agg_task = QProvingTask::new(&[register_users_agg_job_id]);
         let deploy_contracts_agg_task = QProvingTask::new(&[deploy_contracts_agg_job_id]);
         let guta_agg_task = QProvingTask::new(&[guta_agg_job_id]);
+        
         self.task_store.write_next_tasks(&register_users_agg_task, &state_part_1_task).await?;
         self.task_store
             .write_next_tasks(&deploy_contracts_agg_task, &state_part_1_task)
@@ -843,12 +826,45 @@ impl<
         self.task_store
             .write_next_tasks(&guta_agg_task, &state_part_1_task)
             .await?;
+        
         let user_registration_tasks = user_registration_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let deploy_contracts_tasks = deploy_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         self.task_store.write_multidimensional_tasks(&user_registration_tasks, &register_users_agg_task).await?;
         self.task_store.write_multidimensional_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
         self.task_store.write_multidimensional_tasks(&guta_tasks, &guta_agg_task).await?;
+
+        Ok((state_part_1_id, root_state_transition, register_users_agg_job_id, deploy_contracts_agg_job_id, guta_agg_job_id))
+    }
+
+    pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<()> {
+        let start = Instant::now();
+        info!("coordinator STARTED new block");
+        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
+        let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
+        let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
+        let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
+        info!("💥 coordinator processor build block checkpoint_id: {}", new_checkpoint_id);
+        let (deploy_jobs, deploy_transition, next_contract_id) =
+            self.handle_deploy_contracts(new_checkpoint_id).await?;
+        let (
+            user_registration_jobs,
+            user_registration_transition,
+            new_accounts,
+            regsitered_users_start_pivot_siblings,
+        ) = self.handle_user_registrations(new_checkpoint_id).await?;
+
+        let (guta_jobs, guta_transition) = self.handle_guta_from_realms(new_checkpoint_id).await?;
+
+        println!("new_checkpoint_id: {}",new_checkpoint_id);
+        
+        let (state_part_1_id, root_state_transition, register_users_agg_job_id, deploy_contracts_agg_job_id, guta_agg_job_id) = self.plan_jobs(
+            new_checkpoint_id,
+            &user_registration_jobs,
+            &deploy_jobs,
+            &guta_jobs,
+        ).await?;
 
         self.task_store.finalize_and_save_topology().await?;
 
@@ -857,26 +873,31 @@ impl<
             .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
         tracing::info!("Saved job dependency graph for checkpoint {}", new_checkpoint_id);
 
-        // Wait for proofs to complete and generate PM rewards commitment
+        let rooot_user_registration_job = user_registration_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No user registration jobs found"))?;
+        let root_deploy_job = deploy_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No deploy contract jobs found"))?;
+        let root_guta_job = guta_jobs.last()
+            .and_then(|jobs| jobs.last())
+            .ok_or_else(|| anyhow::anyhow!("No GUTA jobs found"))?;
+
         debug!("Waiting for user registration aggregation job to complete for checkpoint {}", new_checkpoint_id);
-        let rooot_user_registration_job = register_users_agg_job_id;
         let register_users_proof = self.prover_queue
-            .wait_for_job_proof::<C, D>(rooot_user_registration_job)
+            .wait_for_job_proof::<C, D>(*rooot_user_registration_job)
             .await?;
 
         debug!("Waiting for deploy contracts aggregation job to complete for checkpoint {}", new_checkpoint_id);
-        let root_deploy_job = deploy_contracts_agg_job_id;
         let deploy_contracts_proof = self.prover_queue
-            .wait_for_job_proof::<C, D>(root_deploy_job)
+            .wait_for_job_proof::<C, D>(*root_deploy_job)
             .await?;
 
         debug!("Waiting for GUTA aggregation job to complete for checkpoint {}", new_checkpoint_id);
-        let root_guta_job = guta_agg_job_id;
         let guta_proof = self.prover_queue
-            .wait_for_job_proof::<C, D>(root_guta_job)
+            .wait_for_job_proof::<C, D>(*root_guta_job)
             .await?;
 
-        // Create part_1_input for aggregation
         let part_1_input = CircuitInputWithDependencies {
             input: QCAggUserRegistartionDeployContractsGUTAInput {
                 register_users_state_transition: if user_registration_transition.state_transition_start == QHashOut::ZERO {
@@ -912,7 +933,6 @@ impl<
             )
             .await?;
 
-        // Extract roots from proofs and create PM rewards commitment
         let register_users_root = QHashOut::try_from(&register_users_proof.public_inputs[0..4])?;
         let deploy_contracts_root = QHashOut::try_from(&deploy_contracts_proof.public_inputs[0..4])?;
         let gutas_root = QHashOut::try_from(&guta_proof.public_inputs[0..4])?;
@@ -923,7 +943,6 @@ impl<
             deploy_contracts_root,
         };
 
-        // Create checkpoint state transition input
         let partial_input = QCQEDCheckpointStateTransitionInputPartial {
             part_1_header: part_1_input.input,
             old_stats: last_checkpoint_leaf.stats,
@@ -1054,9 +1073,9 @@ impl<
             )
             .await?;
 
-        info!("DEBUGPRINT[1065]: processor.rs:1065: deploy_items={}", serde_json::to_string_pretty(&deploy_items).unwrap());
-
+        debug!("Checking deploy contracts queue: {} items", deploy_items.len());
         if !deploy_items.is_empty() {
+            info!("Found {} pending deploy contract tasks for checkpoint {}", deploy_items.len(), checkpoint_id);
             return Ok(true);
         }
 
@@ -1068,8 +1087,9 @@ impl<
             )
             .await?;
 
-        info!("DEBUGPRINT[1080]: processor.rs:1080: user_reg_items={}", serde_json::to_string_pretty(&user_reg_items).unwrap());
+        debug!("Checking user registration queue: {} items", user_reg_items.len());
         if !user_reg_items.is_empty() {
+            info!("Found {} pending user registration tasks for checkpoint {}", user_reg_items.len(), checkpoint_id);
             return Ok(true);
         }
 
@@ -1080,8 +1100,15 @@ impl<
                 self.coordinator_config.guta_channel_id,
             )
             .await?;
-        info!("DEBUGPRINT[1093]: processor.rs:1093: guta_items={}", serde_json::to_string_pretty(&guta_items).unwrap());
-        Ok(!guta_items.is_empty())
+        
+        debug!("Checking GUTA queue: {} items", guta_items.len());
+        if !guta_items.is_empty() {
+            info!("Found {} pending GUTA tasks for checkpoint {}", guta_items.len(), checkpoint_id);
+            return Ok(true);
+        }
+
+        info!("No pending tasks found for checkpoint {}", checkpoint_id);
+        Ok(false)
     }
 
 }

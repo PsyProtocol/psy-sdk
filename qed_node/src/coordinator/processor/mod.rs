@@ -229,31 +229,30 @@ impl
     }
 
     pub async fn build_block_inner(&mut self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<()> {
-        info!("building block: {:?}", next_checkpoint_id);
+        info!("Building block for checkpoint {}", next_checkpoint_id);
         let now = Instant::now();
+        
+        // Build block (task graph is handled inside ctx.build_block)
         self.ctx.build_block(slot).await?;
         info!("✅ Built block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
-        let now = Instant::now();
-        info!("waiting for block proving jobs: {:?}", next_checkpoint_id);
-        {
-            let task_graph = self.task_store.get_task_graph().await;
-            let sorted_tasks = task_graph.ts_layers();
-            self.task_store.save_task_topology_with_layers(sorted_tasks).await?;
-            self.task_store.clear_task_graph().await?;
-        }
-
-        info!("🐶 waiting for block proving jobs");
+        
+        // Wait for all proving jobs to complete
+        let prove_start = Instant::now();
+        info!("🐶 Waiting for block proving jobs");
         self.ctx
             .prover_queue
             .wait_for_block_proving_jobs_imm(next_checkpoint_id)
             .await?;
-        info!("✅ Prove block {} in {}ms", next_checkpoint_id, now.elapsed().as_millis());
+        info!("✅ Proved block {} in {}ms", next_checkpoint_id, prove_start.elapsed().as_millis());
+        
         Ok(())
     }
 
     pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<u64> {
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
+        
+        // Check if there are pending tasks for this checkpoint
         if !self.ctx.has_pending_tasks(next_checkpoint_id).await
             .map_err(|e| anyhow::anyhow!("Failed to check pending tasks: {:?}", e))? {
             bail!(
@@ -262,11 +261,13 @@ impl
             );
         }
 
+        // Build and prove the block
         if let Err(e) = self.build_block_inner(next_checkpoint_id, slot).await {
             self.journal_store.rollback(next_checkpoint_id)?;
             bail!("Failed to build and prove block: {:?}", e);
         }
 
+        // Commit the changes
         self.journal_store.commit(next_checkpoint_id)?;
         Ok(next_checkpoint_id)
     }
