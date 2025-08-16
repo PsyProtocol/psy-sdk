@@ -251,7 +251,11 @@ impl<
             ))
             .enumerate()
             .map(|(i, (c, l))| {
-                self.push_deploy_contracts_request(i as u32, checkpoint_id, &mut psb, c, l.to_vec())
+                let start_contract_id_inner = (start_contract_id as usize) % (1 << self.coordinator_config.deploy_contracts_tree_batch_height as usize);
+                let contract_leaves = vec![QEDContractLeaf::default(); start_contract_id_inner].into_iter().chain(
+                    l.iter().cloned()
+                ).collect::<Vec<_>>();
+                self.push_deploy_contracts_request(i as u32, checkpoint_id, &mut psb, c, contract_leaves)
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
