@@ -724,6 +724,7 @@ impl<
         let finished_job_task = QProvingTask::new(&[finished_job]);
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
         
+        // Finalize and save the task topology
         self.task_store.finalize_and_save_topology().await?;
 
         let task_graph = self.task_store.get_task_graph().await;

@@ -60,7 +60,7 @@ use qed_data::{
 };
 use qed_rollup_circuit::guta::gadgets::guta_header;
 use qed_data::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserTreeStore}, 
+    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserTreeStore},
     models::kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore,
     qdata::checkpoint::CheckpointSyncInfo,
 };
@@ -781,7 +781,7 @@ impl<
         self.task_store
             .write_next_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
-        
+
         let op_agg_group_parts_common_id = 6;
         let state_part_1_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(
             new_checkpoint_id,
@@ -798,7 +798,7 @@ impl<
         self.task_store
             .write_next_tasks(&state_part_1_task, &state_part_1_common_task)
             .await?;
-        
+
         let op_agg_group_part_1_id = 11;
         let register_users_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(
             new_checkpoint_id,
@@ -818,7 +818,7 @@ impl<
         let register_users_agg_task = QProvingTask::new(&[register_users_agg_job_id]);
         let deploy_contracts_agg_task = QProvingTask::new(&[deploy_contracts_agg_job_id]);
         let guta_agg_task = QProvingTask::new(&[guta_agg_job_id]);
-        
+
         self.task_store.write_next_tasks(&register_users_agg_task, &state_part_1_task).await?;
         self.task_store
             .write_next_tasks(&deploy_contracts_agg_task, &state_part_1_task)
@@ -826,7 +826,7 @@ impl<
         self.task_store
             .write_next_tasks(&guta_agg_task, &state_part_1_task)
             .await?;
-        
+
         let user_registration_tasks = user_registration_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let deploy_contracts_tasks = deploy_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
@@ -834,13 +834,21 @@ impl<
         self.task_store.write_multidimensional_tasks(&deploy_contracts_tasks, &deploy_contracts_agg_task).await?;
         self.task_store.write_multidimensional_tasks(&guta_tasks, &guta_agg_task).await?;
 
+        // Finalize and save the task topology
+        self.task_store.finalize_and_save_topology().await?;
+
+        let task_graph = self.task_store.get_task_graph().await;
+        self.task_store.save_job_dependency_graph(&task_graph, new_checkpoint_id).await
+            .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
+        tracing::info!("Saved job dependency graph for checkpoint {}", new_checkpoint_id);
+
         Ok((state_part_1_id, root_state_transition))
     }
 
     pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("coordinator STARTED new block");
-        
+
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
@@ -859,7 +867,7 @@ impl<
         ) = self.handle_user_registrations(new_checkpoint_id).await?;
 
         let (guta_jobs, guta_transition) = self.handle_guta_from_realms(new_checkpoint_id).await?;
-        
+
         let root_deploy_job = deploy_jobs.last()
             .and_then(|jobs| jobs.last())
             .ok_or_else(|| anyhow::anyhow!("No deploy contract jobs found"))?;
@@ -877,13 +885,6 @@ impl<
             &deploy_jobs,
             &guta_jobs,
         ).await?;
-
-        self.task_store.finalize_and_save_topology().await?;
-
-        let task_graph = self.task_store.get_task_graph().await;
-        self.task_store.save_job_dependency_graph(&task_graph, new_checkpoint_id).await
-            .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
-        tracing::info!("Saved job dependency graph for checkpoint {}", new_checkpoint_id);
 
         debug!("Waiting for user registration aggregation job to complete for checkpoint {}", new_checkpoint_id);
         let register_users_proof = self.prover_queue
@@ -926,7 +927,7 @@ impl<
                 root_guta_job.get_output_id(),
             ],
         };
-        
+
         tracing::debug!(part_1_input = ?part_1_input, "Part 1 input for AggUserRegisterDeployContractsGUTA");
         self.proof_store
             .set_bytes_by_id(
@@ -938,7 +939,7 @@ impl<
         let register_users_root = QHashOut::try_from(&register_users_proof.public_inputs[0..4])?;
         let deploy_contracts_root = QHashOut::try_from(&deploy_contracts_proof.public_inputs[0..4])?;
         let gutas_root = QHashOut::try_from(&guta_proof.public_inputs[0..4])?;
-        
+
         let pm_rewards_commitment = PMRewardCommitment {
             register_users_root,
             gutas_root,
@@ -958,13 +959,13 @@ impl<
         tracing::debug!(new_checkpoint_leaf = ?new_checkpoint_leaf, "New checkpoint leaf");
         let new_checkpoint_leaf_hash = new_checkpoint_leaf.qfhash::<QEDHasher>();
         tracing::debug!(new_checkpoint_leaf_hash = ?new_checkpoint_leaf_hash, "New checkpoint leaf hash");
-        
+
         let previous_checkpoint_proof = self.store.get_checkpoint_tree_merkle_proof(last_l2_blockstate.checkpoint_id, last_l2_blockstate.checkpoint_id).await?;
         tracing::debug!(previous_checkpoint_proof = ?previous_checkpoint_proof, "Previous checkpoint proof");
-        
+
         let checkpoint_dmp = self.store.set_checkpoint_tree_leaf_hash_imm(new_checkpoint_id, new_checkpoint_leaf_hash).await?;
         tracing::debug!(checkpoint_dmp = ?checkpoint_dmp, "Checkpoint DMP");
-        
+
         let witness_checkpoint_state_transition = CircuitInputWithDependencies {
             input: QCQEDCheckpointStateTransitionInput::<F> {
                 partial: partial_input,
@@ -973,7 +974,7 @@ impl<
             },
             dependencies: vec![state_part_1_id.get_output_id()],
         };
-        
+
         tracing::debug!(witness_checkpoint_state_transition = ?witness_checkpoint_state_transition, "Checkpoint state transition witness");
         self.proof_store
             .set_bytes_by_id(
@@ -1000,7 +1001,7 @@ impl<
             end_balance: last_l2_blockstate.end_balance,
             next_contract_id,
         };
-        
+
         tracing::debug!(new_l2_block_state = ?new_l2_block_state, "New L2 block state");
 
         // Save checkpoint data
@@ -1011,33 +1012,13 @@ impl<
             .set_l2_block_state_imm(&new_l2_block_state)
             .await?;
 
-        // Create stats for the checkpoint
-        let stats = QEDCheckpointLeafStats {
-            fees_collected: F::ZERO,
-            user_ops_processed: F::ZERO,
-            total_transactions: F::from_canonical_usize(new_accounts.len()),
-            slots_modified: F::ZERO,
-            pm_jobs_completed: F::ZERO,
-            block_time: F::from_canonical_u64(slot),
-            random_seed: QHashOut::rand(),
-            pm_rewards_commitment,
-            da_challenges_claimed: [F::ZERO; DA_CHALLENGE_WINDOW],
-        };
-
-        // Create state roots with PM rewards commitment roots
-        let state_roots = QEDCheckpointGlobalStateRoots {
-            contract_tree_root: deploy_contracts_root,
-            deposit_tree_root: QHashOut::ZERO,
-            user_tree_root: register_users_root,
-            withdrawal_tree_root: QHashOut::ZERO,
-            user_registration_tree_root: register_users_root,
-        };
+        let lf_state = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;
 
         // Create and emit checkpoint sync info
         let checkpoint_sync_info = QCheckpointSyncInfoCompact {
             l2_block_state: new_l2_block_state,
-            stats,
-            state_roots,
+            stats: new_checkpoint_leaf.stats,
+            state_roots: lf_state,
             checkpoint_tree_update_siblings: checkpoint_dmp.siblings.clone(),
             regsitered_users_start_pivot_siblings,
             registered_users: new_accounts,
@@ -1049,7 +1030,7 @@ impl<
         self.store
             .set_checkpoint_sync_info_imm(checkpoint_sync_info.clone())
             .await?;
-        
+
         // Emit to sync queue
         let checkpoint_full_sync_info = CheckpointSyncInfo {
             latest_checkpoint_id: new_checkpoint_id,
@@ -1066,6 +1047,7 @@ impl<
         info!("✅ Successfully built block for checkpoint {}", new_checkpoint_id);
         Ok(())
     }
+
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
         // Check deploy contracts queue
         let deploy_items = self
@@ -1102,7 +1084,7 @@ impl<
                 self.coordinator_config.guta_channel_id,
             )
             .await?;
-        
+
         debug!("Checking GUTA queue: {} items", guta_items.len());
         if !guta_items.is_empty() {
             info!("Found {} pending GUTA tasks for checkpoint {}", guta_items.len(), checkpoint_id);
