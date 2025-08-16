@@ -76,7 +76,7 @@ impl SimpleAsyncRealmWorker {
         //let mut timer = TraceTimer::new("process_next_job");
         let job = event_receiver.wait_for_next_job_imm().await?;
         if mode.can_process_job(job) {
-            println!("job: {:?}", job);
+            debug!("Processing job: {:?}", job);
             return Self::process_job(store, event_receiver, prover, library, job).await;
             //timer.lap("processed next job");
         } else {
@@ -134,14 +134,14 @@ impl SimpleAsyncRealmWorker {
         }
 
         let goal_counter = store.get_goal_by_job_id(job_id).await?;
-        println!("goal_counter: {}", goal_counter);
+        debug!("Goal counter: {}", goal_counter);
         if goal_counter != 0 {
             let result = store
                 .inc_counter_by_id(job_id.get_sub_group_counter_id())
                 .await?;
             if result == goal_counter {
                 let jobs = store.get_next_jobs_by_job_id(job_id).await?;
-                println!("[{:?}] enqueuing_jobs: {:?}", job_id, jobs);
+                debug!("Enqueuing jobs for {:?}: {:?}", job_id, jobs);
                 event_receiver.enqueue_jobs_imm(&jobs).await?;
             }
         }

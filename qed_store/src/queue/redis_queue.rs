@@ -22,8 +22,7 @@ use qed_core::job::{
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
 use tokio::{sync::Mutex, time::sleep};
-// Re-use constants from fred_queue
-use crate::queue::fred_queue::{PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, PS_WORKER_QUEUE_KEY_PREFIX};
+use crate::queue::{PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, PS_WORKER_QUEUE_KEY_PREFIX};
 
 #[auto_impl(&, Box, Arc)]
 pub trait BizKey {
@@ -344,9 +343,9 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
             sleep(Duration::from_millis(500)).await;
         }
     }
-    
+
     async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
-        &self, 
+        &self,
         job_id: QProvingJobDataID
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
     where

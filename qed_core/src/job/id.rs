@@ -1634,23 +1634,30 @@ mod tests {
         let value = QHashOut::<GoldilocksField>::from_values(1, 2, 3, 4);
 
         // Test with siblings including parent public key as a separate sibling
-        let siblings = vec![
-            JobProofSibling {
-                hash: QHashOut::from_values(5, 6, 7, 8),
-                is_left: true,
-            },
-            JobProofSibling {
-                hash: QHashOut::from_values(9, 10, 11, 12),
-                is_left: false,
-            },
-            JobProofSibling {
-                hash: QHashOut::from_values(13, 14, 15, 16), // parent public key as sibling
-                is_left: false,
-            },
-        ];
+        let mut siblings = [JobProofSibling {
+            hash: QHashOut::ZERO,
+            is_left: false,
+        }; 32];
+        
+        siblings[0] = JobProofSibling {
+            hash: QHashOut::from_values(5, 6, 7, 8),
+            is_left: true,
+        };
+        siblings[1] = JobProofSibling {
+            hash: QHashOut::from_values(9, 10, 11, 12),
+            is_left: false,
+        };
+        siblings[2] = JobProofSibling {
+            hash: QHashOut::from_values(13, 14, 15, 16), // parent public key as sibling
+            is_left: false,
+        };
 
         let mut current = value;
         for sibling in &siblings {
+            // Skip zero siblings (padding)
+            if sibling.hash == QHashOut::ZERO {
+                break;
+            }
             let hash_array = if sibling.is_left {
                 [sibling.hash.0, current.0]
             } else {
@@ -1659,23 +1666,10 @@ mod tests {
             current = QHashOut(PoseidonHash::two_to_one(hash_array[0], hash_array[1]));
         }
 
-        // Create siblings array directly
-        let mut siblings_array = [JobProofSibling {
-            hash: QHashOut::ZERO,
-            is_left: false,
-        }; 32];
-
-        if siblings.len() > 32 {
-            panic!("Test error: Too many siblings ({}), maximum is 32", siblings.len());
-        }
-
-        for (i, sibling) in siblings.iter().enumerate() {
-            siblings_array[i] = sibling.clone();
-        }
 
         let proof = JobProof {
             value,
-            siblings: siblings_array,
+            siblings,
             root: current,
         };
 
@@ -1684,7 +1678,7 @@ mod tests {
         // Test with wrong root
         let wrong_proof = JobProof {
             value,
-            siblings: proof.siblings.clone(),
+            siblings: proof.siblings,
             root: QHashOut::from_values(0, 0, 0, 0),
         };
         assert!(!graph.verify_proof(&wrong_proof));

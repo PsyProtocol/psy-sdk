@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use plonky2::plonk::config::GenericConfig;
+use tracing::debug;
 use qed_core::{
     job::{
         self, id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, QWorkerModeFilter}, mode::QWorkerMode, traits::QProofStoreAsyncImm, worker_queue::WorkerEventReceiverAsyncImm
@@ -72,7 +73,7 @@ impl SimpleAsyncCoordinatorWorker {
         //let mut timer = TraceTimer::new("process_next_job");
         let job = event_receiver.wait_for_next_job_imm().await?;
         if mode.can_process_job(job) {
-            println!("job: {:?}", job);
+            debug!("Processing job: {:?}", job);
             return Self::process_job(store, event_receiver, prover, library, job).await;
             //timer.lap("processed next job");
         } else {
@@ -134,7 +135,7 @@ impl SimpleAsyncCoordinatorWorker {
         }
 
         let goal_counter = store.get_goal_by_job_id(job_id).await?;
-        println!("goal_counter: {}", goal_counter);
+        debug!("Goal counter: {}", goal_counter);
         if goal_counter != 0 {
             let result = store
                 .inc_counter_by_id(job_id.get_sub_group_counter_id())

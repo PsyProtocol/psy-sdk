@@ -20,13 +20,7 @@ use qed_core::job::{
 };
 use tokio::time::sleep;
 
-pub const PROOF_STORE_KEY_PREFIX_1: &'static str = "PSV1";
-pub const PROOF_STORE_COUNTERS_PREFIX_1: &'static str = "proof_counters";
-
-pub const PS_DRAIN_QUEUE_KEY_PREFIX: &'static str = "PSDQV1_";
-pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
-pub const PS_NOTIFICATIONS_QUEUE_KEY_PREFIX: &'static str = "PSNQV1";
-pub const PS_HISTORY_QUEUE_KEY_PREFIX: &'static str = "PSHQV1";
+use super::PS_DRAIN_QUEUE_KEY_PREFIX;
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -319,9 +313,9 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
             sleep(Duration::from_millis(500)).await;
         }
     }
-    
+
     async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
-        &self, 
+        &self,
         job_id: QProvingJobDataID
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
     where
