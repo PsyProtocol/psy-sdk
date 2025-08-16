@@ -3,7 +3,7 @@ pub mod handler;
 pub mod rpc;
 mod sync;
 
-use super::handler::spawn_realm_job_update_task;
+use crate::realm::edge::sync::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
 use super::{config::RealmEdgeConfig, C, D};
 use crate::common::jobs::JobSchedulerRpcServer;
@@ -97,7 +97,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         .build(&config.rpc.listen_addr)
         .await?;
     let job_notify_queue = proof_store.clone();
-    let handler = RealmEdgeHandler::new(edge_ctx, job_notify_queue, Arc::new(task_store));
+    let handler = RealmEdgeHandler::new(edge_ctx.clone(), job_notify_queue, Arc::new(task_store));
     let mut rpc_module = RealmEdgeRpcServer::into_rpc(handler.clone());
     let job_rpc_module = JobSchedulerRpcServer::into_rpc(handler);
     rpc_module.merge(job_rpc_module)?;
@@ -108,13 +108,13 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         config.rpc.listen_addr.clone()
     );
 
-    let proof_store = creat_redis_store(config.clone()).await?;
-
     // Spawn task to send proof to coordinator
     spawn_realm_job_update_task(
         Arc::from(proof_store),
         realm_config.realm_id as u64,
         config.rpc.coordinator_addr.clone(),
+        Arc::new(edge_ctx),
+        None,
     )
     .await?;
     spawn_active_checkpoint_sync_task(store_reader, sync_queue, config.rpc.coordinator_addr)
