@@ -1014,8 +1014,7 @@ impl<
 
         let lf_state = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;
 
-        // Create and emit checkpoint sync info
-        let checkpoint_sync_info = QCheckpointSyncInfoCompact {
+        let l2_sync = QCheckpointSyncInfoCompact {
             l2_block_state: new_l2_block_state,
             stats: new_checkpoint_leaf.stats,
             state_roots: lf_state,
@@ -1026,22 +1025,9 @@ impl<
             slot,
         };
 
-        tracing::debug!(checkpoint_sync_info = ?checkpoint_sync_info, "Checkpoint sync info");
+        tracing::debug!(l2_sync = ?l2_sync, "Checkpoint sync info");
         self.store
-            .set_checkpoint_sync_info_imm(checkpoint_sync_info.clone())
-            .await?;
-
-        // Emit to sync queue
-        let checkpoint_full_sync_info = CheckpointSyncInfo {
-            latest_checkpoint_id: new_checkpoint_id,
-            pending_checkpoint_id: Some(new_checkpoint_id),
-            description: Some(format!("Checkpoint {} with PM rewards commitment", new_checkpoint_id)),
-            source_coordinator_edge_id: None,
-            sync_timestamp: chrono::Utc::now().timestamp_millis() as u64,
-            compact: checkpoint_sync_info,
-        };
-        self.sync_queue
-            .chq_push_imm(checkpoint_full_sync_info)
+            .set_checkpoint_sync_info_imm(l2_sync.clone())
             .await?;
 
         info!("✅ Successfully built block for checkpoint {}", new_checkpoint_id);
