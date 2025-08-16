@@ -258,28 +258,6 @@ impl RealmProcessor {
         }
     }
 
-    pub async fn build_block_inner(
-        &mut self,
-        context: &mut ConcreteRealmProcessorContext,
-        next_checkpoint_id: u64,
-    ) -> anyhow::Result<ProvingJobDataId> {
-        let now = Instant::now();
-        // Build block (task graph is handled inside context.build_block())
-        context.build_block().await?;
-        info!("Build block {} time: {} ms", next_checkpoint_id, now.elapsed().as_millis());
-
-        // Wait for proving jobs to complete
-        let prove_start = Instant::now();
-        let realm_worker_output_job_id = self
-            .sync_proof
-            .wait_for_block_proving_jobs_imm(next_checkpoint_id)
-            .await?;
-        info!("Prove block {} time: {}ms", next_checkpoint_id, prove_start.elapsed().as_millis());
-        Ok(ProvingJobDataId::new(
-            next_checkpoint_id,
-            realm_worker_output_job_id,
-        ))
-    }
 
     pub async fn build_block(
         &mut self,
@@ -290,8 +268,11 @@ impl RealmProcessor {
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
         self.store.commit(local_latest_checkpoint_id)?;
 
-        match self.build_block_inner(context, next_checkpoint_id).await {
-            Ok(job_id) => Ok(job_id),
+        // Build block (all logic including logging is inside context.build_block)
+        match context.build_block().await {
+            Ok(job_id) => {
+                Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
+            },
             Err(err) => {
                 self.store.rollback(next_checkpoint_id)?;
                 Err(err)

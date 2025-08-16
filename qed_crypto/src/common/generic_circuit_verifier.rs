@@ -69,7 +69,7 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
         common_data: CommonCircuitData<C::F, D>,
     ) {
         let new_hash = Self::hash_common_circuit_data(&common_data);
-        eprintln!("DEBUGPRINT[731]: generic_circuit_verifier.rs:71: circuit_type={:?}, new_hash={}", circuit_type, new_hash);
+        tracing::debug!("Circuit verifier - circuit_type: {:?}, new_hash: {}", circuit_type, new_hash);
         match self.common_data_hashes.iter().position(|x| new_hash.eq(x)) {
             Some(ind) => {
                 self.common_circuit_map.insert(circuit_type, ind);

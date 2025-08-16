@@ -242,7 +242,7 @@ impl CoordinatorEdgeHandler {
         info!("✅ wrote guta result to proof store end");
         let metadata = queue_item.get_dq_metadata();
         let items:Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> = checkpoint_queue.cdq_peek_imm(metadata.channel_id).await?;
-        info!("DEBUGPRINT[237]: handler.rs:237: items={}, metadata = {:?}", serde_json::to_string_pretty(&items).unwrap(), metadata);
+        debug!("Retrieved GUTA queue items: {} items, metadata: {:#?}", items.len(), metadata);
 
         Ok(())
     }

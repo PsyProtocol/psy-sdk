@@ -17,6 +17,7 @@ maybe-async = { workspace = true }
 thiserror = { workspace = true }
 async-trait = { workspace = true }
 hashbrown = { workspace = true }
+tracing = { workspace = true }
 
 
 kvq = { workspace = true }

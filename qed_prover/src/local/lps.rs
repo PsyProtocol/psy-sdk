@@ -312,10 +312,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     merkle_proof = ?merkle_proof,
                     "Successfully fetched merkle proof"
                 );
-                eprintln!(
-                    "DEBUGPRINT[585]: lps.rs:335: merkle_proof.verify::<QEDHasher>()={:#?}",
-                    merkle_proof.verify::<QEDHasher>()
-                );
+                debug!("Merkle proof verification result: {:#?}", merkle_proof.verify::<QEDHasher>());
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -555,10 +552,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     merkle_proof = ?merkle_proof,
                     "Successfully fetched merkle proof"
                 );
-                eprintln!(
-                    "DEBUGPRINT[498]: lps.rs:656: merkle_proof={}",
-                    serde_json::to_string_pretty(&merkle_proof).unwrap()
-                );
+                debug!("Retrieved merkle proof: {:#?}", merkle_proof);
                 info!("Merkle proof root: {:?}", merkle_proof.root.to_string());
                 info!("Merkle proof value: {:?}", merkle_proof.value.to_string());
                 debug!(
@@ -576,10 +570,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                         self.get_realm_id(user_id),
                     )
                     .await?;
-                eprintln!(
-                    "DEBUGPRINT[528]: lps.rs:685: top_proof={}",
-                    serde_json::to_string_pretty(&top_proof).unwrap()
-                );
+                debug!("Retrieved top proof: {:#?}", top_proof);
                 let mut new_siblings = vec![];
                 new_siblings.extend_from_slice(
                     &merkle_proof.siblings[0..(REALM_USER_TREE_HEIGHT as usize)],
@@ -587,10 +578,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 new_siblings.extend_from_slice(&top_proof.siblings);
                 merkle_proof.root = top_proof.root;
                 merkle_proof.siblings = new_siblings;
-                eprintln!(
-                    "DEBUGPRINT[723]: lps.rs:583: merkle_proof={}",
-                    serde_json::to_string_pretty(&merkle_proof).unwrap()
-                );
+                debug!("Modified merkle proof with top proof: {:#?}", merkle_proof);
 
                 debug!(
                     checkpoint_id = checkpoint_id,

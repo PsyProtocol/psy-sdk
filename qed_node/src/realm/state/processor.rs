@@ -44,7 +44,7 @@ use qed_store::{
     queue::task_queue::QProvingTaskStore,
 };
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{debug, info};
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -225,10 +225,7 @@ impl<
                             )),
                         })
                         .collect::<Vec<_>>();
-                    info!(
-                        "DEBUGPRINT[517]: processor.rs:236: pending_register_users={}",
-                        serde_json::to_string_pretty(&pending_register_users).unwrap()
-                    );
+                    debug!("Processing pending register users: {:#?}", pending_register_users);
                     tracing::debug!(pending_register_users = ?pending_register_users, "Pending register users");
                     let dmps = self
                         .store
@@ -737,7 +734,7 @@ impl<
         Ok(())
     }
 
-    pub async fn build_block(&mut self) -> anyhow::Result<()> {
+    pub async fn build_block(&mut self) -> anyhow::Result<QProvingJobDataID> {
         let start = Instant::now();
         info!("realm STARTED new block");
         self.task_store.clear_task_graph().await?;
@@ -770,8 +767,15 @@ impl<
         // Plan the job dependency graph
         self.plan_jobs(new_checkpoint_id, &guta_jobs, finished_job).await?;
 
+        // Wait for proving jobs to complete and return the job ID
+        info!("🐶 Waiting for realm proving jobs");
+        let realm_worker_output_job_id = self
+            .prover_queue
+            .wait_for_block_proving_jobs_imm(new_checkpoint_id)
+            .await?;
+
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
-        Ok(())
+        Ok(realm_worker_output_job_id)
     }
 
     /// Check if there are pending tasks for the given checkpoint

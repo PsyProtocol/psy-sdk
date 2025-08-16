@@ -610,7 +610,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
     async fn finalize_and_save_topology(&self) -> Result<()> {
         let task_graph = self.task_graph.lock().await;
         let layers = task_graph.ts_layers();
-        eprintln!("DEBUGPRINT[870]: task_queue.rs:556: layers={:#?}", layers);
+        tracing::debug!("Task graph layers: {:#?}", layers);
         drop(task_graph); // Release the lock before calling save_task_topology_with_layers
         self.save_task_topology_with_layers(layers).await
     }

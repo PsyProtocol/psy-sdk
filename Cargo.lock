@@ -3904,6 +3904,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "thiserror 2.0.12",
+ "tracing",
  "ts-rs",
 ]
 
@@ -3957,6 +3958,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
  "ts-rs",
 ]
 
@@ -4073,6 +4075,7 @@ dependencies = [
  "qed_crypto",
  "qed_data",
  "serde_json",
+ "tracing",
 ]
 
 [[package]]

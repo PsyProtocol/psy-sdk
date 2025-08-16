@@ -72,10 +72,7 @@ impl<
         input: SubmitUserEndCapNonProofInput<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
-        eprintln!(
-            "DEBUGPRINT[578]: context.rs:123: input={}",
-            serde_json::to_string_pretty(&input).unwrap()
-        );
+        debug!("Processing user end cap input: {:#?}", input);
         // start validation
         if proof.public_inputs.len() != 4 {
             anyhow::bail!("invalid proof");
@@ -231,10 +228,7 @@ impl<
             serde_json::to_string_pretty(&queue_item).unwrap()
         );
 
-        eprintln!(
-            "DEBUGPRINT[573]: context.rs:231: cst_user_update={}",
-            serde_json::to_string_pretty(&cst_user_update).unwrap()
-        );
+        debug!("Enqueuing contract state tree update for user {}", cst_user_update.user_id);
         self.checkpoint_queue.cdq_push_imm(cst_user_update).await?;
         self.checkpoint_queue.cdq_push_imm(queue_item).await?;
 

@@ -927,10 +927,7 @@ async fn send_realm_proof<PS: QProofStoreAsyncImm>(
         .await
     {
         Ok(proof) => {
-            eprintln!(
-                "DEBUGPRINT[686]: context.rs:885: proof={}",
-                serde_json::to_string_pretty(&proof.public_inputs).unwrap()
-            );
+            debug!("Retrieved proof with public inputs: {:#?}", proof.public_inputs);
             proof
         }
         Err(err) => {
