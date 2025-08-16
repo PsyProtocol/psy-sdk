@@ -745,7 +745,7 @@ impl QProvingTaskGraph {
         let mut current_job_index = leaf_job_index;
         let mut current_level = leaf_level;
 
-        while current_level < task_levels.len() - 1 && sibling_count < 32 {
+        while current_level < task_levels.len() - 1 {
             let current_task = &self.tasks[&current_task_id];
             let current_job = current_task.job_ids[current_job_index];
 
@@ -756,6 +756,10 @@ impl QProvingTaskGraph {
             };
 
             if let Some(idx) = sibling_idx {
+                if sibling_count >= 32 {
+                    return Err(anyhow::anyhow!("Task graph depth exceeds maximum of 32 levels"));
+                }
+
                 let sibling_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> =
                     proof_store.get_proof_by_id(current_task.job_ids[idx].get_output_id()).await?;
 
@@ -787,7 +791,11 @@ impl QProvingTaskGraph {
 
             match parent_info {
                 Some((parent_id, parent_idx)) => {
-                    if sibling_idx.is_some() && sibling_count < 32 {
+                    if sibling_idx.is_some() {
+                        if sibling_count >= 32 {
+                            return Err(anyhow::anyhow!("Task graph depth exceeds maximum of 32 levels"));
+                        }
+
                         let parent_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> =
                             proof_store.get_proof_by_id(self.tasks[&parent_id].job_ids[parent_idx].get_output_id()).await?;
 
@@ -1651,17 +1659,20 @@ mod tests {
             current = QHashOut(PoseidonHash::two_to_one(hash_array[0], hash_array[1]));
         }
 
-        // Convert Vec to array
+        // Create siblings array directly
         let mut siblings_array = [JobProofSibling {
             hash: QHashOut::ZERO,
             is_left: false,
         }; 32];
-        for (i, sibling) in siblings.iter().enumerate() {
-            if i < 32 {
-                siblings_array[i] = sibling.clone();
-            }
+
+        if siblings.len() > 32 {
+            panic!("Test error: Too many siblings ({}), maximum is 32", siblings.len());
         }
-        
+
+        for (i, sibling) in siblings.iter().enumerate() {
+            siblings_array[i] = sibling.clone();
+        }
+
         let proof = JobProof {
             value,
             siblings: siblings_array,
