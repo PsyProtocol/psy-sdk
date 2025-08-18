@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::{
-    hash::hash_types::HashOut,
-    iop::witness::PartialWitness,
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
@@ -46,6 +46,7 @@ use crate::coordinator::gadgets::{
 pub struct QEDCheckpointStateTransitionCircuit<C: GenericConfig<D>, const D: usize> {
     pub child_proofs_gadget: CheckpointStateTransitionChildProofsGadget<D>,
     pub core_checkpoint_gadget: CheckpointStateTransitionCoreGadget,
+    pub worker_public_key: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -97,7 +98,11 @@ where
         let new_checkpoint_root = core_checkpoint_gadget.new_checkpoint_tree_root;
         //let combo_hash = builder.hash_two_to_one::<C::Hasher>(expected_old_checkpoint_root, new_checkpoint_root);
 
+        let worker_public_key = builder.add_virtual_hash();
+        let commitment = worker_public_key;
 
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&core_checkpoint_gadget.old_checkpoint_tree_root.elements);
         builder.register_public_inputs(&new_checkpoint_root.elements);
         builder.add_qed_type_d_common_gates();
@@ -109,17 +114,20 @@ where
             circuit_data,
             child_proofs_gadget,
             core_checkpoint_gadget,
+            worker_public_key,
             fingerprint,
         }
     }
 
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         input: &QCQEDCheckpointStateTransitionInput<C::F>,
         part_1_proof: &ProofWithPublicInputs<C::F, C, D>,
         part_1_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
 
         self.child_proofs_gadget.set_witness_params(
@@ -130,6 +138,7 @@ where
             &input.partial.old_stats,
             input.partial.block_time,
             input.partial.final_random_seed_contribution,
+            &input.partial.pm_rewards_commitment,
             part_1_proof,
             part_1_verifier_data,
         )?;
@@ -177,6 +186,7 @@ where
         store: &S,
         library: &L,
         job_id: QProvingJobDataID,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: CircuitInputWithDependencies<QCQEDCheckpointStateTransitionInput<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
@@ -195,6 +205,7 @@ where
         let part_1_verifier_data = library.get_verifier_data(part_1_proof_type)?;
 
         let result = self.prove_base(
+            worker_public_key,
             &r.input,
             &part_1_proof,
             &part_1_verifier_data,

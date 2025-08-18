@@ -1,8 +1,10 @@
-pub mod event_proc_memory;
+pub mod job_tracker;
 pub mod simple_async_coord;
 pub mod simple_async_realm;
 pub mod worker_state;
 
+use plonky2::field::goldilocks_field::GoldilocksField;
+use qed_core::data::qhashout::QHashOut;
 use qed_core::job::{
     id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
     traits::QProofStoreReaderAsync,
@@ -19,33 +21,23 @@ use crate::common::{
     jobs::{JobClient, JobReceiver},
     verifier::get_cached_generic_verifier,
 };
+use job_tracker::{JobLocation, WorkerJobTracker};
+use tokio::sync::Mutex;
 
-pub async fn run_worker(edge_urls: Vec<String>) -> anyhow::Result<()> {
-    let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
-    let prover = Arc::new(QEDCoordinatorCircuitManager::<C, D>::new_with_library(
-        &proof_verifier.library,
-    ));
-    let library = Arc::new(proof_verifier.library.clone());
-    for edge_url in edge_urls {
-        info!("Running worker for edge: {}", edge_url);
-        let job_client = JobClient::new(edge_url).await?;
-        let prover = prover.clone();
-        let library = library.clone();
-        tokio::spawn(async move {
-            run_scheduler_worker(prover, library, job_client.clone(), job_client)
-                .await
-                .expect("Failed to run scheduler worker");
-        });
-    }
-    Ok(())
-}
-
-async fn run_scheduler_worker(
+pub async fn run_worker(
+    edge_url: String,
+    worker_public_key: QHashOut<GoldilocksField>,
+    location: JobLocation,
+    job_tracker: Arc<Mutex<WorkerJobTracker>>,
     prover: Arc<QEDCoordinatorCircuitManager<C, D>>,
     library: Arc<SimpleCircuitLibrary<F>>,
-    job_receiver: impl JobReceiver,
-    store: impl QProofStoreReaderAsync + Send + Sync,
 ) -> anyhow::Result<()> {
+    info!("Running worker for edge: {}", edge_url);
+    let job_client = JobClient::new(edge_url).await?;
+
+    let store = job_client.clone();
+    let job_receiver = job_client;
+
     loop {
         tokio::time::sleep(Duration::from_millis(500)).await;
         let job = match job_receiver.get_next_job().await {
@@ -59,7 +51,7 @@ async fn run_scheduler_worker(
 
         debug!("Received job, layer: {}", job.layer_id);
         let job_id = job.job_id;
-        if !should_prove_job(job_id) {
+        if !job_id.is_provable() {
             info!("skipping job proving: {:?}", job_id);
             job_receiver.submit_job_proof(job, None).await?;
             continue;
@@ -70,11 +62,23 @@ async fn run_scheduler_worker(
         {
             Ok(proof) => {
                 info!("Proved job: job_id={:?}", job_id);
-                if let Err(e) = job_receiver.submit_job_proof(job, Some(proof)).await {
-                    error!(
-                        "Failed to submit job proof: err={:?}, job_id={:?}",
-                        e, job_id
-                    );
+                match job_receiver.submit_job_proof(job, Some(proof)).await {
+                    Ok(_) => {
+                        info!("Successfully submitted proof for job: {:?}", job_id);
+                        {
+                            let mut tracker = job_tracker.lock().await;
+                            tracker.add_completed_job(job_id, location.clone());
+                            if let Err(e) = tracker.save_to_file(worker_public_key) {
+                                error!("Failed to save job tracker: {:?}", e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!(
+                            "Failed to submit job proof: err={:?}, job_id={:?}",
+                            e, job_id
+                        );
+                    }
                 }
             }
             Err(e) => {
@@ -82,9 +86,4 @@ async fn run_scheduler_worker(
             }
         };
     }
-}
-
-fn should_prove_job(job_id: QProvingJobDataID) -> bool {
-    job_id.topic == QJobTopic::GenerateStandardProof
-        && job_id.circuit_type != ProvingJobCircuitType::NotifyRealmComplete
 }

@@ -5,7 +5,7 @@ use super::{
     op_types::{DPNBuiltInDataType, DPNOpType},
     state_cmd::{
         data::{
-            DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdInvokeExternalContractFunctionSync, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
+            DPNStateCmd, DPNStateCmdGetCheckpointLeafStats, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdInvokeExternalContractFunctionSync, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
         },
         store::DPNStateCommandStore,
         types::DPNStateCmdCore,
@@ -669,8 +669,9 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn assert_eq(&mut self, left: SymFeltRef, right: SymFeltRef, message: &'static str) {
+        let cond_left = self.op_select(self.current_condition, left, right);
         self.assertions.push(SymRefAssertion {
-            left,
+            left: cond_left,
             right,
             message,
         });
@@ -779,6 +780,19 @@ impl DPNContext<SymFeltRef> for QExecContext {
         self.op_target_at_array::<4>(parent)
     }
 
+    fn hash_two_to_one(&mut self, left: &[SymFeltRef; 4], right: &[SymFeltRef; 4]) -> [SymFeltRef; 4] {
+        let mut inputs = Vec::new();
+        inputs.extend_from_slice(left);
+        inputs.extend_from_slice(right);
+        let op = SymFeltRefValue {
+            op_type: DPNOpType::HashTwoToOne,
+            const_param: 0,
+            inputs,
+        };
+        let parent = self.store.insert(op);
+        self.op_target_at_array::<4>(parent)
+    }
+
     fn split_bits(&mut self, value: SymFeltRef, num_bits: u64) -> Vec<SymFeltRef> {
         let op = SymFeltRefValue {
             op_type: DPNOpType::SplitBits,
@@ -831,6 +845,37 @@ impl DPNContext<SymFeltRef> for QExecContext {
 
     fn get_user_public_key_hash(&mut self) -> [SymFeltRef; 4] {
         self.op_target_at_array(SymFeltRef::new_valueless(DPNOpType::GetUserPublicKeyHash))
+    }
+
+    fn get_checkpoint_stats(&mut self, checkpoint_id: SymFeltRef) -> Vec<SymFeltRef> {
+        // Execute GetCheckpointLeafStats state command
+        let cmd = DPNStateCmd::GetCheckpointLeafStats(
+            DPNStateCmdGetCheckpointLeafStats {
+                checkpoint_id
+            }
+        );
+        let b = self.resolve_state_cmd_base(cmd);
+        // Return all checkpoint stats fields
+        let mut result = Vec::new();
+        for i in 0..36 {  // Approximate size of full checkpoint stats
+            result.push(self.op_target_at(b, i));
+        }
+        result
+    }
+
+    fn get_register_users_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        [stats[10].clone(), stats[11].clone(), stats[12].clone(), stats[13].clone()]
+    }
+
+    fn get_gutas_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        [stats[14].clone(), stats[15].clone(), stats[16].clone(), stats[17].clone()]
+    }
+
+    fn get_deploy_contracts_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        [stats[18].clone(), stats[19].clone(), stats[20].clone(), stats[21].clone()]
     }
 
     fn op_get_state_felt(

@@ -378,6 +378,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
 
     // std lib
     fn hash(&mut self, values: &[F]) -> [F; 4];
+    fn hash_two_to_one(&mut self, left: &[F; 4], right: &[F; 4]) -> [F; 4];
     fn split_bits(&mut self, value: F, num_bits: u64) -> Vec<F>;
     fn sum_bits(&mut self, bits: &[F]) -> F;
 
@@ -386,6 +387,12 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn get_checkpoint_id(&mut self) -> F;
     fn get_last_nonce(&mut self) -> F;
     fn get_user_public_key_hash(&mut self) -> [F; 4];
+
+    // Checkpoint stats helper functions
+    fn get_checkpoint_stats(&mut self, checkpoint_id: F) -> Vec<F>;
+    fn get_register_users_root(&mut self, checkpoint_id: F) -> [F; 4];
+    fn get_gutas_root(&mut self, checkpoint_id: F) -> [F; 4];
+    fn get_deploy_contracts_root(&mut self, checkpoint_id: F) -> [F; 4];
 
     // state operations
     fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: F, user_id: F, index: F) -> F;

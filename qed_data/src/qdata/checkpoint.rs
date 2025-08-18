@@ -119,7 +119,7 @@ impl<F: RichField> KVQSerializable for QEDCheckpointLeafStats<F> {
 
 impl<F: RichField> QFeltSized for QEDCheckpointLeafStats<F> {
     fn q_felt_size() -> usize {
-        10 + DA_CHALLENGE_WINDOW
+        10 + PMRewardCommitment::<F>::q_felt_size() + DA_CHALLENGE_WINDOW
     }
 }
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafStats<F> {

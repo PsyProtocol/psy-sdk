@@ -9,7 +9,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use scylla::_macro_internal::SerializeRow;
 use tracing::{debug, error, info, trace, warn};
-use qed_core::job::id::{JobsLayer, JobsTask, JobsTaskGraph, QProvingJobDataID, TaskId};
+use qed_core::job::id::{QProvingTaskLayer, QProvingTask, QProvingTaskGraph, QProvingJobDataID, TaskId};
+use tokio::sync::Mutex;
 use crate::queue::{new_redis_async_pool, QueueId, QueueStats, RsmqQueue};
 
 const TASK_COMMON_PREFIX: &str = "tasks:";
@@ -20,24 +21,35 @@ pub type LayerId = TaskId;
 
 /// Represents a single proving job with task assignment
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct QJob {
+pub struct QJob<T = String> {
     pub job_id: QProvingJobDataID,
     pub layer_id: LayerId,
+    pub parent: Option<QProvingJobDataID>,
     #[serde(default)]
-    pub msg_id: String,
+    pub msg_id: T,
 }
 
-impl QJob {
-    /// Create a new QJob
+impl<T: Default> QJob<T> {
     pub fn new(job_id: QProvingJobDataID, layer_id: LayerId) -> Self {
         Self {
             job_id,
-            layer_id,  // Default to a new TaskId
-            msg_id: String::new(),
+            layer_id,
+            parent: None,
+            msg_id: T::default(),
         }
     }
 
-    /// Set the message ID (builder pattern)
+    pub fn new_with_parent(job_id: QProvingJobDataID, layer_id: LayerId, parent: QProvingJobDataID) -> Self {
+        Self {
+            job_id,
+            layer_id: layer_id,
+            parent: Some(parent),
+            msg_id: T::default(),
+        }
+    }
+}
+
+impl QJob<String> {
     pub fn with_msg_id(mut self, msg_id: String) -> Self {
         self.msg_id = msg_id;
         self
@@ -57,7 +69,6 @@ impl QJob {
     pub fn has_msg_id(&self) -> bool {
         !self.msg_id.is_empty()
     }
-
 }
 
 // Display implementation for better logging
@@ -68,12 +79,13 @@ impl std::fmt::Display for QJob {
 }
 
 /// Job task store implementation with Redis backend and layer support
-pub struct JobTaskStoreImpl {
+pub struct QProvingTaskStoreImpl {
     redis_pool: Arc<Pool<RedisConnectionManager>>,
     rsmq: Arc<RsmqQueue>,
+    task_graph: Arc<Mutex<QProvingTaskGraph>>,
 }
 
-impl JobTaskStoreImpl {
+impl QProvingTaskStoreImpl {
     pub async fn new(redis_url: &str, pool_size: usize) -> Result<Self> {
         debug!("Initializing JobTaskStore with pool size {}", pool_size);
 
@@ -83,9 +95,8 @@ impl JobTaskStoreImpl {
                 .context("Failed to create Redis pool")?
         );
 
-        // Use the unified RsmqQueue instead of RsmqTaskQueue
         let rsmq = Arc::new(
-            RsmqQueue::new(redis_url, pool_size, "job_task_store")
+            RsmqQueue::new(redis_url, pool_size, "task_store")
                 .await
                 .context("Failed to create RSMQ queue")?
         );
@@ -93,6 +104,7 @@ impl JobTaskStoreImpl {
         Ok(Self {
             redis_pool,
             rsmq,
+            task_graph: Arc::new(Mutex::new(QProvingTaskGraph::new())),
         })
     }
 
@@ -123,7 +135,7 @@ impl JobTaskStoreImpl {
     }
 
     /// Push layers to the tail of the list
-    async fn push_layers(&self, layers: &[JobsLayer]) -> Result<()> {
+    async fn push_layers(&self, layers: &[QProvingTaskLayer]) -> Result<()> {
         if layers.is_empty() {
             return Ok(());
         }
@@ -297,7 +309,7 @@ impl JobTaskStoreImpl {
     }
 }
 
-impl JobTaskStoreImpl {
+impl QProvingTaskStoreImpl {
     /// Validate that a specific job is currently being processed by a worker
     /// Returns a detailed status of the validation
     pub async fn validate_job_ownership(&self, job: &QJob) -> Result<JobValidationStatus> {
@@ -379,21 +391,28 @@ pub enum JobValidationStatus {
 }
 
 #[async_trait]
-pub trait JobTaskStore {
-    async fn save_task_topology_with_layers(&self, graph: Vec<JobsLayer>) -> Result<()>;
+pub trait QProvingTaskStore {
+    async fn save_task_topology_with_layers(&self, graph: Vec<QProvingTaskLayer>) -> Result<()>;
     async fn claim_job_from_current_layer(&self) -> Result<Option<QJob>>;
     async fn acknowledge_job_completion(&self, job: &QJob) -> Result<()>;
     async fn get_current_layer_info(&self) -> Result<Option<LayerId>>;
     async fn count_pending_jobs_in_current_layer(&self) -> Result<u64>;
 
+    // Task graph management methods
+    async fn write_next_tasks(&self, task: &QProvingTask, next_task: &QProvingTask) -> Result<()>;
+    async fn write_multidimensional_tasks(&self, tasks: &[QProvingTask], next_task: &QProvingTask) -> Result<()>;
+    async fn get_task_graph(&self) -> QProvingTaskGraph;
+    async fn clear_task_graph(&self) -> Result<()>;
+    async fn finalize_and_save_topology(&self) -> Result<()>;
+
     // Legacy operations (kept for compatibility)
-    async fn save_job_dependency_graph(&self, graph: &JobsTaskGraph, checkpoint_id: u64) -> Result<()> ;
-    async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<JobsTaskGraph> ;
+    async fn save_job_dependency_graph(&self, graph: &QProvingTaskGraph, checkpoint_id: u64) -> Result<()> ;
+    async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<QProvingTaskGraph> ;
 }
 
 #[async_trait]
-impl JobTaskStore for JobTaskStoreImpl {
-    async fn save_task_topology_with_layers(&self, layers: Vec<JobsLayer>) -> Result<()> {
+impl QProvingTaskStore for QProvingTaskStoreImpl {
+    async fn save_task_topology_with_layers(&self, layers: Vec<QProvingTaskLayer>) -> Result<()> {
         info!("Saving task topology with layer support");
 
         // Step 1: Create an RSMQ queue for each layer and send jobs
@@ -536,7 +555,7 @@ impl JobTaskStore for JobTaskStoreImpl {
             .context("Failed to get queue length")
     }
 
-    async fn save_job_dependency_graph(&self, graph: &JobsTaskGraph, checkpoint_id: u64) -> Result<()> {
+    async fn save_job_dependency_graph(&self, graph: &QProvingTaskGraph, checkpoint_id: u64) -> Result<()> {
         let mut conn = self.redis_pool.get().await?;
         let serialized = bincode::serialize(graph)?;
         let graph_key = self.graph_key(checkpoint_id);
@@ -546,19 +565,59 @@ impl JobTaskStore for JobTaskStoreImpl {
         Ok(())
     }
 
-    async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<JobsTaskGraph> {
+    async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<QProvingTaskGraph> {
         let mut conn = self.redis_pool.get().await?;
 
         let graph_key = self.graph_key(checkpoint_id);
         let graph_bytes: Vec<u8> = conn.get(graph_key).await?;
 
-        bincode::deserialize::<JobsTaskGraph>(&graph_bytes)
+        bincode::deserialize::<QProvingTaskGraph>(&graph_bytes)
             .context("Failed to deserialize job graph")
+    }
+
+    async fn write_next_tasks(&self, task: &QProvingTask, next_task: &QProvingTask) -> Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        task_graph.add_dep(next_task.clone(), task.clone());
+        Ok(())
+    }
+
+    async fn write_multidimensional_tasks(&self, tasks: &[QProvingTask], next_task: &QProvingTask) -> Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        let job_levels_count = tasks.len();
+        for i in 0..job_levels_count {
+            let current_next_task = if i == job_levels_count - 1 {
+                next_task
+            } else {
+                &tasks[i + 1]
+            };
+            let current_task = &tasks[i];
+            task_graph.add_dep(current_next_task.clone(), current_task.clone());
+        }
+        Ok(())
+    }
+
+    async fn get_task_graph(&self) -> QProvingTaskGraph {
+        let task_graph = self.task_graph.lock().await;
+        task_graph.clone()
+    }
+
+    async fn clear_task_graph(&self) -> Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        task_graph.clear();
+        Ok(())
+    }
+
+    async fn finalize_and_save_topology(&self) -> Result<()> {
+        let task_graph = self.task_graph.lock().await;
+        let layers = task_graph.ts_layers();
+        tracing::debug!("Task graph layers: {:#?}", layers);
+        drop(task_graph); // Release the lock before calling save_task_topology_with_layers
+        self.save_task_topology_with_layers(layers).await
     }
 }
 
 // Implementation-specific methods
-impl JobTaskStoreImpl {
+impl QProvingTaskStoreImpl {
 
     async fn layer_exists(&self, layer_id: &LayerId) -> Result<bool> {
         let mut conn = self.redis_pool.get().await?;
@@ -588,7 +647,7 @@ impl JobTaskStoreImpl {
 }
 
 
-impl JobTaskStoreImpl {
+impl QProvingTaskStoreImpl {
     /// Print detailed debug information about all layers
     pub async fn debug_print_all_layers(&self) -> Result<()> {
         info!("=== Layer System Debug Report ===");

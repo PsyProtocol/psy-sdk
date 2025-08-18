@@ -11,8 +11,8 @@ use qed_core::job::history_queue::{
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use qed_store::queue::redis_queue::QPendingUserStoreAsyncImm;
-use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl};
+use qed_store::queue::QPendingUserStoreAsyncImm;
+use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use qed_store::store::QEDStore;
 use std::sync::Arc;
 use std::thread::sleep;
@@ -38,6 +38,7 @@ type ConcreteRealmProcessorContext = RealmProcessorContext<
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
+    QProvingTaskStoreImpl,
 >;
 
 pub struct RealmProcessor {
@@ -46,7 +47,7 @@ pub struct RealmProcessor {
     pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
     pub store: Arc<JournalStore<QEDStore>>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub job_task_store: Arc<JobTaskStoreImpl>,
+    pub task_store: Arc<QProvingTaskStoreImpl>,
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: u64,
 }
@@ -64,7 +65,7 @@ impl RealmProcessor {
             config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10)
         ).await?;
-        let task_store = JobTaskStoreImpl::new(
+        let task_store = QProvingTaskStoreImpl::new(
             &config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10),
         )
@@ -87,7 +88,7 @@ impl RealmProcessor {
             sync_checkpoint,
             store: store_reader,
             proof_verifier,
-            job_task_store: Arc::new(task_store),
+            task_store: Arc::new(task_store),
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: 0,
         };
@@ -104,6 +105,7 @@ impl RealmProcessor {
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
+            QProvingTaskStoreImpl,
         >::new(
             self.realm_config,
             st.clone(),
@@ -111,6 +113,7 @@ impl RealmProcessor {
             realm_qps.clone(),
             realm_qps.clone(),
             realm_qps.clone(),
+            self.task_store.clone(),
             self.proof_verifier.clone(),
         ).await?;
         info!("Realm Processor started");
@@ -121,22 +124,8 @@ impl RealmProcessor {
                 local_latest_l2_block_state
             );
 
-            let current_process_user_index = context.sync_queue.get_current_pending_user_index().await?;
-            let total_pending_register_users = context.sync_queue.get_total_pending_users().await?;
-            let pending_users = context
-                .sync_queue
-                .get_range_pending_users::<F>(
-                    current_process_user_index,
-                    total_pending_register_users,
-                )
-                .await?;
-            info!(
-                "sync pending users from redis: {}",
-                serde_json::to_string_pretty(&pending_users)?
-            );
-            context.pending_register_users = pending_users;
-            context.current_process_user_index = current_process_user_index;
-            context.total_pending_register_users = total_pending_register_users;
+            let pending_users_count = context.sync_queue.get_pending_users_count().await?;
+            info!("Found {} pending users in Redis queue during recovery", pending_users_count);
         }
 
         // Ensure checkpoint sync first
@@ -256,25 +245,9 @@ impl RealmProcessor {
                         info!("Checkpoint sync reg users: {:?}", block.compact.registered_users);
                         self.store.commit(checkpoint_id)?;
 
-                        // assert bound in handle_checkpoint_sync method
-                        let current_checkpoint_pending_users = context.pending_register_users
-                            [context.pending_register_users.len()
-                                - context.current_checkpoint_pending_register_users..]
-                            .to_vec();
-
-                        context
-                            .sync_queue
-                            .push_pending_users(&current_checkpoint_pending_users)
-                            .await?;
-
-                        info!("pending current checkpoint users to redis: {}", serde_json::to_string_pretty(&current_checkpoint_pending_users)?);
-
-                        let total_pending_register_users = context
-                            .sync_queue
-                            .get_total_pending_users()
-                            .await?;
-                        info!("total pending users in redis: {}", total_pending_register_users);
-                        assert_eq!(total_pending_register_users, context.total_pending_register_users);
+                        // Check updated pending users count
+                        let pending_users_count = context.sync_queue.get_pending_users_count().await?;
+                        info!("Pending users count after checkpoint sync: {}", pending_users_count);
 
                         if local_checkpoint_id + 1 == block.latest_checkpoint_id && block.latest_checkpoint_id == checkpoint_id
                             ||  local_checkpoint_id == checkpoint_id && block.latest_checkpoint_id == checkpoint_id && local_checkpoint_id == 0
@@ -302,41 +275,6 @@ impl RealmProcessor {
         }
     }
 
-    pub async fn build_block_inner(
-        &mut self,
-        context: &mut ConcreteRealmProcessorContext,
-        next_checkpoint_id: u64,
-    ) -> anyhow::Result<ProvingJobDataId> {
-        let now = Instant::now();
-        context.build_block().await?;
-        info!("Build block {} time: {} ms", next_checkpoint_id, now.elapsed().as_millis());
-        let now = Instant::now();
-        context
-            .sync_queue
-            .set_current_pending_user_index(context.current_process_user_index)
-            .await?;
-        let redis_current_pending_user_index = context
-            .sync_queue
-            .get_current_pending_user_index()
-            .await?;
-        info!("current pending user index in redis: {}", redis_current_pending_user_index);
-        assert_eq!(redis_current_pending_user_index, context.current_process_user_index);
-        {
-            let mut task_graph = context.proof_store.task_graph.lock().await;
-            let sorted_tasks = task_graph.ts_layers();
-            self.job_task_store.save_task_topology_with_layers(sorted_tasks).await?;
-            task_graph.clear();
-        }
-        let realm_worker_output_job_id = self
-            .sync_proof
-            .wait_for_block_proving_jobs_imm(next_checkpoint_id)
-            .await?;
-        info!("Prove block {} time: {}ms", next_checkpoint_id, now.elapsed().as_millis());
-        Ok(ProvingJobDataId::new(
-            next_checkpoint_id,
-            realm_worker_output_job_id,
-        ))
-    }
 
     pub async fn build_block(
         &mut self,
@@ -347,8 +285,11 @@ impl RealmProcessor {
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
         self.store.commit(local_latest_checkpoint_id)?;
 
-        match self.build_block_inner(context, next_checkpoint_id).await {
-            Ok(job_id) => Ok(job_id),
+        // Build block (all logic including logging is inside context.build_block)
+        match context.build_block().await {
+            Ok(job_id) => {
+                Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
+            },
             Err(err) => {
                 self.store.rollback(next_checkpoint_id)?;
                 Err(err)

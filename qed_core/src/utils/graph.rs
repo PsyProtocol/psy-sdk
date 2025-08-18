@@ -36,6 +36,14 @@ impl<T: Eq + Hash + Clone + Debug> BidirectionalGraph<T> {
         self.reverse_edges.entry(node).or_default();
     }
 
+    pub fn get_dependencies(&self, node: &T) -> Option<&HashSet<T>> {
+        self.edges.get(node)
+    }
+
+    pub fn get_dependents(&self, node: &T) -> Option<&HashSet<T>> {
+        self.reverse_edges.get(node)
+    }
+
     pub fn ts_order(&self) -> Vec<Vec<T>> {
         let mut in_degrees: HashMap<T, usize> = self
             .edges

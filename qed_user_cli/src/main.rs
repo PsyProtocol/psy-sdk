@@ -12,6 +12,7 @@ shadow!(build);
 
 use clap::Parser;
 use error::Result;
+use crate::subcommand::claim_rewards;
 use crate::subcommand::deploy_contract;
 use crate::subcommand::get_public_key;
 use crate::subcommand::random_wallet;
@@ -34,6 +35,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::RegisterUser(args) => register_user::run(args)?,
         Commands::DeployContract(args) => deploy_contract::run(args)?,
         Commands::SubmitEndCaproof(args) => submit_end_cap_proof::run(args)?,
+        Commands::ClaimRewards(args) => claim_rewards::run(args)?,
 
         // get block data
         Commands::GetUserId(user_id_args) => {
@@ -302,7 +304,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::WalletSession(wallet_session_args) => submit_end_cap_proof::run_multi(wallet_session_args)?,
         Commands::LocalProver(prover_args) => qed_prover::run_server(prover_args).await?,
         Commands::ProveProxy(prove_proxy_args) => {
-            qed_prover::run_prove_proxy_server(prove_proxy_args).await?
+            crate::subcommand::prove_proxy::run(prove_proxy_args).await?
         }
     }
     Ok(())

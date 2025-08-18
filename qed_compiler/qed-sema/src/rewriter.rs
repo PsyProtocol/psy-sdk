@@ -646,6 +646,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *data = self.rewrite_expr(*data, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
+                    CheckedIntrinsicExprNode::HashTwoToOne { left, right, type_id, .. } => {
+                        *left = self.rewrite_expr(*left, ctx)?;
+                        *right = self.rewrite_expr(*right, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
                     CheckedIntrinsicExprNode::MemTransmute {
                         data, target_type, ..
                     } => {
@@ -714,6 +719,38 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *pub_key = self.rewrite_expr(*pub_key, ctx)?;
                         *msg = self.rewrite_expr(*msg, ctx)?;
                         *sig = self.rewrite_expr(*sig, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetCheckpointStats {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetRegisterUsersRoot {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetGutasRoot {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetDeployContractsRoot {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
                 }

@@ -1,10 +1,13 @@
-use crate::queue::fred_queue::{
+use crate::queue::{BizKey, QueuePrefixKey};
+use crate::queue::{
     PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX,
     PS_WORKER_QUEUE_KEY_PREFIX,
 };
 use async_trait::async_trait;
-use qed_core::config::network_constants::{COORDINATOR_TO_REALM_CHANNEL, REALM_TO_COORDINATOR_CHANNEL};
 use kvq::traits::KVQSerializable;
+use qed_core::config::network_constants::{
+    COORDINATOR_TO_REALM_CHANNEL, REALM_TO_COORDINATOR_CHANNEL,
+};
 use qed_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable,
 };
@@ -13,22 +16,25 @@ use qed_core::job::history_queue::{
     HistoryQueueMetadata, HistoryQueueMetadataTagged,
 };
 use qed_core::job::id::{QProvingJobDataID, QWorkerJobBenchmark};
+use qed_core::job::traits::QProofStoreReaderAsync;
 use qed_core::job::worker_queue::{
     WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm,
-    WorkerEventReceiverSync, WorkerEventTransmitterSync
 };
-use rsmq::{PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqError, RsmqOptions,
-           RsmqConnectionSync, RsmqSync, RsmqMessage};
+use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
+use rsmq::{
+    PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqConnectionSync, RsmqError,
+    RsmqMessage, RsmqOptions, RsmqSync,
+};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
-use std::time::Duration;
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{debug, error, info};
-use crate::queue::{BizKey, QueuePrefixKey};
 use anyhow::{anyhow, Result};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum QueueId {
     WorkerEvent {
@@ -54,9 +60,7 @@ pub enum QueueId {
 impl QueueId {
     pub fn get_queue_id(&self) -> String {
         match self {
-            QueueId::WorkerEvent {
-                queue_biz_key,
-            } => queue_biz_key.clone(),
+            QueueId::WorkerEvent { queue_biz_key } => queue_biz_key.clone(),
             QueueId::WorkerNotification {
                 notifications_queue_suffix,
             } => notifications_queue_suffix.clone(),
@@ -67,14 +71,13 @@ impl QueueId {
             } => {
                 format!("{}-{}", queue_biz_key, channel_id)
             }
-            QueueId::CheckpointHistory { checkpoint_history_queue_prefix_key, channel_id } => {
+            QueueId::CheckpointHistory {
+                checkpoint_history_queue_prefix_key,
+                channel_id,
+            } => {
                 format!("{}-{}", checkpoint_history_queue_prefix_key, channel_id)
             }
-            QueueId::SyncProof {
-                queue_biz_key,
-            } => {
-                queue_biz_key.clone()
-            }
+            QueueId::SyncProof { queue_biz_key } => queue_biz_key.clone(),
         }
     }
 }
@@ -523,7 +526,38 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Vec<T>> {
-        todo!()
+        let queue_id = QueueId::CheckpointDrain {
+            queue_biz_key: self.worker_queue_key().clone(),
+            channel_id,
+            checkpoint_id: 0, // Not used for peeking
+        };
+
+        let mut members = vec![];
+        let mut peeked_messages = vec![];
+
+        // Receive messages with visibility timeout to peek at them
+        // We'll collect them and then change visibility back to 0
+        while let Some(msg) = self.receive_message_with_id(&queue_id, Some(Duration::from_secs(1))).await? {
+            let data = T::from_bytes(&msg.message)?;
+            members.push(data);
+            peeked_messages.push(msg.id);
+
+            // Limit peek to reasonable amount to avoid blocking
+            if members.len() >= 100 {
+                break;
+            }
+        }
+
+        // Reset visibility for all peeked messages to make them immediately available again
+        for msg_id in peeked_messages {
+            // Set visibility to 0 to make message immediately available
+            if let Err(e) = self.change_message_visibility(&queue_id, &msg_id, Duration::from_secs(0)).await {
+                // Log but don't fail - message might have been consumed by another process
+                debug!("Failed to reset visibility for message {}: {:?}", msg_id, e);
+            }
+        }
+
+        Ok(members)
     }
 }
 
@@ -637,6 +671,33 @@ impl WorkerEventReceiverAsyncImm for RsmqQueue {
     }
 }
 
+// Implement QProofStoreReaderAsync for RsmqQueue
+// Note: RsmqQueue doesn't have direct storage, so we provide stub implementations
+// In practice, a separate storage backend should be used alongside RsmqQueue
+#[async_trait]
+impl QProofStoreReaderAsync for RsmqQueue {
+    async fn contains_id(&self, _id: QProvingJobDataID) -> anyhow::Result<bool> {
+        // RsmqQueue is a queue-only implementation, not a storage backend
+        // This is a stub implementation - in production, use ProofStoreRedisAsync or ProofStoreFred
+        Ok(false)
+    }
+
+    async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        // RsmqQueue is a queue-only implementation, not a storage backend
+        // This is a stub implementation - in production, use ProofStoreRedisAsync or ProofStoreFred
+        Err(anyhow::anyhow!("RsmqQueue does not support proof storage. Use ProofStoreRedisAsync or ProofStoreFred for proof storage. Requested id: {:?}", id))
+    }
+
+    async fn get_bytes_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
+        // RsmqQueue is a queue-only implementation, not a storage backend
+        // This is a stub implementation - in production, use ProofStoreRedisAsync or ProofStoreFred
+        Err(anyhow::anyhow!("RsmqQueue does not support data storage. Use ProofStoreRedisAsync or ProofStoreFred for data storage. Requested id: {:?}", id))
+    }
+}
+
 #[async_trait]
 impl WorkerEventTransmitterAsyncImm for RsmqQueue {
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
@@ -675,6 +736,18 @@ impl WorkerEventTransmitterAsyncImm for RsmqQueue {
             }
             sleep(Duration::from_millis(500)).await;
         }
+    }
+
+    async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
+        &self,
+        job_id: QProvingJobDataID
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
+    where
+        C::Hasher: plonky2::plonk::config::AlgebraicHasher<C::F>
+    {
+        // RsmqQueue is a queue-only implementation, not a storage backend
+        // This is a stub implementation - in production, use ProofStoreRedisAsync or ProofStoreFred
+        Err(anyhow::anyhow!("RsmqQueue does not support proof storage. Use ProofStoreRedisAsync or ProofStoreFred for waiting on proofs. Requested job_id: {:?}", job_id))
     }
 }
 
@@ -788,110 +861,5 @@ impl RedisQueue {
             tracing::info!("🔧 RSMQ queue `{name}` created");
         }
         Ok(())
-    }
-}
-
-
-// Wrapper types from wq_mut.rs
-#[derive(Clone)]
-pub struct QEDArcImmutableEventProcessorWrapper<P> {
-    pub inner: Arc<RwLock<P>>,
-}
-
-impl<P> QEDArcImmutableEventProcessorWrapper<P> {
-    pub fn new(inner: P) -> Self {
-        Self {
-            inner: Arc::new(RwLock::new(inner)),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct QEDRedisEventProcessor {
-    pub job_queue: RedisQueue,
-    pub benckmarks_enabled: bool,
-    pub benchmarks: Vec<QWorkerJobBenchmark>,
-}
-
-impl QEDRedisEventProcessor {
-    pub fn new(dispatcher: RedisQueue) -> Self {
-        Self::new_with_config(dispatcher, false)
-    }
-
-    pub fn new_with_config(dispatcher: RedisQueue, benckmarks_enabled: bool) -> Self {
-        Self {
-            job_queue: dispatcher,
-            benckmarks_enabled,
-            benchmarks: Vec::new(),
-        }
-    }
-
-    pub fn to_imm(self) -> QEDArcImmutableEventProcessorWrapper<Self> {
-        QEDArcImmutableEventProcessorWrapper::new(self)
-    }
-}
-
-impl WorkerEventReceiverSync for QEDRedisEventProcessor {
-    fn wait_for_next_job_mut(&mut self) -> anyhow::Result<QProvingJobDataID> {
-        loop {
-            match self.job_queue.queue.pop_message::<Vec<u8>>(Q_JOB)? {
-                Some(RsmqMessage { message, .. }) => {
-                    return Ok(serde_json::from_slice(&message)?)
-                }
-                None => {
-                    std::thread::sleep(Duration::from_millis(250));
-                    continue;
-                }
-            }
-        }
-    }
-
-    fn enqueue_jobs_mut(&mut self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
-        for job in jobs {
-            self.job_queue.queue.send_message(Q_JOB, serde_json::to_vec(&job)?, None)?;
-        }
-        Ok(())
-    }
-
-    fn notify_core_goal_completed_mut(&mut self, _job: QProvingJobDataID) -> anyhow::Result<()> {
-        self.job_queue.queue.send_message(Q_NOTIFICATIONS, serde_json::to_vec(&QueueNotification::CoreJobCompleted)?, None)?;
-        Ok(())
-    }
-
-    fn record_job_bench_mut(&mut self, job: QProvingJobDataID, duration: u64) -> anyhow::Result<()> {
-        if self.benckmarks_enabled {
-            self.benchmarks.push(QWorkerJobBenchmark {
-                job_id: job.to_fixed_bytes(),
-                duration,
-            });
-        }
-        Ok(())
-    }
-}
-
-impl WorkerEventTransmitterSync for QEDRedisEventProcessor {
-    fn enqueue_jobs_mut(&mut self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
-        for job in jobs {
-            self.job_queue.queue.send_message(Q_JOB, serde_json::to_vec(&job)?, None)?;
-        }
-        Ok(())
-    }
-
-    fn wait_for_block_proving_jobs_mut(&mut self, _checkpoint_id: u64) -> anyhow::Result<bool> {
-        loop {
-            match self.job_queue.queue.pop_message::<Vec<u8>>(Q_NOTIFICATIONS)? {
-                Some(RsmqMessage { message, .. }) => match serde_json::from_slice::<QueueNotification>(&message) {
-                    Ok(QueueNotification::CoreJobCompleted) => return Ok(true),
-                    Err(_) => {
-                        std::thread::sleep(Duration::from_millis(500));
-                        continue;
-                    }
-                },
-                None => {
-                    std::thread::sleep(Duration::from_millis(500));
-                    continue;
-                }
-            }
-        }
     }
 }

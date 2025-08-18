@@ -5,7 +5,7 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::{circuit_data::VerifierOnlyCircuitData, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs},
 };
-use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStore}};
+use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStore}};
 use qed_crypto::hash::{merkle::utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof, traits::hasher::MerkleZeroHasher};
 use qed_data::{guta::{api::{SubmitUserEndCapProofAPIInput, SubmitUserEndCapProofIDAPIInput}, proof_input::{VerifyEndCapSimpleStandardInput, VerifyTwoEndCapCircuitInput, VerifyTwoEndCapCircuitWithIdsInput}}, qdata::checkpoint::QEDL2BlockState};
 use qed_rollup_circuit::guta::guta_helper::QEDGUTACircuitManager;
@@ -155,6 +155,7 @@ C::Hasher:
 
     pub fn proof_start_dbg(&self, ex_input: VerifyTwoEndCapCircuitWithIdsInput<F>, end_cap_verifier_data: &VerifierOnlyCircuitData<C,D> ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         self.guta_circuits.verify_two_end_cap.prove_base(
+            get_default_worker_public_key(),
             &ex_input.input,
             &self.proof_store.get_proof_by_id(ex_input.proof_a_id)?,
             &self.proof_store.get_proof_by_id(ex_input.proof_b_id)?,

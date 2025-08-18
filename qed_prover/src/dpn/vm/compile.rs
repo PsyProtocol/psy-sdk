@@ -1,6 +1,6 @@
 use plonky2::{
     field::extension::Extendable,
-    hash::hash_types::{HashOutTarget, RichField},
+    hash::hash_types::{HashOut, HashOutTarget, RichField},
     iop::target::Target,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
@@ -34,7 +34,7 @@ pub struct QEDContractFunctionBuilderGadget {
 }
 impl QEDContractFunctionBuilderGadget {
     pub fn add_virtual_to<
-        H:AlgebraicHasher<F>,
+        H:AlgebraicHasher<F> + qed_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -50,7 +50,7 @@ impl QEDContractFunctionBuilderGadget {
         let session_proof_tree_root = builder.add_virtual_hash();
         
         let state_reader = StateReaderGadget::new(
-            tx_ctx_header.proving_session_start_ctx.state_roots,
+            tx_ctx_header.proving_session_start_ctx.state_roots.clone(),
             tx_ctx_header.transaction_call_start_ctx.start_user_contract_tree_root,
             tx_ctx_header.transaction_call_start_ctx.start_deferred_tx_debt_tree_root,
             tx_ctx_header.transaction_call_start_ctx.start_contract_state_tree_root,
@@ -58,6 +58,8 @@ impl QEDContractFunctionBuilderGadget {
             session_proof_tree_root,
             session_proof_tree_height,
             force_four_align,
+            tx_ctx_header.proving_session_start_ctx.checkpoint_leaf.stats.clone(),
+            tx_ctx_header.proving_session_start_ctx.checkpoint_tree_root,
         );
         
         let mut g = Self {
@@ -73,7 +75,7 @@ impl QEDContractFunctionBuilderGadget {
         g
     }
      fn process_state_cmd<
-        H:AlgebraicHasher<F>,
+        H:AlgebraicHasher<F> + qed_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -91,7 +93,7 @@ impl QEDContractFunctionBuilderGadget {
         });
     }
     
-    fn eval_session<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn eval_session<H:AlgebraicHasher<F> + qed_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         fn_def: &DPNFunctionCircuitDefinition,

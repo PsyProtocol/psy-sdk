@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::{
-    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::HashOut, iop::
-        witness::PartialWitness, plonk::{
+    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::
+        witness::{PartialWitness, WitnessWrite}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
@@ -9,7 +9,7 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::pad_circuit::pad_circuit_degree, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
@@ -23,6 +23,7 @@ use crate::guta::gadgets::verify_guta_proof_to_line::VerifyGUTAProofToLineGadget
 pub struct GUTAVerifyGUTAToCapCircuit<C: GenericConfig<D>, const D: usize>
 {
     pub verify_to_line_gadget: VerifyGUTAProofToLineGadget<D>,
+    pub worker_public_key_target: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -51,6 +52,21 @@ where
 
         let public_inputs_hash = verify_to_line_gadget.get_guta_header_line().to_hash::<C::Hasher, C::F, D>(&mut builder);
 
+        let worker_public_key = builder.add_virtual_hash();
+
+        let child_commitment = HashOutTarget {
+            elements: [
+                verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[0],
+                verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[1],
+                verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[2],
+                verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[3],
+            ]
+        };
+
+        let commitment = builder.hash_two_to_one::<C::Hasher>(child_commitment, worker_public_key);
+
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&public_inputs_hash.elements);
 
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
@@ -65,6 +81,7 @@ where
             circuit_data,
             fingerprint,
             verify_to_line_gadget,
+            worker_public_key_target: worker_public_key,
         }
     }
 
@@ -75,6 +92,7 @@ where
         proof: &ProofWithPublicInputs<C::F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         top_line_siblings: &[QHashOut<C::F>],
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
 
         let mut pw = PartialWitness::<C::F>::new();
@@ -87,6 +105,8 @@ where
             verifier_data,
             top_line_siblings,
         )?;
+
+        pw.set_hash_target(self.worker_public_key_target, worker_public_key.0);
 
         self.circuit_data.prove(pw)
 
@@ -129,6 +149,7 @@ where
         store: &S,
         library: &L,
         job_id: QProvingJobDataID,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: CircuitInputWithDependencies<VerifyGUTAToCapCircuitInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
@@ -154,6 +175,7 @@ where
             &child_a_proof,
             &child_a_verifier_data,
             &r.input.top_line_siblings,
+            worker_public_key,
         )?;
 
         Ok(result)

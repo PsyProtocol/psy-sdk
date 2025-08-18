@@ -23,28 +23,7 @@ pub struct Config {
     pub nodes: NodesConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkConfig {
-    pub users_per_realm: u64,
-    pub global_user_tree_height: u8,
-    pub realm_user_tree_height: u8,
-    pub realm_configs: Vec<RealmConfig>,
-    pub coordinator_configs: Vec<CoordinatorConfig>,
-    pub prover_url: String,
-    pub native_currency: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RealmConfig {
-    pub id: u64,
-    pub rpc_url: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CoordinatorConfig {
-    pub id: u64,
-    pub rpc_url: Vec<String>,
-}
+pub use qed_prover::local::provider::{NetworkConfig, RealmConfig, CoordinatorConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodesConfig {

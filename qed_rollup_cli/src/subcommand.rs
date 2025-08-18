@@ -39,7 +39,9 @@ pub enum Commands {
     },
     #[command(about = "Run the worker node")]
     Worker {
-        #[arg(long = "edge-url", action = ArgAction::Append)]
-        edge_url: Vec<String>,
+        #[arg(long = "config", default_value = "./config.json", help = "Path to config.json file")]
+        config: String,
+        #[arg(long = "public-key", help = "Worker public key in hex format (64 hex chars). If not specified, uses get_default_worker_public_key()")]
+        public_key: Option<String>,
     },
 }

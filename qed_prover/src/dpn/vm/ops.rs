@@ -9,7 +9,10 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 use qed_common_circuit::{
-    builder::comparison::CircuitBuilderComparison,
+    builder::{
+        comparison::CircuitBuilderComparison,
+        hash::core::CircuitBuilderHashCore,
+    },
     crypto::secp256k1::{
         ecdsa::gadgets::{
             biguint::{BigUintTarget, CircuitBuilderBiguint},
@@ -68,7 +71,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             nonce,
             inputs,
             constant_targets: HashMap::new(),
-            
+
         }
     }
     pub fn push_external_target(&mut self, target: Target) {
@@ -94,7 +97,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 builder.assert_bool(b);
                 b
             },
-            
+
             DPNBuiltInDataType::U32Target => {
                 assert!(index < self.u32s.len(), "Invalid u32 index");
 
@@ -145,7 +148,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 assert!(index < self.targets.len(), "Invalid target index");
                 self.targets[index]
             },
-            
+
             DPNBuiltInDataType::U32Target => {
                 assert!(index < self.u32s.len(), "Invalid u32 index");
                 self.u32s[index].0
@@ -157,7 +160,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
     pub fn resolve_u32(&self, id: u64) -> U32Target {
         let (t, index) = decode_indexed_op_id(id);
         match t {
-            
+
             DPNBuiltInDataType::U32Target => {
                 assert!(index < self.u32s.len(), "Invalid u32 index");
 
@@ -187,7 +190,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 assert!(index < self.target_arrays.len(), "Invalid target array index");
                 self.target_arrays[index].clone()
             },
-            
+
             DPNBuiltInDataType::U32TargetArray => {
                 assert!(index < self.u32_arrays.len(), "Invalid u32 array index");
 
@@ -219,7 +222,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 assert!(index < self.target_arrays.len(), "Invalid target array index");
                 self.target_arrays[index][ind_real.to_canonical_u64() as usize]
             },
-            
+
             DPNBuiltInDataType::U32TargetArray => {
                 assert!(index < self.u32_arrays.len(), "Invalid u32 array index");
                 self.u32_arrays[index][ind_real.to_canonical_u64() as usize].0
@@ -251,7 +254,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
 
 
     pub fn process_var_def(&mut self, builder: &mut CircuitBuilder<F, D>, op: &DPNIndexedVarDef) {
-        
+
         match op.op_type {
             //DPNOpType::InputTarget => todo!("this shouldn't ever get called probably"),
             DPNOpType::InputTarget => {
@@ -264,7 +267,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             },
             DPNOpType::Constant => {
                 self.constant_targets.insert(self.targets.len(), F::from_noncanonical_u64(op.inputs[0]));
-                
+
                 self.targets.push(builder.constant(F::from_noncanonical_u64(op.inputs[0])))
             },
             DPNOpType::ConstantTrue => self.bools.push(builder._true()),
@@ -293,7 +296,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let left = self.resolve_bool(builder, op.inputs[0]);
                 self.bools.push(builder.not(left));
             },
-            
+
             DPNOpType::BoolAnd =>{
                 let left = self.resolve_bool(builder,op.inputs[0]);
                 let right = self.resolve_bool(builder,op.inputs[1]);
@@ -365,6 +368,27 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let output = builder.hash_n_to_hash_no_pad::<QEDHasher>(targets);
                 self.hashes.push(output);
             },
+            DPNOpType::HashTwoToOne => {
+                assert_eq!(op.inputs.len(), 8, "HashTwoToOne requires exactly 8 inputs");
+                let left = HashOutTarget {
+                    elements: [
+                        self.resolve_target(op.inputs[0]),
+                        self.resolve_target(op.inputs[1]),
+                        self.resolve_target(op.inputs[2]),
+                        self.resolve_target(op.inputs[3]),
+                    ],
+                };
+                let right = HashOutTarget {
+                    elements: [
+                        self.resolve_target(op.inputs[4]),
+                        self.resolve_target(op.inputs[5]),
+                        self.resolve_target(op.inputs[6]),
+                        self.resolve_target(op.inputs[7]),
+                    ],
+                };
+                let output = builder.hash_two_to_one::<QEDHasher>(left, right);
+                self.hashes.push(output);
+            },
             DPNOpType::HashPad => unimplemented!(),
             DPNOpType::Select => {
                 let condition = self.resolve_target(op.inputs[0]);
@@ -412,7 +436,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             DPNOpType::ModConstantDividend => {
                let (_optype, left) = decode_indexed_op_id(op.inputs[0]);
                 let right = self.resolve_target(op.inputs[1]);
-                
+
                 let (left_low, left_high) = (builder.constant(F::from_noncanonical_u64((left as u64) & 0xffffffffu64)), builder.constant(F::from_noncanonical_u64((left as u64) >> 32u64)));
                 let (right_low, right_high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, right);
                 let left_biguint = BigUintTarget{
@@ -738,6 +762,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
 
             }
         }
-        
+
     }
 }

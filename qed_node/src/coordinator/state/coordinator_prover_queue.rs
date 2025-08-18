@@ -16,8 +16,11 @@ use qed_data::{
     qdata::contract::QEDContractLeaf,
 };
 use qed_data::config::store_config::QEDFelt;
-use qed_store::node::coordinator::{
-    QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
+use qed_store::{
+    node::coordinator::{
+        QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
+    },
+    queue::task_queue::QProvingTaskStore,
 };
 
 use super::processor::CoordinatorProcessorContext;
@@ -31,7 +34,8 @@ impl<
         WQ: WorkerEventTransmitterAsyncImm,
 
         PS: QProofStoreAsyncImm,
-    > CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS>
+        TS: QProvingTaskStore,
+    > CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, TS>
 {
     pub fn push_user_registration_request(
         &self,

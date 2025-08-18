@@ -5,23 +5,22 @@ use anyhow::{anyhow, bail};
 use chrono::Utc;
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use kvq::traits::KVQSerializable;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
+use plonky2::field::types::Field;
 
-// qed_core
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DrainQueueMetadataTagged, WithDrainQueueMetadata};
-use qed_core::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
+use qed_core::job::id::{JobProof, JobProofSibling, ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
+use jsonrpsee::types::ErrorObject;
 use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 
-// qed_crypto
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 
-// qed_data
 use qed_data::guta::api::{SubmitGUTARealmResultAPINoProofInput, SubmitGUTARealmResultAPIQueueItem};
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::{
@@ -31,18 +30,15 @@ use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_data::qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact};
 
-// qed_node
 use qed_store::queue::rsmq_queue::CEQueueNotification;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
-// qed_store
 use qed_data::config::store_config::{QEDFelt, QEDHasher, QCheckpointSyncInfoCompact};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
-use crate::common::jobs::{JobSchedulerRpcServer};
+use crate::common::jobs::JobSchedulerRpcServer;
 use crate::common::ConcreteProofWithPublicInputs;
-// crate inner
 use crate::coordinator::edge::{StoreReader, DrainQueue, ProofStore};
 use crate::coordinator::args::CoordinatorEdgeArgs;
 use crate::coordinator::state::edge::CoordinatorEdgeContext;
@@ -65,7 +61,7 @@ pub struct CoordinatorEdgeHandler {
     proof_store: Arc<ProofStore>,
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
-    job_task_store: Arc<JobTaskStoreImpl>,
+    task_store: Arc<QProvingTaskStoreImpl>,
 }
 
 impl CoordinatorEdgeHandler {
@@ -77,7 +73,7 @@ impl CoordinatorEdgeHandler {
         let qed_store = QEDStore::from_backend(args.backend.to_backend()).await?;
         let store_reader = Arc::new(qed_store);
         let redis_pool = new_redis_async_pool(&args.redis_uri, args.redis_pool_size).await?;
-        let task_store = JobTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size).await?;
+        let task_store = QProvingTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size).await?;
         let qe_args = &args.queue_args;
 
         let proof_store = Arc::new(ProofStoreRedisAsync::new(
@@ -106,7 +102,7 @@ impl CoordinatorEdgeHandler {
             proof_store: Arc::clone(&proof_store),
             ctx,
             store: store_reader,
-            job_task_store: Arc::new(task_store),
+            task_store: Arc::new(task_store),
         })
     }
 
@@ -240,7 +236,7 @@ impl CoordinatorEdgeHandler {
         info!("✅ wrote guta result to proof store end");
         let metadata = queue_item.get_dq_metadata();
         let items:Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> = checkpoint_queue.cdq_peek_imm(metadata.channel_id).await?;
-        info!("DEBUGPRINT[237]: handler.rs:237: items={}, metadata = {:?}", serde_json::to_string_pretty(&items).unwrap(), metadata);
+        debug!("Retrieved GUTA queue items: {} items, metadata: {:#?}", items.len(), metadata);
 
         Ok(())
     }
@@ -899,7 +895,7 @@ use super::rpc::CoordinatorEdgeRpcServer;
 use super::error::RpcError;
 use super::types::LatestCheckpointResponse;
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
-use qed_store::queue::task_queue::{JobTaskStore, JobTaskStoreImpl,JobValidationStatus, QJob};
+use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob};
 use qed_store::queue::redis_queue::NotificationQueue;
 
 #[async_trait]
@@ -1309,12 +1305,96 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .map_err(RpcError::Anyhow)
     }
 
+    async fn generate_batch_proofs(&self, checkpoint_id: u64, job_ids: Vec<QProvingJobDataID>) -> RpcResult<Vec<JobProof>> {
+        use jsonrpsee::types::ErrorObject;
+
+        for job_id in &job_ids {
+            if job_id.goal_id != checkpoint_id {
+                return Err(ErrorObject::owned(
+                    jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                    format!("Job ID {:?} does not belong to checkpoint {}", job_id, checkpoint_id),
+                    None::<()>,
+                ));
+            }
+        }
+
+        let checkpoint_leaf = self.get_checkpoint_leaf_data(checkpoint_id)
+            .await
+            .map_err(|e| ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InternalError.code(),
+                format!("Failed to get checkpoint data: {}", e),
+                None::<()>,
+            ))?;
+
+        let graph = self.task_store
+            .load_job_dependency_graph(checkpoint_id)
+            .await
+            .map_err(|e| ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InternalError.code(),
+                format!("Failed to load job dependency graph for checkpoint {}: {}", checkpoint_id, e),
+                None::<()>,
+            ))?;
+
+        let mut proofs = Vec::new();
+
+        for job_id in job_ids {
+            let expected_root = match job_id.circuit_type {
+                ProvingJobCircuitType::AppendUserRegistrationTree |
+                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
+                ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate  => {
+                    checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
+                }
+                ProvingJobCircuitType::GUTARegisterUsers |
+                ProvingJobCircuitType::GUTAOnlyRegisterUsers |
+                ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange | ProvingJobCircuitType::GUTASingleEndCap |
+                ProvingJobCircuitType::GUTATwoEndCap | ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
+                ProvingJobCircuitType::GUTALeftGUTARightEndCap | ProvingJobCircuitType::GUTAVerifyToCap => {
+                    checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
+                }
+                ProvingJobCircuitType::BatchDeployContracts |
+                ProvingJobCircuitType::BatchDeployContractsAggregate |
+                ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
+                    checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
+                }
+                _ => {
+                    return Err(ErrorObject::owned(
+                        jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                        format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
+                        None::<()>,
+                    ));
+                }
+            };
+
+            match graph.generate_proof(job_id, &*self.proof_store).await {
+                Ok(job_proof) => {
+                    if job_proof.root != expected_root {
+                        tracing::warn!(
+                            "Root mismatch for job {:?}: expected {:?}, got {:?}",
+                            job_id, expected_root, job_proof.root
+                        );
+                    }
+
+                    proofs.push(job_proof);
+                }
+                Err(e) => {
+                    error!("Failed to generate proof for job {:?}: {}", job_id, e);
+                    return Err(ErrorObject::owned(
+                        jsonrpsee::types::ErrorCode::InternalError.code(),
+                        format!("Failed to generate proof for job {:?}: {}", job_id, e),
+                        None::<()>,
+                    ));
+                }
+            }
+        }
+
+        Ok(proofs)
+    }
 }
 
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
-        let j = match self.job_task_store.claim_job_from_current_layer().await {
+        let j = match self.task_store.claim_job_from_current_layer().await {
             Ok(job) => job,
             Err(e) => {
                 error!("Error claiming job from current task: {:?}", e);
@@ -1347,7 +1427,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         let job_id = job.job_id;
 
         // CRITICAL: Validate job ownership before processing proof
-        let validation_status = self.job_task_store.validate_job_ownership(&job).await
+        let validation_status = self.task_store.validate_job_ownership(&job).await
             .map_err(|e| RpcError::Anyhow(anyhow!("Failed to validate job: {}", e)))?;
 
         match validation_status {
@@ -1394,7 +1474,10 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         }
 
         if let Some(proof) = proof {
-            info!("Verifying proof for validated job: {:?}", job_id);
+            info!("Setting proof by id: {:?}", job_id);
+
+            crate::common::log_proof_details("Coordinator", job_id, &proof);
+
             self.ctx.proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)
                 .map_err(|e| RpcError::Anyhow(e.into()))?;
             // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
@@ -1404,7 +1487,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
 
         }
         // remove the job from the current task, no matter if proof is None or Some
-        match self.job_task_store.acknowledge_job_completion(&job).await{
+        match self.task_store.acknowledge_job_completion(&job).await{
             Ok(_) => {
                 info!("Job completed successfully: {:?}", job_id);
             },
@@ -1414,11 +1497,9 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             }
         }
 
-        if job_id.topic == QJobTopic::NotifyOrchestratorComplete
-            || job_id.circuit_type == ProvingJobCircuitType::NotifyRealmComplete
-            {
-                info!("Notifying core goal completed: {:?}", job_id);
-                self.history_queue.notify_core_goal_completed_imm(job_id).await.map_err(RpcError::Anyhow)?;
+        if job_id.is_notify_complete() {
+            info!("Notifying core goal completed: {:?}", job_id);
+            self.history_queue.notify_core_goal_completed_imm(job_id).await.map_err(RpcError::Anyhow)?;
         }
         Ok(())
     }

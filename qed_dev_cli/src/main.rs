@@ -55,6 +55,12 @@ async fn main() -> anyhow::Result<()> {
         Commands::Launch(args) => {
             subcommand::launch::run(args).await?;
         }
+        Commands::GetJobProof(args) => {
+            subcommand::get_job_proof::run(args).await?;
+        }
+        Commands::QHash(args) => {
+            subcommand::qhash::run(args)?;
+        }
         Commands::StressTest(args) => {
             subcommand::stress_test::run(args).await?;
         }

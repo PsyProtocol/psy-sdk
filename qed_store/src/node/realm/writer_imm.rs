@@ -187,14 +187,14 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
                     value: x.value,
                 }
             }).collect::<Vec<_>>();
-            eprintln!("DEBUGPRINT[572]: writer_imm.rs:215: nodes={}", serde_json::to_string_pretty(&nodes).unwrap());
+            tracing::debug!("Realm writer nodes: {:#?}", nodes);
             let uct_nodes = upd.uct_updates.iter().map(|x|{
                 KVQPair {
                     key: UserContractTreeStore::<Self>::new_node_key_sfc(upd.checkpoint_id, upd.user_id, x.key.level, x.key.index),
                     value: x.value,
                 }
             }).collect::<Vec<_>>();
-            eprintln!("DEBUGPRINT[571]: writer_imm.rs:221: uct_nodes={}", serde_json::to_string_pretty(&uct_nodes).unwrap());
+            tracing::debug!("Realm writer UCT nodes: {:#?}", uct_nodes);
             BaseContractStateTreeStore::<Self>::set_nodes(self, &nodes)?;
             UserContractTreeStore::<Self>::set_nodes(self, &uct_nodes)?;
         }

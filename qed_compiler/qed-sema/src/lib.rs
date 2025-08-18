@@ -655,6 +655,17 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     location,
                 }))
             }
+            IntrinsicExprNode::HashTwoToOne { left, right, location } => {
+                let left = self.visit_expr(left, ctx)?;
+                let right = self.visit_expr(right, ctx)?;
+
+                Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::HashTwoToOne {
+                    left: self.program.exprs.alloc_item(left),
+                    right: self.program.exprs.alloc_item(right),
+                    type_id: HASH_TYPE,
+                    location,
+                }))
+            }
             IntrinsicExprNode::InvokeSync {
                 contract_id,
                 method_id,
@@ -717,6 +728,46 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         location,
                     },
                 ))
+            }
+            IntrinsicExprNode::GetCheckpointStats { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetCheckpointStats {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::GetRegisterUsersRoot { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetRegisterUsersRoot {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::GetGutasRoot { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetGutasRoot {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::GetDeployContractsRoot { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetDeployContractsRoot {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
             }
         }
     }

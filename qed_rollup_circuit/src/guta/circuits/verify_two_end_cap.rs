@@ -27,6 +27,7 @@ where
     pub a_end_cap_gadget: VerifyEndCapProofGadget<D>,
     pub b_end_cap_gadget: VerifyEndCapProofGadget<D>,
     pub nca_state_transition_gadget: TwoNCAStateTransitionGadget,
+    pub worker_public_key: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -79,8 +80,13 @@ where
             b_end_cap_guta_header,
         );
 
+        let worker_public_key = builder.add_virtual_hash();
+        let commitment = worker_public_key;
+
         let public_inputs_hash = nca_state_transition_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&public_inputs_hash.elements);
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
         pad_circuit_degree(&mut builder, 12);
@@ -95,6 +101,7 @@ where
             a_end_cap_gadget,
             b_end_cap_gadget,
             nca_state_transition_gadget,
+            worker_public_key,
             circuit_data,
             fingerprint,
         }
@@ -102,6 +109,7 @@ where
 
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         input: &VerifyTwoEndCapCircuitInput<C::F>,
         child_a_proof: &ProofWithPublicInputs<C::F, C, D>,
         child_b_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -110,6 +118,7 @@ where
         let mut pw = PartialWitness::<C::F>::new();
 
         pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0)?;
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
         self.a_end_cap_gadget.set_witness(
             &mut pw,
@@ -180,6 +189,7 @@ C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
         store: &S,
         library: &L,
         job_id: QProvingJobDataID,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
 
         let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<C::F>> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
@@ -193,6 +203,7 @@ C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
         let dep_0_type = r.dependencies[0].circuit_type;
         let vd = library.get_verifier_data(dep_0_type)?;
         let result = self.prove_base(
+            worker_public_key,
             &r.input,
             &proof_a,
             &proof_b,

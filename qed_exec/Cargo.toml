@@ -20,6 +20,7 @@ qed_data = { workspace = true, default-features = false }
 qed_crypto = { workspace = true }
 async-trait = { workspace = true }
 maybe-async = {workspace = true}
+tracing = { workspace = true }
 qed_store = { workspace = true, default-features = false }
 qedlang_macros = { workspace = true }
 

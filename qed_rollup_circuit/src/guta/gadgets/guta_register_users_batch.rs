@@ -1,6 +1,6 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOut, HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
 use qed_common_circuit::treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget;
-use qed_core::data::qhashout::QHashOut;
+use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut};
 use qed_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 use qed_data::{guta::{header::GlobalUserTreeAggregatorHeader, proof_input::GUTARegisterUserFullInput}, qdata::user::QEDUserLeaf};
 
@@ -102,7 +102,7 @@ impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
     ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
         self.verify_to_line_gadget.set_witness(witness, guta_whitelist_merkle_proof, guta_proof_header, proof, verifier_data, top_line_siblings)?;
-        let dummy_public_key = QHashOut::from_values(1, 1, 1, 1);
+        let dummy_public_key = get_default_worker_public_key();
         let dummy_user_leaf_hash = QEDUserLeaf::new_user_default(F::ZERO, dummy_public_key, default_user_state_tree_root).alghash::<C::Hasher>();
 
         self.register_users_gadget.set_witness_params(

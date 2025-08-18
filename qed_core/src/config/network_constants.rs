@@ -118,3 +118,9 @@ pub const COORDINATOR_TO_REALM_CHANNEL: u64 = 0xCC544F5245414C4D;
 pub const REALM_TO_COORDINATOR_CHANNEL: u64 = 0x5245414C4D544F43;
 
 pub const REALM_PROOF_SYNC_CHANNEL: u64 = 0x524C4D50524F4F46;
+
+use plonky2::{field::types::Field, hash::hash_types::RichField};
+
+pub fn get_default_worker_public_key<F: RichField>() -> QHashOut<F> {
+    QHashOut::from_values(1, 1, 1, 1)
+}

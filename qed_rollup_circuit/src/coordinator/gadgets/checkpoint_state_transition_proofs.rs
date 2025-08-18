@@ -21,7 +21,11 @@ use qed_crypto::hash::merkle::
     treeprover::AggStateTransition
 ;
 use qed_data::{
-    guta::header::GlobalUserTreeAggregatorHeader, qdata::checkpoint::QEDCheckpointLeafStats,
+    guta::header::GlobalUserTreeAggregatorHeader,
+    qdata::{
+        checkpoint::QEDCheckpointLeafStats,
+        pm_reward_commitment::PMRewardCommitment,
+    },
 };
 
 use crate::
@@ -42,6 +46,7 @@ pub struct QEDPart1StateDeltaResultGadget {
     pub old_stats: QEDCheckpointLeafStatsGadget,
     pub block_time: Target,
     pub final_random_seed_contribution: HashOutTarget,
+    pub pm_rewards_commitment: PMRewardCommitmentGadget,
 
     // computed
     pub old_state_roots: QEDCheckpointGlobalStateRootsGadget,
@@ -97,11 +102,13 @@ impl QEDPart1StateDeltaResultGadget {
         let old_stats = QEDCheckpointLeafStatsGadget::create_virtual(builder);
         let block_time = builder.add_virtual_target();
         let final_random_seed_contribution = builder.add_virtual_hash();
+        let pm_rewards_commitment = PMRewardCommitmentGadget::create_virtual(builder);
 
         let old_state_roots_hash = old_state_roots.to_hash::<H, F, D>(builder);
         let new_state_roots_hash = new_state_roots.to_hash::<H, F, D>(builder);
 
         let zero = builder.zero();
+
         let new_stats = QEDCheckpointLeafStatsGadget {
             fees_collected: part_1_header.global_user_tree_delta.stats.fees_collected,
             user_ops_processed: part_1_header
@@ -120,9 +127,7 @@ impl QEDPart1StateDeltaResultGadget {
             block_time,
             random_seed: builder
                 .hash_two_to_one::<H>(old_stats.random_seed, final_random_seed_contribution),
-            pm_rewards_commitment: PMRewardCommitmentGadget {
-                commitment: [zero, zero, zero, zero],
-            },
+            pm_rewards_commitment,
             da_challenges_claimed: [zero; DA_CHALLENGE_WINDOW],
         };
 
@@ -145,6 +150,7 @@ impl QEDPart1StateDeltaResultGadget {
             old_stats,
             block_time,
             final_random_seed_contribution,
+            pm_rewards_commitment,
             new_stats,
             old_checkpoint_leaf,
             new_checkpoint_leaf,
@@ -160,6 +166,7 @@ impl QEDPart1StateDeltaResultGadget {
         old_stats: &QEDCheckpointLeafStats<F>,
         block_time: F,
         final_random_seed_contribution: QHashOut<F>,
+        pm_rewards_commitment: &PMRewardCommitment<F>,
     ) -> anyhow::Result<()> {
         self.part_1_header.set_witness_params(
             witness,
@@ -173,6 +180,7 @@ impl QEDPart1StateDeltaResultGadget {
             self.final_random_seed_contribution,
             final_random_seed_contribution.0,
         )?;
+        self.pm_rewards_commitment.set_witness(witness, pm_rewards_commitment)?;
         Ok(())
     }
 }
@@ -229,6 +237,36 @@ impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
 
         builder.connect_hashes(part_1_header_hash, expected_part_1_header_hash);
 
+        let register_users_root_from_proof = HashOutTarget {
+            elements: [
+                part_1_proof_target.public_inputs[4],
+                part_1_proof_target.public_inputs[5],
+                part_1_proof_target.public_inputs[6],
+                part_1_proof_target.public_inputs[7],
+            ]
+        };
+        let deploy_contracts_root_from_proof = HashOutTarget {
+            elements: [
+                part_1_proof_target.public_inputs[8],
+                part_1_proof_target.public_inputs[9],
+                part_1_proof_target.public_inputs[10],
+                part_1_proof_target.public_inputs[11],
+            ]
+        };
+        let gutas_root_from_proof = HashOutTarget {
+            elements: [
+                part_1_proof_target.public_inputs[12],
+                part_1_proof_target.public_inputs[13],
+                part_1_proof_target.public_inputs[14],
+                part_1_proof_target.public_inputs[15],
+            ]
+        };
+
+        // Connect the pm_rewards_commitment from input with the values from proof
+        builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.register_users_root, register_users_root_from_proof);
+        builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.deploy_contracts_root, deploy_contracts_root_from_proof);
+        builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.gutas_root, gutas_root_from_proof);
+
         Self {
             part_1_verifier_data,
             part_1_proof_target,
@@ -244,6 +282,7 @@ impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
         old_stats: &QEDCheckpointLeafStats<F>,
         block_time: F,
         final_random_seed_contribution: QHashOut<F>,
+        pm_rewards_commitment: &PMRewardCommitment<F>,
         part_1_proof: &ProofWithPublicInputs<F, C, D>,
         part_1_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<()>
@@ -261,6 +300,7 @@ impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
             old_stats,
             block_time,
             final_random_seed_contribution,
+            pm_rewards_commitment,
         )?;
 
         Ok(())

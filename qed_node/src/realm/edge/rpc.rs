@@ -4,7 +4,7 @@ use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use plonky2::field::types::PrimeField64;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::data::qhashout::QHashOut;
-use qed_core::job::id::QProvingJobDataID;
+use qed_core::job::id::{QProvingJobDataID, JobProof};
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
@@ -273,4 +273,11 @@ pub trait RealmEdgeRpc {
         )
         .await
     }
+
+    #[method(name = "generate_batch_proofs")]
+    async fn generate_batch_proofs(
+        &self,
+        checkpoint_id: u64,
+        job_ids: Vec<QProvingJobDataID>,
+    ) -> RpcResult<Vec<JobProof>>;
 }

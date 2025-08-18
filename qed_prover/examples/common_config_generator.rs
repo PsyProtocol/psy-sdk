@@ -26,10 +26,12 @@ fn run_gen_config() -> anyhow::Result<()> {
         main_circuits.ups_end_cap.get_verifier_triplet(),
     );
 
+    use qed_core::config::network_constants::get_default_worker_public_key;
     let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
         main_circuits.ups_end_cap.get_common_circuit_data_ref(),
         main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),
         main_circuits.ups_end_cap.get_fingerprint(),
+        get_default_worker_public_key::<F>(),
     );
 
     gcv.register_circuit_triplet(
@@ -68,7 +70,7 @@ fn run_gen_config() -> anyhow::Result<()> {
         ProvingJobCircuitType::GUTANoChange,
         guta_circuits.no_change.get_verifier_triplet(),
     );
-    let coordinator_circuits = QEDCoordinatorCircuitManager::<C,D>::new_with_guta(guta_circuits);
+    let coordinator_circuits = QEDCoordinatorCircuitManager::<C,D>::new_with_guta(guta_circuits, get_default_worker_public_key::<F>());
 
     coordinator_circuits.register_library(&mut gcv.library);
 

@@ -53,6 +53,7 @@ where
     pub no_change: GUTANoChangeCircuit<C, D>,
 
     pub guta_circuit_whitelist_root: QHashOut<C::F>,
+    pub public_key: QHashOut<C::F>,
     pub verify_single_end_cap_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
     pub verify_two_end_cap_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
     pub verify_two_guta_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
@@ -69,18 +70,20 @@ where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    pub fn new_with_library<T: CircuitInfoLibrary<C,D>>(library: &T) -> Self {
+    pub fn new_with_library<T: CircuitInfoLibrary<C,D>>(library: &T, public_key: QHashOut<C::F>) -> Self {
         let end_cap_common = get_end_cap_type_e_common_data::<C,D>();
         Self::new_with_config(
             &end_cap_common,
             library.get_verifier_data_cap_height(ProvingJobCircuitType::UserEndCap).unwrap(),
             library.get_fingerprint(ProvingJobCircuitType::UserEndCap).unwrap(),
+            public_key,
         )
     }
     pub fn new_with_config(
         end_cap_proof_common_data: &CommonCircuitData<C::F, D>,
         end_cap_proof_verifier_data_cap_height: usize,
         known_end_cap_fingerprint: QHashOut<C::F>,
+        public_key: QHashOut<C::F>,
     ) -> Self {
         let verify_single_end_cap = GUTAVerifySingleEndCapCircuit::<C, D>::new(
             end_cap_proof_common_data,
@@ -186,6 +189,7 @@ where
             no_change,
 
             guta_circuit_whitelist_root: verify_two_guta_whitelist_proof.root,
+            public_key,
             verify_single_end_cap_whitelist_proof,
             verify_two_end_cap_whitelist_proof,
             verify_two_guta_whitelist_proof,
@@ -403,15 +407,15 @@ where
         job_id: QProvingJobDataID,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match job_id.circuit_type {
-            ProvingJobCircuitType::GUTASingleEndCap => self.verify_single_end_cap.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::GUTATwoEndCap => self.verify_two_end_cap.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::GUTATwoGUTA => self.verify_two_guta.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::GUTALeftGUTARightEndCap => self.verify_left_guta_right_end_cap.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::GUTALeftEndCapRightGUTA => self.verify_left_end_cap_right_guta.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::GUTARegisterUsers => self.verify_guta_register_users.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::GUTAOnlyRegisterUsers => self.only_register_users.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::GUTAVerifyToCap => self.verify_guta_to_cap.prove_with_proof_store_async(store, library, job_id).await,
-            ProvingJobCircuitType::GUTANoChange => self.no_change.prove_with_proof_store_async(store, library, job_id).await,
+            ProvingJobCircuitType::GUTASingleEndCap => self.verify_single_end_cap.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::GUTATwoEndCap => self.verify_two_end_cap.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::GUTATwoGUTA => self.verify_two_guta.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::GUTALeftGUTARightEndCap => self.verify_left_guta_right_end_cap.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::GUTALeftEndCapRightGUTA => self.verify_left_end_cap_right_guta.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::GUTARegisterUsers => self.verify_guta_register_users.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::GUTAOnlyRegisterUsers => self.only_register_users.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::GUTAVerifyToCap => self.verify_guta_to_cap.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
+            ProvingJobCircuitType::GUTANoChange => self.no_change.prove_with_proof_store_async(store, library, job_id, self.public_key).await,
             _ => anyhow::bail!("unsupported circuit: {:?}", job_id.circuit_type),
         }
     }
@@ -443,6 +447,7 @@ mod tests {
                 .constants_sigmas_cap
                 .height(),
             QHashOut::rand(),
+            QHashOut::rand(),  // public_key for testing
         );
 
 

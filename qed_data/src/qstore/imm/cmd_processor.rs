@@ -2,7 +2,7 @@
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use crate::{dpn::proving_session::DPNProvingSessionSimpleMethodCall, qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}};
+use crate::{dpn::proving_session::DPNProvingSessionSimpleMethodCall, qdata::{checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDCheckpointGlobalStateRoots, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -112,6 +112,15 @@ pub struct DPNInvokeDeferredMethodCallWitness<F: RichField> {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
+pub struct DPNCheckpointLeafStatsWitness<F: RichField> {
+    pub checkpoint_leaf_stats: QEDCheckpointLeafStats<F>,
+    pub checkpoint_state_roots: QEDCheckpointGlobalStateRoots<F>,
+    pub checkpoint_historical_proof: MerkleProofCore<QHashOut<F>>, // Proves this checkpoint existed historically
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub enum DPNStateCmdWitness<F: RichField> {
     MerkleProof(MerkleProofCore<QHashOut<F>>),
     DeltaMerkleProof(DeltaMerkleProofCore<QHashOut<F>>),
@@ -119,6 +128,7 @@ pub enum DPNStateCmdWitness<F: RichField> {
     DeltaMerkleProofArray(Vec<DeltaMerkleProofCore<QHashOut<F>>>),
     ReadOtherUserContractState(DPNReadOtherUserContractStateLeafMerkleProof<F>),
     InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness<F>),
+    CheckpointLeafStats(DPNCheckpointLeafStatsWitness<F>),
     TargetArray(Vec<F>),
     TargetArray2D(Vec<Vec<F>>),
 }
@@ -191,6 +201,14 @@ impl<F: RichField> DPNStateCmdWitness<F> {
                 w
             },
             _ => panic!("get_target_array_2d_ref expects witnesss type to be TargetArray2D, but got {:?}",&self),
+        }
+    }
+    pub fn get_checkpoint_leaf_stats_ref(&self) -> &DPNCheckpointLeafStatsWitness<F> {
+        match &self {
+            DPNStateCmdWitness::CheckpointLeafStats(stats) => {
+                stats
+            },
+            _ => panic!("get_checkpoint_leaf_stats_ref expects witness type to be CheckpointLeafStats, but got {:?}",&self),
         }
     }
     pub fn get_merkle_proof(self) -> MerkleProofCore<QHashOut<F>> {

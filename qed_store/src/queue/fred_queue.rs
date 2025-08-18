@@ -1,8 +1,9 @@
-use std::time::Duration;
 use std::fmt;
+use std::time::Duration;
 
+use crate::queue::{BizKey, QueuePrefixKey};
 use async_trait::async_trait;
-use fred::prelude::{HashesInterface, KeysInterface, ListInterface, Pool, FredResult};
+use fred::prelude::{FredResult, HashesInterface, KeysInterface, ListInterface, Pool};
 use kvq::traits::{KVQPair, KVQSerializable};
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use qed_core::job::{
@@ -13,27 +14,16 @@ use qed_core::job::{
         CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
         CheckpointHistoryQueueEmitterSyncImm, HQSerializable,
     },
-    id::{QProvingJobDataID, ProvingJobDataId},
+    id::{ProvingJobDataId, QProvingJobDataID},
     traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
 use tokio::time::sleep;
-use crate::queue::{BizKey, QueuePrefixKey};
 
-pub const PROOF_STORE_KEY_PREFIX_1: &'static str = "PSV1";
-pub const PROOF_STORE_COUNTERS_PREFIX_1: &'static str = "proof_counters";
-
-pub const PS_DRAIN_QUEUE_KEY_PREFIX: &'static str = "PSDQV1_";
-pub const PS_WORKER_QUEUE_KEY_PREFIX: &'static str = "PSWQV1";
-pub const PS_NOTIFICATIONS_QUEUE_KEY_PREFIX: &'static str = "PSNQV1";
-pub const PS_HISTORY_QUEUE_KEY_PREFIX: &'static str = "PSHQV1";
-pub const REALM_PENDING_USER_QUEUE_KEY_PREFIX: &'static str = "RMPUQ";
-
-#[async_trait]
-pub trait SyncProofQueue {
-    async fn produce_proof(&self, item: ProvingJobDataId) -> anyhow::Result<()>;
-    async fn consume_proof(&self) -> anyhow::Result<ProvingJobDataId>;
-}
+use super::PS_DRAIN_QUEUE_KEY_PREFIX;
+use qed_crypto::hash::merkle::core::MerkleProofCore;
+use qed_core::data::qhashout::QHashOut;
+use plonky2::hash::hash_types::RichField;
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -49,8 +39,12 @@ impl BizKey for ProofStoreFred {
 
 impl fmt::Debug for ProofStoreFred {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ProofStoreFred {{ pool: ..., worker_queue_id: {:?}, notifications_queue_id: {:?} }}",
-               self.worker_queue_key(), self.notifications_queue_key())
+        write!(
+            f,
+            "ProofStoreFred {{ pool: ..., worker_queue_id: {:?}, notifications_queue_id: {:?} }}",
+            self.worker_queue_key(),
+            self.notifications_queue_key()
+        )
     }
 }
 
@@ -80,14 +74,8 @@ impl BizKey for DrainQueueFred {
 }
 
 impl ProofStoreFred {
-    pub fn new(
-        pool: Pool,
-        biz_id: String,
-    ) -> Self {
-        Self {
-            pool,
-            biz_id,
-        }
+    pub fn new(pool: Pool, biz_id: String) -> Self {
+        Self { pool, biz_id }
     }
 
     pub fn pool(&self) -> &Pool {
@@ -328,6 +316,23 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
             sleep(Duration::from_millis(500)).await;
         }
     }
+
+    async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
+        &self,
+        job_id: QProvingJobDataID
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
+    where
+        C::Hasher: plonky2::plonk::config::AlgebraicHasher<C::F>
+    {
+        loop {
+            match self.get_proof_by_id::<C, D>(job_id.get_output_id()).await {
+                Ok(proof) => return Ok(proof),
+                Err(_) => {
+                    sleep(Duration::from_millis(500)).await;
+                }
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -339,7 +344,9 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreFred {
             .set::<(), String, &[u8]>(
                 format!(
                     "{}-{}_{}",
-                    self.checkpoint_history_queue_prefix_key(), metadata.channel_id, metadata.checkpoint_id,
+                    self.checkpoint_history_queue_prefix_key(),
+                    metadata.channel_id,
+                    metadata.checkpoint_id,
                 ),
                 &bytes,
                 None,
@@ -349,7 +356,11 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreFred {
             .await?;
         self.pool
             .set::<(), String, u64>(
-                format!("{}-{}", self.checkpoint_history_queue_prefix_key(), metadata.channel_id,),
+                format!(
+                    "{}-{}",
+                    self.checkpoint_history_queue_prefix_key(),
+                    metadata.channel_id,
+                ),
                 metadata.checkpoint_id,
                 None,
                 None,
@@ -369,7 +380,11 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
     ) -> anyhow::Result<Vec<T>> {
         let cur_checkpoint_id = self
             .pool
-            .get::<Option<u64>, String>(format!("{}-{}", self.checkpoint_history_queue_prefix_key(), channel_id,))
+            .get::<Option<u64>, String>(format!(
+                "{}-{}",
+                self.checkpoint_history_queue_prefix_key(),
+                channel_id,
+            ))
             .await?;
         match cur_checkpoint_id {
             Some(r) => {
@@ -381,7 +396,9 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
                             .pool
                             .get::<Vec<u8>, String>(format!(
                                 "{}-{}_{}",
-                                self.checkpoint_history_queue_prefix_key(), channel_id, i,
+                                self.checkpoint_history_queue_prefix_key(),
+                                channel_id,
+                                i,
                             ))
                             .await?;
                         results.push(T::from_bytes(&result)?);
@@ -402,7 +419,11 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
     ) -> anyhow::Result<T> {
         let cur_checkpoint_id = self
             .pool
-            .get::<Option<u64>, String>(format!("{}-{}", self.checkpoint_history_queue_prefix_key(), channel_id,))
+            .get::<Option<u64>, String>(format!(
+                "{}-{}",
+                self.checkpoint_history_queue_prefix_key(),
+                channel_id,
+            ))
             .await?;
         let mut checkpoint_current: i64 = match cur_checkpoint_id {
             Some(x) => x as i64,
@@ -416,7 +437,8 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
                 .pool
                 .get::<Option<u64>, String>(format!(
                     "{}-{}",
-                    self.checkpoint_history_queue_prefix_key(), channel_id,
+                    self.checkpoint_history_queue_prefix_key(),
+                    channel_id,
                 ))
                 .await?;
             checkpoint_current = match cur_checkpoint_id {
@@ -428,7 +450,9 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
             .pool
             .get::<Vec<u8>, String>(format!(
                 "{}-{}_{}",
-                self.checkpoint_history_queue_prefix_key(), channel_id, checkpoint_current,
+                self.checkpoint_history_queue_prefix_key(),
+                channel_id,
+                checkpoint_current,
             ))
             .await?;
         Ok(T::from_bytes(&result)?)
@@ -485,5 +509,60 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
             .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
+    }
+}
+
+#[async_trait]
+pub trait QPendingUserStoreAsyncImm: Send + Sync {
+    async fn push_pending_users<F: RichField>(
+        &self,
+        pending_users: &[MerkleProofCore<QHashOut<F>>],
+    ) -> anyhow::Result<()>;
+    async fn pop_pending_users<F: RichField>(
+        &self,
+        count: usize,
+    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>>;
+    async fn get_pending_users_count(&self) -> anyhow::Result<usize>;
+}
+
+#[async_trait]
+impl QPendingUserStoreAsyncImm for ProofStoreFred {
+    async fn push_pending_users<F: RichField>(
+        &self,
+        _pending_users: &[MerkleProofCore<QHashOut<F>>],
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn pop_pending_users<F: RichField>(
+        &self,
+        _count: usize,
+    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
+        Ok(0)
+    }
+}
+
+#[async_trait]
+impl super::QPendingUserStoreAsyncImm for ProofStoreFred {
+    async fn push_pending_users<F: RichField>(
+        &self,
+        _pending_users: &[MerkleProofCore<QHashOut<F>>],
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn pop_pending_users<F: RichField>(
+        &self,
+        _count: usize,
+    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
+        Ok(0)
     }
 }

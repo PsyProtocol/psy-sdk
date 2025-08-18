@@ -253,6 +253,32 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         ]
     }
 
+    fn hash_two_to_one(&mut self, left: &[F; 4], right: &[F; 4]) -> [F; 4] {
+        let left_hash = plonky2::hash::hash_types::HashOut {
+            elements: [
+                GoldilocksField::from_noncanonical_u64(left[0].get_u64()),
+                GoldilocksField::from_noncanonical_u64(left[1].get_u64()),
+                GoldilocksField::from_noncanonical_u64(left[2].get_u64()),
+                GoldilocksField::from_noncanonical_u64(left[3].get_u64()),
+            ],
+        };
+        let right_hash = plonky2::hash::hash_types::HashOut {
+            elements: [
+                GoldilocksField::from_noncanonical_u64(right[0].get_u64()),
+                GoldilocksField::from_noncanonical_u64(right[1].get_u64()),
+                GoldilocksField::from_noncanonical_u64(right[2].get_u64()),
+                GoldilocksField::from_noncanonical_u64(right[3].get_u64()),
+            ],
+        };
+        let res = PoseidonHash::two_to_one(left_hash, right_hash);
+        [
+            F::cns(res.elements[0].to_canonical_u64()),
+            F::cns(res.elements[1].to_canonical_u64()),
+            F::cns(res.elements[2].to_canonical_u64()),
+            F::cns(res.elements[3].to_canonical_u64()),
+        ]
+    }
+
     fn split_bits(&mut self, value: F, num_bits: u64) -> Vec<F> {
         split_bits(value.get_u64(), num_bits).iter().map(|x| F::cns(*x)).collect()
     }
@@ -279,6 +305,25 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
 
     fn get_user_public_key_hash(&mut self) -> [F; 4] {
         todo!()
+    }
+
+    fn get_checkpoint_stats(&mut self, _checkpoint_id: F) -> Vec<F> {
+        vec![F::cns(0); 36]
+    }
+
+    fn get_register_users_root(&mut self, checkpoint_id: F) -> [F; 4] {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        [stats[10], stats[11], stats[12], stats[13]]
+    }
+
+    fn get_gutas_root(&mut self, checkpoint_id: F) -> [F; 4] {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        [stats[14], stats[15], stats[16], stats[17]]
+    }
+
+    fn get_deploy_contracts_root(&mut self, checkpoint_id: F) -> [F; 4] {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        [stats[18], stats[19], stats[20], stats[21]]
     }
 
     fn cset<V: ToFelts<F>>(&mut self, _old_value: V, new_value: V) -> V {

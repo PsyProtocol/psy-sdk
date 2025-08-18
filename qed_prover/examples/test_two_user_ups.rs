@@ -449,11 +449,13 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         QCircuitManager::Local(manager) => manager.ups_end_cap.get_common_circuit_data_ref(),
         QCircuitManager::Rpc(provider) => unimplemented!(),
     };
+    use qed_core::config::network_constants::get_default_worker_public_key;
 
     let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
         end_cap_proof_common_data,
         main_circuits.ups_end_cap_circuit_verifier_config()?.constants_sigmas_cap.height(),
         main_circuits.ups_end_cap_circuit_fingerprint()?,
+        get_default_worker_public_key::<GoldilocksField>(),
     );
     timer.lap("built guta circuits");
     let proof_store = SimpleProofStoreMemory::new();

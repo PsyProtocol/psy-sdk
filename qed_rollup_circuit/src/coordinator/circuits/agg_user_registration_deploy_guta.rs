@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use plonky2::{
-    hash::hash_types::HashOut,
+    hash::hash_types::{HashOut, HashOutTarget},
     iop::witness::PartialWitness,
     plonk::{
         circuit_builder::CircuitBuilder,
@@ -10,6 +10,7 @@ use plonky2::{
     },
 };
 use qed_common_circuit::{
+    builder::hash::core::CircuitBuilderHashCore,
     circuits::traits::qstandard::{
         QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
     },
@@ -103,7 +104,37 @@ where
             .header
             .get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
 
+        let register_users_root = HashOutTarget {
+            elements: [
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[0],
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[1],
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[2],
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[3],
+            ]
+        };
+
+        let deploy_contracts_root = HashOutTarget {
+            elements: [
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[0],
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[1],
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[2],
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[3],
+            ]
+        };
+
+        let gutas_root = HashOutTarget {
+            elements: [
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[0],
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[1],
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[2],
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[3],
+            ]
+        };
+
         builder.register_public_inputs(&state_transition_hash.elements);
+        builder.register_public_inputs(&register_users_root.elements);
+        builder.register_public_inputs(&deploy_contracts_root.elements);
+        builder.register_public_inputs(&gutas_root.elements);
         let base_circuit_data = builder.build::<C>();
 
         let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(
@@ -222,6 +253,7 @@ where
         store: &S,
         library: &L,
         job_id: QProvingJobDataID,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: CircuitInputWithDependencies<QCAggUserRegistartionDeployContractsGUTAInput<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
@@ -235,7 +267,7 @@ where
         let user_registration_proof = store.get_proof_by_id(r.dependencies[0]).await?;
         let deploy_contracts_proof = store.get_proof_by_id(r.dependencies[1]).await?;
         let guta_proof = store.get_proof_by_id(r.dependencies[2]).await?;
-        
+
         let user_registration_type = r.dependencies[0].circuit_type;
         let deploy_contracts_type = r.dependencies[1].circuit_type;
         let guta_type = r.dependencies[2].circuit_type;

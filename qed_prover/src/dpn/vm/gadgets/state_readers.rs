@@ -12,14 +12,18 @@ use qed_common_circuit::{
         math::core::CircuitBuilderCoreMathHelpers, select::CircuitBuilderSelectHelpers,
     },
     hash::merkle::gadgets::{
-        delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget, sub_slot_delta_merkle_proof_batch::SubSlotDeltaMerkleProofBatchGadget, sub_slot_merkle_proof_batch::SubSlotMerkleProofBatchGadget,
+        delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget,
+        sub_slot_delta_merkle_proof_batch::SubSlotDeltaMerkleProofBatchGadget,
+        sub_slot_merkle_proof_batch::SubSlotMerkleProofBatchGadget,
+        historical_root_merkle_proof::HistoricalRootMerkleProofGadget,
     },
     traits::CreatableTarget,
 };
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::base_types::hash256::Hash256};
 use qed_crypto::hash::core::sha256;
 use qed_rollup_circuit::gadgets::qdata::{
-    checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget
+    checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget,
+    checkpoint_stats::QEDCheckpointLeafStatsGadget
 };
 use qedlang_core::dpn::ops::state_cmd::data::DPNStateCmd;
 use serde::{Deserialize, Serialize};
@@ -35,6 +39,9 @@ pub enum StateReaderReferenceKeyType {
     MerkleProof = 0,
     DeltaMerkleProof = 1,
     UserLeaf = 2,
+    CheckpointStats = 3,
+    CheckpointStateRoots = 4,
+    HistoricalProof = 5,
 }
 impl StateReaderReferenceKeyType {
     pub fn to_u8(&self) -> u8 {
@@ -86,6 +93,12 @@ impl StateReaderReferenceKey {
             gadget_index: index,
         }
     }
+    pub fn new_checkpoint_stats_key(index: usize) -> Self {
+        Self {
+            gadget_type: StateReaderReferenceKeyType::CheckpointStats,
+            gadget_index: index,
+        }
+    }
     pub fn to_u64(&self) -> u64 {
         ((self.gadget_type.to_u8() as u64) << 56u64) | (self.gadget_index as u64)
     }
@@ -129,7 +142,7 @@ impl CKInvokeDeferredMethodCall {
             input_target_ids_hash: sha256::CoreSha256Hasher::hash_u64s(input_target_ids),
         }
     }
-    
+
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
@@ -259,6 +272,12 @@ pub enum StateCommandCacheKey {
     ReadOtherUserContractContractSlot(CKReadOtherUserContractContractSlot),
     ReadOtherUserContractContractRange(CKReadOtherUserContractContractRange),
     ReadOtherUserContractContractSingle(CKReadOtherUserContractContractSingle),
+    GetCheckpointStats(CKGetCheckpointStats),
+}
+
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct CKGetCheckpointStats {
+    pub checkpoint_id: u64,
 }
 impl StateCommandCacheKey {
     pub fn new_read_current_contract_slot(slot_target_id: u64, write_epoch: u32) -> Self {
@@ -274,7 +293,7 @@ impl StateCommandCacheKey {
         })
     }
     pub fn new_read_current_contract_range(
-        sub_slot_target_id: u64, 
+        sub_slot_target_id: u64,
         length: u32,
         slot_offset_index: u64,
         write_epoch: u32
@@ -420,6 +439,11 @@ impl StateCommandCacheKey {
             write_epoch,
         })
     }
+    pub fn new_get_checkpoint_stats(checkpoint_id: u64) -> Self {
+        Self::GetCheckpointStats(CKGetCheckpointStats {
+            checkpoint_id,
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -427,11 +451,16 @@ pub struct StateReaderGadget {
     pub merkle_proofs: Vec<MerkleProofGadget>,
     pub delta_merkle_proofs: Vec<DeltaMerkleProofGadget>,
     pub user_leaves: Vec<QEDUserLeafGadget>,
+    pub checkpoint_stats_requests: Vec<QEDCheckpointLeafStatsGadget>,
+    pub checkpoint_state_roots_requests: Vec<QEDCheckpointGlobalStateRootsGadget>,
+    pub historical_proofs: Vec<HistoricalRootMerkleProofGadget>,
     pub start_contract_state_root: HashOutTarget,
     pub end_contract_state_root: HashOutTarget,
     pub user_contract_tree_state_root: HashOutTarget,
     pub chain_state_roots: QEDCheckpointGlobalStateRootsGadget,
-    
+    pub checkpoint_stats: QEDCheckpointLeafStatsGadget,
+    pub checkpoint_tree_root: HashOutTarget,  // Add checkpoint tree root
+
     pub start_deferred_tx_tree_root: HashOutTarget,
     pub end_deferred_tx_tree_root: HashOutTarget,
 
@@ -462,17 +491,23 @@ impl StateReaderGadget {
         session_proof_tree_root: HashOutTarget,
         session_proof_tree_height: usize,
         force_four_align: bool,
-        
+        checkpoint_stats: QEDCheckpointLeafStatsGadget,
+        checkpoint_tree_root: HashOutTarget,
     ) -> Self {
         Self {
             merkle_proofs: vec![],
             delta_merkle_proofs: vec![],
             user_leaves: vec![],
+            checkpoint_stats_requests: vec![],
+            checkpoint_state_roots_requests: vec![],
+            historical_proofs: vec![],
             start_deferred_tx_tree_root: deferred_tx_tree_root,
             end_deferred_tx_tree_root: deferred_tx_tree_root,
             start_contract_state_root: contract_state_root,
             end_contract_state_root: contract_state_root,
             chain_state_roots,
+            checkpoint_stats,
+            checkpoint_tree_root,
             state_cmd_results: vec![],
             gadget_map: HashMap::new(),
             result_map: HashMap::new(),
@@ -481,7 +516,7 @@ impl StateReaderGadget {
             contract_state_tree_height,
             user_contract_tree_state_root,
             deferred_tx_count: 0,
-            
+
             session_proof_tree_root,
             session_proof_tree_height,
             force_four_align,
@@ -597,6 +632,22 @@ impl StateReaderGadget {
     ) -> StateReaderReferenceKey {
         let ref_key = StateReaderReferenceKey::new_user_leaf_key(self.user_leaves.len());
         self.user_leaves.push(gadget);
+        self.gadget_map.insert(key, ref_key);
+        ref_key
+    }
+
+    pub fn insert_checkpoint_stats_gadget(
+        &mut self,
+        key: StateCommandCacheKey,
+        stats_gadget: QEDCheckpointLeafStatsGadget,
+        state_roots_gadget: QEDCheckpointGlobalStateRootsGadget,
+        historical_proof: HistoricalRootMerkleProofGadget,
+    ) -> StateReaderReferenceKey {
+        let index = self.checkpoint_stats_requests.len();
+        self.checkpoint_stats_requests.push(stats_gadget);
+        self.checkpoint_state_roots_requests.push(state_roots_gadget);
+        self.historical_proofs.push(historical_proof);
+        let ref_key = StateReaderReferenceKey::new_checkpoint_stats_key(index);
         self.gadget_map.insert(key, ref_key);
         ref_key
     }
@@ -732,7 +783,7 @@ impl StateReaderGadget {
                 mp_user_tree.index,
             )
         };
-        
+
 
         if is_new {
             builder.connect_hashes(mp_user_tree_root, self.chain_state_roots.user_tree_root);
@@ -763,7 +814,7 @@ impl StateReaderGadget {
 
             let (is_new, leaf) = self.resolve_or_insert_user_leaf_gadget::<F, D>(builder, user_leaf_ck);
 
-       
+
         if is_new {
             let actual_leaf_hash = leaf.to_hash::<H, F, D>(builder);
 
@@ -797,7 +848,7 @@ impl StateReaderGadget {
 
         let (is_new, mp_uct) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, uct_ck, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
 
-       
+
         if is_new {
             let expected_contract_id = dpn.resolve_target(contract_target_id);
 
@@ -833,7 +884,7 @@ impl StateReaderGadget {
 
         let (is_new, mp_cst) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, cst_ck, contract_state_tree_height);
 
-       
+
         if is_new {
             let expected_contract_id = dpn.resolve_target(slot_target_id);
 
@@ -1012,7 +1063,7 @@ impl StateReaderGadget {
 
 
     pub fn injest_symbolic_state_command<
-        H:AlgebraicHasher<F>,
+        H:AlgebraicHasher<F> + qed_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -1214,7 +1265,7 @@ impl StateReaderGadget {
                         self.force_four_align
                     );
                     (gadget.values, gadget.merkle_proof_gadgets)
-    
+
                     };
                     builder.connect_hashes(
                         mps[0].root,
@@ -1388,6 +1439,70 @@ impl StateReaderGadget {
                 self.deferred_tx_count += 1;
 
                 tx_hash.elements.to_vec()
+            },
+            DPNStateCmd::GetCheckpointLeafStats(c) => {
+                let ck = StateCommandCacheKey::new_get_checkpoint_stats(c.checkpoint_id);
+
+                if let Some(existing_result) = self.result_map.get(&ck) {
+                    existing_result.clone()
+                } else {
+                    let requested_checkpoint_id = dpn.resolve_target(c.checkpoint_id);
+
+                    let requested_checkpoint_stats = QEDCheckpointLeafStatsGadget::create_virtual(builder);
+
+                    let historical_proof = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<H, F, D>(
+                        builder,
+                        qed_core::config::network_constants::CHECKPOINT_TREE_HEIGHT as usize
+                    );
+
+                    builder.connect(historical_proof.index, requested_checkpoint_id);
+
+                    builder.connect_hashes(
+                        historical_proof.current_root,
+                        self.checkpoint_tree_root
+                    );
+
+                    let checkpoint_stats_hash = requested_checkpoint_stats.to_hash::<H, F, D>(builder);
+
+                    let requested_checkpoint_state_roots = QEDCheckpointGlobalStateRootsGadget::create_virtual(builder);
+                    let state_roots_hash = requested_checkpoint_state_roots.to_hash::<H, F, D>(builder);
+
+                    let checkpoint_leaf_hash = builder.hash_two_to_one::<H>(state_roots_hash, checkpoint_stats_hash);
+
+                    builder.connect_hashes(
+                        historical_proof.current_value,
+                        checkpoint_leaf_hash
+                    );
+
+                    self.insert_checkpoint_stats_gadget(
+                        ck.clone(),
+                        requested_checkpoint_stats.clone(),
+                        requested_checkpoint_state_roots,
+                        historical_proof,
+                    );
+
+                    let mut result = Vec::new();
+
+                    result.push(requested_checkpoint_stats.fees_collected);
+                    result.push(requested_checkpoint_stats.user_ops_processed);
+                    result.push(requested_checkpoint_stats.total_transactions);
+                    result.push(requested_checkpoint_stats.slots_modified);
+                    result.push(requested_checkpoint_stats.pm_jobs_completed);
+                    result.push(requested_checkpoint_stats.block_time);
+
+                    result.extend_from_slice(&requested_checkpoint_stats.random_seed.elements);
+
+                    let pm_rewards = &requested_checkpoint_stats.pm_rewards_commitment;
+                    result.extend_from_slice(&pm_rewards.register_users_root.elements);
+                    result.extend_from_slice(&pm_rewards.gutas_root.elements);
+                    result.extend_from_slice(&pm_rewards.deploy_contracts_root.elements);
+
+                    result.extend_from_slice(&requested_checkpoint_stats.da_challenges_claimed);
+
+                    self.result_map.insert(ck, result.clone());
+
+                    result
+                }
             },
         };
         value

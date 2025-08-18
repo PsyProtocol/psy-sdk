@@ -30,6 +30,7 @@ pub fn get_lookalike_custom<C: GenericConfig<D>, const D: usize>(
         QCircuitCommonGatesType::C => builder.add_qed_type_c_common_gates(),
         QCircuitCommonGatesType::D => builder.add_qed_type_d_common_gates(),
         QCircuitCommonGatesType::E => builder.add_qed_type_e_common_gates(),
+        QCircuitCommonGatesType::F => builder.add_qed_type_f_common_gates(),
     };
     pad_circuit_degree(&mut builder, degree - 1);
     let circuit_data = builder.build::<C>();

@@ -111,6 +111,8 @@ impl AggStateTransitionGadget {
 
 #[derive(Debug, Copy, Clone)]
 pub struct AggStateTransitionProofPublicInputsGadget {
+    pub commitment: HashOutTarget,
+    pub worker_public_key: HashOutTarget,
     pub allowed_circuit_hashes_root: HashOutTarget,
     pub state_transition_combined_hash: HashOutTarget,
 }
@@ -119,10 +121,10 @@ impl AggStateTransitionProofPublicInputsGadget {
     pub fn from_public_inputs(public_inputs: &[Target]) -> Self {
         assert_eq!(
             public_inputs.len(),
-            8,
-            "AggStateTransitionProof should have 12 public inputs"
+            16,
+            "AggStateTransitionProof should have 16 public inputs"
         );
-        let allowed_circuit_hashes_root = HashOutTarget {
+        let commitment = HashOutTarget {
             elements: [
                 public_inputs[0],
                 public_inputs[1],
@@ -130,7 +132,7 @@ impl AggStateTransitionProofPublicInputsGadget {
                 public_inputs[3],
             ],
         };
-        let state_transition_combined_hash = HashOutTarget {
+        let worker_public_key = HashOutTarget {
             elements: [
                 public_inputs[4],
                 public_inputs[5],
@@ -138,13 +140,39 @@ impl AggStateTransitionProofPublicInputsGadget {
                 public_inputs[7],
             ],
         };
+        let allowed_circuit_hashes_root = HashOutTarget {
+            elements: [
+                public_inputs[8],
+                public_inputs[9],
+                public_inputs[10],
+                public_inputs[11],
+            ],
+        };
+        let state_transition_combined_hash = HashOutTarget {
+            elements: [
+                public_inputs[12],
+                public_inputs[13],
+                public_inputs[14],
+                public_inputs[15],
+            ],
+        };
         Self {
+            commitment,
+            worker_public_key,
             state_transition_combined_hash,
             allowed_circuit_hashes_root,
         }
     }
-    pub fn to_public_inputs(&self) -> [Target; 8] {
+    pub fn to_public_inputs(&self) -> [Target; 16] {
         [
+            self.commitment.elements[0],
+            self.commitment.elements[1],
+            self.commitment.elements[2],
+            self.commitment.elements[3],
+            self.worker_public_key.elements[0],
+            self.worker_public_key.elements[1],
+            self.worker_public_key.elements[2],
+            self.worker_public_key.elements[3],
             self.allowed_circuit_hashes_root.elements[0],
             self.allowed_circuit_hashes_root.elements[1],
             self.allowed_circuit_hashes_root.elements[2],

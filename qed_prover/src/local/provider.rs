@@ -6,6 +6,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use qed_core::job::id::QProvingJobDataID;
 use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::circuits::{
     PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
     PortableQTreeRecursionCircuitsTrait,
@@ -89,10 +90,6 @@ pub struct RpcProvider {
 }
 
 impl RpcProvider {
-    pub fn new() -> anyhow::Result<Self> {
-        Self::new_with_config(&Default::default())
-    }
-
     pub fn new_with_config_path(config_path: &str) -> anyhow::Result<Self> {
         let config_str = fs::read_to_string(config_path)?;
         let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
@@ -335,6 +332,78 @@ impl RpcProvider {
         }
     }
 
+    pub async fn get_job_proof_from_coordinator(&self, checkpoint_id: u64, job_id: QProvingJobDataID) -> anyhow::Result<qed_core::job::id::JobProof> {
+        let url = self.get_coordinator_url()?;
+
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "qed_generate_batch_proofs",
+            "params": [checkpoint_id, vec![job_id]],
+            "id": 1
+        });
+
+        let response = self.client
+            .post(url)
+            .json(&request)
+            .send()
+            .await?
+            .json::<serde_json::Value>()
+            .await?;
+
+        if let Some(error) = response.get("error") {
+            return Err(anyhow::format_err!("RPC error: {:?}", error));
+        }
+
+        let result = response.get("result")
+            .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
+
+        // The result should be a Vec<JobProof>, get the first one
+        let proofs: Vec<qed_core::job::id::JobProof> = serde_json::from_value(result.clone())?;
+
+        if proofs.is_empty() {
+            return Err(anyhow::format_err!("No proof returned for job ID"));
+        }
+
+        Ok(proofs.into_iter().next().unwrap())
+    }
+
+    pub async fn get_job_proof_from_realm(&self, realm_id: u64, checkpoint_id: u64, job_id: QProvingJobDataID) -> anyhow::Result<qed_core::job::id::JobProof> {
+        let realm_urls = self.realm_configs.get(&realm_id)
+            .ok_or(anyhow::format_err!("Realm {} not configured", realm_id))?;
+        let url = &realm_urls[0];
+
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "qed_generate_batch_proofs",
+            "params": [checkpoint_id, vec![job_id]],
+            "id": 1
+        });
+
+        let response = self.client
+            .post(url)
+            .json(&request)
+            .send()
+            .await?
+            .json::<serde_json::Value>()
+            .await?;
+
+        if let Some(error) = response.get("error") {
+            return Err(anyhow::format_err!("RPC error: {:?}", error));
+        }
+
+        let result = response.get("result")
+            .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
+
+        // The result should be a Vec<JobProof>, get the first one
+        let proofs: Vec<qed_core::job::id::JobProof> = serde_json::from_value(result.clone())?;
+
+        if proofs.is_empty() {
+            return Err(anyhow::format_err!("No proof returned for job ID"));
+        }
+
+        Ok(proofs.into_iter().next().unwrap())
+    }
+
     pub const fn get_realm_id(&self, user_id: u64) -> u64 {
         user_id / self.users_per_realm
     }
@@ -374,30 +443,6 @@ pub struct RpcConfig {
     pub prove_proxy_url: Option<String>,
 }
 
-impl Default for RpcConfig {
-    fn default() -> Self {
-        Self {
-            users_per_realm: 8388608, // 1 << 23
-            global_user_tree_height: 24,
-            realm_user_tree_height: 23,
-            realm_configs: vec![
-                RealmRpcConfig {
-                    id: 0,
-                    rpc_url: vec!["http://127.0.0.1:8546".into()],
-                },
-                RealmRpcConfig {
-                    id: 1,
-                    rpc_url: vec!["http://127.0.0.1:8547".into()],
-                },
-            ],
-            coordinator_configs: vec![CoordinatorRpcConfig {
-                id: 0,
-                rpc_url: vec!["http://127.0.0.1:8545".into()],
-            }],
-            prove_proxy_url: None,
-        }
-    }
-}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RealmRpcConfig {
@@ -415,6 +460,35 @@ pub struct CoordinatorRpcConfig {
 pub struct StoreConfig {
     pub coordinator_store_path: String,
     pub realm_store_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    pub network: NetworkConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkConfig {
+    pub users_per_realm: u64,
+    pub global_user_tree_height: u8,
+    pub realm_user_tree_height: u8,
+    pub realm_configs: Vec<RealmConfig>,
+    pub coordinator_configs: Vec<CoordinatorConfig>,
+    pub prover_url: Option<String>,
+    pub prove_proxy_url: Option<String>,
+    pub native_currency: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RealmConfig {
+    pub id: u64,
+    pub rpc_url: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoordinatorConfig {
+    pub id: u64,
+    pub rpc_url: Vec<String>,
 }
 
 // type C = PoseidonGoldilocksConfig;

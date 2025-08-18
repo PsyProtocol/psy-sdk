@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::{
-    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::HashOut, iop::
-        witness::PartialWitness, plonk::{
+    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::
+        witness::{PartialWitness, WitnessWrite}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
@@ -26,6 +26,7 @@ where
     pub a_end_cap_gadget: VerifyEndCapProofGadget<D>,
     pub b_guta_gadget: VerifyGUTAProofGadget<D>,
     pub nca_state_transition_gadget: TwoNCAStateTransitionGadget,
+    pub worker_public_key_target: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -81,6 +82,31 @@ where
 
         let public_inputs_hash = nca_state_transition_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
+        let worker_public_key = builder.add_virtual_hash();
+
+        let a_commitment = HashOutTarget {
+            elements: [
+                a_end_cap_gadget.proof_target.public_inputs[0],
+                a_end_cap_gadget.proof_target.public_inputs[1],
+                a_end_cap_gadget.proof_target.public_inputs[2],
+                a_end_cap_gadget.proof_target.public_inputs[3],
+            ]
+        };
+
+        let b_commitment = HashOutTarget {
+            elements: [
+                b_guta_gadget.proof_target.public_inputs[0],
+                b_guta_gadget.proof_target.public_inputs[1],
+                b_guta_gadget.proof_target.public_inputs[2],
+                b_guta_gadget.proof_target.public_inputs[3],
+            ]
+        };
+
+        let children_commitment = builder.hash_two_to_one::<C::Hasher>(a_commitment, b_commitment);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(children_commitment, worker_public_key);
+
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&public_inputs_hash.elements);
 
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
@@ -97,11 +123,13 @@ where
             fingerprint,
             a_end_cap_gadget,
             b_guta_gadget,
+            worker_public_key_target: worker_public_key,
         }
     }
 
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         input: &VerifyLeftEndCapRightGUTAInput<C::F>,
         child_a_proof: &ProofWithPublicInputs<C::F, C, D>,
         end_cap_verifier_data: &VerifierOnlyCircuitData<C, D>,
@@ -109,6 +137,8 @@ where
         child_b_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
+
+        pw.set_hash_target(self.worker_public_key_target, worker_public_key.0)?;
 
         self.a_end_cap_gadget.set_witness(
             &mut pw,
@@ -174,6 +204,7 @@ where
         store: &S,
         library: &L,
         job_id: QProvingJobDataID,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: CircuitInputWithDependencies<VerifyLeftEndCapRightGUTAInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
@@ -197,6 +228,7 @@ where
 
 
         let result = self.prove_base(
+            worker_public_key,
             &VerifyLeftEndCapRightGUTAInput { checkpoint_tree_root: r.input.checkpoint_tree_root, stats_b:r.input.stats_b, a_end_cap: r.input.a_end_cap, nca_proof: r.input.nca_proof, guta_inclusion_proof_b},
             &child_a_proof,
             &child_a_verifier_data,

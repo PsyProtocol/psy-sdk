@@ -32,20 +32,47 @@ Circuits which need to have the same common circuit data as:
 Identifier: **Type C**
 <description>
 Circuits which need to have the same common circuit data as:
-    - A VerifyTwoGUTA Circuit 
+    [
+        GUTALeftGUTARightEndCap,
+        GUTATwoEndCap,
+        GUTAVerifyToCap,
+        GUTALeftEndCapRightGUTA,
+        GUTATwoGUTA,
+        GUTAOnlyRegisterUsers,
+        GUTASingleEndCap,
+        GUTANoChange,
+        GUTARegisterUsers
+    ]
 </description>
 ======================================
 Identifier: **Type D**
 <description>
 Circuits which need to have the same common circuit data as:
-    - Agg State Transition Circuit
-    - Dummy Agg State Transition Circuit
+    [
+        BatchDeployContractsAggregate,
+        BatchDeployContracts,
+        DummyBatchDeployContractsAggregate,
+        GenerateRollupStateTransitionProof,
+        DummyAppendUserRegistrationTreeAggregate,
+        AppendUserRegistrationTreeAggregate,
+        AppendUserRegistrationTree,
+    ]
 </description>
 ======================================
 Identifier: **Type E**
 <description>
 Circuits which need to have the same common circuit data as:
-    - A UPS End Cap Circuit 
+    [
+        UserEndCap,
+    ]
+</description>
+======================================
+Identifier: **Type F**
+<description>
+Circuits which need to have the same common circuit data as:
+    [
+        AggUserRegisterDeployContractsGUTA,
+    ]
 </description>
 ======================================
 */
@@ -95,6 +122,7 @@ pub trait CircuitBuilderQEDCommonGates<F: RichField + Extendable<D>, const D: us
     fn add_qed_type_c_common_gates(&mut self);
     fn add_qed_type_d_common_gates(&mut self);
     fn add_qed_type_e_common_gates(&mut self);
+    fn add_qed_type_f_common_gates(&mut self);
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<F, D>
@@ -133,7 +161,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
         ));
         self.add_qed_type_a_common_gates(Some(coset_gate));
     }
-    
+
     fn add_qed_type_b_common_gates(&mut self) {
         self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
         self.add_gate_to_gate_set(GateRef::new(ComparisonGate::new(32, 16)));
@@ -141,7 +169,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
             &self.config,
             4,
         )));
-        
+
         let coset_gate = GateRef::new(new_coset_gate_with_max_degree::<F, D>(
             4,
             8,
@@ -164,14 +192,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
         )));
     }
 
-    
+
     fn add_qed_type_c_common_gates(&mut self) {
         self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
         self.add_gate_to_gate_set(GateRef::new(RandomAccessGate::new_from_config(
             &self.config,
             4,
         )));
-        
+
         let coset_gate = GateRef::new(new_coset_gate_with_max_degree::<F, D>(
             4,
             8,
@@ -194,7 +222,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
         )));
     }
 
-    
+
     fn add_qed_type_d_common_gates(&mut self) {
         self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
         self.add_gate_to_gate_set(GateRef::new(ComparisonGate::new(32, 16)));
@@ -202,7 +230,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
             &self.config,
             4,
         )));
-        
+
         let coset_gate = GateRef::new(new_coset_gate_with_max_degree::<F, D>(
             4,
             8,
@@ -231,7 +259,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
             &self.config,
             4,
         )));
-        
+
         let coset_gate = GateRef::new(new_coset_gate_with_max_degree::<F, D>(
             4,
             8,
@@ -255,5 +283,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
     }
 
 
-    
+    fn add_qed_type_f_common_gates(&mut self) {
+        self.add_qed_type_e_common_gates();
+    }
 }

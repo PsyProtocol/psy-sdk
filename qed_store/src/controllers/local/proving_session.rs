@@ -535,7 +535,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
         slot: GF,
         value: QHashOut<GF>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
-        eprintln!("DEBUGPRINT[586]: proving_session.rs:530: slot={}, value:{}", slot, value);
+        tracing::debug!("Proving session - slot: {}, value: {}", slot, value);
         let result = self.set_contract_state_slot_inner(contract, slot, value).await?;
         self.local_state_tracker
             .notify_update_slot_dmp(contract.to_canonical_u64(), &result);
@@ -894,5 +894,35 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
 
     pub fn get_state_delta_input(&mut self) -> anyhow::Result<UPSCFCStandardStateDeltaInput<GF>> {
         todo!()
+    }
+
+    pub async fn get_checkpoint_state_roots(&mut self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<GF>> {
+        let user_tree_root = self.cmd_store.resolve_get_hash_mut(
+            &QSRHashCmd::GetUserTreeRoot(QSRHashCmdGetUserTreeRoot { checkpoint_id })
+        ).await?;
+
+        let contract_tree_root = self.cmd_store.resolve_get_hash_mut(
+            &QSRHashCmd::GetContractTreeRoot(QSRHashCmdGetContractTreeRoot { checkpoint_id })
+        ).await?;
+
+        let deposit_tree_root = self.cmd_store.resolve_get_hash_mut(
+            &QSRHashCmd::GetDepositTreeRoot(QSRHashCmdGetDepositTreeRoot { checkpoint_id })
+        ).await?;
+
+        let withdrawal_tree_root = self.cmd_store.resolve_get_hash_mut(
+            &QSRHashCmd::GetWithdrawalTreeRoot(QSRHashCmdGetWithdrawalTreeRoot { checkpoint_id })
+        ).await?;
+
+        let user_registration_tree_root = self.cmd_store.resolve_get_hash_mut(
+            &QSRHashCmd::GetUserRegistrationTreeRoot(QSRHashCmdGetUserRegistrationTreeRoot { checkpoint_id })
+        ).await?;
+
+        Ok(QEDCheckpointGlobalStateRoots {
+            contract_tree_root,
+            deposit_tree_root,
+            user_tree_root,
+            withdrawal_tree_root,
+            user_registration_tree_root,
+        })
     }
 }

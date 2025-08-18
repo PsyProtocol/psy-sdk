@@ -129,6 +129,7 @@ pub trait QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<
         store: &S,
         library: &L,
         job_id: QProvingJobDataID,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 }
 

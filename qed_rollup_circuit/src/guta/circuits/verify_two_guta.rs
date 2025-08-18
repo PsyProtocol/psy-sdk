@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use plonky2::{
     gates::{constant::ConstantGate, gate::GateRef},
-    hash::hash_types::HashOut,
-    iop::witness::PartialWitness,
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
@@ -11,7 +11,7 @@ use plonky2::{
     },
 };
 use qed_common_circuit::{
-    builder::pad_circuit::pad_circuit_degree, circuits::traits::qstandard::{
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{
         QStandardCircuit,
         QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
     }, proof_minifier::pm_core::get_circuit_fingerprint_generic
@@ -40,6 +40,8 @@ where
     pub a_guta_gadget: VerifyGUTAProofGadget<D>,
     pub b_guta_gadget: VerifyGUTAProofGadget<D>,
     pub nca_state_transition_gadget: TwoNCAStateTransitionGadget,
+    pub worker_public_key: HashOutTarget,
+    pub commitment: HashOutTarget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -89,10 +91,35 @@ where
             D,
         >(&mut builder, a_guta_header, b_guta_header);
 
+        let worker_public_key = builder.add_virtual_hash();
+
+        let a_commitment = HashOutTarget {
+            elements: [
+                a_guta_gadget.proof_target.public_inputs[0],
+                a_guta_gadget.proof_target.public_inputs[1],
+                a_guta_gadget.proof_target.public_inputs[2],
+                a_guta_gadget.proof_target.public_inputs[3],
+            ]
+        };
+
+        let b_commitment = HashOutTarget {
+            elements: [
+                b_guta_gadget.proof_target.public_inputs[0],
+                b_guta_gadget.proof_target.public_inputs[1],
+                b_guta_gadget.proof_target.public_inputs[2],
+                b_guta_gadget.proof_target.public_inputs[3],
+            ]
+        };
+
+        let children_commitment = builder.hash_two_to_one::<C::Hasher>(a_commitment, b_commitment);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(children_commitment, worker_public_key);
+
         let public_inputs_hash = nca_state_transition_gadget
             .new_guta_header
             .to_hash::<C::Hasher, C::F, D>(&mut builder);
 
+        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&public_inputs_hash.elements);
 
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(
@@ -107,6 +134,8 @@ where
             a_guta_gadget,
             b_guta_gadget,
             nca_state_transition_gadget,
+            worker_public_key,
+            commitment,
             circuit_data,
             fingerprint,
         }
@@ -114,6 +143,7 @@ where
 
     pub fn prove_base(
         &self,
+        worker_public_key: QHashOut<C::F>,
         input: &VerifyTwoGUTAProofGadgetStandardInput<C::F>,
         child_a_proof: &ProofWithPublicInputs<C::F, C, D>,
         child_a_verifier_data: &VerifierOnlyCircuitData<C, D>,
@@ -121,6 +151,7 @@ where
         child_b_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
         self.a_guta_gadget.set_witness(
             &mut pw,
@@ -178,6 +209,7 @@ where
         store: &S,
         library: &L,
         job_id: QProvingJobDataID,
+        worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
@@ -198,8 +230,8 @@ where
         let child_b_verifier_data = library.get_verifier_data(dep_b_type)?;
         let guta_inclusion_proof_b =
             library.get_group_inclusion_proof(job_id.circuit_type, dep_b_type)?;
-
         let result = self.prove_base(
+            worker_public_key,
             &VerifyTwoGUTAProofGadgetStandardInput {
                 checkpoint_tree_root: r.input.checkpoint_tree_root,
                 b_checkpoint_tree_root: r.input.b_checkpoint_tree_root,

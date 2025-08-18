@@ -18,6 +18,7 @@ pub struct QCQEDCheckpointStateTransitionInputPartial<F: RichField> {
     pub old_stats: QEDCheckpointLeafStats<F>,
     pub block_time: F,
     pub final_random_seed_contribution: QHashOut<F>,
+    pub pm_rewards_commitment: PMRewardCommitment<F>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -70,9 +71,7 @@ impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
                 pm_jobs_completed: F::ZERO,
                 block_time: self.block_time,
                 random_seed: H::q_two_to_one(self.old_stats.random_seed, self.final_random_seed_contribution),
-                pm_rewards_commitment: PMRewardCommitment{
-                    commitment: [F::ZERO; 4],
-                },
+                pm_rewards_commitment: self.pm_rewards_commitment.clone(),
                 da_challenges_claimed: [F::ZERO; DA_CHALLENGE_WINDOW],
             }
         }

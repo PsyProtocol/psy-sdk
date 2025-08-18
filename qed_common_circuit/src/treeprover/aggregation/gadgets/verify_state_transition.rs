@@ -14,7 +14,7 @@ use qed_crypto::hash::
     merkle::treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig, TPCircuitFingerprintConfig}
 ;
 
-use crate::{builder::connect::CircuitBuilderConnectHelpers, 
+use crate::{builder::connect::CircuitBuilderConnectHelpers,
     treeprover::aggregation::gadgets::AggStateTransitionProofValidityGadget}
 ;
 
@@ -29,7 +29,7 @@ pub struct VerifyStateTransitionProofGadget<const D: usize> {
 }
 
 impl<const D: usize> VerifyStateTransitionProofGadget<D> {
-    
+
     pub fn add_virtual_to_with_config<C: GenericConfig<D, F = F>, F: RichField + Extendable<D>>(
         builder: &mut CircuitBuilder<F, D>,
         proof_common_data: &CommonCircuitData<F, D>,
@@ -39,7 +39,7 @@ impl<const D: usize> VerifyStateTransitionProofGadget<D> {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         Self::add_virtual_to::<C,F>(
-            builder, 
+            builder,
             proof_common_data,
             config.verifier_data_cap_height,
             config.leaf_fingerprint,
@@ -63,8 +63,8 @@ impl<const D: usize> VerifyStateTransitionProofGadget<D> {
 
         assert_eq!(
             proof_target.public_inputs.len(),
-            8,
-            "agg proofs should have 8 public inputs"
+            16,
+            "agg proofs should have 16 public inputs"
         );
         builder.verify_proof::<C>(&proof_target, &verifier_data, proof_common_data);
 

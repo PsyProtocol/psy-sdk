@@ -15,7 +15,7 @@ use anyhow::Result;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
 use qed_store::queue::new_redis_async_pool;
-use qed_store::queue::task_queue::JobTaskStoreImpl;
+use qed_store::queue::task_queue::QProvingTaskStoreImpl;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::QEDStore;
 use std::sync::Arc;
@@ -50,7 +50,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     // Create storage and queues
     let proof_store = creat_redis_store(config.clone()).await?;
     // Create task queue for jobs
-    let task_store = JobTaskStoreImpl::new(
+    let task_store = QProvingTaskStoreImpl::new(
         config.redis.redis_uri.as_str(),
         config.redis.pool_size.unwrap_or(20),
     )
