@@ -16,7 +16,6 @@ use qed_data::{
     config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync,
 };
 use serde_json;
-use tokio::time;
 use tracing::{error, info, warn};
 
 use crate::subcommand::StressTestArgs;
@@ -168,7 +167,6 @@ impl StressTestReport {
             self.total_elapsed_ms as f64 / 1000.0
         );
         println!("📤 Total Scenarios Completed: {}", self.total_transactions);
-        println!("   └─ Each scenario includes: 4 contract calls + 4 block productions");
         println!("✅ Successful Scenarios: {}", self.successful_transactions);
         println!("❌ Failed Scenarios: {}", self.failed_transactions);
         println!("📈 Success Rate: {:.2}%", self.success_rate * 100.0);
@@ -197,7 +195,7 @@ async fn run_transfer_stress_test(args: StressTestArgs) -> Result<()> {
 
     let stats = Arc::new(StressTestStats::new());
     let should_stop = Arc::new(AtomicBool::new(false));
-    let tasks_completed = Arc::new(AtomicU64::new(0));
+    let tasks_counter = Arc::new(AtomicU64::new(0));
 
     let start_time = Instant::now();
 
@@ -212,14 +210,14 @@ async fn run_transfer_stress_test(args: StressTestArgs) -> Result<()> {
         let tx_clone = tx.clone();
 
         info!("🔄 Starting task {}", task_id);
-        let task_completed_clone = tasks_completed.clone();
+        let task_counter = tasks_counter.clone();
         let handle = thread::spawn(move || {
             let result = run_transfer_task_sync(
                 task_id,
                 config_clone,
                 stats_clone,
                 should_stop_clone,
-                task_completed_clone,
+                task_counter,
             );
 
             // Send completion signal
@@ -235,12 +233,12 @@ async fn run_transfer_stress_test(args: StressTestArgs) -> Result<()> {
     // Handle max task limit
     let max_task = args.max_task;
     let should_stop_groups = should_stop.clone();
-    let tasks_counter = tasks_completed.clone();
 
     if let Some(max) = max_task {
+        let tasks_counter = tasks_counter.clone();
         tokio::spawn(async move {
             loop {
-                time::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(1)).await;
                 if tasks_counter.load(Ordering::Relaxed) >= max {
                     info!("🎯 Max tasks ({}) reached, stopping all tasks...", max);
                     should_stop_groups.store(true, Ordering::Relaxed);
@@ -257,7 +255,7 @@ async fn run_transfer_stress_test(args: StressTestArgs) -> Result<()> {
         let mut last_sent = 0u64;
 
         while !should_stop_for_reporter.load(Ordering::Relaxed) {
-            time::sleep(Duration::from_secs(5)).await;
+            tokio::time::sleep(Duration::from_secs(10)).await;
 
             let current_sent = stats_for_reporter.transactions_sent.load(Ordering::Relaxed);
             let current_successful = stats_for_reporter
@@ -325,7 +323,7 @@ async fn run_transfer_stress_test(args: StressTestArgs) -> Result<()> {
     reporter_handle.abort();
 
     let total_elapsed = start_time.elapsed().as_millis() as u64;
-    let final_groups_completed = tasks_completed.load(Ordering::Relaxed);
+    let final_groups_completed = tasks_counter.load(Ordering::Relaxed);
     let report = stats.get_report(total_elapsed);
 
     info!(
@@ -342,7 +340,7 @@ fn run_transfer_task_sync(
     config: TransferTaskConfig,
     stats: Arc<StressTestStats>,
     should_stop: Arc<AtomicBool>,
-    task_completed: Arc<AtomicU64>,
+    task_counter: Arc<AtomicU64>,
 ) -> Result<()> {
     info!("🎯 Starting transfer task {}", task_id);
 
@@ -362,6 +360,7 @@ fn run_transfer_task_sync(
 
     while !should_stop.load(Ordering::Relaxed) {
         let start = Instant::now();
+        task_counter.fetch_add(1, Ordering::Relaxed);
 
         let success = match execute_transfer_transaction_sync(
             &mut wallet_session,
@@ -386,7 +385,6 @@ fn run_transfer_task_sync(
 
         let duration = start.elapsed().as_millis() as u64;
         stats.record_transaction(success, duration);
-        task_completed.fetch_add(1, Ordering::Relaxed);
         transaction_count += 1;
     }
 
@@ -416,8 +414,11 @@ fn execute_transfer_transaction_sync(
     println!("pk_hash_from: {}", pk_hash_from);
     println!("pk_hash_to: {}", pk_hash_to);
 
-    wallet_session.st_provider.produce_block::<F>()?;
-    thread::sleep(Duration::from_secs(40));
+    if !wait_for_new_block(wallet_session, 2)? {
+        return Err(anyhow::format_err!(
+            "register user timeout waiting for checkpoint"
+        ));
+    }
     info!("🔑 Task {} - Registered user_from and user_to", task_id);
 
     wallet_session.add_user(private_key_from)?;
@@ -439,7 +440,6 @@ fn execute_transfer_transaction_sync(
         "🪙 Task {} - user_from minting {} tokens",
         task_id, mint_amount
     );
-
     wallet_session.exec_contract_call(
         pk_hash_from,
         vec![ContractCallArgs {
@@ -448,10 +448,10 @@ fn execute_transfer_transaction_sync(
             inputs: vec![mint_amount],
         }],
     )?;
-
-    info!("🔄 Task {} - Producing block after mint", task_id);
-    wallet_session.st_provider.produce_block::<F>()?;
-    thread::sleep(Duration::from_secs(30));
+    info!("🪙 Task {} - Waiting for new block after mint", task_id);
+    if !wait_for_new_block(wallet_session, 1)? {
+        return Err(anyhow::format_err!("mint timeout waiting for checkpoint"));
+    }
 
     let transfer_amount = 10u64;
     info!(
@@ -468,15 +468,17 @@ fn execute_transfer_transaction_sync(
         }],
     )?;
 
-    info!("🔄 Task {} - Producing block after transfer", task_id);
-    wallet_session.st_provider.produce_block::<F>()?;
-    thread::sleep(Duration::from_secs(30));
+    info!("💸 Task {} - Waiting for new block after transfer", task_id);
+    if !wait_for_new_block(wallet_session, 1)? {
+        return Err(anyhow::format_err!(
+            "transfer timeout waiting for checkpoint"
+        ));
+    }
 
     info!(
         "🎁 Task {} - user_to claiming tokens from user_from",
         task_id
     );
-
     wallet_session.exec_contract_call(
         pk_hash_to,
         vec![ContractCallArgs {
@@ -485,10 +487,10 @@ fn execute_transfer_transaction_sync(
             inputs: vec![user_id_from],
         }],
     )?;
-
-    info!("🔄 Task {} - Producing block after claim", task_id);
-    wallet_session.st_provider.produce_block::<F>()?;
-    thread::sleep(Duration::from_secs(30));
+    info!("🎁 Task {} - Waiting for new block after claim", task_id);
+    if !wait_for_new_block(wallet_session, 1)? {
+        return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
+    }
 
     info!(
         "✅ Task {} - Scenario completed successfully: mint({}) -> transfer({}) -> claim",
@@ -496,6 +498,43 @@ fn execute_transfer_transaction_sync(
     );
 
     Ok(())
+}
+
+fn wait_for_new_block(wallet_session: &mut WalletSession, offset: u64) -> Result<bool> {
+    let starting_checkpoint = wallet_session
+        .st_provider
+        .get_latest_l2_block_state()?
+        .checkpoint_id;
+    info!("current checkpoint: {}", starting_checkpoint);
+    let timeout_duration = Duration::from_secs(300);
+    let interval = Duration::from_secs(3);
+    let start_time = Instant::now();
+    let mut last_checkpoint = starting_checkpoint;
+    wallet_session.st_provider.produce_block::<F>()?;
+    loop {
+        let checkpoint = wallet_session
+            .st_provider
+            .get_latest_l2_block_state()?
+            .checkpoint_id;
+        info!("get latest checkpoint: {}", checkpoint);
+        let duration = start_time.elapsed();
+        if checkpoint >= starting_checkpoint + offset {
+            info!(
+                "🔄 Wait {} seconds for finalizing block",
+                duration.as_secs()
+            );
+            return Ok(true);
+        }
+        if checkpoint != last_checkpoint {
+            info!("new checkpoint: {}", checkpoint);
+            last_checkpoint = checkpoint;
+            wallet_session.st_provider.produce_block::<F>()?;
+        }
+        if duration > timeout_duration {
+            return Ok(false);
+        }
+        thread::sleep(interval);
+    }
 }
 
 fn load_config(config_path: &str) -> Result<TransferTaskConfig> {
