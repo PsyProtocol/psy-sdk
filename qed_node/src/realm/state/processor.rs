@@ -38,7 +38,7 @@ use qed_data::{
 use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
 use qed_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-    queue::task_queue::QProvingTaskStore,
+    queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm},
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
@@ -98,7 +98,7 @@ impl RealmConfig {
 pub struct RealmProcessorContext<
     SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F>,
     DQ: CheckpointDrainQueueConsumerAsyncImm,
-    HQ: CheckpointHistoryQueueConsumerAsyncImm,
+    HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     TS: QProvingTaskStore,
@@ -111,16 +111,12 @@ pub struct RealmProcessorContext<
     pub task_store: Arc<TS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
-    pub pending_register_users: Vec<MerkleProofCore<QHashOut<F>>>,
-    pub current_checkpoint_pending_register_users: usize,
-    pub current_process_user_index: usize,
-    pub total_pending_register_users: usize,
 }
 
 impl<
         SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F>,
         DQ: CheckpointDrainQueueConsumerAsyncImm,
-        HQ: CheckpointHistoryQueueConsumerAsyncImm,
+        HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
         TS: QProvingTaskStore,
@@ -145,10 +141,6 @@ impl<
             proof_store,
             task_store,
             proof_verifier,
-            pending_register_users: Vec::new(),
-            current_checkpoint_pending_register_users: 0,
-            current_process_user_index: 0,
-            total_pending_register_users: 0,
         })
     }
 
@@ -165,23 +157,23 @@ impl<
         &mut self,
         input: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
-        self.current_checkpoint_pending_register_users = 0;
         let dmps = input.get_registered_user_merkle_proofs::<QEDHasher>();
         self.store
             .injest_checkpoint_sync_data_imm(input.to_sync_info::<QEDHasher>())
             .await?;
-        dmps.into_iter().for_each(|x| {
-            let real_id = get_user_id_from_registration_id(x.index);
 
-            if self.realm_config.includes_user_id(real_id) {
-                self.pending_register_users.push(x);
-                self.current_checkpoint_pending_register_users += 1;
-                self.total_pending_register_users += 1;
-            }
-        });
+        // Filter users that belong to this realm
+        let realm_users: Vec<_> = dmps.into_iter()
+            .filter(|x| {
+                let real_id = get_user_id_from_registration_id(x.index);
+                self.realm_config.includes_user_id(real_id)
+            })
+            .collect();
 
-        assert_eq!(self.total_pending_register_users - self.current_process_user_index, self.pending_register_users.len());
-        assert!(self.current_checkpoint_pending_register_users <= self.pending_register_users.len());
+        if !realm_users.is_empty() {
+            tracing::info!("Adding {} new pending users to Redis queue", realm_users.len());
+            self.sync_queue.push_pending_users(&realm_users).await?;
+        }
 
         Ok(())
     }
@@ -274,39 +266,6 @@ impl<
             if jobs.len() == 0 {
                 tracing::debug!("No jobs to process");
                 if pending_register_users.len() <= 64 {
-                    /*
-                    let uleaves = pending_register_users
-                        .iter()
-                        .map(|x| QEDUserLeaf {
-                            public_key: x.value,
-                            user_state_tree_root: self.realm_config.default_user_state_tree_root,
-                            balance: F::ZERO,
-                            nonce: F::ZERO,
-                            last_checkpoint_id: F::ZERO,
-                            event_index: F::ZERO,
-                            user_id: F::from_noncanonical_u64(get_user_id_from_registration_id(
-                                x.index,
-                            )),
-                        })
-                        .collect::<Vec<_>>();
-                    debug!("Processing pending register users: {:#?}", pending_register_users);
-                    tracing::debug!(pending_register_users = ?pending_register_users, "Pending register users");
-                    let dmps = self
-                        .store
-                        .injest_user_leaves_imm(checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, &uleaves)
-                        .await?;
-
-                    let regs = dmps
-                        .into_iter()
-                        .zip(pending_register_users.iter())
-                        .map(|(upd, mp)| GUTARegisterUserFullInput {
-                            user_registration_tree_merkle_proof: mp.to_owned(),
-                            global_user_tree_update_proof: upd,
-                        })
-                        .collect::<Vec<_>>();
-                    tracing::debug!(regs = ?regs, "User registrations");
-                    */
-
                     let guta_new = GlobalUserTreeAggregatorHeader {
                         checkpoint_tree_root: guta.checkpoint_tree_root,
                         guta_circuit_whitelist: guta.guta_circuit_whitelist,
@@ -359,10 +318,6 @@ impl<
                     unreachable!("support more than 64 users in empty reg");
                 }
             }
-            // else {
-            //     assert!(jobs.len() <= 32, "currently only supports one 32 job batch");
-            //     todo!("working on it")
-            // }
         }
 
         if jobs.len() == 0 && pending_register_users.len() == 0 {
@@ -415,10 +370,9 @@ impl<
             if pending_register_users.len() == 0 {
                 return Ok((jobs, guta, proof));
             }
-        } else {
+        } else if pending_register_users.len() == 0 {
             tracing::debug!("Processing non-top level GUTA");
             // add a job to verify to the root cap
-            if pending_register_users.len() == 0 {
             let w_id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 checkpoint_id,
@@ -429,26 +383,6 @@ impl<
                 ProvingJobDataType::InputWitness,
                 0,
             );
-
-            /*
-            let bp = self
-                .store
-                .get_user_bottom_tree_merkle_proof(
-                    COORDINATOR_USER_TREE_HEIGHT,
-                    checkpoint_id,
-                    (guta.state_transition.node_index.to_canonical_u64())
-                        << ((GLOBAL_USER_TREE_HEIGHT as u64
-                            - guta.state_transition.node_level.to_canonical_u64())
-                            as u64),
-                )
-                .await?;
-
-            let top_line_siblings_len = guta.state_transition.node_level.to_canonical_u64() as usize - COORDINATOR_USER_TREE_HEIGHT as usize;
-            tracing::debug!("Calculated top line siblings length");
-
-            let good_sibs = bp.siblings[(bp.siblings.len() - top_line_siblings_len)..].to_vec();
-            tracing::debug!("Extracted good siblings");
-            */
 
             let input = VerifyGUTAToCapCircuitInputSimple {
                 guta_proof_header: guta,
@@ -485,7 +419,6 @@ impl<
                     n_guta.state_transition.new_node_value,
                 ),
             ));
-        }
         }
 
         let verify_to_cap_input = VerifyGUTAToCapCircuitInputSimple {
@@ -869,7 +802,7 @@ impl<
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let finished_job_task = QProvingTask::new(&[finished_job]);
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
-        
+
         // Finalize and save the task topology
         self.task_store.finalize_and_save_topology().await?;
 
@@ -877,14 +810,16 @@ impl<
         self.task_store.save_job_dependency_graph(&task_graph, new_checkpoint_id).await
             .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
         tracing::info!("Saved realm job dependency graph for checkpoint {}", new_checkpoint_id);
-        
+
         Ok(())
     }
 
     pub async fn build_block(&mut self) -> anyhow::Result<QProvingJobDataID> {
         let start = Instant::now();
         info!("realm STARTED new block");
+
         self.task_store.clear_task_graph().await?;
+
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
@@ -892,16 +827,8 @@ impl<
         if !has_tasks {
             bail!("No pending tasks for checkpoint {}, skipping block construction", new_checkpoint_id);
         }
-        // todo fix the bug!!!
-        let pending_users = if self.pending_register_users.len() > 32 {
-            self.current_process_user_index += 32;
-            self.pending_register_users.drain(..32).collect::<Vec<_>>()
-        } else {
-            let q = self.pending_register_users.clone();
-            self.current_process_user_index += self.pending_register_users.len();
-            self.pending_register_users = vec![];
-            q
-        };
+        // Pop up to 32 pending users from Redis queue
+        let pending_users = self.sync_queue.pop_pending_users(32).await?;
         let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
         tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
         let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
@@ -916,6 +843,8 @@ impl<
         // Plan the job dependency graph
         self.plan_jobs(new_checkpoint_id, &guta_jobs, finished_job).await?;
 
+        tracing::info!("Processed {} pending users for checkpoint {}", pending_users.len(), new_checkpoint_id);
+
         // Wait for proving jobs to complete and return the job ID
         info!("🐶 Waiting for realm proving jobs");
         let realm_worker_output_job_id = self
@@ -929,9 +858,10 @@ impl<
 
     /// Check if there are pending tasks for the given checkpoint
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
-        // Check if there are pending user registrations in the internal list
-        if !self.pending_register_users.is_empty() {
-            info!("Found {} pending user registrations in internal list", self.pending_register_users.len());
+        // Check if there are pending user registrations in Redis queue
+        let pending_users_count = self.sync_queue.get_pending_users_count().await?;
+        if pending_users_count > 0 {
+            info!("Found {} pending user registrations in Redis queue", pending_users_count);
             return Ok(true);
         }
 

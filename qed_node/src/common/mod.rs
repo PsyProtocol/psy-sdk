@@ -18,16 +18,16 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &Concre
     let job_id_hex = hex::encode(job_id.to_fixed_bytes());
     info!("{} - Job ID (hex): {}", prefix, job_id_hex);
     info!("{} - Circuit type: {:?}", prefix, job_id.circuit_type);
-    
+
     if proof.public_inputs.len() >= 12 {
         let commitment = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[0..4]);
         let worker_public_key = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[4..8]);
         let data_hash = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[8..12]);
-        
+
         info!("{} - Commitment: {}", prefix, commitment.to_string());
         info!("{} - Worker public key: {}", prefix, worker_public_key.to_string());
         info!("{} - Data hash: {}", prefix, data_hash.to_string());
-        
+
         match job_id.circuit_type {
             ProvingJobCircuitType::AppendUserRegistrationTree |
             ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => {
@@ -54,7 +54,7 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &Concre
                     let register_users_root = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[4..8]);
                     let deploy_contracts_root = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[8..12]);
                     let gutas_root = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[12..16]);
-                    
+
                     info!("{} - State Part 1 (AggUserRegisterDeployContractsGUTA):", prefix);
                     info!("{}   State transition hash: {}", prefix, state_transition_hash.to_string());
                     info!("{}   Register users root: {}", prefix, register_users_root.to_string());

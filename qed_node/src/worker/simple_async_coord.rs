@@ -50,7 +50,7 @@ impl SimpleAsyncCoordinatorWorker {
             .await?;
 
         while
-            job.circuit_type != ProvingJobCircuitType::GenerateRollupStateTransitionProof &&  job.topic != QJobTopic::NotifyOrchestratorComplete {
+            job.circuit_type != ProvingJobCircuitType::GenerateRollupStateTransitionProof &&  job.topic != QJobTopic::NotifyCoordinatorComplete {
                 job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All).await?;
         }
 

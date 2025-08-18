@@ -157,6 +157,8 @@ shutdown:
 	@docker exec qed-redis-realm1 redis-cli FLUSHALL > /dev/null 2>&1 || true
 	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
 	@rm -fr ${PROJECT_DIR} ${PWD}/db > /dev/null 2>&1 || true
+	@echo "Removing user job tracker JSON files..."
+	@rm -f ${USER0_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json > /dev/null 2>&1 || true
 
 run-all: shutdown init compile
 	@./scripts/run_all.sh
@@ -205,10 +207,20 @@ run-realm-edge1:
       --realm-id=1 \
       --queue-biz-key=rwq1
 
-run-worker:
+run-worker0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
       --config=./config.json \
-      --public-key=${CURRENT_USER_PUBLIC_KEY}
+      --public-key=${USER0_PUBLIC_KEY}
+
+run-worker1:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+      --config=./config.json \
+      --public-key=${USER1_PUBLIC_KEY}
+
+run-worker2:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+      --config=./config.json \
+      --public-key=${USER2_PUBLIC_KEY}
 
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 
@@ -299,6 +311,8 @@ register-user:
 	@sleep 0.5
 	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER1_PRIVATE_KEY} | tail -5 | jq .
 	@sleep 0.5
+	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} | tail -5 | jq .
+	@sleep 0.5
 	# @RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} | tail -5 | jq .
 	# @sleep 0.5
 	# @RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER3_PRIVATE_KEY} | tail -5 | jq .
@@ -336,6 +350,10 @@ transfer:
 claim:
 	@echo "USER1 claiming transfer..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0
+
+claim-rewards:
+	@echo "Claiming rewards for checkpoint ${CHECKPOINT_ID}..."
+	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --contract-id 2 --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type zk
 
 return-back:
 	@echo "USER1 transferring back to USER0..."

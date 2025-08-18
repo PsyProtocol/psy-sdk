@@ -3,13 +3,11 @@ pub mod pool;
 pub mod fred_queue;
 pub mod redis_queue;
 pub mod task_queue;
-pub mod pending_users;
 
 pub use pool::{new_fred_pool, new_redis_async_pool};
 pub use rsmq_queue::*;
 pub use fred_queue::{DrainQueueFred, ProofStoreFred};
-pub use redis_queue::{ProofStoreRedisAsync, BizKey, QueuePrefixKey};
-pub use pending_users::QPendingUserStoreAsyncImm;
+pub use redis_queue::{ProofStoreRedisAsync, BizKey, QueuePrefixKey, QPendingUserStoreAsyncImm};
 pub mod worker_queue_redis {
     pub mod redis_queue {
         pub use crate::queue::rsmq_queue::{

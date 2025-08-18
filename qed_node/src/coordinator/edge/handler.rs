@@ -12,18 +12,15 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::field::types::Field;
 
-// qed_core
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DrainQueueMetadataTagged, WithDrainQueueMetadata};
 use qed_core::job::id::{JobProof, JobProofSibling, ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
 use jsonrpsee::types::ErrorObject;
 use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 
-// qed_crypto
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 
-// qed_data
 use qed_data::guta::api::{SubmitGUTARealmResultAPINoProofInput, SubmitGUTARealmResultAPIQueueItem};
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::{
@@ -33,18 +30,15 @@ use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_data::qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact};
 
-// qed_node
 use qed_store::queue::rsmq_queue::CEQueueNotification;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
-// qed_store
 use qed_data::config::store_config::{QEDFelt, QEDHasher, QCheckpointSyncInfoCompact};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
-use crate::common::jobs::{JobSchedulerRpcServer};
+use crate::common::jobs::JobSchedulerRpcServer;
 use crate::common::ConcreteProofWithPublicInputs;
-// crate inner
 use crate::coordinator::edge::{StoreReader, DrainQueue, ProofStore};
 use crate::coordinator::args::CoordinatorEdgeArgs;
 use crate::coordinator::state::edge::CoordinatorEdgeContext;
@@ -887,7 +881,7 @@ impl CoordinatorEdgeHandler {
         //todo! add some operation to log suspicious activity or ban user
         error!(
             "🚨 SECURITY ALERT: Invalid job submission - Reason: {}, Job: {:?}, Layer: {}, MsgId: {}",
-            reason, job.job_id, job.task_id, job.msg_id
+            reason, job.job_id, job.layer_id, job.msg_id
         );
     }
 }
@@ -1313,7 +1307,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
     async fn generate_batch_proofs(&self, checkpoint_id: u64, job_ids: Vec<QProvingJobDataID>) -> RpcResult<Vec<JobProof>> {
         use jsonrpsee::types::ErrorObject;
-        
+
         for job_id in &job_ids {
             if job_id.goal_id != checkpoint_id {
                 return Err(ErrorObject::owned(
@@ -1323,7 +1317,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 ));
             }
         }
-        
+
         let checkpoint_leaf = self.get_checkpoint_leaf_data(checkpoint_id)
             .await
             .map_err(|e| ErrorObject::owned(
@@ -1331,7 +1325,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 format!("Failed to get checkpoint data: {}", e),
                 None::<()>,
             ))?;
-        
+
         let graph = self.task_store
             .load_job_dependency_graph(checkpoint_id)
             .await
@@ -1340,18 +1334,26 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 format!("Failed to load job dependency graph for checkpoint {}: {}", checkpoint_id, e),
                 None::<()>,
             ))?;
-        
+
         let mut proofs = Vec::new();
-        
+
         for job_id in job_ids {
             let expected_root = match job_id.circuit_type {
-                ProvingJobCircuitType::GUTARegisterUsers | ProvingJobCircuitType::GUTAOnlyRegisterUsers => {
+                ProvingJobCircuitType::AppendUserRegistrationTree |
+                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
+                ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate  => {
                     checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
                 }
-                ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange => {
+                ProvingJobCircuitType::GUTARegisterUsers |
+                ProvingJobCircuitType::GUTAOnlyRegisterUsers |
+                ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange | ProvingJobCircuitType::GUTASingleEndCap |
+                ProvingJobCircuitType::GUTATwoEndCap | ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
+                ProvingJobCircuitType::GUTALeftGUTARightEndCap | ProvingJobCircuitType::GUTAVerifyToCap => {
                     checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
                 }
-                ProvingJobCircuitType::BatchDeployContracts => {
+                ProvingJobCircuitType::BatchDeployContracts |
+                ProvingJobCircuitType::BatchDeployContractsAggregate |
+                ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
                     checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
                 }
                 _ => {
@@ -1362,16 +1364,16 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                     ));
                 }
             };
-            
+
             match graph.generate_proof(job_id, &*self.proof_store).await {
                 Ok(job_proof) => {
                     if job_proof.root != expected_root {
                         tracing::warn!(
-                            "Root mismatch for job {:?}: expected {:?}, got {:?}", 
+                            "Root mismatch for job {:?}: expected {:?}, got {:?}",
                             job_id, expected_root, job_proof.root
                         );
                     }
-                    
+
                     proofs.push(job_proof);
                 }
                 Err(e) => {
@@ -1384,7 +1386,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 }
             }
         }
-        
+
         Ok(proofs)
     }
 }

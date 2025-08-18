@@ -69,7 +69,7 @@ where
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&public_inputs_hash.elements);
-        
+
         pad_circuit_degree(&mut builder, 12);
         let circuit_data = builder.build::<C>();
 

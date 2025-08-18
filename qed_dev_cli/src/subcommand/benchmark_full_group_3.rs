@@ -109,7 +109,7 @@ struct TestGrouping<
         + Sync
         + KVQBinaryStore,
     RPDQ: CheckpointDrainQueueConsumerAsyncImm,
-    RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
+    RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + qed_store::queue::fred_queue::QPendingUserStoreAsyncImm + qed_store::queue::QPendingUserStoreAsyncImm,
     RPWQ: WorkerEventTransmitterAsyncImm,
     RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     RPTS: QProvingTaskStore + Send + Sync,
@@ -153,7 +153,7 @@ impl<
             + Sync
             + KVQBinaryStore,
         RPDQ: CheckpointDrainQueueConsumerAsyncImm,
-        RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm,
+        RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + qed_store::queue::fred_queue::QPendingUserStoreAsyncImm + qed_store::queue::QPendingUserStoreAsyncImm,
         RPWQ: WorkerEventTransmitterAsyncImm,
         RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
         RPTS: QProvingTaskStore + Send + Sync,

@@ -10,13 +10,37 @@ use qed_prover::local::{
     args::{ContractCallArgs, SignType},
     provider::{RpcConfig, RpcProvider},
 };
+use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+use qed_data::config::store_config::QEDHasher;
+use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use tracing::info;
 use serde_json::json;
 use anyhow::Result;
 
 use super::args::ClaimRewardsArgs;
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct RealmJobData {
+    id: u32,
+    checkpoints: HashMap<u64, Vec<String>>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct WorkerJobTracker {
+    coordinator: HashMap<u64, Vec<String>>,
+    realms: Vec<RealmJobData>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+enum JobLocation {
+    Realm(u64),
+    Coordinator,
+}
+
 type F = GoldilocksField;
+type C = PoseidonGoldilocksConfig;
+const D: usize = 2;
 
 #[derive(Debug, Clone)]
 struct JobInfo {
@@ -24,11 +48,6 @@ struct JobInfo {
     location: JobLocation,
 }
 
-#[derive(Debug, Clone)]
-enum JobLocation {
-    Realm(u64),
-    Coordinator,
-}
 
 #[derive(Debug, Clone)]
 struct JobClaim {
@@ -46,7 +65,19 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
     let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
     let private_key = QHashOut::<F>::from_str(&args.private_key)
         .map_err(|e| anyhow::format_err!("Failed to parse private key: {}", e))?;
-    let job_infos = parse_job_specs(&args.jobs)?;
+
+    let mut debug_wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+    let public_key_info = debug_wallet.add_private_key_get_info(SimpleQEDPrivateKey {
+        private_key: private_key,
+    });
+    let public_key_hash = public_key_info.to_hash::<QEDHasher>();
+
+    let job_infos = if args.jobs.is_empty() {
+        load_jobs_from_tracker_file(&public_key_hash, args.checkpoint_id)?
+    } else {
+        parse_job_specs(&args.jobs)?
+    };
+
     let provider = RpcProvider::new_with_config(&rpc_config)?;
     let mut wallet_session = WalletSession::new(&rpc_config)?;
     let fingerprint = if args.fingerprint.is_some() {
@@ -65,13 +96,20 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
     let mut claims = Vec::new();
 
     for job_info in &job_infos {
+        if claims.len() >= 32 {
+            info!("Reached maximum of 32 claims, stopping processing");
+            break;
+        }
+
         info!("Processing job: {:?}", job_info.job_id);
+
         let job_type = match job_info.job_id.circuit_type {
             ProvingJobCircuitType::AppendUserRegistrationTree |
             ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
-            ProvingJobCircuitType::GUTAOnlyRegisterUsers |
-            ProvingJobCircuitType::GUTARegisterUsers => 0,
+            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => 0,
 
+            ProvingJobCircuitType::GUTAOnlyRegisterUsers |
+            ProvingJobCircuitType::GUTARegisterUsers |
             ProvingJobCircuitType::GUTATwoEndCap |
             ProvingJobCircuitType::GUTATwoGUTA |
             ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
@@ -81,38 +119,44 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
             ProvingJobCircuitType::GUTANoChange => 1,
 
             ProvingJobCircuitType::BatchDeployContracts |
-            ProvingJobCircuitType::BatchDeployContractsAggregate => 2,
+            ProvingJobCircuitType::BatchDeployContractsAggregate |
+            ProvingJobCircuitType::DummyBatchDeployContractsAggregate => 2,
+
+            ProvingJobCircuitType::GenerateRollupStateTransitionProof => {
+                info!("Skipping GenerateRollupStateTransitionProof job (not supported for rewards)");
+                continue;
+            }
 
             _ => {
-                return Err(anyhow::format_err!(
-                    "Unsupported job type for rewards: {:?}",
-                    job_info.job_id.circuit_type
-                ));
+                info!("Skipping unsupported job type: {:?}", job_info.job_id.circuit_type);
+                continue;
             }
         };
-        let job_proof = get_job_proof(
-            &provider,
-            &job_info,
-            args.checkpoint_id,
-        )?;
 
-        info!("Job type: {}, Proof value: {:?}, Proof root: {:?}",
-              job_type, job_proof.value, job_proof.root);
+        match get_job_proof(&provider, &job_info, args.checkpoint_id) {
+            Ok(job_proof) => {
+                info!("Job type: {}, Proof value: {:?}, Proof root: {:?}",
+                      job_type, job_proof.value, job_proof.root);
 
-        // Debug: Check siblings
-        let non_zero_siblings = job_proof.siblings.iter()
-            .filter(|s| s.hash.0.elements.iter().any(|e| e.0 != 0))
-            .count();
-        info!("Non-zero siblings: {}", non_zero_siblings);
+                let non_zero_siblings = job_proof.siblings.iter()
+                    .filter(|s| s.hash.0.elements.iter().any(|e| e.0 != 0))
+                    .count();
+                info!("Non-zero siblings: {}", non_zero_siblings);
 
-        let reward = calculate_reward(&job_info.job_id);
+                let reward = calculate_reward(&job_info.job_id);
 
-        claims.push(JobClaim {
-            job_id: job_info.job_id.task_index as u64,
-            job_type,
-            job_proof,
-            reward,
-        });
+                claims.push(JobClaim {
+                    job_id: job_info.job_id.task_index as u64,
+                    job_type,
+                    job_proof,
+                    reward,
+                });
+            }
+            Err(e) => {
+                info!("Skipping job due to error: {:?} - {}", job_info.job_id, e);
+                continue;
+            }
+        }
     }
 
     if claims.is_empty() {
@@ -233,4 +277,55 @@ fn get_job_proof(
 
 fn calculate_reward(_job_id: &QProvingJobDataID) -> u64 {
     100
+}
+
+fn load_jobs_from_tracker_file(public_key: &QHashOut<F>, target_checkpoint_id: u64) -> Result<Vec<JobInfo>> {
+    let filename = format!("{}.json", public_key.to_string());
+
+    if !std::path::Path::new(&filename).exists() {
+        info!("No job tracker file found: {}", filename);
+        return Ok(Vec::new());
+    }
+
+    let content = std::fs::read_to_string(&filename)?;
+    let tracker: WorkerJobTracker = serde_json::from_str(&content)?;
+
+    let mut job_infos = Vec::new();
+
+    // Load coordinator jobs for the target checkpoint
+    if let Some(coordinator_jobs) = tracker.coordinator.get(&target_checkpoint_id) {
+        for job_hex in coordinator_jobs {
+            let job_id = parse_job_id_from_hex(job_hex)?;
+            job_infos.push(JobInfo {
+                job_id,
+                location: JobLocation::Coordinator,
+            });
+        }
+    }
+
+    // Load realm jobs for the target checkpoint
+    for realm in &tracker.realms {
+        if let Some(realm_jobs) = realm.checkpoints.get(&target_checkpoint_id) {
+            for job_hex in realm_jobs {
+                let job_id = parse_job_id_from_hex(job_hex)?;
+                job_infos.push(JobInfo {
+                    job_id,
+                    location: JobLocation::Realm(realm.id as u64),
+                });
+            }
+        }
+    }
+
+    info!("Loaded {} jobs from tracker file {} for checkpoint {}",
+          job_infos.len(), filename, target_checkpoint_id);
+    Ok(job_infos)
+}
+
+fn parse_job_id_from_hex(hex_str: &str) -> Result<QProvingJobDataID> {
+    let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
+    let bytes = hex::decode(hex_str)?;
+    if bytes.len() != 24 {
+        anyhow::bail!("Invalid job ID length: expected 24 bytes, got {}", bytes.len());
+    }
+    QProvingJobDataID::try_from_byte_vec(&bytes)
 }

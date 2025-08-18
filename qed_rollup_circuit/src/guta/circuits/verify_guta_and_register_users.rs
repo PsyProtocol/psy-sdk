@@ -64,7 +64,7 @@ where
         let public_inputs_hash = register_batch_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         let worker_public_key = builder.add_virtual_hash();
-        
+
         let child_commitment = HashOutTarget {
             elements: [
                 register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[0],
@@ -73,7 +73,7 @@ where
                 register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[3],
             ]
         };
-        
+
         let commitment = builder.hash_two_to_one::<C::Hasher>(child_commitment, worker_public_key);
 
         builder.register_public_inputs(&commitment.elements);

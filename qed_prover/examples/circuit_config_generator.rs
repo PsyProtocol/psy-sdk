@@ -14,7 +14,7 @@ fn run_gen_config() -> anyhow::Result<()> {
     let mut library = SimpleCircuitLibrary::<F>::new();
 
     let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
-    
+
     library.register_circuit(
         ProvingJobCircuitType::UserEndCap,
         main_circuits.ups_end_cap.get_fingerprint(),
@@ -23,7 +23,7 @@ fn run_gen_config() -> anyhow::Result<()> {
 
 
     use qed_core::config::network_constants::get_default_worker_public_key;
-    
+
     let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
         main_circuits.ups_end_cap.get_common_circuit_data_ref(),
         main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),

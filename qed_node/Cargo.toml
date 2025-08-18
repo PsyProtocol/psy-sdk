@@ -24,6 +24,7 @@ qed_data = { workspace = true }
 qed_crypto = { workspace = true }
 qed_store = { workspace = true }
 
+indexmap = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }

@@ -23,26 +23,26 @@ pub type LayerId = TaskId;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct QJob<T = String> {
     pub job_id: QProvingJobDataID,
-    pub task_id: TaskId,
+    pub layer_id: LayerId,
     pub parent: Option<QProvingJobDataID>,
     #[serde(default)]
     pub msg_id: T,
 }
 
 impl<T: Default> QJob<T> {
-    pub fn new(job_id: QProvingJobDataID, task_id: TaskId) -> Self {
+    pub fn new(job_id: QProvingJobDataID, layer_id: LayerId) -> Self {
         Self {
             job_id,
-            task_id,
+            layer_id,
             parent: None,
             msg_id: T::default(),
         }
     }
 
-    pub fn new_with_parent(job_id: QProvingJobDataID, task_id: TaskId, parent: QProvingJobDataID) -> Self {
+    pub fn new_with_parent(job_id: QProvingJobDataID, layer_id: LayerId, parent: QProvingJobDataID) -> Self {
         Self {
             job_id,
-            task_id,
+            layer_id: layer_id,
             parent: Some(parent),
             msg_id: T::default(),
         }
@@ -74,7 +74,7 @@ impl QJob<String> {
 // Display implementation for better logging
 impl std::fmt::Display for QJob {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Job({:?} task:{})", self.job_id, self.task_id)
+        write!(f, "Job({:?} layer:{})", self.job_id, self.layer_id)
     }
 }
 
@@ -322,19 +322,19 @@ impl QProvingTaskStoreImpl {
             }
         };
 
-        if current_layer != job.task_id {
+        if current_layer != job.layer_id {
             warn!(
                 "Job {} claims layer {} but current layer is {}",
-                job, job.task_id, current_layer
+                job, job.layer_id, current_layer
             );
             return Ok(JobValidationStatus::WrongLayer {
                 expected: current_layer,
-                provided: job.task_id,
+                provided: job.layer_id,
             });
         }
 
         // Step 2: Trying to change message visibility, extending the visibility timeout
-        let queue_id = self.layer_queue_id(&job.task_id);
+        let queue_id = self.layer_queue_id(&job.layer_id);
 
         match self.rsmq.change_message_visibility(&queue_id, &job.msg_id, VISIBILITY_TIMEOUT).await {
             Ok(_) => {
@@ -471,7 +471,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
     async fn acknowledge_job_completion(&self, job: &QJob) -> Result<()> {
         info!("Acknowledging job completion  {}", job);
 
-        let queue_id = self.layer_queue_id(&job.task_id);
+        let queue_id = self.layer_queue_id(&job.layer_id);
 
         // Delete message from queue,
         // note: it should after the proof has been verified
@@ -481,12 +481,12 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         let remaining = self.rsmq.get_queue_length(&queue_id).await?;
 
         if remaining == 0 {
-            info!("Layer {} has no more jobs", job.task_id);
+            info!("Layer {} has no more jobs", job.layer_id);
 
             // Check if this is the current layer and remove it if complete
             if let Some(current_layer) = self.peek_current_layer().await? {
-                if current_layer == job.task_id && self.is_layer_complete(&job.task_id).await? {
-                    match self.pop_current_layer(&job.task_id).await {
+                if current_layer == job.layer_id && self.is_layer_complete(&job.layer_id).await? {
+                    match self.pop_current_layer(&job.layer_id).await {
                         Ok(s) => {
                             match s {
                                 Some(popped_layer) => {
@@ -503,7 +503,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
                                     // pop_current_layer returned Ok(None) - layer wasn't at top or didn't match
                                     warn!(
                                        "Layer {} is complete but couldn't be popped (not at top or already removed by another thread)",
-                                    job.task_id
+                                    job.layer_id
                                      );
 
                                     // Debug: Check what's actually at the top
@@ -516,7 +516,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
                                     self.debug_print_all_layers().await?;
                                 }
                             }
-                            info!("Removed completed layer {} from list", job.task_id);
+                            info!("Removed completed layer {} from list", job.layer_id);
 
                             if let Some(next_layer) = self.peek_current_layer().await? {
                                 info!("Next layer is {}", next_layer);
@@ -525,7 +525,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
                             }
                         }
                         Err(e) => {
-                            error!("Failed to pop layer {}: {}. Layer will remain in list.", job.task_id, e);
+                            error!("Failed to pop layer {}: {}. Layer will remain in list.", job.layer_id, e);
                             info!("❌ Failed to pop layer, debug_print start ");
                             self.debug_print_all_layers().await?;
                             info!("❌ Failed to pop layer, debug_print end ");
@@ -535,7 +535,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
                 }
             }
         } else {
-            debug!("Layer {} has {} remaining jobs", job.task_id, remaining);
+            debug!("Layer {} has {} remaining jobs", job.layer_id, remaining);
         }
 
         info!("Job completion acknowledged successfully");

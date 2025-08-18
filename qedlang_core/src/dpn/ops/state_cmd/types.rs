@@ -32,7 +32,7 @@ pub enum DPNStateCommandType {
     GetOtherUserContractStateSlotHash = 32,
     GetOtherUserContractStateSlotSingle = 33,
     GetOtherUserContractStateSlotRange = 34,
-    
+
     // checkpoint state commands (not order sensitive) (40-47)
     GetCheckpointLeafStats = 40,
 
@@ -44,14 +44,14 @@ impl From<u8> for DPNStateCommandType {
             0 => DPNStateCommandType::SetContractStateSlotHash,
             1 => DPNStateCommandType::SetContractStateSlotSingle,
             2 => DPNStateCommandType::SetContractStateSlotRange,
-            
+
             8 => DPNStateCommandType::InvokeExternalContractFunctionSync,
             9 => DPNStateCommandType::InvokeExternalContractFunctionDeferred,
-            
+
             16 => DPNStateCommandType::GetSelfUserCurrentContractStateSlotHash,
             17 => DPNStateCommandType::GetSelfUserCurrentContractStateSlotSingle,
             18 => DPNStateCommandType::GetSelfUserCurrentContractStateSlotRange,
-            
+
             24 => DPNStateCommandType::GetSelfUserExternalContractStateSlotHash,
             25 => DPNStateCommandType::GetSelfUserExternalContractStateSlotSingle,
             26 => DPNStateCommandType::GetSelfUserExternalContractStateSlotRange,
@@ -59,7 +59,7 @@ impl From<u8> for DPNStateCommandType {
             32 => DPNStateCommandType::GetOtherUserContractStateSlotHash,
             33 => DPNStateCommandType::GetOtherUserContractStateSlotSingle,
             34 => DPNStateCommandType::GetOtherUserContractStateSlotRange,
-            
+
             40 => DPNStateCommandType::GetCheckpointLeafStats,
             _ => panic!("Unknown DPNStateCommandType: {}", value),
         }

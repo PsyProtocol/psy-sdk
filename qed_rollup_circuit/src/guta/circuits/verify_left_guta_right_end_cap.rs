@@ -90,7 +90,7 @@ where
                 a_guta_gadget.proof_target.public_inputs[3],
             ]
         };
-        
+
         let b_commitment = HashOutTarget {
             elements: [
                 b_end_cap_gadget.proof_target.public_inputs[0],

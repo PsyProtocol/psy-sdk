@@ -531,23 +531,23 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
             channel_id,
             checkpoint_id: 0, // Not used for peeking
         };
-        
+
         let mut members = vec![];
         let mut peeked_messages = vec![];
-        
+
         // Receive messages with visibility timeout to peek at them
         // We'll collect them and then change visibility back to 0
         while let Some(msg) = self.receive_message_with_id(&queue_id, Some(Duration::from_secs(1))).await? {
             let data = T::from_bytes(&msg.message)?;
             members.push(data);
             peeked_messages.push(msg.id);
-            
+
             // Limit peek to reasonable amount to avoid blocking
             if members.len() >= 100 {
                 break;
             }
         }
-        
+
         // Reset visibility for all peeked messages to make them immediately available again
         for msg_id in peeked_messages {
             // Set visibility to 0 to make message immediately available
@@ -556,7 +556,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
                 debug!("Failed to reset visibility for message {}: {:?}", msg_id, e);
             }
         }
-        
+
         Ok(members)
     }
 }
@@ -671,7 +671,7 @@ impl WorkerEventReceiverAsyncImm for RsmqQueue {
     }
 }
 
-// Implement QProofStoreReaderAsync for RsmqQueue 
+// Implement QProofStoreReaderAsync for RsmqQueue
 // Note: RsmqQueue doesn't have direct storage, so we provide stub implementations
 // In practice, a separate storage backend should be used alongside RsmqQueue
 #[async_trait]
@@ -737,9 +737,9 @@ impl WorkerEventTransmitterAsyncImm for RsmqQueue {
             sleep(Duration::from_millis(500)).await;
         }
     }
-    
+
     async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
-        &self, 
+        &self,
         job_id: QProvingJobDataID
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
     where

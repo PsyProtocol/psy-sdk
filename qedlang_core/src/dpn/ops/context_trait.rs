@@ -387,7 +387,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn get_checkpoint_id(&mut self) -> F;
     fn get_last_nonce(&mut self) -> F;
     fn get_user_public_key_hash(&mut self) -> [F; 4];
-    
+
     // Checkpoint stats helper functions
     fn get_checkpoint_stats(&mut self, checkpoint_id: F) -> Vec<F>;
     fn get_register_users_root(&mut self, checkpoint_id: F) -> [F; 4];

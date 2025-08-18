@@ -84,11 +84,11 @@ run_service "make run-realm-processor" "realm-processor" "$REALM_PROCESSOR_LOG" 
 PIDS+=($!)
 run_service "make run-realm-processor1" "realm-processor1" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
-run_service "make run-worker" "worker0" "$WORKER0_LOG" &
+run_service "make run-worker0" "worker0" "$WORKER0_LOG" &
 PIDS+=($!)
-run_service "make run-worker" "worker1" "$WORKER1_LOG" &
+run_service "make run-worker1" "worker1" "$WORKER1_LOG" &
 PIDS+=($!)
-run_service "make run-worker" "worker2" "$WORKER2_LOG" &
+run_service "make run-worker2" "worker2" "$WORKER2_LOG" &
 PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors/workers)

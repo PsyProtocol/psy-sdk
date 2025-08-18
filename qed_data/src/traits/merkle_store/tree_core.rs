@@ -642,7 +642,7 @@ const MARK_LEAVES: bool,
 
         let zero_hash = Hasher::get_zero_hash(0);
         let mut leaves_used = leaves_per_subtree - (cur_sub_tree_leaf_index as usize);
-        
+
         // Fill old_leaves with zeros for the remaining slots
         let old_leaves_zeros = leaves_per_subtree - old_leaves.len();
         for _ in 0..old_leaves_zeros {

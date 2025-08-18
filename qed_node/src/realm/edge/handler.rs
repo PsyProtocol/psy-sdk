@@ -1,19 +1,16 @@
 use super::error::RpcError;
 use super::rpc::RealmEdgeRpcServer;
-use crate::common::jobs::{JobSchedulerRpcServer};
+use crate::common::jobs::JobSchedulerRpcServer;
 use crate::common::ConcreteProofWithPublicInputs;
 use crate::realm::state::edge::RealmEdgeContext;
 use crate::realm::{C, D, F};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
-use jsonrpsee::http_client::{HeaderMap, HeaderValue, HttpClient, HttpClientBuilder};
-use jsonrpsee::rpc_params;
+use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{field::types::PrimeField64, plonk::proof::ProofWithPublicInputs};
 use plonky2::field::types::Field;
-use qed_core::config::network_constants::REALM_PROOF_SYNC_CHANNEL;
 use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
-use qed_core::job::id::ProvingJobDataId;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 use qed_core::job::{
@@ -23,18 +20,14 @@ use qed_core::job::{
 };
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::config::store_config::QEDFelt;
-use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
 };
 use qed_data::qdata::user::QEDUserLeaf;
-use qed_rollup_utils::generate_jwt_token;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
-use std::env;
 use std::sync::Arc;
-use std::time::Duration;
 use anyhow::anyhow;
 use jsonrpsee::types::{ErrorCode, ErrorObject};
 
@@ -74,7 +67,7 @@ where
         //todo! add some operation to log suspicious activity or ban user
         error!(
             "🚨 SECURITY ALERT: Invalid job submission - Reason: {}, Job: {:?}, Layer: {}, MsgId: {}",
-            reason, job.job_id, job.task_id, job.msg_id
+            reason, job.job_id, job.layer_id, job.msg_id
         );
     }
 }
@@ -659,13 +652,21 @@ where
 
         for job_id in job_ids {
             let expected_root = match job_id.circuit_type {
-                ProvingJobCircuitType::GUTARegisterUsers | ProvingJobCircuitType::GUTAOnlyRegisterUsers => {
+                ProvingJobCircuitType::AppendUserRegistrationTree |
+                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
+                ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
                     checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
                 }
-                ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange => {
+                ProvingJobCircuitType::GUTARegisterUsers |
+                ProvingJobCircuitType::GUTAOnlyRegisterUsers |
+                ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange | ProvingJobCircuitType::GUTASingleEndCap |
+                ProvingJobCircuitType::GUTATwoEndCap | ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
+                ProvingJobCircuitType::GUTALeftGUTARightEndCap | ProvingJobCircuitType::GUTAVerifyToCap => {
                     checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
                 }
-                ProvingJobCircuitType::BatchDeployContracts => {
+                ProvingJobCircuitType::BatchDeployContracts |
+                ProvingJobCircuitType::BatchDeployContractsAggregate |
+                ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
                     checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
                 }
                 _ => {
@@ -807,9 +808,9 @@ where
 
         if let Some(proof) = proof {
             info!("Setting proof by id: {:?}", job_id);
-            
+
             crate::common::log_proof_details("Realm", job_id, &proof);
-            
+
             self.ctx.proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)
                 .map_err(|e| RpcError::Anyhow(e.into()))?;
             let output_id = job_id.get_output_id();
@@ -845,142 +846,3 @@ where
     }
 }
 
-pub async fn spawn_realm_job_update_task(
-    proof_store: Arc<ProofStoreRedisAsync>,
-    realm_id: u64,
-    coordinator_addr: String,
-) -> anyhow::Result<()> {
-    info!("realm job listener spawned");
-    tokio::spawn(async move {
-        let mut last_checkpoint = 0u64;
-        loop {
-            // Listen for new proof job IDs from the history queue
-            match proof_store
-                .wait_for_next_item_imm::<ProvingJobDataId>(
-                    REALM_PROOF_SYNC_CHANNEL,
-                    last_checkpoint,
-                )
-                .await
-            {
-                Ok(job_id) => {
-                    info!(?job_id, "Received proof from realm processor");
-                    last_checkpoint = job_id.checkpoint_id + 1;
-                    // if job_id.job_id.circuit_type != GUTANoChange {
-                    send_realm_proof(proof_store.clone(), job_id, realm_id, &coordinator_addr)
-                        .await;
-                    // }
-                }
-                Err(err) => {
-                    error!("Error getting job_id from history queue: {:?}", err);
-                    // Avoid busy waiting on error
-                    tokio::time::sleep(Duration::from_millis(500)).await;
-                }
-            }
-        }
-    });
-    Ok(())
-}
-
-async fn send_realm_proof<PS: QProofStoreAsyncImm>(
-    proof_store: Arc<PS>,
-    job_info: ProvingJobDataId,
-    realm_id: u64,
-    coordinator_addr: &str,
-) {
-    let mut retries_count = 0;
-
-    info!(?job_info.job_id, "send_realm_proof start");
-    let bytes = loop {
-        match proof_store.get_bytes_by_id(job_info.job_id).await {
-            Ok(bytes) if !bytes.is_empty() => break bytes,
-            Ok(bytes) => {
-                warn!("bytes is empty");
-            }
-            Err(err) => {
-                error!("Failed to get bytes by job_id: {:?}", err);
-            }
-        };
-        retries_count += 1;
-        if (retries_count == 5) {
-            error!("Failed to get bytes by job_jd");
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(3000)).await;
-    };
-    let preview_len = bytes.len().min(100);
-    let hex_preview = hex::encode(&bytes[..preview_len]);
-    debug!(
-        "The bytes from job_info.job_id: len = {}, head[0..{}] = {}",
-        bytes.len(),
-        preview_len,
-        hex_preview
-    );
-    let realm_result: GUTARealmCheckpointResult<QEDFelt> = match bincode::deserialize(&bytes) {
-        Ok(result) => result,
-        Err(err) => {
-            error!("Failed to deserialize realm_result: {:?}", err);
-            return;
-        }
-    };
-    let proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2> = match proof_store
-        .get_proof_by_id(realm_result.proof_id.get_output_id())
-        .await
-    {
-        Ok(proof) => {
-            debug!("Retrieved proof with public inputs: {:#?}", proof.public_inputs);
-            proof
-        }
-        Err(err) => {
-            error!("Failed to get proof_by_id: {:?}", err);
-            return;
-        }
-    };
-
-    let input = SubmitGUTARealmResultAPINoProofInput {
-        realm_id,
-        checkpoint_id: realm_result.checkpoint_id,
-        guta_stats: realm_result.guta_stats,
-        top_line_proof: realm_result.top_line_proof,
-        checkpoint_tree_root: realm_result.checkpoint_tree_root,
-        circuit_type: realm_result.proof_id.circuit_type,
-    };
-    let mut retry_count = 0;
-    let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set in .env");
-
-    let jwt_token = generate_jwt_token(&secret, realm_id).expect("Failed to generate JWT token");
-    let bearer_token_value = format!("Bearer {}", jwt_token);
-    let header_value =
-        HeaderValue::from_str(&bearer_token_value).expect("Failed to create header value");
-    let mut headers = HeaderMap::new();
-    headers.insert("Authorization", header_value);
-
-    while retry_count < 5 {
-        info!("Sending job to coordinator, retry_count = {}", retry_count);
-        let client = jsonrpsee::http_client::HttpClientBuilder::default()
-            .set_headers(headers.clone())
-            .build(coordinator_addr);
-
-        match client {
-            Ok(client) => {
-                let params = rpc_params![input.clone(), proof.clone()];
-                match client.request::<String, _>("qed_submit_guta", params).await {
-                    Ok(result) => {
-                        info!(
-                            "Successfully submitted job to coordinator, result: {}",
-                            result
-                        );
-                        return;
-                    }
-                    Err(err) => {
-                        error!("Failed to call coordinator API: {:?}", err);
-                    }
-                }
-            }
-            Err(err) => {
-                error!("Failed to create RPC client: {:?}", err);
-            }
-        }
-        retry_count += 1;
-        tokio::time::sleep(Duration::from_secs(1u64.pow(retry_count as u32))).await;
-    }
-}

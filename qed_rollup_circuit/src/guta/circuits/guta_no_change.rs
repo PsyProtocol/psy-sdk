@@ -62,7 +62,7 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
         let commitment = worker_public_key;
-        
+
         let public_inputs_hash = no_change_gadget
             .new_guta_header
             .to_hash::<C::Hasher, C::F, D>(&mut builder);

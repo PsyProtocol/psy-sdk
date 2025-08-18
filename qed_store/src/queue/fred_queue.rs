@@ -21,6 +21,9 @@ use qed_core::job::{
 use tokio::time::sleep;
 
 use super::PS_DRAIN_QUEUE_KEY_PREFIX;
+use qed_crypto::hash::merkle::core::MerkleProofCore;
+use qed_core::data::qhashout::QHashOut;
+use plonky2::hash::hash_types::RichField;
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -506,5 +509,60 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
             .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
+    }
+}
+
+#[async_trait]
+pub trait QPendingUserStoreAsyncImm: Send + Sync {
+    async fn push_pending_users<F: RichField>(
+        &self,
+        pending_users: &[MerkleProofCore<QHashOut<F>>],
+    ) -> anyhow::Result<()>;
+    async fn pop_pending_users<F: RichField>(
+        &self,
+        count: usize,
+    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>>;
+    async fn get_pending_users_count(&self) -> anyhow::Result<usize>;
+}
+
+#[async_trait]
+impl QPendingUserStoreAsyncImm for ProofStoreFred {
+    async fn push_pending_users<F: RichField>(
+        &self,
+        _pending_users: &[MerkleProofCore<QHashOut<F>>],
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn pop_pending_users<F: RichField>(
+        &self,
+        _count: usize,
+    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
+        Ok(0)
+    }
+}
+
+#[async_trait]
+impl super::QPendingUserStoreAsyncImm for ProofStoreFred {
+    async fn push_pending_users<F: RichField>(
+        &self,
+        _pending_users: &[MerkleProofCore<QHashOut<F>>],
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn pop_pending_users<F: RichField>(
+        &self,
+        _count: usize,
+    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
+        Ok(0)
     }
 }

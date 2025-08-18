@@ -83,7 +83,7 @@ where
         let public_inputs_hash = nca_state_transition_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         let worker_public_key = builder.add_virtual_hash();
-        
+
         let a_commitment = HashOutTarget {
             elements: [
                 a_end_cap_gadget.proof_target.public_inputs[0],
@@ -92,7 +92,7 @@ where
                 a_end_cap_gadget.proof_target.public_inputs[3],
             ]
         };
-        
+
         let b_commitment = HashOutTarget {
             elements: [
                 b_guta_gadget.proof_target.public_inputs[0],
@@ -101,7 +101,7 @@ where
                 b_guta_gadget.proof_target.public_inputs[3],
             ]
         };
-        
+
         let children_commitment = builder.hash_two_to_one::<C::Hasher>(a_commitment, b_commitment);
         let commitment = builder.hash_two_to_one::<C::Hasher>(children_commitment, worker_public_key);
 

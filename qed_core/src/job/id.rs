@@ -43,8 +43,9 @@ pub enum QJobTopic {
     GenerateStandardProof = 0,
     GenerateGroth16Proof = 1,
     BlockUserSignatureProof = 2,
-    NotifyOrchestratorComplete = 3,
-    AggregateJobs = 4,
+    NotifyCoordinatorComplete = 3,
+    NotifyRealmComplete = 4,
+    AggregateJobs = 5,
 }
 impl QJobTopic {
     pub fn to_u8(&self) -> u8 {
@@ -64,8 +65,9 @@ impl TryFrom<u8> for QJobTopic {
             0 => Ok(QJobTopic::GenerateStandardProof),
             1 => Ok(QJobTopic::GenerateGroth16Proof),
             2 => Ok(QJobTopic::BlockUserSignatureProof),
-            3 => Ok(QJobTopic::NotifyOrchestratorComplete),
-            4 => Ok(QJobTopic::AggregateJobs),
+            3 => Ok(QJobTopic::NotifyCoordinatorComplete),
+            4 => Ok(QJobTopic::NotifyRealmComplete),
+            5 => Ok(QJobTopic::AggregateJobs),
             _ => Err(anyhow::format_err!("Invalid QJobTopic value: {}", value)),
         }
     }
@@ -446,91 +448,12 @@ impl TaskId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
-
-    pub fn new_debug() -> Self {
-        let counter = DEBUG_COUNTER.fetch_add(1, Ordering::SeqCst);
-        let mut bytes = [0u8; 16];
-        bytes[..8].copy_from_slice(&counter.to_le_bytes());
-        TaskId(Uuid::from_bytes(bytes))
-    }
-
-    pub fn as_uuid(&self) -> &Uuid {
-        &self.0
-    }
-
-    pub fn to_bytes(&self) -> [u8; 16] {
-        *self.0.as_bytes()
-    }
-
-    pub fn from_bytes(bytes: [u8; 16]) -> Self {
-        Self(Uuid::from_bytes(bytes))
-    }
-
-    pub fn to_vec(&self) -> Result<Vec<u8>> {
-        bincode::serialize(self).context("Failed to serialize TaskId")
-    }
-
-    pub fn from_slice(bytes: &[u8]) -> Result<Self> {
-        bincode::deserialize(bytes).context("Failed to deserialize TaskId")
-    }
-
-    pub fn to_string(&self) -> String {
-        self.0.to_string()
-    }
-
-    pub fn from_str(s: &str) -> Result<Self> {
-        Ok(Self(Uuid::parse_str(s)?))
-    }
 }
 
 impl std::fmt::Display for TaskId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
-}
-
-impl std::str::FromStr for TaskId {
-    type Err = uuid::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(Uuid::parse_str(s)?))
-    }
-}
-
-impl From<TaskId> for Vec<u8> {
-    fn from(task_id: TaskId) -> Self {
-        task_id
-            .to_vec()
-            .unwrap_or_else(|_| task_id.to_bytes().to_vec())
-    }
-}
-
-impl TryFrom<Vec<u8>> for TaskId {
-    type Error = anyhow::Error;
-
-    fn try_from(bytes: Vec<u8>) -> Result<Self> {
-        Self::from_slice(&bytes)
-    }
-}
-
-impl TryFrom<&[u8]> for TaskId {
-    type Error = anyhow::Error;
-
-    fn try_from(bytes: &[u8]) -> Result<Self> {
-        Self::from_slice(bytes)
-    }
-}
-
-impl AsRef<Uuid> for TaskId {
-    fn as_ref(&self) -> &Uuid {
-        &self.0
-    }
-}
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum Color {
-    White,
-    Grey,
-    Black,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
@@ -643,8 +566,8 @@ impl<'de> Deserialize<'de> for JobProof {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QProvingTaskGraph {
-    pub tasks: HashMap<TaskId, QProvingTask>,
-    pub graph: BidirectionalGraph<TaskId>,
+    pub tasks: HashMap<LayerId, QProvingTask>,
+    pub graph: BidirectionalGraph<LayerId>,
 }
 
 impl QProvingTaskGraph {
@@ -672,7 +595,7 @@ impl QProvingTaskGraph {
         self.add_task(dep_task);
     }
 
-    pub fn ts(&self) -> Vec<TaskId> {
+    pub fn ts(&self) -> Vec<LayerId> {
         let ts_order = self.graph.ts_order();
         ts_order.into_iter().flatten().collect()
     }
@@ -842,7 +765,7 @@ impl QProvingTaskGraph {
         Ok(results)
     }
 
-    fn get_task_levels(&self) -> Vec<Vec<TaskId>> {
+    fn get_task_levels(&self) -> Vec<Vec<LayerId>> {
         let mut levels = Vec::new();
         let mut processed = IndexSet::new();
 
@@ -950,20 +873,20 @@ pub struct QProvingJobDataID {
 impl QProvingJobDataID {
     pub fn notify_realm_complete(checkpoint_id: u64, realm_id: u32) -> Self {
         Self {
-            topic: QJobTopic::GenerateStandardProof,
+            topic: QJobTopic::NotifyRealmComplete,
             goal_id: checkpoint_id,
-            circuit_type: ProvingJobCircuitType::NotifyRealmComplete,
-            group_id: ProvingJobCircuitType::NotifyRealmComplete.to_circuit_group_id(),
+            group_id: 0,
+            circuit_type: ProvingJobCircuitType::Unknown,
             sub_group_id: realm_id,
             task_index: 0,
             data_type: ProvingJobDataType::InputWitness,
             data_index: 0,
         }
     }
-    pub fn notify_block_complete(block_id: u64) -> Self {
+    pub fn notify_block_complete(checkpoint_id: u64) -> Self {
         Self {
-            topic: QJobTopic::NotifyOrchestratorComplete,
-            goal_id: block_id,
+            topic: QJobTopic::NotifyCoordinatorComplete,
+            goal_id: checkpoint_id,
             group_id: 0,
             circuit_type: ProvingJobCircuitType::Unknown,
             sub_group_id: 0,
@@ -1346,18 +1269,22 @@ impl QProvingJobDataID {
         }
     }
 
-    pub fn is_notify_orchestrator_complete(&self) -> bool {
-        self.topic == QJobTopic::NotifyOrchestratorComplete
+    pub fn is_notify_coordinator_complete(&self) -> bool {
+        self.topic == QJobTopic::NotifyCoordinatorComplete
     }
 
     pub fn is_notify_realm_complete(&self) -> bool {
-        self.circuit_type == ProvingJobCircuitType::NotifyRealmComplete
+        self.topic == QJobTopic::NotifyRealmComplete
     }
 
     pub fn is_notify_complete(&self) -> bool {
-        self.is_notify_orchestrator_complete()
+        self.is_notify_coordinator_complete()
             || self.is_notify_realm_complete()
-            || self.topic == QJobTopic::AggregateJobs
+    }
+
+    pub fn is_provable(&self) -> bool {
+        self.topic == QJobTopic::GenerateStandardProof
+            &&!self.is_notify_complete()
     }
 
     pub fn get_tree_parent_proof_input_id(&self) -> Self {
@@ -1580,7 +1507,7 @@ mod tests {
         let mut graph = QProvingTaskGraph::new();
 
         let task1 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![QProvingJobDataID::new_proof_job_id(
                 1,
                 ProvingJobCircuitType::AddL1Deposit,
@@ -1590,7 +1517,7 @@ mod tests {
             )],
         };
         let task2 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![QProvingJobDataID::new_proof_job_id(
                 1,
                 ProvingJobCircuitType::AddL1Deposit,
@@ -1600,7 +1527,7 @@ mod tests {
             )],
         };
         let task3 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![QProvingJobDataID::new_proof_job_id(
                 1,
                 ProvingJobCircuitType::AddL1Deposit,
@@ -1638,7 +1565,7 @@ mod tests {
             hash: QHashOut::ZERO,
             is_left: false,
         }; 32];
-        
+
         siblings[0] = JobProofSibling {
             hash: QHashOut::from_values(5, 6, 7, 8),
             is_left: true,
@@ -1690,11 +1617,11 @@ mod tests {
         let mut graph = QProvingTaskGraph::new();
 
         let task1 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task2 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
 
@@ -1790,11 +1717,11 @@ mod tests {
         let mut graph = QProvingTaskGraph::new();
 
         let task1 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task2 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
 
@@ -1813,15 +1740,15 @@ mod tests {
         let mut graph = QProvingTaskGraph::new();
 
         let task1 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task2 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task3 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
 
@@ -1842,19 +1769,19 @@ mod tests {
         let mut graph = QProvingTaskGraph::new();
 
         let task1 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task2 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task3 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task4 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
 
@@ -1879,23 +1806,23 @@ mod tests {
         let mut graph = QProvingTaskGraph::new();
 
         let task1 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task2 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task3 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task4 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task5 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
 
@@ -1929,19 +1856,19 @@ mod tests {
         let mut graph = QProvingTaskGraph::new();
 
         let task1 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task2 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task3 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
         let task4 = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
 
@@ -1964,7 +1891,7 @@ mod tests {
         let mut graph = QProvingTaskGraph::new();
 
         let task = QProvingTask {
-            task_id: TaskId::new(),
+            task_id: LayerId::new(),
             job_ids: vec![],
         };
 
