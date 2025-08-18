@@ -12,7 +12,9 @@ use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::traits::qhashable::QFieldHashable as _;
-use qed_data::config::store_config::QEDHasher;
+use qed_data::{
+    config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync,
+};
 use serde_json;
 use tokio::time;
 use tracing::{error, info, warn};
@@ -208,7 +210,6 @@ async fn run_transfer_stress_test(args: StressTestArgs) -> Result<()> {
         let stats_clone = stats.clone();
         let should_stop_clone = should_stop.clone();
         let tx_clone = tx.clone();
-        let verbose = args.verbose;
 
         info!("🔄 Starting task {}", task_id);
         let task_completed_clone = tasks_completed.clone();
@@ -219,7 +220,6 @@ async fn run_transfer_stress_test(args: StressTestArgs) -> Result<()> {
                 stats_clone,
                 should_stop_clone,
                 task_completed_clone,
-                verbose,
             );
 
             // Send completion signal
@@ -343,7 +343,6 @@ fn run_transfer_task_sync(
     stats: Arc<StressTestStats>,
     should_stop: Arc<AtomicBool>,
     task_completed: Arc<AtomicU64>,
-    verbose: bool,
 ) -> Result<()> {
     info!("🎯 Starting transfer task {}", task_id);
 
@@ -370,21 +369,17 @@ fn run_transfer_task_sync(
             transaction_count,
         ) {
             Ok(_) => {
-                if verbose {
-                    info!(
-                        "✅ Task {} transaction {} completed",
-                        task_id, transaction_count
-                    );
-                }
+                info!(
+                    "✅ Task {} transaction {} completed",
+                    task_id, transaction_count
+                );
                 true
             }
             Err(e) => {
-                if verbose {
-                    warn!(
-                        "❌ Task {} transaction {} failed: {:?}",
-                        task_id, transaction_count, e
-                    );
-                }
+                warn!(
+                    "❌ Task {} transaction {} failed: {:?}",
+                    task_id, transaction_count, e
+                );
                 false
             }
         };
