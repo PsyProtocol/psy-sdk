@@ -1488,5 +1488,3 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
 
 #[maybe_async::maybe_async]
 impl QEDComboDataStoreReaderSync<F> for RpcProvider {}
-
-//pub trait QEDComboDataStoreReaderSync<F: RichField>: QMetaDataStoreReaderSync<F> + QTreeDataStoreReaderSync<F> {}

@@ -15,7 +15,7 @@ use qed_crypto::{
     common::witnesses::qrecursion::proof_data::{
         AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs,
     },
-    signature::{self, secp256k1::core::QEDCompressedSecp256K1Signature},
+    signature::{secp256k1::core::QEDCompressedSecp256K1Signature},
 };
 use qed_crypto::{
     common::witnesses::qrecursion::{
