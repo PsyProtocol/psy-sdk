@@ -1,4 +1,5 @@
 mod transfer;
+mod transfer_multi;
 
 use std::{
     path::Path,
@@ -27,6 +28,7 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
 
     match args.task_type.as_str() {
         "transfer" => transfer::run(args).await,
+        "transfer_multi" => transfer_multi::run(args).await,
         _ => {
             error!("❌ Unsupported task type: {}", args.task_type);
             anyhow::bail!("Unsupported task type: {}", args.task_type);
