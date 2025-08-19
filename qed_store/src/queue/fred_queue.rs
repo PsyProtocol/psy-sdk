@@ -24,6 +24,7 @@ use super::PS_DRAIN_QUEUE_KEY_PREFIX;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::RichField;
+use crate::queue::redis_queue::QueueConsumptionState;
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -518,12 +519,19 @@ impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for Pr
         &self,
         _channel_id: u64,
         _checkpoint_id: u64,
-    ) -> anyhow::Result<(Vec<T>, super::redis_queue::QueueConsumptionState)> {
+    ) -> anyhow::Result<(Vec<T>, QueueConsumptionState)> {
         todo!()
     }
     
-    async fn cdq_commit_consumption(&self, state: &super::redis_queue::QueueConsumptionState) -> anyhow::Result<()> {
+    async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
         todo!()
+    }
+
+    async fn get_last_consumption_state<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<Option<QueueConsumptionState>> {
+        Ok(None)
     }
 }
 
@@ -585,15 +593,15 @@ impl super::QPendingUserStoreAsyncImm for ProofStoreFred {
         &self,
         _count: usize,
         _checkpoint_id: u64,
-    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, super::redis_queue::QueueConsumptionState)> {
+    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueConsumptionState)> {
         todo!()
     }
     
-    async fn commit_consumption(&self, _state: &super::redis_queue::QueueConsumptionState) -> anyhow::Result<()> {
+    async fn commit_consumption(&self, _state: &QueueConsumptionState) -> anyhow::Result<()> {
         todo!()
     }
     
-    async fn get_last_consumption_state(&self) -> anyhow::Result<Option<super::redis_queue::QueueConsumptionState>> {
+    async fn get_last_consumption_state(&self) -> anyhow::Result<Option<QueueConsumptionState>> {
         todo!()
     }
 }

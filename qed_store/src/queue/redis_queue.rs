@@ -281,6 +281,11 @@ pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueue
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueConsumptionState)>;
+
+    async fn get_last_consumption_state<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<Option<QueueConsumptionState>>;
     
     async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()>;
 }
@@ -820,6 +825,21 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
               items.len(), channel_id, checkpoint_id);
         
         Ok((items, state))
+    }
+
+    async fn get_last_consumption_state<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<Option<QueueConsumptionState>> {
+        let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
+        let mut con = self.pool.get().await?;
+        let state_data: Option<Vec<u8>> = con.get(&state_key).await?;
+        if let Some(data) = state_data {
+            let state: QueueConsumptionState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!(e))?;
+            Ok(Some(state))
+        } else {
+            Ok(None)
+        }
     }
     
     async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {

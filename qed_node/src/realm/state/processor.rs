@@ -191,24 +191,10 @@ impl<
                 checkpoint_id,
         ).await?;
         
-        tracing::debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
+        debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
 
         // Process updates with error handling
-        let result = self.store.injest_checked_cst_nodes_imm(&updates).await;
-        
-        match result {
-            Ok(_) => {
-                // Success - commit consumption
-                self.checkpoint_queue.cdq_commit_consumption(&consumption_state).await?;
-                Ok(())
-            },
-            Err(err) => {
-                // Error occurred - consumption state is preserved, data remains in queue
-                error!("❌ CST updates processing failed for checkpoint {}: {}", checkpoint_id, err);
-                error!("🔄 CST updates will remain in queue for retry");
-                Err(err)
-            }
-        }
+        self.store.injest_checked_cst_nodes_imm(&updates).await
     }
 
     pub async fn handle_guta_from_users_ensure_no_topline(
@@ -512,15 +498,20 @@ impl<
         ))
     }
 
-    pub async fn process_guta_items(
+    pub async fn handle_guta_from_users(
         &self,
         checkpoint_id: u64,
-        guta_queue_items: Vec<UserEndCapNonProofCoreInputQueueItem<F>>,
     ) -> anyhow::Result<(
         Vec<Vec<QProvingJobDataID>>,
         GlobalUserTreeAggregatorHeader<F>,
         DeltaMerkleProofCore<QHashOut<F>>,
     )> {
+        // Use position-based consumption for GUTA queue items
+        let (guta_queue_items, _consumption_state) = self.checkpoint_queue.cdq_consume_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
+            self.realm_config.guta_channel_id,
+            checkpoint_id,
+        ).await?;
+        debug!(guta_queue_items = ?guta_queue_items, "GUTA queue items for aggregation");
         if guta_queue_items.len() == 0 {
             tracing::debug!("No GUTA queue items to aggregate");
             let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
@@ -802,40 +793,6 @@ impl<
         Ok((levels, guta, res.link_proof))
     }
 
-    pub async fn handle_guta_from_users(
-        &self,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<(
-        Vec<Vec<QProvingJobDataID>>,
-        GlobalUserTreeAggregatorHeader<F>,
-        DeltaMerkleProofCore<QHashOut<F>>,
-    )> {
-        // Use position-based consumption for GUTA queue items
-        let (guta_queue_items, consumption_state) = self.checkpoint_queue.cdq_consume_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
-            self.realm_config.guta_channel_id,
-            checkpoint_id,
-        ).await?;
-        
-        tracing::debug!(guta_queue_items = ?guta_queue_items, "GUTA queue items for aggregation");
-
-        // Process GUTA items with error handling
-        let result = self.process_guta_items(checkpoint_id, guta_queue_items).await;
-        
-        match result {
-            Ok((levels, guta, res)) => {
-                // Success - commit consumption
-                self.checkpoint_queue.cdq_commit_consumption(&consumption_state).await?;
-                Ok((levels, guta, res))
-            },
-            Err(err) => {
-                // Error occurred - consumption state is preserved, data remains in queue
-                error!("❌ GUTA processing failed for checkpoint {}: {}", checkpoint_id, err);
-                error!("🔄 GUTA queue items will remain in queue for retry");
-                Err(err)
-            }
-        }
-    }
-
     pub async fn plan_jobs(
         &mut self,
         new_checkpoint_id: u64,
@@ -866,65 +823,39 @@ impl<
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
-        
-        // Check for recovery scenario - if there's an incomplete consumption state
-        if let Ok(Some(last_state)) = self.sync_queue.get_last_consumption_state().await {
-            if last_state.checkpoint_id == new_checkpoint_id {
-                info!("🔄 Detected incomplete checkpoint {} on startup, will retry", new_checkpoint_id);
-            }
-        }
-        
         let has_tasks = self.has_pending_tasks(new_checkpoint_id).await?;
         if !has_tasks {
             bail!("No pending tasks for checkpoint {}, skipping block construction", new_checkpoint_id);
         }
-        
+        // Pop up to 32 pending users from Redis queue
         // Use position-based consumption for pending users
-        let (pending_users, consumption_state) = self.sync_queue.consume_users_with_position(32, new_checkpoint_id).await?;
-        
-        // Process GUTA operations with error handling
-        let result = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await;
-        
-        match result {
-            Ok((guta_jobs, guta_transition, guta_dmp)) => {
-                tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
-                let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
-                let res = GUTARealmCheckpointResult{
-                    checkpoint_id: new_checkpoint_id,
-                    guta_stats: guta_transition.stats,
-                    top_line_proof: guta_dmp,
-                    checkpoint_tree_root: guta_transition.checkpoint_tree_root,
-                    proof_id: **(guta_jobs.last().as_ref().unwrap().last().as_ref().unwrap()),
-                };
-                self.proof_store.set_bytes_by_id(finished_job, &bincode::serialize(&res).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
-                
-                // Plan the job dependency graph
-                self.plan_jobs(new_checkpoint_id, &guta_jobs, finished_job).await?;
+        let (pending_users, _consumption_state) = self.sync_queue.consume_users_with_position(32, new_checkpoint_id).await?;
+        let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
+        tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
+        let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
+        let res = GUTARealmCheckpointResult{
+            checkpoint_id: new_checkpoint_id,
+            guta_stats: guta_transition.stats,
+            top_line_proof: guta_dmp,
+            checkpoint_tree_root: guta_transition.checkpoint_tree_root,
+            proof_id: **(guta_jobs.last().as_ref().unwrap().last().as_ref().unwrap()),
+        };
+        self.proof_store.set_bytes_by_id(finished_job, &bincode::serialize(&res).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
+        // Plan the job dependency graph
+        self.plan_jobs(new_checkpoint_id, &guta_jobs, finished_job).await?;
 
-                tracing::info!("Processed {} pending users for checkpoint {}", pending_users.len(), new_checkpoint_id);
+        tracing::info!("Processed {} pending users for checkpoint {}", pending_users.len(), new_checkpoint_id);
 
-                // Wait for proving jobs to complete and return the job ID
-                info!("🐶 Waiting for realm proving jobs");
-                let realm_worker_output_job_id = self
-                    .prover_queue
-                    .wait_for_block_proving_jobs_imm(new_checkpoint_id)
-                    .await?;
+        // Wait for proving jobs to complete and return the job ID
+        info!("🐶 Waiting for realm proving jobs");
+        let realm_worker_output_job_id = self
+            .prover_queue
+            .wait_for_block_proving_jobs_imm(new_checkpoint_id)
+            .await?;
 
-                // Success - commit the consumption
-                self.sync_queue.commit_consumption(&consumption_state).await?;
-                
-                info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
-                Ok(realm_worker_output_job_id)
-            },
-            Err(err) => {
-                // Error occurred - consumption state is preserved, data remains in queue
-                error!("❌ Build block failed for checkpoint {}: {}", new_checkpoint_id, err);
-                error!("🔄 Pending users will remain in queue for retry");
-                Err(err)
-            }
-        }
+        info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
+        Ok(realm_worker_output_job_id)
     }
-
     /// Check if there are pending tasks for the given checkpoint
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
         // Check if there are pending user registrations in Redis queue
