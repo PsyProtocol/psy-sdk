@@ -6,6 +6,7 @@ use bb8_redis::RedisConnectionManager;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use redis::{AsyncCommands, HashFieldExpirationOptions, SetExpiry};
 use qed_core::data::qhashout::QHashOut;
+use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
 use kvq::traits::KVQPair;
@@ -274,6 +275,85 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
 }
 
 #[async_trait]
+pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueueConsumerAsyncImm {
+    async fn cdq_consume_with_position<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<(Vec<T>, QueueConsumptionState)>;
+    
+    async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()>;
+}
+
+// #[async_trait]
+// impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
+//     async fn cdq_consume_with_position<T: DQSerializable>(
+//         &self,
+//         channel_id: u64,
+//         checkpoint_id: u64,
+//     ) -> anyhow::Result<(Vec<T>, QueueConsumptionState)> {
+//         let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+//         let key = format!("{}-{}", checkpoint_queue_prefix, channel_id);
+        
+//         let mut conn = self.pool.get().await?;
+        
+//         // Get current queue length
+//         let queue_length: i64 = conn.llen(&key).await?;
+//         if queue_length == 0 {
+//             return Ok((Vec::new(), QueueConsumptionState {
+//                 start_position: 0,
+//                 end_position: 0,
+//                 checkpoint_id,
+//                 consumed_count: 0,
+//             }));
+//         }
+        
+//         // Read all items without removing them
+//         let start_position = 0;
+//         let end_position = queue_length;
+//         let members: Vec<Vec<u8>> = conn.lrange(&key, start_position as isize, (end_position - 1) as isize).await?;
+        
+//         // Deserialize items
+//         let items: Vec<T> = members
+//             .into_iter()
+//             .rev() // Maintain reverse order as in original implementation
+//             .map(|x| T::from_bytes(&x))
+//             .collect::<anyhow::Result<Vec<T>>>()?;
+        
+//         let state = QueueConsumptionState {
+//             start_position: start_position as i64,
+//             end_position,
+//             checkpoint_id,
+//             consumed_count: items.len(),
+//         };
+        
+//         tracing::info!("Consumed {} items from drain queue channel {} for checkpoint {}", 
+//               items.len(), channel_id, checkpoint_id);
+        
+//         Ok((items, state))
+//     }
+    
+//     async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
+//         if state.consumed_count == 0 {
+//             return Ok(());
+//         }
+        
+//         let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+//         let key = format!("{}-{}", checkpoint_queue_prefix, state.checkpoint_id); // Use checkpoint_id as channel_id
+        
+//         let mut conn = self.pool.get().await?;
+        
+//         // Remove consumed items
+//         conn.ltrim(&key, state.end_position as isize, -1).await?;
+        
+//         tracing::info!("Committed consumption of {} items from drain queue for checkpoint {}", 
+//               state.consumed_count, state.checkpoint_id);
+        
+//         Ok(())
+//     }
+// }
+
+#[async_trait]
 impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
     async fn wait_for_next_job_imm(&self) -> anyhow::Result<QProvingJobDataID> {
         loop {
@@ -494,6 +574,15 @@ impl<T: HQSerializable> NotificationQueue<T> for ProofStoreRedisAsync {
         }
     }
 }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueueConsumptionState {
+    pub start_position: i64,  // Redis list position (0-based)
+    pub end_position: i64,    // End position (exclusive)
+    pub checkpoint_id: u64,
+    pub channel_id: u64,
+    pub consumed_count: usize,
+}
+
 #[async_trait]
 pub trait QPendingUserStoreAsyncImm: Send + Sync {
     async fn push_pending_users<F: RichField>(
@@ -505,6 +594,16 @@ pub trait QPendingUserStoreAsyncImm: Send + Sync {
         count: usize,
     ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>>;
     async fn get_pending_users_count(&self) -> anyhow::Result<usize>;
+    
+    // consume_users_with_position for position-based consumption
+    async fn consume_users_with_position<F: RichField>(
+        &self,
+        count: usize,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueConsumptionState)>;
+    
+    async fn commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()>;
+    async fn get_last_consumption_state(&self) -> anyhow::Result<Option<QueueConsumptionState>>;
 }
 
 #[async_trait]
@@ -555,6 +654,93 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         let length: usize = conn.llen(key).await?;
         Ok(length)
     }
+
+    async fn consume_users_with_position<F: RichField>(
+        &self,
+        count: usize,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueConsumptionState)> {
+        let mut conn = self.pool().get().await?;
+        let key = format!("{}-{}", self.realm_pending_user_key(), "PENDING_USERS");
+        
+        // Get current queue length
+        let queue_length: i64 = conn.llen(&key).await?;
+        if queue_length == 0 {
+            return Ok((Vec::new(), QueueConsumptionState {
+                start_position: 0,
+                end_position: 0,
+                checkpoint_id,
+                channel_id: 0,
+                consumed_count: 0,
+            }));
+        }
+        
+        // Calculate positions for consumption
+        let start_position = 0; // Always start from head
+        let end_position = std::cmp::min(count as i64, queue_length);
+        
+        // Read items without removing them
+        let items: Vec<Vec<u8>> = conn.lrange(&key, start_position as isize, (end_position - 1) as isize).await?;
+        
+        // Deserialize items
+        let mut users = Vec::with_capacity(items.len());
+        for item_bytes in items {
+            let user = bincode::deserialize(&item_bytes).map_err(|e| anyhow::anyhow!(e))?;
+            users.push(user);
+        }
+        
+        let state = QueueConsumptionState {
+            start_position: start_position as i64,
+            end_position,
+            checkpoint_id,
+            channel_id: 0,
+            consumed_count: users.len(),
+        };
+        
+        // Save consumption state for potential recovery
+        let state_key = format!("{}-{}", self.realm_pending_user_key(), "CONSUMPTION_STATE");
+        let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!(e))?;
+        conn.set_ex(&state_key, state_data, 3600).await?; // 1 hour TTL
+        
+        tracing::info!("Consumed {} users from positions {}-{} for checkpoint {}", 
+              users.len(), start_position, end_position - 1, checkpoint_id);
+        
+        Ok((users, state))
+    }
+    
+    async fn commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
+        if state.consumed_count == 0 {
+            return Ok(());
+        }
+        
+        let mut conn = self.pool().get().await?;
+        let key = format!("{}-{}", self.realm_pending_user_key(), "PENDING_USERS");
+        
+        // Remove consumed items from the queue using LTRIM
+        conn.ltrim(&key, state.end_position as isize, -1).await?;
+        
+        // Clear consumption state
+        let state_key = format!("{}-{}", self.realm_pending_user_key(), "CONSUMPTION_STATE");
+        conn.del(&state_key).await?;
+        
+        tracing::info!("Committed consumption of {} users for checkpoint {}", 
+              state.consumed_count, state.checkpoint_id);
+        
+        Ok(())
+    }
+    
+    async fn get_last_consumption_state(&self) -> anyhow::Result<Option<QueueConsumptionState>> {
+        let mut conn = self.pool().get().await?;
+        let state_key = format!("{}-{}", self.realm_pending_user_key(), "CONSUMPTION_STATE");
+        
+        let state_data: Option<Vec<u8>> = conn.get(&state_key).await?;
+        if let Some(data) = state_data {
+            let state: QueueConsumptionState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!(e))?;
+            Ok(Some(state))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 #[async_trait]
@@ -575,6 +761,84 @@ impl super::fred_queue::QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 
     async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
         <Self as QPendingUserStoreAsyncImm>::get_pending_users_count(self).await
+    }
+}
+
+#[async_trait]
+impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
+    async fn cdq_consume_with_position<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<(Vec<T>, QueueConsumptionState)> {
+        let checkpoint_queue_prefix =
+            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!(
+            "{}-{}",
+            checkpoint_queue_prefix, channel_id
+        );
+        
+        let mut con = self.pool.get().await?;
+        
+        // Get current queue length
+        let queue_length: i64 = con.llen(&key).await?;
+        if queue_length == 0 {
+            return Ok((Vec::new(), QueueConsumptionState {
+                start_position: 0,
+                end_position: 0,
+                checkpoint_id,
+                channel_id,
+                consumed_count: 0,
+            }));
+        }
+        
+        // Read all items without removing them
+        let start_position = 0;
+        let end_position = queue_length;
+        let members: Vec<Vec<u8>> = con.lrange(&key, start_position as isize, (end_position - 1) as isize).await?;
+        
+        // Deserialize items
+        let items: Vec<T> = members
+            .into_iter()
+            .rev()
+            .map(|x| T::from_bytes(&x))
+            .collect::<anyhow::Result<Vec<T>>>()?;
+        
+        let state = QueueConsumptionState {
+            start_position: start_position as i64,
+            end_position,
+            checkpoint_id,
+            channel_id,
+            consumed_count: items.len(),
+        };
+        // Save consumption state for potential recovery
+        let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
+        let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!(e))?;
+        con.set_ex(&state_key, state_data, 3600).await?; // 1 hour TTL
+        
+        tracing::info!("Consumed {} items from drain queue {} for checkpoint {}", 
+              items.len(), channel_id, checkpoint_id);
+        
+        Ok((items, state))
+    }
+    
+    async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
+        if state.consumed_count == 0 {
+            return Ok(());
+        }
+        let mut con = self.pool.get().await?;
+        let checkpoint_queue_prefix =
+            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!("{}-{}", checkpoint_queue_prefix, state.channel_id);
+        // Remove consumed items
+        con.ltrim(&key, state.end_position as isize, -1).await?;
+        // Clear consumption state
+        let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", state.channel_id);
+        con.del(&state_key).await?;
+        tracing::info!("Committed consumption of {} items for checkpoint {}", 
+              state.consumed_count, state.checkpoint_id);
+        
+        Ok(())
     }
 }
 

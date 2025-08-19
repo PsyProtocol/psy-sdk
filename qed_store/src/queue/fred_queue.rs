@@ -513,6 +513,21 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
 }
 
 #[async_trait]
+impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreFred {
+    async fn cdq_consume_with_position<T: DQSerializable>(
+        &self,
+        _channel_id: u64,
+        _checkpoint_id: u64,
+    ) -> anyhow::Result<(Vec<T>, super::redis_queue::QueueConsumptionState)> {
+        todo!()
+    }
+    
+    async fn cdq_commit_consumption(&self, state: &super::redis_queue::QueueConsumptionState) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
+#[async_trait]
 pub trait QPendingUserStoreAsyncImm: Send + Sync {
     async fn push_pending_users<F: RichField>(
         &self,
@@ -564,5 +579,21 @@ impl super::QPendingUserStoreAsyncImm for ProofStoreFred {
 
     async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
         Ok(0)
+    }
+    
+    async fn consume_users_with_position<F: RichField>(
+        &self,
+        _count: usize,
+        _checkpoint_id: u64,
+    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, super::redis_queue::QueueConsumptionState)> {
+        todo!()
+    }
+    
+    async fn commit_consumption(&self, _state: &super::redis_queue::QueueConsumptionState) -> anyhow::Result<()> {
+        todo!()
+    }
+    
+    async fn get_last_consumption_state(&self) -> anyhow::Result<Option<super::redis_queue::QueueConsumptionState>> {
+        todo!()
     }
 }

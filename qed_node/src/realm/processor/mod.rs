@@ -118,6 +118,11 @@ impl RealmProcessor {
         ).await?;
         info!("Realm Processor started");
 
+        // Check for incomplete consumption state on startup
+        if let Ok(Some(last_state)) = context.sync_queue.get_last_consumption_state().await {
+            info!("🔄 Found incomplete consumption state for checkpoint {} on startup", last_state.checkpoint_id);
+        }
+
         if let Ok(local_latest_l2_block_state) = context.store.get_latest_l2_block_state().await {
             info!(
                 "local_latest_l2_block_state: {:?}",
@@ -285,13 +290,18 @@ impl RealmProcessor {
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
         self.store.commit(local_latest_checkpoint_id)?;
 
-        // Build block (all logic including logging is inside context.build_block)
+        // Build block with enhanced error handling(all logic including logging is inside context.build_block)
         match context.build_block().await {
             Ok(job_id) => {
+                // Success - consumption is already committed in build_block
                 Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
             },
             Err(err) => {
+                // Rollback database changes
                 self.store.rollback(next_checkpoint_id)?;
+                
+                // Redis consumption state remains intact for next attempt
+                error!("Build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
                 Err(err)
             }
         }
