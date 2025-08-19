@@ -1,7 +1,7 @@
 use std::fmt;
 use std::time::Duration;
 
-use crate::queue::{BizKey, QueuePrefixKey};
+use crate::queue::{BizKey, QPendingUserStoreAsyncImm, QueuePrefixKey};
 use async_trait::async_trait;
 use fred::prelude::{FredResult, HashesInterface, KeysInterface, ListInterface, Pool};
 use kvq::traits::{KVQPair, KVQSerializable};
@@ -535,42 +535,9 @@ impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for Pr
     }
 }
 
-#[async_trait]
-pub trait QPendingUserStoreAsyncImm: Send + Sync {
-    async fn push_pending_users<F: RichField>(
-        &self,
-        pending_users: &[MerkleProofCore<QHashOut<F>>],
-    ) -> anyhow::Result<()>;
-    async fn pop_pending_users<F: RichField>(
-        &self,
-        count: usize,
-    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>>;
-    async fn get_pending_users_count(&self) -> anyhow::Result<usize>;
-}
 
 #[async_trait]
 impl QPendingUserStoreAsyncImm for ProofStoreFred {
-    async fn push_pending_users<F: RichField>(
-        &self,
-        _pending_users: &[MerkleProofCore<QHashOut<F>>],
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn pop_pending_users<F: RichField>(
-        &self,
-        _count: usize,
-    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>> {
-        Ok(Vec::new())
-    }
-
-    async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
-        Ok(0)
-    }
-}
-
-#[async_trait]
-impl super::QPendingUserStoreAsyncImm for ProofStoreFred {
     async fn push_pending_users<F: RichField>(
         &self,
         _pending_users: &[MerkleProofCore<QHashOut<F>>],

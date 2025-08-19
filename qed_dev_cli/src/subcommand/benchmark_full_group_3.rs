@@ -86,6 +86,7 @@ use plonky2::{
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use qed_core::data::qhashout::QHashOut;
+use qed_store::queue::QPendingUserStoreAsyncImm;
 use qed_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
 
 struct TestGrouping<
@@ -111,7 +112,7 @@ struct TestGrouping<
         + Sync
         + KVQBinaryStore,
     RPDQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
-    RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + qed_store::queue::fred_queue::QPendingUserStoreAsyncImm + qed_store::queue::QPendingUserStoreAsyncImm,
+    RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     RPWQ: WorkerEventTransmitterAsyncImm,
     RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     RPTS: QProvingTaskStore + Send + Sync,
@@ -155,7 +156,7 @@ impl<
             + Sync
             + KVQBinaryStore,
         RPDQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
-        RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + qed_store::queue::fred_queue::QPendingUserStoreAsyncImm + qed_store::queue::QPendingUserStoreAsyncImm,
+        RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         RPWQ: WorkerEventTransmitterAsyncImm,
         RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
         RPTS: QProvingTaskStore + Send + Sync,

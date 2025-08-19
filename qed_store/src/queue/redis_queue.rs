@@ -290,74 +290,6 @@ pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueue
     async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()>;
 }
 
-// #[async_trait]
-// impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
-//     async fn cdq_consume_with_position<T: DQSerializable>(
-//         &self,
-//         channel_id: u64,
-//         checkpoint_id: u64,
-//     ) -> anyhow::Result<(Vec<T>, QueueConsumptionState)> {
-//         let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-//         let key = format!("{}-{}", checkpoint_queue_prefix, channel_id);
-        
-//         let mut conn = self.pool.get().await?;
-        
-//         // Get current queue length
-//         let queue_length: i64 = conn.llen(&key).await?;
-//         if queue_length == 0 {
-//             return Ok((Vec::new(), QueueConsumptionState {
-//                 start_position: 0,
-//                 end_position: 0,
-//                 checkpoint_id,
-//                 consumed_count: 0,
-//             }));
-//         }
-        
-//         // Read all items without removing them
-//         let start_position = 0;
-//         let end_position = queue_length;
-//         let members: Vec<Vec<u8>> = conn.lrange(&key, start_position as isize, (end_position - 1) as isize).await?;
-        
-//         // Deserialize items
-//         let items: Vec<T> = members
-//             .into_iter()
-//             .rev() // Maintain reverse order as in original implementation
-//             .map(|x| T::from_bytes(&x))
-//             .collect::<anyhow::Result<Vec<T>>>()?;
-        
-//         let state = QueueConsumptionState {
-//             start_position: start_position as i64,
-//             end_position,
-//             checkpoint_id,
-//             consumed_count: items.len(),
-//         };
-        
-//         tracing::info!("Consumed {} items from drain queue channel {} for checkpoint {}", 
-//               items.len(), channel_id, checkpoint_id);
-        
-//         Ok((items, state))
-//     }
-    
-//     async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
-//         if state.consumed_count == 0 {
-//             return Ok(());
-//         }
-        
-//         let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-//         let key = format!("{}-{}", checkpoint_queue_prefix, state.checkpoint_id); // Use checkpoint_id as channel_id
-        
-//         let mut conn = self.pool.get().await?;
-        
-//         // Remove consumed items
-//         conn.ltrim(&key, state.end_position as isize, -1).await?;
-        
-//         tracing::info!("Committed consumption of {} items from drain queue for checkpoint {}", 
-//               state.consumed_count, state.checkpoint_id);
-        
-//         Ok(())
-//     }
-// }
-
 #[async_trait]
 impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
     async fn wait_for_next_job_imm(&self) -> anyhow::Result<QProvingJobDataID> {
@@ -748,26 +680,6 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
     }
 }
 
-#[async_trait]
-impl super::fred_queue::QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
-    async fn push_pending_users<F: RichField>(
-        &self,
-        pending_users: &[MerkleProofCore<QHashOut<F>>],
-    ) -> anyhow::Result<()> {
-        <Self as QPendingUserStoreAsyncImm>::push_pending_users(self, pending_users).await
-    }
-
-    async fn pop_pending_users<F: RichField>(
-        &self,
-        count: usize,
-    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>> {
-        <Self as QPendingUserStoreAsyncImm>::pop_pending_users(self, count).await
-    }
-
-    async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
-        <Self as QPendingUserStoreAsyncImm>::get_pending_users_count(self).await
-    }
-}
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
