@@ -292,6 +292,10 @@ rabbitmq-stream-client = "0.8.0"
 headers = { version = "0.4" }
 ambassador = "0.4"
 auto_impl = "1"
+sodalite = "0.4.0"
+secp256k1 = { version = "0.31", features = ["rand", "hashes"] }
+rpassword = "7.3"
+
 
 [profile.release]
 debug = true

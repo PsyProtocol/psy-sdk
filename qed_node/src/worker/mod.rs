@@ -23,6 +23,8 @@ use crate::common::{
 };
 use job_tracker::{JobLocation, WorkerJobTracker};
 use tokio::sync::Mutex;
+use qed_prover::wallet::secp_wallet::Wallet;
+use qed_prover::wallet::ui::wallet_ui;
 
 pub async fn run_worker(
     edge_url: String,
@@ -31,8 +33,12 @@ pub async fn run_worker(
     job_tracker: Arc<Mutex<WorkerJobTracker>>,
     prover: Arc<QEDCoordinatorCircuitManager<C, D>>,
     library: Arc<SimpleCircuitLibrary<F>>,
+    wallet_clone: Arc<Wallet>
 ) -> anyhow::Result<()> {
     info!("Running worker for edge: {}", edge_url);
+    info!("Worker public key: {:?}", worker_public_key);
+    info!("worker secp256k1 wallet: {:?}", wallet_clone.get_address());
+
     let job_client = JobClient::new(edge_url).await?;
 
     let store = job_client.clone();

@@ -10,6 +10,7 @@ use std::sync::Arc;
 use tracing::{info, error};
 use std::str::FromStr;
 use std::fs;
+use qed_prover::wallet::ui::wallet_ui;
 
 type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -40,6 +41,8 @@ pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Res
 
     let mut handles = Vec::new();
 
+    let wallet = Arc::new(wallet_ui()?);
+
     for coordinator_config in &config.network.coordinator_configs {
         for rpc_url in &coordinator_config.rpc_url {
             let handle = tokio::spawn(run_worker(
@@ -49,6 +52,7 @@ pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Res
                 job_tracker.clone(),
                 prover.clone(),
                 library.clone(),
+                wallet.clone(),
             ));
             handles.push(handle);
         }
@@ -63,6 +67,8 @@ pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Res
                 job_tracker.clone(),
                 prover.clone(),
                 library.clone(),
+                wallet.clone(),
+
             ));
             handles.push(handle);
         }
