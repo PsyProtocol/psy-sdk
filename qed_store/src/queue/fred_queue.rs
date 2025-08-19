@@ -515,7 +515,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
 
 #[async_trait]
 impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreFred {
-    async fn cdq_consume_with_position<T: DQSerializable>(
+    async fn consume_with_position<T: DQSerializable>(
         &self,
         _channel_id: u64,
         _checkpoint_id: u64,
@@ -523,11 +523,11 @@ impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for Pr
         todo!()
     }
     
-    async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
+    async fn commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
         todo!()
     }
 
-    async fn get_last_consumption_state<T: DQSerializable>(
+    async fn get_last_consumption_state(
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Option<QueueConsumptionState>> {

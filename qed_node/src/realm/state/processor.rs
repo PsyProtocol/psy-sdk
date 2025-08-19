@@ -98,7 +98,7 @@ impl RealmConfig {
 #[derive(Clone)]
 pub struct RealmProcessorContext<
     SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F>,
-    DQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
+    DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -116,7 +116,7 @@ pub struct RealmProcessorContext<
 
 impl<
         SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F>,
-        DQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
+        DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -186,7 +186,7 @@ impl<
         // Use position-based consumption for CST updates
         let (updates, consumption_state) = self
             .checkpoint_queue
-            .cdq_consume_with_position::<CSTUserUpdate<QHashOut<F>>>(
+            .consume_with_position::<CSTUserUpdate<QHashOut<F>>>(
                 CST_USER_UPDATE_CHANNEL_ID,
                 checkpoint_id,
         ).await?;
@@ -507,7 +507,7 @@ impl<
         DeltaMerkleProofCore<QHashOut<F>>,
     )> {
         // Use position-based consumption for GUTA queue items
-        let (guta_queue_items, _consumption_state) = self.checkpoint_queue.cdq_consume_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
+        let (guta_queue_items, _consumption_state) = self.checkpoint_queue.consume_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
             self.realm_config.guta_channel_id,
             checkpoint_id,
         ).await?;
@@ -893,5 +893,20 @@ impl<
 
         info!("No pending tasks found for checkpoint {}", checkpoint_id);
         Ok(false)
+    }
+
+
+    // commit redis queue
+    pub async fn consumption_state(&mut self) -> anyhow::Result<()> {
+        if let Some(state) = self.sync_queue.get_last_consumption_state().await? {
+            self.sync_queue.commit_consumption(&state).await?;
+        }
+        if let Some(state) = self.checkpoint_queue.get_last_consumption_state(CST_USER_UPDATE_CHANNEL_ID).await? {
+            self.checkpoint_queue.commit_consumption(&state).await?;
+        }
+        if let Some(state) = self.checkpoint_queue.get_last_consumption_state(self.realm_config.guta_channel_id).await? {
+            self.checkpoint_queue.commit_consumption(&state).await?;
+        }
+        Ok(())
     }
 }

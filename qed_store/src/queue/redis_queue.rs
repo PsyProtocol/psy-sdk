@@ -276,18 +276,18 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
 
 #[async_trait]
 pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueueConsumerAsyncImm {
-    async fn cdq_consume_with_position<T: DQSerializable>(
+    async fn consume_with_position<T: DQSerializable>(
         &self,
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueConsumptionState)>;
 
-    async fn get_last_consumption_state<T: DQSerializable>(
+    async fn get_last_consumption_state(
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Option<QueueConsumptionState>>;
     
-    async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()>;
+    async fn commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()>;
 }
 
 #[async_trait]
@@ -683,7 +683,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
-    async fn cdq_consume_with_position<T: DQSerializable>(
+    async fn consume_with_position<T: DQSerializable>(
         &self,
         channel_id: u64,
         checkpoint_id: u64,
@@ -739,7 +739,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         Ok((items, state))
     }
 
-    async fn get_last_consumption_state<T: DQSerializable>(
+    async fn get_last_consumption_state(
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Option<QueueConsumptionState>> {
@@ -754,7 +754,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         }
     }
     
-    async fn cdq_commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
+    async fn commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
         if state.consumed_count == 0 {
             return Ok(());
         }

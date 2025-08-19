@@ -294,6 +294,7 @@ impl RealmProcessor {
         match context.build_block().await {
             Ok(job_id) => {
                 // Success - consumption is already committed in build_block
+                context.consumption_state().await?;
                 Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
             },
             Err(err) => {
