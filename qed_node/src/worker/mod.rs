@@ -24,21 +24,18 @@ use crate::common::{
 use job_tracker::{JobLocation, WorkerJobTracker};
 use tokio::sync::Mutex;
 use qed_prover::wallet::secp_wallet::Wallet;
-use qed_prover::wallet::ui::wallet_ui;
 
 pub async fn run_worker(
     edge_url: String,
-    worker_public_key: QHashOut<GoldilocksField>,
     location: JobLocation,
     job_tracker: Arc<Mutex<WorkerJobTracker>>,
     prover: Arc<QEDCoordinatorCircuitManager<C, D>>,
     library: Arc<SimpleCircuitLibrary<F>>,
-    wallet_clone: Arc<Wallet>
+    wallet: Arc<Wallet>
 ) -> anyhow::Result<()> {
     info!("Running worker for edge: {}", edge_url);
-    info!("Worker public key: {:?}", worker_public_key);
-    info!("worker secp256k1 wallet: {:?}", wallet_clone.get_address());
-
+    info!("worker wallet: {:?}", wallet.id());
+    let worker_public_key = wallet.id_hash();
     let job_client = JobClient::new(edge_url).await?;
 
     let store = job_client.clone();
@@ -46,7 +43,7 @@ pub async fn run_worker(
 
     loop {
         tokio::time::sleep(Duration::from_millis(500)).await;
-        let job = match job_receiver.get_next_job().await {
+        let job = match job_receiver.get_next_job(wallet.clone()).await {
             Ok(job) => job,
             Err(e) => {
                 warn!("Error getting next ready job: {:?}", e);
@@ -59,7 +56,7 @@ pub async fn run_worker(
         let job_id = job.job_id;
         if !job_id.is_provable() {
             info!("skipping job proving: {:?}", job_id);
-            job_receiver.submit_job_proof(job, None).await?;
+            job_receiver.submit_job_proof(job, None, wallet.clone()).await?;
             continue;
         }
         match prover
@@ -68,7 +65,7 @@ pub async fn run_worker(
         {
             Ok(proof) => {
                 info!("Proved job: job_id={:?}", job_id);
-                match job_receiver.submit_job_proof(job, Some(proof)).await {
+                match job_receiver.submit_job_proof(job, Some(proof), wallet.clone()).await {
                     Ok(_) => {
                         info!("Successfully submitted proof for job: {:?}", job_id);
                         {

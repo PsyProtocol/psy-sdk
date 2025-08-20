@@ -132,6 +132,10 @@ pub struct RealmEdgeConfig {
     /// Queue configuration
     #[command(flatten)]
     pub queue: QueueConfig,
+
+    //worker white list file path
+    #[arg(long, help = "Path to worker whitelist JSON file")]
+    pub worker_whitelist: Option<String>,
 }
 
 impl RealmEdgeConfig {

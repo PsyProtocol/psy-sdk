@@ -51,7 +51,6 @@ getrandom = { workspace = true }
 thiserror = { workspace = true }
 
 rpassword = { workspace = true }
-dirs = "6.0"
 # Native-only dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 futures = { workspace = true }
@@ -64,6 +63,8 @@ reqwest = { workspace = true }
 sodalite = { workspace = true }
 secp256k1 = { workspace = true }
 hex = {workspace = true}
+bincode = { workspace = true }
+dirs = {workspace = true}
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["json"] }

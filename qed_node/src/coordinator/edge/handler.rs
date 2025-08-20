@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 // std
 use std::sync::Arc;
 
@@ -62,6 +63,7 @@ pub struct CoordinatorEdgeHandler {
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
     task_store: Arc<QProvingTaskStoreImpl>,
+    white_list: Arc<WorkerWhitelist>
 }
 
 impl CoordinatorEdgeHandler {
@@ -96,6 +98,8 @@ impl CoordinatorEdgeHandler {
         )
         .await?;
 
+        let worker_whitelist = WorkerWhitelist::new(args.worker_whitelist);
+        worker_whitelist.reload().await?;
 
         Ok(Self {
             history_queue: Arc::clone(&proof_store),
@@ -103,6 +107,7 @@ impl CoordinatorEdgeHandler {
             ctx,
             store: store_reader,
             task_store: Arc::new(task_store),
+            white_list: Arc::new(worker_whitelist),
         })
     }
 
@@ -895,8 +900,10 @@ use super::rpc::CoordinatorEdgeRpcServer;
 use super::error::RpcError;
 use super::types::LatestCheckpointResponse;
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+use qed_prover::wallet::secp_sign::{ProofSubmission, SignedRequest};
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob};
 use qed_store::queue::redis_queue::NotificationQueue;
+use crate::common::whitelist::WorkerWhitelist;
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
@@ -1393,7 +1400,12 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
-    async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
+    async fn get_pending_job(&self, signed: SignedRequest<String>) -> RpcResult<Option<QJob>> {
+
+        self.white_list.verify_claim_job(&signed).await.map_err(|e|
+            RpcError::Anyhow(e.into())
+        )?;
+
         let j = match self.task_store.claim_job_from_current_layer().await {
             Ok(job) => job,
             Err(e) => {
@@ -1423,8 +1435,17 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         self.proof_store.get_bytes_by_id(job_id).await.map_err(|e| RpcError::Anyhow(e.into()))
     }
 
-    async fn set_proof_by_id(&self, job: QJob, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()> {
+    async fn set_proof_by_id(
+        &self,
+        signed: SignedRequest<ProofSubmission>,
+    ) -> RpcResult<()> {
+
+        self.white_list.verify_submit_proof(&signed).await.map_err(|e|
+            RpcError::Anyhow(e.into())
+        )?;
+        let job = signed.data.job;
         let job_id = job.job_id;
+        let proof = signed.data.proof;
 
         // CRITICAL: Validate job ownership before processing proof
         let validation_status = self.task_store.validate_job_ownership(&job).await

@@ -1,6 +1,11 @@
 use secp256k1::rand::{rng, Rng};
+use serde::{Deserialize, Serialize};
 use sodalite::{secretbox, secretbox_open, SecretboxKey, SecretboxNonce, SECRETBOX_KEY_LEN, SECRETBOX_NONCE_LEN};
 use crate::wallet::error::WalletError;
+use anyhow::{Context, Result};
+use std::fs;
+use std::path::Path;
+use crate::wallet::secp_wallet::Wallet;
 
 pub const SECRETBOX_BOXZEROBYTES: usize = 16;
 pub const SECRETBOX_ZEROBYTES: usize = 32;
@@ -85,7 +90,7 @@ pub fn decode(encoded: &[u8], passphrase: Option<String>) -> Result<(Vec<u8>, Ve
             match secretbox_open(&mut raw, &encrypted, &nonce, &key){
                 Ok(_) => {},
                 Err(_) => {
-                    println!("Wrong passphrase or corrupted keystore");
+                    println!("❌ Wrong passphrase or corrupted keystore");
                     return Err(WalletError::ParseKeystoreError)
                 },
             };
@@ -140,5 +145,75 @@ pub fn decode(encoded: &[u8], passphrase: Option<String>) -> Result<(Vec<u8>, Ve
         public_key.copy_from_slice(&msg[pub_offset..]);
 
         Ok((public_key.to_vec(), secret_key.to_vec()))
+    }
+}
+
+
+/// Keystore file format
+#[derive(Debug, Serialize, Deserialize)]
+pub struct KeystoreFile {
+    pub wallet_id: String,
+    pub secp_address: String,
+    pub encoded: String,
+    #[serde(default)]
+    pub encrypted: bool,
+}
+
+impl Wallet {
+    /// Save wallet to file with optional password encryption
+    pub fn save(&self, path: &Path, password: Option<&str>) -> Result<()> {
+        let encoded = encode(
+            &self.secret_bytes(),
+            &self.public_bytes(),
+            password.map(|s| s.to_string())
+        ).context("Failed to encode wallet data")?;
+
+        let keystore = KeystoreFile {
+            wallet_id: self.id(),
+            secp_address: self.address(),
+            encoded: format!("0x{}", hex::encode(encoded)),
+            encrypted: password.is_some(),
+        };
+
+        let json = serde_json::to_string_pretty(&keystore)
+            .context("Failed to serialize keystore")?;
+
+        fs::write(path, json)
+            .context("Failed to write keystore file")?;
+
+        tracing::info!("Wallet saved: {}", self.id());
+        Ok(())
+    }
+
+    /// Load wallet from file
+    pub fn load(path: &Path, password: Option<&str>) -> Result<Self> {
+        let data = fs::read_to_string(path)
+            .context("Failed to read keystore file")?;
+
+        let keystore: KeystoreFile = serde_json::from_str(&data)
+            .context("Failed to parse keystore file")?;
+
+        let encoded = keystore.encoded.strip_prefix("0x")
+            .unwrap_or(&keystore.encoded);
+
+        let encoded_bytes = hex::decode(encoded)
+            .context("Failed to decode hex data")?;
+
+        let (public_bytes, secret_bytes) = decode(
+            &encoded_bytes,
+            password.map(|s| s.to_string())
+        ).context("Failed to decrypt wallet data")?;
+
+        let wallet = Self::from_bytes(&secret_bytes)?;
+
+        // Verify integrity
+        if wallet.id() != keystore.wallet_id {
+            anyhow::bail!("Wallet ID mismatch - file may be corrupted");
+        }
+        if wallet.public_bytes() != public_bytes {
+            anyhow::bail!("Public key mismatch - file may be corrupted");
+        }
+
+        Ok(wallet)
     }
 }

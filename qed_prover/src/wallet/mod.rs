@@ -5,4 +5,5 @@ pub mod simple_sign;
 pub mod secp_wallet;
 pub mod keystore;
 pub mod error;
-pub mod ui;
+pub mod cli;
+pub mod secp_sign;

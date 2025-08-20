@@ -22,6 +22,7 @@ use std::sync::Arc;
 use sync::spawn_active_checkpoint_sync_task;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
+use crate::common::whitelist::WorkerWhitelist;
 
 pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedisAsync> {
     let pool = new_redis_async_pool(
@@ -97,7 +98,16 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         .build(&config.rpc.listen_addr)
         .await?;
     let job_notify_queue = proof_store.clone();
-    let handler = RealmEdgeHandler::new(edge_ctx.clone(), job_notify_queue, Arc::new(task_store));
+
+    let worker_whitelist = WorkerWhitelist::new(config.worker_whitelist);
+    worker_whitelist.reload().await?;
+
+    let handler = RealmEdgeHandler::new(
+        edge_ctx.clone(),
+        job_notify_queue,
+        Arc::new(task_store),
+        Arc::new(worker_whitelist)
+    );
     let mut rpc_module = RealmEdgeRpcServer::into_rpc(handler.clone());
     let job_rpc_module = JobSchedulerRpcServer::into_rpc(handler);
     rpc_module.merge(job_rpc_module)?;

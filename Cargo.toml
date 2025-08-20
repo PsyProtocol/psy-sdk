@@ -295,6 +295,7 @@ auto_impl = "1"
 sodalite = "0.4.0"
 secp256k1 = { version = "0.31", features = ["rand", "hashes"] }
 rpassword = "7.3"
+ecdsa = "0.16.0"
 
 
 [profile.release]
