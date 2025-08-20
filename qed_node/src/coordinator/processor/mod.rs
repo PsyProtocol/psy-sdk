@@ -32,7 +32,7 @@ use std::sync::Arc;
 use tokio::time::{sleep_until, Instant};
 use tracing::{debug, error, info, warn};
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
-use qed_store::queue::redis_queue::NotificationQueue;
+use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue};
 use crate::common::clock::SlotTimer;
 use crate::common::slot;
 use crate::common::slot::{LocalClock, Slot};
@@ -43,7 +43,7 @@ type F = QEDFelt;
 pub struct CoordinatorProcessNode<
     JL: Journal,
     SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
-    DQ: CheckpointDrainQueueConsumerAsyncImm,
+    DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -63,7 +63,7 @@ pub struct CoordinatorProcessNode<
 impl<
         JL: Journal,
         SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
-        DQ: CheckpointDrainQueueConsumerAsyncImm,
+        DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
@@ -248,6 +248,7 @@ impl
 
         // Commit the changes
         self.journal_store.commit(next_checkpoint_id)?;
+        self.ctx.consumption_state().await?;
         Ok(next_checkpoint_id)
     }
 }

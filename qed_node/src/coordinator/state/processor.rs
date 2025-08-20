@@ -69,11 +69,13 @@ use qed_store::{
         QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
     },
     queue::task_queue::QProvingTaskStore,
+    queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
+use tracing::{debug, info, error};
+use qed_store::queue::redis_queue::QueueConsumptionState;
 use std::marker::Sync;
-
+use qed_core::config::network_constants::CST_USER_UPDATE_CHANNEL_ID;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -140,7 +142,7 @@ impl CoordinatorConfig {
 #[derive(Clone)]
 pub struct CoordinatorProcessorContext<
     SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
-    DQ: CheckpointDrainQueueConsumerAsyncImm,
+    DQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueEmitterAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -158,7 +160,7 @@ pub struct CoordinatorProcessorContext<
 
 impl<
         SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
-        DQ: CheckpointDrainQueueConsumerAsyncImm,
+        DQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm + Sync,
@@ -207,10 +209,11 @@ impl<
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
 
         let last_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
-        let deploy_contract_items = self
+        let (deploy_contract_items, _consumption_state) = self
             .checkpoint_queue
-            .cdq_drain_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
+            .consume_with_position::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
                 self.coordinator_config.deploy_contract_channel_id,
+                checkpoint_id,
             )
             .await?;
 
@@ -315,9 +318,12 @@ impl<
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
 
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
-        let user_registrations = self
+        let (user_registrations, consumption_state) = self
             .checkpoint_queue
-            .cdq_drain_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID)
+            .consume_with_position::<ZKPublicKeyInfo<F>>(
+                COORD_API_REGISTER_USER_CHANNEL_ID,
+                checkpoint_id,
+            )
             .await?;
 
         let start_registration_user_id = last_l2_blockstate.next_user_id;
@@ -414,10 +420,11 @@ impl<
         GlobalUserTreeAggregatorHeader<F>,
     )> {
         tracing::debug!(checkpoint_id = checkpoint_id, "Processing checkpoint");
-        let mut guta_queue_items = self
+        let (mut guta_queue_items, consumption_state) = self
             .checkpoint_queue
-            .cdq_drain_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(
+            .consume_with_position::<SubmitGUTARealmResultAPIQueueItem<F>>(
                 self.coordinator_config.guta_channel_id,
+                checkpoint_id,
             )
             .await?;
         tracing::debug!(guta_queue_items = ?guta_queue_items, "GUTA queue items");
@@ -1083,6 +1090,20 @@ impl<
 
         info!("No pending tasks found for checkpoint {}", checkpoint_id);
         Ok(false)
+    }
+
+    // commit redis queue
+    pub async fn consumption_state(&self) -> anyhow::Result<()> {
+        if let Some(state) = self.checkpoint_queue.get_last_consumption_state(self.coordinator_config.deploy_contract_channel_id).await? {
+            self.checkpoint_queue.commit_consumption(&state).await?;
+        }
+        if let Some(state) = self.checkpoint_queue.get_last_consumption_state(COORD_API_REGISTER_USER_CHANNEL_ID).await? {
+            self.checkpoint_queue.commit_consumption(&state).await?;
+        }
+        if let Some(state) = self.checkpoint_queue.get_last_consumption_state(self.coordinator_config.guta_channel_id).await? {
+            self.checkpoint_queue.commit_consumption(&state).await?;
+        }
+        Ok(())
     }
 
 }
