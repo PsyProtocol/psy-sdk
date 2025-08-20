@@ -1,5 +1,5 @@
 use std::env;
-use crate::realm::F;
+use crate::realm::{RetryConfig, Retryable, F};
 use std::sync::Arc;
 use std::time::Duration;
 use jsonrpsee::rpc_params;
@@ -299,24 +299,6 @@ pub async fn spawn_realm_job_update_task<
     Ok(())
 }
 
-/// Configuration for retry mechanisms in RealmProofSender
-#[derive(Clone, Debug)]
-pub struct RetryConfig {
-    pub max_retries: u32,
-    pub base_delay_ms: u64,
-    pub exponential_backoff: bool,
-}
-
-impl Default for RetryConfig {
-    fn default() -> Self {
-        Self {
-            max_retries: 5,
-            base_delay_ms: 1000,
-            exponential_backoff: true,
-        }
-    }
-}
-
 /// Handles sending realm proofs to coordinator with optimized HTTP client reuse and retry mechanisms
 pub struct RealmProofSender {
     realm_id: u64,
@@ -344,34 +326,6 @@ impl RealmProofSender {
             http_client,
             retry_config: retry_config.unwrap_or_default(),
         })
-    }
-
-    /// Generic retry function for any async operation
-    async fn retry_with_backoff<T, F, Fut, E>(&self, operation_name: &str, mut operation: F) -> Result<T>
-    where
-        F: FnMut() -> Fut,
-        Fut: std::future::Future<Output =std::result::Result<T, E>>,
-        E: std::fmt::Debug,
-    {
-        for attempt in 0..self.retry_config.max_retries {
-            match operation().await {
-                Ok(result) => return Ok(result),
-                Err(err) => {
-                    error!("{} failed: {:?}, attempt {}/{}", operation_name, err, attempt + 1, self.retry_config.max_retries);
-
-                    if attempt < self.retry_config.max_retries - 1 {
-                        let delay = if self.retry_config.exponential_backoff {
-                            Duration::from_millis(self.retry_config.base_delay_ms * 2_u64.pow(attempt))
-                        } else {
-                            Duration::from_millis(self.retry_config.base_delay_ms)
-                        };
-                        tokio::time::sleep(delay).await;
-                    }
-                }
-            }
-        }
-
-        Err(anyhow!("{} failed after {} attempts", operation_name, self.retry_config.max_retries))
     }
 
     /// Send realm proof to coordinator with unified retry mechanism
@@ -446,5 +400,11 @@ impl RealmProofSender {
                 Err(err) => Err(err),
             }
         }).await
+    }
+}
+
+impl Retryable for RealmProofSender {
+    fn retry_config(&self) -> &RetryConfig {
+        &self.retry_config
     }
 }
