@@ -297,7 +297,6 @@ secp256k1 = { version = "0.31", features = ["rand", "hashes"] }
 rpassword = "7.3"
 ecdsa = "0.16.0"
 
-
 [profile.release]
 debug = true
 
