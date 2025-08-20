@@ -8,8 +8,12 @@ use plonky2::{
     },
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use plonky2::hash::poseidon::PoseidonHash;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
+use qed_crypto::hash::traits::hasher::MerkleHasher;
+
+type QEDHasher = PoseidonHash;
 
 pub struct BitsHelper {
     pub index_bits: Vec<BoolTarget>,
@@ -17,6 +21,71 @@ pub struct BitsHelper {
     pub high_bits_mask: Vec<BoolTarget>,
 }
 
+
+#[derive(Debug, Clone)]
+pub struct QVariableHeightBitInfo {
+    pub index_bits: Vec<bool>,
+    pub is_bit_not_within_height: Vec<bool>,
+    pub is_first_bit_outside_height: Vec<bool>,
+
+}
+
+impl QVariableHeightBitInfo {
+    pub fn is_right_child(
+        &self,
+    ) -> bool {
+        let mut base = 0u32;
+
+        for (a,b) in  self.index_bits.iter().zip(self.is_first_bit_outside_height.iter()) {
+            let combo = (a&b) as u32;
+            base = combo + base;
+        }
+        base >= 1
+
+    }
+    pub fn get_root_parent_index(
+        &self,
+    ) -> u32 {
+        let mut sub_root_bit = 0u32;
+        let mut sub_root_index = 0u32;
+        let one = 1u32;
+        for i in 0..self.index_bits.len() {
+            let is_change = self.is_first_bit_outside_height[i];
+            sub_root_bit = if is_change { one } else { sub_root_bit };
+
+            let add_indicator = (self.index_bits[i] as u32) * sub_root_bit;
+            sub_root_index = add_indicator + sub_root_index;
+
+
+            sub_root_bit = sub_root_bit + sub_root_bit;
+
+        }
+
+        sub_root_index
+    }
+
+    pub fn from_index_and_height(index: u64, height: usize, max_height: usize) -> Self {
+        let index_bits = (0..max_height)
+            .map(|i| (index >> i) & 1 == 1)
+            .collect::<Vec<_>>();
+
+        let is_bit_not_within_height = (0..max_height)
+            .map(|i| i >= height)
+            .collect::<Vec<_>>();
+
+        let mut is_first_bit_outside_height = vec![false; max_height];
+        if let Some(first_outside) = (0..max_height).find(|&i| i >= height) {
+            is_first_bit_outside_height[first_outside] = true;
+        }
+
+        Self {
+            index_bits,
+            is_bit_not_within_height,
+            is_first_bit_outside_height,
+        }
+    }
+
+}
 
 #[derive(Debug, Clone)]
 pub struct VariableHeightBitInfo {
@@ -61,6 +130,29 @@ impl VariableHeightBitInfo {
         }
 
         sub_root_index
+    }
+
+    pub fn from_q_bit_info<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        q_info: &QVariableHeightBitInfo,
+    ) -> Self {
+        let index_bits = q_info.index_bits.iter()
+            .map(|&b| builder.constant_bool(b))
+            .collect();
+        
+        let is_bit_not_within_height = q_info.is_bit_not_within_height.iter()
+            .map(|&b| builder.constant_bool(b))
+            .collect();
+        
+        let is_first_bit_outside_height = q_info.is_first_bit_outside_height.iter()
+            .map(|&b| builder.constant_bool(b))
+            .collect();
+        
+        Self {
+            index_bits,
+            is_bit_not_within_height,
+            is_first_bit_outside_height,
+        }
     }
 
 }
@@ -310,6 +402,142 @@ impl VariableHeightDeltaMerkleProofOptGadget {
             input.new_value,
             &input.siblings,
         )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct VariableHeightDeltaMerkleProofOpt<F:RichField> {
+    pub old_root: QHashOut<F>,
+    pub new_root: QHashOut<F>,
+    pub old_value: QHashOut<F>,
+    pub new_value: QHashOut<F>,
+    pub index: F,
+    pub siblings: Vec<QHashOut<F>>,
+    pub height: F,
+
+    // computed
+    pub bit_info: QVariableHeightBitInfo,
+    pub max_height: usize,
+    pub has_witness_height: bool,
+}
+
+impl<F: RichField> VariableHeightDeltaMerkleProofOpt<F> {
+    pub fn new(max_height: usize, has_witness_height: bool) -> Self {
+        Self {
+            old_root: QHashOut::default(),
+            new_root: QHashOut::default(),
+            old_value: QHashOut::default(),
+            new_value: QHashOut::default(),
+            index: F::ZERO,
+            siblings: vec![QHashOut::default(); max_height],
+            height: F::ZERO,
+            bit_info: QVariableHeightBitInfo {
+                index_bits: vec![false; max_height],
+                is_bit_not_within_height: vec![false; max_height],
+                is_first_bit_outside_height: vec![false; max_height],
+            },
+            max_height,
+            has_witness_height,
+        }
+    }
+
+    pub fn from_params(
+        index: u64,
+        old_value: QHashOut<F>,
+        new_value: QHashOut<F>,
+        siblings: &[QHashOut<F>],
+        max_height: usize,
+        input_height: Option<usize>,
+    ) -> Self {
+        let mut proof = Self::new(max_height, input_height.is_none());
+        proof.index = F::from_noncanonical_u64(index);
+        proof.old_value = old_value;
+        proof.new_value = new_value;
+        for (i, s) in siblings.iter().enumerate() {
+            if i < max_height {
+                proof.siblings[i] = s.clone();
+            }
+        }
+        for i in siblings.len()..max_height {
+            proof.siblings[i] = QHashOut::ZERO; 
+        }
+        proof.height = match input_height {
+            Some(h) => F::from_canonical_usize(h),
+            None => F::from_canonical_usize(siblings.len()),
+        };
+        let (old_root, new_root, bit_info) = proof.compute_roots();
+        proof.old_root = old_root;
+        proof.new_root = new_root;
+        proof.bit_info = bit_info;
+        proof
+    }
+
+    pub fn compute_roots(&self) -> (QHashOut<F>, QHashOut<F>, QVariableHeightBitInfo) {
+        let index = self.index.to_noncanonical_u64() as usize;
+        let height = self.height.to_canonical_u64() as usize;
+
+        assert!(index < (1 << height), "The index exceeds the maximum range corresponding to the tree height");
+
+        let index_bits = (0..self.max_height)
+            .map(|i| (index >> i) & 1 == 1)
+            .collect::<Vec<_>>();
+
+        let old_root = self.compute_root_from_value(&self.old_value, &index_bits, height);
+        let new_root = self.compute_root_from_value(&self.new_value, &index_bits, height);
+
+        let bit_info = self.compute_bit_info(&index_bits, height);
+
+        (old_root, new_root, bit_info)
+    }
+
+    fn compute_root_from_value(
+        &self,
+        leaf_value: &QHashOut<F>,
+        index_bits: &[bool],
+        height: usize,
+    ) -> QHashOut<F> {
+        let mut current_hash = leaf_value.clone();
+        let mut remaining_height = height;
+
+        for (i, &bit) in index_bits.iter().enumerate() {
+            if remaining_height == 0 {
+                break;
+            }
+            let sibling = &self.siblings[i];
+            current_hash = if bit {
+                QEDHasher::two_to_one(sibling, &current_hash)
+            } else {
+                QEDHasher::two_to_one(&current_hash, sibling)
+            };
+            remaining_height -= 1;
+        }
+        current_hash
+    }
+
+    fn compute_bit_info(&self, index_bits: &[bool], height: usize) -> QVariableHeightBitInfo {
+        let mut is_bit_not_within_height = vec![false; self.max_height];
+        let mut is_first_bit_outside_height = vec![false; self.max_height];
+        let mut found_first = false;
+
+        for i in 0..self.max_height {
+            is_bit_not_within_height[i] = i >= height;
+            if !found_first && i >= height {
+                is_first_bit_outside_height[i] = true;
+                found_first = true;
+            } else {
+                is_first_bit_outside_height[i] = false;
+            }
+        }
+
+        QVariableHeightBitInfo {
+            index_bits: index_bits.to_vec(),
+            is_bit_not_within_height,
+            is_first_bit_outside_height,
+        }
+    }
+
+    pub fn verify(&self, expected_old_root: &QHashOut<F>, expected_new_root: &QHashOut<F>) -> bool {
+        self.old_root == *expected_old_root && self.new_root == *expected_new_root
     }
 }
 
@@ -767,5 +995,133 @@ mod tests {
             assert_eq!(proof.public_inputs[4..8].to_vec(), mp.new_root.0.elements.to_vec(), "new roots should match proof");
             circuit.circuit_data.verify(proof).unwrap();
         }
+    }
+
+    #[test]
+    fn test_variable_height_bit_info() -> anyhow::Result<()>{
+        use super::{VariableHeightBitInfo, QVariableHeightBitInfo};
+
+        let config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+    
+        let index = 100;
+        let height = 4;
+        let max_height = 8;
+
+        let q_bit_info = QVariableHeightBitInfo::from_index_and_height(index, height, max_height);
+        let expected_is_right = q_bit_info.is_right_child();
+        let expected_root_parent_index = q_bit_info.get_root_parent_index();
+
+        let circuit_bit_info = VariableHeightBitInfo::from_q_bit_info(
+            &mut builder, 
+            &q_bit_info
+        );
+
+        let circuit_is_right = circuit_bit_info.is_right_child(&mut builder);
+        let circuit_root_parent_index = circuit_bit_info.get_root_parent_index(&mut builder);
+
+        let expected_is_right_target = builder.constant_bool(expected_is_right);
+        let expected_index_target = builder.constant(F::from_canonical_u64(expected_root_parent_index as u64));
+
+        builder.connect(circuit_is_right.target, expected_is_right_target.target);
+        builder.connect(circuit_root_parent_index, expected_index_target);
+
+        builder.register_public_input(circuit_is_right.target);
+        builder.register_public_input(circuit_root_parent_index);
+
+        let circuit = builder.build::<C>();
+
+        let mut pw = PartialWitness::new();
+        let proof = circuit.prove(pw)?;
+
+        circuit.verify(proof.clone())?;
+        println!("proof.public_inputs: {:?}", proof.public_inputs);
+        assert_eq!(proof.public_inputs[0], F::from_canonical_u64(expected_is_right as u64));
+        assert_eq!(proof.public_inputs[1], F::from_canonical_u64(expected_root_parent_index as u64));
+
+        println!(
+            "Test passed - Index: {}, Height: {}, Maximum height: {}, Right subtree: {}, Root parent index: {}",
+            index, height, max_height, expected_is_right, expected_root_parent_index
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_variable_height_delta_merkle_proof_opt() -> anyhow::Result<()> {
+        use super::{VariableHeightDeltaMerkleProofOptGadget, VariableHeightDeltaMerkleProofOpt};
+        use qed_data::config::store_config::QEDHasher;
+        let max_height = 4;
+
+        let index = 8;
+        let old_value = QHashOut::<F>::rand();
+        let new_value = QHashOut::<F>::rand();
+        let siblings = (0..max_height)
+            .map(|_| QHashOut::<F>::rand())
+            .collect::<Vec<_>>(); 
+
+        let plain_proof = VariableHeightDeltaMerkleProofOpt::from_params(
+            index,
+            old_value.clone(),
+            new_value.clone(),
+            &siblings,
+            max_height,
+            None,
+        );
+        let expected_old_root = plain_proof.old_root.clone();
+        let expected_new_root = plain_proof.new_root.clone();
+        let expected_old_value = plain_proof.old_value.clone();
+        let expected_new_value = plain_proof.new_value.clone();
+
+        let config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        
+        let variable_height_delta_merkle_proof_opt_gadget = VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<
+            QEDHasher,
+            F,
+            D,
+        >(&mut builder, max_height, None);
+
+        let old_root_target = builder.constant_hash(expected_old_root.0.clone());
+        let new_root_target = builder.constant_hash(expected_new_root.0.clone());
+        let old_value_target = builder.constant_hash(expected_old_value.0.clone());
+        let new_value_target = builder.constant_hash(expected_new_value.0.clone());
+
+        builder.connect_hashes(variable_height_delta_merkle_proof_opt_gadget.old_root, old_root_target);
+        builder.connect_hashes(variable_height_delta_merkle_proof_opt_gadget.new_root, new_root_target);
+        builder.connect_hashes(variable_height_delta_merkle_proof_opt_gadget.old_value, old_value_target);
+        builder.connect_hashes(variable_height_delta_merkle_proof_opt_gadget.new_value, new_value_target);
+
+
+        builder.register_public_inputs(&variable_height_delta_merkle_proof_opt_gadget.old_root.elements);
+        builder.register_public_inputs(&variable_height_delta_merkle_proof_opt_gadget.new_root.elements);
+        builder.register_public_inputs(&variable_height_delta_merkle_proof_opt_gadget.old_value.elements);
+        builder.register_public_inputs(&variable_height_delta_merkle_proof_opt_gadget.new_value.elements);
+
+        let circuit = builder.build::<C>();
+
+        let mut pw = PartialWitness::new();
+        let index = F::from_canonical_u64(index);
+        variable_height_delta_merkle_proof_opt_gadget.set_witness_params::<PartialWitness<F> ,F>(&mut pw,        
+            index,
+            old_value.clone(),
+            new_value.clone(),
+            &siblings)?;
+        
+        let proof = circuit.prove(pw)?;
+
+        circuit.verify(proof.clone())?;
+
+        let output_old_root = proof.public_inputs[0..4].to_vec(); 
+        let output_new_root = proof.public_inputs[4..8].to_vec();
+        let output_old_value = proof.public_inputs[8..12].to_vec();
+        let output_new_value = proof.public_inputs[12..16].to_vec();
+
+        assert_eq!(output_old_root, expected_old_root.0.elements);
+        assert_eq!(output_new_root, expected_new_root.0.elements);
+        assert_eq!(output_old_value, expected_old_value.0.elements);
+        assert_eq!(output_new_value, expected_new_value.0.elements);
+
+        println!("Test passed");
+        Ok(())
     }
 }

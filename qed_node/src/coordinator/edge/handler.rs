@@ -48,6 +48,7 @@ use qed_store::queue::ProofStoreRedisAsync;
 use crate::common::verifier::get_cached_generic_verifier;
 use qed_store::store::{QEDStore, Backend};
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
+use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
 
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 
@@ -1478,8 +1479,12 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
 
             crate::common::log_proof_details("Coordinator", job_id, &proof);
 
-            self.ctx.proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)
-                .map_err(|e| RpcError::Anyhow(e.into()))?;
+            verify_witness_and_proof(
+                &self.ctx.proof_verifier,
+                job_id,
+                self.ctx.proof_store.as_ref(),
+                &proof,
+            ).await.map_err(|e| RpcError::Anyhow(e.into()))?;
             // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
             let output_id = job_id.get_output_id();
             self.proof_store.set_proof_by_id(output_id, &proof).await.map_err(RpcError::Anyhow)?;
