@@ -43,8 +43,10 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
     proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)?;
     match job_id.circuit_type {
         ProvingJobCircuitType::AppendUserRegistrationTree => {
-            assert!(proof.public_inputs.len() == 16);
             tracing::info!("verify append user registration: {:?}", proof.public_inputs);
+            if proof.public_inputs.len() != 16 {
+                anyhow::bail!("invalid public input length");
+            }
             use qed_data::protocol::circuit_inputs::append_user_registration_tree::QCAppendUserRegistrationTreeCircuitInput;
             let input: QCAppendUserRegistrationTreeCircuitInput<F> = bincode::deserialize(
                 &proof_store
@@ -53,27 +55,27 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             )?;
 
             let register_users_circuit_whitelist = input.register_users_circuit_whitelist;
-            assert_eq!(
-                register_users_circuit_whitelist.0.elements,
-                proof.public_inputs[8..12]
-            );
+            if register_users_circuit_whitelist.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid register users circuit whitelist");
+            }
             let old_root = input.spiderman_append_proofs[0].top_line_proof.old_root;
             let new_root = input.spiderman_append_proofs[input.spiderman_append_proofs.len() - 1]
                 .top_line_proof
                 .new_root;
 
             let state_transition_hash = QEDHasher::two_to_one(&old_root, &new_root);
-            assert_eq!(
-                state_transition_hash.0.elements,
-                proof.public_inputs[12..16]
-            );
+            if proof.public_inputs[12..16] != state_transition_hash.0.elements {
+                anyhow::bail!("invalid state transition hash");
+            }
         }
         ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => {
-            assert!(proof.public_inputs.len() == 16);
             tracing::info!(
                 "verify append user registration aggregate: {:?}",
                 proof.public_inputs
             );
+            if proof.public_inputs.len() != 16 {
+                anyhow::bail!("invalid public input length");
+            }
             let r: CircuitInputWithDependencies<AggStateTransitionInput<F>> = bincode::deserialize(
                 &proof_store
                     .get_bytes_by_id(job_id.get_input_witness_id())
@@ -93,26 +95,26 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let allowed_circuit_hashes_root =
                 QEDHasher::two_to_one(&leaf_fingerprint, &agg_fingerprint);
 
-            assert_eq!(
-                allowed_circuit_hashes_root.0.elements,
-                proof.public_inputs[8..12]
-            );
+            if proof.public_inputs[8..12] != allowed_circuit_hashes_root.0.elements {
+                anyhow::bail!("invalid allowed circuit hashes root");
+            }
 
             let left_state_transition_start = r.input.left_input.state_transition_start;
             let right_state_transition_end = r.input.right_input.state_transition_end;
             let state_transition_hash =
                 QEDHasher::two_to_one(&left_state_transition_start, &right_state_transition_end);
-            assert_eq!(
-                state_transition_hash.0.elements,
-                proof.public_inputs[12..16]
-            );
+            if proof.public_inputs[12..16] != state_transition_hash.0.elements {
+                anyhow::bail!("invalid state transition hash");
+            }
         }
         ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-            assert!(proof.public_inputs.len() == 16);
             tracing::info!(
                 "verify dummy append user registration aggregate: {:?}",
                 proof.public_inputs
             );
+            if proof.public_inputs.len() != 16 {
+                anyhow::bail!("invalid public input length");
+            }
 
             let input: DummyAggStateTransition<F> = bincode::deserialize(
                 &proof_store
@@ -124,16 +126,19 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let transition =
                 QEDHasher::two_to_one(&input.state_transition_hash, &input.state_transition_hash);
 
-            assert_eq!(
-                input.allowed_circuit_hashes_root.0.elements,
-                proof.public_inputs[8..12]
-            );
-            assert_eq!(transition.0.elements, proof.public_inputs[12..16]);
+            if input.allowed_circuit_hashes_root.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid allowed circuit hashes root");
+            }
+            if transition.0.elements != proof.public_inputs[12..16] {
+                anyhow::bail!("invalid transition");
+            }
         }
 
         ProvingJobCircuitType::BatchDeployContracts => {
-            assert!(proof.public_inputs.len() == 16);
             tracing::info!("verify batch deploy contracts: {:?}", proof.public_inputs);
+            if proof.public_inputs.len() != 16 {
+                anyhow::bail!("invalid public input length");
+            }
 
             let input: QCBatchDeployContractsCircuitInput<F> = bincode::deserialize(
                 &proof_store
@@ -147,21 +152,21 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 &input.spiderman_append_proof.top_line_proof.new_root,
             );
 
-            assert_eq!(
-                input.deploy_contract_circuit_whitelist.0.elements,
-                proof.public_inputs[8..12]
-            );
-            assert_eq!(
-                state_transition_hash.0.elements,
-                proof.public_inputs[12..16]
-            );
+            if proof.public_inputs[8..12] != input.deploy_contract_circuit_whitelist.0.elements {
+                anyhow::bail!("invalid deploy contract circuit whitelist");
+            }
+            if proof.public_inputs[12..16] != state_transition_hash.0.elements {
+                anyhow::bail!("invalid state transition hash");
+            }
         }
         ProvingJobCircuitType::BatchDeployContractsAggregate => {
-            assert!(proof.public_inputs.len() == 8);
             tracing::info!(
                 "verify batch deploy contracts aggregate: {:?}",
                 proof.public_inputs
             );
+            if proof.public_inputs.len() != 8 {
+                anyhow::bail!("invalid public input length");
+            }
 
             let r: CircuitInputWithDependencies<AggStateTransitionInput<F>> = bincode::deserialize(
                 &proof_store
@@ -182,23 +187,26 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let allowed_circuit_hashes_root =
                 QEDHasher::two_to_one(&leaf_fingerprint, &agg_fingerprint);
 
-            assert_eq!(
-                allowed_circuit_hashes_root.0.elements,
-                proof.public_inputs[0..4]
-            );
+            if proof.public_inputs[0..4] != allowed_circuit_hashes_root.0.elements {
+                anyhow::bail!("invalid allowed circuit hashes root");
+            }
 
             let left_state_transition_start = r.input.left_input.state_transition_start;
             let right_state_transition_end = r.input.right_input.state_transition_end;
             let state_transition_hash =
                 QEDHasher::two_to_one(&left_state_transition_start, &right_state_transition_end);
-            assert_eq!(state_transition_hash.0.elements, proof.public_inputs[4..8]);
+            if proof.public_inputs[4..8] != state_transition_hash.0.elements {
+                anyhow::bail!("invalid state transition hash");
+            }
         }
         ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
-            assert!(proof.public_inputs.len() == 16);
             tracing::info!(
                 "verify dummy batch deploy contracts aggregate: {:?}",
                 proof.public_inputs
             );
+            if proof.public_inputs.len() != 16 {
+                anyhow::bail!("invalid public input length");
+            }
 
             let input: DummyAggStateTransition<F> = bincode::deserialize(
                 &proof_store
@@ -210,19 +218,22 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let transition =
                 QEDHasher::two_to_one(&input.state_transition_hash, &input.state_transition_hash);
 
-            assert_eq!(
-                input.allowed_circuit_hashes_root.0.elements,
-                proof.public_inputs[8..12]
-            );
-            assert_eq!(transition.0.elements, proof.public_inputs[12..16]);
+            if proof.public_inputs[8..12] != input.allowed_circuit_hashes_root.0.elements {
+                anyhow::bail!("invalid allowed circuit hashes root");
+            }
+            if transition.0.elements != proof.public_inputs[12..16] {
+                anyhow::bail!("invalid transition");
+            }
         }
 
         ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => {
-            assert!(proof.public_inputs.len() == 16);
             tracing::info!(
                 "verify agg user registration deploy contracts: {:?}",
                 proof.public_inputs
             );
+            if proof.public_inputs.len() != 16 {
+                anyhow::bail!("invalid public input length");
+            }
 
             let r: CircuitInputWithDependencies<QCAggUserRegistartionDeployContractsGUTAInput<F>> =
                 bincode::deserialize(
@@ -265,23 +276,27 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let guta_proof: ProofWithPublicInputs<F, C, D> =
                 proof_store.get_proof_by_id(r.dependencies[2]).await?;
 
-            assert_eq!(state_transition_hash.0.elements, proof.public_inputs[0..4]);
-            assert_eq!(
-                user_registration_proof.public_inputs[0..4],
-                proof.public_inputs[4..8]
-            );
-            assert_eq!(
-                deploy_contracts_proof.public_inputs[0..4],
-                proof.public_inputs[8..12]
-            );
-            assert_eq!(guta_proof.public_inputs[0..4], proof.public_inputs[12..16]);
+            if state_transition_hash.0.elements != proof.public_inputs[0..4] {
+                anyhow::bail!("invalid state transition hash");
+            }
+            if user_registration_proof.public_inputs[0..4] != proof.public_inputs[4..8] {
+                anyhow::bail!("invalid user registration proof");
+            }
+            if deploy_contracts_proof.public_inputs[0..4] != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid deploy contracts proof");
+            }
+            if guta_proof.public_inputs[0..4] != proof.public_inputs[12..16] {
+                anyhow::bail!("invalid guta proof");
+            }
         }
         ProvingJobCircuitType::GenerateRollupStateTransitionProof => {
-            assert!(proof.public_inputs.len() == 16);
             tracing::info!(
                 "verify rollup state transition aggregate: {:?}",
                 proof.public_inputs
             );
+            if proof.public_inputs.len() != 16 {
+                anyhow::bail!("invalid rollup state transition proof");
+            }
 
             let r: CircuitInputWithDependencies<QCQEDCheckpointStateTransitionInput<F>> =
                 bincode::deserialize(
@@ -297,19 +312,19 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let old_checkpoint_tree_root = r.input.previous_checkpoint_proof.root;
             let new_checkpoint_tree_root = r.input.append_checkpoint_tree_proof.new_root;
 
-            assert_eq!(
-                old_checkpoint_tree_root.0.elements,
-                proof.public_inputs[8..12]
-            );
-            assert_eq!(
-                new_checkpoint_tree_root.0.elements,
-                proof.public_inputs[12..16]
-            );
+            if old_checkpoint_tree_root.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid old checkpoint tree root");
+            }
+            if new_checkpoint_tree_root.0.elements != proof.public_inputs[12..16] {
+                anyhow::bail!("invalid new checkpoint tree root");
+            }
         }
 
         ProvingJobCircuitType::GUTASingleEndCap => {
             tracing::info!("verify single_end_cap: {:?}", proof.public_inputs);
-            assert!(proof.public_inputs.len() == 12);
+            if proof.public_inputs.len() != 12 {
+                anyhow::bail!("invalid public input length");
+            }
             let r: CircuitInputWithDependencies<VerifySingleEndCapInput<F>> = bincode::deserialize(
                 &proof_store
                     .get_bytes_by_id(job_id.get_input_witness_id())
@@ -325,12 +340,16 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();
 
-            assert_eq!(guta_header_hash.0.elements, proof.public_inputs[8..12]);
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
+            if guta_header_hash.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid guta header hash");
+            }
         }
         ProvingJobCircuitType::GUTATwoEndCap => {
             tracing::info!("verify two_end_cap: {:?}", proof.public_inputs);
-            assert!(proof.public_inputs.len() == 12);
+            if proof.public_inputs.len() != 12 {
+                anyhow::bail!("invalid public input length");
+            }
             let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<F>> =
                 bincode::deserialize(
                     &proof_store
@@ -366,15 +385,16 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
 
-            assert_eq!(
-                guta_header_combine_hash.0.elements,
-                proof.public_inputs[8..12]
-            );
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
+            if guta_header_combine_hash.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid guta header hash");
+            }
         }
         ProvingJobCircuitType::GUTATwoGUTA => {
             tracing::info!("verify two_guta: {:?}", proof.public_inputs);
-            assert!(proof.public_inputs.len() == 12);
+            if proof.public_inputs.len() != 12 {
+                anyhow::bail!("invalid public input length");
+            }
             let r: CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>> =
                 bincode::deserialize(
                     &proof_store
@@ -414,15 +434,16 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
 
-            assert_eq!(
-                guta_header_combine_hash.0.elements,
-                proof.public_inputs[8..12]
-            );
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
+            if guta_header_combine_hash.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid guta header hash");
+            }
         }
         ProvingJobCircuitType::GUTALeftGUTARightEndCap => {
             tracing::info!("verify left guta right end cap: {:?}", proof.public_inputs);
-            assert!(proof.public_inputs.len() == 12);
+            if proof.public_inputs.len() != 12 {
+                anyhow::bail!("invalid public input length");
+            }
             let r: CircuitInputWithDependencies<VerifyLeftGUTARightEndCapInputSimple<F>> =
                 bincode::deserialize(
                     &proof_store
@@ -462,15 +483,16 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
 
-            assert_eq!(
-                guta_header_combine_hash.0.elements,
-                proof.public_inputs[8..12]
-            );
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
+            if guta_header_combine_hash.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid guta header hash");
+            }
         }
         ProvingJobCircuitType::GUTALeftEndCapRightGUTA => {
             tracing::info!("verify left end cap right guta: {:?}", proof.public_inputs);
-            assert!(proof.public_inputs.len() == 12);
+            if proof.public_inputs.len() != 12 {
+                anyhow::bail!("invalid public input length");
+            }
             let r: CircuitInputWithDependencies<VerifyLeftEndCapRightGUTAInputSimple<F>> =
                 bincode::deserialize(
                     &proof_store
@@ -510,15 +532,16 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
 
-            assert_eq!(
-                guta_header_combine_hash.0.elements,
-                proof.public_inputs[8..12]
-            );
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
+            if guta_header_combine_hash.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid guta header hash");
+            }
         }
         ProvingJobCircuitType::GUTARegisterUsers => {
             tracing::info!("verify guta register users: {:?}", proof.public_inputs);
-            assert!(proof.public_inputs.len() == 12);
+            if proof.public_inputs.len() != 12 {
+                anyhow::bail!("invalid public input length");
+            }
             let r: CircuitInputWithDependencies<VerifyGUTARegisterUsersCircuitInputSimple<F>> =
                 bincode::deserialize(
                     &proof_store
@@ -557,12 +580,16 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             println!("new_guta_header: {:?}", guta_header);
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();
 
-            assert_eq!(guta_header_hash.0.elements, proof.public_inputs[8..12]);
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
+            if guta_header_hash.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid guta header hash");
+            }
         }
         ProvingJobCircuitType::GUTAOnlyRegisterUsers => {
             tracing::info!("verify only register users: {:?}", proof.public_inputs);
-            assert!(proof.public_inputs.len() == 12);
+            if proof.public_inputs.len() != 12 {
+                anyhow::bail!("invalid public input length");
+            }
             let r: GUTAOnlyRegisterUsersInput<F> = bincode::deserialize(
                 &proof_store
                     .get_bytes_by_id(job_id.get_input_witness_id())
@@ -601,12 +628,16 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             println!("new_guta_header: {:?}", guta_header);
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();
 
-            assert_eq!(guta_header_hash.0.elements, proof.public_inputs[8..12]);
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
+            if guta_header_hash.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid guta header hash");
+            }
         }
         ProvingJobCircuitType::GUTAVerifyToCap => {
             tracing::info!("verify guta to cap: {:?}", proof.public_inputs);
-            assert!(proof.public_inputs.len() == 12);
+            if proof.public_inputs.len() != 12 {
+                anyhow::bail!("invalid public input length");
+            }
             let r: CircuitInputWithDependencies<VerifyGUTAToCapCircuitInputSimple<F>> =
                 bincode::deserialize(
                     &proof_store
@@ -621,12 +652,16 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let guta_header = r.input.get_new_guta_header::<QEDHasher>();
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();
 
-            assert_eq!(guta_header_hash.0.elements, proof.public_inputs[8..12]);
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
+            if guta_header_hash.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid guta header hash");
+            }
         }
         ProvingJobCircuitType::GUTANoChange => {
             tracing::info!("verify guta no change: {:?}", proof.public_inputs);
-            assert!(proof.public_inputs.len() == 12);
+            if proof.public_inputs.len() != 12 {
+                anyhow::bail!("invalid public input length");
+            }
             let r: GUTANoChangeFullInput<F> = bincode::deserialize(
                 &proof_store
                     .get_bytes_by_id(job_id.get_input_witness_id())
@@ -655,11 +690,13 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             };
 
             let public_inputs_hash = new_guta_header.qfhash::<QEDHasher>();
-            assert_eq!(public_inputs_hash.0.elements, proof.public_inputs[8..12]);
             tracing::info!(
                 "guta_no_change public_inputs_hash: {:?}",
                 public_inputs_hash
             );
+            if public_inputs_hash.0.elements != proof.public_inputs[8..12] {
+                anyhow::bail!("invalid guta header hash");
+            }
         }
         _ => {
             tracing::warn!("unsupported circuit: {:?}", job_id.circuit_type);
