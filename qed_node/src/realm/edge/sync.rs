@@ -403,8 +403,4 @@ impl RealmProofSender {
     }
 }
 
-impl Retryable for RealmProofSender {
-    fn retry_config(&self) -> &RetryConfig {
-        &self.retry_config
-    }
-}
+impl Retryable for RealmProofSender {}

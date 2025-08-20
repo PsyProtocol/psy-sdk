@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+use std::future::Future;
 use std::time::Duration;
 use anyhow::anyhow;
 use tracing::error;
@@ -39,14 +41,16 @@ impl Default for RetryConfig {
 
 
 trait Retryable {
-    fn retry_config(&self) -> &RetryConfig;
+    fn retry_config(&self) -> RetryConfig {
+        RetryConfig::default()
+    }
 
     /// Generic retry function for any async operation
     async fn retry_with_backoff<T, F, Fut, E>(&self, operation_name: &str, mut operation: F) -> anyhow::Result<T>
     where
-        F: FnMut() -> Fut,
-        Fut: std::future::Future<Output =std::result::Result<T, E>>,
-        E: std::fmt::Debug,
+        F: Fn() -> Fut,
+        Fut: Future<Output =Result<T, E>>,
+        E: Debug,
     {
         for attempt in 0..self.retry_config().max_retries {
             match operation().await {

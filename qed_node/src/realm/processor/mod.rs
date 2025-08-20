@@ -4,7 +4,7 @@ use std::ops::Deref;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
-use crate::realm::{C, D, F};
+use crate::realm::{Retryable, C, D, F};
 use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
 };
@@ -282,30 +282,33 @@ impl RealmProcessor {
 
 
     pub async fn build_block(
-        &mut self,
-        context: &mut ConcreteRealmProcessorContext,
+        &self,
+        context: &ConcreteRealmProcessorContext,
         realm_qps: &ProofStoreRedisAsync,
     ) -> anyhow::Result<ProvingJobDataId> {
         let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
         self.store.commit(local_latest_checkpoint_id)?;
+        context.consumption_state().await?;
+        let store = self.store.clone();
 
-        // Build block with enhanced error handling(all logic including logging is inside context.build_block)
-        match context.build_block().await {
-            Ok(job_id) => {
-                // Success - consumption is already committed in build_block
-                context.consumption_state().await?;
-                Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
-            },
-            Err(err) => {
-                // Rollback database changes
-                self.store.rollback(next_checkpoint_id)?;
-                
-                // Redis consumption state remains intact for next attempt
-                error!("Build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
-                Err(err)
+        self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
+            // Build block with enhanced error handling(all logic including logging is inside context.build_block)
+            match context.build_block().await {
+                Ok(job_id) => {
+                    // Success - consumption is already committed in build_block
+                  
+                    Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
+                },
+                Err(err) => {
+                    // Rollback database changes
+                    store.rollback(next_checkpoint_id)?;
+
+                    error!("Build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
+                    Err(err)
+                }
             }
-        }
+        }).await
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {
@@ -332,3 +335,5 @@ impl RealmProcessor {
         Ok(state.checkpoint_id)
     }
 }
+
+impl Retryable for RealmProcessor {}

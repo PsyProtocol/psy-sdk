@@ -794,7 +794,7 @@ impl<
     }
 
     pub async fn plan_jobs(
-        &mut self,
+        &self,
         new_checkpoint_id: u64,
         guta_jobs: &Vec<Vec<QProvingJobDataID>>,
         finished_job: QProvingJobDataID,
@@ -814,7 +814,7 @@ impl<
         Ok(())
     }
 
-    pub async fn build_block(&mut self) -> anyhow::Result<QProvingJobDataID> {
+    pub async fn build_block(&self) -> anyhow::Result<QProvingJobDataID> {
         let start = Instant::now();
         info!("realm STARTED new block");
 
@@ -897,7 +897,7 @@ impl<
 
 
     // commit redis queue
-    pub async fn consumption_state(&mut self) -> anyhow::Result<()> {
+    pub async fn consumption_state(&self) -> anyhow::Result<()> {
         if let Some(state) = self.sync_queue.get_last_consumption_state().await? {
             self.sync_queue.commit_consumption(&state).await?;
         }
