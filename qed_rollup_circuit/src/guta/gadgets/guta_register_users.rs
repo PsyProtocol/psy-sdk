@@ -89,11 +89,11 @@ impl GUTARegisterUsersGadget {
                 user.new_global_user_tree_root,
             );
 
-            builder.connect_hashes_if_false(
-                is_disabled,
-                user_registration_tree_root,
-                user.user_registration_tree_root,
-            );
+            // builder.connect_hashes_if_false(
+            //     is_disabled,
+            //     user_registration_tree_root,
+            //     user.user_registration_tree_root,
+            // );
 
             // TODO: do we need this?
             let computed_root_index = user.register_user_core_gadget.global_user_tree_update_proof.bit_info.get_root_parent_index(builder);
