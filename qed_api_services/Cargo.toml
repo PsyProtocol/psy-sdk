@@ -18,10 +18,10 @@ tokio = { workspace = true }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
-ts-rs = { workspace = true }
+strum = { workspace = true }
 
 # Database
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "json"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid", "json", "macros"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
 # Redis & Cache

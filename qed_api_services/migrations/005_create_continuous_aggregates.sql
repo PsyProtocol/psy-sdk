@@ -18,14 +18,14 @@ BEGIN
              time_bucket(%L, timestamp) AS bucket,
              realm_id,
              source,
-             COUNT(*) as event_count,
-             AVG(duration) as avg_duration_ms,
-             MIN(duration) as min_duration_ms,
-             MAX(duration) as max_duration_ms,
+             COUNT(*) as count,
              COUNT(CASE WHEN status = ''COMPLETED'' THEN 1 END) as completed_count,
              COUNT(CASE WHEN status = ''FAILED'' THEN 1 END) as failed_count,
              COUNT(CASE WHEN status = ''PROCESSING'' THEN 1 END) as processing_count,
              COUNT(CASE WHEN status = ''PENDING'' THEN 1 END) as pending_count,
+             AVG(duration) as avg_duration_ms,
+             MIN(duration) as min_duration_ms,
+             MAX(duration) as max_duration_ms,
          FROM worker_events
          GROUP BY bucket, realm_id, source',
         view_name,
@@ -74,7 +74,7 @@ BEGIN
         'CREATE MATERIALIZED VIEW %I WITH (timescaledb.continuous) AS
          SELECT
              time_bucket(%L, timestamp) AS bucket,
-             COUNT(*) as event_count,
+             COUNT(*) as count,
              COUNT(CASE WHEN tx_type = ''REGISTER_USER'' THEN 1 END) as register_user_count,
              COUNT(CASE WHEN tx_type = ''DEPLOY_CONTRACT'' THEN 1 END) as deploy_contract_count,
              COUNT(CASE WHEN tx_type = ''GUTA'' THEN 1 END) as guta_count,
