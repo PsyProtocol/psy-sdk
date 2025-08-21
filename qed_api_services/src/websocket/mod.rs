@@ -48,22 +48,19 @@ pub fn create_websocket_router(api_service: ApiService) -> Router {
         .with_state(api_service)
 }
 
-async fn websocket_handler(
-    ws: WebSocketUpgrade,
-    State(_service): State<ApiService>,
-) -> Response {
+async fn websocket_handler(ws: WebSocketUpgrade, State(_service): State<ApiService>) -> Response {
     ws.on_upgrade(handle_socket)
 }
 
 async fn handle_socket(socket: WebSocket) {
     let (mut sender, mut receiver) = socket.split();
-    
+
     let connection_id = uuid::Uuid::new_v4().to_string();
-    
+
     // TODO: Add connection to manager
     // TODO: Handle incoming configuration messages
     // TODO: Send events based on filters
-    
+
     tokio::spawn(async move {
         while let Some(msg) = receiver.next().await {
             match msg {
@@ -81,7 +78,7 @@ async fn handle_socket(socket: WebSocket) {
         }
         // TODO: Remove connection from manager
     });
-    
+
     // Keep connection alive with ping/pong
     loop {
         if sender.send(Message::Ping(vec![].into())).await.is_err() {
