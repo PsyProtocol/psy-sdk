@@ -272,7 +272,4 @@ pub struct StressTestArgs {
 
     #[arg(long, help = "Number of transaction tasks to execute (omit for unlimited)")]
     pub max_task: Option<u64>,
-
-    #[arg(long, short = 'v', help = "Verbose output")]
-    pub verbose: bool,
 }
