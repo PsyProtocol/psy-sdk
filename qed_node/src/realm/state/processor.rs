@@ -823,10 +823,6 @@ impl<
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
-        let has_tasks = self.has_pending_tasks(new_checkpoint_id).await?;
-        if !has_tasks {
-            bail!("No pending tasks for checkpoint {}, skipping block construction", new_checkpoint_id);
-        }
         // Pop up to 32 pending users from Redis queue
         // Use position-based consumption for pending users
         let (pending_users, _consumption_state) = self.sync_queue.consume_users_with_position(32, new_checkpoint_id).await?;
