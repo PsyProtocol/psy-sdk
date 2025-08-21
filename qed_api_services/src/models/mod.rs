@@ -3,7 +3,17 @@ use qed_core::job::id::QProvingJobDataID;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, strum::EnumString, sqlx::Type)]
+#[derive(
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    strum::EnumString,
+    strum::Display,
+    sqlx::Type,
+)]
 #[sqlx(type_name = "VARCHAR", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
@@ -14,7 +24,17 @@ pub enum WorkerEventStatus {
     Failed,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, strum::EnumString, sqlx::Type)]
+#[derive(
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    strum::EnumString,
+    strum::Display,
+    sqlx::Type,
+)]
 #[sqlx(type_name = "VARCHAR", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
@@ -23,7 +43,17 @@ pub enum WorkerEventSource {
     Realm,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, strum::EnumString, sqlx::Type)]
+#[derive(
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    strum::EnumString,
+    strum::Display,
+    sqlx::Type,
+)]
 #[sqlx(type_name = "VARCHAR", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
@@ -33,7 +63,7 @@ pub enum UserEventTxType {
     Guta,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerEvent {
     pub id: Option<Uuid>,
     pub realm_id: Option<i64>,
@@ -88,9 +118,17 @@ pub struct WorkerEventAggregation {
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct UserEventAggregation {
     pub bucket: DateTime<Utc>,
-    pub tx_type: UserEventTxType,
     pub count: i64,
     pub register_user_count: i64,
     pub deploy_contract_count: i64,
     pub guta_count: i64,
+}
+
+// JSON conversion helper functions for QProvingJobDataID
+pub fn job_id_from_json(value: serde_json::Value) -> Result<QProvingJobDataID, serde_json::Error> {
+    serde_json::from_value(value)
+}
+
+pub fn job_id_to_json(job_id: &QProvingJobDataID) -> serde_json::Value {
+    serde_json::to_value(job_id).unwrap_or(serde_json::Value::Null)
 }
