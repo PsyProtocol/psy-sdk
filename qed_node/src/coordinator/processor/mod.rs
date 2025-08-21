@@ -34,8 +34,11 @@ use tracing::{debug, error, info, warn};
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue};
 use crate::common::clock::SlotTimer;
+use crate::common::retry::Retryable;
 use crate::common::slot;
 use crate::common::slot::{LocalClock, Slot};
+use crate::realm::RealmProcessor;
+
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
@@ -240,12 +243,16 @@ impl
             );
         }
 
-        // Build and prove the block (all logic including logging is inside ctx.build_block)
-        if let Err(e) = self.ctx.build_block(slot).await {
-            self.journal_store.rollback(next_checkpoint_id)?;
-            bail!("Failed to build and prove block: {:?}", e);
-        }
-
+        let ctx = self.ctx.clone();
+        let journal_store = self.journal_store.clone();
+        self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
+            // Build and prove the block (all logic including logging is inside ctx.build_block)
+            if let Err(e) = ctx.build_block(slot).await {
+                journal_store.rollback(next_checkpoint_id)?;
+                bail!("Failed to build and prove block: {}", e);
+            }
+            Ok(())
+        }).await?;
         // Commit the changes
         self.journal_store.commit(next_checkpoint_id)?;
         self.ctx.consumption_state().await?;
@@ -283,3 +290,14 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         }
     }
 }
+
+impl<
+    JL: Journal,
+    SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
+    DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
+    HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
+    WQ: WorkerEventTransmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
+    ER: WorkerEventReceiverAsyncImm,
+    TS: QProvingTaskStore,
+> Retryable for CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER, TS>{}

@@ -778,7 +778,7 @@ impl<
     }
 
     pub async fn plan_jobs(
-        &mut self,
+        &self,
         new_checkpoint_id: u64,
         user_registration_jobs: &Vec<Vec<QProvingJobDataID>>,
         deploy_jobs: &Vec<Vec<QProvingJobDataID>>,
@@ -856,7 +856,7 @@ impl<
         Ok((state_part_1_id, root_state_transition))
     }
 
-    pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<()> {
+    pub async fn build_block(&self, slot: u64) -> anyhow::Result<()> {
         let start = Instant::now();
         info!("coordinator STARTED new block");
 

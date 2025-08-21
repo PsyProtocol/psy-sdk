@@ -4,7 +4,7 @@ use std::ops::Deref;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
-use crate::realm::{Retryable, C, D, F};
+use crate::realm::{C, D, F};
 use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
 };
@@ -30,6 +30,7 @@ use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
 use crate::common::clock::SlotTimer;
 use crate::common::slot::{Clock, LocalClock, Slot};
+use crate::common::retry::Retryable;
 use crate::realm::processor::slot_phase::SlotPhase;
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<

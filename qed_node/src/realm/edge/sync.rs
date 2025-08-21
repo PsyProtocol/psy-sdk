@@ -1,5 +1,5 @@
 use std::env;
-use crate::realm::{RetryConfig, Retryable, F};
+use crate::realm::F;
 use std::sync::Arc;
 use std::time::Duration;
 use jsonrpsee::rpc_params;
@@ -23,6 +23,7 @@ use qed_data::config::store_config::QEDFelt;
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_rollup_utils::generate_jwt_token;
 use qed_store::queue::ProofStoreRedisAsync;
+use crate::common::retry::{RetryConfig, Retryable};
 use crate::realm::state::edge::RealmEdgeContext;
 
 const SYNC_INTERVAL: Duration = Duration::from_millis(500);

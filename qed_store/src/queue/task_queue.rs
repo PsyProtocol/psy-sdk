@@ -79,6 +79,7 @@ impl std::fmt::Display for QJob {
 }
 
 /// Job task store implementation with Redis backend and layer support
+#[derive(Clone)]
 pub struct QProvingTaskStoreImpl {
     redis_pool: Arc<Pool<RedisConnectionManager>>,
     rsmq: Arc<RsmqQueue>,
