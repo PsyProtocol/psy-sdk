@@ -32,7 +32,9 @@ use anyhow::anyhow;
 use jsonrpsee::types::{ErrorCode, ErrorObject};
 
 use tracing::{debug, error, info, warn};
+use qed_prover::wallet::secp_sign::{ProofSubmission, SignedRequest};
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob};
+use crate::common::whitelist::WorkerWhitelist;
 
 #[derive(Clone)]
 pub struct RealmEdgeHandler<
@@ -43,6 +45,7 @@ pub struct RealmEdgeHandler<
     ctx: RealmEdgeContext<SR, DQ, PS>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
     task_store: Arc<QProvingTaskStoreImpl>,
+    white_list: Arc<WorkerWhitelist>
 
 }
 
@@ -56,11 +59,14 @@ where
         ctx: RealmEdgeContext<SR, DQ, PS>,
         job_notify_queue: Arc<ProofStoreRedisAsync>,
         task_store: Arc<QProvingTaskStoreImpl>,
+        white_list: Arc<WorkerWhitelist>
+
     ) -> Self {
         Self {
             ctx,
             job_notify_queue,
             task_store,
+            white_list
         }
     }
     async fn log_suspicious_activity(&self, job: &QJob, reason: &str) {
@@ -711,7 +717,12 @@ where
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
-    async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
+    async fn get_pending_job(&self, signed: SignedRequest<String>) -> RpcResult<Option<QJob>> {
+
+        self.white_list.verify_claim_job(&signed).await.map_err(|e|
+            crate::coordinator::edge::error::RpcError::Anyhow(e.into())
+        )?;
+
         let j = match self.task_store.claim_job_from_current_layer().await {
             Ok(job) => job,
             Err(e) => {
@@ -754,11 +765,15 @@ where
 
     async fn set_proof_by_id(
         &self,
-        job: QJob,
-        proof: Option<ConcreteProofWithPublicInputs>,
+        signed: SignedRequest<ProofSubmission>,
     ) -> RpcResult<()> {
-        let job_id = job.job_id;
 
+        self.white_list.verify_submit_proof(&signed).await.map_err(|e|
+            crate::coordinator::edge::error::RpcError::Anyhow(e.into())
+        )?;
+        let job = signed.data.job;
+        let job_id = job.job_id;
+        let proof = signed.data.proof;
         // CRITICAL: Validate job ownership before processing proof
         let validation_status = self.task_store.validate_job_ownership(&job).await
             .map_err(|e| crate::coordinator::edge::error::RpcError::Anyhow(anyhow!("Failed to validate job: {}", e)))?;

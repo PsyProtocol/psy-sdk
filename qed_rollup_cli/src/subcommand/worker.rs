@@ -10,24 +10,38 @@ use std::sync::Arc;
 use tracing::{info, error};
 use std::str::FromStr;
 use std::fs;
+use std::path::PathBuf;
+use qed_prover::wallet::cli::{default_wallet_path, load_wallet_auto, wallet_interactive};
+use qed_prover::wallet::secp_wallet::Wallet;
 
 type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
-pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Result<()> {
+pub async fn run(
+    config: String,
+    wallet_path: Option<String>,
+    wallet_password: Option<String>,
+    non_interactive: bool
+) -> anyhow::Result<()> {
     info!("Worker starting...");
-    info!("Loading config from: {}", config_path);
+    info!("Loading config from: {}", config);
 
-    let config_str = fs::read_to_string(&config_path)?;
+    let config_str = fs::read_to_string(&config)?;
     let config: qed_prover::local::provider::Config = serde_json::from_str(&config_str)?;
 
-    let worker_public_key = if let Some(key_str) = public_key {
-        QHashOut::<GoldilocksField>::from_str(&key_str)
-            .map_err(|e| anyhow::format_err!("Failed to parse public key: {}", e))?
+    let wallet = if non_interactive {
+        let path = wallet_path
+            .map(PathBuf::from)
+            .unwrap_or_else(default_wallet_path);
+
+        load_wallet_auto(Some(path), wallet_password.as_deref())?
     } else {
-        get_default_worker_public_key::<GoldilocksField>()
+        wallet_interactive()?
     };
+
+    let wallet = Arc::new(wallet);
+    let worker_public_key = wallet.id_hash();
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     let prover = Arc::new(QEDCoordinatorCircuitManager::<C, D>::new_with_library(
@@ -44,11 +58,11 @@ pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Res
         for rpc_url in &coordinator_config.rpc_url {
             let handle = tokio::spawn(run_worker(
                 rpc_url.clone(),
-                worker_public_key,
                 JobLocation::Coordinator,
                 job_tracker.clone(),
                 prover.clone(),
                 library.clone(),
+                wallet.clone(),
             ));
             handles.push(handle);
         }
@@ -58,11 +72,11 @@ pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Res
         for rpc_url in &realm_config.rpc_url {
             let handle = tokio::spawn(run_worker(
                 rpc_url.clone(),
-                worker_public_key,
                 JobLocation::Realm(realm_config.id),
                 job_tracker.clone(),
                 prover.clone(),
                 library.clone(),
+                wallet.clone(),
             ));
             handles.push(handle);
         }

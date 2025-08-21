@@ -49,6 +49,8 @@ pub struct CoordinatorEdgeArgs {
     pub queue_args: CoordinatorQueueArgs,
     #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
     pub redis_pool_size: usize,
+    //worker white list file path
+    pub worker_whitelist: Option<String>,
 }
 
 #[derive(Clone, Debug, Args)]
