@@ -1,18 +1,40 @@
-use std::fs;
-use std::path::Path;
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
-use alloy_primitives::Address;
-use alloy_signer_local::PrivateKeySigner;
+use anyhow::{Context, Result};
+use k256::sha2::{Digest, Sha256};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_store::queue::task_queue::QJob;
-use k256::sha2::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::fmt::Display;
+use std::marker::PhantomData;
+use std::time::{SystemTime, UNIX_EPOCH, Duration};
+
 use crate::wallet::secp_wallet::Wallet;
 
+/// Default signature expiry duration (5 minutes)
+const DEFAULT_SIGNATURE_EXPIRY: Duration = Duration::from_secs(300);
+
+/// Message type for job claims
 pub const MESSAGE_CLAIM_JOB: &str = "claim_job";
+
+/// Timestamp provider trait for testing
+pub trait TimestampProvider: Send + Sync {
+    fn now(&self) -> u64;
+}
+
+/// Default system time provider
+#[derive(Clone, Debug)]
+pub struct SystemTimeProvider;
+
+impl TimestampProvider for SystemTimeProvider {
+    fn now(&self) -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }
+}
 
 /// Signed request wrapper for authenticated RPC calls
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -26,18 +48,12 @@ pub struct SignedRequest<T> {
 impl<T: Serialize> SignedRequest<T> {
     /// Create a new signed request
     pub fn new(wallet: &Wallet, data: T) -> Result<Self> {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_secs();
-
-        let message = serde_json::json!({
-            "data": &data,
-            "worker_id": wallet.id(),
-            "timestamp": timestamp,
-        });
-
-        let message_bytes = serde_json::to_vec(&message)?;
-        let signature = hex::encode(wallet.sign_raw(&message_bytes)?);
+        Self::new_with_timestamp(wallet, data, SystemTimeProvider.now())
+    }
+    /// Create with specific timestamp (for testing)
+    pub fn new_with_timestamp(wallet: &Wallet, data: T, timestamp: u64) -> Result<Self> {
+        let message = create_message(&data, &wallet.id(), timestamp);
+        let signature = sign_message(wallet, &message)?;
 
         Ok(Self {
             data,
@@ -45,6 +61,44 @@ impl<T: Serialize> SignedRequest<T> {
             signature,
             timestamp,
         })
+    }
+    /// Verify signature and optionally check expiry
+    pub fn verify(&self, wallet: &Wallet, check_expiry: bool) -> Result<bool> {
+        if check_expiry && self.is_expired() {
+            return Ok(false);
+        }
+
+        let message = create_message(&self.data, &self.worker_id, self.timestamp);
+        let signature_bytes = hex::decode(&self.signature)?;
+
+        Wallet::verify_signature(
+            &serde_json::to_vec(&message)?,
+            &signature_bytes,
+            wallet.address_raw(),
+        )
+    }
+
+    /// Check if request has expired (default 5 minutes)
+    pub fn is_expired(&self) -> bool {
+        self.is_expired_with_duration(DEFAULT_SIGNATURE_EXPIRY)
+    }
+
+    /// Check if request has expired with custom duration
+    pub fn is_expired_with_duration(&self, duration: Duration) -> bool {
+        let now = SystemTimeProvider.now();
+        now > self.timestamp + duration.as_secs()
+    }
+
+    /// Get the age of the request in seconds
+    pub fn age(&self) -> u64 {
+        SystemTimeProvider.now().saturating_sub(self.timestamp)
+    }
+}
+
+impl<T: Display + Serialize> Display for SignedRequest<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "SignedRequest[worker={}, age={}s]",
+               &self.worker_id[..8], self.age())
     }
 }
 
@@ -62,10 +116,21 @@ impl ProofSubmission {
         job: QJob,
         proof: Option<ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>>
     ) -> Result<Self> {
-        let proof_hash = Self::calculate_optional_proof_hash(&proof)?;
+        let proof_hash = proof.as_ref()
+            .map(Self::hash_proof)
+            .transpose()?
+            .unwrap_or_default();
         Ok(Self { job, proof, proof_hash })
     }
 
+    /// Create submission without proof (for failures)
+    pub fn failure(job: QJob) -> Self {
+        Self {
+            job,
+            proof: None,
+            proof_hash: String::new(),
+        }
+    }
     /// Calculate deterministic hash of a proof
     fn hash_proof(
         proof: &ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>
@@ -82,70 +147,99 @@ impl ProofSubmission {
             .transpose()
             .map(|h| h.unwrap_or_default())
     }
+    /// Check if submission contains a proof
+    pub fn has_proof(&self) -> bool {
+        self.proof.is_some()
+    }
 }
+
+impl fmt::Display for ProofSubmission {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ProofSubmission[job_id={:?}, has_proof={}, hash={}...]",
+               self.job.job_id, self.has_proof(), &self.proof_hash[..8])
+    }
+}
+
+/// Builder for creating various signed requests
+pub struct RequestBuilder<'a> {
+    wallet: &'a Wallet,
+    timestamp: Option<u64>,
+}
+
+impl<'a> RequestBuilder<'a> {
+    /// Create new builder
+    pub fn new(wallet: &'a Wallet) -> Self {
+        Self {
+            wallet,
+            timestamp: None,
+        }
+    }
+
+    /// Set custom timestamp
+    pub fn with_timestamp(mut self, timestamp: u64) -> Self {
+        self.timestamp = Some(timestamp);
+        self
+    }
+
+    /// Build job claim request
+    pub fn claim_job(self) -> Result<SignedRequest<String>> {
+        self.build(MESSAGE_CLAIM_JOB.to_string())
+    }
+
+    /// Build proof submission request
+    pub fn submit_proof(self, job: QJob, proof: Option<ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>>) -> Result<SignedRequest<ProofSubmission>> {
+        let submission = ProofSubmission::new(job, proof)?;
+        self.build(submission)
+    }
+
+    /// Build custom request
+    pub fn custom<T: Serialize>(self, data: T) -> Result<SignedRequest<T>> {
+        self.build(data)
+    }
+
+    /// Internal build method
+    fn build<T: Serialize>(self, data: T) -> Result<SignedRequest<T>> {
+        match self.timestamp {
+            Some(ts) => SignedRequest::new_with_timestamp(self.wallet, data, ts),
+            None => SignedRequest::new(self.wallet, data),
+        }
+    }
+}
+
 
 // Convenience methods for specific request types
 impl Wallet {
-    /// Create a job claim request
-    pub fn sign_claim_job(&self) -> Result<SignedRequest<String>> {
-        SignedRequest::new(self, "claim_job".to_string())
+    /// Create a request builder
+    pub fn request(&self) -> RequestBuilder {
+        RequestBuilder::new(self)
     }
 
-    /// Create a proof submission request
+    /// Quick method to create job claim
+    pub fn sign_claim_job(&self) -> Result<SignedRequest<String>> {
+        self.request().claim_job()
+    }
+
+    /// Quick method to submit proof
     pub fn sign_proof_submission(
         &self,
         job: QJob,
-        proof: Option<ProofWithPublicInputs<
-            GoldilocksField,
-            PoseidonGoldilocksConfig,
-            2
-        >>
+        proof: Option<ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>>,
     ) -> Result<SignedRequest<ProofSubmission>> {
-        let submission = ProofSubmission::new(job, proof)?;
-        SignedRequest::new(self, submission)
+        self.request().submit_proof(job, proof)
     }
-    /// List all accounts in a keystore directory (following Foundry's list pattern)
-    pub fn list_accounts(dir: Option<&Path>) -> Result<Vec<String>> {
-        let keystore_dir = dir
-            .map(|p| p.to_path_buf())
-            .or_else(|| dirs::home_dir().map(|h| h.join(".foundry/keystores")))
-            .ok_or_else(|| anyhow::anyhow!("Could not determine keystore directory"))?;
+}
 
-        let mut accounts = Vec::new();
-        if keystore_dir.exists() {
-            for entry in fs::read_dir(keystore_dir)? {
-                let path = entry?.path();
-                if path.is_file() {
-                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                        accounts.push(name.to_string());
-                    }
-                }
-            }
-        }
-        Ok(accounts)
-    }
 
-    /// Generate a vanity address (following Foundry's vanity pattern)
-    pub fn vanity(starts_with: Option<&str>, ends_with: Option<&str>) -> Result<Self> {
-        use rayon::iter::{IntoParallelIterator, ParallelIterator};
+fn create_message<T: Serialize>(data: &T, worker_id: &str, timestamp: u64) -> serde_json::Value {
+    serde_json::json!({
+        "data": data,
+        "worker_id": worker_id,
+        "timestamp": timestamp,
+    })
+}
 
-        let matcher = |addr: &Address| -> bool {
-            let hex_addr = hex::encode(addr.as_slice());
-            let start_match = starts_with.map_or(true, |s| hex_addr.starts_with(s));
-            let end_match = ends_with.map_or(true, |s| hex_addr.ends_with(s));
-            start_match && end_match
-        };
-
-        // Generate wallets in parallel until we find a match
-        let wallet = (0..u64::MAX)
-            .into_par_iter()
-            .map(|_| {
-                let mut rng = rand::thread_rng();
-                PrivateKeySigner::random_with(&mut rng)
-            })
-            .find_any(|w| matcher(&w.address()))
-            .ok_or_else(|| anyhow::anyhow!("Failed to generate vanity address"))?;
-
-        Self::from_private_key_signer(wallet)
-    }
+fn sign_message(wallet: &Wallet, message: &serde_json::Value) -> Result<String> {
+    let message_bytes = serde_json::to_vec(message)?;
+    let signature = wallet.sign_raw(&message_bytes)?;
+    Ok(hex::encode(signature))
 }
