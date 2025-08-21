@@ -7,10 +7,10 @@ CREATE TABLE worker_event_statuses (
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-INSERT INTO worker_event_statuses (status) VALUES 
-    ('PENDING'), 
-    ('PROCESSING'), 
-    ('COMPLETED'), 
+INSERT INTO worker_event_statuses (status) VALUES
+    ('PENDING'),
+    ('PROCESSING'),
+    ('COMPLETED'),
     ('FAILED');
 
 CREATE TABLE worker_event_sources (
@@ -18,12 +18,12 @@ CREATE TABLE worker_event_sources (
     source VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-INSERT INTO worker_event_sources (source) VALUES 
-    ('COORDINATOR'), 
+INSERT INTO worker_event_sources (source) VALUES
+    ('COORDINATOR'),
     ('REALM');
 
 CREATE TABLE worker_events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT uuid_generate_v4(),
     realm_id BIGINT,
     public_key VARCHAR(128),
     status VARCHAR(100) NOT NULL,
@@ -35,6 +35,9 @@ CREATE TABLE worker_events (
     timestamp TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- Composite primary key including the partition key
+    PRIMARY KEY (id, timestamp),
 
     -- Foreign key constraints to enum tables
     CONSTRAINT fk_worker_events_status

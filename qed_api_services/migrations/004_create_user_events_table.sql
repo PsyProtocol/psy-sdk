@@ -10,13 +10,16 @@ INSERT INTO user_event_tx_types (tx_type) VALUES
     ('GUTA');
 
 CREATE TABLE user_events (
-    user_id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(255),
     public_key VARCHAR(128) NOT NULL,
     tx_type VARCHAR(100) NOT NULL,
     metadata JSONB DEFAULT '{}'::jsonb,  -- Add metadata for flexibility
     timestamp TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- Composite primary key including the partition key
+    PRIMARY KEY (user_id, timestamp),
 
     -- Foreign key constraint to enum table
     CONSTRAINT fk_user_events_tx_type

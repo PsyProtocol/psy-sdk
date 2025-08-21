@@ -25,9 +25,10 @@ BEGIN
              COUNT(CASE WHEN status = ''PENDING'' THEN 1 END) as pending_count,
              AVG(duration) as avg_duration_ms,
              MIN(duration) as min_duration_ms,
-             MAX(duration) as max_duration_ms,
+             MAX(duration) as max_duration_ms
          FROM worker_events
-         GROUP BY bucket, realm_id, source',
+         GROUP BY bucket, realm_id, source
+         WITH NO DATA;',
         view_name,
         bucket_interval
     );
@@ -77,9 +78,10 @@ BEGIN
              COUNT(*) as count,
              COUNT(CASE WHEN tx_type = ''REGISTER_USER'' THEN 1 END) as register_user_count,
              COUNT(CASE WHEN tx_type = ''DEPLOY_CONTRACT'' THEN 1 END) as deploy_contract_count,
-             COUNT(CASE WHEN tx_type = ''GUTA'' THEN 1 END) as guta_count,
+             COUNT(CASE WHEN tx_type = ''GUTA'' THEN 1 END) as guta_count
          FROM user_events
-         GROUP BY bucket',
+         GROUP BY bucket
+         WITH NO DATA;',
         view_name,
         bucket_interval
     );
