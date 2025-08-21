@@ -225,7 +225,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedisAsync {
         );
         tracing::debug!("Pushing job id to queue: {:?}", key);
         let mut con = self.pool.get().await?;
-        con.lpush(key, bytes).await?;
+        con.rpush(key, bytes).await?;
 
         Ok(())
     }
@@ -309,7 +309,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
     }
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         let mut con = self.pool.get().await?;
-        con.lpush(
+        con.rpush(
             &self.worker_queue_key(),
             jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect::<Vec<Vec<u8>>>().as_slice(),
         )
@@ -319,7 +319,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
     }
     async fn notify_core_goal_completed_imm(&self, job: QProvingJobDataID) -> anyhow::Result<()> {
         let mut con = self.pool.get().await?;
-        con.lpush(&self.notifications_queue_key(), job.to_fixed_bytes().as_slice())
+        con.rpush(&self.notifications_queue_key(), job.to_fixed_bytes().as_slice())
             .await?;
 
         Ok(())
@@ -330,7 +330,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
 impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         let mut con = self.pool.get().await?;
-        con.lpush(
+        con.rpush(
             &self.worker_queue_key(),
             jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect::<Vec<Vec<u8>>>().as_slice(),
         )
@@ -613,7 +613,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         }
         
         // Calculate positions for consumption
-        let start_position = 0; // Always start from head
+        let start_position = 0i64; // Always start from head
         let end_position = std::cmp::min(count as i64, queue_length);
         
         // Read items without removing them
@@ -627,7 +627,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         }
         
         let state = QueueConsumptionState {
-            start_position: start_position as i64,
+            start_position,
             end_position,
             checkpoint_id,
             channel_id: 0,
@@ -710,7 +710,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         }
         
         // Read all items without removing them
-        let start_position = 0;
+        let start_position = 0i64;
         let end_position = queue_length;
         let members: Vec<Vec<u8>> = con.lrange(&key, start_position as isize, (end_position - 1) as isize).await?;
         
@@ -722,7 +722,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
             .collect::<anyhow::Result<Vec<T>>>()?;
         
         let state = QueueConsumptionState {
-            start_position: start_position as i64,
+            start_position,
             end_position,
             checkpoint_id,
             channel_id,

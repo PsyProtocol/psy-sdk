@@ -178,6 +178,7 @@ impl RealmProcessor {
             let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
             let next_checkpoint_id = local_latest_checkpoint_id + 1;
             self.store.commit(local_latest_checkpoint_id)?;
+            //context.consumption_state().await?;
             let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
             if !has_tasks {
                 warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);

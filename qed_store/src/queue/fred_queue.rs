@@ -185,7 +185,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
             checkpoint_queue_prefix, metadata.channel_id,
         );
         // tracing::debug!("Pushing job id to queue: {:?}", key);
-        self.pool.lpush::<(), String, &[u8]>(key, &bytes).await?;
+        self.pool.rpush::<(), String, &[u8]>(key, &bytes).await?;
 
         Ok(())
     }
@@ -258,7 +258,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
     }
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.pool
-            .lpush::<(), _, Vec<Vec<u8>>>(
+            .rpush::<(), _, Vec<Vec<u8>>>(
                 &self.worker_queue_key(),
                 jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect(),
             )
@@ -268,7 +268,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
     }
     async fn notify_core_goal_completed_imm(&self, job: QProvingJobDataID) -> anyhow::Result<()> {
         self.pool
-            .lpush::<(), _, &[u8]>(&self.notifications_queue_key(), &job.to_fixed_bytes())
+            .rpush::<(), _, &[u8]>(&self.notifications_queue_key(), &job.to_fixed_bytes())
             .await?;
 
         Ok(())
@@ -279,7 +279,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
 impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.pool
-            .lpush::<(), _, Vec<Vec<u8>>>(
+            .rpush::<(), _, Vec<Vec<u8>>>(
                 &self.worker_queue_key(),
                 jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect(),
             )
@@ -467,7 +467,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for DrainQueueFred {
         let metadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
         self.pool
-            .lpush::<(), String, &[u8]>(
+            .rpush::<(), String, &[u8]>(
                     format!("{}_{}", self.checkpoint_drain_queue_key(), metadata.channel_id),
                 &bytes,
             )
