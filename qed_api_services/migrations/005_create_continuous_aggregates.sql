@@ -1,0 +1,111 @@
+-- 005_create_continuous_aggregates.sql
+
+CREATE OR REPLACE FUNCTION create_complete_worker_events_aggregate(
+    view_name TEXT,
+    bucket_interval INTERVAL,
+    refresh_start_offset INTERVAL,
+    refresh_end_offset INTERVAL,
+    refresh_schedule INTERVAL,
+    retention_period INTERVAL DEFAULT NULL
+) RETURNS VOID AS $$
+DECLARE
+    sql_query TEXT;
+BEGIN
+    -- Build the SQL query for creating the materialized view
+    sql_query := format(
+        'CREATE MATERIALIZED VIEW %I WITH (timescaledb.continuous) AS
+         SELECT
+             time_bucket(%L, timestamp) AS bucket,
+             realm_id,
+             source,
+             COUNT(*) as event_count,
+             AVG(duration) as avg_duration_ms,
+             MIN(duration) as min_duration_ms,
+             MAX(duration) as max_duration_ms,
+             COUNT(CASE WHEN status = ''COMPLETED'' THEN 1 END) as completed_count,
+             COUNT(CASE WHEN status = ''FAILED'' THEN 1 END) as failed_count,
+             COUNT(CASE WHEN status = ''PROCESSING'' THEN 1 END) as processing_count,
+             COUNT(CASE WHEN status = ''PENDING'' THEN 1 END) as pending_count,
+         FROM worker_events
+         GROUP BY bucket, realm_id, source',
+        view_name,
+        bucket_interval
+    );
+
+    -- Execute the query
+    EXECUTE sql_query;
+    RAISE NOTICE 'Created worker events aggregate view: %', view_name;
+
+    -- Add refresh policy
+    PERFORM add_continuous_aggregate_policy(
+        view_name,
+        start_offset => refresh_start_offset,
+        end_offset => refresh_end_offset,
+        schedule_interval => refresh_schedule
+    );
+    RAISE NOTICE 'Added refresh policy for view: %', view_name;
+
+    -- Add retention policy if specified
+    IF retention_period IS NOT NULL THEN
+        PERFORM add_retention_policy(view_name, retention_period);
+        RAISE NOTICE 'Added retention policy for view: % (retention: %)', view_name, retention_period;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT create_complete_worker_events_aggregate('worker_events_hourly', '1 hour', '1 day', '15 minutes', '15 minutes', '1 year');
+SELECT create_complete_worker_events_aggregate('worker_events_daily', '1 day', '7 days', '1 hour', '1 hour', '1 year');
+SELECT create_complete_worker_events_aggregate('worker_events_weekly', '1 week', '1 month', '1 day', '1 day', '1 year');
+SELECT create_complete_worker_events_aggregate('worker_events_monthly', '1 month', '1 year', '1 day', '1 day', '1 year');
+
+CREATE OR REPLACE FUNCTION create_complete_user_events_aggregate(
+    view_name TEXT,
+    bucket_interval INTERVAL,
+    refresh_start_offset INTERVAL,
+    refresh_end_offset INTERVAL,
+    refresh_schedule INTERVAL,
+    retention_period INTERVAL DEFAULT NULL
+) RETURNS VOID AS $$
+DECLARE
+    sql_query TEXT;
+BEGIN
+    -- Build the SQL query for creating the materialized view
+    sql_query := format(
+        'CREATE MATERIALIZED VIEW %I WITH (timescaledb.continuous) AS
+         SELECT
+             time_bucket(%L, timestamp) AS bucket,
+             COUNT(*) as event_count,
+             COUNT(CASE WHEN tx_type = ''REGISTER_USER'' THEN 1 END) as register_user_count,
+             COUNT(CASE WHEN tx_type = ''DEPLOY_CONTRACT'' THEN 1 END) as deploy_contract_count,
+             COUNT(CASE WHEN tx_type = ''GUTA'' THEN 1 END) as guta_count,
+         FROM user_events
+         GROUP BY bucket',
+        view_name,
+        bucket_interval
+    );
+
+    -- Execute the query
+    EXECUTE sql_query;
+    RAISE NOTICE 'Created user events aggregate view: %', view_name;
+
+    -- Add refresh policy
+    PERFORM add_continuous_aggregate_policy(
+        view_name,
+        start_offset => refresh_start_offset,
+        end_offset => refresh_end_offset,
+        schedule_interval => refresh_schedule
+    );
+    RAISE NOTICE 'Added refresh policy for view: %', view_name;
+
+    -- Add retention policy if specified
+    IF retention_period IS NOT NULL THEN
+        PERFORM add_retention_policy(view_name, retention_period);
+        RAISE NOTICE 'Added retention policy for view: % (retention: %)', view_name, retention_period;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT create_complete_user_events_aggregate('user_events_hourly', '1 hour', '1 day', '15 minutes', '15 minutes', '1 year');
+SELECT create_complete_user_events_aggregate('user_events_daily', '1 day', '7 days', '1 hour', '1 hour', '1 year');
+SELECT create_complete_user_events_aggregate('user_events_weekly', '1 week', '1 month', '1 day', '1 day', '1 year');
+SELECT create_complete_user_events_aggregate('user_events_monthly', '1 month', '1 year', '1 day', '1 day', '1 year');
