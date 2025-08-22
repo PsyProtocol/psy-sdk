@@ -43,10 +43,15 @@ pub struct UpdateConfigurationMessage {
     pub filters: SubscriptionFilters,
 }
 
-// TODO: change event_type to enum
+#[derive(Debug, Serialize, Clone)]
+pub enum EventType {
+    WorkerEvent,
+    UserEvent,
+}
+
 #[derive(Debug, Serialize)]
 pub struct WebSocketEvent {
-    pub event_type: String,
+    pub event_type: EventType,
     pub data: serde_json::Value,
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
@@ -86,8 +91,8 @@ impl WebSocketManager {
 
     fn should_send_event(&self, connection: &WebSocketConnection, event: &WebSocketEvent) -> bool {
         // Basic filtering logic - can be expanded based on requirements
-        match event.event_type.as_str() {
-            "worker_event" => {
+        match event.event_type {
+            EventType::WorkerEvent => {
                 // Filter by realm_id if specified
                 if let Some(realm_ids) = &connection.filters.realm_ids {
                     if let Ok(worker_event) =
@@ -100,7 +105,7 @@ impl WebSocketManager {
                 }
                 true
             }
-            "user_event" => {
+            EventType::UserEvent => {
                 // Filter by user_id if specified
                 if let Some(user_ids) = &connection.filters.user_ids {
                     if let Ok(user_event) = serde_json::from_value::<UserEvent>(event.data.clone())

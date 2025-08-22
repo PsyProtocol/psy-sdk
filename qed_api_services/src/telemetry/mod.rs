@@ -1,7 +1,12 @@
 use axum::{extract::State, http::StatusCode, response::Json, routing::post, Router};
 use serde::{Deserialize, Serialize};
 
-use crate::{models::*, repositories::*, services::ApiService, websocket::WebSocketEvent};
+use crate::{
+    models::*,
+    repositories::*,
+    services::ApiService,
+    websocket::{EventType, WebSocketEvent},
+};
 
 pub fn create_telemetry_router(api_service: ApiService) -> Router {
     Router::new()
@@ -79,7 +84,7 @@ async fn receive_events_handler(
     if let Some(ref worker_events) = payload.worker_events {
         for worker_event in worker_events {
             let ws_event = WebSocketEvent {
-                event_type: "worker_event".to_string(),
+                event_type: EventType::WorkerEvent,
                 data: serde_json::to_value(worker_event).unwrap_or_default(),
                 timestamp: chrono::Utc::now(),
             };
@@ -90,7 +95,7 @@ async fn receive_events_handler(
     if let Some(ref user_events) = payload.user_events {
         for user_event in user_events {
             let ws_event = WebSocketEvent {
-                event_type: "user_event".to_string(),
+                event_type: EventType::UserEvent,
                 data: serde_json::to_value(user_event).unwrap_or_default(),
                 timestamp: chrono::Utc::now(),
             };
