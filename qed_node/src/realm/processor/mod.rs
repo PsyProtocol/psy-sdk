@@ -120,7 +120,7 @@ impl RealmProcessor {
         info!("Realm Processor started");
 
         // Check for incomplete consumption state on startup
-        if let Ok(Some(last_state)) = context.sync_queue.get_last_consumption_state().await {
+        if let Ok(Some(last_state)) = context.sync_queue.get_last_peek_offset().await {
             info!("🔄 Found incomplete consumption state for checkpoint {} on startup", last_state.checkpoint_id);
         }
 
@@ -178,7 +178,7 @@ impl RealmProcessor {
             let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
             let next_checkpoint_id = local_latest_checkpoint_id + 1;
             self.store.commit(local_latest_checkpoint_id)?;
-            //context.consumption_state().await?;
+            context.commit_offset().await?;
             let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
             if !has_tasks {
                 warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
@@ -303,7 +303,7 @@ impl RealmProcessor {
             match context.build_block().await {
                 Ok(job_id) => {
                     // Success - consumption is already committed in build_block
-                    context.consumption_state().await?;
+                    //context.commit_offset().await?;
                     Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
                 },
                 Err(err) => {

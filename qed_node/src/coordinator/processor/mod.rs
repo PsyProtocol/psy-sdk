@@ -255,7 +255,7 @@ impl
         }).await?;
         // Commit the changes
         self.journal_store.commit(next_checkpoint_id)?;
-        self.ctx.consumption_state().await?;
+        self.ctx.commit_offset().await?;
         Ok(next_checkpoint_id)
     }
 }

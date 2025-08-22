@@ -73,7 +73,7 @@ use qed_store::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, error};
-use qed_store::queue::redis_queue::QueueConsumptionState;
+use qed_store::queue::redis_queue::QueueOffsetState;
 use std::marker::Sync;
 use qed_core::config::network_constants::CST_USER_UPDATE_CHANNEL_ID;
 
@@ -211,7 +211,7 @@ impl<
         let last_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
         let (deploy_contract_items, _consumption_state) = self
             .checkpoint_queue
-            .consume_with_position::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
+            .peek_with_position::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
                 self.coordinator_config.deploy_contract_channel_id,
                 checkpoint_id,
             )
@@ -320,7 +320,7 @@ impl<
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
         let (user_registrations, consumption_state) = self
             .checkpoint_queue
-            .consume_with_position::<ZKPublicKeyInfo<F>>(
+            .peek_with_position::<ZKPublicKeyInfo<F>>(
                 COORD_API_REGISTER_USER_CHANNEL_ID,
                 checkpoint_id,
             )
@@ -422,7 +422,7 @@ impl<
         tracing::debug!(checkpoint_id = checkpoint_id, "Processing checkpoint");
         let (mut guta_queue_items, consumption_state) = self
             .checkpoint_queue
-            .consume_with_position::<SubmitGUTARealmResultAPIQueueItem<F>>(
+            .peek_with_position::<SubmitGUTARealmResultAPIQueueItem<F>>(
                 self.coordinator_config.guta_channel_id,
                 checkpoint_id,
             )
@@ -1093,15 +1093,15 @@ impl<
     }
 
     // commit redis queue
-    pub async fn consumption_state(&self) -> anyhow::Result<()> {
-        if let Some(state) = self.checkpoint_queue.get_last_consumption_state(self.coordinator_config.deploy_contract_channel_id).await? {
-            self.checkpoint_queue.commit_consumption(&state).await?;
+    pub async fn commit_offset(&self) -> anyhow::Result<()> {
+        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(self.coordinator_config.deploy_contract_channel_id).await? {
+            self.checkpoint_queue.commit_offset(&state).await?;
         }
-        if let Some(state) = self.checkpoint_queue.get_last_consumption_state(COORD_API_REGISTER_USER_CHANNEL_ID).await? {
-            self.checkpoint_queue.commit_consumption(&state).await?;
+        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(COORD_API_REGISTER_USER_CHANNEL_ID).await? {
+            self.checkpoint_queue.commit_offset(&state).await?;
         }
-        if let Some(state) = self.checkpoint_queue.get_last_consumption_state(self.coordinator_config.guta_channel_id).await? {
-            self.checkpoint_queue.commit_consumption(&state).await?;
+        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(self.coordinator_config.guta_channel_id).await? {
+            self.checkpoint_queue.commit_offset(&state).await?;
         }
         Ok(())
     }

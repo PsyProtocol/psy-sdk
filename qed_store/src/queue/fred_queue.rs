@@ -24,7 +24,7 @@ use super::PS_DRAIN_QUEUE_KEY_PREFIX;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::RichField;
-use crate::queue::redis_queue::QueueConsumptionState;
+use crate::queue::redis_queue::QueueOffsetState;
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -511,22 +511,22 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
 
 #[async_trait]
 impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreFred {
-    async fn consume_with_position<T: DQSerializable>(
+    async fn peek_with_position<T: DQSerializable>(
         &self,
         _channel_id: u64,
         _checkpoint_id: u64,
-    ) -> anyhow::Result<(Vec<T>, QueueConsumptionState)> {
+    ) -> anyhow::Result<(Vec<T>, QueueOffsetState)> {
         todo!()
     }
     
-    async fn commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
+    async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()> {
         todo!()
     }
 
-    async fn get_last_consumption_state(
+    async fn get_last_peek_offset(
         &self,
         channel_id: u64,
-    ) -> anyhow::Result<Option<QueueConsumptionState>> {
+    ) -> anyhow::Result<Option<QueueOffsetState>> {
         Ok(None)
     }
 }
@@ -552,19 +552,19 @@ impl QPendingUserStoreAsyncImm for ProofStoreFred {
         Ok(0)
     }
     
-    async fn consume_users_with_position<F: RichField>(
+    async fn peek_with_position<F: RichField>(
         &self,
         _count: usize,
         _checkpoint_id: u64,
-    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueConsumptionState)> {
+    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueOffsetState)> {
         todo!()
     }
     
-    async fn commit_consumption(&self, _state: &QueueConsumptionState) -> anyhow::Result<()> {
+    async fn commit_offset(&self, _state: &QueueOffsetState) -> anyhow::Result<()> {
         todo!()
     }
     
-    async fn get_last_consumption_state(&self) -> anyhow::Result<Option<QueueConsumptionState>> {
+    async fn get_last_peek_offset(&self) -> anyhow::Result<Option<QueueOffsetState>> {
         todo!()
     }
 }

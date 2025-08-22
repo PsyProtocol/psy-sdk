@@ -42,7 +42,7 @@ use qed_store::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, error};
-use qed_store::queue::redis_queue::QueueConsumptionState;
+use qed_store::queue::redis_queue::QueueOffsetState;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -186,7 +186,7 @@ impl<
         // Use position-based consumption for CST updates
         let (updates, consumption_state) = self
             .checkpoint_queue
-            .consume_with_position::<CSTUserUpdate<QHashOut<F>>>(
+            .peek_with_position::<CSTUserUpdate<QHashOut<F>>>(
                 CST_USER_UPDATE_CHANNEL_ID,
                 checkpoint_id,
         ).await?;
@@ -507,7 +507,7 @@ impl<
         DeltaMerkleProofCore<QHashOut<F>>,
     )> {
         // Use position-based consumption for GUTA queue items
-        let (guta_queue_items, _consumption_state) = self.checkpoint_queue.consume_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
+        let (guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
             self.realm_config.guta_channel_id,
             checkpoint_id,
         ).await?;
@@ -825,7 +825,7 @@ impl<
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
         // Pop up to 32 pending users from Redis queue
         // Use position-based consumption for pending users
-        let (pending_users, _consumption_state) = self.sync_queue.consume_users_with_position(32, new_checkpoint_id).await?;
+        let (pending_users, _consumption_state) = self.sync_queue.peek_with_position(32, new_checkpoint_id).await?;
         let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
         tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
         let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
@@ -893,15 +893,15 @@ impl<
 
 
     // commit redis queue
-    pub async fn consumption_state(&self) -> anyhow::Result<()> {
-        if let Some(state) = self.sync_queue.get_last_consumption_state().await? {
-            self.sync_queue.commit_consumption(&state).await?;
+    pub async fn commit_offset(&self) -> anyhow::Result<()> {
+        if let Some(state) = self.sync_queue.get_last_peek_offset().await? {
+            self.sync_queue.commit_offset(&state).await?;
         }
-        if let Some(state) = self.checkpoint_queue.get_last_consumption_state(CST_USER_UPDATE_CHANNEL_ID).await? {
-            self.checkpoint_queue.commit_consumption(&state).await?;
+        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(CST_USER_UPDATE_CHANNEL_ID).await? {
+            self.checkpoint_queue.commit_offset(&state).await?;
         }
-        if let Some(state) = self.checkpoint_queue.get_last_consumption_state(self.realm_config.guta_channel_id).await? {
-            self.checkpoint_queue.commit_consumption(&state).await?;
+        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(self.realm_config.guta_channel_id).await? {
+            self.checkpoint_queue.commit_offset(&state).await?;
         }
         Ok(())
     }

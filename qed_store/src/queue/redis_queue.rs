@@ -274,18 +274,18 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
 
 #[async_trait]
 pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueueConsumerAsyncImm {
-    async fn consume_with_position<T: DQSerializable>(
+    async fn peek_with_position<T: DQSerializable>(
         &self,
         channel_id: u64,
         checkpoint_id: u64,
-    ) -> anyhow::Result<(Vec<T>, QueueConsumptionState)>;
+    ) -> anyhow::Result<(Vec<T>, QueueOffsetState)>;
 
-    async fn get_last_consumption_state(
+    async fn get_last_peek_offset(
         &self,
         channel_id: u64,
-    ) -> anyhow::Result<Option<QueueConsumptionState>>;
+    ) -> anyhow::Result<Option<QueueOffsetState>>;
     
-    async fn commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()>;
+    async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()>;
 }
 
 #[async_trait]
@@ -510,7 +510,7 @@ impl<T: HQSerializable> NotificationQueue<T> for ProofStoreRedisAsync {
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QueueConsumptionState {
+pub struct QueueOffsetState {
     pub start_position: i64,  // Redis list position (0-based)
     pub end_position: i64,    // End position (exclusive)
     pub checkpoint_id: u64,
@@ -531,14 +531,14 @@ pub trait QPendingUserStoreAsyncImm: Send + Sync {
     async fn get_pending_users_count(&self) -> anyhow::Result<usize>;
     
     // consume_users_with_position for position-based consumption
-    async fn consume_users_with_position<F: RichField>(
+    async fn peek_with_position<F: RichField>(
         &self,
         count: usize,
         checkpoint_id: u64,
-    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueConsumptionState)>;
+    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueOffsetState)>;
     
-    async fn commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()>;
-    async fn get_last_consumption_state(&self) -> anyhow::Result<Option<QueueConsumptionState>>;
+    async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()>;
+    async fn get_last_peek_offset(&self) -> anyhow::Result<Option<QueueOffsetState>>;
 }
 
 #[async_trait]
@@ -590,11 +590,11 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         Ok(length)
     }
 
-    async fn consume_users_with_position<F: RichField>(
+    async fn peek_with_position<F: RichField>(
         &self,
         count: usize,
         checkpoint_id: u64,
-    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueConsumptionState)> {
+    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueOffsetState)> {
         let mut conn = self.pool().get().await?;
         let key = format!("{}-{}", self.realm_pending_user_key(), "PENDING_USERS");
 
@@ -609,7 +609,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
             users.push(user);
         }
         let end_position = if users.is_empty() { -1 } else { users.len() as i64 - 1 };
-        let state = QueueConsumptionState {
+        let state = QueueOffsetState {
             start_position,
             end_position,
             checkpoint_id,
@@ -628,7 +628,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         Ok((users, state))
     }
     
-    async fn commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
+    async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()> {
         if state.consumed_count == 0 {
             return Ok(());
         }
@@ -649,13 +649,13 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         Ok(())
     }
     
-    async fn get_last_consumption_state(&self) -> anyhow::Result<Option<QueueConsumptionState>> {
+    async fn get_last_peek_offset(&self) -> anyhow::Result<Option<QueueOffsetState>> {
         let mut conn = self.pool().get().await?;
         let state_key = format!("{}-{}", self.realm_pending_user_key(), "CONSUMPTION_STATE");
         
         let state_data: Option<Vec<u8>> = conn.get(&state_key).await?;
         if let Some(data) = state_data {
-            let state: QueueConsumptionState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!(e))?;
+            let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!(e))?;
             Ok(Some(state))
         } else {
             Ok(None)
@@ -666,11 +666,11 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
-    async fn consume_with_position<T: DQSerializable>(
+    async fn peek_with_position<T: DQSerializable>(
         &self,
         channel_id: u64,
         checkpoint_id: u64,
-    ) -> anyhow::Result<(Vec<T>, QueueConsumptionState)> {
+    ) -> anyhow::Result<(Vec<T>, QueueOffsetState)> {
         let checkpoint_queue_prefix =
             format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
         let key = format!(
@@ -690,7 +690,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         } else {
             items.len() as i64 - 1
         };
-        let state = QueueConsumptionState {
+        let state = QueueOffsetState {
             start_position: 0i64,
             end_position,
             checkpoint_id,
@@ -708,22 +708,22 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         Ok((items, state))
     }
 
-    async fn get_last_consumption_state(
+    async fn get_last_peek_offset(
         &self,
         channel_id: u64,
-    ) -> anyhow::Result<Option<QueueConsumptionState>> {
+    ) -> anyhow::Result<Option<QueueOffsetState>> {
         let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
         let mut con = self.pool.get().await?;
         let state_data: Option<Vec<u8>> = con.get(&state_key).await?;
         if let Some(data) = state_data {
-            let state: QueueConsumptionState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!(e))?;
+            let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!(e))?;
             Ok(Some(state))
         } else {
             Ok(None)
         }
     }
     
-    async fn commit_consumption(&self, state: &QueueConsumptionState) -> anyhow::Result<()> {
+    async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()> {
         if state.consumed_count == 0 {
             return Ok(());
         }
