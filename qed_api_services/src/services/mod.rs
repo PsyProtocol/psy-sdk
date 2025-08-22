@@ -1,20 +1,22 @@
+use crate::config::Config;
 use sqlx::PgPool;
 
 #[derive(Clone)]
 pub struct ApiService {
-    pub db: PgPool,
-    // TODO: Add repository instances
-    // TODO: Add HTTP clients for coordinator/realm communication
+    pub pool: PgPool,
 }
 
 impl ApiService {
-    pub fn new(db: PgPool) -> Self {
-        Self { db }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
+}
 
-    pub fn new_mock() -> Self {
-        todo!("temp mocking")
-    }
-
-    // TODO: Implement service methods for business logic
+/// Database connection helper
+pub async fn create_database_pool(config: &Config) -> crate::Result<PgPool> {
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(config.database.max_connections)
+        .connect(&config.database.url)
+        .await?;
+    Ok(pool)
 }

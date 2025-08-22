@@ -2,7 +2,12 @@ use axum::Router;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber;
 
-use qed_api_services::{config::Config, handlers, services::ApiService, telemetry, websocket};
+use qed_api_services::{
+    config::Config,
+    handlers,
+    services::{create_database_pool, ApiService},
+    telemetry, websocket,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -15,11 +20,8 @@ async fn main() -> anyhow::Result<()> {
         Config::default()
     });
 
-    // TODO: Initialize real database connections after schema is ready
-    tracing::info!("Starting API service in development mode (without database connections)");
-
-    // Create a mock service for now
-    let api_service = ApiService::new_mock();
+    let pool = create_database_pool(&config).await?;
+    let api_service = ApiService::new(pool);
 
     // Create application router
     let app = Router::new()
