@@ -115,7 +115,6 @@ impl WebSocketManager {
                 }
                 true
             }
-            _ => true,
         }
     }
 }

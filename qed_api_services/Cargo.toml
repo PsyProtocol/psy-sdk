@@ -11,27 +11,20 @@ qed_core = { workspace = true }
 
 # Web framework
 axum = { workspace = true, features = ["ws"] }
-tower = { workspace = true }
 tower-http = { workspace = true }
 tokio = { workspace = true }
 
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
-strum = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
 
-# Database
-sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid", "json", "macros"] }
+# Database  
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "json", "macros"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
-
-# Redis & Cache
-redis = { workspace = true }
-bb8-redis = { workspace = true }
-bb8 = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }
-thiserror = { workspace = true }
 
 # Configuration
 config = { version = "0.14" }
@@ -42,15 +35,8 @@ chrono = { workspace = true, features = ["serde"] }
 
 # Async & Utils
 futures = { workspace = true }
-async-trait = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-
-# HTTP client (for coordinator/realm communication)
-reqwest = { version = "0.11", features = ["json"] }
-
-# TODO: Add PostgreSQL/TimescaleDB specific dependencies
-# TODO: Add JWT authentication dependencies if needed
 
 [lints]
 workspace = true
