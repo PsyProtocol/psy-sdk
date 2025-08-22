@@ -249,7 +249,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
 
         members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
     }
@@ -268,7 +267,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
         let members: Vec<Vec<u8>> = con.lrange(key, 0, -1).await?;
         members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
     }
@@ -599,25 +597,10 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
     ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueConsumptionState)> {
         let mut conn = self.pool().get().await?;
         let key = format!("{}-{}", self.realm_pending_user_key(), "PENDING_USERS");
-        
-        // Get current queue length
-        let queue_length: i64 = conn.llen(&key).await?;
-        if queue_length == 0 {
-            return Ok((Vec::new(), QueueConsumptionState {
-                start_position: 0,
-                end_position: 0,
-                checkpoint_id,
-                channel_id: 0,
-                consumed_count: 0,
-            }));
-        }
-        
-        // Calculate positions for consumption
-        let start_position = 0i64; // Always start from head
-        let end_position = std::cmp::min(count as i64, queue_length);
-        
+
         // Read items without removing them
-        let items: Vec<Vec<u8>> = conn.lrange(&key, start_position as isize, (end_position - 1) as isize).await?;
+        let start_position = 0i64;
+        let items: Vec<Vec<u8>> = conn.lrange(&key, start_position as isize, (count - 1) as isize).await?;
         
         // Deserialize items
         let mut users = Vec::with_capacity(items.len());
@@ -625,7 +608,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
             let user = bincode::deserialize(&item_bytes).map_err(|e| anyhow::anyhow!(e))?;
             users.push(user);
         }
-        
+        let end_position = if users.is_empty() { -1 } else { users.len() as i64 - 1 };
         let state = QueueConsumptionState {
             start_position,
             end_position,
@@ -654,7 +637,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         let key = format!("{}-{}", self.realm_pending_user_key(), "PENDING_USERS");
         
         // Remove consumed items from the queue using LTRIM
-        conn.ltrim(&key, state.end_position as isize, -1).await?;
+        conn.ltrim(&key, (state.end_position + 1) as isize, -1).await?;
         
         // Clear consumption state
         let state_key = format!("{}-{}", self.realm_pending_user_key(), "CONSUMPTION_STATE");
@@ -696,33 +679,19 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         );
         
         let mut con = self.pool.get().await?;
-        
-        // Get current queue length
-        let queue_length: i64 = con.llen(&key).await?;
-        if queue_length == 0 {
-            return Ok((Vec::new(), QueueConsumptionState {
-                start_position: 0,
-                end_position: 0,
-                checkpoint_id,
-                channel_id,
-                consumed_count: 0,
-            }));
-        }
-        
-        // Read all items without removing them
-        let start_position = 0i64;
-        let end_position = queue_length;
-        let members: Vec<Vec<u8>> = con.lrange(&key, start_position as isize, (end_position - 1) as isize).await?;
-        
+        let members: Vec<Vec<u8>> = con.lrange(key.clone(), 0, -1).await?;
         // Deserialize items
         let items: Vec<T> = members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect::<anyhow::Result<Vec<T>>>()?;
-        
+        let end_position: i64 = if items.is_empty() {
+            -1
+        } else {
+            items.len() as i64 - 1
+        };
         let state = QueueConsumptionState {
-            start_position,
+            start_position: 0i64,
             end_position,
             checkpoint_id,
             channel_id,
@@ -763,7 +732,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
             format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
         let key = format!("{}-{}", checkpoint_queue_prefix, state.channel_id);
         // Remove consumed items
-        con.ltrim(&key, state.end_position as isize, -1).await?;
+        con.ltrim(&key, (state.end_position + 1) as isize, -1).await?;
         // Clear consumption state
         let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", state.channel_id);
         con.del(&state_key).await?;

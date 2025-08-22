@@ -141,6 +141,9 @@ init:
 	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
 	@sleep 10
+	@redis-cli -p 6379  FLUSHALL
+	@redis-cli -p 6380  FLUSHALL
+	@redis-cli -p 6381  FLUSHALL
 	# @echo "Starting ScyllaDB containers..."
 	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
 	# @docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest

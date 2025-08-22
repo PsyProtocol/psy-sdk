@@ -211,7 +211,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
 
         members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
     }
@@ -232,7 +231,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
             .await?;
         members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
     }
@@ -491,7 +489,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
 
         members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
     }
@@ -507,7 +504,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
             .await?;
         members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
     }
