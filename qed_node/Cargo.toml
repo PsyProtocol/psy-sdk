@@ -57,3 +57,4 @@ auto_impl = { workspace = true }
 secp256k1 = { workspace = true }
 k256 = { workspace = true }
 ecdsa = { workspace = true }
+alloy-primitives = { workspace = true }

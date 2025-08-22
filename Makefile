@@ -302,6 +302,9 @@ generate-access-token:
 get-public-key:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY}
 
+wallet:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli wallet
+
 random-wallet:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli random-wallet
 

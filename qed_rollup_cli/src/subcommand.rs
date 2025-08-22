@@ -42,8 +42,11 @@ pub enum Commands {
         #[arg(long = "config", default_value = "./config.json", help = "Path to config.json file")]
         config: String,
 
-        #[arg(long = "wallet-path", env = "WALLET_PATH", help = "Path to wallet keystore file")]
-        wallet_path: Option<String>,
+        #[arg(long = "private-key", env = "PRIVATE_KEY", help = "Private key hex string")]
+        private_key: Option<String>,
+
+        #[arg(long = "keystore-path", env = "KEYSTORE_PATH", help = "Path to wallet keystore file")]
+        keystore_path: Option<String>,
 
         #[arg(long = "wallet-password", env = "WALLET_PASSWORD", help = "Wallet password")]
         wallet_password: Option<String>,

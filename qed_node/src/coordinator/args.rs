@@ -50,7 +50,8 @@ pub struct CoordinatorEdgeArgs {
     #[clap(long = "redis-pool-size", short = 'r', default_value_t = 20)]
     pub redis_pool_size: usize,
     //worker white list file path
-    pub worker_whitelist: Option<String>,
+    #[arg(long, help = "Path to configuration file", default_value = "config.json")]
+    pub config_path: String,
 }
 
 #[derive(Clone, Debug, Args)]

@@ -1,29 +1,65 @@
+use alloy_primitives::{keccak256, Address, B256, U256};
 use anyhow::{Context, Result};
-use k256::sha2::{Digest, Sha256};
+use qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
+use qed_core::data::qhashout::QHashOut;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use plonky2::plonk::proof::ProofWithPublicInputs;
-use qed_store::queue::task_queue::QJob;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Display;
-use std::marker::PhantomData;
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
 
 use crate::wallet::secp_wallet::Wallet;
 
-/// Default signature expiry duration (5 minutes)
 const DEFAULT_SIGNATURE_EXPIRY: Duration = Duration::from_secs(300);
 
-/// Message type for job claims
-pub const MESSAGE_CLAIM_JOB: &str = "claim_job";
 
-/// Timestamp provider trait for testing
+pub const QED_DOMAIN_NAME: &str = "QED Protocol";
+pub const QED_DOMAIN_VERSION: &str = "1";
+
+pub trait Eip712Signable: Serialize {
+    fn type_hash() -> B256;
+
+    fn domain_name() -> &'static str {
+        QED_DOMAIN_NAME
+    }
+
+    fn domain_version() -> &'static str {
+        QED_DOMAIN_VERSION
+    }
+
+    fn encode_for_signing(&self) -> Result<Vec<u8>> {
+        serde_json::to_vec(self).context("Failed to serialize data for signing")
+    }
+}
+
+fn default_signed_request_typehash() -> B256 {
+    keccak256(b"SignedRequest(address signer,uint256 timestamp,bytes32 dataHash)")
+}
+
+impl Eip712Signable for String {
+    fn type_hash() -> B256 {
+        keccak256(b"StringMessage(string value)")
+    }
+}
+
+impl Eip712Signable for QHashOut<GoldilocksField> {
+    fn type_hash() -> B256 {
+        keccak256(b"QHashOut(bytes32 elements)")
+    }
+
+    fn encode_for_signing(&self) -> Result<Vec<u8>> {
+        Ok(self.to_le_bytes().to_vec())
+    }
+}
+
+
+
+
+
 pub trait TimestampProvider: Send + Sync {
     fn now(&self) -> u64;
 }
 
-/// Default system time provider
 #[derive(Clone, Debug)]
 pub struct SystemTimeProvider;
 
@@ -36,210 +72,377 @@ impl TimestampProvider for SystemTimeProvider {
     }
 }
 
-/// Signed request wrapper for authenticated RPC calls
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SignedRequest<T> {
+pub struct SignedRequest<T: Eip712Signable> {
     pub data: T,
-    pub worker_id: String,
+    pub address: Address,
     pub signature: String,
     pub timestamp: u64,
+    pub chain_id: u64,
 }
 
-impl<T: Serialize> SignedRequest<T> {
-    /// Create a new signed request
+fn create_eip712_hash<T: Eip712Signable>(
+    data: &T,
+    address: Address,
+    timestamp: u64,
+    chain_id: u64,
+) -> Result<B256> {
+    let domain_separator = qed_domain_separator_for_type::<T>(chain_id);
+
+    let data_bytes = data.encode_for_signing()?;
+    let data_hash = keccak256(&data_bytes);
+
+    let typehash = T::type_hash();
+    let mut encoded = Vec::new();
+    encoded.extend_from_slice(typehash.as_slice());
+    encoded.extend_from_slice(address.as_slice());
+    encoded.extend_from_slice(&U256::from(timestamp).to_be_bytes::<32>());
+    encoded.extend_from_slice(data_hash.as_slice());
+
+    let struct_hash = keccak256(&encoded);
+
+    let mut final_hash_data = Vec::new();
+    final_hash_data.push(0x19);
+    final_hash_data.push(0x01);
+    final_hash_data.extend_from_slice(domain_separator.as_slice());
+    final_hash_data.extend_from_slice(struct_hash.as_slice());
+
+
+    Ok(keccak256(&final_hash_data))
+}
+
+fn qed_domain_separator_for_type<T: Eip712Signable>(chain_id: u64) -> B256 {
+    let domain_typehash = keccak256(b"EIP712Domain(string name,string version,uint256 chainId)");
+    let name_hash = keccak256(T::domain_name().as_bytes());
+    let version_hash = keccak256(T::domain_version().as_bytes());
+
+    let mut encoded = Vec::new();
+    encoded.extend_from_slice(domain_typehash.as_slice());
+    encoded.extend_from_slice(name_hash.as_slice());
+    encoded.extend_from_slice(version_hash.as_slice());
+    encoded.extend_from_slice(&U256::from(chain_id).to_be_bytes::<32>());
+
+    keccak256(&encoded)
+}
+
+impl<T: Eip712Signable> SignedRequest<T> {
     pub fn new(wallet: &Wallet, data: T) -> Result<Self> {
-        Self::new_with_timestamp(wallet, data, SystemTimeProvider.now())
+        Self::new_with_timestamp_and_chain(wallet, data, SystemTimeProvider.now(), QED_NETWORK_MAGIC_REGTEST)
     }
-    /// Create with specific timestamp (for testing)
+
     pub fn new_with_timestamp(wallet: &Wallet, data: T, timestamp: u64) -> Result<Self> {
-        let message = create_message(&data, &wallet.id(), timestamp);
-        let signature = sign_message(wallet, &message)?;
+        Self::new_with_timestamp_and_chain(wallet, data, timestamp, QED_NETWORK_MAGIC_REGTEST)
+    }
+
+    pub fn new_with_timestamp_and_chain(wallet: &Wallet, data: T, timestamp: u64, chain_id: u64) -> Result<Self> {
+        let address = wallet.address_raw();
+        let eip712_hash = create_eip712_hash(&data, address, timestamp, chain_id)?;
+
+        // Sign the EIP-712 hash
+        let signature_bytes = wallet.sign_message(eip712_hash.as_slice()).context("Failed to sign EIP-712 hash")?;
+        let signature = hex::encode(&signature_bytes);
 
         Ok(Self {
             data,
-            worker_id: wallet.id(),
+            address,
             signature,
             timestamp,
+            chain_id,
         })
     }
-    /// Verify signature and optionally check expiry
-    pub fn verify(&self, wallet: &Wallet, check_expiry: bool) -> Result<bool> {
+
+    pub fn verify(&self, check_expiry: bool) -> Result<bool> {
         if check_expiry && self.is_expired() {
             return Ok(false);
         }
 
-        let message = create_message(&self.data, &self.worker_id, self.timestamp);
-        let signature_bytes = hex::decode(&self.signature)?;
+        let chain_id = self.chain_id;
+        let eip712_hash = create_eip712_hash(&self.data, self.address, self.timestamp, chain_id)?;
+        let signature_bytes = hex::decode(&self.signature).context("Failed to decode signature")?;
 
         Wallet::verify_signature(
-            &serde_json::to_vec(&message)?,
+            eip712_hash.as_slice(),
             &signature_bytes,
-            wallet.address_raw(),
+            self.address,
         )
     }
 
-    /// Check if request has expired (default 5 minutes)
+
     pub fn is_expired(&self) -> bool {
         self.is_expired_with_duration(DEFAULT_SIGNATURE_EXPIRY)
     }
 
-    /// Check if request has expired with custom duration
     pub fn is_expired_with_duration(&self, duration: Duration) -> bool {
         let now = SystemTimeProvider.now();
         now > self.timestamp + duration.as_secs()
     }
 
-    /// Get the age of the request in seconds
     pub fn age(&self) -> u64 {
         SystemTimeProvider.now().saturating_sub(self.timestamp)
     }
+
 }
 
-impl<T: Display + Serialize> Display for SignedRequest<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SignedRequest[worker={}, age={}s]",
-               &self.worker_id[..8], self.age())
-    }
-}
+impl SignedRequest<QHashOut<GoldilocksField>> {
+    pub fn sign_hashable<T: serde::Serialize>(
+        wallet: &Wallet,
+        data: &T,
+    ) -> Result<SignedRequest<QHashOut<GoldilocksField>>> {
+        use alloy_primitives::keccak256;
 
-/// Proof submission structure
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ProofSubmission {
-    pub job: QJob,
-    pub proof: Option<ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>>,
-    pub proof_hash: String,
-}
+        let data_bytes = bincode::serialize(data).context("Failed to serialize data")?;
+        let hash = keccak256(&data_bytes);
+        let qhash = QHashOut::from_hash256_le(
+            qed_core::data::base_types::hash256::Hash256(hash.0)
+        );
 
-impl ProofSubmission {
-    /// Create a new proof submission
-    pub fn new(
-        job: QJob,
-        proof: Option<ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>>
-    ) -> Result<Self> {
-        let proof_hash = proof.as_ref()
-            .map(Self::hash_proof)
-            .transpose()?
-            .unwrap_or_default();
-        Ok(Self { job, proof, proof_hash })
+        SignedRequest::new(wallet, qhash)
     }
 
-    /// Create submission without proof (for failures)
-    pub fn failure(job: QJob) -> Self {
-        Self {
-            job,
-            proof: None,
-            proof_hash: String::new(),
-        }
-    }
-    /// Calculate deterministic hash of a proof
-    fn hash_proof(
-        proof: &ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>
-    ) -> Result<String> {
-        let proof_bytes = bincode::serialize(proof)?;
-        Ok(hex::encode(Sha256::digest(&proof_bytes)))
-    }
-    /// Calculate hash for optional proof
-    pub fn calculate_optional_proof_hash(
-        proof: &Option<ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>>
-    ) -> Result<String> {
-        proof.as_ref()
-            .map(|p| Self::hash_proof(p))
-            .transpose()
-            .map(|h| h.unwrap_or_default())
-    }
-    /// Check if submission contains a proof
-    pub fn has_proof(&self) -> bool {
-        self.proof.is_some()
-    }
-}
-
-impl fmt::Display for ProofSubmission {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ProofSubmission[job_id={:?}, has_proof={}, hash={}...]",
-               self.job.job_id, self.has_proof(), &self.proof_hash[..8])
-    }
-}
-
-/// Builder for creating various signed requests
-pub struct RequestBuilder<'a> {
-    wallet: &'a Wallet,
-    timestamp: Option<u64>,
-}
-
-impl<'a> RequestBuilder<'a> {
-    /// Create new builder
-    pub fn new(wallet: &'a Wallet) -> Self {
-        Self {
-            wallet,
-            timestamp: None,
-        }
-    }
-
-    /// Set custom timestamp
-    pub fn with_timestamp(mut self, timestamp: u64) -> Self {
-        self.timestamp = Some(timestamp);
-        self
-    }
-
-    /// Build job claim request
-    pub fn claim_job(self) -> Result<SignedRequest<String>> {
-        self.build(MESSAGE_CLAIM_JOB.to_string())
-    }
-
-    /// Build proof submission request
-    pub fn submit_proof(self, job: QJob, proof: Option<ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>>) -> Result<SignedRequest<ProofSubmission>> {
-        let submission = ProofSubmission::new(job, proof)?;
-        self.build(submission)
-    }
-
-    /// Build custom request
-    pub fn custom<T: Serialize>(self, data: T) -> Result<SignedRequest<T>> {
-        self.build(data)
-    }
-
-    /// Internal build method
-    fn build<T: Serialize>(self, data: T) -> Result<SignedRequest<T>> {
-        match self.timestamp {
-            Some(ts) => SignedRequest::new_with_timestamp(self.wallet, data, ts),
-            None => SignedRequest::new(self.wallet, data),
-        }
-    }
-}
-
-
-// Convenience methods for specific request types
-impl Wallet {
-    /// Create a request builder
-    pub fn request(&self) -> RequestBuilder {
-        RequestBuilder::new(self)
-    }
-
-    /// Quick method to create job claim
-    pub fn sign_claim_job(&self) -> Result<SignedRequest<String>> {
-        self.request().claim_job()
-    }
-
-    /// Quick method to submit proof
-    pub fn sign_proof_submission(
+    pub fn verify_hashable<T: serde::Serialize>(
         &self,
-        job: QJob,
-        proof: Option<ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>>,
-    ) -> Result<SignedRequest<ProofSubmission>> {
-        self.request().submit_proof(job, proof)
+        original_data: &T,
+        expected_address: Address,
+        expiry_duration: Option<Duration>,
+    ) -> Result<bool> {
+        use alloy_primitives::keccak256;
+
+        let data_bytes = bincode::serialize(original_data).context("Failed to serialize original data")?;
+        let expected_hash = keccak256(&data_bytes);
+        let expected_qhash = QHashOut::from_hash256_le(
+            qed_core::data::base_types::hash256::Hash256(expected_hash.0)
+        );
+
+        if self.data != expected_qhash {
+            return Ok(false);
+        }
+
+        if self.address != expected_address {
+            return Ok(false);
+        }
+
+        match expiry_duration {
+            Some(duration) => {
+                if self.is_expired_with_duration(duration) {
+                    return Ok(false);
+                }
+                self.verify(true)
+            }
+            None => self.verify(false)
+        }
+    }
+}
+
+impl<T: Display + Eip712Signable> Display for SignedRequest<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "SignedRequest[address={}, age={}s]",
+               &format!("{:#x}", self.address)[..10], self.age())
     }
 }
 
 
-fn create_message<T: Serialize>(data: &T, worker_id: &str, timestamp: u64) -> serde_json::Value {
-    serde_json::json!({
-        "data": data,
-        "worker_id": worker_id,
-        "timestamp": timestamp,
-    })
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-fn sign_message(wallet: &Wallet, message: &serde_json::Value) -> Result<String> {
-    let message_bytes = serde_json::to_vec(message)?;
-    let signature = wallet.sign_raw(&message_bytes)?;
-    Ok(hex::encode(signature))
+    #[test]
+    fn test_eip712_signature_creation_and_verification() {
+        let wallet = Wallet::new().unwrap();
+        let test_data = "test_message".to_string();
+        let timestamp = 1234567890u64;
+        let chain_id = QED_NETWORK_MAGIC_REGTEST;
+
+        // Create signed request using the generic method
+        let signed_request = wallet.sign_eip712_with_params(
+            test_data,
+            timestamp,
+            Some(chain_id)
+        ).unwrap();
+
+        // Verify signature
+        assert!(signed_request.verify(false).unwrap());
+        assert_eq!(signed_request.address, wallet.address_raw());
+        assert_eq!(signed_request.timestamp, timestamp);
+        assert_eq!(signed_request.chain_id, chain_id);
+    }
+
+    #[test]
+    fn test_eip712_signature_with_different_data() {
+        let wallet = Wallet::new().unwrap();
+        let test_data1 = "message1".to_string();
+        let test_data2 = "message2".to_string();
+        let timestamp = 1234567890u64;
+        let chain_id = QED_NETWORK_MAGIC_REGTEST;
+
+        let signed_request1 = wallet.sign_eip712_with_params(
+            test_data1,
+            timestamp,
+            Some(chain_id)
+        ).unwrap();
+
+        let signed_request2 = wallet.sign_eip712_with_params(
+            test_data2,
+            timestamp,
+            Some(chain_id)
+        ).unwrap();
+
+        // Different data should produce different signatures
+        assert_ne!(signed_request1.signature, signed_request2.signature);
+
+        // Both should verify correctly
+        assert!(signed_request1.verify(false).unwrap());
+        assert!(signed_request2.verify(false).unwrap());
+    }
+
+    #[test]
+    fn test_eip712_domain_separation() {
+        let wallet = Wallet::new().unwrap();
+        let test_data = "same_message".to_string();
+        let timestamp = 1234567890u64;
+
+        let signed_request_chain1 = wallet.sign_eip712_with_params(
+            test_data.clone(),
+            timestamp,
+            Some(1)
+        ).unwrap();
+
+        let signed_request_chain2 = wallet.sign_eip712_with_params(
+            test_data,
+            timestamp,
+            Some(2)
+        ).unwrap();
+
+        // Same data on different chains should produce different signatures
+        assert_ne!(signed_request_chain1.signature, signed_request_chain2.signature);
+
+        // Both should verify correctly
+        assert!(signed_request_chain1.verify(false).unwrap());
+        assert!(signed_request_chain2.verify(false).unwrap());
+    }
+
+    #[test]
+    fn test_generic_eip712_signing() {
+        let wallet = Wallet::new().unwrap();
+        let message = "hello world".to_string();
+
+        // Test the generic signing method
+        let signed_request = wallet.sign_eip712(message.clone()).unwrap();
+
+        assert_eq!(signed_request.data, message);
+        assert!(signed_request.verify(false).unwrap());
+    }
+
+    #[test]
+    fn test_qhashout_eip712_signing() {
+        let wallet = Wallet::new().unwrap();
+        let hash = QHashOut::<GoldilocksField>::from_values(1, 2, 3, 4);
+        let timestamp = 1234567890u64;
+        let chain_id = QED_NETWORK_MAGIC_REGTEST;
+
+        // Create signed request for QHashOut
+        let signed_request = wallet.sign_eip712_with_params(
+            hash,
+            timestamp,
+            Some(chain_id)
+        ).unwrap();
+
+        // Verify signature
+        assert!(signed_request.verify(false).unwrap());
+        assert_eq!(signed_request.address, wallet.address_raw());
+        assert_eq!(signed_request.timestamp, timestamp);
+        assert_eq!(signed_request.chain_id, chain_id);
+        assert_eq!(signed_request.data, hash);
+    }
+
+    #[test]
+    fn test_hashable_signing_and_verification() {
+        let wallet = Wallet::new().unwrap();
+        let test_data = "test message for hashing";
+
+        // Sign the data
+        let signed = SignedRequest::sign_hashable(&wallet, &test_data).unwrap();
+
+        // Verify with correct data
+        assert!(signed.verify_hashable(&test_data, wallet.address_raw(), None).unwrap());
+
+        // Verify should fail with different data
+        let wrong_data = "different message";
+        assert!(!signed.verify_hashable(&wrong_data, wallet.address_raw(), None).unwrap());
+    }
+
+    #[test]
+    fn test_hashable_signing_with_complex_data() {
+        use serde::{Serialize, Deserialize};
+
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        struct TestStruct {
+            id: u64,
+            name: String,
+            values: Vec<u32>,
+        }
+
+        let wallet = Wallet::new().unwrap();
+        let test_data = TestStruct {
+            id: 12345,
+            name: "test".to_string(),
+            values: vec![1, 2, 3, 4, 5],
+        };
+
+        let signed = SignedRequest::sign_hashable(&wallet, &test_data).unwrap();
+
+        // Should verify with exact same data
+        assert!(signed.verify_hashable(&test_data, wallet.address_raw(), None).unwrap());
+
+        // Should fail with modified data
+        let modified_data = TestStruct {
+            id: 12346,  // Different ID
+            name: "test".to_string(),
+            values: vec![1, 2, 3, 4, 5],
+        };
+        assert!(!signed.verify_hashable(&modified_data, wallet.address_raw(), None).unwrap());
+    }
+
+    #[test]
+    fn test_hashable_expiry() {
+        let wallet = Wallet::new().unwrap();
+        let test_data = "test message";
+
+        // Create an old signed request
+        let old_timestamp = SystemTimeProvider.now() - 100; // 100 seconds ago
+        let hash = {
+            use alloy_primitives::keccak256;
+            let data_bytes = bincode::serialize(&test_data).unwrap();
+            let hash = keccak256(&data_bytes);
+            QHashOut::from_hash256_le(qed_core::data::base_types::hash256::Hash256(hash.0))
+        };
+
+        let old_signed = SignedRequest::new_with_timestamp(&wallet, hash, old_timestamp).unwrap();
+
+        // Should pass without expiry check
+        assert!(old_signed.verify_hashable(&test_data, wallet.address_raw(), None).unwrap());
+
+        // Should fail with 30 second expiry
+        assert!(!old_signed.verify_hashable(&test_data, wallet.address_raw(), Some(Duration::from_secs(30))).unwrap());
+
+        // Should pass with 200 second expiry
+        assert!(old_signed.verify_hashable(&test_data, wallet.address_raw(), Some(Duration::from_secs(200))).unwrap());
+    }
+
+    #[test]
+    fn test_different_wallets_different_signatures() {
+        let wallet1 = Wallet::new().unwrap();
+        let wallet2 = Wallet::new().unwrap();
+        let test_data = "same message";
+
+        let signed1 = SignedRequest::sign_hashable(&wallet1, &test_data).unwrap();
+        let signed2 = SignedRequest::sign_hashable(&wallet2, &test_data).unwrap();
+
+        // Different wallets should produce different signatures
+        assert_ne!(signed1.signature, signed2.signature);
+        assert_ne!(signed1.address, signed2.address);
+
+        // Each should verify with their own data
+        assert!(signed1.verify_hashable(&test_data, wallet1.address_raw(), None).unwrap());
+        assert!(signed2.verify_hashable(&test_data, wallet2.address_raw(), None).unwrap());
+    }
 }

@@ -1,4 +1,3 @@
-use crate::common::ConcreteProofWithPublicInputs;
 use crate::realm::{C, D, F};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use plonky2::field::types::PrimeField64;

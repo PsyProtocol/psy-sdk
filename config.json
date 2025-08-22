@@ -408,5 +408,13 @@
       "height": 600,
       "title": "Psy: The Internet Unchained"
     }
+  },
+  "whitelist": {
+    "enabled": true,
+    "secp256k1": [
+        "0x0982Ef075c3173C9AED749F67e7EC4dcf6712922",
+        "0xC209b356df092D57527E65b7bF7c23f60e93e65D",
+        "0xd7e6C99a86cDd0b0A0667fF9aA9C224784fEB681"
+    ]
   }
 }

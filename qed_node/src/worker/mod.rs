@@ -34,8 +34,8 @@ pub async fn run_worker(
     wallet: Arc<Wallet>
 ) -> anyhow::Result<()> {
     info!("Running worker for edge: {}", edge_url);
-    info!("worker wallet: {:?}", wallet.id());
-    let worker_public_key = wallet.id_hash();
+    info!("worker wallet: {:?}", wallet.public_key_hash());
+    let worker_public_key = wallet.public_key_hash();
     let job_client = JobClient::new(edge_url).await?;
 
     let store = job_client.clone();
