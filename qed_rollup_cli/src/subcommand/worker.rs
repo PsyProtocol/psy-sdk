@@ -1,6 +1,7 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::GenericHashOut;
 use qed_core::config::network_constants::get_default_worker_public_key;
+use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
@@ -10,6 +11,7 @@ use qed_node::worker::{
     job_tracker::{JobLocation, WorkerJobTracker},
     run_worker,
 };
+use kvq::traits::KVQSerializable;
 use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use qed_prover::wallet::secp_wallet::Wallet;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
@@ -68,7 +70,7 @@ pub async fn run(
 
     let mut memory_wallet = qed_prover::wallet::memory_wallet::QEDMemoryWallet::new(main_circuits);
 
-    let private_key = QHashOut::<GoldilocksField>::from_bytes(&wallet.private_key());
+    let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
     let public_key_info = memory_wallet.add_secp_private_key(private_key)?;
     let worker_public_key = public_key_info.qfhash::<QEDHasher>();
 

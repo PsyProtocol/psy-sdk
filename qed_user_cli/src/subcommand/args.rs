@@ -43,6 +43,9 @@ pub struct GetPublicKeyArgs {
     /// user private key
     #[clap(long, short)]
     pub private_key: String,
+    /// signature type
+    #[clap(long, short, default_value = "zk")]
+    pub sign_type: SignType,
 }
 
 

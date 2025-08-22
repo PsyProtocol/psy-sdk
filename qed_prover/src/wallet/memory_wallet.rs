@@ -152,9 +152,9 @@ impl QEDMemoryWallet {
         sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let private_key = self
-                .zk_public_key_to_private_key_store
-                .get(&public_key)
-                .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", public_key.to_string()))?;
+            .zk_public_key_to_private_key_store
+            .get(&public_key)
+            .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", public_key.to_string()))?;
         self.circuit_manager
             .prove_zk_sign(*private_key, sig_hash)
             .await

@@ -5141,6 +5141,7 @@ dependencies = [
  "anyhow",
  "clap",
  "dotenv",
+ "kvq",
  "plonky2",
  "qed_core",
  "qed_crypto",

@@ -1,8 +1,8 @@
 use anyhow::Result;
-use std::path::Path;
-use std::io::{self, Write};
 use qed_prover::wallet::secp_wallet::Wallet;
 use rpassword::read_password;
+use std::io::{self, Write};
+use std::path::Path;
 use tracing::info;
 
 use super::args::{WalletArgs, WalletCommands};
@@ -34,11 +34,15 @@ pub fn run(args: WalletArgs) -> Result<()> {
 
             Ok(())
         }
-        WalletCommands::Load { private_key, keystore_path, password } => {
+        WalletCommands::Load {
+            private_key,
+            keystore_path,
+            password,
+        } => {
             let wallet = Wallet::load(
                 private_key.as_deref(),
                 keystore_path.as_ref().map(|p| Path::new(p)),
-                password.as_deref()
+                password.as_deref(),
             )?;
 
             println!("✅ Wallet loaded:");

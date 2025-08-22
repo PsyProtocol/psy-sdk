@@ -43,6 +43,7 @@ impl Wallet {
     pub fn new() -> Result<Self> {
         Self::random()
     }
+
     pub fn random() -> Result<Self> {
         let mut rng = rand::thread_rng();
         let inner = PrivateKeySigner::random_with(&mut rng);
