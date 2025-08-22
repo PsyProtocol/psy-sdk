@@ -62,31 +62,69 @@ impl WebSocketManager {
         connection_id: ConnectionId,
         connection: WebSocketConnection,
     ) {
+        tracing::info!("Adding WebSocket connection: {}", connection_id);
+        tracing::info!("Connection details: {:#?}", connection);
         let mut connections = self.connections.write().await;
-        connections.insert(connection_id, connection);
+        connections.insert(connection_id.clone(), connection);
+        tracing::info!("Total active connections: {}", connections.len());
     }
 
     pub async fn remove_connection(&self, connection_id: &ConnectionId) {
+        tracing::info!("Removing WebSocket connection: {}", connection_id);
         let mut connections = self.connections.write().await;
         connections.remove(connection_id);
+        tracing::info!("Total active connections: {}", connections.len());
     }
 
     pub async fn update_filters(&self, connection_id: &ConnectionId, filters: SubscriptionFilters) {
+        tracing::info!("Updating filters for connection: {}", connection_id);
+        tracing::info!("New filters: {:?}", filters);
         let mut connections = self.connections.write().await;
         if let Some(connection) = connections.get_mut(connection_id) {
             connection.filters = filters;
+            tracing::info!(
+                "Filters updated successfully for connection: {}",
+                connection_id
+            );
+        } else {
+            tracing::warn!("Connection not found for filter update: {}", connection_id);
         }
     }
 
     pub async fn broadcast_event(&self, event: &WebSocketEvent) {
+        tracing::info!("Broadcasting WebSocket event: {:?}", event.event_type);
         let connections = self.connections.read().await;
-        for (_, connection) in connections.iter() {
+        let total_connections = connections.len();
+        let mut sent_count = 0;
+
+        for (connection_id, connection) in connections.iter() {
             if self.should_send_event(connection, event) {
                 let message =
                     Message::Text(serde_json::to_string(event).unwrap_or_default().into());
-                let _ = connection.sender.send(message);
+                match connection.sender.send(message) {
+                    Ok(_) => {
+                        sent_count += 1;
+                        tracing::info!("Event sent to connection: {}", connection_id);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to send event to connection {}: {}",
+                            connection_id,
+                            e
+                        );
+                    }
+                }
+            } else {
+                tracing::trace!("Event filtered out for connection: {}", connection_id);
             }
         }
+
+        tracing::info!(
+            "Broadcast completed: sent to {}/{} connections for event type {:?}",
+            sent_count,
+            total_connections,
+            event.event_type
+        );
     }
 
     fn should_send_event(&self, connection: &WebSocketConnection, event: &WebSocketEvent) -> bool {
@@ -134,6 +172,8 @@ async fn handle_socket(socket: WebSocket, service: ApiService) {
     let (tx, mut rx) = mpsc::unbounded_channel();
 
     let connection_id = uuid::Uuid::new_v4().to_string();
+    tracing::info!("New WebSocket connection established: {}", connection_id);
+
     let connection_id_clone = connection_id.clone();
     let manager = service.websocket_manager.clone();
     let manager_clone = service.websocket_manager.clone();
@@ -151,31 +191,85 @@ async fn handle_socket(socket: WebSocket, service: ApiService) {
 
     // Spawn task to handle outgoing messages
     let mut ws_sender = ws_sender;
+    let outgoing_connection_id = connection_id.clone();
     tokio::spawn(async move {
+        tracing::info!(
+            "Started outgoing message handler for connection: {}",
+            outgoing_connection_id
+        );
         while let Some(message) = rx.recv().await {
+            tracing::info!("Sending message to connection: {}", outgoing_connection_id);
             if ws_sender.send(message).await.is_err() {
+                tracing::warn!(
+                    "Failed to send message to connection: {}",
+                    outgoing_connection_id
+                );
                 break;
             }
         }
+        tracing::info!(
+            "Outgoing message handler ended for connection: {}",
+            outgoing_connection_id
+        );
     });
 
     // Handle incoming messages
     let incoming_task = tokio::spawn(async move {
+        tracing::info!(
+            "Started incoming message handler for connection: {}",
+            connection_id_clone
+        );
         while let Some(msg) = ws_receiver.next().await {
             match msg {
                 Ok(Message::Text(text)) => {
-                    if let Ok(config) = serde_json::from_str::<UpdateConfigurationMessage>(&text) {
-                        manager_clone
-                            .update_filters(&connection_id_clone, config.filters)
-                            .await;
-                        tracing::info!("Updated filters for connection {}", connection_id_clone);
+                    tracing::info!(
+                        "Received text message from connection {}: {}",
+                        connection_id_clone,
+                        text
+                    );
+                    match serde_json::from_str::<UpdateConfigurationMessage>(&text) {
+                        Ok(config) => {
+                            manager_clone
+                                .update_filters(&connection_id_clone, config.filters)
+                                .await;
+                            tracing::info!(
+                                "Updated filters for connection {}",
+                                connection_id_clone
+                            );
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "Failed to parse filter configuration from connection {}: {}",
+                                connection_id_clone,
+                                e
+                            );
+                        }
                     }
                 }
                 Ok(Message::Close(_)) => {
                     tracing::info!("Closing connection {}", connection_id_clone);
                     break;
                 }
-                _ => {}
+                Ok(Message::Ping(_)) => {
+                    tracing::info!("Received ping from connection {}", connection_id_clone);
+                }
+                Ok(Message::Pong(_)) => {
+                    tracing::info!("Received pong from connection {}", connection_id_clone);
+                }
+                Err(e) => {
+                    tracing::error!(
+                        "WebSocket error for connection {}: {}",
+                        connection_id_clone,
+                        e
+                    );
+                    break;
+                }
+                _ => {
+                    tracing::warn!(
+                        "Received other message type from connection {}",
+                        connection_id_clone
+                    );
+                }
             }
         }
 

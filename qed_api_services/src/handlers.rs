@@ -47,27 +47,50 @@ async fn register_handler(
     State(service): State<ApiService>,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<Json<RegisterResponse>, StatusCode> {
+    tracing::info!(
+        "User registration request received for public_key: {}, twitter_handle: {}",
+        payload.public_key,
+        payload.twitter_handle
+    );
+    tracing::debug!("Register payload: {:#?}", payload);
+
     // Check if user already exists
-    if let Ok(Some(_existing_user)) =
-        UserRepository::find_by_public_key(&service.pool, &payload.public_key).await
-    {
-        return Ok(Json(RegisterResponse {
-            success: false,
-            user_id: None,
-        }));
+    match UserRepository::find_by_public_key(&service.pool, &payload.public_key).await {
+        Ok(Some(existing_user)) => {
+            tracing::warn!(
+                "User registration failed: user already exists with public_key: {}",
+                payload.public_key
+            );
+            tracing::info!("Existing user: {:#?}", existing_user);
+            return Ok(Json(RegisterResponse {
+                success: false,
+                user_id: None,
+            }));
+        }
+        Ok(None) => {
+            tracing::warn!("Public key not found, proceeding with registration");
+        }
+        Err(e) => {
+            tracing::error!("Database error while checking existing user: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
     }
 
     // TODO: Implement Twitter OAuth verification
     // For now, we just validate that twitter_handle is provided
     if payload.twitter_handle.is_empty() {
+        tracing::warn!("Registration failed: empty twitter_handle");
         return Err(StatusCode::BAD_REQUEST);
     }
 
     // TODO: Implement signature verification
     // The signature should be verified against the public key and a challenge message
     if payload.signature.is_empty() {
+        tracing::warn!("Registration failed: empty signature");
         return Err(StatusCode::BAD_REQUEST);
     }
+
+    tracing::info!("Validation passed, proceeding with user creation");
 
     // Create new user
     match UserRepository::create(
@@ -79,23 +102,46 @@ async fn register_handler(
     .await
     {
         Ok(user) => {
+            let user_id = user.id.unwrap().to_string();
+            tracing::info!(
+                "User created successfully: user_id={}, public_key={}, twitter_handle={}",
+                user_id,
+                payload.public_key,
+                payload.twitter_handle
+            );
+
             // Create user registration event
-            let _ = UserEventRepository::create(
+            match UserEventRepository::create(
                 &service.pool,
-                &user.id.unwrap().to_string(),
+                &user_id,
                 &payload.public_key,
                 UserEventTxType::RegisterUser,
                 None,
                 chrono::Utc::now(),
             )
-            .await;
+            .await
+            {
+                Ok(_) => {
+                    tracing::info!(
+                        "User registration event created successfully, user_id={}, public_key={}",
+                        user_id,
+                        payload.public_key
+                    );
+                }
+                Err(e) => {
+                    tracing::error!("Failed to create user registration event: {}", e);
+                }
+            }
 
             Ok(Json(RegisterResponse {
                 success: true,
-                user_id: user.id.map(|id| id.to_string()),
+                user_id: Some(user_id),
             }))
         }
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            tracing::error!("Failed to create user: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
@@ -108,10 +154,20 @@ async fn user_info_handler(
     State(service): State<ApiService>,
     Query(query): Query<UserInfoQuery>,
 ) -> Result<Json<UserInfo>, StatusCode> {
+    tracing::info!("User info request for public_key: {}", query.public_key);
     match UserRepository::find_by_public_key(&service.pool, &query.public_key).await {
-        Ok(Some(user)) => Ok(Json(user)),
-        Ok(None) => Err(StatusCode::NOT_FOUND),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Ok(Some(user)) => {
+            tracing::info!("User info found: {:#?}", user);
+            Ok(Json(user))
+        }
+        Ok(None) => {
+            tracing::warn!("User not found for public_key: {}", query.public_key);
+            Err(StatusCode::NOT_FOUND)
+        }
+        Err(e) => {
+            tracing::error!("Database error while fetching user info: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
@@ -128,6 +184,7 @@ async fn worker_events_handler(
     State(service): State<ApiService>,
     Query(query): Query<WorkerEventsQuery>,
 ) -> Result<Json<Vec<WorkerEvent>>, StatusCode> {
+    tracing::info!("Worker events query: {:?}", query);
     let realm_id_i64 = query.realm_id.map(|id| id as i64);
 
     match WorkerEventRepository::list(
@@ -142,8 +199,15 @@ async fn worker_events_handler(
     )
     .await
     {
-        Ok(events) => Ok(Json(events)),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Ok(events) => {
+            tracing::info!("Retrieved {} worker events", events.len());
+            tracing::info!("Worker events: {:#?}", events);
+            Ok(Json(events))
+        }
+        Err(e) => {
+            tracing::error!("Failed to retrieve worker events: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
@@ -240,14 +304,16 @@ async fn user_events_aggregations_handler(
 async fn stats_handler(
     State(service): State<ApiService>,
 ) -> Result<Json<HashMap<String, serde_json::Value>>, StatusCode> {
+    tracing::info!("Stats request received");
     let mut stats = HashMap::new();
 
     // Get basic stats using Repository
     let now = chrono::Utc::now();
     let yesterday = now - chrono::Duration::hours(24);
+    tracing::info!("Generating stats for period: {} to {}", yesterday, now);
 
     // Count recent worker events
-    let worker_events_count = WorkerEventRepository::count(
+    let worker_events_count = match WorkerEventRepository::count(
         &service.pool,
         None, // realm_id
         None, // status
@@ -256,10 +322,19 @@ async fn stats_handler(
         Some(now),
     )
     .await
-    .unwrap_or(0);
+    {
+        Ok(count) => {
+            tracing::info!("Worker events count (24h): {}", count);
+            count
+        }
+        Err(e) => {
+            tracing::error!("Failed to count worker events: {}", e);
+            0
+        }
+    };
 
     // Count recent user events
-    let user_events = UserEventRepository::list(
+    let user_events = match UserEventRepository::list(
         &service.pool,
         None, // user_id
         None, // public_key
@@ -270,7 +345,16 @@ async fn stats_handler(
         1000, // large limit to get count
     )
     .await
-    .unwrap_or_default();
+    {
+        Ok(events) => {
+            tracing::info!("User events count (24h): {}", events.len());
+            events
+        }
+        Err(e) => {
+            tracing::error!("Failed to list user events: {}", e);
+            Vec::new()
+        }
+    };
 
     stats.insert(
         "status".to_string(),
@@ -288,6 +372,13 @@ async fn stats_handler(
         "timestamp".to_string(),
         serde_json::Value::String(now.to_rfc3339()),
     );
+
+    tracing::info!(
+        "Stats generated successfully: worker_events_24h={}, user_events_24h={}",
+        worker_events_count,
+        user_events.len()
+    );
+    tracing::debug!("Stats response: {:?}", stats);
 
     Ok(Json(stats))
 }
