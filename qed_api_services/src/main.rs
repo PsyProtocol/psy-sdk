@@ -1,18 +1,8 @@
 use axum::Router;
-use tower_http::{
-    cors::CorsLayer,
-    trace::TraceLayer,
-};
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber;
 
-use qed_api_services::{
-    config::Config,
-    db::DatabaseConnections,
-    handlers,
-    services::ApiService,
-    telemetry,
-    websocket,
-};
+use qed_api_services::{config::Config, handlers, services::ApiService, telemetry, websocket};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -27,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
 
     // TODO: Initialize real database connections after schema is ready
     tracing::info!("Starting API service in development mode (without database connections)");
-    
+
     // Create a mock service for now
     let api_service = ApiService::new_mock();
 
@@ -39,10 +29,15 @@ async fn main() -> anyhow::Result<()> {
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 
-    let listener = tokio::net::TcpListener::bind(&format!("{}:{}", config.server.host, config.server.port))
-        .await?;
+    let listener =
+        tokio::net::TcpListener::bind(&format!("{}:{}", config.server.host, config.server.port))
+            .await?;
 
-    tracing::info!("Server starting on {}:{}", config.server.host, config.server.port);
+    tracing::info!(
+        "Server starting on {}:{}",
+        config.server.host,
+        config.server.port
+    );
 
     axum::serve(listener, app).await?;
 

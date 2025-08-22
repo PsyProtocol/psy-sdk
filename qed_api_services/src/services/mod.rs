@@ -1,25 +1,19 @@
-use std::sync::Arc;
-
-use crate::db::DatabaseConnections;
+use sqlx::PgPool;
 
 #[derive(Clone)]
 pub struct ApiService {
-    pub db: Option<Arc<DatabaseConnections>>,
+    pub db: PgPool,
     // TODO: Add repository instances
     // TODO: Add HTTP clients for coordinator/realm communication
 }
 
 impl ApiService {
-    pub fn new(db: DatabaseConnections) -> Self {
-        Self {
-            db: Some(Arc::new(db)),
-        }
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
     }
 
     pub fn new_mock() -> Self {
-        Self {
-            db: None,
-        }
+        todo!("temp mocking")
     }
 
     // TODO: Implement service methods for business logic
