@@ -356,7 +356,7 @@ claim:
 
 claim-rewards:
 	@echo "Claiming rewards for checkpoint ${CHECKPOINT_ID}..."
-	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --contract-id 2 --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type zk
+	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --contract-id 2 --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
 
 return-back:
 	@echo "USER1 transferring back to USER0..."

@@ -58,6 +58,8 @@ pub async fn run(
         wallet_password.as_deref(),
     )?;
 
+    info!("Worker ETH Address: {}", wallet.address());
+
     let wallet = Arc::new(wallet);
 
     let main_circuits =
@@ -96,6 +98,7 @@ pub async fn run(
                 prover.clone(),
                 library.clone(),
                 wallet.clone(),
+                worker_public_key.clone()
             ));
             handles.push(handle);
         }
@@ -110,6 +113,7 @@ pub async fn run(
                 prover.clone(),
                 library.clone(),
                 wallet.clone(),
+                worker_public_key.clone()
             ));
             handles.push(handle);
         }

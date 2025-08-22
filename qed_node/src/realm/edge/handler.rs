@@ -724,7 +724,7 @@ where
             return Err(crate::coordinator::edge::error::RpcError::Anyhow(anyhow::anyhow!("Invalid claim job request")));
         }
         
-        self.white_list.verify_request(&signed).map_err(|e|
+        self.white_list.verify_request(&signed, &crate::common::jobs::MESSAGE_CLAIM_JOB.to_string(), Some(std::time::Duration::from_secs(30))).map_err(|e|
             crate::coordinator::edge::error::RpcError::Anyhow(e.into())
         )?;
 
@@ -776,15 +776,10 @@ where
     ) -> RpcResult<()> {
 
         // Verify signature and whitelist
-        self.white_list.verify_request(&signed).map_err(|e|
+        self.white_list.verify_request(&signed, &proof, Some(std::time::Duration::from_secs(300))).map_err(|e|
             crate::coordinator::edge::error::RpcError::Anyhow(e.into())
         )?;
 
-        // Verify proof hash matches signed hash
-        let is_valid = signed.verify_hashable(&proof, signed.address, Some(std::time::Duration::from_secs(300))).map_err(|e| crate::coordinator::edge::error::RpcError::Anyhow(e.into()))?;
-        if !is_valid {
-            return Err(crate::coordinator::edge::error::RpcError::Anyhow(anyhow!("Proof hash verification failed")));
-        }
 
         let job_id = job.job_id;
         // CRITICAL: Validate job ownership before processing proof

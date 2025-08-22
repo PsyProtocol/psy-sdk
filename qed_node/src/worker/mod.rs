@@ -31,11 +31,10 @@ pub async fn run_worker(
     job_tracker: Arc<Mutex<WorkerJobTracker>>,
     prover: Arc<QEDCoordinatorCircuitManager<C, D>>,
     library: Arc<SimpleCircuitLibrary<F>>,
-    wallet: Arc<Wallet>
+    wallet: Arc<Wallet>,
+    worker_public_key: QHashOut<F>,
 ) -> anyhow::Result<()> {
     info!("Running worker for edge: {}", edge_url);
-    info!("worker wallet: {:?}", wallet.public_key_hash());
-    let worker_public_key = wallet.public_key_hash();
     let job_client = JobClient::new(edge_url).await?;
 
     let store = job_client.clone();
@@ -71,7 +70,7 @@ pub async fn run_worker(
                         {
                             let mut tracker = job_tracker.lock().await;
                             tracker.add_completed_job(job_id, location.clone());
-                            if let Err(e) = tracker.save_to_file(worker_public_key) {
+                            if let Err(e) = tracker.save_to_file(&worker_public_key.to_string()) {
                                 error!("Failed to save job tracker: {:?}", e);
                             }
                         }

@@ -481,7 +481,7 @@ pub struct ClaimRewardsArgs {
     #[arg(long = "job", action = clap::ArgAction::Append)]
     pub jobs: Vec<String>,
 
-    /// Sign type (zk, secp256k1, software_defined)
+    /// Signature type
     #[clap(long, short, default_value = "zk")]
     pub sign_type: SignType,
 

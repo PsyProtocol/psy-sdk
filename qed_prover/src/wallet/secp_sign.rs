@@ -151,9 +151,11 @@ impl<T: Eip712Signable> SignedRequest<T> {
         })
     }
 
-    pub fn verify(&self, check_expiry: bool) -> Result<bool> {
-        if check_expiry && self.is_expired() {
-            return Ok(false);
+    pub fn verify(&self, expiry_duration: Option<Duration>) -> Result<bool> {
+        if let Some(duration) = expiry_duration {
+            if self.is_expired_with_duration(duration) {
+                return Ok(false);
+            }
         }
 
         let chain_id = self.chain_id;
@@ -199,7 +201,7 @@ impl SignedRequest<QHashOut<GoldilocksField>> {
         SignedRequest::new(wallet, qhash)
     }
 
-    pub fn verify_hashable<T: serde::Serialize>(
+    pub fn verify_hashable<T: Serialize>(
         &self,
         original_data: &T,
         expected_address: Address,
@@ -221,17 +223,10 @@ impl SignedRequest<QHashOut<GoldilocksField>> {
             return Ok(false);
         }
 
-        match expiry_duration {
-            Some(duration) => {
-                if self.is_expired_with_duration(duration) {
-                    return Ok(false);
-                }
-                self.verify(true)
-            }
-            None => self.verify(false)
-        }
+        self.verify(expiry_duration)
     }
 }
+
 
 impl<T: Display + Eip712Signable> Display for SignedRequest<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -260,7 +255,7 @@ mod tests {
         ).unwrap();
 
         // Verify signature
-        assert!(signed_request.verify(false).unwrap());
+        assert!(signed_request.verify(None).unwrap());
         assert_eq!(signed_request.address, wallet.address_raw());
         assert_eq!(signed_request.timestamp, timestamp);
         assert_eq!(signed_request.chain_id, chain_id);
@@ -290,8 +285,8 @@ mod tests {
         assert_ne!(signed_request1.signature, signed_request2.signature);
 
         // Both should verify correctly
-        assert!(signed_request1.verify(false).unwrap());
-        assert!(signed_request2.verify(false).unwrap());
+        assert!(signed_request1.verify(None).unwrap());
+        assert!(signed_request2.verify(None).unwrap());
     }
 
     #[test]
@@ -316,8 +311,8 @@ mod tests {
         assert_ne!(signed_request_chain1.signature, signed_request_chain2.signature);
 
         // Both should verify correctly
-        assert!(signed_request_chain1.verify(false).unwrap());
-        assert!(signed_request_chain2.verify(false).unwrap());
+        assert!(signed_request_chain1.verify(None).unwrap());
+        assert!(signed_request_chain2.verify(None).unwrap());
     }
 
     #[test]
@@ -329,7 +324,7 @@ mod tests {
         let signed_request = wallet.sign_eip712(message.clone()).unwrap();
 
         assert_eq!(signed_request.data, message);
-        assert!(signed_request.verify(false).unwrap());
+        assert!(signed_request.verify(None).unwrap());
     }
 
     #[test]
@@ -347,7 +342,7 @@ mod tests {
         ).unwrap();
 
         // Verify signature
-        assert!(signed_request.verify(false).unwrap());
+        assert!(signed_request.verify(None).unwrap());
         assert_eq!(signed_request.address, wallet.address_raw());
         assert_eq!(signed_request.timestamp, timestamp);
         assert_eq!(signed_request.chain_id, chain_id);
@@ -357,10 +352,10 @@ mod tests {
     #[test]
     fn test_hashable_signing_and_verification() {
         let wallet = Wallet::new().unwrap();
-        let test_data = "test message for hashing";
+        let test_data = "test message for hashing".to_string();
 
         // Sign the data
-        let signed = SignedRequest::sign_hashable(&wallet, &test_data).unwrap();
+        let signed = SignedRequest::<QHashOut<GoldilocksField>>::sign_hashable(&wallet, &test_data).unwrap();
 
         // Verify with correct data
         assert!(signed.verify_hashable(&test_data, wallet.address_raw(), None).unwrap());
@@ -381,6 +376,12 @@ mod tests {
             values: Vec<u32>,
         }
 
+        impl Eip712Signable for TestStruct {
+            fn type_hash() -> B256 {
+                keccak256(b"TestStruct(uint64 id,string name,uint32[] values)")
+            }
+        }
+
         let wallet = Wallet::new().unwrap();
         let test_data = TestStruct {
             id: 12345,
@@ -388,7 +389,7 @@ mod tests {
             values: vec![1, 2, 3, 4, 5],
         };
 
-        let signed = SignedRequest::sign_hashable(&wallet, &test_data).unwrap();
+        let signed = SignedRequest::<QHashOut<GoldilocksField>>::sign_hashable(&wallet, &test_data).unwrap();
 
         // Should verify with exact same data
         assert!(signed.verify_hashable(&test_data, wallet.address_raw(), None).unwrap());
@@ -434,8 +435,8 @@ mod tests {
         let wallet2 = Wallet::new().unwrap();
         let test_data = "same message";
 
-        let signed1 = SignedRequest::sign_hashable(&wallet1, &test_data).unwrap();
-        let signed2 = SignedRequest::sign_hashable(&wallet2, &test_data).unwrap();
+        let signed1 = SignedRequest::<QHashOut<GoldilocksField>>::sign_hashable(&wallet1, &test_data).unwrap();
+        let signed2 = SignedRequest::<QHashOut<GoldilocksField>>::sign_hashable(&wallet2, &test_data).unwrap();
 
         // Different wallets should produce different signatures
         assert_ne!(signed1.signature, signed2.signature);

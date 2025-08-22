@@ -33,7 +33,7 @@ use qed_data::qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoC
 
 use qed_store::queue::rsmq_queue::CEQueueNotification;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
-use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, QEDProof};
+use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHash, QEDHasher, QEDProof};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
@@ -1400,13 +1400,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     async fn get_pending_job(&self, signed: SignedRequest<qed_data::config::store_config::QEDHash>) -> RpcResult<Option<QJob>> {
 
-        let is_valid = signed.verify_hashable(&crate::common::jobs::MESSAGE_CLAIM_JOB, signed.address, Some(std::time::Duration::from_secs(30)))
-            .map_err(|e| RpcError::Anyhow(e.into()))?;
-        if !is_valid {
-            return Err(RpcError::Anyhow(anyhow::anyhow!("Invalid claim job request")));
-        }
-        
-        self.white_list.verify_request(&signed).map_err(|e|
+        self.white_list.verify_request(&signed, &crate::common::jobs::MESSAGE_CLAIM_JOB.to_string(), Some(std::time::Duration::from_secs(30))).map_err(|e|
             RpcError::Anyhow(e.into())
         )?;
 
@@ -1443,19 +1437,14 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         &self,
         job: QJob,
         proof: Option<QEDProof>,
-        signed: SignedRequest<qed_data::config::store_config::QEDHash>,
+        signed: SignedRequest<QEDHash>,
     ) -> RpcResult<()> {
 
         // Verify signature and whitelist
-        self.white_list.verify_request(&signed).map_err(|e|
+        self.white_list.verify_request(&signed, &proof, Some(std::time::Duration::from_secs(300))).map_err(|e|
             RpcError::Anyhow(e.into())
         )?;
 
-        // Verify proof hash matches signed hash
-        let is_valid = signed.verify_hashable(&proof, signed.address, Some(std::time::Duration::from_secs(300))).map_err(|e| RpcError::Anyhow(e.into()))?;
-        if !is_valid {
-            return Err(RpcError::Anyhow(anyhow!("Proof hash verification failed")));
-        }
 
         let job_id = job.job_id;
 

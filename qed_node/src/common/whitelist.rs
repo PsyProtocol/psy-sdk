@@ -1,14 +1,15 @@
+use alloy_primitives::Address;
+use anyhow::Result;
+use indexmap::IndexSet;
+use plonky2::field::goldilocks_field::GoldilocksField;
+use qed_core::data::qhashout::QHashOut;
+use qed_prover::wallet::secp_sign::{Eip712Signable, SignedRequest};
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
-use anyhow::Result;
-use indexmap::IndexSet;
-use alloy_primitives::Address;
 use tracing::info;
-use qed_prover::wallet::secp_sign::SignedRequest;
 
-/// Whitelist configuration structure
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct WhitelistConfig {
     #[serde(default)]
@@ -17,14 +18,12 @@ pub struct WhitelistConfig {
     pub secp256k1: Vec<Address>,
 }
 
-/// Main configuration file structure
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
     pub whitelist: WhitelistConfig,
 }
 
-/// Address whitelist manager
 #[derive(Clone, Debug)]
 pub struct WhiteList {
     pub enabled: bool,
@@ -51,34 +50,43 @@ impl WhiteList {
             info!("Loaded secp256k1 address: {}", address);
         }
 
-        info!("Loaded {} secp256k1 addresses (enabled: {})",
-              whitelist.secp256k1.len(), whitelist.enabled);
+        info!(
+            "Loaded {} secp256k1 addresses (enabled: {})",
+            whitelist.secp256k1.len(),
+            whitelist.enabled
+        );
         Ok(whitelist)
     }
 
-    /// Check if a secp256k1 address is whitelisted
     pub fn is_secp256k1_whitelisted(&self, address: &Address) -> bool {
         self.secp256k1.contains(address)
     }
 
-    pub fn verify_request<T: qed_prover::wallet::secp_sign::Eip712Signable>(
+    pub fn verify_request<T>(
         &self,
-        request: &SignedRequest<T>,
-    ) -> Result<()> {
+        request: &SignedRequest<QHashOut<GoldilocksField>>,
+        original_data: &T,
+        expiry_duration: Option<std::time::Duration>,
+    ) -> Result<()>
+    where
+        T: serde::Serialize,
+    {
         if !self.enabled {
             return Ok(());
         }
 
         if !self.is_secp256k1_whitelisted(&request.address) {
-            return Err(anyhow::anyhow!("Address not whitelisted: {}", request.address));
+            return Err(anyhow::anyhow!(
+                "Address not whitelisted: {}",
+                request.address
+            ));
         }
 
-        let is_valid = request.verify(true)?;
+        let is_valid = request.verify_hashable(original_data, request.address, expiry_duration)?;
         if !is_valid {
             return Err(anyhow::anyhow!("Invalid signature or expired"));
         }
 
         Ok(())
     }
-
 }
