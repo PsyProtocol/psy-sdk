@@ -17,3 +17,4 @@ serde_json = { workspace = true }
 qed_rollup_circuit = { workspace = true }
 qed_crypto = { workspace = true }
 qed_prover = { workspace = true }
+qed_data = { workspace = true }

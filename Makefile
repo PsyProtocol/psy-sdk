@@ -210,17 +210,17 @@ run-realm-edge1:
 run-worker0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
       --config=./config.json \
-      --public-key=${USER0_PUBLIC_KEY}
+      --private-key=${USER0_PRIVATE_KEY}
 
 run-worker1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
       --config=./config.json \
-      --public-key=${USER1_PUBLIC_KEY}
+      --private-key=${USER1_PRIVATE_KEY}
 
 run-worker2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
       --config=./config.json \
-      --public-key=${USER2_PUBLIC_KEY}
+      --private-key=${USER2_PRIVATE_KEY}
 
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 
@@ -303,7 +303,7 @@ get-public-key:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY}
 
 wallet:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli wallet
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli wallet create
 
 random-wallet:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli random-wallet

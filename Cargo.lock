@@ -5144,6 +5144,7 @@ dependencies = [
  "plonky2",
  "qed_core",
  "qed_crypto",
+ "qed_data",
  "qed_node",
  "qed_prover",
  "qed_rollup_circuit",

@@ -1,32 +1,40 @@
-use qed_node::worker::{run_worker, job_tracker::{JobLocation, WorkerJobTracker}};
-use qed_core::data::qhashout::QHashOut;
-use qed_core::config::network_constants::get_default_worker_public_key;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use plonky2::plonk::config::GenericHashOut;
+use qed_core::config::network_constants::get_default_worker_public_key;
+use qed_core::data::qhashout::QHashOut;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
+use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use qed_data::config::store_config::{QEDFelt, QEDHash, QEDHasher};
 use qed_node::common::verifier::get_cached_generic_verifier;
-use tokio::sync::Mutex;
-use std::sync::Arc;
-use tracing::{info, error};
-use std::str::FromStr;
+use qed_node::worker::{
+    job_tracker::{JobLocation, WorkerJobTracker},
+    run_worker,
+};
+use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
+use qed_prover::wallet::secp_wallet::Wallet;
+use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::fs;
 use std::path::{Path, PathBuf};
-// TODO: Implement wallet_interactive in secp_wallet or remove interactive mode
-use qed_prover::wallet::secp_wallet::Wallet;
+use std::str::FromStr;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tracing::{error, info};
 
 type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
 fn print_banner() {
-    println!(r#"
+    println!(
+        r#"
  ____              __  __ _
 |  _ \ ___ _   _  |  \/  (_)_ __   ___ _ __
 | |_) / __| | | | | |\/| | | '_ \ / _ \ '__|
 |  __/\__ \ |_| | | |  | | | | | |  __/ |
 |_|   |___/\__, | |_|  |_|_|_| |_|\___|_|
            |___/
-    "#);
+    "#
+    );
 }
 
 pub async fn run(
@@ -34,7 +42,6 @@ pub async fn run(
     private_key: Option<String>,
     keystore_path: Option<String>,
     wallet_password: Option<String>,
-    non_interactive: bool
 ) -> anyhow::Result<()> {
     print_banner();
     info!("Worker starting...");
@@ -46,11 +53,24 @@ pub async fn run(
     let wallet = Wallet::load(
         private_key.as_deref(),
         keystore_path.as_ref().map(|p| Path::new(p)),
-        wallet_password.as_deref()
+        wallet_password.as_deref(),
     )?;
 
     let wallet = Arc::new(wallet);
-    let worker_public_key = wallet.public_key_hash();
+
+    let main_circuits =
+        qed_prover::ups::circuit_manager::core::QCircuitManager::Local(QEDUPSStepCircuitManager::<
+            C,
+            D,
+        >::new_with_config(
+            qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
+        ));
+
+    let mut memory_wallet = qed_prover::wallet::memory_wallet::QEDMemoryWallet::new(main_circuits);
+
+    let private_key = QHashOut::<GoldilocksField>::from_bytes(&wallet.private_key());
+    let public_key_info = memory_wallet.add_secp_private_key(private_key)?;
+    let worker_public_key = public_key_info.qfhash::<QEDHasher>();
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     let prover = Arc::new(QEDCoordinatorCircuitManager::<C, D>::new_with_library(
@@ -59,7 +79,9 @@ pub async fn run(
     ));
     let library = Arc::new(proof_verifier.library.clone());
 
-    let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(worker_public_key)));
+    let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(
+        worker_public_key,
+    )));
 
     let mut handles = Vec::new();
 
@@ -112,4 +134,3 @@ pub async fn run(
     info!("Worker exit.");
     Ok(())
 }
-

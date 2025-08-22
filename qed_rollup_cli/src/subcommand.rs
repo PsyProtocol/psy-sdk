@@ -50,8 +50,5 @@ pub enum Commands {
 
         #[arg(long = "wallet-password", env = "WALLET_PASSWORD", help = "Wallet password")]
         wallet_password: Option<String>,
-
-        #[arg(long = "non-interactive", short = 'n', help = "Run without prompts")]
-        non_interactive: bool,
     },
 }
