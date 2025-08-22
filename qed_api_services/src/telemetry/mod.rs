@@ -1,13 +1,7 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::Json,
-    routing::post,
-    Router,
-};
+use axum::{extract::State, http::StatusCode, response::Json, routing::post, Router};
 use serde::{Deserialize, Serialize};
 
-use crate::{models::*, services::ApiService};
+use crate::{models::*, repositories::*, services::ApiService, websocket::WebSocketEvent};
 
 pub fn create_telemetry_router(api_service: ApiService) -> Router {
     Router::new()
@@ -28,24 +22,81 @@ pub struct TelemetryResponse {
 }
 
 async fn receive_events_handler(
-    State(_service): State<ApiService>,
+    State(service): State<ApiService>,
     Json(payload): Json<TelemetryPayload>,
 ) -> Result<Json<TelemetryResponse>, StatusCode> {
     let mut processed_count = 0;
 
-    // TODO: Process worker events
-    if let Some(worker_events) = &payload.worker_events {
-        processed_count += worker_events.len();
-        // TODO: Insert into database
+    // Process worker events
+    if let Some(ref worker_events) = payload.worker_events {
+        for worker_event in worker_events {
+            match WorkerEventRepository::create(
+                &service.pool,
+                worker_event.realm_id,
+                worker_event.public_key.as_deref(),
+                worker_event.status.clone(),
+                worker_event.source.clone(),
+                &worker_event.job_id,
+                worker_event.checkpoint_id,
+                worker_event.duration,
+                worker_event.metadata.as_ref(),
+                worker_event.timestamp,
+            )
+            .await
+            {
+                Ok(_) => processed_count += 1,
+                Err(e) => {
+                    tracing::error!("Failed to insert worker event: {:?}", e);
+                    continue;
+                }
+            }
+        }
     }
 
-    // TODO: Process user events
-    if let Some(user_events) = &payload.user_events {
-        processed_count += user_events.len();
-        // TODO: Insert into database
+    // Process user events
+    if let Some(ref user_events) = payload.user_events {
+        for user_event in user_events {
+            match UserEventRepository::create(
+                &service.pool,
+                &user_event.user_id,
+                &user_event.public_key,
+                user_event.tx_type.clone(),
+                user_event.metadata.as_ref(),
+                user_event.timestamp,
+            )
+            .await
+            {
+                Ok(_) => processed_count += 1,
+                Err(e) => {
+                    tracing::error!("Failed to insert user event: {:?}", e);
+                    continue;
+                }
+            }
+        }
     }
 
-    // TODO: Push to WebSocket subscribers
+    // Push events to WebSocket subscribers
+    if let Some(ref worker_events) = payload.worker_events {
+        for worker_event in worker_events {
+            let ws_event = WebSocketEvent {
+                event_type: "worker_event".to_string(),
+                data: serde_json::to_value(worker_event).unwrap_or_default(),
+                timestamp: chrono::Utc::now(),
+            };
+            service.websocket_manager.broadcast_event(&ws_event).await;
+        }
+    }
+
+    if let Some(ref user_events) = payload.user_events {
+        for user_event in user_events {
+            let ws_event = WebSocketEvent {
+                event_type: "user_event".to_string(),
+                data: serde_json::to_value(user_event).unwrap_or_default(),
+                timestamp: chrono::Utc::now(),
+            };
+            service.websocket_manager.broadcast_event(&ws_event).await;
+        }
+    }
 
     Ok(Json(TelemetryResponse {
         success: true,
