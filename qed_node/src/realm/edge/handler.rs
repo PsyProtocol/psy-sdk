@@ -1,6 +1,6 @@
 use super::error::RpcError;
 use super::rpc::RealmEdgeRpcServer;
-use crate::common::jobs::JobSchedulerRpcServer;
+use crate::common::jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB};
 use crate::realm::state::edge::RealmEdgeContext;
 use crate::realm::{C, D, F};
 use async_trait::async_trait;
@@ -18,7 +18,7 @@ use qed_core::job::{
     traits::QProofStoreAsyncImm,
 };
 use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_data::config::store_config::{QEDFelt, QEDProof};
+use qed_data::config::store_config::{QEDFelt, QEDHash, QEDProof};
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
@@ -27,6 +27,7 @@ use qed_data::qdata::user::QEDUserLeaf;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
 use std::sync::Arc;
+use std::time::Duration;
 use anyhow::anyhow;
 use jsonrpsee::types::{ErrorCode, ErrorObject};
 
@@ -717,15 +718,8 @@ where
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
     async fn get_pending_job(&self, signed: SignedRequest<qed_data::config::store_config::QEDHash>) -> RpcResult<Option<QJob>> {
-
-        let is_valid = signed.verify_hashable(&crate::common::jobs::MESSAGE_CLAIM_JOB, signed.address, Some(std::time::Duration::from_secs(30)))
-            .map_err(|e| crate::coordinator::edge::error::RpcError::Anyhow(e.into()))?;
-        if !is_valid {
-            return Err(crate::coordinator::edge::error::RpcError::Anyhow(anyhow::anyhow!("Invalid claim job request")));
-        }
-        
-        self.white_list.verify_request(&signed, &crate::common::jobs::MESSAGE_CLAIM_JOB.to_string(), Some(std::time::Duration::from_secs(30))).map_err(|e|
-            crate::coordinator::edge::error::RpcError::Anyhow(e.into())
+        self.white_list.verify_request(&signed, &MESSAGE_CLAIM_JOB.to_string(), Some(Duration::from_secs(30))).map_err(|e|
+            RpcError::Anyhow(e.into())
         )?;
 
         let j = match self.task_store.claim_job_from_current_layer().await {
@@ -741,7 +735,6 @@ where
                 Ok(Some(job))
             },
             None => {
-                debug!("No pending job from current task");
                 Ok(None)
             }
         }
@@ -772,19 +765,18 @@ where
         &self,
         job: QJob,
         proof: Option<QEDProof>,
-        signed: SignedRequest<qed_data::config::store_config::QEDHash>,
+        signed: SignedRequest<QEDHash>,
     ) -> RpcResult<()> {
-
         // Verify signature and whitelist
-        self.white_list.verify_request(&signed, &proof, Some(std::time::Duration::from_secs(300))).map_err(|e|
-            crate::coordinator::edge::error::RpcError::Anyhow(e.into())
+        self.white_list.verify_request(&signed, &proof, Some(Duration::from_secs(300))).map_err(|e|
+            RpcError::Anyhow(e.into())
         )?;
 
 
         let job_id = job.job_id;
         // CRITICAL: Validate job ownership before processing proof
         let validation_status = self.task_store.validate_job_ownership(&job).await
-            .map_err(|e| crate::coordinator::edge::error::RpcError::Anyhow(anyhow!("Failed to validate job: {}", e)))?;
+            .map_err(|e| RpcError::Anyhow(anyhow!("Failed to validate job: {}", e)))?;
 
         match validation_status {
             JobValidationStatus::Valid => {

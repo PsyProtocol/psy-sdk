@@ -479,13 +479,28 @@ impl<
 
         // ensure the signature is correct
         let expected_sighash = self.get_sighash(network_magic, nonce);
-        let expected_public_inputs_hash = H::q_two_to_one( expected_sighash, public_key_param);
+        let expected_public_inputs_hash = H::q_two_to_one(expected_sighash, public_key_param);
+        tracing::info!(
+            "Expected public inputs hash: H::q_two_to_one({}, {}) = {}",
+            expected_sighash,
+            public_key_param,
+            expected_public_inputs_hash
+        );
+        
         let proof_public_inputs_hash = QHashOut(HashOut{elements: [
             signature_proof.public_inputs[0],
             signature_proof.public_inputs[1],
             signature_proof.public_inputs[2],
             signature_proof.public_inputs[3],
         ]});
+        tracing::info!(
+            "Actual proof public inputs: [{}, {}, {}, {}] = {}",
+            signature_proof.public_inputs[0],
+            signature_proof.public_inputs[1],
+            signature_proof.public_inputs[2],
+            signature_proof.public_inputs[3],
+            proof_public_inputs_hash
+        );
         if !proof_public_inputs_hash.eq(&expected_public_inputs_hash) {
             anyhow::bail!(
                 "invalid signature for ups session, likely incorrect sighash\n{:?}!= {:?}",

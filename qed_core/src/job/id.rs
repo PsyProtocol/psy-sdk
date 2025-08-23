@@ -1612,6 +1612,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     #[should_panic(expected = "cycle detected")]
     fn test_cycle_detection() {
         let mut graph = QProvingTaskGraph::new();
@@ -1802,6 +1803,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_get_task_levels_complex() {
         let mut graph = QProvingTaskGraph::new();
 

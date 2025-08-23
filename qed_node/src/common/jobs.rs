@@ -43,7 +43,6 @@ pub struct JobClient {
 
 impl JobClient {
     pub async fn new(rpc_url: String) -> anyhow::Result<Self> {
-        info!("Creating coordinator job receiver: {}", rpc_url);
         let rpc_client = HttpClientBuilder::default().build(&rpc_url)?;
         Ok(Self { rpc_client })
     }
@@ -54,7 +53,7 @@ impl JobReceiver for JobClient {
     async fn get_next_job(&self, wallet: Arc<Wallet>) -> anyhow::Result<QJob> {
         loop {
             let signed_request = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(
-                &wallet, 
+                &wallet,
                 &MESSAGE_CLAIM_JOB
             )?;
             if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client, signed_request).await? {

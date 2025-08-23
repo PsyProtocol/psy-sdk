@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 // std
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{anyhow, bail};
 use chrono::Utc;
@@ -38,7 +39,7 @@ use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
-use crate::common::jobs::JobSchedulerRpcServer;
+use crate::common::jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB};
 use crate::coordinator::edge::{StoreReader, DrainQueue, ProofStore};
 use crate::coordinator::args::CoordinatorEdgeArgs;
 use crate::coordinator::state::edge::CoordinatorEdgeContext;
@@ -1398,9 +1399,8 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
-    async fn get_pending_job(&self, signed: SignedRequest<qed_data::config::store_config::QEDHash>) -> RpcResult<Option<QJob>> {
-
-        self.white_list.verify_request(&signed, &crate::common::jobs::MESSAGE_CLAIM_JOB.to_string(), Some(std::time::Duration::from_secs(30))).map_err(|e|
+    async fn get_pending_job(&self, signed: SignedRequest<QEDHash>) -> RpcResult<Option<QJob>> {
+        self.white_list.verify_request(&signed, &MESSAGE_CLAIM_JOB.to_string(), Some(Duration::from_secs(30))).map_err(|e|
             RpcError::Anyhow(e.into())
         )?;
 
@@ -1441,7 +1441,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     ) -> RpcResult<()> {
 
         // Verify signature and whitelist
-        self.white_list.verify_request(&signed, &proof, Some(std::time::Duration::from_secs(300))).map_err(|e|
+        self.white_list.verify_request(&signed, &proof, Some(Duration::from_secs(300))).map_err(|e|
             RpcError::Anyhow(e.into())
         )?;
 

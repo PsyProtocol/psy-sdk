@@ -9,6 +9,7 @@ use super::ecdsa::gadgets::{
     nonnative::{CircuitBuilderNonNative, NonNativeTarget},
 };
 use crate::{
+    builder::hash::core::CircuitBuilderHashCore,
     crypto::secp256k1::ecdsa::gadgets::biguint::WitnessBigUint,
     hash::base_types::hash256bytes::{
         CircuitBuilderHash256Bytes, Hash256BytesTarget, WitnessHash256Bytes,
@@ -205,8 +206,7 @@ impl DogeQEDSignatureCombinedHashGadget {
         message_hash: HashOutTarget,
     ) -> Self {
         let hash_public_key = builder.hash_n_to_hash_no_pad::<H>(compressed_public_key.to_vec());
-        let combined_hash = builder
-            .hash_n_to_hash_no_pad::<H>([message_hash.elements, hash_public_key.elements].concat());
+        let combined_hash = builder.hash_two_to_one::<H>(message_hash, hash_public_key);
 
         Self {
             compressed_public_key,
@@ -716,16 +716,20 @@ mod tests {
             "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
         )?;
 
-        let key_pair = k256::ecdsa::SigningKey::from_slice(&Hash256::from(sk).0)?;
+        let mut sk_bytes = Hash256::from(sk).0;
+        sk_bytes.reverse();
+        let key_pair = k256::ecdsa::SigningKey::from_slice(&sk_bytes)?;
         let pk = key_pair.verifying_key();
 
         let sig_hash = QHashOut::<F>::from_str(
             "83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186",
         )?;
+        let mut sig_hash_bytes = Hash256::from(sig_hash).0;
+        sig_hash_bytes.reverse();
         let signature: k256::ecdsa::Signature =
-            key_pair.sign_prehash(&Hash256::from(sig_hash).0)?;
+            key_pair.sign_prehash(&sig_hash_bytes)?;
         use k256::ecdsa::signature::hazmat::PrehashVerifier;
-        pk.verify_prehash(&Hash256::from(sig_hash).0, &signature)?;
+        pk.verify_prehash(&sig_hash_bytes, &signature)?;
 
         let pk_bytes = pk.to_encoded_point(false).to_bytes();
         let pk_x = pk_bytes[1..33].to_vec();

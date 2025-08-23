@@ -26,7 +26,7 @@ use std::str::FromStr;
 
 const ZK_FINGERPRINT: &str = "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0";
 const SECP256K1_FINGERPRINT: &str =
-    "795c781a246206d4d1efc7cf566c31319928c52957efc5cb4f27362d94a4976f";
+    "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c";
 
 pub fn run(args: RegisterUserArgs) -> Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
