@@ -34,6 +34,8 @@ use jsonrpsee::types::{ErrorCode, ErrorObject};
 use tracing::{debug, error, info, warn};
 use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob};
+use crate::coordinator::edge::ProofStore;
+use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
 use crate::common::whitelist::WhiteList;
 
 #[derive(Clone)]
@@ -826,8 +828,13 @@ where
 
             crate::common::log_proof_details("Realm", job_id, &proof);
 
-            self.ctx.proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)
-                .map_err(|e| RpcError::Anyhow(e.into()))?;
+            verify_witness_and_proof(
+                &self.ctx.proof_verifier,
+                job_id,
+                self.ctx.proof_store.as_ref(),
+                &proof,
+            ).await.map_err(|e| RpcError::Anyhow(e.into()))?;
+
             let output_id = job_id.get_output_id();
             self.ctx
                 .proof_store

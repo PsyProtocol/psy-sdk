@@ -45,8 +45,8 @@ impl BatchDeployContractsGadget {
         // for all the newly added contract leaves, ensure their hashes correspond to our append spiderman tree proof
         for (i, (leaf, is_added) )in contract_leaves.iter().zip(spiderman_gadget.get_added_leaves().iter()).enumerate() {
             let contract_leaf_hash = leaf.to_hash::<H,F,D>(builder);
-            tracing::debug!("Deploy contract spiderman gadget: {:#?}", spiderman_gadget);
-            tracing::debug!("Deploy contract leaf hash: {:#?}", contract_leaf_hash);
+            // tracing::debug!("Deploy contract spiderman gadget: {:#?}", spiderman_gadget);
+            // tracing::debug!("Deploy contract leaf hash: {:#?}", contract_leaf_hash);
             builder.connect_hashes_if_true(
                 *is_added,
                 contract_leaf_hash,
@@ -66,8 +66,8 @@ impl BatchDeployContractsGadget {
         spiderman_append_proof: &SpidermanUpdateProof<QHashOut<F>>,
         contract_leaves: &[QEDContractLeaf<F>],
     ) -> anyhow::Result<()> {
-        tracing::debug!("Deploy contract append proof: {:#?}", spiderman_append_proof);
-        tracing::debug!("Deploy contract leaves: {:#?}", contract_leaves);
+        // tracing::debug!("Deploy contract append proof: {:#?}", spiderman_append_proof);
+        // tracing::debug!("Deploy contract leaves: {:#?}", contract_leaves);
         self.spiderman_gadget.set_witness(witness, spiderman_append_proof)?;
         for (g, v) in self.contract_leaves.iter().zip(contract_leaves.iter()) {
             g.set_witness(witness, v)?;
