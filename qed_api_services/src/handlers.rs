@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
     routing::{get, post},
@@ -26,6 +26,8 @@ pub fn create_router(api_service: ApiService) -> Router {
             get(user_events_aggregations_handler),
         )
         .route("/stats", get(stats_handler))
+        .route("/stats/realms", get(global_realm_stats_handler))
+        .route("/stats/realms/{realm_id}", get(realm_stats_handler))
         .with_state(api_service)
 }
 
@@ -381,4 +383,41 @@ async fn stats_handler(
     tracing::debug!("Stats response: {:?}", stats);
 
     Ok(Json(stats))
+}
+
+async fn realm_stats_handler(
+    State(service): State<ApiService>,
+    Path(realm_id): Path<i64>,
+) -> Result<Json<RealmStats>, StatusCode> {
+    tracing::info!("Realm stats request for realm_id: {}", realm_id);
+    match RealmStatsRepository::get_realm_stats(&service.pool, realm_id).await {
+        Ok(stats) => {
+            tracing::info!("Retrieved realm stats: {:#?}", stats);
+            Ok(Json(stats))
+        }
+        Err(e) => {
+            tracing::error!(
+                "Failed to retrieve realm stats for realm_id {}: {}",
+                realm_id,
+                e
+            );
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+async fn global_realm_stats_handler(
+    State(service): State<ApiService>,
+) -> Result<Json<GlobalRealmStats>, StatusCode> {
+    tracing::info!("Global realm stats request received");
+    match RealmStatsRepository::get_global_realm_stats(&service.pool).await {
+        Ok(stats) => {
+            tracing::info!("Retrieved global realm stats: {:#?}", stats);
+            Ok(Json(stats))
+        }
+        Err(e) => {
+            tracing::error!("Failed to retrieve global realm stats: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }

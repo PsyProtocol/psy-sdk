@@ -132,3 +132,27 @@ pub fn job_id_from_json(value: serde_json::Value) -> Result<QProvingJobDataID, s
 pub fn job_id_to_json(job_id: &QProvingJobDataID) -> serde_json::Value {
     serde_json::to_value(job_id).unwrap_or(serde_json::Value::Null)
 }
+
+// Realm statistics models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RealmStats {
+    pub realm_id: i64,
+    pub processing_tasks: i64,
+    pub active_workers_1h: i64,
+    pub active_workers_24h: i64,
+    pub active_users_1h: i64,
+    pub active_users_24h: i64,
+    pub last_updated: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalRealmStats {
+    pub total_processing_tasks: i64,
+    pub active_workers_1h: i64,
+    pub active_workers_24h: i64,
+    pub active_users_1h: i64,
+    pub active_users_24h: i64,
+    pub active_realms_1h: i64,
+    pub active_realms_24h: i64,
+    pub last_updated: DateTime<Utc>,
+}

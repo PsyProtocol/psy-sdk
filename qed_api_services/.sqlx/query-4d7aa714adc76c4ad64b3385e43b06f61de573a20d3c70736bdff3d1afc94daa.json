@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_1h,\n                COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_1h\n            FROM worker_events\n            WHERE realm_id = $1 AND timestamp >= $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "active_workers_1h",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "active_users_1h",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "4d7aa714adc76c4ad64b3385e43b06f61de573a20d3c70736bdff3d1afc94daa"
+}

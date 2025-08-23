@@ -4,7 +4,7 @@ use sqlx::PgPool;
 
 use crate::models::{
     job_id_to_json, UserEvent, UserEventAggregation, UserEventTxType, UserInfo, WorkerEvent,
-    WorkerEventAggregation, WorkerEventSource, WorkerEventStatus,
+    WorkerEventAggregation, WorkerEventSource, WorkerEventStatus, RealmStats, GlobalRealmStats,
 };
 use crate::Result;
 
@@ -13,6 +13,7 @@ pub struct WorkerEventRepository;
 pub struct UserEventRepository;
 pub struct WorkerEventAggregationRepository;
 pub struct UserEventAggregationRepository;
+pub struct RealmStatsRepository;
 
 impl UserRepository {
     /// Create a new user
@@ -447,5 +448,144 @@ impl UserEventAggregationRepository {
             .await?;
 
         Ok(aggregations)
+    }
+}
+
+/// Realm Statistics Repository
+impl RealmStatsRepository {
+    /// Get statistics for a specific realm
+    pub async fn get_realm_stats(pool: &PgPool, realm_id: i64) -> Result<RealmStats> {
+        let now = Utc::now();
+        let one_hour_ago = now - chrono::Duration::hours(1);
+        let twenty_four_hours_ago = now - chrono::Duration::hours(24);
+
+        // Get processing tasks count directly from worker_events (real-time)
+        let processing_tasks_row = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as processing_tasks
+            FROM worker_events
+            WHERE realm_id = $1 AND status = 'PROCESSING'
+            "#,
+            realm_id
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let processing_tasks = processing_tasks_row.processing_tasks.unwrap_or(0);
+
+        // Get active workers and users for 1h (direct query)
+        let active_1h_row = sqlx::query!(
+            r#"
+            SELECT 
+                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_1h,
+                COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_1h
+            FROM worker_events
+            WHERE realm_id = $1 AND timestamp >= $2
+            "#,
+            realm_id,
+            one_hour_ago
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let active_workers_1h = active_1h_row.active_workers_1h.unwrap_or(0);
+        let active_users_1h = active_1h_row.active_users_1h.unwrap_or(0);
+
+        // Get active workers and users for 24h (direct query)
+        let active_24h_row = sqlx::query!(
+            r#"
+            SELECT 
+                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_24h,
+                COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_24h
+            FROM worker_events
+            WHERE realm_id = $1 AND timestamp >= $2
+            "#,
+            realm_id,
+            twenty_four_hours_ago
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let active_workers_24h = active_24h_row.active_workers_24h.unwrap_or(0);
+        let active_users_24h = active_24h_row.active_users_24h.unwrap_or(0);
+
+        Ok(RealmStats {
+            realm_id,
+            processing_tasks,
+            active_workers_1h,
+            active_workers_24h,
+            active_users_1h,
+            active_users_24h,
+            last_updated: now,
+        })
+    }
+
+    /// Get global statistics across all realms
+    pub async fn get_global_realm_stats(pool: &PgPool) -> Result<GlobalRealmStats> {
+        let now = Utc::now();
+        let one_hour_ago = now - chrono::Duration::hours(1);
+        let twenty_four_hours_ago = now - chrono::Duration::hours(24);
+
+        // Get total processing tasks across all realms (real-time)
+        let total_processing_row = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as total_processing_tasks
+            FROM worker_events
+            WHERE status = 'PROCESSING'
+            "#
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let total_processing_tasks = total_processing_row.total_processing_tasks.unwrap_or(0);
+
+        // Get 1h stats (direct query)
+        let active_1h_row = sqlx::query!(
+            r#"
+            SELECT 
+                COUNT(DISTINCT realm_id) FILTER (WHERE realm_id IS NOT NULL) as active_realms_1h,
+                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_1h,
+                COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_1h
+            FROM worker_events
+            WHERE timestamp >= $1
+            "#,
+            one_hour_ago
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let active_workers_1h = active_1h_row.active_workers_1h.unwrap_or(0);
+        let active_users_1h = active_1h_row.active_users_1h.unwrap_or(0);
+        let active_realms_1h = active_1h_row.active_realms_1h.unwrap_or(0);
+
+        // Get 24h stats (direct query)
+        let active_24h_row = sqlx::query!(
+            r#"
+            SELECT 
+                COUNT(DISTINCT realm_id) FILTER (WHERE realm_id IS NOT NULL) as active_realms_24h,
+                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_24h,
+                COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_24h
+            FROM worker_events
+            WHERE timestamp >= $1
+            "#,
+            twenty_four_hours_ago
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let active_workers_24h = active_24h_row.active_workers_24h.unwrap_or(0);
+        let active_users_24h = active_24h_row.active_users_24h.unwrap_or(0);
+        let active_realms_24h = active_24h_row.active_realms_24h.unwrap_or(0);
+
+        Ok(GlobalRealmStats {
+            total_processing_tasks,
+            active_workers_1h,
+            active_workers_24h,
+            active_users_1h,
+            active_users_24h,
+            active_realms_1h,
+            active_realms_24h,
+            last_updated: now,
+        })
     }
 }

@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                COUNT(DISTINCT realm_id) FILTER (WHERE realm_id IS NOT NULL) as active_realms_24h,\n                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_24h,\n                COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_24h\n            FROM worker_events\n            WHERE timestamp >= $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "active_realms_24h",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "active_workers_24h",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "active_users_24h",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "be1779402dd681e3aa71ff632da84e2156bfb7c98549fccf7bbf152a630a2223"
+}
