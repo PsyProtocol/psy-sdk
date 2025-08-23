@@ -13,6 +13,7 @@ cfg_if::cfg_if! {
     if #[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))] {
         pub mod get_public_key;
         pub mod random_wallet;
+        pub mod wallet;
         pub mod register_user;
         pub mod submit_end_cap_proof;
         pub mod claim_rewards;
@@ -35,6 +36,7 @@ pub struct Cli {
 pub enum Commands {
     GetPublicKey(crate::subcommand::args::GetPublicKeyArgs),
     RandomWallet(crate::subcommand::args::RandomWalletArgs),
+    Wallet(crate::subcommand::args::WalletArgs),
     RegisterUser(crate::subcommand::args::RegisterUserArgs),
 
     DeployContract(crate::subcommand::args::DeployContractArgs),

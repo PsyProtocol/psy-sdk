@@ -225,14 +225,8 @@ impl<
 
         let top_line_siblings_len = guta.state_transition.node_level.to_canonical_u64() as usize
             - COORDINATOR_USER_TREE_HEIGHT as usize;
-        eprintln!(
-            "DEBUGPRINT[520]: processor.rs:399 (after let top_line_siblings_len = guta.state_t…)"
-        );
 
         let good_sibs = bp.siblings[(bp.siblings.len() - top_line_siblings_len)..].to_vec();
-        eprintln!(
-            "DEBUGPRINT[521]: processor.rs:405 (after let good_sibs = bp.siblings[(bp.siblings…)"
-        );
 
         let uleaves = pending_register_users
             .iter()
@@ -251,10 +245,6 @@ impl<
             .store
             .injest_user_leaves_imm(checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, &uleaves)
             .await?;
-        eprintln!(
-            "DEBUGPRINT[528]: processor.rs:435: dmps={}",
-            serde_json::to_string_pretty(&dmps).unwrap()
-        );
 
         let regs = dmps
             .into_iter()

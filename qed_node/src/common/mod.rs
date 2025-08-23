@@ -4,17 +4,15 @@ use plonky2::{
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::id::{QProvingJobDataID, ProvingJobCircuitType};
+use qed_data::config::store_config::QEDProof;
 use tracing::info;
 
 pub mod api_request_id;
 pub mod jobs;
 pub mod traits;
 pub mod verifier;
-const D: usize = 2;
-pub type ConcreteProofWithPublicInputs =
-    ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, D>;
 
-pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &ConcreteProofWithPublicInputs) {
+pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDProof) {
     let job_id_hex = hex::encode(job_id.to_fixed_bytes());
     info!("{} - Job ID (hex): {}", prefix, job_id_hex);
     info!("{} - Circuit type: {:?}", prefix, job_id.circuit_type);
@@ -71,3 +69,4 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &Concre
 pub mod slot;
 pub mod clock;
 pub mod retry;
+pub mod whitelist;

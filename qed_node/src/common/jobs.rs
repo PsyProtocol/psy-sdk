@@ -1,4 +1,7 @@
-use crate::common::ConcreteProofWithPublicInputs;
+use std::sync::Arc;
+use crate::common::QEDProof;
+
+pub const MESSAGE_CLAIM_JOB: &str = "CLAIM_JOB";
 use async_trait::async_trait;
 use jsonrpsee::{
     core::RpcResult,
@@ -9,11 +12,14 @@ use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use qed_core::job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
 use qed_store::queue::task_queue::QJob;
 use tracing::info;
+use qed_prover::wallet::secp_sign::{SignedRequest, Eip712Signable};
+use alloy_primitives::{keccak256, B256};
+use qed_prover::wallet::secp_wallet::{Wallet};
 
 #[rpc(server, client, namespace = "qed")]
 pub trait JobSchedulerRpc {
     #[method(name = "get_pending_job")]
-    async fn get_pending_job(&self) -> RpcResult<Option<QJob>>;
+    async fn get_pending_job(&self, signed: SignedRequest<qed_data::config::store_config::QEDHash>) -> RpcResult<Option<QJob>>;
 
     #[method(name = "get_proof_by_id")]
     async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
@@ -25,7 +31,8 @@ pub trait JobSchedulerRpc {
     async fn set_proof_by_id(
         &self,
         job: QJob,
-        proof: Option<ConcreteProofWithPublicInputs>,
+        proof: Option<QEDProof>,
+        signed: SignedRequest<qed_data::config::store_config::QEDHash>,
     ) -> RpcResult<()>;
 }
 
@@ -44,9 +51,13 @@ impl JobClient {
 
 #[async_trait]
 impl JobReceiver for JobClient {
-    async fn get_next_job(&self) -> anyhow::Result<QJob> {
+    async fn get_next_job(&self, wallet: Arc<Wallet>) -> anyhow::Result<QJob> {
         loop {
-            if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client).await? {
+            let signed_request = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(
+                &wallet, 
+                &MESSAGE_CLAIM_JOB
+            )?;
+            if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client, signed_request).await? {
                 return Ok(job);
             }
             // info!("No pending job found, sleeping for 1 second");
@@ -56,10 +67,12 @@ impl JobReceiver for JobClient {
     async fn submit_job_proof(
         &self,
         job: QJob,
-        proof: Option<ConcreteProofWithPublicInputs>,
+        proof: Option<QEDProof>,
+        wallet: Arc<Wallet>
     ) -> anyhow::Result<()> {
         info!("Submitted job proof for job_id: {:?}", job);
-        JobSchedulerRpcClient::set_proof_by_id(&self.rpc_client, job, proof).await?;
+        let signed = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &proof)?;
+        JobSchedulerRpcClient::set_proof_by_id(&self.rpc_client, job, proof, signed).await?;
         Ok(())
     }
 }
@@ -87,11 +100,12 @@ impl QProofStoreReaderAsync for JobClient {
 
 #[async_trait]
 pub trait JobReceiver {
-    async fn get_next_job(&self) -> anyhow::Result<QJob>;
+    async fn get_next_job(&self, wallet: Arc<Wallet>) -> anyhow::Result<QJob>;
 
     async fn submit_job_proof(
         &self,
         job: QJob,
-        proof: Option<ConcreteProofWithPublicInputs>,
+        proof: Option<QEDProof>,
+        wallet: Arc<Wallet>
     ) -> anyhow::Result<()>;
 }

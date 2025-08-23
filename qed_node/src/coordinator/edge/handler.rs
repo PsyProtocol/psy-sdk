@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 // std
 use std::sync::Arc;
 
@@ -32,13 +33,12 @@ use qed_data::qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoC
 
 use qed_store::queue::rsmq_queue::CEQueueNotification;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
-use qed_data::config::store_config::{QEDFelt, QEDHasher, QCheckpointSyncInfoCompact};
+use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHash, QEDHasher, QEDProof};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
 use crate::common::jobs::JobSchedulerRpcServer;
-use crate::common::ConcreteProofWithPublicInputs;
 use crate::coordinator::edge::{StoreReader, DrainQueue, ProofStore};
 use crate::coordinator::args::CoordinatorEdgeArgs;
 use crate::coordinator::state::edge::CoordinatorEdgeContext;
@@ -62,6 +62,7 @@ pub struct CoordinatorEdgeHandler {
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
     task_store: Arc<QProvingTaskStoreImpl>,
+    white_list: Arc<WhiteList>
 }
 
 impl CoordinatorEdgeHandler {
@@ -96,6 +97,7 @@ impl CoordinatorEdgeHandler {
         )
         .await?;
 
+        let whitelist = WhiteList::from_file(&args.config_path)?;
 
         Ok(Self {
             history_queue: Arc::clone(&proof_store),
@@ -103,6 +105,7 @@ impl CoordinatorEdgeHandler {
             ctx,
             store: store_reader,
             task_store: Arc::new(task_store),
+            white_list: Arc::new(whitelist),
         })
     }
 
@@ -895,8 +898,10 @@ use super::rpc::CoordinatorEdgeRpcServer;
 use super::error::RpcError;
 use super::types::LatestCheckpointResponse;
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob};
 use qed_store::queue::redis_queue::NotificationQueue;
+use crate::common::whitelist::WhiteList;
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
@@ -1393,7 +1398,12 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
-    async fn get_pending_job(&self) -> RpcResult<Option<QJob>> {
+    async fn get_pending_job(&self, signed: SignedRequest<qed_data::config::store_config::QEDHash>) -> RpcResult<Option<QJob>> {
+
+        self.white_list.verify_request(&signed, &crate::common::jobs::MESSAGE_CLAIM_JOB.to_string(), Some(std::time::Duration::from_secs(30))).map_err(|e|
+            RpcError::Anyhow(e.into())
+        )?;
+
         let j = match self.task_store.claim_job_from_current_layer().await {
             Ok(job) => job,
             Err(e) => {
@@ -1414,7 +1424,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     }
 
     async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>> {
-        let proof: ConcreteProofWithPublicInputs = self.proof_store.get_proof_by_id(job_id).await.map_err(|e| RpcError::Anyhow(e.into()))?;
+        let proof: QEDProof = self.proof_store.get_proof_by_id(job_id).await.map_err(|e| RpcError::Anyhow(e.into()))?;
         let bytes = bincode::serialize(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
         Ok(bytes)
     }
@@ -1423,7 +1433,19 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         self.proof_store.get_bytes_by_id(job_id).await.map_err(|e| RpcError::Anyhow(e.into()))
     }
 
-    async fn set_proof_by_id(&self, job: QJob, proof: Option<ConcreteProofWithPublicInputs>) -> RpcResult<()> {
+    async fn set_proof_by_id(
+        &self,
+        job: QJob,
+        proof: Option<QEDProof>,
+        signed: SignedRequest<QEDHash>,
+    ) -> RpcResult<()> {
+
+        // Verify signature and whitelist
+        self.white_list.verify_request(&signed, &proof, Some(std::time::Duration::from_secs(300))).map_err(|e|
+            RpcError::Anyhow(e.into())
+        )?;
+
+
         let job_id = job.job_id;
 
         // CRITICAL: Validate job ownership before processing proof
@@ -1480,7 +1502,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
 
             self.ctx.proof_verifier.verify_proof_of_type(job_id.circuit_type, &proof)
                 .map_err(|e| RpcError::Anyhow(e.into()))?;
-            // let proof: ConcreteProofWithPublicInputs = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
+            // let proof: QEDProof = serde_json::from_str(&proof).map_err(|e| RpcError::Anyhow(e.into()))?;
             let output_id = job_id.get_output_id();
             self.proof_store.set_proof_by_id(output_id, &proof).await.map_err(RpcError::Anyhow)?;
             info!("✅ Proof stored successfully for job {:?}", job_id);

@@ -1,33 +1,80 @@
-use qed_node::worker::{run_worker, job_tracker::{JobLocation, WorkerJobTracker}};
-use qed_core::data::qhashout::QHashOut;
-use qed_core::config::network_constants::get_default_worker_public_key;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use plonky2::plonk::config::GenericHashOut;
+use qed_core::config::network_constants::get_default_worker_public_key;
+use qed_core::data::base_types::hash256::Hash256;
+use qed_core::data::qhashout::QHashOut;
 use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
+use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use qed_data::config::store_config::{QEDFelt, QEDHash, QEDHasher};
 use qed_node::common::verifier::get_cached_generic_verifier;
-use tokio::sync::Mutex;
-use std::sync::Arc;
-use tracing::{info, error};
-use std::str::FromStr;
+use qed_node::worker::{
+    job_tracker::{JobLocation, WorkerJobTracker},
+    run_worker,
+};
+use kvq::traits::KVQSerializable;
+use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
+use qed_prover::wallet::secp_wallet::Wallet;
+use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::fs;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tracing::{error, info};
 
 type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
-pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Result<()> {
-    info!("Worker starting...");
-    info!("Loading config from: {}", config_path);
+fn print_banner() {
+    println!(
+        r#"
+ ____              __  __ _
+|  _ \ ___ _   _  |  \/  (_)_ __   ___ _ __
+| |_) / __| | | | | |\/| | | '_ \ / _ \ '__|
+|  __/\__ \ |_| | | |  | | | | | |  __/ |
+|_|   |___/\__, | |_|  |_|_|_| |_|\___|_|
+           |___/
+    "#
+    );
+}
 
-    let config_str = fs::read_to_string(&config_path)?;
+pub async fn run(
+    config: String,
+    private_key: Option<String>,
+    keystore_path: Option<String>,
+    wallet_password: Option<String>,
+) -> anyhow::Result<()> {
+    print_banner();
+    info!("Worker starting...");
+    info!("Loading config from: {}", config);
+
+    let config_str = fs::read_to_string(&config)?;
     let config: qed_prover::local::provider::Config = serde_json::from_str(&config_str)?;
 
-    let worker_public_key = if let Some(key_str) = public_key {
-        QHashOut::<GoldilocksField>::from_str(&key_str)
-            .map_err(|e| anyhow::format_err!("Failed to parse public key: {}", e))?
-    } else {
-        get_default_worker_public_key::<GoldilocksField>()
-    };
+    let wallet = Wallet::load(
+        private_key.as_deref(),
+        keystore_path.as_ref().map(|p| Path::new(p)),
+        wallet_password.as_deref(),
+    )?;
+
+    info!("Worker ETH Address: {}", wallet.address());
+
+    let wallet = Arc::new(wallet);
+
+    let main_circuits =
+        qed_prover::ups::circuit_manager::core::QCircuitManager::Local(QEDUPSStepCircuitManager::<
+            C,
+            D,
+        >::new_with_config(
+            qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
+        ));
+
+    let mut memory_wallet = qed_prover::wallet::memory_wallet::QEDMemoryWallet::new(main_circuits);
+
+    let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
+    let public_key_info = memory_wallet.add_secp_private_key(private_key)?;
+    let worker_public_key = public_key_info.qfhash::<QEDHasher>();
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     let prover = Arc::new(QEDCoordinatorCircuitManager::<C, D>::new_with_library(
@@ -36,7 +83,9 @@ pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Res
     ));
     let library = Arc::new(proof_verifier.library.clone());
 
-    let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(worker_public_key)));
+    let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(
+        worker_public_key,
+    )));
 
     let mut handles = Vec::new();
 
@@ -44,11 +93,12 @@ pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Res
         for rpc_url in &coordinator_config.rpc_url {
             let handle = tokio::spawn(run_worker(
                 rpc_url.clone(),
-                worker_public_key,
                 JobLocation::Coordinator,
                 job_tracker.clone(),
                 prover.clone(),
                 library.clone(),
+                wallet.clone(),
+                worker_public_key.clone()
             ));
             handles.push(handle);
         }
@@ -58,11 +108,12 @@ pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Res
         for rpc_url in &realm_config.rpc_url {
             let handle = tokio::spawn(run_worker(
                 rpc_url.clone(),
-                worker_public_key,
                 JobLocation::Realm(realm_config.id),
                 job_tracker.clone(),
                 prover.clone(),
                 library.clone(),
+                wallet.clone(),
+                worker_public_key.clone()
             ));
             handles.push(handle);
         }
@@ -89,4 +140,3 @@ pub async fn run(config_path: String, public_key: Option<String>) -> anyhow::Res
     info!("Worker exit.");
     Ok(())
 }
-

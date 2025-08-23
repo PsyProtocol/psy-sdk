@@ -53,7 +53,6 @@ impl Hash256 {
         Hash256(core::array::from_fn(|i| self.0[31 - i]))
     }
     pub fn to_le_u64_x4(&self) -> [u64; 4] {
-        
         [
             u64::from_le_bytes([
                 self.0[0],
@@ -158,5 +157,17 @@ impl<F: RichField> From<QHashOut<F>> for Hash256 {
             data[i * 8..(i + 1) * 8].copy_from_slice(&u64.to_le_bytes());
         }
         Self(data)
+    }
+}
+
+impl<F: RichField> From<Hash256> for QHashOut<F> {
+    fn from(value: Hash256) -> Self {
+        let mut elements = [F::ZERO; 4];
+        for i in 0..4 {
+            let bytes = &value.0[i * 8..(i + 1) * 8];
+            let u64_val = u64::from_le_bytes(bytes.try_into().unwrap());
+            elements[i] = F::from_noncanonical_u64(u64_val);
+        }
+        QHashOut(plonky2::hash::hash_types::HashOut { elements })
     }
 }

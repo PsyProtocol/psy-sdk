@@ -76,6 +76,7 @@ impl QEDMemoryWallet {
             .insert(pk_info.public_key_param, private_key);
         Ok(pk_info)
     }
+
     pub async fn get_zk_pk_info(
         &self,
         private_key: QHashOut<F>,
@@ -128,6 +129,7 @@ impl QEDMemoryWallet {
     ) -> anyhow::Result<CompressedPublicKey> {
         super::utils::get_secp_public_key(private_key)
     }
+
     pub async fn get_secp_pk_info(
         &self,
         private_key: QHashOut<F>,
@@ -150,13 +152,14 @@ impl QEDMemoryWallet {
         sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let private_key = self
-                .zk_public_key_to_private_key_store
-                .get(&public_key)
-                .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", public_key.to_string()))?;
+            .zk_public_key_to_private_key_store
+            .get(&public_key)
+            .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", public_key.to_string()))?;
         self.circuit_manager
             .prove_zk_sign(*private_key, sig_hash)
             .await
     }
+
     pub async fn zk_sign_with_private_key(
         &self,
         private_key: QHashOut<F>,
@@ -175,6 +178,7 @@ impl QEDMemoryWallet {
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         unimplemented!()
     }
+
     pub fn sdc_sign_with_private_key<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         state_reader: &mut StateReader<F, D, R>,
@@ -205,6 +209,7 @@ impl QEDMemoryWallet {
             message: Hash256::from(sig_hash),
         })
     }
+
     pub fn secp256k1_sign_with_public_key(
         &self,
         public_key: QHashOut<F>,
@@ -219,12 +224,14 @@ impl QEDMemoryWallet {
             ))?;
         self.secp256k1_sign(*private_key, sig_hash)
     }
+
     pub async fn zk_secp256k1_from_signature(
         &self,
         signature: &QEDCompressedSecp256K1Signature,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         self.circuit_manager.prove_secp_sign(*signature).await
     }
+
     pub async fn zk_sign_secp256k1(
         &self,
         public_key: QHashOut<F>,

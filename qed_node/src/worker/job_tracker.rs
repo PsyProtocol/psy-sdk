@@ -91,8 +91,8 @@ impl WorkerJobTracker {
         }
     }
 
-    pub fn save_to_file(&self, worker_public_key: QHashOut<F>) -> anyhow::Result<()> {
-        let filename = format!("{}.json", worker_public_key.to_string());
+    pub fn save_to_file(&self, worker_public_key: &str) -> anyhow::Result<()> {
+        let filename = format!("{}.json", worker_public_key);
         let json_content = serde_json::to_string_pretty(self)?;
 
         fs::write(&filename, json_content)?;

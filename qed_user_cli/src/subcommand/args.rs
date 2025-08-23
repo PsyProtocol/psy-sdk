@@ -1,4 +1,4 @@
-use clap::{Args, Parser, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
 use qed_prover::local::{args::SignType, provider::RpcConfig};
@@ -8,10 +8,44 @@ use ts_rs::TS;
 pub struct RandomWalletArgs {}
 
 #[derive(Clone, Args)]
+pub struct WalletArgs {
+    #[command(subcommand)]
+    pub command: WalletCommands,
+}
+
+#[derive(Clone, Subcommand)]
+pub enum WalletCommands {
+    /// Create a new wallet
+    Create {
+        #[arg(long, help = "Output path for the wallet")]
+        output: Option<String>,
+        #[arg(long, help = "Password for the wallet")]
+        password: Option<String>,
+    },
+    /// Load and display wallet info
+    Load {
+        #[arg(long, help = "Private key hex string")]
+        private_key: Option<String>,
+        #[arg(long, help = "Path to keystore file")]
+        keystore_path: Option<String>,
+        #[arg(long, help = "Password for the keystore")]
+        password: Option<String>,
+    },
+    /// List accounts in keystore directory
+    List {
+        #[arg(long, help = "Keystore directory path")]
+        keystore_dir: Option<String>,
+    },
+}
+
+#[derive(Clone, Args)]
 pub struct GetPublicKeyArgs {
     /// user private key
     #[clap(long, short)]
     pub private_key: String,
+    /// signature type
+    #[clap(long, short, default_value = "zk")]
+    pub sign_type: SignType,
 }
 
 
@@ -447,7 +481,7 @@ pub struct ClaimRewardsArgs {
     #[arg(long = "job", action = clap::ArgAction::Append)]
     pub jobs: Vec<String>,
 
-    /// Sign type (zk, secp256k1, software_defined)
+    /// Signature type
     #[clap(long, short, default_value = "zk")]
     pub sign_type: SignType,
 
