@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:wasm": "cd ../../packages/qed-sdk/src/local-web-prover && node build-wasm-binary.js",
     "build:extension": "vite build --config vite.config.extension.ts",
     "preview": "vite preview",
     "clean": "rimraf dist dist-extension"

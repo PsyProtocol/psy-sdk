@@ -1,3 +1,5 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 use alloy_primitives::{keccak256, Address, B256, U256};
 use anyhow::{Context, Result};
 use qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;

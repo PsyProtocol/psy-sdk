@@ -3,7 +3,7 @@ export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 PROFILE := release
 LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
 
-default: build wasm-build
+default: build wallet-build
 
 check:
 	@cargo check --all-targets --examples
@@ -472,6 +472,9 @@ image:
 wasm-build:
 	@cd qed_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features
 	@cd qed_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features
+
+wallet-build: wasm-build
+	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm build:wasm && pnpm build:extension
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

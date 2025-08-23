@@ -1,3 +1,5 @@
+#![cfg(not(target_arch = "wasm32"))]
+
 use alloy_primitives::{Address, B256};
 use alloy_signer::{Signer, SignerSync};
 use alloy_signer_local::{
