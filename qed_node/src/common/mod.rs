@@ -68,4 +68,5 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
 
 pub mod slot;
 pub mod clock;
+pub mod retry;
 pub mod whitelist;

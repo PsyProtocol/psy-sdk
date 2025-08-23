@@ -1,12 +1,14 @@
+use super::processor::CoordinatorProcessorContext;
 use qed_core::{
     data::qhashout::QHashOut,
     job::{
-        drain_queue::CheckpointDrainQueueConsumerAsyncImm, history_queue::CheckpointHistoryQueueEmitterAsyncImm, id::{ProvingJobCircuitType, QProvingJobDataID}, traits::{QProofStore, QProofStoreAsyncImm, QProofStoreReaderSync, QProofStoreWriterSync}, worker_queue::WorkerEventTransmitterAsyncImm
+        history_queue::CheckpointHistoryQueueEmitterAsyncImm, id::{ProvingJobCircuitType, QProvingJobDataID}, traits::{QProofStoreAsyncImm, QProofStoreWriterSync}, worker_queue::WorkerEventTransmitterAsyncImm
     },
 };
 use qed_crypto::hash::merkle::{
     spiderman::SpidermanUpdateProof, treeprover::data::CircuitInputWithJobId,
 };
+use qed_data::config::store_config::QEDFelt;
 use qed_data::{
     proof_store::builder::ProofStoreBuilder,
     protocol::circuit_inputs::{
@@ -15,7 +17,7 @@ use qed_data::{
     },
     qdata::contract::QEDContractLeaf,
 };
-use qed_data::config::store_config::QEDFelt;
+use qed_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
 use qed_store::{
     node::coordinator::{
         QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
@@ -23,12 +25,10 @@ use qed_store::{
     queue::task_queue::QProvingTaskStore,
 };
 
-use super::processor::CoordinatorProcessorContext;
-
 type F = QEDFelt;
 impl<
         SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
-        DQ: CheckpointDrainQueueConsumerAsyncImm,
+        DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
 
         WQ: WorkerEventTransmitterAsyncImm,

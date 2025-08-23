@@ -16,7 +16,7 @@ impl<T: Clock> SlotTimer<T> {
     }
 
    pub async fn wait_for_next_slot(&self) -> u64 {
-        let remain_time = self.clock.get_retain_time_to_next_slot();
+        let remain_time = self.clock.get_remain_time_to_next_slot();
         sleep(Duration::from_millis(remain_time)).await;// todo optimize sleep
         self.clock.get_current_slot()
     }

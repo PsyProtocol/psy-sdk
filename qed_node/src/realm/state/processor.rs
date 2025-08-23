@@ -38,10 +38,11 @@ use qed_data::{
 use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
 use qed_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-    queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm},
+    queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm, redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition},
 };
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
+use tracing::{debug, info, error};
+use qed_store::queue::redis_queue::QueueOffsetState;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -97,7 +98,7 @@ impl RealmConfig {
 #[derive(Clone)]
 pub struct RealmProcessorContext<
     SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F>,
-    DQ: CheckpointDrainQueueConsumerAsyncImm,
+    DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -115,7 +116,7 @@ pub struct RealmProcessorContext<
 
 impl<
         SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F>,
-        DQ: CheckpointDrainQueueConsumerAsyncImm,
+        DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -182,17 +183,18 @@ impl<
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<()> {
-        let updates = self
+        // Use position-based consumption for CST updates
+        let (updates, consumption_state) = self
             .checkpoint_queue
-            .cdq_drain_imm::<CSTUserUpdate<QHashOut<F>>>(
+            .peek_with_position::<CSTUserUpdate<QHashOut<F>>>(
                 CST_USER_UPDATE_CHANNEL_ID,
-            )
-            .await?;
-        tracing::debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
+                checkpoint_id,
+        ).await?;
+        
+        debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
 
-        self.store.injest_checked_cst_nodes_imm(&updates).await?;
-
-        Ok(())
+        // Process updates with error handling
+        self.store.injest_checked_cst_nodes_imm(&updates).await
     }
 
     pub async fn handle_guta_from_users_ensure_no_topline(
@@ -494,14 +496,12 @@ impl<
         GlobalUserTreeAggregatorHeader<F>,
         DeltaMerkleProofCore<QHashOut<F>>,
     )> {
-        let guta_queue_items = self
-            .checkpoint_queue
-            .cdq_drain_imm::<UserEndCapNonProofCoreInputQueueItem<F>>(
-                self.realm_config.guta_channel_id,
-            )
-            .await?;
-        tracing::debug!(guta_queue_items = ?guta_queue_items, "GUTA queue items for aggregation");
-
+        // Use position-based consumption for GUTA queue items
+        let (guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
+            self.realm_config.guta_channel_id,
+            checkpoint_id,
+        ).await?;
+        debug!(guta_queue_items = ?guta_queue_items, "GUTA queue items for aggregation");
         if guta_queue_items.len() == 0 {
             tracing::debug!("No GUTA queue items to aggregate");
             let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
@@ -784,7 +784,7 @@ impl<
     }
 
     pub async fn plan_jobs(
-        &mut self,
+        &self,
         new_checkpoint_id: u64,
         guta_jobs: &Vec<Vec<QProvingJobDataID>>,
         finished_job: QProvingJobDataID,
@@ -804,7 +804,7 @@ impl<
         Ok(())
     }
 
-    pub async fn build_block(&mut self) -> anyhow::Result<QProvingJobDataID> {
+    pub async fn build_block(&self) -> anyhow::Result<QProvingJobDataID> {
         let start = Instant::now();
         info!("realm STARTED new block");
 
@@ -813,12 +813,9 @@ impl<
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
-        let has_tasks = self.has_pending_tasks(new_checkpoint_id).await?;
-        if !has_tasks {
-            bail!("No pending tasks for checkpoint {}, skipping block construction", new_checkpoint_id);
-        }
         // Pop up to 32 pending users from Redis queue
-        let pending_users = self.sync_queue.pop_pending_users(32).await?;
+        // Use position-based consumption for pending users
+        let (pending_users, _consumption_state) = self.sync_queue.peek_with_position(32, new_checkpoint_id).await?;
         let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
         tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
         let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
@@ -845,7 +842,6 @@ impl<
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(realm_worker_output_job_id)
     }
-
     /// Check if there are pending tasks for the given checkpoint
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
         // Check if there are pending user registrations in Redis queue
@@ -883,5 +879,20 @@ impl<
 
         info!("No pending tasks found for checkpoint {}", checkpoint_id);
         Ok(false)
+    }
+
+
+    // commit redis queue
+    pub async fn commit_offset(&self) -> anyhow::Result<()> {
+        if let Some(state) = self.sync_queue.get_last_peek_offset().await? {
+            self.sync_queue.commit_offset(&state).await?;
+        }
+        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(CST_USER_UPDATE_CHANNEL_ID).await? {
+            self.checkpoint_queue.commit_offset(&state).await?;
+        }
+        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(self.realm_config.guta_channel_id).await? {
+            self.checkpoint_queue.commit_offset(&state).await?;
+        }
+        Ok(())
     }
 }
