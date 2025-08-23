@@ -16,6 +16,7 @@ use crate::subcommand::claim_rewards;
 use crate::subcommand::deploy_contract;
 use crate::subcommand::get_public_key;
 use crate::subcommand::random_wallet;
+use crate::subcommand::wallet;
 use crate::subcommand::register_user;
 use crate::subcommand::submit_end_cap_proof;
 use crate::subcommand::Cli;
@@ -32,6 +33,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::GetPublicKey(args) => get_public_key::run(args)?,
         Commands::RandomWallet(args) => random_wallet::run(args)?,
+        Commands::Wallet(args) => wallet::run(args)?,
         Commands::RegisterUser(args) => register_user::run(args)?,
         Commands::DeployContract(args) => deploy_contract::run(args)?,
         Commands::SubmitEndCaproof(args) => submit_end_cap_proof::run(args)?,
@@ -51,9 +53,30 @@ async fn main() -> anyhow::Result<()> {
             use qed_crypto::hash::traits::qhashable::QFieldHashable;
             use qed_data::config::store_config::QEDHasher;
             use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+
             let provider = RpcProvider::new_with_config_path(&user_leaf_args.rpc_config)?;
-            let user_id = provider.get_user_id(user_leaf_args.pub_key)?;
+
+            let (user_id, query_method) = match (&user_leaf_args.pub_key, &user_leaf_args.user_id) {
+                (Some(pub_key), None) => {
+                    // Query by public key - get user_id from coordinator first
+                    let user_id = provider.get_user_id(*pub_key)?;
+                    (user_id, "public_key")
+                },
+                (None, Some(user_id)) => {
+                    // Query by user_id directly - use provided user_id
+                    (*user_id, "user_id")
+                },
+                (Some(_), Some(_)) => {
+                    return Err(anyhow::format_err!("Cannot specify both --pub-key and --user-id"));
+                },
+                (None, None) => {
+                    return Err(anyhow::format_err!("Must specify either --pub-key or --user-id"));
+                }
+            };
+
             let user_leaf_data = provider.get_user_leaf_data(user_leaf_args.checkpoint_id, user_id)?;
+            println!("Query method: {}", query_method);
+            println!("Resolved user_id: {}", user_id);
             println!("user_leaf_data: {}", serde_json::to_string_pretty(&user_leaf_data)?);
             println!("user_leaf_hash: {}", user_leaf_data.qfhash::<QEDHasher>().to_string());
         }
@@ -262,7 +285,7 @@ async fn main() -> anyhow::Result<()> {
             let proof = provider.get_checkpoint_tree_merkle_proof(args.checkpoint_id, args.leaf_checkpoint_id)?;
             println!("{}", serde_json::to_string_pretty(&proof)?);
         }
-        
+
         // Metadata commands
         Commands::GetContractLeafData(args) => {
             use qed_prover::local::provider::RpcProvider;
@@ -299,7 +322,7 @@ async fn main() -> anyhow::Result<()> {
             let state = provider.get_l2_block_state(args.checkpoint_id)?;
             println!("{}", serde_json::to_string_pretty(&state)?);
         }
-        
+
         // wallet session
         Commands::WalletSession(wallet_session_args) => submit_end_cap_proof::run_multi(wallet_session_args)?,
         Commands::LocalProver(prover_args) => qed_prover::run_server(prover_args).await?,

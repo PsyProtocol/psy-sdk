@@ -30,6 +30,7 @@ use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
 use crate::common::clock::SlotTimer;
 use crate::common::slot::{Clock, LocalClock, Slot};
+use crate::common::retry::Retryable;
 use crate::realm::processor::slot_phase::SlotPhase;
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
@@ -118,6 +119,11 @@ impl RealmProcessor {
         ).await?;
         info!("Realm Processor started");
 
+        // Check for incomplete consumption state on startup
+        if let Ok(Some(last_state)) = context.sync_queue.get_last_peek_offset().await {
+            info!("🔄 Found incomplete consumption state for checkpoint {} on startup", last_state.checkpoint_id);
+        }
+
         if let Ok(local_latest_l2_block_state) = context.store.get_latest_l2_block_state().await {
             info!(
                 "local_latest_l2_block_state: {:?}",
@@ -169,7 +175,16 @@ impl RealmProcessor {
             }
 
             info!("Start building block");
-            let proving_data_job_id: ProvingJobDataId = match self.build_block(&mut context, &realm_qps).await {
+            let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
+            let next_checkpoint_id = local_latest_checkpoint_id + 1;
+            self.store.commit(local_latest_checkpoint_id)?;
+            context.commit_offset().await?;
+            let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
+            if !has_tasks {
+                warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
+                continue;
+            }
+            let proving_data_job_id: ProvingJobDataId = match self.build_block(next_checkpoint_id, &mut context, &realm_qps).await {
                 Ok(job_id) => job_id,
                 Err(err) => {
                     error!("Error building block: {:?}, slot: {}", err, slot);
@@ -277,24 +292,29 @@ impl RealmProcessor {
 
 
     pub async fn build_block(
-        &mut self,
-        context: &mut ConcreteRealmProcessorContext,
+        &self,
+        next_checkpoint_id: u64,
+        context: &ConcreteRealmProcessorContext,
         realm_qps: &ProofStoreRedisAsync,
     ) -> anyhow::Result<ProvingJobDataId> {
-        let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
-        let next_checkpoint_id = local_latest_checkpoint_id + 1;
-        self.store.commit(local_latest_checkpoint_id)?;
+        let store = self.store.clone();
+        self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
+            // Build block with enhanced error handling(all logic including logging is inside context.build_block)
+            match context.build_block().await {
+                Ok(job_id) => {
+                    // Success - consumption is already committed in build_block
+                    //context.commit_offset().await?;
+                    Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
+                },
+                Err(err) => {
+                    // Rollback database changes
+                    store.rollback(next_checkpoint_id)?;
 
-        // Build block (all logic including logging is inside context.build_block)
-        match context.build_block().await {
-            Ok(job_id) => {
-                Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
-            },
-            Err(err) => {
-                self.store.rollback(next_checkpoint_id)?;
-                Err(err)
+                    error!("Build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
+                    Err(err)
+                }
             }
-        }
+        }).await
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {
@@ -321,3 +341,5 @@ impl RealmProcessor {
         Ok(state.checkpoint_id)
     }
 }
+
+impl Retryable for RealmProcessor {}

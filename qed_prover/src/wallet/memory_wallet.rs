@@ -76,6 +76,7 @@ impl QEDMemoryWallet {
             .insert(pk_info.public_key_param, private_key);
         Ok(pk_info)
     }
+
     pub async fn get_zk_pk_info(
         &self,
         private_key: QHashOut<F>,
@@ -128,6 +129,7 @@ impl QEDMemoryWallet {
     ) -> anyhow::Result<CompressedPublicKey> {
         super::utils::get_secp_public_key(private_key)
     }
+
     pub async fn get_secp_pk_info(
         &self,
         private_key: QHashOut<F>,
@@ -150,13 +152,14 @@ impl QEDMemoryWallet {
         sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let private_key = self
-                .zk_public_key_to_private_key_store
-                .get(&public_key)
-                .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", public_key.to_string()))?;
+            .zk_public_key_to_private_key_store
+            .get(&public_key)
+            .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", public_key.to_string()))?;
         self.circuit_manager
             .prove_zk_sign(*private_key, sig_hash)
             .await
     }
+
     pub async fn zk_sign_with_private_key(
         &self,
         private_key: QHashOut<F>,
@@ -175,6 +178,7 @@ impl QEDMemoryWallet {
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         unimplemented!()
     }
+
     pub fn sdc_sign_with_private_key<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         state_reader: &mut StateReader<F, D, R>,
@@ -205,6 +209,7 @@ impl QEDMemoryWallet {
             message: Hash256::from(sig_hash),
         })
     }
+
     pub fn secp256k1_sign_with_public_key(
         &self,
         public_key: QHashOut<F>,
@@ -219,12 +224,14 @@ impl QEDMemoryWallet {
             ))?;
         self.secp256k1_sign(*private_key, sig_hash)
     }
+
     pub async fn zk_secp256k1_from_signature(
         &self,
         signature: &QEDCompressedSecp256K1Signature,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         self.circuit_manager.prove_secp_sign(*signature).await
     }
+
     pub async fn zk_sign_secp256k1(
         &self,
         public_key: QHashOut<F>,
@@ -258,5 +265,182 @@ impl QEDMemoryWallet {
             );
         };
         Ok(fingerprint)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Result;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::plonk::config::PoseidonGoldilocksConfig;
+    use qed_common_circuit::circuits::l1_secp256k1_signature::L1Secp256K1SignatureCircuit;
+    use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+    use qed_core::data::qhashout::QHashOut;
+    use std::str::FromStr;
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_raw_secp256k1_sign() -> Result<()> {
+        use qed_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
+        use k256::ecdsa::signature::hazmat::PrehashSigner;
+        use qed_core::data::base_types::hash256::Hash256;
+
+        // Create a test private key and signature hash
+        let private_key = QHashOut::<F>::from_str(
+            "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
+        )?;
+        let sig_hash = QHashOut::<F>::from_str(
+            "83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186",
+        )?;
+
+        // Test signature generation with reverse (like in memory_wallet)
+        let signing_key = k256::ecdsa::SigningKey::from_slice(&Hash256::from(private_key).0)?;
+        let mut sig_hash_bytes = Hash256::from(sig_hash).0;
+        let result: k256::ecdsa::Signature = signing_key.sign_prehash(&sig_hash_bytes)?;
+
+        let mut rs_bytes = [0u8; 64];
+        let r_bytes = result.r().to_bytes();
+        let s_bytes = result.s().to_bytes();
+        rs_bytes[0..32].copy_from_slice(&r_bytes);
+        rs_bytes[32..64].copy_from_slice(&s_bytes);
+
+        // Get compressed public key
+        let pk = signing_key.verifying_key();
+        let pk_bytes = pk.to_encoded_point(true).to_bytes();
+        let mut compressed_pk = [0u8; 33];
+        compressed_pk.copy_from_slice(&pk_bytes);
+
+        let secp_signature = QEDCompressedSecp256K1Signature {
+            public_key: compressed_pk,
+            signature: rs_bytes,
+            message: Hash256::from(sig_hash),
+        };
+
+        println!("Generated signature with reverse:");
+        println!("  Public key: {:?}", hex::encode(&secp_signature.public_key));
+        println!("  Signature: {:?}", hex::encode(&secp_signature.signature));
+        println!("  Message: {:?}", hex::encode(&secp_signature.message.0));
+
+        // Create L1 SECP256K1 signature circuit and test
+        let l1_circuit = L1Secp256K1SignatureCircuit::<C, D>::new();
+
+        println!("Created L1 SECP256K1 circuit, fingerprint: {}", l1_circuit.get_fingerprint());
+
+        // Generate ZK proof using the L1 circuit
+        let zk_proof = l1_circuit.prove(&secp_signature)?;
+
+        println!("Generated ZK proof with {} public inputs", zk_proof.public_inputs.len());
+        println!("Public inputs: {:?}", zk_proof.public_inputs);
+
+        // Verify the public inputs match expected format: hash(sighash, public_key_param)
+        let combined_hash_from_proof = QHashOut(plonky2::hash::hash_types::HashOut {
+            elements: [
+                zk_proof.public_inputs[0],
+                zk_proof.public_inputs[1],
+                zk_proof.public_inputs[2],
+                zk_proof.public_inputs[3],
+            ],
+        });
+
+        println!("L1 circuit public inputs (combined hash): {}", combined_hash_from_proof);
+
+        // Calculate expected combined hash: hash(sighash, public_key_param)
+        use qed_crypto::hash::traits::hasher::FieldQHasher;
+        use qed_data::config::store_config::QEDHasher;
+        use plonky2::hash::poseidon::PoseidonPermutation;
+
+        let public_key_param = crate::wallet::utils::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
+            qed_core::data::secp256k1::CompressedPublicKey(compressed_pk)
+        );
+        let message_hash: QHashOut<F> = QHashOut::from(Hash256::from(sig_hash));
+
+        let expected_combined_hash = QEDHasher::q_two_to_one(message_hash, public_key_param);
+
+        println!("Expected combined hash: hash({}, {}) = {}", message_hash, public_key_param, expected_combined_hash);
+
+        assert_eq!(combined_hash_from_proof, expected_combined_hash,
+                   "Raw secp256k1 proof public inputs should match hash(sighash, public_key_param)");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_memory_wallet_secp256k1_sign() -> Result<()> {
+        use qed_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
+        use qed_core::data::base_types::hash256::Hash256;
+
+        // Create a test private key and signature hash
+        let private_key = QHashOut::<F>::from_str(
+            "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
+        )?;
+        let sig_hash = QHashOut::<F>::from_str(
+            "83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186",
+        )?;
+
+        // Create a mock memory wallet for testing
+        let circuit_manager = crate::ups::circuit_manager::core::QCircuitManager::Local(
+            crate::ups::circuit_manager::core::QEDUPSStepCircuitManager::new_with_config(0x1337)
+        );
+        let wallet = QEDMemoryWallet::new(circuit_manager);
+
+        println!("Created memory wallet");
+
+        // Generate SECP256K1 signature using memory wallet method
+        let secp_signature = wallet.secp256k1_sign(private_key, sig_hash)?;
+
+        println!("Generated signature using memory wallet:");
+        println!("  Public key: {:?}", hex::encode(&secp_signature.public_key));
+        println!("  Signature: {:?}", hex::encode(&secp_signature.signature));
+        println!("  Message: {:?}", hex::encode(&secp_signature.message.0));
+
+        // Create L1 SECP256K1 signature circuit and test
+        let l1_circuit = L1Secp256K1SignatureCircuit::<C, D>::new();
+
+        println!("Created L1 SECP256K1 circuit, fingerprint: {}", l1_circuit.get_fingerprint());
+
+        // Generate ZK proof using the L1 circuit
+        let zk_proof = l1_circuit.prove(&secp_signature)?;
+
+        println!("Generated ZK proof with {} public inputs", zk_proof.public_inputs.len());
+        println!("Public inputs: {:?}", zk_proof.public_inputs);
+
+        // ZK proof generated successfully (verification may have circuit structure issues)
+        println!("✅ ZK proof generation succeeded!");
+
+        // The public inputs should be the combined hash of sighash and public key
+        let combined_hash_from_proof = QHashOut(plonky2::hash::hash_types::HashOut {
+            elements: [
+                zk_proof.public_inputs[0],
+                zk_proof.public_inputs[1],
+                zk_proof.public_inputs[2],
+                zk_proof.public_inputs[3],
+            ],
+        });
+
+        println!("L1 circuit combined hash output: {}", combined_hash_from_proof);
+
+        // Verify this matches expected format: hash(message_hash, public_key_param)
+        use qed_crypto::hash::traits::hasher::FieldQHasher;
+        use qed_data::config::store_config::QEDHasher;
+        use plonky2::hash::poseidon::PoseidonPermutation;
+
+        // Get public key param the same way as in memory wallet
+        let public_key_param = crate::wallet::utils::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
+            qed_core::data::secp256k1::CompressedPublicKey(secp_signature.public_key)
+        );
+        let message_hash: QHashOut<F> = QHashOut::from(secp_signature.message);
+
+        let expected_combined_hash = QEDHasher::q_two_to_one(message_hash, public_key_param);
+
+        println!("Expected combined hash: hash({}, {}) = {}", message_hash, public_key_param, expected_combined_hash);
+
+        assert_eq!(combined_hash_from_proof, expected_combined_hash,
+                   "Proof public inputs should match hash(sighash, public_key_hash)");
+
+        Ok(())
     }
 }

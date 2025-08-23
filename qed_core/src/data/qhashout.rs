@@ -35,8 +35,8 @@ impl<F: RichField> Serialize for QHashOut<F> {
     where
         S: Serializer,
     {
-        let mut bytes = GenericHashOut::to_bytes(&self.0); // little endian
-        bytes.reverse(); // big endian
+        let mut bytes = GenericHashOut::to_bytes(&self.0);
+        bytes.reverse();
         let raw = SerializableHashOut(bytes);
 
         raw.serialize(serializer)
@@ -53,7 +53,7 @@ impl<'de, F: RichField> Deserialize<'de> for QHashOut<F> {
         if bytes.len() > 32 {
             return Err(serde::de::Error::custom("too long hexadecimal sequence"));
         }
-        bytes.reverse(); // little endian
+        bytes.reverse();
         bytes.resize(32, 0);
 
         Ok(QHashOut(<HashOut<F> as GenericHashOut<F>>::from_bytes(

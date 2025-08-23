@@ -1,5 +1,5 @@
 use kvq::adapters::standard::KVQStandardAdapter;
-use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonHash};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonHash, plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs}};
 use qed_core::{
     config::network_constants::{
         CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
@@ -70,7 +70,9 @@ pub type QEDDeltaMerkleProof = DeltaMerkleProofCore<QEDHash>;
 pub type QCheckpointLeaf = QEDCheckpointLeaf<QEDFelt>;
 pub type QCheckpointSyncInfoCompact = QEDCheckpointSyncInfoCompact<QEDFelt>;
 pub type QUserPublicKeyRecord = QEDUserPublicKeyRecord<QEDFelt>;
-//pub type QEDParams = QEDTestnetTreeConfig;
+pub type QEDPlonky2Config = PoseidonGoldilocksConfig;
+pub type QEDProof = ProofWithPublicInputs<QEDFelt, QEDPlonky2Config, 2>;
+
 
 pub type UserLeafTableStore<S, IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>> = UserLeafModel<
     USER_LEAF_TABLE_TYPE,

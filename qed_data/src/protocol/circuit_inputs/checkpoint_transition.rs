@@ -84,6 +84,7 @@ impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
             stats: self.old_stats,
         }
     }
+
     pub fn get_old_state_roots<H: FieldQHasher<F>>(&self) -> QEDCheckpointGlobalStateRoots<F> {
         let old_state_roots = QEDCheckpointGlobalStateRoots {
             contract_tree_root: self.part_1_header.deploy_contracts_state_transition.state_transition_start,

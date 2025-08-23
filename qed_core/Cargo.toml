@@ -22,6 +22,7 @@ async-trait = { workspace = true }
 indexmap = { workspace = true }
 
 ts-rs = { workspace = true }
+k256 = { workspace = true }
 
 kvq = { workspace = true }
 uuid = { workspace = true }

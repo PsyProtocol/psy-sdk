@@ -30,8 +30,8 @@ async fn main() -> anyhow::Result<()> {
         Commands::RealmProcessor { config } => {
             realm_processor::run(config).await?;
         }
-        Commands::Worker { config, public_key } => {
-            worker::run(config, public_key).await?;
+        Commands::Worker { config, private_key, keystore_path, wallet_password } => {
+            worker::run(config, private_key, keystore_path, wallet_password).await?;
         }
     };
     Ok::<_, anyhow::Error>(())

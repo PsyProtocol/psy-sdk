@@ -94,7 +94,7 @@ pub trait Slot: Clock {
     /// ```
     /// let remaining_time = clock.get_retain_time_to_next_slot();
     /// ```
-    fn get_retain_time_to_next_slot(&self) -> u64 {
+    fn get_remain_time_to_next_slot(&self) -> u64 {
         self.get_next_slot_timestamp() - self.get_current_timestamp()
     }
 
@@ -145,7 +145,7 @@ pub trait Slot: Clock {
     /// }
     /// ```
     fn is_can_reach_to_next_slot(&self) -> bool {
-        self.get_retain_time_to_next_slot() >= NETWORK_COST_TIME_MS
+        self.get_remain_time_to_next_slot() >= NETWORK_COST_TIME_MS
     }
 
     /// Check if there is enough time to reach a specific slot considering network cost
@@ -451,13 +451,13 @@ mod tests {
     #[test]
     fn test_get_retain_time_to_next_slot() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        assert_eq!(clock.get_retain_time_to_next_slot(), SLOT_SIZE);
+        assert_eq!(clock.get_remain_time_to_next_slot(), SLOT_SIZE);
 
         let clock = TestClock::new(SLOT0_TIMESTAMP + SLOT_SIZE / 2);
-        assert_eq!(clock.get_retain_time_to_next_slot(), SLOT_SIZE / 2);
+        assert_eq!(clock.get_remain_time_to_next_slot(), SLOT_SIZE / 2);
 
         let clock = TestClock::new(SLOT0_TIMESTAMP + SLOT_SIZE - 100);
-        assert_eq!(clock.get_retain_time_to_next_slot(), 100);
+        assert_eq!(clock.get_remain_time_to_next_slot(), 100);
     }
 
     #[test]

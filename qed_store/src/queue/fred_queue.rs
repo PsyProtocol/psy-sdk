@@ -1,7 +1,7 @@
 use std::fmt;
 use std::time::Duration;
 
-use crate::queue::{BizKey, QueuePrefixKey};
+use crate::queue::{BizKey, QPendingUserStoreAsyncImm, QueuePrefixKey};
 use async_trait::async_trait;
 use fred::prelude::{FredResult, HashesInterface, KeysInterface, ListInterface, Pool};
 use kvq::traits::{KVQPair, KVQSerializable};
@@ -24,6 +24,7 @@ use super::PS_DRAIN_QUEUE_KEY_PREFIX;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::RichField;
+use crate::queue::redis_queue::QueueOffsetState;
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -184,7 +185,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
             checkpoint_queue_prefix, metadata.channel_id,
         );
         // tracing::debug!("Pushing job id to queue: {:?}", key);
-        self.pool.lpush::<(), String, &[u8]>(key, &bytes).await?;
+        self.pool.rpush::<(), String, &[u8]>(key, &bytes).await?;
 
         Ok(())
     }
@@ -210,7 +211,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
 
         members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
     }
@@ -231,7 +231,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
             .await?;
         members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
     }
@@ -257,7 +256,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
     }
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.pool
-            .lpush::<(), _, Vec<Vec<u8>>>(
+            .rpush::<(), _, Vec<Vec<u8>>>(
                 &self.worker_queue_key(),
                 jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect(),
             )
@@ -267,7 +266,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
     }
     async fn notify_core_goal_completed_imm(&self, job: QProvingJobDataID) -> anyhow::Result<()> {
         self.pool
-            .lpush::<(), _, &[u8]>(&self.notifications_queue_key(), &job.to_fixed_bytes())
+            .rpush::<(), _, &[u8]>(&self.notifications_queue_key(), &job.to_fixed_bytes())
             .await?;
 
         Ok(())
@@ -278,7 +277,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
 impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.pool
-            .lpush::<(), _, Vec<Vec<u8>>>(
+            .rpush::<(), _, Vec<Vec<u8>>>(
                 &self.worker_queue_key(),
                 jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect(),
             )
@@ -466,7 +465,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for DrainQueueFred {
         let metadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
         self.pool
-            .lpush::<(), String, &[u8]>(
+            .rpush::<(), String, &[u8]>(
                     format!("{}_{}", self.checkpoint_drain_queue_key(), metadata.channel_id),
                 &bytes,
             )
@@ -490,7 +489,6 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
 
         members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
     }
@@ -506,24 +504,33 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
             .await?;
         members
             .into_iter()
-            .rev()
             .map(|x| T::from_bytes(&x))
             .collect()
     }
 }
 
 #[async_trait]
-pub trait QPendingUserStoreAsyncImm: Send + Sync {
-    async fn push_pending_users<F: RichField>(
+impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreFred {
+    async fn peek_with_position<T: DQSerializable>(
         &self,
-        pending_users: &[MerkleProofCore<QHashOut<F>>],
-    ) -> anyhow::Result<()>;
-    async fn pop_pending_users<F: RichField>(
+        _channel_id: u64,
+        _checkpoint_id: u64,
+    ) -> anyhow::Result<(Vec<T>, QueueOffsetState)> {
+        todo!()
+    }
+    
+    async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()> {
+        todo!()
+    }
+
+    async fn get_last_peek_offset(
         &self,
-        count: usize,
-    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>>;
-    async fn get_pending_users_count(&self) -> anyhow::Result<usize>;
+        channel_id: u64,
+    ) -> anyhow::Result<Option<QueueOffsetState>> {
+        Ok(None)
+    }
 }
+
 
 #[async_trait]
 impl QPendingUserStoreAsyncImm for ProofStoreFred {
@@ -544,25 +551,20 @@ impl QPendingUserStoreAsyncImm for ProofStoreFred {
     async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
         Ok(0)
     }
-}
-
-#[async_trait]
-impl super::QPendingUserStoreAsyncImm for ProofStoreFred {
-    async fn push_pending_users<F: RichField>(
-        &self,
-        _pending_users: &[MerkleProofCore<QHashOut<F>>],
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn pop_pending_users<F: RichField>(
+    
+    async fn peek_with_position<F: RichField>(
         &self,
         _count: usize,
-    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>> {
-        Ok(Vec::new())
+        _checkpoint_id: u64,
+    ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueOffsetState)> {
+        todo!()
     }
-
-    async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
-        Ok(0)
+    
+    async fn commit_offset(&self, _state: &QueueOffsetState) -> anyhow::Result<()> {
+        todo!()
+    }
+    
+    async fn get_last_peek_offset(&self) -> anyhow::Result<Option<QueueOffsetState>> {
+        todo!()
     }
 }

@@ -103,12 +103,16 @@ FILE                     := $(PWD)/examples/token/src/main.qed
 PARAMETERS               :=
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
 USER0_PUBLIC_KEY         := 6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5
+USER0_SECP_ZK_PUBLIC_KEY := 49deab842acf3d26236419d4fce1b2cb01081aef55d4ef0e566f980e3890cf2f
 USER1_PRIVATE_KEY        := f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
 USER1_PUBLIC_KEY         := 0aa313de0677ed55f51cca7094b519d53d661f131f481a03e12e45f0f3389f12
+USER1_SECP_ZK_PUBLIC_KEY := ac85e11f5c8a53241502c4519567aa3f02d30b1639fc49bb94c1d61335197e1a
 USER2_PRIVATE_KEY        := 73ae514d6f69510ad778a05128d980951d9d8c097beb022471b2f50f19c41268
 USER2_PUBLIC_KEY         := 3622af1955a3a547e7112ed381602a0dc8b30eaaf98d716342b2b9f941616382
+USER2_SECP_ZK_PUBLIC_KEY := 2b280f7354a6648e1d37499d211876d4f68d703c4dbf4dd8ccee032a4da5f220
 USER3_PRIVATE_KEY        := 88ebebcea0bdfbe88ff0ed470d44242c149343a9ec79244ff829042a62e8ad2d
 USER3_PUBLIC_KEY         := cc2ddec960c6c9529befb8746b3b53a09f5e63a5b5868b69654d740017726f1f
+USER3_SECP_ZK_PUBLIC_KEY := 1e44a84db33d52243068ccfbf6519beb1e072d1128ee792fe62896a3338db2a4
 
 CURRENT_USER_PRIVATE_KEY := ${USER0_PRIVATE_KEY}
 CURRENT_USER_PUBLIC_KEY  := ${USER0_PUBLIC_KEY}
@@ -122,9 +126,14 @@ CONTRACT_STATE_HEIGHT    := 32
 REALM_ID                 := 0
 REGISTRATION_ID          := 1
 STRATEGY                 := 2
+SIGN_TYPE                := zk
 
 COORDINATOR_RPC_URL      := $(shell jq -r '.network.coordinator_configs[].rpc_url[]' config.json)
 REALM_RPC_URL            := $(shell jq -r '.network.realm_configs[0].rpc_url[]' config.json)
+
+GLOBAL_USER_TREE_HEIGHT  := $(shell jq -r '.network.global_user_tree_height' config.json)
+REALM_USER_TREE_HEIGHT   := $(shell jq -r '.network.realm_user_tree_height' config.json)
+REALM_TREE_LEAF_LEVEL    := $(shell echo $$(($(GLOBAL_USER_TREE_HEIGHT) - $(REALM_USER_TREE_HEIGHT))))
 
 init:
 	# Create main project directory
@@ -155,10 +164,13 @@ shutdown:
 	@docker exec qed-redis-coordinator redis-cli FLUSHALL > /dev/null 2>&1 || true
 	@docker exec qed-redis-realm0 redis-cli FLUSHALL > /dev/null 2>&1 || true
 	@docker exec qed-redis-realm1 redis-cli FLUSHALL > /dev/null 2>&1 || true
+	@redis-cli -p 6379 FLUSHALL > /dev/null 2>&1 || true
+	@redis-cli -p 6380 FLUSHALL > /dev/null 2>&1 || true
+	@redis-cli -p 6381 FLUSHALL > /dev/null 2>&1 || true
 	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
 	@rm -fr ${PROJECT_DIR} ${PWD}/db > /dev/null 2>&1 || true
 	@echo "Removing user job tracker JSON files..."
-	@rm -f ${USER0_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json > /dev/null 2>&1 || true
+	@rm -f ${USER0_PUBLIC_KEY}.json ${USER0_SECP_ZK_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER1_SECP_ZK_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER2_SECP_ZK_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json ${USER3_SECP_ZK_PUBLIC_KEY}.json > /dev/null 2>&1 || true
 
 run-all: shutdown init compile
 	@./scripts/run_all.sh
@@ -210,17 +222,17 @@ run-realm-edge1:
 run-worker0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
       --config=./config.json \
-      --public-key=${USER0_PUBLIC_KEY}
+      --private-key=${USER0_PRIVATE_KEY}
 
 run-worker1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
       --config=./config.json \
-      --public-key=${USER1_PUBLIC_KEY}
+      --private-key=${USER1_PRIVATE_KEY}
 
 run-worker2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
       --config=./config.json \
-      --public-key=${USER2_PUBLIC_KEY}
+      --private-key=${USER2_PRIVATE_KEY}
 
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 
@@ -300,7 +312,10 @@ generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token
 
 get-public-key:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY}
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY} --sign-type ${SIGN_TYPE}
+
+wallet:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli wallet create
 
 random-wallet:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli random-wallet
@@ -312,6 +327,12 @@ register-user:
 	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER1_PRIVATE_KEY} | tail -5 | jq .
 	@sleep 0.5
 	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} | tail -5 | jq .
+	@sleep 0.5
+	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER0_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
+	@sleep 0.5
+	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER1_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
+	@sleep 0.5
+	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
 	@sleep 0.5
 	# @RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} | tail -5 | jq .
 	# @sleep 0.5
@@ -353,12 +374,13 @@ claim:
 
 claim-rewards:
 	@echo "Claiming rewards for checkpoint ${CHECKPOINT_ID}..."
-	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --contract-id 2 --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type zk
+	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --contract-id 2 --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
 
 return-back:
 	@echo "USER1 transferring back to USER0..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250
 
+# Unified RPC commands using qed_user_cli automatic routing
 balance-of:
 	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
 
@@ -368,28 +390,14 @@ build-block:
 latest-checkpoint:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_checkpoint", "params": [], "id": 1 }' | jq .
 
+# Metadata RPC commands
 get-contract-leaf-data:
 	@./target/${PROFILE}/qed_user_cli get-contract-leaf-data --contract-id ${CONTRACT_ID}
 
-qed-get-checkpoint-leaf-data:
+get-checkpoint-leaf-data:
 	@./target/${PROFILE}/qed_user_cli get-checkpoint-leaf-data --checkpoint-id ${CHECKPOINT_ID}
 
-get-checkpoint-global-state-roots:
-	@echo "Note: qed_get_checkpoint_global_state_roots is not implemented in the CLI yet"
-
-qed-get-checkpoint-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-root --checkpoint-id ${CHECKPOINT_ID}
-
-qed-get-latest-checkpoint-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-latest-checkpoint-tree-root
-
-qed-get-checkpoint-tree-leaf-hash:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
-
-qed-get-checkpoint-tree-merkle-proof:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
-
-qed-get-contract-code-definition:
+get-contract-code-definition:
 	@./target/${PROFILE}/qed_user_cli get-contract-code-definition --contract-id ${CONTRACT_ID}
 
 get-latest-l2-block-state:
@@ -398,80 +406,59 @@ get-latest-l2-block-state:
 get-l2-block-state:
 	@./target/${PROFILE}/qed_user_cli get-l2-block-state --checkpoint-id ${CHECKPOINT_ID}
 
-get-user-leaf-data:
+# Tree structure RPC commands
+get-checkpoint-tree-root:
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-root --checkpoint-id ${CHECKPOINT_ID}
+
+get-latest-checkpoint-tree-root:
+	@./target/${PROFILE}/qed_user_cli get-latest-checkpoint-tree-root
+
+get-checkpoint-tree-leaf-hash:
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
+
+get-checkpoint-tree-merkle-proof:
+	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
+
+# User tree RPC commands
+get-user-leaf-data-by-pubkey:
 	@./target/${PROFILE}/qed_user_cli get-user-leaf --checkpoint-id ${CHECKPOINT_ID} --pub-key ${CURRENT_USER_PUBLIC_KEY}
 
-get-realm-user-tree-root:
+get-user-leaf-data-by-userid:
+	@./target/${PROFILE}/qed_user_cli get-user-leaf --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
+
+get-user-leaf-data: get-user-leaf-data-by-pubkey
+
+get-user-tree-root:
 	@./target/${PROFILE}/qed_user_cli get-user-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
-get-realm-user-tree-merkle-proof:
-	@./target/${PROFILE}/qed_user_cli get-user-sub-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --root-level 0 --leaf-level 15 --leaf-index ${REALM_ID}
+get-user-tree-leaf-hash:
+	@./target/${PROFILE}/qed_user_cli get-user-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
 get-user-tree-merkle-proof:
 	@./target/${PROFILE}/qed_user_cli get-user-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
-realm-check-user-id:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_check_user_id_in_realm", "params": [${USER_ID}], "id": 1 }' | jq .
+get-user-sub-tree-merkle-proof:
+	@./target/${PROFILE}/qed_user_cli get-user-sub-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --root-level 0 --leaf-level ${REALM_TREE_LEAF_LEVEL} --leaf-index ${REALM_ID}
 
-realm-get-latest-l2-block-state:
-	@./target/${PROFILE}/qed_user_cli get-latest-l2-block-state
-
-realm-get-l2-block-state:
-	@./target/${PROFILE}/qed_user_cli get-l2-block-state --checkpoint-id ${CHECKPOINT_ID}
-
-realm-get-checkpoint-leaf-data:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-leaf-data --checkpoint-id ${CHECKPOINT_ID}
-
-realm-get-latest-checkpoint-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-latest-checkpoint-tree-root
-
-realm-checkpoint-global-state-roots:
-	@echo "Note: qed_get_checkpoint_global_state_roots is not implemented in the CLI yet"
-
-realm-get-checkpoint-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-root --checkpoint-id ${CHECKPOINT_ID}
-
-realm-get-checkpoint-tree-leaf-hash:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
-
-realm-get-checkpoint-tree-merkle-proof:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
-
-realm-get-user-leaf-data:
-	@./target/${PROFILE}/qed_user_cli get-user-leaf --checkpoint-id ${CHECKPOINT_ID} --pub-key 3622af1955a3a547e7112ed381602a0dc8b30eaaf98d716342b2b9f941616382
-
-realm-get-user-leaf-hash:
-	@./target/${PROFILE}/qed_user_cli get-user-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
-
-realm-get-user-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-user-tree-root --checkpoint-id ${CHECKPOINT_ID}
-
-realm-get-realm-user-tree-merkle-proof:
-	@./target/${PROFILE}/qed_user_cli get-user-sub-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --root-level 15 --leaf-level 30 --leaf-index ${USER_ID}
-
-realm-get-user-tree-merkle-proof:
-	@./target/${PROFILE}/qed_user_cli get-user-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
-
-realm-get-user-registration-tree-root:
+get-user-registration-tree-root:
 	@./target/${PROFILE}/qed_user_cli get-user-registration-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
-realm-get-user-bottom-tree-merkle-proof:
-	@echo "Note: qed_get_user_bottom_tree_merkle_proof is not implemented in the CLI yet"
-
-realm-get-user-contract-tree-root:
+# User contract tree RPC commands
+get-user-contract-tree-root:
 	@./target/${PROFILE}/qed_user_cli get-user-contract-tree-root --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
-realm-get-user-contract-state-tree-root:
+get-user-contract-state-tree-root:
 	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-root --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID}
 
-realm-get-user-contract-tree-merkle-proof:
+get-user-contract-tree-merkle-proof:
 	@./target/${PROFILE}/qed_user_cli get-user-contract-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID}
 
-realm-get-user-contract-state-tree-merkle-proof:
+get-user-contract-state-tree-merkle-proof:
 	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
 
-realm-get-checkpoint-global-state-roots:
-	@echo "Note: qed_get_checkpoint_global_state_roots is not implemented in the CLI yet"
+# Check if user exists in realm
+check-user-id:
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_check_user_id_in_realm", "params": [${USER_ID}], "id": 1 }' | jq .
 
 get-user-id-from-registration-id:
 	@./target/${PROFILE}/qed_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY}

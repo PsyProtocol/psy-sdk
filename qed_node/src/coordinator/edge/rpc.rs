@@ -17,7 +17,6 @@ use qed_data::config::store_config::QCheckpointSyncInfoCompact;
 
 // Import the request types from qed_prover
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
-use crate::common::ConcreteProofWithPublicInputs;
 
 use super::types::LatestCheckpointResponse;
 
