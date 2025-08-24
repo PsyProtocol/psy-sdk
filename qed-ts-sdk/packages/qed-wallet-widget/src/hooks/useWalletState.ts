@@ -9,7 +9,7 @@ import {
 } from "@qed/qed-sdk";
 import { createMemoryWalletProvider } from "../utils/provider";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
-import { DEFAULT_GLOBAL_USER_TREE_HEIGHT, DEFAULT_PROVE_PROXY_URL, DEFAULT_REALM_USER_TREE_HEIGHT, loadConfig } from "../config";
+import { loadConfig } from "../config";
 
 enum WalletWidgetLoadingState {
     Loading,
@@ -24,6 +24,7 @@ interface IWalletStateStore {
     wallets: IQedWidgetWallet[];
     currentWallet?: IQedWidgetWallet;
     currency: string;
+    hasTriedRestore: boolean;
     // rpc: IQedRPCProvider;
     coordinatorEdgeRpcProvider: ICoordinatorEdgeRpcProvider;
     realmEdgeRpcProvider: IRealmEdgeRpcProvider;
@@ -120,12 +121,14 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
         config.network.prover_url, // prover
         config.network.prove_proxy_url,
     );
+
     return {
         loadingState: WalletWidgetLoadingState.Ready,
         provider: walletProvider,
         wallets: [],
         providerAbilities: walletProvider.signerProvider.getAbilities(),
         walletAbilities: [],
+        hasTriedRestore: false,
         networkId: "regtest",
         canAddWallet: true,
         currency: "PSY",
@@ -356,15 +359,39 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 if (provider === state.provider) {
                     return {};
                 }
+
+                if (!state.hasTriedRestore) {
+                    try {
+                        const WALLET_STORAGE_KEY = 'psy_wallet_data';
+                        const stored = localStorage.getItem(WALLET_STORAGE_KEY);
+
+                        if (stored) {
+                            const data = JSON.parse(stored);
+                            const isDataFresh = Date.now() - data.lastUpdated < 24 * 60 * 60 * 1000;
+
+                            if (isDataFresh && data.wallets.length > 0) {
+                                console.log('Restoring first wallet from storage...');
+                                const firstWallet = data.wallets[0];
+                                if (firstWallet?.privateKey) {
+                                    await provider.signerProvider.importPrivateKey(firstWallet.privateKey);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('Failed to restore wallets:', error);
+                    }
+                }
+
                 const wallets = await getAllIQWallets(provider);
                 return {
                     provider,
-                    signerAbilities: provider.signerProvider.getAbilities(),
+                    providerAbilities: provider.signerProvider.getAbilities(),
                     walletAbilities: wallets[0] ? wallets[0].wallet.signer.getAbilities() : [],
                     wallets,
+                    hasTriedRestore: true,
                     networkId: provider.networkId,
-                    coordinator: provider.coordinatorEdgeRpcProvider,
-                    realm: provider.realmEdgeRpcProvider,
+                    coordinatorEdgeRpcProvider: provider.coordinatorEdgeRpcProvider,
+                    realmEdgeRpcProvider: provider.realmEdgeRpcProvider,
                     currentWallet: wallets[0] || undefined,
                 };
             }, true),

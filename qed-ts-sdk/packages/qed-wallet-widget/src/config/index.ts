@@ -23,11 +23,6 @@ export interface NetworkConfig {
   prove_proxy_url?: string,
 }
 
-export const DEFAULT_PROVER_URL = "http://127.0.0.1:8888";
-export const DEFAULT_PROVE_PROXY_URL = "http://127.0.0.1:9999";
-export const DEFAULT_GLOBAL_USER_TREE_HEIGHT = 24;
-export const DEFAULT_REALM_USER_TREE_HEIGHT = 23;
-
 export interface WalletConfig {
   theme: {
     colors: {
@@ -192,10 +187,10 @@ export const useWalletConfig = () => {
 
   const getRealmUrl = (realmId?: number) => {
     // If no specific realm ID provided, use the first one
-    const targetRealm = realmId !== undefined 
+    const targetRealm = realmId !== undefined
       ? config.network.realm_configs.find(r => r.id === realmId)
       : config.network.realm_configs[0];
-    
+
     if (targetRealm && targetRealm.rpc_url.length > 0) {
       return targetRealm.rpc_url[0];
     }

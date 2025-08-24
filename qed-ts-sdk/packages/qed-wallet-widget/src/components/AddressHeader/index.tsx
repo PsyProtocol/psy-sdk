@@ -58,17 +58,11 @@ const AddressHeader: React.FC<IAddressHeaderProps> = ({ address, balance, onRefr
 };
 
 const StatefulAddressHeader: React.FC = () => {
-    const [currency, currentWallet, refreshCurrentWallet, walletProvider] = useWalletState((state) => [
-        state.currency,
+    const [currentWallet, refreshCurrentWallet] = useWalletState((state) => [
         state.currentWallet,
         state.refreshCurrentWallet,
-        state.provider,
     ]);
-    const { getNativeCurrency } = useWalletConfig();
-    const contractId = parseInt(getNativeCurrency(), 10);
-    const userId = !currentWallet ? 0 : currentWallet.userId;
-    const checkpointId = useBlockNumber(walletProvider, 1000);
-    const userBalance = useUserBalance(walletProvider, checkpointId, userId, contractId, 1000);
+    
     if (!currentWallet) {
         return (
             <NoWalletAddressHeader>
@@ -80,8 +74,7 @@ const StatefulAddressHeader: React.FC = () => {
     return (
         <AddressHeader
             address={currentWallet.userId + ":" + currentWallet.publicKeyHex}
-            // balance={formatBalance(userBalance, currency)}
-            balance={userBalance + currency}
+            balance=""
             onRefresh={() => refreshCurrentWallet()}
         />
     );
