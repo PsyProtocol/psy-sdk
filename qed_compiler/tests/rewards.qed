@@ -15,7 +15,6 @@ struct JobProof {
 struct JobClaim {
     pub job_type: Felt,
     pub proof: JobProof,
-    pub reward: Felt,
 }
 
 #[derive(Storage, StorageRef)]
@@ -25,8 +24,8 @@ struct OtherUserInfo {
 }
 
 #[derive(Storage, StorageRef)]
-struct Nullifier {
-    pub used: Felt,
+struct UserNullifier {
+    pub last_claimed_checkpoint: Felt,
 }
 
 #[contract]
@@ -34,12 +33,23 @@ struct Nullifier {
 struct Contract {
     pub balance: Felt,
     pub other_user_info: [OtherUserInfo; 1073741824],
-    pub nullifiers: [Nullifier; 67108864],
+    pub user_nullifiers: [UserNullifier; 1073741824],
 }
 
 impl ContractRef {
-    pub fn get_nullifier_index(checkpoint_id: Felt, user_id: Felt) -> Felt {
-        checkpoint_id * 1024 + (user_id % 1024)
+    pub fn get_default_job_proof_hash() -> [Felt; 4] {
+        [16455470568475769528, 16167468235369303599, 2788853842874140022, 14903346318140703896]
+    }
+
+    pub fn get_reward_for_job_type(job_type: Felt) -> Felt {
+        assert(job_type == 0 || job_type == 1 || job_type == 2, "invalid job type");
+        if job_type == 0 {
+            5000000000
+        } else if job_type == 1 {
+            2500000000
+        } else {
+            5000000000
+        }
     }
 
     pub fn verify_proof(proof: JobProof, expected_root: [Felt; 4]) -> bool {
@@ -78,39 +88,60 @@ impl ContractRef {
     }
 
     pub fn get_expected_root(checkpoint_id: Felt, job_type: Felt) -> [Felt; 4] {
+        assert(job_type == 0 || job_type == 1 || job_type == 2, "invalid job type");
         if job_type == 0 {
             get_register_users_root(checkpoint_id)
         } else if job_type == 1 {
             get_gutas_root(checkpoint_id)
-        } else if job_type == 2 {
-            get_deploy_contracts_root(checkpoint_id)
         } else {
-            // Return zero root for invalid job types
-            [0, 0, 0, 0]
+            get_deploy_contracts_root(checkpoint_id)
         }
     }
 
-    pub fn claim_batch_job_rewards(
+    pub fn batch_claim_pm_rewards(
         checkpoint_id: Felt,
         claims: [JobClaim; 32]
     ) {
         let c = ContractRef::new(ContractMetadata::current());
         let user_id = get_user_id();
 
-        assert(checkpoint_id < 65536, "checkpoint_id out of bounds");
-        assert(user_id < 1073741824, "user_id out of bounds");
-
-        let nullifier_idx = Self::get_nullifier_index(checkpoint_id, user_id);
-        let nullifier_ref = c.nullifiers.index(nullifier_idx);
-        assert(nullifier_ref.get().used == 0, "already claimed");
+        let user_nullifier_ref = c.user_nullifiers.index(user_id);
+        let current_nullifier = user_nullifier_ref.get();
+        assert(checkpoint_id > current_nullifier.last_claimed_checkpoint, "checkpoint must be greater than last claimed");
 
         let mut total_reward = 0;
+        let mut cached_hashes: [[Felt; 4]; 32] = [[0, 0, 0, 0]; 32];
+        let default_hash = Self::get_default_job_proof_hash();
 
+        // First pass: cache all proof hashes
         for i in 0u32..32u32 {
             let idx = i as Felt;
             let claim = claims[idx];
+            cached_hashes[idx] = hash(claim.proof);
+        }
 
-            if claim.reward > 0 {
+        // Second pass: process non-default proofs and check duplicates
+        for i in 0u32..32u32 {
+            let idx = i as Felt;
+            let claim = claims[idx];
+            let proof_hash = cached_hashes[idx];
+
+            // Only process non-default proofs
+            if proof_hash[0] != default_hash[0] || proof_hash[1] != default_hash[1] ||
+               proof_hash[2] != default_hash[2] || proof_hash[3] != default_hash[3] {
+
+                // Check for duplicate proof hash using cached values
+                let start_j = i + 1u32;
+                for j in start_j..32u32 {
+                    let j_idx = j as Felt;
+                    let other_hash = cached_hashes[j_idx];
+                    if other_hash[0] != default_hash[0] || other_hash[1] != default_hash[1] ||
+                       other_hash[2] != default_hash[2] || other_hash[3] != default_hash[3] {
+                        assert(proof_hash[0] != other_hash[0] || proof_hash[1] != other_hash[1] ||
+                               proof_hash[2] != other_hash[2] || proof_hash[3] != other_hash[3], "duplicate job proof");
+                    };
+                }
+
                 let expected_root = Self::get_expected_root(checkpoint_id, claim.job_type);
                 assert(Self::verify_proof(claim.proof, expected_root), "invalid proof");
                 let user_key = get_user_public_key_hash();
@@ -118,15 +149,28 @@ impl ContractRef {
                        claim.proof.value[1] == user_key[1] &&
                        claim.proof.value[2] == user_key[2] &&
                        claim.proof.value[3] == user_key[3], "wrong public key");
-                total_reward = total_reward + claim.reward;
+
+                let reward_amount = Self::get_reward_for_job_type(claim.job_type);
+                total_reward = total_reward + reward_amount;
             };
         }
 
         assert(total_reward > 0, "no valid claims");
-        nullifier_ref.set(new Nullifier { used: 1 });
+        user_nullifier_ref.set(new UserNullifier { last_claimed_checkpoint: checkpoint_id });
         c.balance.set(c.balance.get() + total_reward);
     }
 
+    pub fn simple_mint(amount: Felt) {
+        let c = ContractRef::new(ContractMetadata::current());
+        c.balance.set(c.balance.get() + amount);
+    }
+
+    pub fn simple_burn(amount: Felt) {
+        let c = ContractRef::new(ContractMetadata::current());
+        let current_balance = c.balance.get();
+        assert(current_balance >= amount, "insufficient balance");
+        c.balance.set(current_balance - amount);
+    }
 
     pub fn simple_transfer(recipient: Felt, amount: Felt) {
         let c = ContractRef::new(ContractMetadata::current());
@@ -164,11 +208,6 @@ impl ContractRef {
         });
 
         c.balance.set(c.balance.get() + claimed);
-    }
-
-    pub fn get_balance() -> Felt {
-        let c = ContractRef::new(ContractMetadata::current());
-        c.balance.get()
     }
 }
 

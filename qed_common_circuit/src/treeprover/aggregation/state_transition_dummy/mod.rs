@@ -14,6 +14,7 @@ use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::tree
 
 use crate::{
     builder::{
+        comparison::CircuitBuilderComparison,
         hash::core::CircuitBuilderHashCore,
         pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
     },
@@ -45,6 +46,10 @@ where
         let state_transition_hash = builder.add_virtual_hash();
         let allowed_circuit_hashes_root = builder.add_virtual_hash();
         let worker_public_key = builder.add_virtual_hash();
+        
+        // Ensure worker_public_key is not zero hash
+        builder.assert_non_zero_hash(worker_public_key);
+        
         let commitment = worker_public_key;
 
         let transition =

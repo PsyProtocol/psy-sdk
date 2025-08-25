@@ -10,7 +10,7 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
@@ -62,6 +62,9 @@ where
         );
 
         let worker_public_key = builder.add_virtual_hash();
+
+        // Ensure worker_public_key is not zero hash
+        builder.assert_non_zero_hash(worker_public_key);
         let commitment = worker_public_key; // For leaf circuits, commitment = worker_public_key
 
         let public_inputs_hash = a_end_cap_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);

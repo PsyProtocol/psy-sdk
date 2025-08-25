@@ -71,6 +71,7 @@ where
             white_list
         }
     }
+
     async fn log_suspicious_activity(&self, job: &QJob, reason: &str) {
         //todo! add some operation to log suspicious activity or ban user
         error!(
@@ -625,7 +626,7 @@ where
         &self,
         checkpoint_id: u64,
         job_ids: Vec<QProvingJobDataID>,
-    ) -> RpcResult<Vec<JobProof>> {
+    ) -> RpcResult<Vec<(JobProof, QProvingJobDataID)>> {
         use jsonrpsee::types::ErrorObject;
 
         for job_id in &job_ids {
@@ -687,7 +688,7 @@ where
             };
 
             match graph.generate_proof(job_id, &*self.ctx.proof_store).await {
-                Ok(job_proof) => {
+                Ok((job_proof, root_job_id)) => {
                     if job_proof.root != expected_root {
                         tracing::warn!(
                             "Root mismatch for job {:?}: expected {:?}, got {:?}",
@@ -695,7 +696,7 @@ where
                         );
                     }
 
-                    proofs.push(job_proof);
+                    proofs.push((job_proof, root_job_id));
                 }
                 Err(e) => {
                     error!("Failed to generate proof for job {:?}: {}", job_id, e);

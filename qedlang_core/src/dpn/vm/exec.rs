@@ -309,7 +309,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             DPNOpType::BoolOr => {
                 let left = self.resolve_bool(op.inputs[0]);
                 let right = self.resolve_bool(op.inputs[1]);
-                self.bools.push(left && right);
+                self.bools.push(left || right);
             },
             DPNOpType::Xor => {
                 let left = self.resolve_bool(op.inputs[0]);

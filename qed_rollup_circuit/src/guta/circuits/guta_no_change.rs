@@ -10,7 +10,7 @@ use plonky2::{
     },
 };
 use qed_common_circuit::{
-    builder::pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+    builder::{comparison::CircuitBuilderComparison, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}},
     circuits::traits::qstandard::{
         QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
     },
@@ -61,6 +61,9 @@ where
         );
 
         let worker_public_key = builder.add_virtual_hash();
+
+        // Ensure worker_public_key is not zero hash
+        builder.assert_non_zero_hash(worker_public_key);
         let commitment = worker_public_key;
 
         let public_inputs_hash = no_change_gadget

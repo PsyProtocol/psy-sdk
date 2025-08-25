@@ -278,5 +278,5 @@ pub trait RealmEdgeRpc {
         &self,
         checkpoint_id: u64,
         job_ids: Vec<QProvingJobDataID>,
-    ) -> RpcResult<Vec<JobProof>>;
+    ) -> RpcResult<Vec<(JobProof, QProvingJobDataID)>>;
 }

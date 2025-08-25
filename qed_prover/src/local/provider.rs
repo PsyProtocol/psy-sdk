@@ -6,16 +6,16 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_core::job::id::QProvingJobDataID;
 use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::circuits::{
     PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
     PortableQTreeRecursionCircuitsTrait,
 };
+use qed_core::job::id::{JobProof, QProvingJobDataID};
 use qed_crypto::{
     common::witnesses::qrecursion::proof_data::{
         AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs,
     },
-    signature::{secp256k1::core::QEDCompressedSecp256K1Signature},
+    signature::secp256k1::core::QEDCompressedSecp256K1Signature,
 };
 use qed_crypto::{
     common::witnesses::qrecursion::{
@@ -332,7 +332,11 @@ impl RpcProvider {
         }
     }
 
-    pub async fn get_job_proof_from_coordinator(&self, checkpoint_id: u64, job_id: QProvingJobDataID) -> anyhow::Result<qed_core::job::id::JobProof> {
+    pub async fn get_job_proof_from_coordinator(
+        &self,
+        checkpoint_id: u64,
+        job_id: QProvingJobDataID,
+    ) -> anyhow::Result<(JobProof, QProvingJobDataID)> {
         let url = self.get_coordinator_url()?;
 
         let request = serde_json::json!({
@@ -342,7 +346,8 @@ impl RpcProvider {
             "id": 1
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(url)
             .json(&request)
             .send()
@@ -354,11 +359,12 @@ impl RpcProvider {
             return Err(anyhow::format_err!("RPC error: {:?}", error));
         }
 
-        let result = response.get("result")
+        let result = response
+            .get("result")
             .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
 
-        // The result should be a Vec<JobProof>, get the first one
-        let proofs: Vec<qed_core::job::id::JobProof> = serde_json::from_value(result.clone())?;
+        // The result should be a Vec<(JobProof, QProvingJobDataID)>, get the first one
+        let proofs: Vec<(JobProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
 
         if proofs.is_empty() {
             return Err(anyhow::format_err!("No proof returned for job ID"));
@@ -367,8 +373,15 @@ impl RpcProvider {
         Ok(proofs.into_iter().next().unwrap())
     }
 
-    pub async fn get_job_proof_from_realm(&self, realm_id: u64, checkpoint_id: u64, job_id: QProvingJobDataID) -> anyhow::Result<qed_core::job::id::JobProof> {
-        let realm_urls = self.realm_configs.get(&realm_id)
+    pub async fn get_job_proof_from_realm(
+        &self,
+        realm_id: u64,
+        checkpoint_id: u64,
+        job_id: QProvingJobDataID,
+    ) -> anyhow::Result<(JobProof, QProvingJobDataID)> {
+        let realm_urls = self
+            .realm_configs
+            .get(&realm_id)
             .ok_or(anyhow::format_err!("Realm {} not configured", realm_id))?;
         let url = &realm_urls[0];
 
@@ -379,7 +392,8 @@ impl RpcProvider {
             "id": 1
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(url)
             .json(&request)
             .send()
@@ -391,11 +405,12 @@ impl RpcProvider {
             return Err(anyhow::format_err!("RPC error: {:?}", error));
         }
 
-        let result = response.get("result")
+        let result = response
+            .get("result")
             .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
 
-        // The result should be a Vec<JobProof>, get the first one
-        let proofs: Vec<qed_core::job::id::JobProof> = serde_json::from_value(result.clone())?;
+        // The result should be a Vec<(JobProof, QProvingJobDataID)>, get the first one
+        let proofs: Vec<(JobProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
 
         if proofs.is_empty() {
             return Err(anyhow::format_err!("No proof returned for job ID"));
@@ -442,7 +457,6 @@ pub struct RpcConfig {
     pub coordinator_configs: Vec<CoordinatorRpcConfig>,
     pub prove_proxy_url: Option<String>,
 }
-
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RealmRpcConfig {

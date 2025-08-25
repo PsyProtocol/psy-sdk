@@ -9,7 +9,7 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
@@ -46,6 +46,9 @@ where
 
         let register_users_circuit_whitelist = builder.add_virtual_hash();
         let worker_public_key = builder.add_virtual_hash();
+        
+        // Ensure worker_public_key is not zero hash
+        builder.assert_non_zero_hash(worker_public_key);
 
         let batch_append_gadget = BatchAppendUserRegistrationTreeGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,

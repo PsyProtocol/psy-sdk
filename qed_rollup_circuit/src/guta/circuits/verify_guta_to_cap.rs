@@ -9,7 +9,7 @@ use plonky2::{
     }
 };
 use qed_common_circuit::{
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic
 };
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
@@ -53,6 +53,9 @@ where
         let public_inputs_hash = verify_to_line_gadget.get_guta_header_line().to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         let worker_public_key = builder.add_virtual_hash();
+
+        // Ensure worker_public_key is not zero hash
+        builder.assert_non_zero_hash(worker_public_key);
 
         let child_commitment = HashOutTarget {
             elements: [

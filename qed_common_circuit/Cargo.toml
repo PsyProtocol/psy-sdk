@@ -23,6 +23,7 @@ qed_core = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
 maybe-async = { workspace = true }
+qed_data = { workspace = true }
 
 k256 = { workspace = true }
 

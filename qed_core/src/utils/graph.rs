@@ -69,7 +69,6 @@ impl<T: Eq + Hash + Clone + Debug> BidirectionalGraph<T> {
         let mut processed_tasks_count = 0;
 
         while !current_layer.is_empty() {
-            println!("current_layer: {:?}", current_layer);
             sorted_layers.push(current_layer.clone());
             processed_tasks_count += current_layer.len();
             let mut next_layer = Vec::new();

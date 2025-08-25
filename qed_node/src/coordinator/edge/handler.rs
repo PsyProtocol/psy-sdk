@@ -1499,7 +1499,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         &self,
         checkpoint_id: u64,
         job_ids: Vec<QProvingJobDataID>,
-    ) -> RpcResult<Vec<JobProof>> {
+    ) -> RpcResult<Vec<(JobProof, QProvingJobDataID)>> {
         use jsonrpsee::types::ErrorObject;
 
         for job_id in &job_ids {
@@ -1585,7 +1585,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             };
 
             match graph.generate_proof(job_id, &*self.proof_store).await {
-                Ok(job_proof) => {
+                Ok((job_proof, root_job_id)) => {
                     if job_proof.root != expected_root {
                         tracing::warn!(
                             "Root mismatch for job {:?}: expected {:?}, got {:?}",
@@ -1595,7 +1595,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                         );
                     }
 
-                    proofs.push(job_proof);
+                    proofs.push((job_proof, root_job_id));
                 }
                 Err(e) => {
                     error!("Failed to generate proof for job {:?}: {}", job_id, e);
