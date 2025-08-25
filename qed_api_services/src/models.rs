@@ -156,3 +156,15 @@ pub struct GlobalRealmStats {
     pub active_realms_24h: i64,
     pub last_updated: DateTime<Utc>,
 }
+
+// Worker statistics models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerStats {
+    pub processing_tasks: std::collections::HashMap<String, i64>, // realm_id -> task count
+    pub total_processing_tasks: i64,
+    pub total_rewards: i64, // Reserved field, currently 0
+    pub total_proofs: i64,  // Number of proofs completed in the last 24 hours
+    pub completed_24h: i64,
+    pub failed_24h: i64,
+    pub last_updated: DateTime<Utc>,
+}

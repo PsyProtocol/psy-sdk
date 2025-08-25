@@ -3,8 +3,9 @@ use qed_core::job::id::QProvingJobDataID;
 use sqlx::PgPool;
 
 use crate::models::{
-    job_id_to_json, UserEvent, UserEventAggregation, UserEventTxType, UserInfo, WorkerEvent,
-    WorkerEventAggregation, WorkerEventSource, WorkerEventStatus, RealmStats, GlobalRealmStats,
+    job_id_to_json, GlobalRealmStats, RealmStats, UserEvent, UserEventAggregation, UserEventTxType,
+    UserInfo, WorkerEvent, WorkerEventAggregation, WorkerEventSource, WorkerEventStatus,
+    WorkerStats,
 };
 use crate::Result;
 
@@ -14,6 +15,7 @@ pub struct UserEventRepository;
 pub struct WorkerEventAggregationRepository;
 pub struct UserEventAggregationRepository;
 pub struct RealmStatsRepository;
+pub struct WorkerStatsRepository;
 
 impl UserRepository {
     /// Create a new user
@@ -476,7 +478,7 @@ impl RealmStatsRepository {
         // Get active workers and users for 1h (direct query)
         let active_1h_row = sqlx::query!(
             r#"
-            SELECT 
+            SELECT
                 COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_1h,
                 COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_1h
             FROM worker_events
@@ -494,7 +496,7 @@ impl RealmStatsRepository {
         // Get active workers and users for 24h (direct query)
         let active_24h_row = sqlx::query!(
             r#"
-            SELECT 
+            SELECT
                 COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_24h,
                 COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_24h
             FROM worker_events
@@ -542,7 +544,7 @@ impl RealmStatsRepository {
         // Get 1h stats (direct query)
         let active_1h_row = sqlx::query!(
             r#"
-            SELECT 
+            SELECT
                 COUNT(DISTINCT realm_id) FILTER (WHERE realm_id IS NOT NULL) as active_realms_1h,
                 COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_1h,
                 COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_1h
@@ -561,7 +563,7 @@ impl RealmStatsRepository {
         // Get 24h stats (direct query)
         let active_24h_row = sqlx::query!(
             r#"
-            SELECT 
+            SELECT
                 COUNT(DISTINCT realm_id) FILTER (WHERE realm_id IS NOT NULL) as active_realms_24h,
                 COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_24h,
                 COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_24h
@@ -585,6 +587,74 @@ impl RealmStatsRepository {
             active_users_24h,
             active_realms_1h,
             active_realms_24h,
+            last_updated: now,
+        })
+    }
+}
+
+/// Worker Statistics Repository
+impl WorkerStatsRepository {
+    /// Get statistics for a specific worker by public key
+    pub async fn get_worker_stats(pool: &PgPool, worker_public_key: &str) -> Result<WorkerStats> {
+        let now = Utc::now();
+        let twenty_four_hours_ago = now - chrono::Duration::hours(24);
+
+        // Get processing tasks count grouped by realm_id
+        let processing_tasks_rows = sqlx::query!(
+            r#"
+            SELECT realm_id, COUNT(*) as task_count
+            FROM worker_events
+            WHERE public_key = $1 AND status = 'PROCESSING'
+            GROUP BY realm_id
+            "#,
+            worker_public_key
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut processing_tasks = std::collections::HashMap::new();
+        let mut total_processing_tasks = 0i64;
+
+        for row in processing_tasks_rows {
+            let realm_key = match row.realm_id {
+                Some(id) => format!("realm{}", id),
+                None => "realm_unknown".to_string(),
+            };
+            let count = row.task_count.unwrap_or(0);
+            processing_tasks.insert(realm_key, count);
+            total_processing_tasks += count;
+        }
+
+        // Get completed and failed tasks in the last 24h
+        let completion_stats_row = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_24h,
+                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed_24h,
+                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as total_proofs
+            FROM worker_events
+            WHERE public_key = $1 AND timestamp >= $2
+            "#,
+            worker_public_key,
+            twenty_four_hours_ago
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let completed_24h = completion_stats_row.completed_24h.unwrap_or(0);
+        let failed_24h = completion_stats_row.failed_24h.unwrap_or(0);
+        let total_proofs = completion_stats_row.total_proofs.unwrap_or(0);
+
+        // Currently, the total rewards is 0
+        let total_rewards = 0i64;
+
+        Ok(WorkerStats {
+            processing_tasks,
+            total_processing_tasks,
+            total_rewards,
+            total_proofs,
+            completed_24h,
+            failed_24h,
             last_updated: now,
         })
     }

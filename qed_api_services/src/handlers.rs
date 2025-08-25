@@ -28,6 +28,10 @@ pub fn create_router(api_service: ApiService) -> Router {
         .route("/stats", get(stats_handler))
         .route("/stats/realms", get(global_realm_stats_handler))
         .route("/stats/realms/{realm_id}", get(realm_stats_handler))
+        .route(
+            "/stats/workers/{worker_public_key}",
+            get(worker_stats_handler),
+        )
         .with_state(api_service)
 }
 
@@ -417,6 +421,28 @@ async fn global_realm_stats_handler(
         }
         Err(e) => {
             tracing::error!("Failed to retrieve global realm stats: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+async fn worker_stats_handler(
+    State(service): State<ApiService>,
+    Path(worker_public_key): Path<String>,
+) -> Result<Json<WorkerStats>, StatusCode> {
+    tracing::info!("Worker stats request for worker: {}", worker_public_key);
+
+    match WorkerStatsRepository::get_worker_stats(&service.pool, &worker_public_key).await {
+        Ok(stats) => {
+            tracing::info!("Retrieved worker stats: {:#?}", stats);
+            Ok(Json(stats))
+        }
+        Err(e) => {
+            tracing::error!(
+                "Failed to retrieve worker stats for worker {}: {}",
+                worker_public_key,
+                e
+            );
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
