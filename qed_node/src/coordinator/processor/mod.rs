@@ -230,19 +230,7 @@ impl
         ))
     }
 
-    pub async fn build_block(&mut self, slot: u64) -> anyhow::Result<u64> {
-        let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
-        let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
-
-        // Check if there are pending tasks for this checkpoint
-        if !self.ctx.has_pending_tasks(next_checkpoint_id).await
-            .map_err(|e| anyhow::anyhow!("Failed to check pending tasks: {:?}", e))? {
-            bail!(
-                "No pending tasks for checkpoint {}, slot {}",
-                next_checkpoint_id, slot
-            );
-        }
-
+    pub async fn build_block(&mut self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
         let ctx = self.ctx.clone();
         let journal_store = self.journal_store.clone();
         self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
@@ -258,6 +246,17 @@ impl
         self.ctx.commit_offset().await?;
         Ok(next_checkpoint_id)
     }
+
+
+    pub async fn next_checkpoint_id(&self) -> anyhow::Result<u64> {
+        let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
+        Ok(latest_l2_block_state.checkpoint_id + 1)
+    }
+
+    pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
+        self.ctx.has_pending_tasks(checkpoint_id).await
+    }
+    
 }
 
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
@@ -275,9 +274,15 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 info!("✅ Successfully wait for next slot: {}", slot);
             }
         }
+        
+        let next_checkpoint_id = coordinator_processor.next_checkpoint_id().await?;
+        if !coordinator_processor.has_pending_tasks(next_checkpoint_id).await? {
+            info!("⚠️ No pending tasks for checkpoint {}, waiting for next checkpoint", next_checkpoint_id);
+            continue;
+        }
 
         let slot = slot_timer_other.get_current_slot();
-        match coordinator_processor.build_block(slot).await {
+        match coordinator_processor.build_block(next_checkpoint_id, slot).await {
             Ok(checkpoint_id) => {
                 info!(
                     "✅ Successfully built and committed block {}, slot {}",
