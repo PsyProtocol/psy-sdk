@@ -156,7 +156,7 @@ impl CoordinatorEdgeHandler {
         public_key: QHashOut<QEDFelt>,
     ) -> Result<u64, CoordinatorError> {
         self.store.get_first_user_id(public_key).await.map_err(|_| {
-            error!("❌ User not found for public key: {:?}", public_key);
+            warn!("❌ User not found for public key: {:?}", public_key);
             CoordinatorError::UserNotFound { public_key }
         })
     }

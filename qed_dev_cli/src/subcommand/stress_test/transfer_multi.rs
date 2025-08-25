@@ -460,6 +460,7 @@ fn execute_transfer_multi_transaction_sync(
     // });
 
     info!("Start to execute multi contract call");
+    let start = Instant::now();
     wallet_session.exec_contract_call_with_sign_type(
         pk_hash_from,
         contract_call_args,
@@ -467,8 +468,9 @@ fn execute_transfer_multi_transaction_sync(
         None,
         Some(0),
         vec![],
-    )?;
-
+    ).map_err(|err| anyhow::format_err!("exec_contract_call_with_sign_type: {}",err))?;
+    let duration = start.elapsed().as_millis() as u64;
+    info!("🔄 Task {} - Multi contract call duration: {} ms", task_id, duration);
     info!("End to execute multi contract call");
 
     Ok(())

@@ -80,6 +80,7 @@ secp256k1 = { workspace = true }
 hex = {workspace = true}
 bincode = { workspace = true }
 dirs = {workspace = true}
+parking_lot = { workspace = true}
 
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]

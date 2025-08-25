@@ -47,7 +47,8 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     use crate::local::provider::RpcConfig;
     use crate::session::WalletSession;
     use std::net::SocketAddr;
-    use std::sync::{Arc, Mutex, RwLock};
+    use std::sync::Arc;
+    use parking_lot::{RwLock, Mutex};
     use tower_http::cors::{Any, CorsLayer};
 
     use crate::local::native::{RpcServer, RpcServerImpl};

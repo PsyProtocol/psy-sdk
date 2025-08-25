@@ -39,6 +39,7 @@ hex = { workspace = true }
 
 # Plonky2
 plonky2 = { workspace = true }
+parking_lot = { workspace = true}
 
 [[bin]]
 name = "qed_dev_cli"

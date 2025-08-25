@@ -1,5 +1,7 @@
 pub mod prove_proxy;
 
+use std::sync::Arc;
+use parking_lot::{RwLock, Mutex};
 use jsonrpsee::core::async_trait;
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
@@ -10,8 +12,6 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
-use std::sync::{Arc, Mutex, RwLock};
-
 use crate::session::{WalletKeyPair, WalletSession};
 use crate::local::store::UserProverWorkerStore;
 use crate::local::args::ContractCallArgs;
@@ -95,7 +95,6 @@ impl RpcServer for RpcServerImpl {
     ) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .unwrap()
             .exec_contract_call(pk_hash, contract_call_args)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("exec contract call".to_string())
@@ -104,7 +103,6 @@ impl RpcServer for RpcServerImpl {
     async fn start_session(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .unwrap()
             .start_session(pk_hash)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("start session".to_string())
@@ -117,7 +115,6 @@ impl RpcServer for RpcServerImpl {
     ) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .unwrap()
             .prove_contract_call(pk_hash, contract_call_arg)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("prove contract call".to_string())
@@ -130,7 +127,6 @@ impl RpcServer for RpcServerImpl {
     ) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .unwrap()
             .prove_contract_calls(pk_hash, contract_call_args)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("prove contract calls".to_string())
@@ -139,7 +135,6 @@ impl RpcServer for RpcServerImpl {
     async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .unwrap()
             .sign_and_submit(pk_hash)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("sign and submit".to_string())
@@ -148,7 +143,6 @@ impl RpcServer for RpcServerImpl {
     async fn register_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .unwrap()
             .register_user(private_key)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
     }
@@ -156,7 +150,6 @@ impl RpcServer for RpcServerImpl {
     async fn add_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .unwrap()
             .add_user(private_key)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
     }
@@ -164,7 +157,6 @@ impl RpcServer for RpcServerImpl {
     async fn get_zk_public_key(&self, private_key: QHashOut<F>) -> Result<ZKPublicKeyInfo<F>, ErrorObjectOwned> {
         self.wallet_session
             .read()
-            .unwrap()
             .get_zk_public_key(private_key)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
     }
@@ -172,7 +164,6 @@ impl RpcServer for RpcServerImpl {
     async fn get_random_keypair(&self) -> Result<WalletKeyPair, ErrorObjectOwned> {
         self.wallet_session
             .read()
-            .unwrap()
             .get_random_keypair()
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
     }
@@ -184,7 +175,6 @@ impl RpcServer for RpcServerImpl {
     ) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .unwrap()
             .deploy_contract(deployer, circuit_defs)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("deploy contract".to_string())
@@ -197,7 +187,6 @@ impl RpcServer for RpcServerImpl {
     ) -> Result<QBCDeployContract<F>, ErrorObjectOwned> {
         self.wallet_session
             .read()
-            .unwrap()
             .get_deploy_contract_cmd(deployer, circuit_defs)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
     }
