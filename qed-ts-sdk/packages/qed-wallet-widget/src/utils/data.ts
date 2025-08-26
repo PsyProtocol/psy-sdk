@@ -3,11 +3,18 @@ import { useCallback, useEffect, useState } from "react";
 
 
 const fetchBlockNumber = async (walletProvider: QedUserWalletProvider) => {
-    const latestBlockState = await walletProvider.coordinatorEdgeRpcProvider.getLatestL2BlockState();
-    if (latestBlockState) {
-        return Number(latestBlockState.checkpoint_id);
+    try {
+        console.log("Fetching latest L2 block state from coordinator...");
+        const latestBlockState = await walletProvider.coordinatorEdgeRpcProvider.getLatestL2BlockState();
+        console.log("Latest block state:", JSON.stringify(latestBlockState, null, 2));
+        if (latestBlockState) {
+            return Number(latestBlockState.checkpoint_id);
+        }
+        return 0;
+    } catch (error) {
+        console.error("Failed to fetch block number from coordinator:", error);
+        throw error;
     }
-    return 0;
 };
 
 export const useBlockNumber = (walletProvider: QedUserWalletProvider, interval: number) => {
@@ -16,9 +23,12 @@ export const useBlockNumber = (walletProvider: QedUserWalletProvider, interval: 
     const fetchData = useCallback(async () => {
         try {
             const number = await fetchBlockNumber(walletProvider);
+            console.log("Block number fetched:", number);
             setBlockNumber(number);
         } catch (error) {
             console.error("Error fetching block number:", error);
+            // Set default value to allow other hooks to continue
+            setBlockNumber(1);
         }
     }, [walletProvider]);
 
@@ -59,8 +69,17 @@ export const useUserBalance = (walletProvider: QedUserWalletProvider, checkpoint
     const [balance, setBalance] = useState<Felt>(0);
 
     const fetchData = useCallback(async () => {
+        // Only query when parameters are valid (userId can be 0)
+        if (checkpointId <= 0 || userId < 0) {
+            console.log("Skipping balance fetch - invalid parameters:", { checkpointId, userId, userContractId });
+            setBalance(0);
+            return;
+        }
+
         try {
+            console.log("Fetching balance for:", { checkpointId, userId, userContractId });
             const balance = await fetchUserBalance(walletProvider, checkpointId, userId, userContractId);
+            console.log("Balance fetched:", balance);
             setBalance(balance);
         } catch (error) {
             console.error("Error fetching user balance:", error);

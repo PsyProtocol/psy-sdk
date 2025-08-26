@@ -7,7 +7,7 @@ import { createBrowserRouter, createHashRouter } from "react-router-dom";
 const isExtension = window.location.protocol === 'chrome-extension:';
 
 // Use HashRouter for extension to avoid path issues
-const router: any = isExtension 
+const router: any = isExtension
     ? createHashRouter([
         {
             path: "/",

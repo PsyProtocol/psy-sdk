@@ -379,7 +379,7 @@ export class MultiRealmRpcProvider implements IRealmEdgeRpcProvider {
     }
 
     getRealmId(userId: number): number {
-        return userId / this.userPerRealm;
+        return Math.floor(userId / this.userPerRealm);
     }
 
     getRpcProviderByUserId(userId: Felt): IRealmEdgeRpcProvider {

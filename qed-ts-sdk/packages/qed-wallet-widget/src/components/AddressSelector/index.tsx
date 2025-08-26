@@ -62,7 +62,7 @@ function SelectOption({ address, networkId, balanceString }: IAddressSelectorIte
                     {currentAddress}
                 </Text>
                 <Text fz="xs" opacity={0.6}>
-                    {getNetworkNameById(networkId)} {typeof balanceString === "string" ? " - " + balance.toString() : ""}
+                    {getNetworkNameById(networkId)}
                     {currentBlockNumber !== null && ` - Checkpoint: ${currentBlockNumber}`}
                 </Text>
             </div>
@@ -86,8 +86,8 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
 
     const comboOptions: React.JSX.Element[] = useMemo(() => {
         const addressOptions = options.map((item, index) => (
-            <Combobox.Option 
-                value={item.address} 
+            <Combobox.Option
+                value={item.address}
                 key={`option-${item.address}-${index}`}
             >
                 <SelectOption {...item} />
@@ -189,7 +189,6 @@ const StatefulAddressSelector: React.FC<IStatefulAddressSelectorProps> = ({ clas
         currency,
         currentWallet,
         wallets,
-        walletAbilities,
         providerAbilities,
         setActiveWalletAsync,
         addRandomWallet,
@@ -215,8 +214,6 @@ const StatefulAddressSelector: React.FC<IStatefulAddressSelectorProps> = ({ clas
             options={wallets.map((wallet, index) => ({
                 address: wallet.userId + "",
                 networkId: wallet.networkId,
-                balanceString: formatBalance(wallet.balance, currency),
-                blockNumber: undefined,
                 uniqueKey: `${wallet.publicKeyHex}-${index}`
             }))}
             showAddNew={providerAbilities.includes("add-random-private-key")}

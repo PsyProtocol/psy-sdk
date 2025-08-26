@@ -1,4 +1,6 @@
 
+#![cfg(not(target_arch = "wasm32"))]
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]

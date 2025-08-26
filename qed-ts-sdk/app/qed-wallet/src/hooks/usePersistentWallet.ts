@@ -43,17 +43,10 @@ interface StoredWalletData {
 }
 
 export const usePersistentWallet = () => {
-  const [
-    wallets,
-    currentWallet,
-    setActiveWalletAsync,
-    addWalletFromPrivateKey
-  ] = useWalletState((state) => [
-    state.wallets,
-    state.currentWallet,
-    state.setActiveWalletAsync,
-    state.addWalletFromPrivateKey
-  ]);
+  const wallets = useWalletState((state) => state.wallets);
+  const currentWallet = useWalletState((state) => state.currentWallet);
+  const addWalletFromPrivateKey = useWalletState((state) => state.addWalletFromPrivateKey);
+  const setActiveWalletAsync = useWalletState((state) => state.setActiveWalletAsync);
 
   // Load wallets from localStorage on mount
   useEffect(() => {
@@ -75,9 +68,8 @@ export const usePersistentWallet = () => {
             console.log('Loading stored wallets:', data.wallets.length);
             console.log('Current wallets count:', wallets.length);
             
-            // Always try to restore if we have stored wallets but no current wallets
             if (wallets.length === 0) {
-              console.log('Restoring wallets from storage...');
+              console.log('Delayed wallet restoration starting...');
               
               // Restore wallets sequentially to avoid race conditions
               for (const walletData of data.wallets) {
@@ -96,9 +88,9 @@ export const usePersistentWallet = () => {
                 await setActiveWalletAsync(data.activeWalletId);
               }
 
-              console.log('Wallet restoration completed');
+              console.log('Delayed wallet restoration completed');
             } else {
-              console.log('Wallets already exist, skipping restoration');
+              console.log('Wallets already exist, skipping delayed restoration');
             }
           } else {
             console.log('No valid stored wallets found');
@@ -117,12 +109,14 @@ export const usePersistentWallet = () => {
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [addWalletFromPrivateKey]);
+  }, []);
 
   // Save wallets to localStorage whenever wallets change
   useEffect(() => {
     if (wallets.length > 0) {
-      const saveWallets = async () => {
+      // Delay save to avoid frequent localStorage writes
+      const timer = setTimeout(() => {
+        const saveWallets = async () => {
         try {
           const walletsData = await Promise.all(
             wallets.map(async (wallet) => {
@@ -175,9 +169,12 @@ export const usePersistentWallet = () => {
         } catch (error) {
           console.warn('Failed to save wallets:', error);
         }
-      };
+        };
 
-      saveWallets();
+        saveWallets();
+      }, 500); // 500ms debounce
+      
+      return () => clearTimeout(timer);
     }
   }, [wallets, currentWallet]);
 

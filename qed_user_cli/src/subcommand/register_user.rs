@@ -41,23 +41,6 @@ pub fn run(args: RegisterUserArgs) -> Result<()> {
         .map(|cfc| cfc.state_tree_height as u8)
         .unwrap_or(MAX_CONTRACT_STATE_TREE_HEIGHT);
 
-    // let sdc_input = SoftwareDefinedSignatureInput::QED(QSoftwareDefinedSignatureInput {
-    //     fn_def: user_sdc,
-    //     contract_id: 0,
-    //     contract_state_tree_height: contract_state_tree_height,
-    //     session_proof_tree_height: UPS_SESSION_PROOF_TREE_HEIGHT,
-    //     force_four_align: false,
-    // });
-    let sign_circuit = Box::new(SoftwareDefinedSignGadget {});
-    let sdc_input = SoftwareDefinedSignatureInput::PLONKY2(PSoftwareDefinedSignatureInput {
-        contract_state_tree_height,
-        input_len: 0,
-        sign_circuit,
-    });
-
-    let sdc =
-        SoftwareDefinedSignatureCircuit::<C, D, SoftwareDefinedSignatureGadget>::new(&sdc_input);
-
     // Parse private key
     let private_key_base = match &args.private_key {
         Some(key) => QHashOut::<GoldilocksField>::from_str(&key)
@@ -101,7 +84,27 @@ pub fn run(args: RegisterUserArgs) -> Result<()> {
             }
             QHashOut::<GoldilocksField>::from_str(&SECP256K1_FINGERPRINT)?
         }
-        SignType::SoftwareDefinedSign => sdc.get_fingerprint(),
+        SignType::SoftwareDefinedSign => {
+            // let sdc_input = SoftwareDefinedSignatureInput::QED(QSoftwareDefinedSignatureInput {
+            //     fn_def: user_sdc,
+            //     contract_id: 0,
+            //     contract_state_tree_height: contract_state_tree_height,
+            //     session_proof_tree_height: UPS_SESSION_PROOF_TREE_HEIGHT,
+            //     force_four_align: false,
+            // });
+            let sign_circuit = Box::new(SoftwareDefinedSignGadget {});
+            let sdc_input =
+                SoftwareDefinedSignatureInput::PLONKY2(PSoftwareDefinedSignatureInput {
+                    contract_state_tree_height,
+                    input_len: 0,
+                    sign_circuit,
+                });
+
+            let sdc = SoftwareDefinedSignatureCircuit::<C, D, SoftwareDefinedSignatureGadget>::new(
+                &sdc_input,
+            );
+            sdc.get_fingerprint()
+        }
     };
 
     let public_key_info = ZKPublicKeyInfo {

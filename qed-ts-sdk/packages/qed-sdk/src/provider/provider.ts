@@ -395,7 +395,7 @@ export abstract class Provider {
         jsonrpc = "2.0",
         headers?: Record<string, string>
     ): Promise<T> {
-        console.log(`RPC request to ${this.selectProvider()} with method ${method} and params ${params}`);
+        // console.log(`RPC request to ${this.selectProvider()} with method ${method} and params ${params}`);
         return this.rpc_with_url<T>(this.selectProvider(), method, params, id, jsonrpc, headers);
     }
     protected async rpc_with_url<T>(

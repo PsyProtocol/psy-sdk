@@ -14,10 +14,14 @@ export const WalletBalance: React.FC = () => {
   ]);
 
 
-  // Format balance to display
+  // Format balance to display with proper decimals
   const formatBalance = (balance: number | undefined): string => {
-    if (balance === undefined || balance === null) return '0.00';
-    return balance.toFixed(2);
+    if (balance === undefined || balance === null) return '0.000';
+    
+    // Convert from wei-like units (10^9) to display units
+    const divisor = 1000000000; // 10^9
+    const formattedAmount = balance / divisor;
+    return formattedAmount.toFixed(3);
   };
 
   const contractId = parseInt(getNativeCurrency(), 10);

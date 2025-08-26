@@ -9,11 +9,10 @@ import logoImage from "../../assets/psy.png";
 import NetworkSettings from "../../components/NetworkSettings";
 import { useWalletConfig } from "../../config";
 import { TokensProvider } from "../../contexts/TokensContext";
-
 import { QedWasmWebProverProvider, WasmRpcServer, QedJSON, initWasmSync} from "@qed/qed-sdk";
 
 const HomePage: React.FC = () => {
-    const { config, getProverUrl } = useWalletConfig();
+    const { config } = useWalletConfig();
     const [networkSettingsOpen, setNetworkSettingsOpen] = useState(false);
 
     useEffect(() => {
@@ -68,7 +67,7 @@ const HomePage: React.FC = () => {
                     </SettingsButton>
                 </SettingsButtonContainer>
             </QedWalletWidget>
-            
+
             {/* Network Settings Modal */}
             <NetworkSettings
                 opened={networkSettingsOpen}
