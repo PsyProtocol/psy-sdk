@@ -512,7 +512,7 @@ impl<T: HQSerializable> NotificationQueue<T> for ProofStoreRedisAsync {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueueOffsetState {
     pub start_position: i64,  // Redis list position (0-based)
-    pub end_position: i64,    // End position (exclusive)
+    pub end_position: i64,    // End position (inclusive)
     pub checkpoint_id: u64,
     pub channel_id: u64,
     pub consumed_count: usize,
@@ -623,7 +623,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         conn.set_ex(&state_key, state_data, 3600).await?; // 1 hour TTL
         
         tracing::info!("Consumed {} users from positions {}-{} for checkpoint {}", 
-              users.len(), start_position, end_position - 1, checkpoint_id);
+              users.len(), start_position, end_position, checkpoint_id);
         
         Ok((users, state))
     }

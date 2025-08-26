@@ -340,9 +340,9 @@ impl<
             }
         }).collect::<Vec<_>>();
         tracing::info!(
-            "injest_checkpoint_sync_data_imm: start_registration_user_id: {}, new_user_records: {:?}",
+            "injest_checkpoint_sync_data_imm: start_registration_user_id: {}, new_user_records len: {:?}",
             start_registration_user_id,
-            new_user_records
+            new_user_records.len(),
         );
         self.store.set_user_public_key_records(&new_user_records).await?;
 

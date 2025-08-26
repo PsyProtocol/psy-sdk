@@ -257,7 +257,7 @@ impl RealmProcessor {
                 match context.handle_checkpoint_sync(block.compact.clone()).await {
                     Ok(_) => {
                         info!(?checkpoint_id, "Sync to new checkpoint");
-                        info!("Checkpoint sync reg users: {:?}", block.compact.registered_users);
+                        info!("Checkpoint sync reg users len: {}", block.compact.registered_users.len());
                         self.store.commit(checkpoint_id)?;
 
                         // Check updated pending users count
