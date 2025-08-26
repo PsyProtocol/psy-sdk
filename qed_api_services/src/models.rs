@@ -110,7 +110,7 @@ pub struct WorkerEventAggregation {
     pub failed_count: i64,
     pub processing_count: i64,
     pub pending_count: i64,
-    pub avg_duration_ms: Option<f64>,
+    pub avg_duration_ms: Option<i64>,
     pub min_duration_ms: Option<i64>,
     pub max_duration_ms: Option<i64>,
 }

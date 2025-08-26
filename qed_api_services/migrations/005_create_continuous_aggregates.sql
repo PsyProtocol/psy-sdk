@@ -23,7 +23,7 @@ BEGIN
              COUNT(CASE WHEN status = ''FAILED'' THEN 1 END) as failed_count,
              COUNT(CASE WHEN status = ''PROCESSING'' THEN 1 END) as processing_count,
              COUNT(CASE WHEN status = ''PENDING'' THEN 1 END) as pending_count,
-             AVG(duration) as avg_duration_ms,
+             CAST(AVG(duration) as BIGINT) as avg_duration_ms,
              MIN(duration) as min_duration_ms,
              MAX(duration) as max_duration_ms
          FROM worker_events

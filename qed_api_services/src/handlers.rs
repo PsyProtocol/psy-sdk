@@ -207,7 +207,6 @@ async fn worker_events_handler(
     {
         Ok(events) => {
             tracing::info!("Retrieved {} worker events", events.len());
-            tracing::info!("Worker events: {:#?}", events);
             Ok(Json(events))
         }
         Err(e) => {
@@ -248,8 +247,8 @@ async fn user_events_handler(
 
 #[derive(Debug, Deserialize)]
 pub struct AggregationQuery {
-    pub start_time: DateTime<Utc>,
-    pub end_time: DateTime<Utc>,
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
     pub bucket: String, // e.g., "1h", "1d", "1w"
 }
 
@@ -257,6 +256,7 @@ async fn worker_events_aggregations_handler(
     State(service): State<ApiService>,
     Query(query): Query<AggregationQuery>,
 ) -> Result<Json<Vec<WorkerEventAggregation>>, StatusCode> {
+    tracing::info!("Worker events aggregations query: {:?}", query);
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
         "1h" => "worker_events_1h",
@@ -270,14 +270,17 @@ async fn worker_events_aggregations_handler(
         view_name,
         None, // realm_id filter
         None, // source filter
-        Some(query.start_time),
-        Some(query.end_time),
+        query.start_time,
+        query.end_time,
         100, // limit
     )
     .await
     {
         Ok(aggregations) => Ok(Json(aggregations)),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(err) => {
+            tracing::error!("Failed to retrieve worker events aggregations: {}", err);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
@@ -285,6 +288,7 @@ async fn user_events_aggregations_handler(
     State(service): State<ApiService>,
     Query(query): Query<AggregationQuery>,
 ) -> Result<Json<Vec<UserEventAggregation>>, StatusCode> {
+    tracing::info!("User events aggregations query: {:?}", query);
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
         "1h" => "user_events_1h",
@@ -296,8 +300,8 @@ async fn user_events_aggregations_handler(
     match UserEventAggregationRepository::get_aggregations(
         &service.pool,
         view_name,
-        Some(query.start_time),
-        Some(query.end_time),
+        query.start_time,
+        query.end_time,
         100, // limit
     )
     .await

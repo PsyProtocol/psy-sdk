@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
     let now = Utc::now();
 
-    // Step 1: Send worker events via telemetry API 📤
+    // Send worker events via telemetry API
     println!("🚀 Sending worker events via telemetry...");
 
     // Create sample worker events with different statuses and realms
@@ -106,7 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Add a small delay to ensure data is processed
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
-    // Step 2: Query worker events 🔍
+    // Query worker events
     println!("\n📊 Querying worker events...");
 
     // Query all worker events
@@ -145,6 +145,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         completed_events.as_array().unwrap().len()
     );
 
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     // Query by time range
     let start_time = now - chrono::Duration::minutes(5);
     let end_time = now + chrono::Duration::minutes(5);
@@ -165,7 +166,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         time_filtered_events.as_array().unwrap().len()
     );
 
-    // Step 3: Query aggregated data 📈
+    // Query aggregated data 📈
     println!("\n📈 Querying worker events aggregations...");
 
     // Note: Aggregations may not show data immediately due to TimescaleDB continuous aggregation refresh policies
@@ -186,8 +187,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let response = client
             .get(&format!(
-                "{}/worker_events_aggregations?start_time={}&end_time={}&bucket={}",
-                API_BASE, start_time, end_time, bucket
+                "{}/worker_events_aggregations?end_time={}&bucket={}",
+                API_BASE, end_time, bucket
             ))
             .send()
             .await?;
