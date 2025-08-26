@@ -546,8 +546,7 @@ impl RealmStatsRepository {
             r#"
             SELECT
                 COUNT(DISTINCT realm_id) FILTER (WHERE realm_id IS NOT NULL) as active_realms_1h,
-                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_1h,
-                COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_1h
+                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_1h
             FROM worker_events
             WHERE timestamp >= $1
             "#,
@@ -555,18 +554,28 @@ impl RealmStatsRepository {
         )
         .fetch_one(pool)
         .await?;
-
         let active_workers_1h = active_1h_row.active_workers_1h.unwrap_or(0);
-        let active_users_1h = active_1h_row.active_users_1h.unwrap_or(0);
         let active_realms_1h = active_1h_row.active_realms_1h.unwrap_or(0);
+
+        let active_1h_row = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_users_1h
+            FROM user_events
+            WHERE timestamp >= $1
+            "#,
+            one_hour_ago
+        )
+        .fetch_one(pool)
+        .await?;
+        let active_users_1h = active_1h_row.active_users_1h.unwrap_or(0);
 
         // Get 24h stats (direct query)
         let active_24h_row = sqlx::query!(
             r#"
             SELECT
                 COUNT(DISTINCT realm_id) FILTER (WHERE realm_id IS NOT NULL) as active_realms_24h,
-                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_24h,
-                COUNT(DISTINCT CASE WHEN source = 'REALM' THEN public_key END) as active_users_24h
+                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_workers_24h
             FROM worker_events
             WHERE timestamp >= $1
             "#,
@@ -576,8 +585,20 @@ impl RealmStatsRepository {
         .await?;
 
         let active_workers_24h = active_24h_row.active_workers_24h.unwrap_or(0);
-        let active_users_24h = active_24h_row.active_users_24h.unwrap_or(0);
         let active_realms_24h = active_24h_row.active_realms_24h.unwrap_or(0);
+
+        let active_24h_row = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_users_24h
+            FROM user_events
+            WHERE updated_at >= $1
+            "#,
+            twenty_four_hours_ago
+        )
+        .fetch_one(pool)
+        .await?;
+        let active_users_24h = active_24h_row.active_users_24h.unwrap();
 
         Ok(GlobalRealmStats {
             total_processing_tasks,

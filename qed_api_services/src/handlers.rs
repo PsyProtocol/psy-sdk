@@ -364,7 +364,7 @@ async fn stats_handler(
     .await
     {
         Ok(events) => {
-            tracing::info!("User events count (24h): {}", events.len());
+            tracing::info!("User events count (24h): len={}", events.len());
             events
         }
         Err(e) => {
