@@ -1013,8 +1013,6 @@ impl<
             next_contract_id,
         };
 
-        tracing::debug!(new_l2_block_state = ?new_l2_block_state, "New L2 block state");
-
         // Save checkpoint data
         self.store
             .set_checkpoint_leaf_data_imm(new_checkpoint_id, &new_checkpoint_leaf)
