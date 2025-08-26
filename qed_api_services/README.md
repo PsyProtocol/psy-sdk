@@ -78,8 +78,8 @@ Query user events with optional filters:
 **GET `/worker_events_aggregations`**
 
 Get aggregated worker event statistics:
-- `start_time` - Start time (required)
-- `end_time` - End time (required)
+- `start_time` - Start time (optional)
+- `end_time` - End time (optional)
 - `bucket` - Time bucket (1h, 1d, 1w)
 
 Returns counts by status, average/min/max durations, grouped by time buckets.
@@ -87,8 +87,8 @@ Returns counts by status, average/min/max durations, grouped by time buckets.
 **GET `/user_events_aggregations`**
 
 Get aggregated user event statistics:
-- `start_time` - Start time (required)
-- `end_time` - End time (required)
+- `start_time` - Start time (optional)
+- `end_time` - End time (optional)
 - `bucket` - Time bucket (1h, 1d, 1w)
 
 Returns event counts by transaction type, grouped by time buckets.
@@ -99,7 +99,11 @@ Get overall realm statistics:
 
 **GET `/stats/realms/{realm_id}`**
 
-Get realm statistics:
+Get realm statistics for a specific realm.
+
+**GET `/stats/workers/{worker_public_key}`**
+
+Get worker statistics for a specific worker.
 
 ### Telemetry API
 
@@ -238,10 +242,13 @@ curl "http://localhost:3000/worker_events?start_time=2023-01-01T00:00:00Z&end_ti
 
 ```bash
 # Hourly worker event statistics
-curl "http://localhost:3000/worker_events_aggregations?start_time=2023-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z&bucket=1h"
+curl "http://localhost:3000/worker_events_aggregations?end_time=2023-01-02T00:00:00Z&bucket=1h"
 
-# Daily user event statistics
-curl "http://localhost:3000/user_events_aggregations?start_time=2023-01-01T00:00:00Z&end_time=2023-01-08T00:00:00Z&bucket=1d"
+# Daily user event statistics  
+curl "http://localhost:3000/user_events_aggregations?end_time=2023-01-08T00:00:00Z&bucket=1d"
+
+# With time range
+curl "http://localhost:3000/worker_events_aggregations?start_time=2023-01-01T00:00:00Z&end_time=2023-01-02T00:00:00Z&bucket=1h"
 ```
 
 ### WebSocket Subscription
