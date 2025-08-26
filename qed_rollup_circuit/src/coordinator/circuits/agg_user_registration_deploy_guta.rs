@@ -14,7 +14,7 @@ use qed_common_circuit::{
     circuits::traits::qstandard::{
         QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
     },
-    proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
+    proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic}, traits::ToTargets,
 };
 use qed_core::{
     data::qhashout::QHashOut,
@@ -41,7 +41,7 @@ use qed_data::{
     protocol::circuit_inputs::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput,
 };
 
-use crate::coordinator::gadgets::verify_agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTAGadget;
+use crate::{coordinator::gadgets::verify_agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTAGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 #[derive(Debug)]
 pub struct VerifyAggUserRegistartionDeployContractsGUTACircuit<C: GenericConfig<D>, const D: usize>
@@ -135,6 +135,7 @@ where
         builder.register_public_inputs(&register_users_root.elements);
         builder.register_public_inputs(&deploy_contracts_root.elements);
         builder.register_public_inputs(&gutas_root.elements);
+        builder.register_public_inputs(&verifier_gadget.combined_pm_jobs_completed.to_targets());
         let base_circuit_data = builder.build::<C>();
 
         let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(

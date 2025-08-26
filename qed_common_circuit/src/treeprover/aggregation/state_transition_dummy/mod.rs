@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::{
     hash::hash_types::HashOutTarget,
-    iop::witness::{PartialWitness, WitnessWrite},
+    iop::{target::Target, witness::{PartialWitness, WitnessWrite}},
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
@@ -30,6 +30,7 @@ pub struct AggStateTransitionDummyCircuit<C: GenericConfig<D>, const D: usize>
     pub state_transition_hash: HashOutTarget,
     pub allowed_circuit_hashes_root: HashOutTarget,
     pub worker_public_key: HashOutTarget,
+    pub pm_jobs_completed: [Target; 3],
 
     // end circuit targets
     pub circuit_data: CircuitData<C::F, C, D>,
@@ -46,6 +47,11 @@ where
         let state_transition_hash = builder.add_virtual_hash();
         let allowed_circuit_hashes_root = builder.add_virtual_hash();
         let worker_public_key = builder.add_virtual_hash();
+        let pm_jobs_completed = [
+            builder.zero(), // deploy_contracts_completed
+            builder.zero(), // register_users_completed  
+            builder.zero(), // gutas_completed
+        ];
         
         // Ensure worker_public_key is not zero hash
         builder.assert_non_zero_hash(worker_public_key);
@@ -57,6 +63,7 @@ where
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_jobs_completed);
         builder.register_public_inputs(&allowed_circuit_hashes_root.elements);
         builder.register_public_inputs(&transition.elements);
 
@@ -70,6 +77,7 @@ where
             state_transition_hash,
             allowed_circuit_hashes_root,
             worker_public_key,
+            pm_jobs_completed,
             circuit_data,
             fingerprint,
         }

@@ -4,14 +4,14 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs},
 };
-use qed_common_circuit::{builder::hash::core::CircuitBuilderHashCore, treeprover::aggregation::gadgets::{verify_state_transition::VerifyStateTransitionProofGadget, AggStateTransitionGadget}
+use qed_common_circuit::{builder::hash::core::CircuitBuilderHashCore, treeprover::aggregation::gadgets::{verify_state_transition::VerifyStateTransitionProofGadget, AggStateTransitionGadget}, traits::CreatableTarget
     }
 ;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::{core::MerkleProofCore, treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig}};
 use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
 
-use crate::guta::gadgets::{guta_header::GlobalUserTreeAggregatorHeaderGadget, verify_guta_proof::VerifyGUTAProofGadget};
+use crate::{guta::gadgets::{guta_header::GlobalUserTreeAggregatorHeaderGadget, verify_guta_proof::VerifyGUTAProofGadget}, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 #[derive(Debug, Clone)]
 pub struct VerifyAggUserRegistartionDeployContractsGUTAHeaderGadget {
@@ -91,6 +91,7 @@ pub struct VerifyAggUserRegistartionDeployContractsGUTAGadget<const D: usize> {
 
     // computed
     pub header: VerifyAggUserRegistartionDeployContractsGUTAHeaderGadget,
+    pub combined_pm_jobs_completed: PMJobsCompletedStatsGadget,
 }
 
 impl<const D: usize> VerifyAggUserRegistartionDeployContractsGUTAGadget<D> {
@@ -137,11 +138,43 @@ impl<const D: usize> VerifyAggUserRegistartionDeployContractsGUTAGadget<D> {
             global_user_tree_delta: verify_guta_gadget.guta_proof_header_gadget,
         };
 
+        let register_users_stats = [
+            verify_register_users_gadget.proof_target.public_inputs[8],
+            verify_register_users_gadget.proof_target.public_inputs[9], 
+            verify_register_users_gadget.proof_target.public_inputs[10]
+        ];
+        let deploy_contracts_stats = [
+            verify_deploy_contract_gadget.proof_target.public_inputs[8],
+            verify_deploy_contract_gadget.proof_target.public_inputs[9],
+            verify_deploy_contract_gadget.proof_target.public_inputs[10]
+        ];
+        let guta_stats = [
+            verify_guta_gadget.proof_target.public_inputs[8],
+            verify_guta_gadget.proof_target.public_inputs[9],
+            verify_guta_gadget.proof_target.public_inputs[10]
+        ];
+
+        let temp_deploy = builder.add(register_users_stats[0], deploy_contracts_stats[0]);
+        let combined_deploy_contracts = builder.add(temp_deploy, guta_stats[0]);
+        
+        let temp_register = builder.add(register_users_stats[1], deploy_contracts_stats[1]);
+        let combined_register_users = builder.add(temp_register, guta_stats[1]);
+        
+        let temp_gutas = builder.add(register_users_stats[2], deploy_contracts_stats[2]);
+        let combined_gutas = builder.add(temp_gutas, guta_stats[2]);
+
+        let combined_pm_jobs_completed = PMJobsCompletedStatsGadget {
+            deploy_contracts_completed: combined_deploy_contracts,
+            register_users_completed: combined_register_users,
+            gutas_completed: combined_gutas,
+        };
+
         Self {
             verify_register_users_gadget,
             verify_deploy_contract_gadget,
             verify_guta_gadget,
             header,
+            combined_pm_jobs_completed,
         }
     }
     pub fn set_witness_params<C: GenericConfig<D, F = F>, F: RichField + Extendable<D>>(

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use plonky2::{
-    hash::hash_types::{HashOut, HashOutTarget}, iop::
+    field::types::Field, hash::hash_types::{HashOut, HashOutTarget}, iop::
         witness::{PartialWitness, WitnessWrite}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
@@ -10,13 +10,13 @@ use plonky2::{
 };
 use qed_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
-        pm_core::get_circuit_fingerprint_generic
+        pm_core::get_circuit_fingerprint_generic, traits::{ToTargets, WitnessValueFor}
 };
 use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::spiderman::SpidermanUpdateProof, traits::hasher::MerkleZeroHasher}};
-use qed_data::{protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput, qdata::contract::QEDContractLeaf};
+use qed_data::{protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput, qdata::{contract::QEDContractLeaf, pm_jobs_completed_stats::PMJobsCompletedStats}};
 
-use crate::coordinator::gadgets::deploy_contract::BatchDeployContractsGadget;
+use crate::{coordinator::gadgets::deploy_contract::BatchDeployContractsGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 #[derive(Debug)]
 pub struct BatchDeployContractsCircuit<C: GenericConfig<D>, const D: usize>
@@ -25,6 +25,7 @@ pub struct BatchDeployContractsCircuit<C: GenericConfig<D>, const D: usize>
     pub deploy_contract_circuit_whitelist: HashOutTarget,
     pub worker_public_key: HashOutTarget,
     pub commitment: HashOutTarget,
+    pub pm_jobs_completed: PMJobsCompletedStatsGadget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -43,7 +44,7 @@ where
 
         let deploy_contract_circuit_whitelist = builder.add_virtual_hash();
         let worker_public_key = builder.add_virtual_hash();
-        
+
         // Ensure worker_public_key is not zero hash
         builder.assert_non_zero_hash(worker_public_key);
 
@@ -61,8 +62,12 @@ where
 
         let commitment = worker_public_key;
 
+        let one = builder.one();
+        let pm_jobs_completed = PMJobsCompletedStatsGadget::new_deploy_contracts(&mut builder, one);
+
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&deploy_contract_circuit_whitelist.elements);
         builder.register_public_inputs(&state_transition_hash.elements);
         builder.add_qed_type_d_common_gates();
@@ -78,6 +83,7 @@ where
             deploy_contract_circuit_whitelist,
             worker_public_key,
             commitment,
+            pm_jobs_completed,
             deploy_contract_batch_gadget,
             circuit_data,
             fingerprint,
@@ -94,6 +100,10 @@ where
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.deploy_contract_circuit_whitelist, deploy_contract_circuit_whitelist.0)?;
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
+
+        let jobs_completed_stats = PMJobsCompletedStats::new_deploy_contracts(C::F::ONE);
+        <PMJobsCompletedStats<C::F> as WitnessValueFor<PMJobsCompletedStatsGadget, C::F, true>>::set_for_witness(&jobs_completed_stats, &mut pw, &self.pm_jobs_completed)?;
+
         self.deploy_contract_batch_gadget.set_witness_params(
             &mut pw,
             spiderman_append_proof,

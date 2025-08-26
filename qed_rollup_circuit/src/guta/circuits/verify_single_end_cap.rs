@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use plonky2::{
-    hash::hash_types::{HashOut, HashOutTarget}, iop::
+    field::types::Field, hash::hash_types::{HashOut, HashOutTarget}, iop::
         witness::{PartialWitness, WitnessWrite}
     , plonk::{
         circuit_builder::CircuitBuilder,
@@ -11,13 +11,13 @@ use plonky2::{
 };
 use qed_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
-        pm_core::get_circuit_fingerprint_generic
+        pm_core::get_circuit_fingerprint_generic, traits::{ToTargets, WitnessValueFor}
 };
 use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher}};
-use qed_data::guta::proof_input::VerifySingleEndCapInput;
+use qed_data::{guta::proof_input::VerifySingleEndCapInput, qdata::pm_jobs_completed_stats::PMJobsCompletedStats};
 
-use crate::guta::gadgets::{helpers::ToGUTAHeader, verify_end_cap::VerifyEndCapProofGadget};
+use crate::{guta::gadgets::{helpers::ToGUTAHeader, verify_end_cap::VerifyEndCapProofGadget}, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 
 #[derive(Debug)]
@@ -28,6 +28,7 @@ where
     pub guta_circuit_whitelist_root_hash: HashOutTarget,
     pub a_end_cap_gadget: VerifyEndCapProofGadget<D>,
     pub worker_public_key: HashOutTarget,
+    pub pm_jobs_completed: PMJobsCompletedStatsGadget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -63,14 +64,17 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
 
-        // Ensure worker_public_key is not zero hash
         builder.assert_non_zero_hash(worker_public_key);
-        let commitment = worker_public_key; // For leaf circuits, commitment = worker_public_key
+        let commitment = worker_public_key;
+        
+        let one = builder.one();
+        let pm_jobs_completed = PMJobsCompletedStatsGadget::new_gutas(&mut builder, one);
 
         let public_inputs_hash = a_end_cap_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&public_inputs_hash.elements);
 
         pad_circuit_degree(&mut builder, 12);
@@ -84,6 +88,7 @@ where
             guta_circuit_whitelist_root_hash,
             a_end_cap_gadget,
             worker_public_key,
+            pm_jobs_completed,
             circuit_data,
             fingerprint,
         }
@@ -99,6 +104,9 @@ where
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0)?;
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
+        
+        let jobs_completed_stats = PMJobsCompletedStats::new_gutas(C::F::ONE);
+        <PMJobsCompletedStats<C::F> as WitnessValueFor<PMJobsCompletedStatsGadget, C::F, true>>::set_for_witness(&jobs_completed_stats, &mut pw, &self.pm_jobs_completed)?;
 
         self.a_end_cap_gadget.set_witness(
             &mut pw,

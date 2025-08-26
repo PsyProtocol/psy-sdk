@@ -7,7 +7,7 @@ use qed_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::Q
 use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats}, pm_reward_commitment::PMRewardCommitment};
+use crate::qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats}, pm_reward_commitment::PMRewardCommitment, pm_jobs_completed_stats::PMJobsCompletedStats};
 
 use super::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput;
 
@@ -68,7 +68,7 @@ impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
                 user_ops_processed: self.part_1_header.guta_proof_header.stats.user_ops_processed,
                 total_transactions: self.part_1_header.guta_proof_header.stats.total_transactions,
                 slots_modified: self.part_1_header.guta_proof_header.stats.slots_modified,
-                pm_jobs_completed: F::ZERO,
+                pm_jobs_completed: PMJobsCompletedStats::new_empty(),
                 block_time: self.block_time,
                 random_seed: H::q_two_to_one(self.old_stats.random_seed, self.final_random_seed_contribution),
                 pm_rewards_commitment: self.pm_rewards_commitment.clone(),

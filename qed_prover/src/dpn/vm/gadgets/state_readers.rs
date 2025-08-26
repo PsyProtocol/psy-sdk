@@ -17,7 +17,7 @@ use qed_common_circuit::{
         sub_slot_merkle_proof_batch::SubSlotMerkleProofBatchGadget,
         historical_root_merkle_proof::HistoricalRootMerkleProofGadget,
     },
-    traits::CreatableTarget,
+    traits::{CreatableTarget, ToTargets},
 };
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::base_types::hash256::Hash256};
 use qed_crypto::hash::core::sha256;
@@ -1487,7 +1487,7 @@ impl StateReaderGadget {
                     result.push(requested_checkpoint_stats.user_ops_processed);
                     result.push(requested_checkpoint_stats.total_transactions);
                     result.push(requested_checkpoint_stats.slots_modified);
-                    result.push(requested_checkpoint_stats.pm_jobs_completed);
+                    result.extend_from_slice(&requested_checkpoint_stats.pm_jobs_completed.to_targets());
                     result.push(requested_checkpoint_stats.block_time);
 
                     result.extend_from_slice(&requested_checkpoint_stats.random_seed.elements);

@@ -113,14 +113,12 @@ impl ContractRef {
         let mut cached_hashes: [[Felt; 4]; 32] = [[0, 0, 0, 0]; 32];
         let default_hash = Self::get_default_job_proof_hash();
 
-        // First pass: cache all proof hashes
         for i in 0u32..32u32 {
             let idx = i as Felt;
             let claim = claims[idx];
             cached_hashes[idx] = hash(claim.proof);
         }
 
-        // Second pass: process non-default proofs and check duplicates
         for i in 0u32..32u32 {
             let idx = i as Felt;
             let claim = claims[idx];

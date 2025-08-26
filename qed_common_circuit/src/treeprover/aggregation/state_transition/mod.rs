@@ -5,7 +5,7 @@ use plonky2::{
         hash_types::{HashOutTarget, RichField},
         poseidon::PoseidonHash,
     },
-    iop::witness::{PartialWitness, Witness, WitnessWrite},
+    iop::{target::Target, witness::{PartialWitness, Witness, WitnessWrite}},
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{
@@ -21,12 +21,12 @@ use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::tree
 
 use crate::{
     builder::{
-        hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates,
+        comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates,
         verify::CircuitBuilderVerifyProofHelpers,
     },
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
-    treeprover::traits::TreeProverAggCircuit,
+    treeprover::traits::TreeProverAggCircuit, traits::ToTargets,
 };
 
 #[derive(Debug, Clone)]
@@ -121,6 +121,7 @@ pub struct AggStateTransitionCircuit<C: GenericConfig<D>, const D: usize> {
     pub header_gadget: AggStateTrackableCircuitHeaderGadget,
     pub worker_public_key: HashOutTarget,
     pub commitment: HashOutTarget,
+    pub pm_jobs_completed: [Target; 3],
 
     pub left_proof: ProofWithPublicInputsTarget<D>,
     pub left_verifier_data: VerifierCircuitTarget,
@@ -178,20 +179,25 @@ where
                 left_proof.public_inputs[3],
             ],
         };
+        let left_child_pm_jobs_completed = [
+            left_proof.public_inputs[8], 
+            left_proof.public_inputs[9], 
+            left_proof.public_inputs[10]
+        ];
         let left_child_allowed_circuit_hashes_root = HashOutTarget {
             elements: [
-                left_proof.public_inputs[8],
-                left_proof.public_inputs[9],
-                left_proof.public_inputs[10],
                 left_proof.public_inputs[11],
+                left_proof.public_inputs[12],
+                left_proof.public_inputs[13],
+                left_proof.public_inputs[14],
             ],
         };
         let left_child_transition_hash = HashOutTarget {
             elements: [
-                left_proof.public_inputs[12],
-                left_proof.public_inputs[13],
-                left_proof.public_inputs[14],
                 left_proof.public_inputs[15],
+                left_proof.public_inputs[16],
+                left_proof.public_inputs[17],
+                left_proof.public_inputs[18],
             ],
         };
 
@@ -203,24 +209,51 @@ where
                 right_proof.public_inputs[3],
             ],
         };
+        let right_child_pm_jobs_completed = [
+            right_proof.public_inputs[8], 
+            right_proof.public_inputs[9], 
+            right_proof.public_inputs[10]
+        ];
         let right_child_allowed_circuit_hashes_root = HashOutTarget {
             elements: [
-                right_proof.public_inputs[8],
-                right_proof.public_inputs[9],
-                right_proof.public_inputs[10],
                 right_proof.public_inputs[11],
+                right_proof.public_inputs[12],
+                right_proof.public_inputs[13],
+                right_proof.public_inputs[14],
             ],
         };
         let right_child_transition_hash = HashOutTarget {
             elements: [
-                right_proof.public_inputs[12],
-                right_proof.public_inputs[13],
-                right_proof.public_inputs[14],
                 right_proof.public_inputs[15],
+                right_proof.public_inputs[16],
+                right_proof.public_inputs[17],
+                right_proof.public_inputs[18],
             ],
         };
 
-        // Calculate new commitment: hash(hash(left_commitment, right_commitment), worker_public_key)
+        let combined_deploy_contracts = builder.add(left_child_pm_jobs_completed[0], right_child_pm_jobs_completed[0]);
+        let combined_register_users = builder.add(left_child_pm_jobs_completed[1], right_child_pm_jobs_completed[1]);
+        let combined_gutas = builder.add(left_child_pm_jobs_completed[2], right_child_pm_jobs_completed[2]);
+        
+        let zero = builder.zero();
+        let one = builder.one();
+        
+        let register_users_is_zero = builder.is_zero(combined_register_users);
+        let register_users_nonzero = builder.not(register_users_is_zero);
+        let register_users_increment = builder.select(register_users_nonzero, one, zero);
+        let final_register_users = builder.add(combined_register_users, register_users_increment);
+        
+        let deploy_contracts_is_zero = builder.is_zero(combined_deploy_contracts);
+        let deploy_contracts_nonzero = builder.not(deploy_contracts_is_zero);
+        let deploy_contracts_increment = builder.select(deploy_contracts_nonzero, one, zero);
+        let final_deploy_contracts = builder.add(combined_deploy_contracts, deploy_contracts_increment);
+        
+        let gutas_is_zero = builder.is_zero(combined_gutas);
+        let gutas_nonzero = builder.not(gutas_is_zero);
+        let gutas_increment = builder.select(gutas_nonzero, one, zero);
+        let final_gutas = builder.add(combined_gutas, gutas_increment);
+        
+        let pm_jobs_completed = [final_deploy_contracts, final_register_users, final_gutas];
         let children_hash = builder.hash_two_to_one::<C::Hasher>(left_child_commitment, right_child_commitment);
         let commitment = builder.hash_two_to_one::<C::Hasher>(children_hash, worker_public_key);
         builder.connect_hashes(
@@ -266,9 +299,9 @@ where
             ],
         );
 
-        // Register public inputs in order: commitment, worker_public_key, allowed_circuit_hashes_root, state_transition_hash
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_jobs_completed);
         builder.register_public_inputs(&header_gadget.allowed_circuit_hashes_root.elements);
         builder.register_public_inputs(&header_gadget.state_transition_hash.elements);
 
@@ -281,6 +314,7 @@ where
             header_gadget,
             worker_public_key,
             commitment,
+            pm_jobs_completed,
             left_proof,
             left_verifier_data,
             right_proof,
