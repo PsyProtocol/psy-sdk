@@ -264,6 +264,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
     let slot_timer= SlotTimer::new(LocalClock);
     let slot_timer_other = slot_timer.clone();
     loop {
+        let next_checkpoint_id = coordinator_processor.next_checkpoint_id().await?;
         tokio::select! {
             is = coordinator_processor.wait_for_make_block() => {
                 if !is {
@@ -272,13 +273,11 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
             }
             slot = slot_timer.wait_for_next_slot() => {
                 info!("✅ Successfully wait for next slot: {}", slot);
+                if !coordinator_processor.has_pending_tasks(next_checkpoint_id).await? {
+                    info!("⚠️ No pending tasks for checkpoint {}, waiting for next checkpoint", next_checkpoint_id);
+                    continue;
+                }
             }
-        }
-        
-        let next_checkpoint_id = coordinator_processor.next_checkpoint_id().await?;
-        if !coordinator_processor.has_pending_tasks(next_checkpoint_id).await? {
-            info!("⚠️ No pending tasks for checkpoint {}, waiting for next checkpoint", next_checkpoint_id);
-            continue;
         }
 
         let slot = slot_timer_other.get_current_slot();
