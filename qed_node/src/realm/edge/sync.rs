@@ -101,7 +101,7 @@ where
                 self.is_genesis = true;
             }
             Err(e) => {
-                error!("Failed to get latest L2 block state: {:?}", e);
+                warn!("Failed to get latest L2 block state: {:?}", e);
                 if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>(){
                     self.current_local_checkpoint_id = 0;
                     self.is_genesis = false;

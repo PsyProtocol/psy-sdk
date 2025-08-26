@@ -322,17 +322,17 @@ random-wallet:
 
 register-user:
 	@echo "Registering all 4 users..."
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER0_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
-	@sleep 0.5
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER1_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
-	@sleep 0.5
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
-	@sleep 0.5
 	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER0_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
 	@sleep 0.5
 	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER1_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
 	@sleep 0.5
 	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
+	@sleep 0.5
+	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER0_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
+	@sleep 0.5
+	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER1_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
+	@sleep 0.5
+	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
 	@sleep 0.5
 	# @RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} | tail -5 | jq .
 	# @sleep 0.5

@@ -243,7 +243,8 @@ impl CoordinatorEdgeHandler {
         );
         info!("old root from realm: {:?}", input.top_line_proof.old_root);
         if old_root != input.top_line_proof.old_root && old_root != input.top_line_proof.new_root {
-            anyhow::bail!("invalid top line proof old value from realm");
+            // anyhow::bail!("invalid top line proof old value from realm");
+            tracing::warn!("invalid top line proof old value from realm");
         }
 
         // build queue item

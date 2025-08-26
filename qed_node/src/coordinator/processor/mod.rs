@@ -285,7 +285,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 );
             }
             Err(e) => {
-                error!("❌ Failed to build block: {:?}, slot: {}", e, slot);
+                warn!("❌ Failed to build block: {:?}, slot: {}", e, slot);
             }
         }
     }
