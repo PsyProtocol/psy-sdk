@@ -393,7 +393,7 @@ fn execute_transfer_transaction_sync(
     println!("pk_hash_from: {}", pk_hash_from);
     println!("pk_hash_to: {}", pk_hash_to);
 
-    if !wait_for_new_block(wallet_session, 2)? {
+    if !wait_for_new_block(&wallet_session.st_provider, 2)? {
         return Err(anyhow::format_err!(
             "register user timeout waiting for checkpoint"
         ));
@@ -428,7 +428,7 @@ fn execute_transfer_transaction_sync(
         }],
     )?;
     info!("🪙 Task {} - Waiting for new block after mint", task_id);
-    if !wait_for_new_block(wallet_session, 1)? {
+    if !wait_for_new_block(&wallet_session.st_provider, 1)? {
         return Err(anyhow::format_err!("mint timeout waiting for checkpoint"));
     }
 
@@ -448,7 +448,7 @@ fn execute_transfer_transaction_sync(
     )?;
 
     info!("💸 Task {} - Waiting for new block after transfer", task_id);
-    if !wait_for_new_block(wallet_session, 1)? {
+    if !wait_for_new_block(&wallet_session.st_provider, 1)? {
         return Err(anyhow::format_err!(
             "transfer timeout waiting for checkpoint"
         ));
@@ -467,7 +467,7 @@ fn execute_transfer_transaction_sync(
         }],
     )?;
     info!("🎁 Task {} - Waiting for new block after claim", task_id);
-    if !wait_for_new_block(wallet_session, 1)? {
+    if !wait_for_new_block(&wallet_session.st_provider, 1)? {
         return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
     }
 
