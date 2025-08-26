@@ -228,6 +228,7 @@ async fn user_events_handler(
     State(service): State<ApiService>,
     Query(query): Query<UserEventsQuery>,
 ) -> Result<Json<Vec<UserEvent>>, StatusCode> {
+    tracing::info!("User events query: {:?}", query);
     match UserEventRepository::list(
         &service.pool,
         query.user_id.as_deref(),
@@ -241,7 +242,10 @@ async fn user_events_handler(
     .await
     {
         Ok(events) => Ok(Json(events)),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            tracing::error!("Failed to retrieve user events: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
@@ -307,7 +311,10 @@ async fn user_events_aggregations_handler(
     .await
     {
         Ok(aggregations) => Ok(Json(aggregations)),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            tracing::error!("Failed to retrieve user events aggregations: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 

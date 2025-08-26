@@ -97,6 +97,13 @@ BEGIN
     EXECUTE sql_query;
     RAISE NOTICE 'Created user events aggregate view: %', view_name;
 
+    sql_query := format(
+        'ALTER MATERIALIZED VIEW %I SET (timescaledb.materialized_only = false);',
+        view_name
+    );
+    EXECUTE sql_query;
+    RAISE NOTICE 'Set materialized_only to false for view: %', view_name;
+
     -- Add refresh policy
     PERFORM add_continuous_aggregate_policy(
         view_name,
@@ -114,7 +121,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-SELECT create_complete_user_events_aggregate('user_events_hourly', '1 hour', '1 day', '15 minutes', '15 minutes', '1 year');
-SELECT create_complete_user_events_aggregate('user_events_daily', '1 day', '7 days', '1 hour', '1 hour', '1 year');
-SELECT create_complete_user_events_aggregate('user_events_weekly', '1 week', '1 month', '1 day', '1 day', '1 year');
-SELECT create_complete_user_events_aggregate('user_events_monthly', '1 month', '1 year', '1 day', '1 day', '1 year');
+SELECT create_complete_user_events_aggregate('user_events_1h', '1 hour', '1 day', '15 minutes', '15 minutes', '1 year');
+SELECT create_complete_user_events_aggregate('user_events_1d', '1 day', '7 days', '1 hour', '1 hour', '1 year');
+SELECT create_complete_user_events_aggregate('user_events_1w', '1 week', '1 month', '1 day', '1 day', '1 year');
+SELECT create_complete_user_events_aggregate('user_events_1m', '1 month', '1 year', '1 day', '1 day', '1 year');
