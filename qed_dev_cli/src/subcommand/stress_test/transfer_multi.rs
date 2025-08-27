@@ -420,16 +420,16 @@ fn execute_transfer_multi_transaction_sync(
     // wallet_session.add_user(private_key_to3)?;
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;
-    let pk_info_from = wallet_session.wallet.get_zk_pk_info(private_key_from)?;
+    let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from)?;
     let pk_hash_from = pk_info_from.qfhash::<QEDHasher>();
     // println!("pk_hash_from: {}", pk_hash_from);
     let user_id_from = wallet_session.st_provider.get_user_id(pk_hash_from)?;
     info!("👥 Task {} - User_id_from: {}", task_id, user_id_from);
-    let pk_info_to1 = wallet_session.wallet.get_zk_pk_info(private_key_to1)?;
+    let pk_info_to1 = wallet_session.wallet.get_secp_pk_info(private_key_to1)?;
     let pk_hash_to1 = pk_info_to1.qfhash::<QEDHasher>();
     let user_id_to1 = wallet_session.st_provider.get_user_id(pk_hash_to1)?;
     info!("👥 Task {} - User_id_to1: {}", task_id, user_id_to1);
-    let pk_info_to2 = wallet_session.wallet.get_zk_pk_info(private_key_to2)?;
+    let pk_info_to2 = wallet_session.wallet.get_secp_pk_info(private_key_to2)?;
     let pk_hash_to2 = pk_info_to2.qfhash::<QEDHasher>();
     let user_id_to2 = wallet_session.st_provider.get_user_id(pk_hash_to2)?;
     info!("👥 Task {} - User_id_to2: {}", task_id, user_id_to2);

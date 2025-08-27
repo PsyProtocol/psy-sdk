@@ -39,7 +39,7 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
 struct UserInfo {
     user_id: u64,
     pk: QHashOut<GoldilocksField>,
-    pub_key: ZKPublicKeyInfo<GoldilocksField>,
+    pub_key: QHashOut<GoldilocksField>,
 }
 
 pub struct Multicast {
@@ -59,12 +59,12 @@ impl Multicast {
 
     pub fn exec_contract_call(
         &self,
-        pk_hash: QHashOut<GoldilocksField>,
+        public_key: QHashOut<GoldilocksField>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<()> {
         self.wallet_session
             .write()
-            .exec_contract_call(pk_hash, contract_call_args)
+            .exec_contract_call(public_key, contract_call_args)
     }
 
     pub fn register_batch_user(&self, user_count: u64) -> Result<Vec<UserInfo>> {
@@ -89,20 +89,19 @@ impl Multicast {
                 continue
             }
             for pk in &user_pk {
-                match self.wallet_session.read().get_zk_public_key(pk.clone()) {
+                let ret = {self.wallet_session.read().get_secp_public_key(pk.clone())};
+                match ret {
                     Ok(pk_info) => {
-                        let pk_hash = pk_info.qfhash::<QEDHasher>();
-                        match self.wallet_session.read().st_provider.get_user_id(pk_hash) {
+                        let public_key = pk_info.qfhash::<QEDHasher>();
+                        let ret = {self.wallet_session.read().st_provider.get_user_id(public_key)};
+                        match ret {
                             Ok(user_id) => {
                                 user_info.push(UserInfo {
                                     user_id,
                                     pk: pk.clone(),
-                                    pub_key: pk_info,
+                                    pub_key: public_key,
                                 });
-                                info!(
-                                    "register_batch_user: User_id: {}, pk_hash: {}",
-                                    user_id, pk_hash
-                                );
+                                info!("register_batch_user: User_id: {}, pk_hash: {}",user_id, public_key);
                             }
                             Err(err) => error!("register_batch_user: Get user id error: {}", err),
                         }
@@ -133,6 +132,7 @@ impl Multicast {
             method_name: "simple_mint".to_string(),
             inputs: vec![mint_amount],
         });
+        {self.wallet_session.write().add_user(user_info[0].pk.clone())?;}
         for i in 1..user_info.len() {
             let to_user_id = user_info[i].user_id;
             let transfer_amount = 2u64;
@@ -141,9 +141,10 @@ impl Multicast {
                 method_name: "simple_transfer".to_string(),
                 inputs: vec![to_user_id, transfer_amount],
             });
+            {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
         }
         let start = Instant::now();
-        self.exec_contract_call(user_info[0].pk, contract_call_args)?;
+        self.exec_contract_call(user_info[0].pub_key, contract_call_args)?;
         let duration = start.elapsed().as_millis() as u64;
         info!("batch_flow: Batch flow duration: {} ms", duration);
         if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
@@ -158,20 +159,14 @@ impl Multicast {
             }];
             info!(
                 "Start to execute claim contract call for user {}",
-                user_info[i].pk
+                user_info[i].pub_key,
             );
             let start = Instant::now();
-            self.exec_contract_call(user_info[i].pk.clone(), claim_contract_call_args)
+            self.exec_contract_call(user_info[i].pub_key, claim_contract_call_args)
                 .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err))?;
             let duration = start.elapsed().as_millis() as u64;
-            info!(
-                "🔄 Task {} - Claim contract call duration: {} ms",
-                i, duration
-            );
-            info!(
-                "End to execute claim contract call for user {}",
-                user_info[i].pk
-            );
+            info!("🔄 Task {} - Claim contract call duration: {} ms",i, duration);
+            info!("End to execute claim contract call for user {}", user_info[i].pub_key);
         }
 
         if !wait_for_new_block(&self.wallet_session.read().st_provider, 1)? {

@@ -404,12 +404,12 @@ fn execute_transfer_transaction_sync(
     wallet_session.add_user(private_key_to)?;
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;
-    let pk_info_from = wallet_session.wallet.get_zk_pk_info(private_key_from)?;
+    let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from)?;
     let pk_hash_from = pk_info_from.qfhash::<QEDHasher>();
     // println!("pk_hash_from: {}", pk_hash_from);
     let user_id_from = wallet_session.st_provider.get_user_id(pk_hash_from)?;
     info!("👥 Task {} - User_id_from: {}", task_id, user_id_from);
-    let pk_info_to = wallet_session.wallet.get_zk_pk_info(private_key_to)?;
+    let pk_info_to = wallet_session.wallet.get_secp_pk_info(private_key_to)?;
     let pk_hash_to = pk_info_to.qfhash::<QEDHasher>();
     let user_id_to = wallet_session.st_provider.get_user_id(pk_hash_to)?;
     info!("👥 Task {} - User_id_to: {}", task_id, user_id_to);

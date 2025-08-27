@@ -27,25 +27,25 @@ pub trait Rpc {
     #[method(name = "exec_contract_call")]
     async fn exec_contract_call(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned>;
     #[method(name = "start_session")]
-    async fn start_session(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
+    async fn start_session(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "prove_contract_call")]
     async fn prove_contract_call(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         contract_call_arg: ContractCallArgs,
     ) -> Result<String, ErrorObjectOwned>;
     #[method(name = "prove_contract_calls")]
     async fn prove_contract_calls(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned>;
     #[method(name = "sign_and_submit")]
-    async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
+    async fn sign_and_submit(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "register_user")]
     async fn register_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned>;
     #[method(name = "add_user")]
@@ -94,52 +94,52 @@ impl RpcServerImpl {
 impl RpcServer for RpcServerImpl {
     async fn exec_contract_call(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .exec_contract_call(pk_hash, contract_call_args)
+            .exec_contract_call(public_key, contract_call_args)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("exec contract call".to_string())
     }
 
-    async fn start_session(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
+    async fn start_session(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .start_session(pk_hash)
+            .start_session(public_key)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("start session".to_string())
     }
 
     async fn prove_contract_call(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         contract_call_arg: ContractCallArgs,
     ) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .prove_contract_call(pk_hash, contract_call_arg)
+            .prove_contract_call(public_key, contract_call_arg)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("prove contract call".to_string())
     }
 
     async fn prove_contract_calls(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .prove_contract_calls(pk_hash, contract_call_args)
+            .prove_contract_calls(public_key, contract_call_args)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("prove contract calls".to_string())
     }
 
-    async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
+    async fn sign_and_submit(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
         self.wallet_session
             .write()
-            .sign_and_submit(pk_hash)
+            .sign_and_submit(public_key)
             .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
         Ok("sign and submit".to_string())
     }
