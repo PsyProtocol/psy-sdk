@@ -43,13 +43,13 @@ pub struct UpdateConfigurationMessage {
     pub filters: SubscriptionFilters,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EventType {
     WorkerEvent,
     UserEvent,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WebSocketEvent {
     pub event_type: EventType,
     pub data: serde_json::Value,
