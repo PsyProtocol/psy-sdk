@@ -25,8 +25,8 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
     let pool = ScheduledThreadPool::new(num_cpus::get());
     // let mut handlers = vec![];
     let handle = pool.execute(move || {
-        info!("🎯 Registering batch user - User count: {}", 10);
-        let user_info = multicall.register_batch_user(10).unwrap();
+        info!("🎯 Registering batch user - User count: {}", args.concurrent_tasks);
+        let user_info = multicall.register_batch_user(args.concurrent_tasks as u64).unwrap();
         multicall.batch_flow(user_info).unwrap();
     });
 
@@ -68,10 +68,6 @@ impl Multicast {
     }
 
     pub fn register_batch_user(&self, user_count: u64) -> Result<Vec<UserInfo>> {
-        info!(
-            "register_batch_user: Registering batch user - User count: {}",
-            user_count
-        );
         let user_pk = (0..user_count)
             .map(|_| QHashOut::<GoldilocksField>::rand())
             .collect::<Vec<_>>();
@@ -93,25 +89,31 @@ impl Multicast {
                 continue
             }
             for pk in &user_pk {
-                if let Ok(pk_info) = self.wallet_session.read().get_zk_public_key(pk.clone()) {
-                    let pk_hash = pk_info.qfhash::<QEDHasher>();
-                    if let Ok(user_id) = self.wallet_session.read().st_provider.get_user_id(pk_hash)
-                    {
-                        user_info.push(UserInfo {
-                            user_id,
-                            pk: pk.clone(),
-                            pub_key: pk_info,
-                        });
-                        info!(
-                            "register_batch_user: User_id: {}, pk_hash: {}",
-                            user_id, pk_hash
-                        );
+                match self.wallet_session.read().get_zk_public_key(pk.clone()) {
+                    Ok(pk_info) => {
+                        let pk_hash = pk_info.qfhash::<QEDHasher>();
+                        match self.wallet_session.read().st_provider.get_user_id(pk_hash) {
+                            Ok(user_id) => {
+                                user_info.push(UserInfo {
+                                    user_id,
+                                    pk: pk.clone(),
+                                    pub_key: pk_info,
+                                });
+                                info!(
+                                    "register_batch_user: User_id: {}, pk_hash: {}",
+                                    user_id, pk_hash
+                                );
+                            }
+                            Err(err) => error!("register_batch_user: Get user id error: {}", err),
+                        }
                     }
+                    Err(err) => error!("register_batch_user: Get zk public key error: {}", err),
                 }
             }
             if user_info.len() == user_pk.len() {
                 break user_info;
             }
+            info!("register_batch_user: Waiting for new block... user_info length: {}, user_pk length: {}", user_info.len(), user_pk.len());
         };
         let duration = now.elapsed().as_millis() as u64;
         info!(
