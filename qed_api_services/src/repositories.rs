@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use qed_core::job::id::QProvingJobDataID;
+use qed_core::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
 use sqlx::PgPool;
 
 use crate::models::{
@@ -137,21 +137,25 @@ impl WorkerEventRepository {
         let job_id_json = job_id_to_json(job_id);
         let default_metadata = serde_json::json!({});
         let metadata_value = metadata.unwrap_or(&default_metadata);
+        let topic = job_id.topic.to_u8() as i16;
+        let circuit_type = job_id.circuit_type.to_u8() as i16;
 
         let row = sqlx::query!(
             r#"
             INSERT INTO worker_events
-            (realm_id, public_key, status, source, job_id, checkpoint_id, duration, metadata, timestamp)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            (realm_id, public_key, status, source, job_id, topic, circuit_type, checkpoint_id, duration, metadata, timestamp)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING
                 id, realm_id, public_key, status, source,
-                job_id, checkpoint_id, duration, metadata, timestamp, created_at, updated_at
+                job_id, topic, circuit_type, checkpoint_id, duration, metadata, timestamp, created_at, updated_at
             "#,
             realm_id,
             public_key,
             status as WorkerEventStatus,
             source as WorkerEventSource,
             &job_id_json,
+            topic,
+            circuit_type,
             checkpoint_id,
             duration,
             metadata_value,
@@ -185,11 +189,15 @@ impl WorkerEventRepository {
         realm_id: Option<i64>,
         status: Option<WorkerEventStatus>,
         source: Option<WorkerEventSource>,
+        topic: Option<QJobTopic>,
+        circuit_type: Option<ProvingJobCircuitType>,
         start_time: Option<DateTime<Utc>>,
         end_time: Option<DateTime<Utc>>,
         offset: i64,
         limit: i64,
     ) -> Result<Vec<WorkerEvent>> {
+        let topic = topic.map(|t| t.to_u8() as i16);
+        let circuit_type = circuit_type.map(|t| t.to_u8() as i16);
         let rows = sqlx::query!(
             r#"
             SELECT
@@ -199,14 +207,18 @@ impl WorkerEventRepository {
             WHERE ($1::BIGINT IS NULL OR realm_id = $1)
                 AND ($2::VARCHAR IS NULL OR status = $2)
                 AND ($3::VARCHAR IS NULL OR source = $3)
-                AND ($4::TIMESTAMPTZ IS NULL OR timestamp >= $4)
-                AND ($5::TIMESTAMPTZ IS NULL OR timestamp <= $5)
+                AND ($4::SMALLINT IS NULL OR topic = $4)
+                AND ($5::SMALLINT IS NULL OR circuit_type = $5)
+                AND ($6::TIMESTAMPTZ IS NULL OR timestamp >= $6)
+                AND ($7::TIMESTAMPTZ IS NULL OR timestamp <= $7)
             ORDER BY timestamp DESC
-            LIMIT $6 OFFSET $7
+            LIMIT $8 OFFSET $9
             "#,
             realm_id,
             status.map(|s| s.to_string()),
             source.map(|s| s.to_string()),
+            topic,
+            circuit_type,
             start_time,
             end_time,
             limit,
@@ -253,9 +265,13 @@ impl WorkerEventRepository {
         realm_id: Option<i64>,
         status: Option<WorkerEventStatus>,
         source: Option<WorkerEventSource>,
+        topic: Option<QJobTopic>,
+        circuit_type: Option<ProvingJobCircuitType>,
         start_time: Option<DateTime<Utc>>,
         end_time: Option<DateTime<Utc>>,
     ) -> Result<i64> {
+        let topic = topic.map(|t| t.to_u8() as i16);
+        let circuit_type = circuit_type.map(|t| t.to_u8() as i16);
         let row = sqlx::query!(
             r#"
             SELECT COUNT(*) as count
@@ -263,12 +279,16 @@ impl WorkerEventRepository {
             WHERE ($1::BIGINT IS NULL OR realm_id = $1)
                 AND ($2::VARCHAR IS NULL OR status = $2)
                 AND ($3::VARCHAR IS NULL OR source = $3)
-                AND ($4::TIMESTAMPTZ IS NULL OR timestamp >= $4)
-                AND ($5::TIMESTAMPTZ IS NULL OR timestamp <= $5)
+                AND ($4::SMALLINT IS NULL OR topic = $4)
+                AND ($5::SMALLINT IS NULL OR circuit_type = $5)
+                AND ($6::TIMESTAMPTZ IS NULL OR timestamp >= $6)
+                AND ($7::TIMESTAMPTZ IS NULL OR timestamp <= $7)
             "#,
             realm_id,
             status.map(|s| s.to_string()),
             source.map(|s| s.to_string()),
+            topic,
+            circuit_type,
             start_time,
             end_time
         )

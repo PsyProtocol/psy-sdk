@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id, realm_id, public_key, status, source,\n                job_id, checkpoint_id, duration, metadata, timestamp, created_at, updated_at\n            FROM worker_events\n            WHERE ($1::BIGINT IS NULL OR realm_id = $1)\n                AND ($2::VARCHAR IS NULL OR status = $2)\n                AND ($3::VARCHAR IS NULL OR source = $3)\n                AND ($4::TIMESTAMPTZ IS NULL OR timestamp >= $4)\n                AND ($5::TIMESTAMPTZ IS NULL OR timestamp <= $5)\n            ORDER BY timestamp DESC\n            LIMIT $6 OFFSET $7\n            ",
+  "query": "\n            INSERT INTO worker_events\n            (realm_id, public_key, status, source, job_id, topic, circuit_type, checkpoint_id, duration, metadata, timestamp)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n            RETURNING\n                id, realm_id, public_key, status, source,\n                job_id, topic, circuit_type, checkpoint_id, duration, metadata, timestamp, created_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -35,31 +35,41 @@
       },
       {
         "ordinal": 6,
+        "name": "topic",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 7,
+        "name": "circuit_type",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 8,
         "name": "checkpoint_id",
         "type_info": "Int8"
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "duration",
         "type_info": "Int8"
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "metadata",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "timestamp",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 11,
+        "ordinal": 13,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -69,10 +79,14 @@
         "Int8",
         "Varchar",
         "Varchar",
-        "Timestamptz",
-        "Timestamptz",
+        "Varchar",
+        "Jsonb",
+        "Int2",
+        "Int2",
         "Int8",
-        "Int8"
+        "Int8",
+        "Jsonb",
+        "Timestamptz"
       ]
     },
     "nullable": [
@@ -82,6 +96,8 @@
       false,
       false,
       false,
+      true,
+      true,
       false,
       true,
       true,
@@ -90,5 +106,5 @@
       false
     ]
   },
-  "hash": "d924b52d2ca9cd388d6c36823a826e427076d258118a8d3e1e74d8714c3ad4d5"
+  "hash": "a131aeac65ebe74454e3f7cd6d26bba36ccd92add65d7b72649bec0f5130cfe4"
 }

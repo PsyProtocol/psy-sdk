@@ -29,6 +29,8 @@ CREATE TABLE worker_events (
     status VARCHAR(100) NOT NULL,
     source VARCHAR(255) NOT NULL,
     job_id JSONB NOT NULL,               -- QProvingJobDataID serialized as JSONB
+    topic SMALLINT,                  -- Topic from job_id.topic
+    circuit_type SMALLINT,           -- Circuit type from job_id.circuit_type
     checkpoint_id BIGINT NOT NULL,
     duration BIGINT,                     -- milliseconds, nullable for pending/processing/failed events
     metadata JSONB DEFAULT '{}'::jsonb,  -- Add metadata for flexibility
@@ -52,6 +54,9 @@ CREATE INDEX idx_worker_events_realm_id ON worker_events(realm_id, timestamp DES
 CREATE INDEX idx_worker_events_status ON worker_events(status, timestamp DESC);
 CREATE INDEX idx_worker_events_realm_status_time ON worker_events(realm_id, status, timestamp DESC);
 CREATE INDEX idx_worker_events_source ON worker_events(source, timestamp DESC);
+CREATE INDEX idx_worker_events_topic ON worker_events(topic, timestamp DESC);
+CREATE INDEX idx_worker_events_circuit_type ON worker_events(circuit_type, timestamp DESC);
+CREATE INDEX idx_worker_events_topic_circuit_type ON worker_events(topic, circuit_type, timestamp DESC);
 
 CREATE TRIGGER update_worker_events_updated_at
     BEFORE UPDATE ON worker_events

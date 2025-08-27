@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO worker_events\n            (realm_id, public_key, status, source, job_id, checkpoint_id, duration, metadata, timestamp)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n            RETURNING\n                id, realm_id, public_key, status, source,\n                job_id, checkpoint_id, duration, metadata, timestamp, created_at, updated_at\n            ",
+  "query": "\n            SELECT\n                id, realm_id, public_key, status, source,\n                job_id, checkpoint_id, duration, metadata, timestamp, created_at, updated_at\n            FROM worker_events\n            WHERE ($1::BIGINT IS NULL OR realm_id = $1)\n                AND ($2::VARCHAR IS NULL OR status = $2)\n                AND ($3::VARCHAR IS NULL OR source = $3)\n                AND ($4::SMALLINT IS NULL OR topic = $4)\n                AND ($5::SMALLINT IS NULL OR circuit_type = $5)\n                AND ($6::TIMESTAMPTZ IS NULL OR timestamp >= $6)\n                AND ($7::TIMESTAMPTZ IS NULL OR timestamp <= $7)\n            ORDER BY timestamp DESC\n            LIMIT $8 OFFSET $9\n            ",
   "describe": {
     "columns": [
       {
@@ -69,12 +69,12 @@
         "Int8",
         "Varchar",
         "Varchar",
-        "Varchar",
-        "Jsonb",
+        "Int2",
+        "Int2",
+        "Timestamptz",
+        "Timestamptz",
         "Int8",
-        "Int8",
-        "Jsonb",
-        "Timestamptz"
+        "Int8"
       ]
     },
     "nullable": [
@@ -92,5 +92,5 @@
       false
     ]
   },
-  "hash": "ce0544ee9bdadff72e24d05c2dd84a70c56ba00e1f36fb6be33effc666ab075b"
+  "hash": "6e61dd3914e0618a3f47c8d20baf4428dc45b24e744acb3afec19159b52c4b98"
 }

@@ -6,6 +6,7 @@ use axum::{
     Router,
 };
 use chrono::{DateTime, Utc};
+use qed_core::job::id::{ProvingJobCircuitType, QJobTopic};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -182,6 +183,8 @@ pub struct WorkerEventsQuery {
     pub realm_id: Option<u64>,
     pub status: Option<WorkerEventStatus>,
     pub public_key: Option<String>,
+    pub topic: Option<QJobTopic>,
+    pub circuit_type: Option<ProvingJobCircuitType>,
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
 }
@@ -198,6 +201,8 @@ async fn worker_events_handler(
         realm_id_i64,
         query.status,
         None, // source filter not provided in query params yet
+        query.topic,
+        query.circuit_type,
         query.start_time,
         query.end_time,
         0,   // offset
@@ -335,6 +340,8 @@ async fn stats_handler(
         None, // realm_id
         None, // status
         None, // source
+        None, // topic
+        None, // circuit_type
         Some(yesterday),
         Some(now),
     )
