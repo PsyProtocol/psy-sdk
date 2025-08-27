@@ -127,6 +127,7 @@ impl Multicast {
         let mut contract_call_args = vec![];
         let from_user_id = user_info[0].user_id;
         let mint_amount = 100000u64;
+        let transfer_amount = 2u64;
         contract_call_args.push(ContractCallArgs {
             contract_id: 0,
             method_name: "simple_mint".to_string(),
@@ -135,7 +136,6 @@ impl Multicast {
         {self.wallet_session.write().add_user(user_info[0].pk.clone())?;}
         for i in 1..user_info.len() {
             let to_user_id = user_info[i].user_id;
-            let transfer_amount = 2u64;
             contract_call_args.push(ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
@@ -146,16 +146,17 @@ impl Multicast {
         let start = Instant::now();
         self.exec_contract_call(user_info[0].pub_key, contract_call_args)?;
         let duration = start.elapsed().as_millis() as u64;
-        info!("batch_flow: Batch flow duration: {} ms", duration);
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+        info!("batch_flow: Batch transfer flow duration: {} ms", duration);
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 4)? {
             return Err(anyhow::format_err!("mint timeout waiting for checkpoint"));
         }
-
+        
+        info!("batch_flow: Start to execute claim contract call");
         for i in 1..user_info.len() {
             let claim_contract_call_args = vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
-                inputs: vec![mint_amount],
+                inputs: vec![transfer_amount],
             }];
             info!(
                 "Start to execute claim contract call for user {}",
@@ -169,6 +170,7 @@ impl Multicast {
             info!("End to execute claim contract call for user {}", user_info[i].pub_key);
         }
 
+        info!("batch_flow: claim contract call finished, start to wait for checkpoint");
         if !wait_for_new_block(&self.wallet_session.read().st_provider, 1)? {
             return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
         }
