@@ -62,6 +62,8 @@ Query worker events with optional filters:
 - `realm_id` - Filter by realm ID
 - `status` - Filter by status (PENDING, PROCESSING, COMPLETED, FAILED)
 - `public_key` - Filter by worker public key
+- `topic` - Filter by job topic (GenerateStandardProof, GenerateGroth16Proof, etc.)
+- `circuit_type` - Filter by circuit type
 - `start_time` - Start time (ISO 8601)
 - `end_time` - End time (ISO 8601)
 
@@ -80,7 +82,7 @@ Query user events with optional filters:
 Get aggregated worker event statistics:
 - `start_time` - Start time (optional)
 - `end_time` - End time (optional)
-- `bucket` - Time bucket (1h, 1d, 1w)
+- `bucket` - Time bucket (1m, 1h, 1d, 1w)
 
 Returns counts by status, average/min/max durations, grouped by time buckets.
 
@@ -89,7 +91,7 @@ Returns counts by status, average/min/max durations, grouped by time buckets.
 Get aggregated user event statistics:
 - `start_time` - Start time (optional)
 - `end_time` - End time (optional)
-- `bucket` - Time bucket (1h, 1d, 1w)
+- `bucket` - Time bucket (1m, 1h, 1d, 1w)
 
 Returns event counts by transaction type, grouped by time buckets.
 
@@ -104,6 +106,25 @@ Get realm statistics for a specific realm.
 **GET `/stats/workers/{worker_public_key}`**
 
 Get worker statistics for a specific worker.
+
+**GET `/rewards/{worker_public_key}`**
+
+Get worker reward information for a specific worker:
+- `checkpoint_id` - Checkpoint ID (required) - Determines claimed vs unclaimed rewards
+
+Returns:
+```json
+{
+  "worker_public_key": "0x...",
+  "checkpoint_id": 100,
+  "claimed_proofs": 5,
+  "claimed_rewards": 25000000000,
+  "unclaimed_proofs": 3,
+  "unclaimed_rewards": 15000000000,
+  "total_proofs": 8,
+  "total_rewards": 40000000000
+}
+```
 
 ### Telemetry API
 
@@ -140,7 +161,7 @@ Endpoint for coordinator and realm nodes to send events:
 
 ### WebSocket API
 
-**WS /ws/subscribe**
+**WS `/ws/subscribe`**
 
 Real-time event subscription with configurable filters.
 
@@ -163,6 +184,26 @@ Receive events:
   "timestamp": "2023-01-01T00:00:00Z"
 }
 ```
+
+**WS `/ws/tps`**
+
+Real-time TPS (Transactions Per Second) monitoring WebSocket.
+
+Automatically sends TPS updates every 12 seconds:
+```json
+{
+  "event_type": "TpsUpdate",
+  "data": {
+    "tps": 2.5,
+    "transaction_count": 30,
+    "time_window_seconds": 12,
+    "timestamp": "2023-01-01T00:00:00Z"
+  },
+  "timestamp": "2023-01-01T00:00:00Z"
+}
+```
+
+No configuration required - just connect and receive updates.
 
 ## Configuration
 
@@ -244,6 +285,9 @@ curl "http://localhost:3000/worker_events?start_time=2023-01-01T00:00:00Z&end_ti
 # Hourly worker event statistics
 curl "http://localhost:3000/worker_events_aggregations?end_time=2023-01-02T00:00:00Z&bucket=1h"
 
+# 1-minute worker event statistics
+curl "http://localhost:3000/worker_events_aggregations?bucket=1m"
+
 # Daily user event statistics  
 curl "http://localhost:3000/user_events_aggregations?end_time=2023-01-08T00:00:00Z&bucket=1d"
 
@@ -268,6 +312,27 @@ ws.send(JSON.stringify({
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
   console.log('Received event:', data);
+};
+```
+
+### Get Worker Rewards
+
+```bash
+# Get worker rewards with checkpoint ID
+curl "http://localhost:3000/rewards/0x1234567890abcdef?checkpoint_id=100"
+```
+
+### Real-time TPS Monitoring
+
+```javascript
+// Connect to TPS WebSocket (no configuration needed)
+const tpsWs = new WebSocket('ws://localhost:3000/ws/tps');
+
+// Receive TPS updates every 12 seconds
+tpsWs.onmessage = (event) => {
+  const tpsEvent = JSON.parse(event.data);
+  console.log(`Current TPS: ${tpsEvent.data.tps}`);
+  console.log(`Transactions in last 12s: ${tpsEvent.data.transaction_count}`);
 };
 ```
 
