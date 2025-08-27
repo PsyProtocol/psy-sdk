@@ -220,8 +220,14 @@ const ApprovePopup = () => {
           window.close();
           return;
         }
-        await currentWallet.wallet.execContractCall(currentWallet.publicKeyHex, params.callArgs);
-        chrome.runtime.sendMessage({ action: "approval-result", id: params.id, ok: true });
+
+        try {
+          const res = await currentWallet.wallet.execContractCall(currentWallet.publicKeyHex, params.callArgs);
+          chrome.runtime.sendMessage({ action: "approval-result", id: params.id, ok: true, msg: res });
+        } catch (err) {
+          console.error(err);
+          chrome.runtime.sendMessage({ action: "approval-result", id: params.id, ok: false, msg: err });
+        }
       }
 
       window.close();
@@ -325,7 +331,7 @@ const ApprovePopup = () => {
               <button
                 className="wallet-btn btn-deny"
                 onClick={() => handleDeny(params)}
-                disabled={isSignProcessing} 
+                disabled={isSignProcessing}
               >
                 Reject
               </button>
