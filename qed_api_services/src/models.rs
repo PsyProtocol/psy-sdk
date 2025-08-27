@@ -168,3 +168,17 @@ pub struct WorkerStats {
     pub failed_24h: i64,
     pub last_updated: DateTime<Utc>,
 }
+
+// Worker rewards models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerRewards {
+    pub worker_public_key: String,
+    pub checkpoint_id: i64,
+    pub claimed_rewards: i64,   // in psy (5*10^9 per proof)
+    pub unclaimed_rewards: i64, // in psy (5*10^9 per proof)
+    pub total_rewards: i64,     // claimed + unclaimed
+    pub claimed_proofs: i64,    // number of claimed proofs
+    pub unclaimed_proofs: i64,  // number of unclaimed proofs
+    pub total_proofs: i64,      // total proofs count
+    pub last_updated: DateTime<Utc>,
+}

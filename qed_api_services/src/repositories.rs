@@ -5,7 +5,7 @@ use sqlx::PgPool;
 use crate::models::{
     job_id_to_json, GlobalRealmStats, RealmStats, UserEvent, UserEventAggregation, UserEventTxType,
     UserInfo, WorkerEvent, WorkerEventAggregation, WorkerEventSource, WorkerEventStatus,
-    WorkerStats,
+    WorkerRewards, WorkerStats,
 };
 use crate::Result;
 
@@ -16,6 +16,7 @@ pub struct WorkerEventAggregationRepository;
 pub struct UserEventAggregationRepository;
 pub struct RealmStatsRepository;
 pub struct WorkerStatsRepository;
+pub struct WorkerRewardsRepository;
 
 impl UserRepository {
     /// Create a new user
@@ -696,6 +697,62 @@ impl WorkerStatsRepository {
             total_proofs,
             completed_24h,
             failed_24h,
+            last_updated: now,
+        })
+    }
+}
+
+/// Worker Rewards Repository
+impl WorkerRewardsRepository {
+    /// Get rewards for a specific worker by public key and checkpoint_id
+    pub async fn get_worker_rewards(
+        pool: &PgPool,
+        worker_public_key: &str,
+        checkpoint_id: i64,
+    ) -> Result<WorkerRewards> {
+        let now = Utc::now();
+
+        // Constants
+        const REWARD_PER_PROOF: i64 = 5_000_000_000; // 5*10^9 psy
+        const TOPIC_GENERATE_STANDARD_PROOF: i16 = 0; // QJobTopic::GenerateStandardProof.to_u8() as i16
+
+        // Query for all GenerateStandardProof jobs with COMPLETED status
+        let rewards_row = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(CASE WHEN checkpoint_id < $2 THEN 1 END) as claimed_proofs,
+                COUNT(CASE WHEN checkpoint_id >= $2 THEN 1 END) as unclaimed_proofs,
+                COUNT(*) as total_proofs
+            FROM worker_events
+            WHERE public_key = $1
+                AND topic = $3
+                AND status = 'COMPLETED'
+            "#,
+            worker_public_key,
+            checkpoint_id,
+            TOPIC_GENERATE_STANDARD_PROOF
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let claimed_proofs = rewards_row.claimed_proofs.unwrap_or(0);
+        let unclaimed_proofs = rewards_row.unclaimed_proofs.unwrap_or(0);
+        let total_proofs = rewards_row.total_proofs.unwrap_or(0);
+
+        // Calculate rewards
+        let claimed_rewards = claimed_proofs * REWARD_PER_PROOF;
+        let unclaimed_rewards = unclaimed_proofs * REWARD_PER_PROOF;
+        let total_rewards = claimed_rewards + unclaimed_rewards;
+
+        Ok(WorkerRewards {
+            worker_public_key: worker_public_key.to_string(),
+            checkpoint_id,
+            claimed_rewards,
+            unclaimed_rewards,
+            total_rewards,
+            claimed_proofs,
+            unclaimed_proofs,
+            total_proofs,
             last_updated: now,
         })
     }

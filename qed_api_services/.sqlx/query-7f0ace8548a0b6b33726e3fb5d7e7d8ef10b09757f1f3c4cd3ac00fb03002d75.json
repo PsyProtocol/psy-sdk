@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                COUNT(CASE WHEN checkpoint_id < $2 THEN 1 END) as claimed_proofs,\n                COUNT(CASE WHEN checkpoint_id >= $2 THEN 1 END) as unclaimed_proofs,\n                COUNT(*) as total_proofs\n            FROM worker_events\n            WHERE public_key = $1 \n                AND topic = $3\n                AND status = 'COMPLETED'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "claimed_proofs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "unclaimed_proofs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "total_proofs",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "7f0ace8548a0b6b33726e3fb5d7e7d8ef10b09757f1f3c4cd3ac00fb03002d75"
+}

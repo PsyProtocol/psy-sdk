@@ -33,6 +33,7 @@ pub fn create_router(api_service: ApiService) -> Router {
             "/stats/workers/{worker_public_key}",
             get(worker_stats_handler),
         )
+        .route("/rewards/{worker_public_key}", get(worker_rewards_handler))
         .with_state(api_service)
 }
 
@@ -459,6 +460,45 @@ async fn worker_stats_handler(
             tracing::error!(
                 "Failed to retrieve worker stats for worker {}: {}",
                 worker_public_key,
+                e
+            );
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkerRewardsQuery {
+    pub checkpoint_id: i64,
+}
+
+async fn worker_rewards_handler(
+    State(service): State<ApiService>,
+    Path(worker_public_key): Path<String>,
+    Query(query): Query<WorkerRewardsQuery>,
+) -> Result<Json<WorkerRewards>, StatusCode> {
+    tracing::info!(
+        "Worker rewards request for worker: {}, checkpoint_id: {}",
+        worker_public_key,
+        query.checkpoint_id
+    );
+
+    match WorkerRewardsRepository::get_worker_rewards(
+        &service.pool,
+        &worker_public_key,
+        query.checkpoint_id,
+    )
+    .await
+    {
+        Ok(rewards) => {
+            tracing::info!("Retrieved worker rewards: {:#?}", rewards);
+            Ok(Json(rewards))
+        }
+        Err(e) => {
+            tracing::error!(
+                "Failed to retrieve worker rewards for worker {} with checkpoint_id {}: {}",
+                worker_public_key,
+                query.checkpoint_id,
                 e
             );
             Err(StatusCode::INTERNAL_SERVER_ERROR)
