@@ -182,3 +182,26 @@ pub struct WorkerRewards {
     pub total_proofs: i64,      // total proofs count
     pub last_updated: DateTime<Utc>,
 }
+
+// TPS models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TpsData {
+    pub tps: f64,
+    pub transaction_count: i64,
+    pub time_window_seconds: i64,
+    pub timestamp: DateTime<Utc>,
+}
+
+impl UserEvent {
+    pub fn get_transaction_count(&self) -> i64 {
+        match self.tx_type {
+            UserEventTxType::RegisterUser | UserEventTxType::DeployContract => 1,
+            UserEventTxType::Guta => {
+                if let Some(_metadata) = &self.metadata {
+                    // For future use, we can add more fields to the metadata
+                }
+                2
+            }
+        }
+    }
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT \n                COUNT(CASE WHEN checkpoint_id < $2 THEN 1 END) as claimed_proofs,\n                COUNT(CASE WHEN checkpoint_id >= $2 THEN 1 END) as unclaimed_proofs,\n                COUNT(*) as total_proofs\n            FROM worker_events\n            WHERE public_key = $1 \n                AND topic = $3\n                AND status = 'COMPLETED'\n            ",
+  "query": "\n            SELECT\n                COUNT(CASE WHEN checkpoint_id < $2 THEN 1 END) as claimed_proofs,\n                COUNT(CASE WHEN checkpoint_id >= $2 THEN 1 END) as unclaimed_proofs,\n                COUNT(*) as total_proofs\n            FROM worker_events\n            WHERE public_key = $1\n                AND topic = $3\n                AND status = 'COMPLETED'\n            ",
   "describe": {
     "columns": [
       {
@@ -32,5 +32,5 @@
       null
     ]
   },
-  "hash": "7f0ace8548a0b6b33726e3fb5d7e7d8ef10b09757f1f3c4cd3ac00fb03002d75"
+  "hash": "05df1d55462713c95ea87310b82165b254f866767e8538248154dc4bd8ed2aba"
 }

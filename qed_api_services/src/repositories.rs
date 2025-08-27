@@ -3,9 +3,9 @@ use qed_core::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
 use sqlx::PgPool;
 
 use crate::models::{
-    job_id_to_json, GlobalRealmStats, RealmStats, UserEvent, UserEventAggregation, UserEventTxType,
-    UserInfo, WorkerEvent, WorkerEventAggregation, WorkerEventSource, WorkerEventStatus,
-    WorkerRewards, WorkerStats,
+    job_id_to_json, GlobalRealmStats, RealmStats, TpsData, UserEvent, UserEventAggregation,
+    UserEventTxType, UserInfo, WorkerEvent, WorkerEventAggregation, WorkerEventSource,
+    WorkerEventStatus, WorkerRewards, WorkerStats,
 };
 use crate::Result;
 
@@ -17,6 +17,7 @@ pub struct UserEventAggregationRepository;
 pub struct RealmStatsRepository;
 pub struct WorkerStatsRepository;
 pub struct WorkerRewardsRepository;
+pub struct TpsRepository;
 
 impl UserRepository {
     /// Create a new user
@@ -754,6 +755,50 @@ impl WorkerRewardsRepository {
             unclaimed_proofs,
             total_proofs,
             last_updated: now,
+        })
+    }
+}
+
+/// TPS Repository
+impl TpsRepository {
+    /// Calculate current TPS based on the last 12 seconds of user events
+    pub async fn calculate_current_tps(pool: &PgPool) -> Result<TpsData> {
+        let now = Utc::now();
+        let twelve_seconds_ago = now - chrono::Duration::seconds(12);
+        const TIME_WINDOW_SECONDS: i64 = 12;
+
+        // Query all user_events from the last 12 seconds with their metadata
+        let events = sqlx::query_as!(
+            UserEvent,
+            r#"
+            SELECT
+                user_id, public_key, tx_type as "tx_type: UserEventTxType",
+                metadata, timestamp, created_at, updated_at
+            FROM user_events
+            WHERE timestamp >= $1 AND timestamp <= $2
+            ORDER BY timestamp DESC
+            "#,
+            twelve_seconds_ago,
+            now
+        )
+        .fetch_all(pool)
+        .await?;
+
+        // Calculate total transaction count by examining each event individually
+        let mut total_transaction_count = 0i64;
+
+        for event in &events {
+            total_transaction_count += event.get_transaction_count();
+        }
+
+        // Calculate TPS
+        let tps = total_transaction_count as f64 / TIME_WINDOW_SECONDS as f64;
+
+        Ok(TpsData {
+            tps,
+            transaction_count: total_transaction_count,
+            time_window_seconds: TIME_WINDOW_SECONDS,
+            timestamp: now,
         })
     }
 }
