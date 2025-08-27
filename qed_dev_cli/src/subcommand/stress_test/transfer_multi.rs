@@ -483,10 +483,11 @@ fn execute_transfer_multi_transaction_sync(
         let claim_contract_call_args = vec![ContractCallArgs {
             contract_id: 0,
             method_name: "simple_claim".to_string(),
-            inputs: vec![mint_amount],
+            inputs: vec![user_id_from],
         }];
         info!("Start to execute claim contract call for user {}", user);
         let start = Instant::now();
+        // try to claim
         wallet_session
             .exec_contract_call(user.clone(), claim_contract_call_args)
             .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err))?;

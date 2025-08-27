@@ -143,6 +143,17 @@ impl Multicast {
             });
             {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
         }
+
+        let count = 100;
+        for i in 1..count {
+            let to_user_id = user_info[2].user_id;
+            contract_call_args.push(ContractCallArgs {
+                contract_id: 0,
+                method_name: "simple_transfer".to_string(),
+                inputs: vec![to_user_id, 1],
+            });
+        }
+
         let start = Instant::now();
         self.exec_contract_call(user_info[0].pub_key, contract_call_args)?;
         let duration = start.elapsed().as_millis() as u64;
@@ -156,7 +167,7 @@ impl Multicast {
             let claim_contract_call_args = vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
-                inputs: vec![transfer_amount],
+                inputs: vec![from_user_id],
             }];
             info!(
                 "Start to execute claim contract call for user {}",
