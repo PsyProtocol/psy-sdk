@@ -712,7 +712,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *inputs = self.rewrite_expr(*inputs, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
-                    CheckedIntrinsicExprNode::CheckSecpSign {
+                    CheckedIntrinsicExprNode::Secp256k1Verify {
                         pub_key,
                         msg,
                         sig,

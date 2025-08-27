@@ -708,7 +708,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ))
             }
-            IntrinsicExprNode::CheckSecpSign {
+            IntrinsicExprNode::Secp256k1Verify {
                 pub_key,
                 msg,
                 sig,
@@ -720,7 +720,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 let sig = self.visit_expr(sig, ctx)?;
 
                 Ok(CheckedExprNode::Intrinsic(
-                    CheckedIntrinsicExprNode::CheckSecpSign {
+                    CheckedIntrinsicExprNode::Secp256k1Verify {
                         pub_key: self.program.exprs.alloc_item(pub_key),
                         msg: self.program.exprs.alloc_item(msg),
                         sig: self.program.exprs.alloc_item(sig),

@@ -345,8 +345,11 @@ async fn test_prove_simple() -> anyhow::Result<()> {
 
 
     let lps = prepare_environment_with_real_contract(
-        QBCRegisterUser::new(fingerprint, pub_param),
-        deploy_cmd,
+        vec![QBCRegisterUser::new(fingerprint, pub_param)],
+        vec![deploy_cmd],
+        None,
+        None,
+        Some(UPS_SESSION_PROOF_TREE_HEIGHT as usize),
     ).await?;
     let mut circuit_info = SessionCircuitInfoStore::new();
 

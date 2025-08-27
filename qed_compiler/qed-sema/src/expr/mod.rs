@@ -113,7 +113,7 @@ impl<F> CheckedExprNode<F> {
                 CheckedIntrinsicExprNode::StorageWriteRange { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::InvokeSync { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::InvokeDeferred { type_id, .. } => type_id.clone(),
-                CheckedIntrinsicExprNode::CheckSecpSign { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::Secp256k1Verify { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetCheckpointStats { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetRegisterUsersRoot { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetGutasRoot { type_id, .. } => type_id.clone(),
@@ -193,7 +193,7 @@ impl<F> CheckedExprNode<F> {
                     type_id,
                     location,
                 } => location.clone(),
-                CheckedIntrinsicExprNode::CheckSecpSign {
+                CheckedIntrinsicExprNode::Secp256k1Verify {
                     pub_key,
                     msg,
                     sig,

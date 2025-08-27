@@ -1222,7 +1222,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         );
                         return Ok(CheckedValueRef::new_rc(CheckedValue::Type(type_id.clone())));
                     }
-                    CheckedIntrinsicExprNode::CheckSecpSign {
+                    CheckedIntrinsicExprNode::Secp256k1Verify {
                         pub_key,
                         msg,
                         sig,
@@ -1928,7 +1928,7 @@ mod tests {
         };
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     #[serial]
     async fn test_interpreter() {
         qed_utils::setup_env_logger();
@@ -1976,8 +1976,11 @@ mod tests {
                     tokio::runtime::Handle::current()
                         .block_on(async {
                             prepare_environment_with_real_contract(
-                                QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
-                                deploy_cmd,
+                                vec![QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param)],
+                                vec![deploy_cmd],
+                                None,
+                                None,
+                                None,
                             ).await
                         })
                 })

@@ -987,7 +987,7 @@ IntrinsicExpression: ExprNode<F> = {
     },
     <l:@L> <variable:CHECK_SECP_SIGN> "(" <pub_key: Expression> "," <msg: Expression>  "," <sig: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
-            IntrinsicExprNode::CheckSecpSign {
+            IntrinsicExprNode::Secp256k1Verify {
                 pub_key: expr_nodes.alloc_item(pub_key),
                 msg: expr_nodes.alloc_item(msg),
                 sig: expr_nodes.alloc_item(sig),
@@ -1257,7 +1257,7 @@ extern {
         INVOKE_SYNC => Token::IntrinsicInvokeSync,
         INVOKE_DEFERRED => Token::IntrinsicInvokeDeferred,
 
-        CHECK_SECP_SIGN => Token::IntrinsicCheckSecpSign,
+        CHECK_SECP_SIGN => Token::IntrinsicSecp256k1Verify,
 
         MOD => Token::KeywordMod,
         USE => Token::KeywordUse,

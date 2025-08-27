@@ -329,10 +329,10 @@ impl ContextEval for SymFeltStore {
                     assert!(res < 0xffffffffu64, "u32 exp result is too large");
                     res
                 }
-                DPNOpType::CheckSecpSign => {
+                DPNOpType::Secp256k1Verify => {
                     use k256::ecdsa::signature::hazmat::PrehashVerifier;
                     let inputs = self.resolve_array_args(felt_ref, input, cache);
-                    assert!(inputs.len() == 36, "CheckSecpSign input length must be 36");
+                    assert!(inputs.len() == 36, "Secp256k1Verify input length must be 36");
                     let pk_u32 = inputs[0..16]
                         .to_vec()
                         .iter()

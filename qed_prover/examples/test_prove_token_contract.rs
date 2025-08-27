@@ -31,7 +31,7 @@ use qed_prover::dpn::{
 use qed_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
-use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
+use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, prepare_environment_with_real_contract};
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -164,38 +164,6 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
-async fn prepare_environment_with_real_contract(
-    new_user_public_key: QBCRegisterUser<GoldilocksField>,
-    deploy_contract: QBCDeployContract<GoldilocksField>,
-) -> anyhow::Result<
-    QEDLocalProvingSessionStore<
-        GoldilocksField,
-        KVQSimpleMemoryBackingStore,
-    >,
-> {
-    let st = KVQSimpleMemoryBackingStore::new();
-    st.initialize_store(None).await?;
-    let st = SimpleBlockProcessor::prepare_environment_with_real_contract(
-        new_user_public_key,
-        deploy_contract,
-        st
-    )?;
-
-    let latest_l2_block_state = st.get_latest_l2_block_state()?;
-
-    let lps: QEDLocalProvingSessionStore<
-        GoldilocksField,
-        KVQSimpleMemoryBackingStore,
-    > = QEDLocalProvingSessionStore::new_at(
-        st,
-        GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
-        GoldilocksField::from_noncanonical_u64(5),
-        GoldilocksField::ONE,
-        UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-    );
-
-    Ok(lps)
-}
 
 fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
     contract_id: GoldilocksField,
@@ -311,8 +279,11 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("finished building wallet/zksig circuits");
 
     let mut lps = prepare_environment_with_real_contract(
-        QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
-        deploy_cmd,
+        vec![QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param)],
+        vec![deploy_cmd],
+        None,
+        None,
+        Some(UPS_SESSION_PROOF_TREE_HEIGHT as usize),
     ).await?;
     timer.lap("prepared environement");
 

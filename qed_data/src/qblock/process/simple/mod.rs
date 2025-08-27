@@ -244,8 +244,8 @@ impl SimpleBlockProcessor {
     }
 
     pub async fn prepare_environment_with_real_contract<S: KVQBinaryStore>(
-        new_user_public_key: QBCRegisterUser<QEDFelt>,
-        deploy_contract: QBCDeployContract<QEDFelt>,
+        new_user_public_keys: Vec<QBCRegisterUser<QEDFelt>>,
+        deploy_contracts: Vec<QBCDeployContract<QEDFelt>>,
         store: S,
     ) -> anyhow::Result<S> {
         let whitelist_items_fake = vec![
@@ -257,38 +257,43 @@ impl SimpleBlockProcessor {
 
         // Initialize store with genesis state if not already initialized
         let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
+        
+        let mut all_users = vec![
+            QBCRegisterUser::new_from_u64s([1; 4], [1; 4]),
+            QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374]),
+            QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378]),
+            QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+            QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+        ];
+        all_users.extend(new_user_public_keys);
+
+        let mut all_contracts = vec![
+            QBCDeployContract {
+                deployer: QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374])
+                    .get_public_key::<QEDHasher>(),
+                code_definition: ContractCodeDefinition {
+                    state_tree_height: 12 as u16,
+                    functions: vec![ContractFunctionCodeDefinition::default()],
+                },
+                function_whitelist: whitelist_items_fake.clone(),
+            },
+            QBCDeployContract {
+                deployer: QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378])
+                    .get_public_key::<QEDHasher>(),
+                code_definition: ContractCodeDefinition {
+                    state_tree_height: 13 as u16,
+                    functions: vec![ContractFunctionCodeDefinition::default()],
+                },
+                function_whitelist: whitelist_items_fake.clone(),
+            },
+        ];
+        all_contracts.extend(deploy_contracts);
+
         Self::process_block(
             &store,
             &QEDBlockCommands {
-                register_users: vec![
-                    QBCRegisterUser::new_from_u64s([1; 4], [1; 4]),
-                    QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374]),
-                    QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378]),
-                    QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
-                    QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
-                    new_user_public_key,
-                ],
-                deploy_contracts: vec![
-                    QBCDeployContract {
-                        deployer: QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374])
-                            .get_public_key::<QEDHasher>(),
-                        code_definition: ContractCodeDefinition {
-                            state_tree_height: 12 as u16,
-                            functions: vec![ContractFunctionCodeDefinition::default()],
-                        },
-                        function_whitelist: whitelist_items_fake.clone(),
-                    },
-                    QBCDeployContract {
-                        deployer: QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378])
-                            .get_public_key::<QEDHasher>(),
-                        code_definition: ContractCodeDefinition {
-                            state_tree_height: 13 as u16,
-                            functions: vec![ContractFunctionCodeDefinition::default()],
-                        },
-                        function_whitelist: whitelist_items_fake.clone(),
-                    },
-                    deploy_contract,
-                ],
+                register_users: all_users,
+                deploy_contracts: all_contracts,
                 update_users: vec![],
             },
             &dummy_fingerprints,

@@ -18,30 +18,33 @@ use qed_data::qdata::checkpoint::QEDL2BlockState;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
 pub async fn prepare_environment_with_real_contract(
-    new_user_public_key: QBCRegisterUser<QEDFelt>,
-    deploy_contract: QBCDeployContract<QEDFelt>,
+    register_users: Vec<QBCRegisterUser<QEDFelt>>,
+    deploy_contracts: Vec<QBCDeployContract<QEDFelt>>,
+    user_id: Option<u64>,
+    nonce: Option<QEDFelt>,
+    session_proof_tree_height: Option<usize>,
 ) -> Result<QEDLocalProvingSessionStore<QEDFelt, KVQSimpleMemoryBackingStore>> {
     use crate::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 
     let store = KVQSimpleMemoryBackingStore::new();
-
     store.initialize_store(None).await?;
 
-    let store = SimpleBlockProcessor::prepare_environment_with_real_contract(
-        new_user_public_key,
-        deploy_contract,
+    let final_store = SimpleBlockProcessor::prepare_environment_with_real_contract(
+        register_users,
+        deploy_contracts,
         store,
     )?;
 
-    let latest_l2_block_state = store.get_latest_l2_block_state()?;
-    let user_id = QEDFelt::from_canonical_u64(5);
-    let nonce = QEDFelt::ZERO;
+    let latest_l2_block_state = final_store.get_latest_l2_block_state()?;
+    let final_user_id = QEDFelt::from_canonical_u64(user_id.unwrap_or(5));
+    let final_nonce = nonce.unwrap_or(QEDFelt::ZERO);
+    let final_height = session_proof_tree_height.unwrap_or(GLOBAL_USER_TREE_HEIGHT as usize);
 
     Ok(QEDLocalProvingSessionStore::new_at(
-        store,
+        final_store,
         QEDFelt::from_canonical_u64(latest_l2_block_state.checkpoint_id),
-        user_id,
-        nonce,
-        GLOBAL_USER_TREE_HEIGHT as usize,
+        final_user_id,
+        final_nonce,
+        final_height,
     ))
 }

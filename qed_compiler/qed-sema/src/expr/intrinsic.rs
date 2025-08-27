@@ -169,7 +169,7 @@ pub enum CheckedIntrinsicExprNode {
         type_id: TypeId,
         location: Location,
     },
-    CheckSecpSign {
+    Secp256k1Verify {
         pub_key: ExprId,
         msg: ExprId,
         sig: ExprId,

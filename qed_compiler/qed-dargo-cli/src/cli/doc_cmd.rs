@@ -326,8 +326,11 @@ pub(crate) async fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate
     )?;
 
     let mut lps = prepare_environment_with_real_contract(
-        QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
-        deploy_cmd,
+        vec![QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param)],
+        vec![deploy_cmd],
+        None,
+        None,
+        None,
     ).await?;
 
     for (def, circuit) in compilation_result

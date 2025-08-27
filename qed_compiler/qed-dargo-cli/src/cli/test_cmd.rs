@@ -53,8 +53,11 @@ pub(crate) async fn run(args: TestCommand) -> crate::errors::Result<()> {
     )?;
 
     let mut lps = prepare_environment_with_real_contract(
-        QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
-        deploy_cmd,
+        vec![QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param)],
+        vec![deploy_cmd],
+        None,
+        None,
+        None,
     ).await?;
     let contract_id = GoldilocksField::from_canonical_u64(2);
 

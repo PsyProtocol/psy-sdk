@@ -823,7 +823,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
             .collect();
 
         let value = SymFeltRefValue {
-            op_type: DPNOpType::CheckSecpSign,
+            op_type: DPNOpType::Secp256k1Verify,
             const_param: 0,
             inputs,
         };
