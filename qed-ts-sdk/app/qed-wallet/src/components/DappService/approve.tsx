@@ -8,7 +8,8 @@ import { StoredWalletData, WALLET_STORAGE_KEY } from "../../hooks/usePersistentW
 interface msgParams {
   id: string,
   action: string;
-  callArgs?: ContractCallArgs;
+  walletAddress?: string;
+  callArgs: ContractCallArgs[];
 }
 
 const parsemsgParams = (): msgParams | null => {
@@ -165,11 +166,6 @@ const ApprovePopup = () => {
                 }
               }
 
-              // set current wallet
-              if (data.activeWalletId) {
-                await setActiveWalletAsync(data.activeWalletId);
-              }
-
               console.log('Wallet restoration completed');
             } else {
               console.log('Wallets already exist, skipping restoration');
@@ -193,40 +189,53 @@ const ApprovePopup = () => {
     return () => clearTimeout(timer);
   }, [addWalletFromPrivateKey]);
 
-  const showWallet = currentWallet ? currentWallet : wallets[0];
-  console.log("showWallet", showWallet);
 
   if (isLoading) return <div style={{ padding: 20 }}>Loading...</div>;
   if (!params) return <div style={{ padding: 20, color: 'red' }}>Parameter parsing failed, please try again</div>;
 
-  const handleAllow = async (params: msgParams, currentWallet?: IQedWidgetWallet) => {
-    if (params.action === "sign") {
+  const handleAllow = async (params: msgParams, wallets: IQedWidgetWallet[]) => {
+    if (params.action === "psy_sign") {
       setIsSignProcessing(true);
     }
 
     try {
-      if (!currentWallet) {
-        chrome.runtime.sendMessage({ action: "approval-result", id: params.id, ok: false, msg: "currentWallet is empty" });
-        console.log("currentWallet is empty");
+      if (wallets.length === 0) {
+        chrome.runtime.sendMessage({ action: "approval-result", isPsy: true, id: params.id, result: null, error: "wallet is empty" });
+        console.log("wallet is empty");
         window.close();
         return;
       }
-      if (params.action === "requestAccount") {
-        chrome.runtime.sendMessage({ action: "approval-result", id: params.id, ok: true, walletAddress: currentWallet.publicKeyHex });
-      } else if (params.action === "sign") {
+      if (params.action === "psy_requestAccounts") {
+        const accounts = wallets.map(wallet => wallet.publicKeyHex);
+        chrome.runtime.sendMessage({ action: "approval-result", isPsy: true, id: params.id, error: null, result: accounts });
+      } else if (params.action === "psy_sign") {
         if (!params.callArgs) {
-          chrome.runtime.sendMessage({ action: "approval-result", id: params.id, ok: false });
+          chrome.runtime.sendMessage({ action: "approval-result", isPsy: true, id: params.id, result: null, error: "callArgs is empty" });
           console.log("callArgs is empty");
+          window.close();
+          return;
+        }
+        if (!params.walletAddress) {
+          chrome.runtime.sendMessage({ action: "approval-result", isPsy: true, id: params.id, result: null, error: "walletAddress is empty" });
+          console.log("walletAddress is empty");
+          window.close();
+          return;
+        }
+
+        let signWallet = wallets.find(wallet => wallet.publicKeyHex === params.walletAddress);
+        if (!signWallet) {
+          chrome.runtime.sendMessage({ action: "approval-result", isPsy: true, id: params.id, result: null, error: "walletAddress is not exist" });
+          console.log("walletAddress is not exist");
           window.close();
           return;
         }
 
         try {
-          const res = await currentWallet.wallet.execContractCall(currentWallet.publicKeyHex, params.callArgs);
-          chrome.runtime.sendMessage({ action: "approval-result", id: params.id, ok: true, msg: res });
-        } catch (err) {
-          console.error(err);
-          chrome.runtime.sendMessage({ action: "approval-result", id: params.id, ok: false, msg: err });
+          await signWallet.wallet.execContractCall(params.walletAddress, params.callArgs);
+          chrome.runtime.sendMessage({ action: "approval-result", isPsy: true, id: params.id, error: null, result: true });
+        } catch (error) {
+          console.error(error);
+          chrome.runtime.sendMessage({ action: "approval-result", isPsy: true, id: params.id, result: null, error: error });
         }
       }
 
@@ -234,15 +243,17 @@ const ApprovePopup = () => {
     } catch (error) {
       setIsSignProcessing(false);
       console.error('Handle allow failed:', error);
+      chrome.runtime.sendMessage({ action: "approval-result", isPsy: true, id: params.id, result: null, error: error });
     }
-  };
-
-  const handleDeny = (params: msgParams) => {
-    chrome.runtime.sendMessage({ action: "approval-result", id: params.id, ok: false });
     window.close();
   };
 
-  if (params.action === "requestAccount") {
+  const handleDeny = (params: msgParams) => {
+    chrome.runtime.sendMessage({ action: "approval-result", isPsy: true, id: params.id, result: null, error: "User rejected" });
+    window.close();
+  };
+
+  if (params.action === "psy_requestAccounts") {
     return (
       <div className="wallet-container">
         <div className="wallet-modal">
@@ -260,12 +271,12 @@ const ApprovePopup = () => {
           </div>
           <div className="wallet-content">
             <p className="wallet-message">
-              Allow this application to connect to your wallet? This will let the app view your account address.
+              Allow this application to connect to your wallet? This will let the app view your wallet address.
             </p>
             <div className="wallet-actions">
               <button
                 className="wallet-btn btn-allow"
-                onClick={() => handleAllow(params, showWallet)}
+                onClick={() => handleAllow(params, wallets)}
               >
                 Connect
               </button>
@@ -280,7 +291,7 @@ const ApprovePopup = () => {
         </div>
       </div>
     );
-  } else if (params.action === "sign") {
+  } else if (params.action === "psy_sign") {
     return (
       <div className="wallet-container">
         <div className="wallet-modal">
@@ -297,26 +308,26 @@ const ApprovePopup = () => {
           </div>
           <div className="wallet-content">
             <p className="wallet-message">
-              Please confirm to sign this transaction with your wallet.
+              Please confirm to psy sign this transaction with your wallet.
             </p>
             <div className="transaction-details">
               <div className="detail-item">
                 <span className="detail-label">Contract ID</span>
-                <span className="detail-value">{params.callArgs?.contract_id.toString() || "0"}</span>
+                <span className="detail-value">{params.callArgs[0].contract_id.toString() || "0"}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Method</span>
-                <span className="detail-value">{params.callArgs?.method_name || "0"}</span>
+                <span className="detail-value">{params.callArgs[0].method_name || "mint"}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Inputs</span>
-                <span className="detail-value">{params.callArgs?.inputs?.join(', ') || 'None'}</span>
+                <span className="detail-value">{params.callArgs[0].inputs.join(', ') || '0'}</span>
               </div>
             </div>
             <div className="wallet-actions">
               <button
                 className={`wallet-btn btn-allow ${isSignProcessing ? 'processing' : ''}`}
-                onClick={() => handleAllow(params, showWallet)}
+                onClick={() => handleAllow(params, wallets)}
                 disabled={isSignProcessing}
               >
                 {isSignProcessing ? (

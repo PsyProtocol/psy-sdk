@@ -5,10 +5,12 @@ class MessageChannel {
 
   send(type, data) {
     window.postMessage({
+      isPsy: true,
       source: this.name,
       type: type,
       data: data
     }, '*');
+    console.log(`[ContentScript] forward the message (id: ${data.id || 'none'}):`, data);
   }
 }
 
@@ -27,23 +29,6 @@ function sendMsg(message, sendResponse, errorCallback) {
   );
 }
 
-export const generateRequestId = () => {
-  const randomHex = (length) => {
-    return Array.from({ length }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('');
-  };
-
-  // UUID v498-4-4-4-12)
-  return [
-    randomHex(8),
-    randomHex(4),
-    '4' + randomHex(3),
-    Math.floor(Math.random() * 4 + 8).toString(16) + randomHex(3),
-    randomHex(12)
-  ].join('-');
-};
-
 
 const CONTENT_SCRIPT = "psy-contentscript";
 const contentScript = {
@@ -56,11 +41,11 @@ const contentScript = {
     this.channel = new MessageChannel(CONTENT_SCRIPT);
 
     if (typeof this.channel.send !== 'function') {
-      console.error('channel.send method does not exist');
+      console.error('channel.send action does not exist');
       return;
     }
 
-    console.log('The message channel has been initialized successfully, and the send method is available.');
+    console.log('The message channel has been initialized successfully, and the send action is available.');
 
     this.registerListeners();
     this.inject();
@@ -68,10 +53,15 @@ const contentScript = {
   },
 
   reportUrl() {
-    const connection = chrome.runtime.connect({ name: CONTENT_SCRIPT });
-    connection.onDisconnect.addListener(() => {
-      console.log('The connection to the backend has been disconnected.');
-    });
+    try {
+      const connection = chrome.runtime.connect({ name: CONTENT_SCRIPT });
+      connection.postMessage({ type: 'reportUrl', url: window.location.href });
+      connection.onDisconnect.addListener(() => {
+        console.log('[ContentScript] Background connection disconnected');
+      });
+    } catch (err) {
+      console.error('[ContentScript] Report URL failed:', err);
+    }
   },
 
   registerListeners() {
@@ -80,60 +70,91 @@ const contentScript = {
     window.addEventListener("message", (event) => {
       const { data: eventData, isTrusted } = event;
 
-      const { isPsy = false, message, source } = eventData;
+      const { id, isPsy, action, callArgs, source, walletAddress } = eventData;
 
       if (!isTrusted) {
         console.warn('Ignore untrusted messages');
         return;
       }
-      if (!isPsy || (!message && !source)) {
+      if (!isPsy || (id === undefined && !action)) {
         console.warn('Ignore messages that do not conform to the format');
         return;
       }
-      if (source === CONTENT_SCRIPT) {
+      if (source && source === CONTENT_SCRIPT) {
         console.log('Ignore the messages sent by oneself');
         return;
       }
 
-      const { data } = message;
-      if (!data || !data.action) {
+      console.log('Content script received message from wallet:', eventData);
+      if (!action) {
         console.warn('The message lacks the necessary action field');
+        self.channel.send('messageFromWallet', {
+          id: id,
+          error: 'Missing action in message',
+          data: null
+        });
         return;
       }
 
-      console.log("content script process messages:", message);
+      if (action === 'psy_sign' && !walletAddress) {
+        console.error('The message lacks the necessary walletAddress field');
+        self.channel.send('messageFromWallet', {
+          id: id,
+          error: 'Missing walletAddress in sign action',
+          data: null
+        });
+        return;
+      }
+
+      console.log("content script process messages: ", { action, walletAddress, callArgs });
 
       sendMsg(
         {
-          id: generateRequestId(),
-          action: data.action,
+          isPsy,
+          id,
+          action,
+          walletAddress,
           messageSource: "messageFromDapp",
-          callArgs: data.callArgs,
+          callArgs,
         },
         (params) => {
           console.log('Preparing to send a response message:', params);
-          self.channel.send("messageFromWallet", params);
+          self.channel.send('messageFromWallet', {
+            id: id,
+            result: params.result || null,
+            error: params.error || null
+          });
+        },
+        (err) => {
+          self.channel.send('messageFromWallet', {
+            id: id,
+            result: null,
+            error: `Send to background failed: ${err.message}`
+          });
         }
       );
     });
 
-    chrome.runtime.onMessage.addListener(
-      (message, sender, sendResponse) => {
-        console.log("Received a background message:", message);
-        try {
-          if (message.id) {
-            this.channel.send("messageFromWallet", message);
-          } else {
-            this.channel.send(message.action, message.result);
-          }
-          sendResponse("content-back");
-        } catch (error) {
-          console.error("Failed to send background message response:", error);
-          sendResponse("error: " + error.message);
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('[ContentScript] Receive background message:', message);
+      try {
+        if (message.id) {
+          self.channel.send('messageFromWallet', {
+            id: message.id,
+            data: message.result || null,
+            error: message.error || null
+          });
+        } else if (message.action === 'accountsChanged') {
+          self.channel.send('accountsChanged', {
+            data: { accounts: message.data.accounts }
+          });
         }
-        return true;
+        sendResponse({ status: 'success' });
+      } catch (err) {
+        sendResponse({ status: 'error', message: err.message });
       }
-    );
+      return true;
+    });
   },
 
   inject() {

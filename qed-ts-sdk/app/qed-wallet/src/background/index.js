@@ -2,16 +2,23 @@ const pendingResponses = {}; // requestId -> sendResponse
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   console.log("background script recived message:", msg);
-  if (msg.action === "requestAccount" || msg.action === "sign") {
-    const id = msg.id;
-    console.log("msg.id: ", id);
+  if (!msg.isPsy) return;
+  if (['psy_requestAccounts', 'psy_accounts', 'psy_sign'].includes(msg.action)) {
+    const { id, walletAddress, action, callArgs, dappUrl } = msg;
+    if (!id) {
+      sendResponse({ error: 'Missing request id' });
+      return;
+    }
     // Save sendResponse for later invocation
     pendingResponses[id] = sendResponse;
 
     let msgParams = {
-      id: msg.id,
-      action: msg.action,
-      callArgs: msg.callArgs,
+      id: id,
+      action: action,
+      walletAddress: walletAddress,
+      callArgs: callArgs,
+      dappUrl: dappUrl,
+      timeStamp: Date.now()
     }
 
     let jsonParams = JSON.stringify(msgParams);
@@ -25,23 +32,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       url: chrome.runtime.getURL(`src/components/DappService/index.html#params=${base64Params}`),
       type: "popup",
       width: 360,
-      height: 600
+      height: 600,
+      focused: true
     });
 
     return true;
   }
 
   if (msg.action === "approval-result") {
-    const { id, ok } = msg;
-    console.log("recive approval-result:", msg);
-    const sendResponse = pendingResponses[id];
-    if (sendResponse) {
-      sendResponse({
-        id,
-        result: ok ? msg.walletAddress : null,
-        error: ok ? null : "User rejected"
-      });
+    const { id, result, error } = msg;
+    const callback = pendingResponses[id];
+
+    if (callback) {
+      if (!error) {
+        console.log("background script approval-result:", msg);
+        callback({ id: id, result: result, error: null });
+      } else {
+        callback({ id: id, result: null, error: error || 'User rejected' });
+      }
       delete pendingResponses[id];
     }
+
+    sendResponse({ status: 'result received' });
+    return;
   }
 });
