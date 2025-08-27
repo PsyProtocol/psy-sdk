@@ -272,6 +272,7 @@ async fn worker_events_aggregations_handler(
         "1h" => "worker_events_1h",
         "1d" => "worker_events_1d",
         "1w" => "worker_events_1w",
+        "1m" => "worker_events_1m",
         _ => return Err(StatusCode::BAD_REQUEST),
     };
 
@@ -304,6 +305,7 @@ async fn user_events_aggregations_handler(
         "1h" => "user_events_1h",
         "1d" => "user_events_1d",
         "1w" => "user_events_1w",
+        "1m" => "user_events_1m",
         _ => return Err(StatusCode::BAD_REQUEST),
     };
 
