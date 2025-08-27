@@ -32,6 +32,11 @@ fn main() {
         .as_str()
         .expect("native_currency must be a string")
         .to_string();
+        
+    let native_currency_name = network["native_currency_name"]
+        .as_str()
+        .expect("native_currency_name must be a string")
+        .to_string();
     
     let fees = &network["fees"];
     let register_user_fee = fees["register_user_fee"]
@@ -59,6 +64,7 @@ pub const REALM_USER_TREE_HEIGHT: u8 = {};
 // Native currency configuration
 pub const NATIVE_CURRENCY_DECIMAL: u8 = {};
 pub const NATIVE_CURRENCY: &str = "{}";
+pub const NATIVE_CURRENCY_NAME: &str = "{}";
 
 // Fee configuration
 pub const REGISTER_USER_FEE: u64 = {};
@@ -70,6 +76,7 @@ pub const GUTA_FEE: u64 = {};
         realm_user_tree_height,
         native_currency_decimal,
         native_currency,
+        native_currency_name,
         register_user_fee,
         deploy_contract_fee,
         guta_fee

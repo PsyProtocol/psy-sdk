@@ -134,6 +134,7 @@ mod tests {
         // Verify constants are generated correctly from config.json
         assert_eq!(NATIVE_CURRENCY_DECIMAL, 9);
         assert_eq!(NATIVE_CURRENCY, "0");
+        assert_eq!(NATIVE_CURRENCY_NAME, "PSY");
         assert_eq!(REGISTER_USER_FEE, 0);
         assert_eq!(DEPLOY_CONTRACT_FEE, 0);
         assert_eq!(GUTA_FEE, 5000000000);
