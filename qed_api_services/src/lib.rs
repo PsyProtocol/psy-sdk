@@ -3,8 +3,6 @@ pub mod handlers;
 pub mod models;
 pub mod repositories;
 pub mod services;
-pub mod telemetry;
-pub mod websocket;
 
 pub use config::Config;
 

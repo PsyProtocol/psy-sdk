@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::websocket::WebSocketManager;
+use crate::handlers::websocket::WebSocketManager;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;

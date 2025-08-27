@@ -2,10 +2,10 @@ use axum::{extract::State, http::StatusCode, response::Json, routing::post, Rout
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    handlers::websocket::{EventType, WebSocketEvent},
     models::*,
     repositories::*,
     services::ApiService,
-    websocket::{EventType, WebSocketEvent},
 };
 
 pub fn create_telemetry_router(api_service: ApiService) -> Router {

@@ -103,7 +103,7 @@ impl WebSocketClient {
                 "timestamp": now.to_rfc3339(),
                 "created_at": now.to_rfc3339(),
                 "updated_at": now.to_rfc3339()
-            })
+            }),
         ];
 
         // Create sample user events
@@ -133,7 +133,7 @@ impl WebSocketClient {
                 "timestamp": (now + chrono::Duration::seconds(1)).to_rfc3339(),
                 "created_at": (now + chrono::Duration::seconds(1)).to_rfc3339(),
                 "updated_at": (now + chrono::Duration::seconds(1)).to_rfc3339()
-            })
+            }),
         ];
 
         // Send telemetry payload
@@ -152,7 +152,11 @@ impl WebSocketClient {
         if response.status().is_success() {
             println!("✅ Batch {} events sent successfully", batch_id);
         } else {
-            println!("❌ Failed to send batch {} events: {}", batch_id, response.status());
+            println!(
+                "❌ Failed to send batch {} events: {}",
+                batch_id,
+                response.status()
+            );
         }
 
         Ok(())
@@ -176,18 +180,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Set up subscription filters
     let filters = SubscriptionFilters {
-        user_ids: Some(["test_user_1", "test_user_2", "test_user_3"].iter().map(|s| s.to_string()).collect()),
+        user_ids: Some(
+            ["test_user_1", "test_user_2", "test_user_3"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+        ),
         realm_ids: Some(["16384", "0"].iter().map(|s| s.to_string()).collect()),
-        event_types: Some(["WorkerEvent", "UserEvent"].iter().map(|s| s.to_string()).collect()),
+        event_types: Some(
+            ["WorkerEvent", "UserEvent"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+        ),
     };
 
-    let filter_update = UpdateConfigurationMessage { filters: filters.clone() };
+    let filter_update = UpdateConfigurationMessage {
+        filters: filters.clone(),
+    };
     let filter_msg = serde_json::to_string(&filter_update)?;
 
     ws_sender.send(Message::Text(filter_msg)).await?;
-    println!("🔧 Filters set: user_ids={:?}, realm_ids={:?}",
-        filters.user_ids.as_ref().map(|set| set.iter().collect::<Vec<_>>()),
-        filters.realm_ids.as_ref().map(|set| set.iter().collect::<Vec<_>>())
+    println!(
+        "🔧 Filters set: user_ids={:?}, realm_ids={:?}",
+        filters
+            .user_ids
+            .as_ref()
+            .map(|set| set.iter().collect::<Vec<_>>()),
+        filters
+            .realm_ids
+            .as_ref()
+            .map(|set| set.iter().collect::<Vec<_>>())
     );
 
     println!("👂 Starting to listen for WebSocket events...\n");
@@ -226,11 +249,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             match event.event_type {
                                 EventType::WorkerEvent => {
-                                    if let Ok(worker_event) = serde_json::from_value::<serde_json::Value>(event.data.clone()) {
+                                    if let Ok(worker_event) =
+                                        serde_json::from_value::<serde_json::Value>(
+                                            event.data.clone(),
+                                        )
+                                    {
                                         println!("   Worker event details:");
-                                        println!("     - Realm ID: {}", worker_event.get("realm_id").unwrap_or(&json!(null)));
-                                        println!("     - Status: {}", worker_event.get("status").unwrap_or(&json!("unknown")));
-                                        println!("     - Source: {}", worker_event.get("source").unwrap_or(&json!("unknown")));
+                                        println!(
+                                            "     - Realm ID: {}",
+                                            worker_event.get("realm_id").unwrap_or(&json!(null))
+                                        );
+                                        println!(
+                                            "     - Status: {}",
+                                            worker_event.get("status").unwrap_or(&json!("unknown"))
+                                        );
+                                        println!(
+                                            "     - Source: {}",
+                                            worker_event.get("source").unwrap_or(&json!("unknown"))
+                                        );
                                         if let Some(duration) = worker_event.get("duration") {
                                             if !duration.is_null() {
                                                 println!("     - Duration: {}ms", duration);
@@ -242,10 +278,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                 }
                                 EventType::UserEvent => {
-                                    if let Ok(user_event) = serde_json::from_value::<serde_json::Value>(event.data.clone()) {
+                                    if let Ok(user_event) =
+                                        serde_json::from_value::<serde_json::Value>(
+                                            event.data.clone(),
+                                        )
+                                    {
                                         println!("   User event details:");
-                                        println!("     - User ID: {}", user_event.get("user_id").unwrap_or(&json!("unknown")));
-                                        println!("     - Transaction Type: {}", user_event.get("tx_type").unwrap_or(&json!("unknown")));
+                                        println!(
+                                            "     - User ID: {}",
+                                            user_event.get("user_id").unwrap_or(&json!("unknown"))
+                                        );
+                                        println!(
+                                            "     - Transaction Type: {}",
+                                            user_event.get("tx_type").unwrap_or(&json!("unknown"))
+                                        );
                                         if let Some(metadata) = user_event.get("metadata") {
                                             println!("     - Metadata: {}", metadata);
                                         }

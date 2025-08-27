@@ -6,7 +6,6 @@ use qed_api_services::{
     config::Config,
     handlers,
     services::{create_database_pool, ApiService},
-    telemetry, websocket,
 };
 
 #[tokio::main]
@@ -33,8 +32,8 @@ async fn main() -> anyhow::Result<()> {
     // Create application router
     let app = Router::new()
         .merge(handlers::create_router(api_service.clone()))
-        .merge(telemetry::create_telemetry_router(api_service.clone()))
-        .merge(websocket::create_websocket_router(api_service))
+        .merge(handlers::create_telemetry_router(api_service.clone()))
+        .merge(handlers::create_websocket_router(api_service))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 
