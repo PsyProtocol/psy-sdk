@@ -12,13 +12,12 @@ use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_dargo::workspace::Workspace;
 use qed_data::qblock::cmds::register_user::QBCRegisterUser;
 use qed_exec::vm::exec::QEDEvalSessionResult;
+use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use qed_sema::{
     CheckedFunctionNode, Implementer, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
 };
-use qed_data::config::store_config::QEDHasher;
-use qed_utils::{
-    gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract, C, D,
-};
+use qed_data::config::store_config::{QEDHasher, C, D};
+use qed_store::controllers::local::prepare_environment_with_real_contract;
 use qedlang_core::dpn::ops::exec_context::QExecContext;
 use qedlang_core::dpn::ops::sym_felt::SymFeltRef;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
@@ -320,7 +319,7 @@ pub(crate) async fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
     let deployer = QHashOut::rand();
-    let (circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+    let (circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
         deployer,
         contract_state_tree_height as u8,
         &compilation_result.circuit_definitions,

@@ -17,6 +17,7 @@ members = [
     "qed_rollup_cli",
     "qed_dev_cli",
     "qed_rollup_utils",
+    "qed_precompiles",
     "qed_compiler/qed-fmt",
     "qed_compiler/qed-cli",
     "qed_compiler/qed-lsp-server",
@@ -30,7 +31,7 @@ members = [
     "qed_compiler/qed-interpreter",
     "qed_compiler/qed-dargo",
     "qed_compiler/qed-dargo-toml",
-    "qed_compiler/qed-dargo-cli",
+    "qed_compiler/qed-dargo-cli", "qed_precompiles",
 ]
 resolver = "2"
 
@@ -240,6 +241,7 @@ qed_common_circuit = { path = "./qed_common_circuit" ,default-features = false}
 kvq = { path = "./kvq" }
 qed_rollup_circuit = { path = "./qed_rollup_circuit" , default-features = false}
 qed_rollup_utils= { path = "./qed_rollup_utils" , default-features = false}
+qed_precompiles = { path = "./qed_precompiles" , default-features = false}
 
 qed-ast = { path = "./qed_compiler/qed-ast" }
 qed-cli = { path = "./qed_compiler/qed-cli" }

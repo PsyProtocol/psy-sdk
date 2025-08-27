@@ -326,6 +326,41 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         [stats[18], stats[19], stats[20], stats[21]]
     }
 
+    fn get_fees_collected(&mut self, checkpoint_id: F) -> F {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[0]
+    }
+
+    fn get_user_ops_processed(&mut self, checkpoint_id: F) -> F {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[1]
+    }
+
+    fn get_total_transactions(&mut self, checkpoint_id: F) -> F {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[2]
+    }
+
+    fn get_slots_modified(&mut self, checkpoint_id: F) -> F {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[3]
+    }
+
+    fn get_register_users_completed(&mut self, checkpoint_id: F) -> F {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[5] // pm_jobs_completed.register_users_completed
+    }
+
+    fn get_gutas_completed(&mut self, checkpoint_id: F) -> F {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[6] // pm_jobs_completed.gutas_completed
+    }
+
+    fn get_deploy_contracts_completed(&mut self, checkpoint_id: F) -> F {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[4] // pm_jobs_completed.deploy_contracts_completed
+    }
+
     fn cset<V: ToFelts<F>>(&mut self, _old_value: V, new_value: V) -> V {
         new_value
     }
@@ -344,6 +379,10 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     }
 
     fn op_set_state_obj<T: ToFelts<F>>(&mut self, _index: F, _value: T) -> T {
+        todo!()
+    }
+
+    fn clear_entire_tree(&mut self) -> Vec<F> {
         todo!()
     }
 

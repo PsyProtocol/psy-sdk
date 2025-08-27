@@ -180,8 +180,8 @@ where
             ],
         };
         let left_child_pm_jobs_completed = [
-            left_proof.public_inputs[8], 
-            left_proof.public_inputs[9], 
+            left_proof.public_inputs[8],
+            left_proof.public_inputs[9],
             left_proof.public_inputs[10]
         ];
         let left_child_allowed_circuit_hashes_root = HashOutTarget {
@@ -210,8 +210,8 @@ where
             ],
         };
         let right_child_pm_jobs_completed = [
-            right_proof.public_inputs[8], 
-            right_proof.public_inputs[9], 
+            right_proof.public_inputs[8],
+            right_proof.public_inputs[9],
             right_proof.public_inputs[10]
         ];
         let right_child_allowed_circuit_hashes_root = HashOutTarget {
@@ -231,28 +231,10 @@ where
             ],
         };
 
-        let combined_deploy_contracts = builder.add(left_child_pm_jobs_completed[0], right_child_pm_jobs_completed[0]);
-        let combined_register_users = builder.add(left_child_pm_jobs_completed[1], right_child_pm_jobs_completed[1]);
-        let combined_gutas = builder.add(left_child_pm_jobs_completed[2], right_child_pm_jobs_completed[2]);
-        
-        let zero = builder.zero();
-        let one = builder.one();
-        
-        let register_users_is_zero = builder.is_zero(combined_register_users);
-        let register_users_nonzero = builder.not(register_users_is_zero);
-        let register_users_increment = builder.select(register_users_nonzero, one, zero);
-        let final_register_users = builder.add(combined_register_users, register_users_increment);
-        
-        let deploy_contracts_is_zero = builder.is_zero(combined_deploy_contracts);
-        let deploy_contracts_nonzero = builder.not(deploy_contracts_is_zero);
-        let deploy_contracts_increment = builder.select(deploy_contracts_nonzero, one, zero);
-        let final_deploy_contracts = builder.add(combined_deploy_contracts, deploy_contracts_increment);
-        
-        let gutas_is_zero = builder.is_zero(combined_gutas);
-        let gutas_nonzero = builder.not(gutas_is_zero);
-        let gutas_increment = builder.select(gutas_nonzero, one, zero);
-        let final_gutas = builder.add(combined_gutas, gutas_increment);
-        
+        let final_deploy_contracts = builder.add(left_child_pm_jobs_completed[0], right_child_pm_jobs_completed[0]);
+        let final_register_users = builder.add(left_child_pm_jobs_completed[1], right_child_pm_jobs_completed[1]);
+        let final_gutas = builder.add(left_child_pm_jobs_completed[2], right_child_pm_jobs_completed[2]);
+
         let pm_jobs_completed = [final_deploy_contracts, final_register_users, final_gutas];
         let children_hash = builder.hash_two_to_one::<C::Hasher>(left_child_commitment, right_child_commitment);
         let commitment = builder.hash_two_to_one::<C::Hasher>(children_hash, worker_public_key);

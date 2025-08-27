@@ -54,11 +54,12 @@ use qed_rollup_circuit::ups::circuits::{
     ups_cfc_standard::UPSCFCStandardTransactionCircuit, ups_start::UPSStartSessionCircuit,
 };
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
+use qedlang_core::dpn::contract::cfc_code_definition_to_dapen_fc;
 use serde::Serialize;
 use std::collections::HashMap;
 
 use crate::{
-    dpn::{circuits::cfc::DapenContractFunctionCircuit, data::cfc_code_definition_to_dapen_fc},
+    dpn::circuits::cfc::DapenContractFunctionCircuit,
     local::{
         provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
         request::QAggProofRecord,

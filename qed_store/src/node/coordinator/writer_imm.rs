@@ -14,6 +14,9 @@ use async_trait::async_trait;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use kvq::traits::KVQBinaryStore;
 use qed_core::data::qhashout::QHashOut;
+use plonky2::field::types::Field;
+use qed_data::qdata::contract::QEDContractLeaf;
+use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use qed_crypto::hash::{merkle::{
     core::DeltaMerkleProofCore,
     spiderman::SpidermanUpdateProof,
@@ -25,7 +28,7 @@ use qed_crypto::hash::{merkle::{
 use qed_data::{
     qdata::{
         checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
-        contract::{ContractCodeDefinition, QEDContractLeaf},
+        contract::ContractCodeDefinition,
     },
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
 };
@@ -177,14 +180,18 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, sync_info)
     }
 
-    async fn initialize_store(&self) -> anyhow::Result<u64> {
+    async fn initialize_store(&self, genesis_config: Option<qed_core::config::genesis::GenesisConfig>) -> anyhow::Result<u64> {
 
         let latest_l2_block_state_or_err = self.get_latest_l2_block_state().await;
         if latest_l2_block_state_or_err.is_ok() {
             let v = latest_l2_block_state_or_err.unwrap();
             Ok(v.checkpoint_id)
-        }else{
-            // database not initialized with data for the genesis block
+        } else {
+            if let Some(ref _genesis_config) = genesis_config {
+                // Genesis config processing should be handled by external code
+                // that uses qed_prover to create deployment data and then calls
+                // appropriate store methods
+            }
 
             let genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
 
@@ -199,10 +206,6 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
             };
 
 
-            println!("genesis_stats_hash: {:?} ({})",stats_hash, serde_json::to_string_pretty(&stats_hash).unwrap());
-
-            println!("genesis_global_state_roots: {}",serde_json::to_string_pretty(&genesis_global_state_roots).unwrap());
-            println!("genesis_checkpoint_leaf: {}",serde_json::to_string_pretty(&genesis_checkpoint_leaf).unwrap());
 
             self.set_l2_block_state_imm(&genesis_l2_block_state).await?;
             self.set_checkpoint_leaf_data_imm(0, &genesis_checkpoint_leaf).await?;
@@ -216,7 +219,7 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
                 regsitered_users_start_pivot_siblings: vec![],
                 registered_users: vec![],
                 old_checkpoint_leaf_hash: r.old_value,
-                slot: 0,// fixed value
+                slot: 0,
             };
             self.set_checkpoint_sync_info_imm(sync_info).await?;
 
@@ -225,11 +228,11 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         }
 
     }
-    
+
     async fn set_user_public_key_records(&self, records: &[qed_data::qdata::user_public_key::QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()> {
         use qed_data::config::store_config::UserPublicKeyTableStore;
         use qed_data::models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore;
-        
+
         UserPublicKeyTableStore::<Self>::set_user_public_key_records(self, records)
     }
 }

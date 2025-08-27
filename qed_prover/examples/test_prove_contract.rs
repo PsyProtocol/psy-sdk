@@ -95,7 +95,7 @@ async fn prepare_environment_with_contract(
     >,
 > {
     let st = KVQSimpleMemoryBackingStore::new();
-    st.initialize_store().await?;
+    st.initialize_store(None).await?;
     let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
     SimpleBlockProcessor::process_block(
         &st,

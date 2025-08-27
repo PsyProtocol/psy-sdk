@@ -27,6 +27,34 @@ pub enum IntrinsicExprNode {
         checkpoint_id: ExprId,
         location: Location,
     },
+    GetFeesCollected {
+        checkpoint_id: ExprId,
+        location: Location,
+    },
+    GetUserOpsProcessed {
+        checkpoint_id: ExprId,
+        location: Location,
+    },
+    GetTotalTransactions {
+        checkpoint_id: ExprId,
+        location: Location,
+    },
+    GetSlotsModified {
+        checkpoint_id: ExprId,
+        location: Location,
+    },
+    GetRegisterUsersCompleted {
+        checkpoint_id: ExprId,
+        location: Location,
+    },
+    GetGutasCompleted {
+        checkpoint_id: ExprId,
+        location: Location,
+    },
+    GetDeployContractsCompleted {
+        checkpoint_id: ExprId,
+        location: Location,
+    },
     GetLastNonce {
         location: Location,
     },

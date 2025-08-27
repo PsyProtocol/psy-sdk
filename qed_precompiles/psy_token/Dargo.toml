@@ -1,0 +1,6 @@
+[package]
+name = "psy_token"
+type = "bin"
+authors = [""]
+
+[dependencies]

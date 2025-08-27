@@ -12,13 +12,13 @@ use crate::qblock::process::witnesses::QEDCheckpointStateTransitionCircuitInput;
 use crate::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
     qblock::{
-        cmds::core::QEDBlockCommands,
+        cmds::{core::QEDBlockCommands, register_user::QBCRegisterUser, deploy_contract::QBCDeployContract},
         process::witnesses::{
             QEDDeployContractCircuitInput, QEDInternalBlockCircuitInputs,
             QEDUserRegistrationCircuitInput,
         },
     },
-    qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats}, contract::QEDContractLeaf, user::QEDUserLeaf},
+    qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats}, contract::{QEDContractLeaf, ContractCodeDefinition, ContractFunctionCodeDefinition}, user::QEDUserLeaf},
 };
 
 use crate::{
@@ -241,5 +241,86 @@ impl SimpleBlockProcessor {
             deploy_contracts: witness_deploy_contracts,
             checkpoint_state_transition,
         })
+    }
+
+    pub async fn prepare_environment_with_real_contract<S: KVQBinaryStore>(
+        new_user_public_key: QBCRegisterUser<QEDFelt>,
+        deploy_contract: QBCDeployContract<QEDFelt>,
+        store: S,
+    ) -> anyhow::Result<S> {
+        let whitelist_items_fake = vec![
+            QHashOut::rand(),
+            QHashOut::rand(),
+            QHashOut::rand(),
+            QHashOut::rand(),
+        ];
+
+        // Initialize store with genesis state if not already initialized
+        let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
+        Self::process_block(
+            &store,
+            &QEDBlockCommands {
+                register_users: vec![
+                    QBCRegisterUser::new_from_u64s([1; 4], [1; 4]),
+                    QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374]),
+                    QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378]),
+                    QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+                    QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+                    new_user_public_key,
+                ],
+                deploy_contracts: vec![
+                    QBCDeployContract {
+                        deployer: QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374])
+                            .get_public_key::<QEDHasher>(),
+                        code_definition: ContractCodeDefinition {
+                            state_tree_height: 12 as u16,
+                            functions: vec![ContractFunctionCodeDefinition::default()],
+                        },
+                        function_whitelist: whitelist_items_fake.clone(),
+                    },
+                    QBCDeployContract {
+                        deployer: QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378])
+                            .get_public_key::<QEDHasher>(),
+                        code_definition: ContractCodeDefinition {
+                            state_tree_height: 13 as u16,
+                            functions: vec![ContractFunctionCodeDefinition::default()],
+                        },
+                        function_whitelist: whitelist_items_fake.clone(),
+                    },
+                    deploy_contract,
+                ],
+                update_users: vec![],
+            },
+            &dummy_fingerprints,
+        ).await?;
+
+        // Process additional empty blocks for testing
+        Self::process_block(
+            &store,
+            &QEDBlockCommands {
+                register_users: vec![
+                    QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+                    QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+                ],
+                deploy_contracts: vec![],
+                update_users: vec![],
+            },
+            &dummy_fingerprints,
+        ).await?;
+
+        Self::process_block(
+            &store,
+            &QEDBlockCommands {
+                register_users: vec![
+                    QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+                    QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
+                ],
+                deploy_contracts: vec![],
+                update_users: vec![],
+            },
+            &dummy_fingerprints,
+        ).await?;
+
+        Ok(store)
     }
 }

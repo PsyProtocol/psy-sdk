@@ -1,0 +1,6 @@
+[package]
+name = "psy_mining_rewards_claim"
+type = "bin"
+authors = [""]
+
+[dependencies]

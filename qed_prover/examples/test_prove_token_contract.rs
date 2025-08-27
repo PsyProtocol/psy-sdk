@@ -26,7 +26,7 @@ use qed_data::{
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_prover::dpn::{
-    circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition,
+    circuits::cfc::DapenContractFunctionCircuit,
 };
 use qed_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
@@ -164,44 +164,6 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
-fn gen_contract_deploy_and_circuits_for_functions(
-    deployer: QHashOut<GoldilocksField>,
-    contract_state_tree_height: u8,
-    defs: &[DPNFunctionCircuitDefinition],
-) -> anyhow::Result<(
-    Vec<DapenContractFunctionCircuit<C, D>>,
-    QBCDeployContract<GoldilocksField>,
-)> {
-    let code_defs = defs
-        .iter()
-        .map(|x| dapen_fc_to_cfc_code_definition(x))
-        .collect::<Vec<_>>();
-    let mut fingerprints = Vec::with_capacity(defs.len());
-    let circuits = defs
-        .iter()
-        .map(|x| {
-            let c = DapenContractFunctionCircuit::<C, D>::new(
-                x,
-                contract_state_tree_height as usize,
-                UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-                false,
-            );
-            fingerprints.push(c.get_fingerprint());
-            c
-        })
-        .collect::<Vec<_>>();
-
-    let deploy = QBCDeployContract {
-        deployer,
-        code_definition: ContractCodeDefinition {
-            state_tree_height: contract_state_tree_height as u16,
-            functions: code_defs,
-        },
-        function_whitelist: fingerprints,
-    };
-
-    Ok((circuits, deploy))
-}
 async fn prepare_environment_with_real_contract(
     new_user_public_key: QBCRegisterUser<GoldilocksField>,
     deploy_contract: QBCDeployContract<GoldilocksField>,
@@ -211,76 +173,12 @@ async fn prepare_environment_with_real_contract(
         KVQSimpleMemoryBackingStore,
     >,
 > {
-    let whitelist_items_fake = vec![
-        QHashOut::rand(),
-        QHashOut::rand(),
-        QHashOut::rand(),
-        QHashOut::rand(),
-    ];
     let st = KVQSimpleMemoryBackingStore::new();
-    st.initialize_store().await?;
-    let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
-    SimpleBlockProcessor::process_block(
-        &st,
-        &QEDBlockCommands {
-            register_users: vec![
-                QBCRegisterUser::new_from_u64s([1; 4], [1; 4]),
-                QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374]),
-                QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378]),
-                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
-                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
-                new_user_public_key,
-            ],
-            deploy_contracts: vec![
-                QBCDeployContract {
-                    deployer: QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374])
-                        .get_public_key::<QEDHasher>(),
-                    code_definition: ContractCodeDefinition {
-                        state_tree_height: 12 as u16,
-                        functions: vec![ContractFunctionCodeDefinition::default()],
-                    },
-                    function_whitelist: whitelist_items_fake.to_vec(),
-                },
-                QBCDeployContract {
-                    deployer: QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378])
-                        .get_public_key::<QEDHasher>(),
-                    code_definition: ContractCodeDefinition {
-                        state_tree_height: 13 as u16,
-                        functions: vec![ContractFunctionCodeDefinition::default()],
-                    },
-                    function_whitelist: whitelist_items_fake.to_vec(),
-                },
-                deploy_contract,
-            ],
-            update_users: vec![],
-        },
-        &dummy_fingerprints,
-    )?;
-
-    SimpleBlockProcessor::process_block(
-        &st,
-        &QEDBlockCommands {
-            register_users: vec![
-                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
-                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
-            ],
-            deploy_contracts: vec![],
-            update_users: vec![],
-        },
-        &dummy_fingerprints,
-    )?;
-
-    SimpleBlockProcessor::process_block(
-        &st,
-        &QEDBlockCommands {
-            register_users: vec![
-                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
-                QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
-            ],
-            deploy_contracts: vec![],
-            update_users: vec![],
-        },
-        &dummy_fingerprints,
+    st.initialize_store(None).await?;
+    let st = SimpleBlockProcessor::prepare_environment_with_real_contract(
+        new_user_public_key,
+        deploy_contract,
+        st
     )?;
 
     let latest_l2_block_state = st.get_latest_l2_block_state()?;
@@ -396,7 +294,9 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     let defs_array = [simple_mint_debug_def, simple_transfer_def, simple_claim_def];
     timer.lap("start building circuits");
 
-    let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+    use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
+
+    let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
         deployer,
         contract_state_tree_height as u8,
         &defs_array,

@@ -89,43 +89,25 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafStats<F> {
     }
 
     fn from_qfelts(felts: &[F]) -> Self {
-        let reward_com_size = PMRewardCommitment::<F>::q_felt_size();
-        let jobs_completed_size = PMJobsCompletedStats::<F>::q_felt_size();
-        let expected_len = 4 + jobs_completed_size + 5 + reward_com_size + DA_CHALLENGE_WINDOW;
-        if felts.len() != expected_len {
-            panic!("Invalid number of elements for QEDCheckpointLeafStats, expected {} got {}", expected_len, felts.len());
+        if felts.len() != Self::q_felt_size() {
+            panic!("Invalid number of elements for QEDCheckpointLeafStats, expected {} got {}", Self::q_felt_size(), felts.len());
         }
         
-        let mut offset = 0;
-        let fees_collected = felts[offset]; offset += 1;
-        let user_ops_processed = felts[offset]; offset += 1;
-        let total_transactions = felts[offset]; offset += 1;
-        let slots_modified = felts[offset]; offset += 1;
-        
-        let pm_jobs_completed = PMJobsCompletedStats::from_qfelts(&felts[offset..offset + jobs_completed_size]);
-        offset += jobs_completed_size;
-        
-        let block_time = felts[offset]; offset += 1;
-        let random_seed = QHashOut(HashOut {
-            elements: [felts[offset], felts[offset+1], felts[offset+2], felts[offset+3]],
-        });
-        offset += 4;
-        
-        let pm_rewards_commitment = PMRewardCommitment::from_qfelts(&felts[offset..offset + reward_com_size]);
-        offset += reward_com_size;
-        
-        let da_challenges_claimed = felts[offset..].try_into().unwrap();
+        let pm_jobs_completed = PMJobsCompletedStats::from_qfelts(&felts[4..7]);
+        let pm_rewards_commitment = PMRewardCommitment::from_qfelts(&felts[12..24]);
         
         QEDCheckpointLeafStats {
-            fees_collected,
-            user_ops_processed,
-            total_transactions,
-            slots_modified,
+            fees_collected: felts[0],
+            user_ops_processed: felts[1],
+            total_transactions: felts[2],
+            slots_modified: felts[3],
             pm_jobs_completed,
-            block_time,
-            random_seed,
+            block_time: felts[7],
+            random_seed: QHashOut(HashOut {
+                elements: [felts[8], felts[9], felts[10], felts[11]],
+            }),
             pm_rewards_commitment,
-            da_challenges_claimed,
+            da_challenges_claimed: felts[24..].try_into().unwrap(),
         }
     }
 }
@@ -141,7 +123,7 @@ impl<F: RichField> KVQSerializable for QEDCheckpointLeafStats<F> {
 
 impl<F: RichField> QFeltSized for QEDCheckpointLeafStats<F> {
     fn q_felt_size() -> usize {
-        10 + PMRewardCommitment::<F>::q_felt_size() + DA_CHALLENGE_WINDOW
+        4 + PMJobsCompletedStats::<F>::q_felt_size() + 5 + PMRewardCommitment::<F>::q_felt_size() + DA_CHALLENGE_WINDOW
     }
 }
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafStats<F> {

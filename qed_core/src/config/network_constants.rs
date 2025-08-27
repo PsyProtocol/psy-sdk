@@ -124,3 +124,18 @@ use plonky2::{field::types::Field, hash::hash_types::RichField};
 pub fn get_default_worker_public_key<F: RichField>() -> QHashOut<F> {
     QHashOut::from_values(1, 1, 1, 1)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fee_constants() {
+        // Verify constants are generated correctly from config.json
+        assert_eq!(NATIVE_CURRENCY_DECIMAL, 9);
+        assert_eq!(NATIVE_CURRENCY, "0");
+        assert_eq!(REGISTER_USER_FEE, 0);
+        assert_eq!(DEPLOY_CONTRACT_FEE, 0);
+        assert_eq!(GUTA_FEE, 5000000000);
+    }
+}

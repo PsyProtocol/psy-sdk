@@ -471,6 +471,23 @@ impl StateReaderGadget {
                     }
                 }
             },
+            DPNStateCmd::ClearEntireTree(c) => {
+                let clear_tree_witness = cmd_witness.witness.get_clear_entire_tree_ref();
+
+                if let Some(reader_ref_key) = self.gadget_map.get(&StateCommandCacheKey::new_clear_entire_tree_with_condition(c.condition)) {
+                    match reader_ref_key.gadget_type {
+                        StateReaderReferenceKeyType::ClearEntireTree => {
+                            let index = reader_ref_key.gadget_index;
+                            self.clear_entire_tree_requests[index].set_witness(
+                                witness,
+                                clear_tree_witness.state_tree_height,
+                                clear_tree_witness.zero_hash,
+                            )?;
+                        },
+                        v => anyhow::bail!("ClearEntireTree expects ClearEntireTree reference key type, but got {:?}", v)
+                    }
+                }
+            },
         };
         Ok(())
     }

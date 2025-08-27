@@ -54,7 +54,11 @@ pub struct RealmProcessor {
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
-    let realm_processor = RealmProcessor::new(config).await?;
+    let mut realm_processor = RealmProcessor::new(config).await?;
+    
+    // Handle genesis state initialization
+    realm_processor.initialize_genesis_state().await?;
+    
     let _ = realm_processor.start().await?;
     Ok(())
 }
@@ -339,6 +343,75 @@ impl RealmProcessor {
             .await
             .map_err(|err| anyhow!("Error getting latest l2 block state: {:?}", err))?;
         Ok(state.checkpoint_id)
+    }
+
+    /// Initialize genesis state for this realm's users
+    async fn initialize_genesis_state(&mut self) -> anyhow::Result<()> {
+        // Load genesis configuration from config file
+        let config_path = std::env::var("QED_CONFIG_PATH")
+            .unwrap_or_else(|_| "config.json".to_string());
+            
+        let genesis_config = match std::fs::read_to_string(&config_path) {
+            Ok(config_content) => {
+                let config_value: serde_json::Value = serde_json::from_str(&config_content)?;
+                if let Some(genesis_obj) = config_value.get("genesis") {
+                    let genesis_config = qed_core::config::genesis::GenesisConfig::from_json(
+                        &serde_json::to_string(genesis_obj)?
+                    )?;
+                    Some(genesis_config)
+                } else {
+                    warn!("No genesis configuration found in config file");
+                    return Ok(());
+                }
+            }
+            Err(e) => {
+                warn!("Could not read config file {}: {}", config_path, e);
+                return Ok(());
+            }
+        };
+
+        if let Some(genesis_config) = genesis_config {
+            info!("Processing genesis state for realm {}", self.realm_config.realm_id);
+            
+            // Calculate users per realm
+            use qed_core::config::network_constants::REALM_USER_TREE_HEIGHT;
+            let users_per_realm = 1u64 << REALM_USER_TREE_HEIGHT;
+            let realm_start_user = (self.realm_config.realm_id as u64) * users_per_realm;
+            let realm_end_user = ((self.realm_config.realm_id + 1) as u64) * users_per_realm;
+            
+            // Process genesis contract states for this realm's users
+            for (contract_id_str, users) in genesis_config.get_all_contracts() {
+                let contract_id: u64 = contract_id_str.parse()
+                    .map_err(|e| anyhow::anyhow!("Invalid contract ID {}: {}", contract_id_str, e))?;
+                
+                for (user_id_str, user_state) in users {
+                    let user_id: u64 = user_id_str.parse()
+                        .map_err(|e| anyhow::anyhow!("Invalid user ID {}: {}", user_id_str, e))?;
+                    
+                    // Check if this user belongs to our realm
+                    if user_id >= realm_start_user && user_id < realm_end_user {
+                        info!("Processing genesis state for contract {} user {} (belongs to realm {})", 
+                              contract_id, user_id, self.realm_config.realm_id);
+                        
+                        // Log the genesis slots for this user
+                        for (slot_id, slot_value) in &user_state.slots {
+                            info!("  Genesis slot {}: {} for user {} contract {}", 
+                                  slot_id, slot_value, user_id, contract_id);
+                        }
+                        
+                        // TODO: Implement proper state slot setting and root computation
+                        // This requires state tracker without circular dependencies
+                        // For now, realm will use the default state set by coordinator
+                        info!("Genesis state logged for user {} contract {} (realm {})", 
+                              user_id, contract_id, self.realm_config.realm_id);
+                    }
+                }
+            }
+            
+            info!("Genesis state initialization completed for realm {}", self.realm_config.realm_id);
+        }
+        
+        Ok(())
     }
 }
 

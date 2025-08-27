@@ -129,7 +129,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField> {
 
     async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>>;
     async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>>;
-    
+
     async fn get_first_user_id(&self, public_key: QHashOut<F>) -> anyhow::Result<u64>;
 }
 
@@ -191,8 +191,8 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
 
     async fn set_l2_block_state_imm(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()>;
     async fn set_checkpoint_sync_info_imm(&self, sync_info: QEDCheckpointSyncInfoCompact<F>) -> anyhow::Result<()>;
-    async fn initialize_store(&self) -> anyhow::Result<u64>;
-    
+    async fn initialize_store(&self, genesis_config: Option<qed_core::config::genesis::GenesisConfig>) -> anyhow::Result<u64>;
+
     async fn set_user_public_key_records(&self, records: &[QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()>;
 
 }

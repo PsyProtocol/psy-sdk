@@ -1,10 +1,7 @@
 use std::str::FromStr;
 
 use crate::{
-    dpn::{
-        circuits::cfc::DapenContractFunctionCircuit,
-        data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition},
-    },
+    dpn::circuits::cfc::DapenContractFunctionCircuit,
     local::{
         args::{ContractCallArgs, SignType},
         provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
@@ -25,9 +22,12 @@ use crate::{
 };
 use dashmap::DashMap;
 use plonky2::{
-    field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}},
-    hash::poseidon::PoseidonHash,
-    plonk::config::PoseidonGoldilocksConfig,
+    field::{
+        goldilocks_field::GoldilocksField,
+        types::{Field, PrimeField64},
+    },
+    hash::{hash_types::HashOut, poseidon::PoseidonHash},
+    plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{
@@ -38,7 +38,7 @@ use qed_core::{
     traits::to_qfelts::ToQFelts,
     ups::circuits::LocalCircuitType,
 };
-use qed_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};
+use qed_crypto::{hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable}, signature::zk::data::ZKPublicKeyInfo};
 use qed_data::{
     config::store_config::QEDHasher,
     qdata::user_contract_state::UserContractState,
@@ -59,7 +59,9 @@ use qed_data::{
 use qed_store::controllers::local::{
     proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
 };
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use qedlang_core::dpn::{
+    contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}, vm::def::DPNFunctionCircuitDefinition,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::local::{
@@ -68,14 +70,17 @@ use crate::local::{
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
 
-pub fn gen_contract_deploy_and_circuits_for_functions(
-    deployer: QHashOut<GoldilocksField>,
+pub fn gen_contract_deploy_and_circuits_for_functions<C: GenericConfig<D>, const D: usize>(
+    deployer: QHashOut<C::F>,
     contract_state_tree_height: u8,
     defs: &[DPNFunctionCircuitDefinition],
 ) -> anyhow::Result<(
     Vec<DapenContractFunctionCircuit<C, D>>,
-    QBCDeployContract<GoldilocksField>,
-)> {
+    QBCDeployContract<C::F>,
+)>
+where
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
     let code_defs = defs
         .iter()
         .map(|x| dapen_fc_to_cfc_code_definition(x))
@@ -92,7 +97,6 @@ pub fn gen_contract_deploy_and_circuits_for_functions(
             );
             fingerprints.push(c.get_fingerprint());
 
-            // sibling is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
             let inputs_outputs_combo =
                 ((x.circuit_outputs.len() as u64) << 32u64) | (x.circuit_inputs.len() as u64);
             fingerprints.push(QHashOut::from_values(
@@ -328,13 +332,16 @@ impl WalletSession {
         let pk_info = match sign_type {
             SignType::ZKSign => self.wallet.add_zk_private_key(private_key).await?,
             SignType::SECP256K1Sign => self.wallet.add_secp_private_key(private_key).await?,
-            SignType::SoftwareDefinedSign => self.wallet.add_software_defined_private_key(
-                private_key,
-                fingerprint.ok_or(anyhow::format_err!(
-                    "software defined sign need fingerprint"
-                ))?,
-            )
-            .await?,
+            SignType::SoftwareDefinedSign => {
+                self.wallet
+                    .add_software_defined_private_key(
+                        private_key,
+                        fingerprint.ok_or(anyhow::format_err!(
+                            "software defined sign need fingerprint"
+                        ))?,
+                    )
+                    .await?
+            }
         };
         let public_key = pk_info.qfhash::<QEDHasher>();
         let checkpoint_id = self
@@ -450,9 +457,10 @@ impl WalletSession {
         tracing::info!("start session on checkpoint: {}", result.checkpoint_id);
         self.start_session(pk_hash).await?;
         tracing::info!("prove contract calls");
-        self.prove_contract_calls(pk_hash, contract_call_args).await?;
+        self.prove_contract_calls(pk_hash, contract_call_args)
+            .await?;
         let result = self.st_provider.get_latest_l2_block_state().await?;
-        tracing::info!("sign and submit on checkpoint: {}",result.checkpoint_id);
+        tracing::info!("sign and submit on checkpoint: {}", result.checkpoint_id);
         self.sign_and_submit_with_sign_type(
             pk_hash,
             sign_type,
@@ -620,14 +628,16 @@ impl WalletSession {
             .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
         tracing::info!("zk sign for signhash: {}", sighash.to_string());
         let signature_proof = match sign_type {
-            SignType::ZKSign => self
-                .wallet
-                .zk_sign_for_public_key(pk_info.public_key_param, sighash)
-                .await?,
-            SignType::SECP256K1Sign => self
-                .wallet
-                .zk_sign_secp256k1(pk_info.public_key_param, sighash)
-                .await?,
+            SignType::ZKSign => {
+                self.wallet
+                    .zk_sign_for_public_key(pk_info.public_key_param, sighash)
+                    .await?
+            }
+            SignType::SECP256K1Sign => {
+                self.wallet
+                    .zk_sign_secp256k1(pk_info.public_key_param, sighash)
+                    .await?
+            }
             SignType::SoftwareDefinedSign => {
                 if let Some(fingerprint) = fingerprint {
                     let mut sdc = self
@@ -843,7 +853,7 @@ impl WalletSession {
     ) -> anyhow::Result<QBCDeployContract<F>> {
         let contract_state_tree_height = MAX_CONTRACT_STATE_TREE_HEIGHT as usize;
 
-        let (_result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+        let (_result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
             deployer,
             contract_state_tree_height as u8,
             &circuit_defs,
@@ -1048,9 +1058,10 @@ mod tests {
         let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
         let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 
-        let circuit_defs = serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(
-            &std::fs::read_to_string(Path::new(&project_path).join("../examples/target/examples.json"))?,
-        )?;
+        let circuit_defs =
+            serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(
+                Path::new(&project_path).join("../examples/target/examples.json"),
+            )?)?;
 
         let mut wallet_session = super::WalletSession::new(&rpc_config)?;
 

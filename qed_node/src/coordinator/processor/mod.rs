@@ -31,6 +31,7 @@ use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
 use tokio::time::{sleep_until, Instant};
 use tracing::{debug, error, info, warn};
+use serde_json;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue};
 use crate::common::clock::SlotTimer;
@@ -183,7 +184,26 @@ impl
         let qed_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
         let qed_store = JournalStore::new(qed_store);
 
-        match qed_store.initialize_store().await {
+        // Load genesis configuration from config file
+        let genesis_config = match std::fs::read_to_string(&cp_config.config_path) {
+            Ok(config_content) => {
+                let config_value: serde_json::Value = serde_json::from_str(&config_content)?;
+                if let Some(genesis_obj) = config_value.get("genesis") {
+                    let genesis_config = qed_core::config::genesis::GenesisConfig::from_json(
+                        &serde_json::to_string(genesis_obj)?
+                    )?;
+                    Some(genesis_config)
+                } else {
+                    None
+                }
+            }
+            Err(e) => {
+                warn!("Could not read config file {}: {}", cp_config.config_path, e);
+                None
+            }
+        };
+
+        match qed_store.initialize_store(genesis_config).await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
                 qed_store.commit(0)?;
             }

@@ -55,7 +55,7 @@ use qed_data::{
             QEDCheckpointLeafCompactWithStateRoots, QEDCheckpointLeafStats, QEDL2BlockState,
         },
         contract::QEDContractLeaf,
-        pm_reward_commitment::PMRewardCommitment, user_public_key::QEDUserPublicKeyRecord,
+        pm_reward_commitment::PMRewardCommitment, pm_jobs_completed_stats::PMJobsCompletedStats, user_public_key::QEDUserPublicKeyRecord,
     }
 };
 use qed_rollup_circuit::guta::gadgets::guta_header;
@@ -418,6 +418,7 @@ impl<
     ) -> anyhow::Result<(
         Vec<Vec<QProvingJobDataID>>,
         GlobalUserTreeAggregatorHeader<F>,
+        Vec<QProvingJobDataID>,
     )> {
         tracing::debug!(checkpoint_id = checkpoint_id, "Processing checkpoint");
         let (mut guta_queue_items, consumption_state) = self
@@ -485,7 +486,7 @@ impl<
                 .set_bytes_by_id(id.get_input_witness_id(), &bincode::serialize(&input)?)
                 .await?;
 
-            return Ok((vec![vec![id]], guta_header));
+            return Ok((vec![vec![id]], guta_header, vec![]));
         } else if guta_queue_items.len() == 1 {
             tracing::debug!("Processing single GUTA queue item");
             let old_mp = self
@@ -556,7 +557,6 @@ impl<
                 .injest_user_tree_nodes_imm(checkpoint_id, 0, &new_nodes)
                 .await?;
             tracing::debug!(res = ?res, "GUTA result");
-            //for local testing conv
             let good_old = self.store.get_user_top_tree_cap_root(checkpoint_id-1, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index).await?;
             tracing::debug!(good_old = ?good_old, "Good old value");
 
@@ -569,7 +569,7 @@ impl<
                 )
                 .await?;
 
-            return Ok((vec![vec![id]],r_with_deps.input.get_new_guta_header::<QEDHasher>()))// r_with_deps.input.guta_proof_header));
+            return Ok((vec![vec![id]],r_with_deps.input.get_new_guta_header::<QEDHasher>(), vec![guta_queue_items[0].proof_id]));// r_with_deps.input.guta_proof_header));
         }
 
         // TODO: OPT: Maybe use a sorted queue/zset so we don't have to sort after we drain
@@ -774,7 +774,8 @@ impl<
             tracing::debug!(guta = ?guta, guta_hash = ?guta.qfhash::<QEDHasher>(), "GUTA subtree");
         }
 
-        Ok((levels, guta))
+        let guta_output_ids = guta_queue_items.iter().map(|item| item.proof_id).collect();
+        Ok((levels, guta, guta_output_ids))
     }
 
     pub async fn plan_jobs(
@@ -877,7 +878,13 @@ impl<
             regsitered_users_start_pivot_siblings,
         ) = self.handle_user_registrations(new_checkpoint_id).await?;
 
-        let (guta_jobs, guta_transition) = self.handle_guta_from_realms(new_checkpoint_id).await?;
+        let (guta_jobs, guta_transition, guta_output_ids) = self.handle_guta_from_realms(new_checkpoint_id).await?;
+
+        // Add GUTA queue items as a done task for proof generation
+        if !guta_output_ids.is_empty() {
+            let guta_done_task = QProvingTask::new_done(&guta_output_ids);
+            self.task_store.add_task(&guta_done_task).await?;
+        }
 
         let root_deploy_job = deploy_jobs.last()
             .and_then(|jobs| jobs.last())
@@ -910,6 +917,11 @@ impl<
         debug!("Waiting for GUTA aggregation job to complete for checkpoint {}", new_checkpoint_id);
         let guta_proof = self.prover_queue
             .wait_for_job_proof::<C, D>(*root_guta_job)
+            .await?;
+
+        debug!("Waiting for AggUserRegisterDeployContractsGUTA job to complete for checkpoint {}", new_checkpoint_id);
+        let state_part_1_proof = self.prover_queue
+            .wait_for_job_proof::<C, D>(state_part_1_id.get_output_id())
             .await?;
 
         let part_1_input = CircuitInputWithDependencies {
@@ -957,12 +969,44 @@ impl<
             deploy_contracts_root,
         };
 
+        // Extract pm_jobs_completed_stats from individual proofs to avoid circular dependency
+        // According to ProvingJobs.md, stats are at indices [8..11] in each proof
+        let register_users_stats = PMJobsCompletedStats {
+            deploy_contracts_completed: register_users_proof.public_inputs[8],
+            register_users_completed: register_users_proof.public_inputs[9],
+            gutas_completed: register_users_proof.public_inputs[10],
+        };
+        let deploy_contracts_stats = PMJobsCompletedStats {
+            deploy_contracts_completed: deploy_contracts_proof.public_inputs[8],
+            register_users_completed: deploy_contracts_proof.public_inputs[9],
+            gutas_completed: deploy_contracts_proof.public_inputs[10],
+        };
+        let guta_stats = PMJobsCompletedStats {
+            deploy_contracts_completed: guta_proof.public_inputs[8],
+            register_users_completed: guta_proof.public_inputs[9],
+            gutas_completed: guta_proof.public_inputs[10],
+        };
+        
+        // Combine the stats from all three proofs
+        let pm_jobs_completed_stats = PMJobsCompletedStats {
+            deploy_contracts_completed: register_users_stats.deploy_contracts_completed + 
+                                       deploy_contracts_stats.deploy_contracts_completed + 
+                                       guta_stats.deploy_contracts_completed,
+            register_users_completed: register_users_stats.register_users_completed + 
+                                     deploy_contracts_stats.register_users_completed + 
+                                     guta_stats.register_users_completed,
+            gutas_completed: register_users_stats.gutas_completed + 
+                           deploy_contracts_stats.gutas_completed + 
+                           guta_stats.gutas_completed,
+        };
+
         let partial_input = QCQEDCheckpointStateTransitionInputPartial {
             part_1_header: part_1_input.input,
             old_stats: last_checkpoint_leaf.stats,
             block_time: F::from_canonical_u64(Utc::now().timestamp_millis() as u64),
             final_random_seed_contribution: QHashOut::rand(),
             pm_rewards_commitment,
+            pm_jobs_completed: pm_jobs_completed_stats,
         };
 
         tracing::debug!(partial_input = ?partial_input, "Checkpoint state transition partial input");

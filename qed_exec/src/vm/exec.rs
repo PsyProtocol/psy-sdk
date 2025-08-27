@@ -9,7 +9,7 @@ use plonky2::{
 use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::ToQFelts};
 use qed_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-    traits::qhashable::QFieldHashable,
+    traits::{qhashable::QFieldHashable, hasher::MerkleZeroHasher},
     utils::safe_hash_fixed_length,
 };
 use qed_data::dpn::{
@@ -21,7 +21,7 @@ use qed_data::{
     qstore::imm::{
         cmd::{
             QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof,
-            QSRMerkleCmdGetUserContractTreeMerkleProof, QSRCmdGetCheckpointLeafData,
+            QSRMerkleCmdGetUserContractTreeMerkleProof, QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData,
         },
         cmd_processor::{
             DPNCheckpointLeafStatsWitness, DPNInvokeDeferredMethodCallWitness, DPNReadOtherUserContractStateLeafMerkleProof,
@@ -1098,6 +1098,33 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                         checkpoint_state_roots: state_roots,
                         checkpoint_historical_proof: historical_proof,
                     }),
+                })
+            }
+            DPNStateCmd::ClearEntireTree(c) => {
+                let current_contract_id = self.get_current_contract_id();
+
+                let contract_leaf = self
+                    .cmd_store
+                    .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
+                        contract_id: current_contract_id.to_canonical_u64(),
+                    })
+                    .await?;
+
+                let state_tree_height = contract_leaf.state_tree_height.to_canonical_u64() as usize;
+                let zero_hash = QEDHasher::get_zero_hash(state_tree_height);
+
+                self.notify_clear_entire_tree(current_contract_id.to_canonical_u64(), zero_hash)?;
+
+                let zero_hash_felts: Vec<GoldilocksField> = zero_hash.0.elements.iter()
+                    .map(|x| GoldilocksField::from_noncanonical_u64(x.to_canonical_u64()))
+                    .collect();
+                let mut witness_data = zero_hash_felts.clone();
+                witness_data.push(GoldilocksField::from_noncanonical_u64(state_tree_height as u64));
+
+                Ok(QEDCmdWithInputAndWitness {
+                    state_cmd: state_cmd.clone(),
+                    result: zero_hash_felts,
+                    witness: DPNStateCmdWitness::TargetArray(witness_data),
                 })
             }
         }

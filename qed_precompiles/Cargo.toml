@@ -1,0 +1,16 @@
+[package]
+name = "qed_precompiles"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+[build-dependencies]
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+
+[lints]
+workspace = true

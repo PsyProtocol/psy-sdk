@@ -14,7 +14,7 @@ use qed_data::{
     },
     traits::qdatastore::qmetadata::QMetaDataStoreWriterSync,
 };
-use crate::node::realm::{QEDRealmStoreWriterAsyncImm};
+use crate::node::realm::QEDRealmStoreWriterAsyncImm;
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::{

@@ -442,6 +442,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *left = self.rewrite_expr(*left, ctx)?;
                         *right = self.rewrite_expr(*right, ctx)?;
                     }
+                    CheckedIntrinsicStmtNode::ClearEntireTree { contract_state_tree_height, .. } => {
+                        *contract_state_tree_height = self.rewrite_expr(*contract_state_tree_height, ctx)?;
+                    }
                 }
             }
         }
@@ -746,6 +749,62 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
                     CheckedIntrinsicExprNode::GetDeployContractsRoot {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetFeesCollected {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetUserOpsProcessed {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetTotalTransactions {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetSlotsModified {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetRegisterUsersCompleted {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetGutasCompleted {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        *checkpoint_id = self.rewrite_expr(*checkpoint_id, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::GetDeployContractsCompleted {
                         checkpoint_id,
                         type_id,
                         location,

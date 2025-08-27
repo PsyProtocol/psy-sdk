@@ -95,6 +95,26 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdSetContract
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
+pub struct DPNStateCmdClearEntireTree<T> {
+    pub condition: T,
+}
+
+impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdClearEntireTree<T> {
+    fn get_inputs(&self) -> Vec<T> {
+        vec![self.condition]
+    }
+
+    fn get_state_command_type(&self) -> DPNStateCommandType {
+        DPNStateCommandType::ClearEntireTree
+    }
+
+    fn get_output_felt_size(&self) -> usize {
+        4
+    }
+}
+
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, TS)]
 #[ts(export, concrete(T = GoldilocksField))]
@@ -472,6 +492,7 @@ pub enum DPNStateCmd<T> {
     SetContractStateSlotHash(DPNStateCmdSetContractStateSlotHash<T>),
     SetContractStateSlotSingle(DPNStateCmdSetContractStateSlotSingle<T>),
     SetContractStateSlotRange(DPNStateCmdSetContractStateSlotRange<T>),
+    ClearEntireTree(DPNStateCmdClearEntireTree<T>),
     InvokeExternalContractFunctionSync(DPNStateCmdInvokeExternalContractFunctionSync<T>),
     InvokeExternalContractFunctionDeferred(DPNStateCmdInvokeExternalContractFunctionDeferred<T>),
     GetSelfUserCurrentContractStateSlotHash(DPNStateCmdGetSelfUserCurrentContractStateSlotHash<T>),
@@ -562,6 +583,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::SetContractStateSlotHash(c) => c.get_inputs(),
             DPNStateCmd::SetContractStateSlotSingle(c) => c.get_inputs(),
             DPNStateCmd::SetContractStateSlotRange(c) => c.get_inputs(),
+            DPNStateCmd::ClearEntireTree(c) => c.get_inputs(),
             DPNStateCmd::InvokeExternalContractFunctionSync(c) => c.get_inputs(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => c.get_inputs(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => c.get_inputs(),
@@ -582,6 +604,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::SetContractStateSlotHash(c) => c.get_state_command_type(),
             DPNStateCmd::SetContractStateSlotSingle(c) => c.get_state_command_type(),
             DPNStateCmd::SetContractStateSlotRange(c) => c.get_state_command_type(),
+            DPNStateCmd::ClearEntireTree(c) => c.get_state_command_type(),
             DPNStateCmd::InvokeExternalContractFunctionSync(c) => c.get_state_command_type(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => c.get_state_command_type(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => c.get_state_command_type(),
@@ -602,6 +625,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::SetContractStateSlotHash(c) => c.get_output_felt_size(),
             DPNStateCmd::SetContractStateSlotSingle(c) => c.get_output_felt_size(),
             DPNStateCmd::SetContractStateSlotRange(c) => c.get_output_felt_size(),
+            DPNStateCmd::ClearEntireTree(c) => c.get_output_felt_size(),
             DPNStateCmd::InvokeExternalContractFunctionSync(c) => c.get_output_felt_size(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => c.get_output_felt_size(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => c.get_output_felt_size(),
@@ -647,6 +671,11 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
                     condition: inputs_as_u64[0],
                     sub_slot_index: inputs_as_u64[1],
                     value: inputs_as_u64[2..].to_vec(),
+                })
+            },
+            DPNStateCmd::ClearEntireTree(c) => {
+                DPNStateCmd::ClearEntireTree(DPNStateCmdClearEntireTree {
+                    condition: inputs_as_u64[0],
                 })
             },
             DPNStateCmd::InvokeExternalContractFunctionSync(c) => {

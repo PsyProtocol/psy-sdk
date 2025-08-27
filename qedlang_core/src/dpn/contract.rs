@@ -1,6 +1,6 @@
+use crate::dpn::vm::def::DPNFunctionCircuitDefinition;
 use qed_core::config::network_constants::VM_TYPE_STANRDARD_DAPEN_V1;
 use qed_data::qdata::contract::ContractFunctionCodeDefinition;
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 pub fn dapen_fc_to_cfc_code_definition(
     dpn_fc_def: &DPNFunctionCircuitDefinition,
@@ -15,12 +15,13 @@ pub fn dapen_fc_to_cfc_code_definition(
 }
 
 pub fn cfc_code_definition_to_dapen_fc(
-    dpn_fc_def: &ContractFunctionCodeDefinition,
+    cfc_def: &ContractFunctionCodeDefinition,
 ) -> anyhow::Result<DPNFunctionCircuitDefinition> {
-    let res = serde_cbor::from_slice::<DPNFunctionCircuitDefinition>(&dpn_fc_def.code);
+    let res = serde_cbor::from_slice::<DPNFunctionCircuitDefinition>(&cfc_def.code);
 
     match res {
         Ok(r) => Ok(r),
         Err(e) => anyhow::bail!("error deserializing dapen function definition {:?}", e),
     }
 }
+

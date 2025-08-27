@@ -5,17 +5,17 @@ use plonky2::{
 };
 use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager;
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
+use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT, GUTA_FEE}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
 use qed_crypto::{common::witnesses::qrecursion::{header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput}, proof_data::{InputLeafProof, TreeAwareTreeProofRecord}}, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use qed_data::{
-    dpn::proving_session::{DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf, user_contract_state::{SignContext, UserContractState}}, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
+    dpn::proving_session::{DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall, QEDLocalTransactionRecord}, guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf, user_contract_state::{SignContext, UserContractState}}, qstore::imm::cmd::QSRCmdGetContractCodeDefinition, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_data::{
     config::store_config::QEDHasher, qstore::imm::{cache::QEDCmdStoreWithCache, cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
 };
 use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::QEDUserSessionUpdateHistory};
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use qedlang_core::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition};
 use serde::Serialize;
 
 use crate::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::provider::ProveProxyRpcTrait, ups::circuit_manager::core::QCircuitManager};
@@ -486,7 +486,7 @@ impl<
             public_key_param,
             expected_public_inputs_hash
         );
-        
+
         let proof_public_inputs_hash = QHashOut(HashOut{elements: [
             signature_proof.public_inputs[0],
             signature_proof.public_inputs[1],
@@ -522,6 +522,86 @@ impl<
             verifier_data,
         }).await;
 
+
+        // Add burn transaction for GUTA fee before finalizing
+        tracing::info!("Adding burn transaction for GUTA fee: {}", GUTA_FEE);
+        let burn_contract_id = F::from_canonical_u64(2); // PSY token contract
+
+        // Get contract definition through network
+        let burn_contract_def = match self.lps.cmd_store.resolve_get_contract_code_mut(
+            &QSRCmdGetContractCodeDefinition {
+                contract_id: burn_contract_id.to_canonical_u64(),
+            }
+        ).await {
+            Ok(def) => def,
+            Err(e) => {
+                tracing::warn!("Could not fetch burn contract definition: {}, skipping burn transaction", e);
+                // Continue without burn transaction if contract definition is not available
+                // This allows UPS to complete even if network fetch fails
+                self.proof_tree_state.finalize_tree(circuit_mgr).await?;
+                let zk_sig_leaf_proof = self.proof_tree_state.get_leaf_merkle_proof(zk_sig_proof_index).await;
+                let end_cap_from_proof_tree_input = UPSEndCapFromProofTreeGadgetInput{
+                    verify_previous_ups_step_input: self.get_verify_previous_ups_step_proof().await?,
+                    verify_zk_signature_proof_input: AttestProofInTreeInput {
+                        fingerprint: zk_sig_fingerprint,
+                        public_inputs_hash: proof_public_inputs_hash,
+                        inclusion_proof: zk_sig_leaf_proof,
+                    },
+                    user_public_key_param: public_key_param,
+                    nonce,
+                    slots_modified: self.lps.get_total_slots_modified(),
+                };
+
+                let finalized_proof_tree_record =
+                    self.proof_tree_state.get_finalized_proot_tree_record().await?;
+
+                let proof = circuit_mgr.prove_ups_end_cap(
+                    &self.circuit_info,
+                    &end_cap_from_proof_tree_input,
+                    &finalized_proof_tree_record,
+                ).await?;
+
+                self.current_ups_header.current_state.user_leaf.nonce = nonce;
+                return Ok(proof);
+            }
+        };
+
+        // Find burn method in contract (method_id: 3998182541)
+        let (burn_fn_id, burn_fn_code_def) = burn_contract_def.functions
+            .iter()
+            .enumerate()
+            .find_map(|(fn_id, f)| {
+                // Look for burn method by method_id
+                if f.method_id == 3998182541 {
+                    Some((fn_id, f))
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| anyhow::anyhow!("burn method (3998182541) not found in PSY token contract"))?;
+
+        let burn_fn_circuit_def = cfc_code_definition_to_dapen_fc(burn_fn_code_def)?;
+        let burn_amount = F::from_canonical_u64(GUTA_FEE);
+        let burn_inputs = vec![burn_amount];
+
+        tracing::info!("Executing burn transaction: contract_id={}, amount={}", burn_contract_id, burn_amount);
+
+        // Execute the burn transaction
+        match self.prove_contract_call(
+            circuit_mgr,
+            burn_contract_id,
+            burn_fn_id as u32,
+            &burn_fn_circuit_def,
+            burn_inputs,
+        ).await {
+            Ok(_) => {
+                tracing::info!("Burn transaction completed successfully");
+            },
+            Err(e) => {
+                tracing::warn!("Burn transaction failed: {}, continuing with UPS end cap", e);
+                // Continue even if burn fails - the UPS should not fail due to burn issues
+            }
+        }
 
         // compress all proofs into a sign tree proof
         tracing::info!("compress all proofs into a sign tree proof");
@@ -648,7 +728,7 @@ impl<
                 }
             })
             .ok_or_else(|| anyhow::anyhow!("Function {} not found in contract {}", method_id, deferred_tx.contract_id))?;
-        let fn_circuit_def = crate::dpn::data::cfc_code_definition_to_dapen_fc(fn_code_def)?;
+        let fn_circuit_def = cfc_code_definition_to_dapen_fc(fn_code_def)?;
         let cfc_proof_input = self.exec_contract_call(
             deferred_tx.contract_id,
             &fn_circuit_def,

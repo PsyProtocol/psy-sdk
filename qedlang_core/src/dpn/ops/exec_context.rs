@@ -1,11 +1,14 @@
 use crate::dpn::ops::sym_felt::SymFeltRefValue;
+use plonky2::field::goldilocks_field::GoldilocksField;
+use qed_core::traits::to_qfelts::QFeltSized;
+use qed_data::qdata::checkpoint::QEDCheckpointLeafStats;
 
 use super::{
     context_trait::{DPNContext, ToFelts},
     op_types::{DPNBuiltInDataType, DPNOpType},
     state_cmd::{
         data::{
-            DPNStateCmd, DPNStateCmdGetCheckpointLeafStats, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdInvokeExternalContractFunctionSync, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
+            DPNStateCmd, DPNStateCmdClearEntireTree, DPNStateCmdGetCheckpointLeafStats, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdInvokeExternalContractFunctionSync, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle
         },
         store::DPNStateCommandStore,
         types::DPNStateCmdCore,
@@ -855,10 +858,10 @@ impl DPNContext<SymFeltRef> for QExecContext {
             }
         );
         let b = self.resolve_state_cmd_base(cmd);
-        // Return all checkpoint stats fields
         let mut result = Vec::new();
-        for i in 0..36 {  // Approximate size of full checkpoint stats
-            result.push(self.op_target_at(b, i));
+        let stats_size = QEDCheckpointLeafStats::<GoldilocksField>::q_felt_size();
+        for i in 0..stats_size {
+            result.push(self.op_target_at(b, i as u64));
         }
         result
     }
@@ -876,6 +879,41 @@ impl DPNContext<SymFeltRef> for QExecContext {
     fn get_deploy_contracts_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
         let stats = self.get_checkpoint_stats(checkpoint_id);
         [stats[18].clone(), stats[19].clone(), stats[20].clone(), stats[21].clone()]
+    }
+
+    fn get_fees_collected(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[0].clone()
+    }
+
+    fn get_user_ops_processed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[1].clone()
+    }
+
+    fn get_total_transactions(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[2].clone()
+    }
+
+    fn get_slots_modified(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[3].clone()
+    }
+
+    fn get_deploy_contracts_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[4].clone()
+    }
+
+    fn get_register_users_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[5].clone() 
+    }
+
+    fn get_gutas_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[6].clone() 
     }
 
     fn op_get_state_felt(
@@ -937,6 +975,22 @@ impl DPNContext<SymFeltRef> for QExecContext {
             felts,
         );
         value
+    }
+
+    fn clear_entire_tree(&mut self) -> Vec<SymFeltRef> {
+        let condition = self.get_set_invoke_current_condition();
+        
+        let cmd = DPNStateCmd::ClearEntireTree(
+            DPNStateCmdClearEntireTree {
+                condition,
+            },
+        );
+        let b = self.resolve_state_cmd_base(cmd);
+        let mut result = Vec::new();
+        for i in 0..4 {
+            result.push(self.op_target_at(b, i as u64));
+        }
+        result
     }
 
     fn cset_state<V: ToFelts<SymFeltRef>>(&mut self, old_value: V, new_value: V) -> V {

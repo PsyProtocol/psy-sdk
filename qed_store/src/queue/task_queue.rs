@@ -402,6 +402,7 @@ pub trait QProvingTaskStore {
     // Task graph management methods
     async fn write_next_tasks(&self, task: &QProvingTask, next_task: &QProvingTask) -> Result<()>;
     async fn write_multidimensional_tasks(&self, tasks: &[QProvingTask], next_task: &QProvingTask) -> Result<()>;
+    async fn add_task(&self, task: &QProvingTask) -> Result<()>;
     async fn get_task_graph(&self) -> QProvingTaskGraph;
     async fn clear_task_graph(&self) -> Result<()>;
     async fn finalize_and_save_topology(&self) -> Result<()>;
@@ -594,6 +595,12 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             let current_task = &tasks[i];
             task_graph.add_dep(current_next_task.clone(), current_task.clone());
         }
+        Ok(())
+    }
+
+    async fn add_task(&self, task: &QProvingTask) -> Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        task_graph.add_task(task.clone());
         Ok(())
     }
 

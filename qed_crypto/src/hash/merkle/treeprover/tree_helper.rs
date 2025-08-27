@@ -90,6 +90,8 @@ pub fn prepare_plan_tree_prover_from_leaves<
         let dummy = DummyAggStateTransition {
             state_transition_hash: dummy_state_root,
             allowed_circuit_hashes_root: allowed_circuit_hashes_root,
+            is_deploy_contracts: false,
+            is_register_users: false,
         };
         let dv = bincode::serialize(&dummy)?;
         let dummy = IO::get_dummy_value(dummy_state_root);
@@ -173,6 +175,8 @@ pub fn plan_tree_prover_from_leaves<
         let dummy = DummyAggStateTransition {
             state_transition_hash: dummy_state_root,
             allowed_circuit_hashes_root: allowed_circuit_hashes_root,
+            is_deploy_contracts: false,
+            is_register_users: false,
         };
         proof_store.set_bytes_by_id(dummy_id, &bincode::serialize(&dummy)?)?;
         let dummy = IO::get_dummy_value(dummy_state_root);

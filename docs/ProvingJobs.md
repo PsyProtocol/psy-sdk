@@ -211,10 +211,12 @@ The final circuit that creates the checkpoint proof:
 - Checkpoint tree merkle proof
 - Various metadata (block time, random seed, etc.)
 
-### Public Inputs
-- Checkpoint hash
-- New checkpoint tree root
-- State transition proof
+### Public Inputs Layout (19 inputs total)
+- **[0..4]**: commitment
+- **[4..8]**: worker_public_key
+- **[8..11]**: pm_jobs_completed_stats (from State Part 1 proof)
+- **[11..15]**: old_checkpoint_tree_root
+- **[15..19]**: new_checkpoint_tree_root
 
 ## Job Dependencies and Task Graph
 
@@ -290,7 +292,7 @@ Examples: GUTATwoGUTA, AggStateTransition, GUTALeftGUTARightEndCap
 | Circuit | Type | Purpose | Public Inputs |
 |---------|------|---------|---------------|
 | AggUserRegistrationDeployContractsGUTA | Aggregation | Combines all three trees into State Part 1 | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..27]: state and root data |
-| CheckpointStateTransition | Root | Creates final checkpoint proof | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11+]: checkpoint data |
+| CheckpointStateTransition | Root | Creates final checkpoint proof | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: old_checkpoint_tree_root<br/>[15..19]: new_checkpoint_tree_root |
 
 ## PM Jobs Completed Stats Tracking
 

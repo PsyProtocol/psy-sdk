@@ -91,6 +91,22 @@ pub enum Token<'input> {
     IntrinsicCtxGetOtherUserContractStateHashAt,
     #[token("__ctx_set_state_hash_at")]
     IntrinsicCtxSetStateHashAt,
+    #[token("__ctx_get_fees_collected")]
+    IntrinsicCtxGetFeesCollected,
+    #[token("__ctx_get_user_ops_processed")]
+    IntrinsicCtxGetUserOpsProcessed,
+    #[token("__ctx_get_total_transactions")]
+    IntrinsicCtxGetTotalTransactions,
+    #[token("__ctx_get_slots_modified")]
+    IntrinsicCtxGetSlotsModified,
+    #[token("__ctx_get_deploy_contracts_completed")]
+    IntrinsicCtxGetDeployContractsCompleted,
+    #[token("__ctx_get_register_users_completed")]
+    IntrinsicCtxGetRegisterUsersCompleted,
+    #[token("__ctx_get_gutas_completed")]
+    IntrinsicCtxGetGutasCompleted,
+    #[token("__ctx_clear_entire_tree")]
+    IntrinsicCtxClearEntireTree,
 
     #[token("__invoke_sync")]
     IntrinsicInvokeSync,

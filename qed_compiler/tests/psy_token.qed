@@ -1,0 +1,149 @@
+#[derive(Storage, StorageRef)]
+struct PsyTokenContract {
+    pub balance: Felt,
+    pub last_claimed_pow_rewards_checkpoint_id: Felt,
+    pub sent_to_other: [Felt; 1073741824], // MAX_TOTAL_USERS
+    pub received_from_others: [Felt; 1073741824], // MAX_TOTAL_USERS
+}
+
+#[derive(Storage, StorageRef)]
+struct PsyPOWMiningRewardsClaimContractPersistantState {
+    pub min_allowed_claimed_checkpoint: Felt,
+    pub last_claimed_ups_checkpoint_id: Felt,
+    pub claimed_rewards: Felt,
+    pub sealed_for_ups_checkpoint_id: Felt,
+}
+
+#[contract]
+#[derive(Storage, StorageRef)]
+struct Contract {
+    pub token: PsyTokenContract,
+}
+
+impl ContractRef {
+    pub fn get_balance() -> Felt {
+        let c = ContractRef::new(ContractMetadata::current());
+        c.token.balance.get()
+    }
+    
+    pub fn mint(amount: Felt) {
+        let c = ContractRef::new(ContractMetadata::current());
+        let current_balance = c.token.balance.get();
+        c.token.balance.set(current_balance + amount);
+    }
+    
+    pub fn burn(amount: Felt) {
+        let c = ContractRef::new(ContractMetadata::current());
+        let current_balance = c.token.balance.get();
+        assert(current_balance >= amount, "insufficient balance for burn");
+        c.token.balance.set(current_balance - amount);
+    }
+    
+    pub fn transfer(recipient: Felt, amount: Felt) {
+        let c = ContractRef::new(ContractMetadata::current());
+        let sender_id = get_user_id();
+        let current_balance = c.token.balance.get();
+        
+        assert(current_balance >= amount, "insufficient balance for transfer");
+        assert(recipient != sender_id, "cannot transfer to self");
+        
+        // Update sender's balance
+        c.token.balance.set(current_balance - amount);
+        
+        // Update sent_to_other tracking
+        let current_sent = c.token.sent_to_other.index(recipient).get();
+        c.token.sent_to_other.index(recipient).set(current_sent + amount);
+        
+        // Update recipient's received_from_others tracking (in recipient's contract state)
+        let recipient_contract = ContractRef::new(ContractMetadata::new(get_contract_id(), recipient));
+        let current_received = recipient_contract.token.received_from_others.index(sender_id).get();
+        recipient_contract.token.received_from_others.index(sender_id).set(current_received + amount);
+    }
+    
+    pub fn claim_from(sender: Felt) {
+        let c = ContractRef::new(ContractMetadata::current());
+        let recipient_id = get_user_id();
+        
+        assert(sender != recipient_id, "cannot claim from self");
+        
+        // Get amount that sender has sent to us but we haven't claimed yet
+        let received_from_sender = c.token.received_from_others.index(sender).get();
+        
+        // Get sender's record of what they sent to us
+        let sender_contract = ContractRef::new(ContractMetadata::new(get_contract_id(), sender));
+        let sender_sent_to_us = sender_contract.token.sent_to_other.index(recipient_id).get();
+        
+        assert(sender_sent_to_us > received_from_sender, "no tokens to claim from sender");
+        
+        let claimable_amount = sender_sent_to_us - received_from_sender;
+        
+        // Update our balance
+        let current_balance = c.token.balance.get();
+        c.token.balance.set(current_balance + claimable_amount);
+        
+        // Update received tracking to reflect that we've claimed
+        c.token.received_from_others.index(sender).set(sender_sent_to_us);
+    }
+    
+    pub fn claim_pow_rewards() {
+        let c = ContractRef::new(ContractMetadata::current());
+        let current_checkpoint = get_checkpoint_id();
+        let user_id = get_user_id();
+        let psy_mining_rewards_contract_id = 1; // PSY_MINING_REWARDS_CONTRACT_ID
+        
+        // Get the POW rewards persistant state from the mining rewards contract
+        let mining_contract = ContractRef::new(ContractMetadata::new(psy_mining_rewards_contract_id, user_id));
+        let pow_rewards_persistant_state = mining_contract.contract_state_as::<PsyPOWMiningRewardsClaimContractPersistantState>(0);
+        
+        // Ensure the claims are from the latest ups
+        assert(pow_rewards_persistant_state.last_claimed_ups_checkpoint_id == current_checkpoint, "claims not from latest ups");
+        
+        // Ensure the checkpoint is sealed so we don't double claim
+        assert(pow_rewards_persistant_state.sealed_for_ups_checkpoint_id == current_checkpoint, "checkpoint not sealed");
+        
+        // Ensure we haven't already claimed during this ups
+        let last_claimed = c.token.last_claimed_pow_rewards_checkpoint_id.get();
+        assert(last_claimed < current_checkpoint, "already claimed for this ups");
+        
+        // Update our last claimed checkpoint
+        c.token.last_claimed_pow_rewards_checkpoint_id.set(current_checkpoint);
+        
+        // Add the claimed rewards to our balance
+        let current_balance = c.token.balance.get();
+        c.token.balance.set(current_balance + pow_rewards_persistant_state.claimed_rewards);
+    }
+    
+    pub fn get_sent_to(user_id: Felt) -> Felt {
+        let c = ContractRef::new(ContractMetadata::current());
+        c.token.sent_to_other.index(user_id).get()
+    }
+    
+    pub fn get_received_from(user_id: Felt) -> Felt {
+        let c = ContractRef::new(ContractMetadata::current());
+        c.token.received_from_others.index(user_id).get()
+    }
+    
+    pub fn get_last_claimed_checkpoint() -> Felt {
+        let c = ContractRef::new(ContractMetadata::current());
+        c.token.last_claimed_pow_rewards_checkpoint_id.get()
+    }
+}
+
+fn main() {
+    // Test initialization
+    let c = ContractRef::new(ContractMetadata::current());
+    let initial_token_state = new PsyTokenContract {
+        balance: 0,
+        last_claimed_pow_rewards_checkpoint_id: 0,
+        sent_to_other: [0; 1073741824],
+        received_from_others: [0; 1073741824],
+    };
+    c.token.set(initial_token_state);
+    
+    // Test basic functionality
+    ContractRef::mint(1000);
+    assert_eq(ContractRef::get_balance(), 1000, "balance should be 1000");
+    
+    ContractRef::burn(500);  
+    assert_eq(ContractRef::get_balance(), 500, "balance should be 500 after burn");
+}

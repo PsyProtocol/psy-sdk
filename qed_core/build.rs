@@ -23,6 +23,27 @@ fn main() {
     
     let coordinator_user_tree_height = global_user_tree_height - realm_user_tree_height;
     
+    // Extract fee configuration
+    let native_currency_decimal = network["native_currency_decimal"]
+        .as_u64()
+        .expect("native_currency_decimal must be a number") as u8;
+    
+    let native_currency = network["native_currency"]
+        .as_str()
+        .expect("native_currency must be a string")
+        .to_string();
+    
+    let fees = &network["fees"];
+    let register_user_fee = fees["register_user_fee"]
+        .as_u64()
+        .expect("register_user_fee must be a number");
+    let deploy_contract_fee = fees["deploy_contract_fee"]
+        .as_u64()
+        .expect("deploy_contract_fee must be a number");
+    let guta_fee = fees["guta_fee"]
+        .as_u64()
+        .expect("guta_fee must be a number");
+    
     // Generate the Rust file
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("generated_constants.rs");
@@ -34,10 +55,24 @@ fn main() {
 pub const GLOBAL_USER_TREE_HEIGHT: u8 = {};
 pub const COORDINATOR_USER_TREE_HEIGHT: u8 = {};
 pub const REALM_USER_TREE_HEIGHT: u8 = {};
+
+// Native currency configuration
+pub const NATIVE_CURRENCY_DECIMAL: u8 = {};
+pub const NATIVE_CURRENCY: &str = "{}";
+
+// Fee configuration
+pub const REGISTER_USER_FEE: u64 = {};
+pub const DEPLOY_CONTRACT_FEE: u64 = {};
+pub const GUTA_FEE: u64 = {};
 "#,
         global_user_tree_height,
         coordinator_user_tree_height,
-        realm_user_tree_height
+        realm_user_tree_height,
+        native_currency_decimal,
+        native_currency,
+        register_user_fee,
+        deploy_contract_fee,
+        guta_fee
     );
     
     fs::write(&dest_path, content).expect("Failed to write generated constants");

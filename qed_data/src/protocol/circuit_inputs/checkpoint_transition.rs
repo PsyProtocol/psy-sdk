@@ -19,6 +19,7 @@ pub struct QCQEDCheckpointStateTransitionInputPartial<F: RichField> {
     pub block_time: F,
     pub final_random_seed_contribution: QHashOut<F>,
     pub pm_rewards_commitment: PMRewardCommitment<F>,
+    pub pm_jobs_completed: PMJobsCompletedStats<F>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -68,7 +69,7 @@ impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
                 user_ops_processed: self.part_1_header.guta_proof_header.stats.user_ops_processed,
                 total_transactions: self.part_1_header.guta_proof_header.stats.total_transactions,
                 slots_modified: self.part_1_header.guta_proof_header.stats.slots_modified,
-                pm_jobs_completed: PMJobsCompletedStats::new_empty(),
+                pm_jobs_completed: self.pm_jobs_completed,
                 block_time: self.block_time,
                 random_seed: H::q_two_to_one(self.old_stats.random_seed, self.final_random_seed_contribution),
                 pm_rewards_commitment: self.pm_rewards_commitment.clone(),

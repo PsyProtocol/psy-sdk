@@ -1,0 +1,6 @@
+[package]
+name = "token"
+type = "bin"
+authors = [""]
+
+[dependencies]

@@ -113,6 +113,7 @@ impl AggStateTransitionGadget {
 pub struct AggStateTransitionProofPublicInputsGadget {
     pub commitment: HashOutTarget,
     pub worker_public_key: HashOutTarget,
+    pub pm_jobs_completed_stats: [Target; 3],
     pub allowed_circuit_hashes_root: HashOutTarget,
     pub state_transition_combined_hash: HashOutTarget,
 }
@@ -121,8 +122,8 @@ impl AggStateTransitionProofPublicInputsGadget {
     pub fn from_public_inputs(public_inputs: &[Target]) -> Self {
         assert_eq!(
             public_inputs.len(),
-            16,
-            "AggStateTransitionProof should have 16 public inputs"
+            19,
+            "AggStateTransitionProof should have 19 public inputs"
         );
         let commitment = HashOutTarget {
             elements: [
@@ -140,30 +141,36 @@ impl AggStateTransitionProofPublicInputsGadget {
                 public_inputs[7],
             ],
         };
+        let pm_jobs_completed_stats = [
+            public_inputs[8],
+            public_inputs[9],
+            public_inputs[10],
+        ];
         let allowed_circuit_hashes_root = HashOutTarget {
             elements: [
-                public_inputs[8],
-                public_inputs[9],
-                public_inputs[10],
                 public_inputs[11],
+                public_inputs[12],
+                public_inputs[13],
+                public_inputs[14],
             ],
         };
         let state_transition_combined_hash = HashOutTarget {
             elements: [
-                public_inputs[12],
-                public_inputs[13],
-                public_inputs[14],
                 public_inputs[15],
+                public_inputs[16],
+                public_inputs[17],
+                public_inputs[18],
             ],
         };
         Self {
             commitment,
             worker_public_key,
+            pm_jobs_completed_stats,
             state_transition_combined_hash,
             allowed_circuit_hashes_root,
         }
     }
-    pub fn to_public_inputs(&self) -> [Target; 16] {
+    pub fn to_public_inputs(&self) -> [Target; 19] {
         [
             self.commitment.elements[0],
             self.commitment.elements[1],
@@ -173,6 +180,9 @@ impl AggStateTransitionProofPublicInputsGadget {
             self.worker_public_key.elements[1],
             self.worker_public_key.elements[2],
             self.worker_public_key.elements[3],
+            self.pm_jobs_completed_stats[0],
+            self.pm_jobs_completed_stats[1],
+            self.pm_jobs_completed_stats[2],
             self.allowed_circuit_hashes_root.elements[0],
             self.allowed_circuit_hashes_root.elements[1],
             self.allowed_circuit_hashes_root.elements[2],

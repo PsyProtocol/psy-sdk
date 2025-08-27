@@ -100,9 +100,17 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
         let commitment = worker_public_key;
+        
+        // Extract PM jobs completed stats from new checkpoint stats
+        let pm_stats_targets = [
+            child_proofs_gadget.state_delta_gadget.new_stats.pm_jobs_completed.deploy_contracts_completed,
+            child_proofs_gadget.state_delta_gadget.new_stats.pm_jobs_completed.register_users_completed,
+            child_proofs_gadget.state_delta_gadget.new_stats.pm_jobs_completed.gutas_completed,
+        ];
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_stats_targets);
         builder.register_public_inputs(&core_checkpoint_gadget.old_checkpoint_tree_root.elements);
         builder.register_public_inputs(&new_checkpoint_root.elements);
         builder.add_qed_type_d_common_gates();

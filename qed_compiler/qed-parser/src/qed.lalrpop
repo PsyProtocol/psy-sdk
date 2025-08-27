@@ -96,6 +96,15 @@ IntrinsicStatement: StmtNode = {
             }
         )
     },
+    <l:@L> <comments: Comment*> <variable:CTX_CLEAR_ENTIRE_TREE> "(" <contract_state_tree_height: Expression> ")" ";" <r:@R> => {
+        StmtNode::Intrinsic(
+            IntrinsicStmtNode::ClearEntireTree {
+                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
+                comments,
+                location: Location::new(file_id, l, r),
+            }
+        )
+    },
 }
 
 Definition: DefinitionNode = {
@@ -847,6 +856,62 @@ IntrinsicExpression: ExprNode<F> = {
             }
         )
     },
+    <l:@L> <variable:CTX_GET_FEES_COLLECTED> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetFeesCollected {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_USER_OPS_PROCESSED> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetUserOpsProcessed {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_TOTAL_TRANSACTIONS> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetTotalTransactions {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_SLOTS_MODIFIED> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetSlotsModified {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_DEPLOY_CONTRACTS_COMPLETED> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetDeployContractsCompleted {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_REGISTER_USERS_COMPLETED> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetRegisterUsersCompleted {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:CTX_GET_GUTAS_COMPLETED> "(" <checkpoint_id:Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetGutasCompleted {
+                checkpoint_id: expr_nodes.alloc_item(checkpoint_id),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
     <l:@L> <variable:CTX_GET_LAST_NONCE> "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
             IntrinsicExprNode::GetLastNonce {
@@ -1174,6 +1239,14 @@ extern {
         CTX_GET_REGISTER_USERS_ROOT => Token::IntrinsicCtxGetRegisterUsersRoot,
         CTX_GET_GUTAS_ROOT => Token::IntrinsicCtxGetGutasRoot,
         CTX_GET_DEPLOY_CONTRACTS_ROOT => Token::IntrinsicCtxGetDeployContractsRoot,
+        CTX_GET_FEES_COLLECTED => Token::IntrinsicCtxGetFeesCollected,
+        CTX_GET_USER_OPS_PROCESSED => Token::IntrinsicCtxGetUserOpsProcessed,
+        CTX_GET_TOTAL_TRANSACTIONS => Token::IntrinsicCtxGetTotalTransactions,
+        CTX_GET_SLOTS_MODIFIED => Token::IntrinsicCtxGetSlotsModified,
+        CTX_GET_DEPLOY_CONTRACTS_COMPLETED => Token::IntrinsicCtxGetDeployContractsCompleted,
+        CTX_GET_REGISTER_USERS_COMPLETED => Token::IntrinsicCtxGetRegisterUsersCompleted,
+        CTX_GET_GUTAS_COMPLETED => Token::IntrinsicCtxGetGutasCompleted,
+        CTX_CLEAR_ENTIRE_TREE => Token::IntrinsicCtxClearEntireTree,
         CTX_GET_LAST_NONCE => Token::IntrinsicCtxGetLastNonce,
         CTX_GET_USER_PUBLIC_KEY_HASH => Token::IntrinsicCtxGetUserPublicKeyHash,
         CTX_GET_STATE_HASH_AT => Token::IntrinsicCtxGetStateHashAt,

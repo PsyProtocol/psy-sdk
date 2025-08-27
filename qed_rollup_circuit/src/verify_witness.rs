@@ -231,7 +231,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 "verify agg user registration deploy contracts: {:?}",
                 proof.public_inputs
             );
-            if proof.public_inputs.len() != 16 {
+            if proof.public_inputs.len() != 19 {
                 anyhow::bail!("invalid public input length");
             }
 
@@ -322,7 +322,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
         ProvingJobCircuitType::GUTASingleEndCap => {
             tracing::info!("verify single_end_cap: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 12 {
+            if proof.public_inputs.len() != 15 {
                 anyhow::bail!("invalid public input length");
             }
             let r: CircuitInputWithDependencies<VerifySingleEndCapInput<F>> = bincode::deserialize(
@@ -341,13 +341,13 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
-            if guta_header_hash.0.elements != proof.public_inputs[8..12] {
+            if guta_header_hash.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid guta header hash");
             }
         }
         ProvingJobCircuitType::GUTATwoEndCap => {
             tracing::info!("verify two_end_cap: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 12 {
+            if proof.public_inputs.len() != 15 {
                 anyhow::bail!("invalid public input length");
             }
             let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<F>> =
@@ -386,13 +386,13 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
-            if guta_header_combine_hash.0.elements != proof.public_inputs[8..12] {
+            if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid guta header hash");
             }
         }
         ProvingJobCircuitType::GUTATwoGUTA => {
             tracing::info!("verify two_guta: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 12 {
+            if proof.public_inputs.len() != 15 {
                 anyhow::bail!("invalid public input length");
             }
             let r: CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>> =
@@ -435,13 +435,13 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
-            if guta_header_combine_hash.0.elements != proof.public_inputs[8..12] {
+            if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid guta header hash");
             }
         }
         ProvingJobCircuitType::GUTALeftGUTARightEndCap => {
             tracing::info!("verify left guta right end cap: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 12 {
+            if proof.public_inputs.len() != 15 {
                 anyhow::bail!("invalid public input length");
             }
             let r: CircuitInputWithDependencies<VerifyLeftGUTARightEndCapInputSimple<F>> =
@@ -484,13 +484,13 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
-            if guta_header_combine_hash.0.elements != proof.public_inputs[8..12] {
+            if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid guta header hash");
             }
         }
         ProvingJobCircuitType::GUTALeftEndCapRightGUTA => {
             tracing::info!("verify left end cap right guta: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 12 {
+            if proof.public_inputs.len() != 15 {
                 anyhow::bail!("invalid public input length");
             }
             let r: CircuitInputWithDependencies<VerifyLeftEndCapRightGUTAInputSimple<F>> =
@@ -533,13 +533,13 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
-            if guta_header_combine_hash.0.elements != proof.public_inputs[8..12] {
+            if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid guta header hash");
             }
         }
         ProvingJobCircuitType::GUTARegisterUsers => {
             tracing::info!("verify guta register users: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 12 {
+            if proof.public_inputs.len() != 15 {
                 anyhow::bail!("invalid public input length");
             }
             let r: CircuitInputWithDependencies<VerifyGUTARegisterUsersCircuitInputSimple<F>> =
@@ -581,13 +581,13 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
-            if guta_header_hash.0.elements != proof.public_inputs[8..12] {
+            if guta_header_hash.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid guta header hash");
             }
         }
         ProvingJobCircuitType::GUTAOnlyRegisterUsers => {
             tracing::info!("verify only register users: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 12 {
+            if proof.public_inputs.len() != 15 {
                 anyhow::bail!("invalid public input length");
             }
             let r: GUTAOnlyRegisterUsersInput<F> = bincode::deserialize(
@@ -629,13 +629,13 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
-            if guta_header_hash.0.elements != proof.public_inputs[8..12] {
+            if guta_header_hash.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid guta header hash");
             }
         }
         ProvingJobCircuitType::GUTAVerifyToCap => {
             tracing::info!("verify guta to cap: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 12 {
+            if proof.public_inputs.len() != 15 {
                 anyhow::bail!("invalid public input length");
             }
             let r: CircuitInputWithDependencies<VerifyGUTAToCapCircuitInputSimple<F>> =
@@ -653,13 +653,13 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
-            if guta_header_hash.0.elements != proof.public_inputs[8..12] {
+            if guta_header_hash.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid guta header hash");
             }
         }
         ProvingJobCircuitType::GUTANoChange => {
             tracing::info!("verify guta no change: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 12 {
+            if proof.public_inputs.len() != 15 {
                 anyhow::bail!("invalid public input length");
             }
             let r: GUTANoChangeFullInput<F> = bincode::deserialize(

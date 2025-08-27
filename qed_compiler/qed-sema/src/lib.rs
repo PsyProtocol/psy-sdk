@@ -769,6 +769,76 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ));
             }
+            IntrinsicExprNode::GetFeesCollected { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetFeesCollected {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::GetUserOpsProcessed { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetUserOpsProcessed {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::GetTotalTransactions { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetTotalTransactions {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::GetSlotsModified { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetSlotsModified {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::GetRegisterUsersCompleted { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetRegisterUsersCompleted {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::GetGutasCompleted { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetGutasCompleted {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::GetDeployContractsCompleted { checkpoint_id, location } => {
+                let checkpoint_id = self.visit_expr(checkpoint_id, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetDeployContractsCompleted {
+                        checkpoint_id: self.program.exprs.alloc_item(checkpoint_id),
+                        type_id: UNKOWN_TYPE,
+                        location,
+                    },
+                ));
+            }
         }
     }
 
@@ -1503,6 +1573,29 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                         left: self.program.exprs.alloc_item(checked_lhs),
                         right: self.program.exprs.alloc_item(checked_rhs),
                         message: message,
+                        comments: comments,
+                        location: location,
+                    },
+                ))
+            }
+            IntrinsicStmtNode::ClearEntireTree {
+                contract_state_tree_height,
+                comments,
+                location,
+            } => {
+                let checked_height = self.visit_expr(contract_state_tree_height, ctx)?;
+                
+                if !self.unify(checked_height.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: location,
+                        expected: vec![FELT_TYPE],
+                        found: checked_height.ty(),
+                    });
+                }
+
+                Ok(CheckedStmtNode::Intrinsic(
+                    CheckedIntrinsicStmtNode::ClearEntireTree {
+                        contract_state_tree_height: self.program.exprs.alloc_item(checked_height),
                         comments: comments,
                         location: location,
                     },

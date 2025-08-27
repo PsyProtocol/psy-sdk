@@ -6,7 +6,7 @@ LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_c
 default: build wallet-build
 
 check:
-	@cargo check --all-targets --examples
+	@cargo check --workspace --all-targets --tests --benches --examples
 
 fix:
 	# @cargo machete --fix
@@ -141,9 +141,12 @@ init:
 	# Create token contract subdirectory
 	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/token
 	@cp qed_compiler/tests/new_token.qed ${PROJECT_DIR}/token/src/main.qed
-	# Create rewards contract subdirectory
-	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/rewards
-	@cp qed_compiler/tests/rewards.qed ${PROJECT_DIR}/rewards/src/main.qed
+	# Create psy mining rewards claim contract subdirectory
+	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/psy_mining_rewards_claim
+	@cp qed_compiler/tests/psy_mining_rewards_claim_simple.qed ${PROJECT_DIR}/psy_mining_rewards_claim/src/main.qed
+	# Create psy token contract subdirectory
+	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/psy_token
+	@cp qed_compiler/tests/psy_token_simple.qed ${PROJECT_DIR}/psy_token/src/main.qed
 	@mkdir -p $(PWD)/db
 	@echo "Starting Redis containers..."
 	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
@@ -184,8 +187,10 @@ interpret:
 compile:
 	# Compile token contract
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim
-	# Compile rewards contract
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim batch_claim_pm_rewards
+	# Compile psy mining rewards claim contract
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/psy_mining_rewards_claim && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names clear_entire_tree advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward
+	# Compile psy token contract
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/psy_token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names mint burn transfer claim_from claim_pow_rewards get_balance get_sent_to get_received_from get_last_claimed_checkpoint
 
 run-coordinator-processor:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --database lmdbx --lmdbx-path ${PWD}/db/coordinator
@@ -351,8 +356,10 @@ deploy-contract:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
 	@echo "USER1 deploying token contract..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
-	@echo "USER0 deploying rewards contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/rewards/target/rewards.json
+	@echo "USER0 deploying psy mining rewards claim contract..."
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/psy_mining_rewards_claim/target/psy_mining_rewards_claim.json
+	@echo "USER0 deploying psy token contract..."
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/psy_token/target/psy_token.json
 
 multi-contract-call:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli wallet-session -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}

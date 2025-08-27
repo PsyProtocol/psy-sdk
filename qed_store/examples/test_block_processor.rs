@@ -14,7 +14,7 @@ async fn test_simple_block_processor() -> anyhow::Result<()> {
     let mut t = DebugTimer::new("test_kvq_simple_store_arc");
     t.lap("start");
     let st = Arc::new(KVQSimpleMemoryBackingStore::new());
-    let cur_checkpoint = st.initialize_store().await?;
+    let cur_checkpoint = st.initialize_store(None).await?;
     t.event(format!("current_checkpoint: {}", cur_checkpoint));
 
     let circuit_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();

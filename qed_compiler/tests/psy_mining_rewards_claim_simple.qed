@@ -1,0 +1,109 @@
+#[derive(Storage, StorageRef)]
+struct WeirdMerkleProofSiblingLevel {
+    pub sibling_branch: [Felt; 4],
+    pub sibling_reward_leaf: [Felt; 4],
+}
+
+#[derive(Storage, StorageRef)]
+struct PMRewardCommitmentPreimage {
+    pub guta_rewards_tree_root: [Felt; 4],
+    pub registered_users_rewards_tree_root: [Felt; 4],
+    pub deploy_contracts_rewards_tree_root: [Felt; 4],
+}
+
+#[derive(Storage, StorageRef)]
+struct PersistantState {
+    pub min_allowed_claimed_checkpoint: Felt,
+    pub last_claimed_ups_checkpoint_id: Felt,
+    pub claimed_rewards: Felt,
+    pub sealed_for_ups_checkpoint_id: Felt,
+}
+
+#[contract]
+#[derive(Storage, StorageRef)]
+struct Contract {
+    pub persistant_state: PersistantState,
+    pub claimed_nullifiers: [Felt; 32],
+}
+
+impl ContractRef {
+    fn check_guta_reward(total_proofs_in_checkpoint: Felt, total_fees_paid: Felt, proposed_reward: Felt) -> bool {
+        let user_transaction_inclusion_fee = 5000000000;
+        
+        // The reward must be less than USER_TRANSACTION_INCLUSION_FEE and total rewards must not exceed fees
+        let total_reward_if_all_claim = proposed_reward * total_proofs_in_checkpoint;
+        proposed_reward < user_transaction_inclusion_fee && total_reward_if_all_claim < total_fees_paid
+    }
+    
+    fn compute_combined_pm_commitment_hash(preimage: PMRewardCommitmentPreimage) -> [Felt; 4] {
+        let intermediate_hash = hash_two_to_one(preimage.guta_rewards_tree_root, preimage.registered_users_rewards_tree_root);
+        hash_two_to_one(intermediate_hash, preimage.deploy_contracts_rewards_tree_root)
+    }
+    
+    pub fn clear_entire_tree() {
+        // TODO: Implement clear_entire_tree intrinsic - for now just clear first few nullifiers
+        let c = ContractRef::new(ContractMetadata::current());
+        for i in 0u32..32u32 {
+            let idx = i as Felt;
+            c.claimed_nullifiers.index(idx).set(0);
+        }
+    }
+    
+    pub fn advance_to_checkpoint(new_claim_checkpoint_id: Felt) {
+        let c = ContractRef::new(ContractMetadata::current());
+        let persistant_state = c.persistant_state.get();
+        assert(new_claim_checkpoint_id > persistant_state.min_allowed_claimed_checkpoint, "checkpoint must be greater");
+        
+        Self::clear_entire_tree();
+        
+        c.persistant_state.set(new PersistantState {
+            min_allowed_claimed_checkpoint: new_claim_checkpoint_id,
+            last_claimed_ups_checkpoint_id: get_checkpoint_id(),
+            claimed_rewards: 0,
+            sealed_for_ups_checkpoint_id: persistant_state.sealed_for_ups_checkpoint_id,
+        });
+    }
+    
+    pub fn claim_simple_reward(claim_checkpoint_id: Felt, proposed_reward: Felt) {
+        let c = ContractRef::new(ContractMetadata::current());
+        let current_checkpoint = get_checkpoint_id();
+        let claim_rewards_cooldown = 16;
+        
+        // Sanity check + ensure that the cooldown is enforced
+        assert(current_checkpoint > claim_checkpoint_id + claim_rewards_cooldown, "cooldown not satisfied");
+        
+        let persistant_state = c.persistant_state.get();
+        
+        // Ensure the user is not double-claiming rewards from past checkpoints
+        assert(persistant_state.min_allowed_claimed_checkpoint == claim_checkpoint_id, "invalid claim checkpoint");
+        
+        let old_claimed_rewards = if persistant_state.last_claimed_ups_checkpoint_id == current_checkpoint {
+            persistant_state.claimed_rewards
+        } else {
+            0
+        };
+        
+        // Validate the proposed reward (simplified check)
+        assert(proposed_reward > 0 && proposed_reward <= 1000000000, "invalid reward amount");
+        
+        // Update the persistant state
+        c.persistant_state.set(new PersistantState {
+            min_allowed_claimed_checkpoint: persistant_state.min_allowed_claimed_checkpoint,
+            last_claimed_ups_checkpoint_id: current_checkpoint,
+            claimed_rewards: old_claimed_rewards + proposed_reward,
+            sealed_for_ups_checkpoint_id: persistant_state.sealed_for_ups_checkpoint_id,
+        });
+    }
+}
+
+fn main() {
+    // Test initialization
+    let c = ContractRef::new(ContractMetadata::current());
+    let initial_state = new PersistantState {
+        min_allowed_claimed_checkpoint: 0,
+        last_claimed_ups_checkpoint_id: 0,
+        claimed_rewards: 0,
+        sealed_for_ups_checkpoint_id: 0,
+    };
+    c.persistant_state.set(initial_state);
+}

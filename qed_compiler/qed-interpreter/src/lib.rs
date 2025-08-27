@@ -693,6 +693,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         });
                     }
                 }
+                CheckedIntrinsicStmtNode::ClearEntireTree { .. } => {
+                    let _result = self.context.clear_entire_tree();
+                }
             },
         }
         Ok(ControlState::Normal(CheckedValueRef::new_rc(
@@ -1278,6 +1281,76 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         let root = self.context.get_deploy_contracts_root(checkpoint_id_value);
                         return Ok(CheckedValueRef::from_vec(type_id.clone(), root.to_vec()));
                     }
+                    CheckedIntrinsicExprNode::GetFeesCollected {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let fees = self.context.get_fees_collected(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(fees));
+                    }
+                    CheckedIntrinsicExprNode::GetUserOpsProcessed {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let ops = self.context.get_user_ops_processed(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(ops));
+                    }
+                    CheckedIntrinsicExprNode::GetTotalTransactions {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let txns = self.context.get_total_transactions(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(txns));
+                    }
+                    CheckedIntrinsicExprNode::GetSlotsModified {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let slots = self.context.get_slots_modified(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(slots));
+                    }
+                    CheckedIntrinsicExprNode::GetRegisterUsersCompleted {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let completed = self.context.get_register_users_completed(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(completed));
+                    }
+                    CheckedIntrinsicExprNode::GetGutasCompleted {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let completed = self.context.get_gutas_completed(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(completed));
+                    }
+                    CheckedIntrinsicExprNode::GetDeployContractsCompleted {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let completed = self.context.get_deploy_contracts_completed(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(completed));
+                    }
                 }
             }),
             CheckedExprNode::Value(value_node) => Ok(CheckedValueRef::new_rc(
@@ -1808,6 +1881,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
 #[cfg(test)]
 mod tests {
+    use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
+    use qed_store::controllers::local::prepare_environment_with_real_contract;
     use serial_test::serial;
     use std::{
         fs::File,
@@ -1819,14 +1894,10 @@ mod tests {
     use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
     use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
     use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-    use qed_data::qblock::cmds::register_user::QBCRegisterUser;
+    use qed_data::{config::store_config::{C, D}, qblock::cmds::register_user::QBCRegisterUser};
     use qed_exec::vm::exec::QEDEvalSessionResult;
 
     use qed_data::config::store_config::QEDHasher;
-    use qed_utils::{
-        gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract, C,
-        D,
-    };
     use qedlang_core::dpn::{
         ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
         vm::compile::QEDCompileResult,
@@ -1894,7 +1965,7 @@ mod tests {
                 let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
                 let deployer = QHashOut::rand();
-                let (_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+                let (_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
                     deployer,
                     contract_state_tree_height as u8,
                     &compile_results,
@@ -1907,8 +1978,7 @@ mod tests {
                             prepare_environment_with_real_contract(
                                 QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
                                 deploy_cmd,
-                            )
-                            .await
+                            ).await
                         })
                 })
                 .unwrap();

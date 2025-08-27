@@ -1774,6 +1774,7 @@ dependencies = [
  "clap_complete",
  "color-eyre",
  "insta",
+ "kvq",
  "num-bigint",
  "num-traits",
  "plonky2",
@@ -1790,6 +1791,8 @@ dependencies = [
  "qed_crypto",
  "qed_data",
  "qed_exec",
+ "qed_prover",
+ "qed_store",
  "qedlang_core",
  "serde",
  "serde_json",
@@ -4715,6 +4718,8 @@ dependencies = [
  "qed_crypto",
  "qed_data",
  "qed_exec",
+ "qed_prover",
+ "qed_store",
  "qedlang_core",
  "tokio",
 ]
@@ -4772,7 +4777,6 @@ dependencies = [
  "enum-as-inner",
  "indexmap 2.11.0",
  "insta",
- "kvq",
  "plonky2",
  "qed-ast",
  "qed-common",
@@ -4786,6 +4790,7 @@ dependencies = [
  "qed_data",
  "qed_exec",
  "qed_prover",
+ "qed_store",
  "qedlang_core",
  "serial_test",
  "thiserror 2.0.16",
@@ -5083,6 +5088,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "qed_precompiles"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde_json",
+]
+
+[[package]]
 name = "qed_prover"
 version = "0.1.0"
 dependencies = [
@@ -5218,11 +5231,15 @@ dependencies = [
  "qed_core",
  "qed_crypto",
  "qed_data",
+ "qed_precompiles",
+ "qed_rollup_utils",
+ "qedlang_core",
  "rand 0.8.5",
  "redis 0.30.0",
  "rsmq_async",
  "scylla",
  "serde",
+ "serde_cbor",
  "serde_json",
  "serde_repr",
  "tempfile",
@@ -5288,7 +5305,10 @@ dependencies = [
  "hashbrown 0.14.5",
  "k256",
  "plonky2",
+ "qed_core",
+ "qed_data",
  "serde",
+ "serde_cbor",
  "serde_repr",
  "ts-rs",
  "twox-hash 1.6.3",

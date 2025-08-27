@@ -10,7 +10,7 @@ use hex::FromHexError;
 use indexmap::{IndexMap, IndexSet};
 use kvq::traits::KVQSerializable;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::field::types::Field;
+use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::HashOut;
 use plonky2::hash::poseidon::PoseidonHash;
 use plonky2::plonk::config::{Hasher, PoseidonGoldilocksConfig};
@@ -24,6 +24,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;
 
 type F = GoldilocksField;
+
+// Constants for maximum heights in reward merkle proofs
+pub const GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE: usize = 31; // Based on USER_TREE_HEIGHT
+pub const CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT_MINUS_ONE: usize = 31; // Based on CONTRACT_TREE_HEIGHT  
+pub const USER_REGISTRATION_REWARDS_MAX_HEIGHT_MINUS_ONE: usize = 31; // Based on USER_TREE_HEIGHT
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
 )]
@@ -425,6 +430,7 @@ pub struct QProvingTaskLayer {
 pub struct QProvingTask {
     pub task_id: TaskId,
     pub job_ids: Vec<QProvingJobDataID>,
+    pub done: bool,
 }
 
 impl QProvingTask {
@@ -433,6 +439,16 @@ impl QProvingTask {
         Self {
             task_id,
             job_ids: job_ids.to_vec(),
+            done: false,
+        }
+    }
+
+    pub fn new_done(job_ids: &[QProvingJobDataID]) -> Self {
+        let task_id = TaskId::new();
+        Self {
+            task_id,
+            job_ids: job_ids.to_vec(),
+            done: true,
         }
     }
 
@@ -468,6 +484,22 @@ pub struct JobProof {
     pub value: QHashOut<F>,
     pub siblings: Vec<JobProofSibling>,
     pub root: QHashOut<F>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub struct VariableHeightProofSibling {
+    pub sibling_branch: QHashOut<F>,
+    pub sibling_reward_leaf: QHashOut<F>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct VariableHeightRewardMerkleProof {
+    pub top_siblings: Vec<VariableHeightProofSibling>, // MAX_HEIGHT_MINUS_ONE elements
+    pub left_branch: QHashOut<F>,
+    pub right_branch: QHashOut<F>,
+    pub reward_leaf: QHashOut<F>,
+    pub proof_height: F,
+    pub index: F,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -512,17 +544,25 @@ impl QProvingTaskGraph {
         for current_layer in ts_order {
             let layer_id = LayerId::new();
             let mut job_ids = Vec::new();
-            let task_ids = current_layer.clone();
-            for &task_id in &task_ids {
+            let mut filtered_task_ids = Vec::new();
+            
+            for &task_id in &current_layer {
                 if let Some(task) = self.tasks.get(&task_id) {
-                    job_ids.extend(task.job_ids.clone());
+                    if !task.done {
+                        job_ids.extend(task.job_ids.clone());
+                        filtered_task_ids.push(task_id);
+                    }
                 }
             }
-            sorted_layers.push(QProvingTaskLayer {
-                layer_id,
-                task_ids: task_ids.clone(),
-                job_ids,
-            });
+            
+            // Only create layer if it has non-done tasks
+            if !filtered_task_ids.is_empty() {
+                sorted_layers.push(QProvingTaskLayer {
+                    layer_id,
+                    task_ids: filtered_task_ids,
+                    job_ids,
+                });
+            }
         }
         sorted_layers
     }
@@ -674,6 +714,160 @@ impl QProvingTaskGraph {
         }
 
         Ok(results)
+    }
+
+    pub async fn generate_variable_height_proof<PS: QProofStoreAsyncImm>(
+        &self,
+        leaf_job_id: QProvingJobDataID,
+        proof_store: &PS,
+        max_height: usize,
+    ) -> anyhow::Result<(VariableHeightRewardMerkleProof, QProvingJobDataID)> {
+        let task_levels = self.get_task_levels();
+
+        let (leaf_level, leaf_task_id, leaf_job_index) = task_levels
+            .iter()
+            .enumerate()
+            .find_map(|(level_idx, level_tasks)| {
+                level_tasks.iter().find_map(|&task_id| {
+                    self.tasks.get(&task_id).and_then(|task| {
+                        task.job_ids
+                            .iter()
+                            .position(|&id| id == leaf_job_id)
+                            .map(|idx| (level_idx, task_id, idx))
+                    })
+                })
+            })
+            .ok_or_else(|| anyhow::anyhow!("Leaf job not found in any task"))?;
+
+        let leaf_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> = proof_store
+            .get_proof_by_id(leaf_job_id.get_output_id())
+            .await?;
+
+        // Extract left_branch and right_branch from leaf proof public inputs
+        let (left_branch, right_branch) = if leaf_proof.public_inputs.len() >= 8 {
+            let mut left_elements = [F::ZERO; 4];
+            let mut right_elements = [F::ZERO; 4];
+            left_elements.copy_from_slice(&leaf_proof.public_inputs[0..4]);
+            right_elements.copy_from_slice(&leaf_proof.public_inputs[4..8]);
+            (QHashOut(HashOut { elements: left_elements }), 
+             QHashOut(HashOut { elements: right_elements }))
+        } else {
+            return Err(anyhow::anyhow!("Invalid leaf proof public inputs length"));
+        };
+
+        // Extract reward leaf hash (assuming it's stored in position 8-11 of public inputs)
+        let reward_leaf = if leaf_proof.public_inputs.len() >= 12 {
+            let mut elements = [F::ZERO; 4];
+            elements.copy_from_slice(&leaf_proof.public_inputs[8..12]);
+            QHashOut(HashOut { elements })
+        } else {
+            // Default to zero hash if no reward leaf specified
+            QHashOut(HashOut { elements: [F::ZERO; 4] })
+        };
+
+        let mut top_siblings = Vec::new();
+        let mut current_task_id = leaf_task_id;
+        let mut current_job_index = leaf_job_index;
+        let mut current_level = leaf_level;
+        let mut actual_height = 0;
+
+        while current_level < task_levels.len() - 1 && actual_height < max_height {
+            let current_task = &self.tasks[&current_task_id];
+            let current_job = current_task.job_ids[current_job_index];
+
+            let sibling_idx = match current_job_index {
+                idx if idx % 2 == 0 && idx + 1 < current_task.job_ids.len() => Some(idx + 1),
+                idx if idx % 2 == 1 => Some(idx - 1),
+                _ => None,
+            };
+
+            let sibling_level = if let Some(idx) = sibling_idx {
+                let sibling_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> =
+                    proof_store
+                        .get_proof_by_id(current_task.job_ids[idx].get_output_id())
+                        .await?;
+
+                let mut branch_elements = [F::ZERO; 4];
+                branch_elements.copy_from_slice(&sibling_proof.public_inputs[0..4]);
+                
+                let mut reward_elements = [F::ZERO; 4];
+                if sibling_proof.public_inputs.len() >= 12 {
+                    reward_elements.copy_from_slice(&sibling_proof.public_inputs[8..12]);
+                }
+
+                VariableHeightProofSibling {
+                    sibling_branch: QHashOut(HashOut { elements: branch_elements }),
+                    sibling_reward_leaf: QHashOut(HashOut { elements: reward_elements }),
+                }
+            } else {
+                // No sibling - use zero hashes
+                VariableHeightProofSibling {
+                    sibling_branch: QHashOut(HashOut { elements: [F::ZERO; 4] }),
+                    sibling_reward_leaf: QHashOut(HashOut { elements: [F::ZERO; 4] }),
+                }
+            };
+
+            top_siblings.push(sibling_level);
+
+            let parent_info = self
+                .graph
+                .get_dependents(&current_task_id)
+                .and_then(|parents| parents.iter().next())
+                .and_then(|parent_id| {
+                    let parent_task = &self.tasks[&parent_id];
+                    parent_task
+                        .job_ids
+                        .iter()
+                        .position(|&id| {
+                            if sibling_idx.is_none() {
+                                id == current_job
+                            } else {
+                                current_job_index / 2 < parent_task.job_ids.len()
+                                    && id == parent_task.job_ids[current_job_index / 2]
+                            }
+                        })
+                        .map(|idx| (parent_id.clone(), idx))
+                });
+
+            match parent_info {
+                Some((parent_id, parent_idx)) => {
+                    current_task_id = parent_id;
+                    current_job_index = parent_idx;
+                    current_level += 1;
+                    actual_height += 1;
+                }
+                None => break,
+            }
+        }
+
+        // Pad with zero siblings up to max_height
+        while top_siblings.len() < max_height {
+            top_siblings.push(VariableHeightProofSibling {
+                sibling_branch: QHashOut(HashOut { elements: [F::ZERO; 4] }),
+                sibling_reward_leaf: QHashOut(HashOut { elements: [F::ZERO; 4] }),
+            });
+        }
+
+        let proof_height = F::from_canonical_usize(actual_height);
+        let index = F::from_canonical_usize(leaf_job_index);
+
+        let root_job_id = if current_level < task_levels.len() - 1 {
+            self.tasks[&current_task_id].job_ids[current_job_index]
+        } else {
+            self.tasks[&current_task_id].job_ids[current_job_index]
+        };
+
+        Ok((
+            VariableHeightRewardMerkleProof {
+                top_siblings,
+                left_branch,
+                right_branch,
+                reward_leaf,
+                proof_height,
+                index,
+            },
+            root_job_id,
+        ))
     }
 
     fn get_task_levels(&self) -> Vec<Vec<LayerId>> {
@@ -1429,6 +1623,7 @@ mod tests {
                 0,
                 0,
             )],
+            done: false,
         };
         let task2 = QProvingTask {
             task_id: TaskId::new(),
@@ -1439,6 +1634,7 @@ mod tests {
                 1,
                 0,
             )],
+            done: false,
         };
         let task3 = QProvingTask {
             task_id: TaskId::new(),
@@ -1449,6 +1645,7 @@ mod tests {
                 2,
                 0,
             )],
+            done: false,
         };
 
         graph.add_dep(task3.clone(), task1.clone());
@@ -1529,10 +1726,12 @@ mod tests {
         let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
 
         graph.add_dep(task1.clone(), task2.clone());
@@ -1629,10 +1828,12 @@ mod tests {
         let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
 
         graph.add_dep(task1.clone(), task2.clone());
@@ -1652,14 +1853,17 @@ mod tests {
         let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task3 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
 
         graph.add_dep(task3.clone(), task1.clone());
@@ -1681,18 +1885,22 @@ mod tests {
         let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task3 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task4 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
 
         graph.add_dep(task2.clone(), task1.clone());
@@ -1718,22 +1926,27 @@ mod tests {
         let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task3 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task4 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task5 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
 
         graph.add_dep(task2.clone(), task1.clone());
@@ -1769,18 +1982,22 @@ mod tests {
         let task1 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task2 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task3 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
         let task4 = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
 
         graph.add_dep(task4.clone(), task1.clone());
@@ -1804,6 +2021,7 @@ mod tests {
         let task = QProvingTask {
             task_id: TaskId::new(),
             job_ids: vec![],
+            done: false,
         };
 
         graph.tasks.insert(task.task_id, task.clone());
@@ -2050,5 +2268,63 @@ mod tests {
             parent1.elements[3].to_canonical_u64()
         );
         println!("// ===== End of sample proof data =====\n");
+    }
+}
+
+// Helper functions for variable height proof conversion
+pub fn compute_root_from_variable_height_proof(proof: &VariableHeightRewardMerkleProof) -> QHashOut<F> {
+    // Implement the root computation logic similar to psy-pow-claim.rs
+    let mut current_node_value = PoseidonHash::two_to_one(
+        proof.left_branch.0,
+        proof.right_branch.0,
+    );
+    current_node_value = PoseidonHash::two_to_one(current_node_value, proof.reward_leaf.0);
+    
+    let proof_height = proof.proof_height.to_canonical_u64() as usize;
+    let index = proof.index.to_canonical_u64();
+    
+    for i in 0..proof_height.min(proof.top_siblings.len()) {
+        let sibling = &proof.top_siblings[i];
+        let sibling_node = sibling.sibling_branch.0;
+        let reward_leaf = sibling.sibling_reward_leaf.0;
+        
+        let index_bit = (index >> i) & 1;
+        let branch_path_hash = if index_bit == 0 {
+            PoseidonHash::two_to_one(current_node_value, sibling_node)
+        } else {
+            PoseidonHash::two_to_one(sibling_node, current_node_value)
+        };
+        current_node_value = PoseidonHash::two_to_one(branch_path_hash, reward_leaf);
+    }
+    
+    QHashOut(current_node_value)
+}
+
+pub fn convert_variable_height_to_job_proof(variable_proof: VariableHeightRewardMerkleProof) -> JobProof {
+    // Extract the leaf value from left_branch + right_branch + reward_leaf
+    let leaf_value = QHashOut(PoseidonHash::two_to_one(
+        PoseidonHash::two_to_one(variable_proof.left_branch.0, variable_proof.right_branch.0),
+        variable_proof.reward_leaf.0,
+    ));
+    
+    // Convert top siblings to JobProofSibling format
+    let mut siblings = Vec::new();
+    let proof_height = variable_proof.proof_height.to_canonical_u64() as usize;
+    let index = variable_proof.index.to_canonical_u64();
+    
+    for (i, sibling) in variable_proof.top_siblings.iter().take(proof_height).enumerate() {
+        let index_bit = (index >> i) & 1;
+        siblings.push(JobProofSibling {
+            hash: sibling.sibling_branch,
+            is_left: index_bit == 1,
+        });
+    }
+    
+    let root = compute_root_from_variable_height_proof(&variable_proof);
+    
+    JobProof {
+        value: leaf_value,
+        siblings,
+        root,
     }
 }
