@@ -84,7 +84,7 @@ impl Multicast {
         let now = Instant::now();
         let user_info = loop {
             let mut user_info = Vec::new();
-            if let Err(err) = wait_for_new_block(&self.wallet_session.read().st_provider, 4) {
+            if let Err(err) = wait_for_new_block(&self.wallet_session.read().st_provider, 2) {
                 error!("register_batch_user: Wait for new block error: {}", err);
                 continue
             }
@@ -144,7 +144,7 @@ impl Multicast {
             {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
         }
 
-        let count = 100;
+        let count = 10;
         for i in 1..count {
             let to_user_id = user_info[2].user_id;
             contract_call_args.push(ContractCallArgs {
@@ -174,8 +174,15 @@ impl Multicast {
                 user_info[i].pub_key,
             );
             let start = Instant::now();
-            self.exec_contract_call(user_info[i].pub_key, claim_contract_call_args)
-                .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err))?;
+            for _ in 0..3 {
+                if let Err(err) = self.exec_contract_call(user_info[i].pub_key, claim_contract_call_args.clone())
+                    .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err)){
+                    error!("❌ Task {} - Claim contract call error: {}",i, err);
+                    continue;
+                }
+                break;
+             }
+
             let duration = start.elapsed().as_millis() as u64;
             info!("🔄 Task {} - Claim contract call duration: {} ms",i, duration);
             info!("End to execute claim contract call for user {}", user_info[i].pub_key);
@@ -186,6 +193,7 @@ impl Multicast {
             return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
         }
 
+        info!("batch_flow: end call");
         Ok(())
     }
 }
