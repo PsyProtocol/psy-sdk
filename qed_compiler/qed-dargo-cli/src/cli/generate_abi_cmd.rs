@@ -2,7 +2,7 @@ use crate::cli::{resolve_crate_path_graph, save_build_artifact_to_file};
 use crate::errors::Result;
 use clap::Args;
 use qed_abi::AbiExtractor;
-use qed_dargo::workspace::Workspace;
+use qed_package::Workspace;
 use qed_interpreter::Interpreter;
 use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 use std::path::PathBuf;

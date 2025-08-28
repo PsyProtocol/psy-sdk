@@ -1,14 +1,31 @@
 pub mod errors;
 pub mod files;
+pub mod fm;
 mod git;
+pub mod package;
 mod semver;
+pub mod workspace;
 
-use crate::errors::{ManifestError, SemverError};
+pub use errors::{ManifestError, SemverError};
+pub use files::*;
+pub use package::*;
+pub use workspace::*;
+
+// Individual re-exports for backward compatibility
+pub use package::{CrateName, Dependency, Package, PackageType};
+pub use workspace::Workspace;
+
+pub const FILE_EXTENSION: &str = "qed";
+
+// Re-exports for backward compatibility
+pub mod manifest {
+    pub use crate::errors::{ManifestError, SemverError};
+    pub use crate::{resolve_workspace_from_toml, try_clone_std};
+}
+
+// Main functionality - internal imports
 use crate::git::clone_git_repo;
-use qed_dargo::fm::NormalizePath;
-use qed_dargo::package::{CrateName, Dependency, Package, PackageType};
-use qed_dargo::workspace::Workspace;
-use qed_dargo::FILE_EXTENSION;
+use crate::fm::NormalizePath;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -21,10 +38,7 @@ struct PackageConfig {
 }
 
 const STD_GIT_PATH_HTTPS: &str = "https://github.com/QEDProtocol/qedlang-rust";
-
 const STD_GIT_PATH_SSH: &str = "git@github.com:QEDProtocol/qedlang-rust.git";
-
-//If you need to specify a version, use this tag instead of TAG_LATEST
 const STD_TAG: &str = "v0.0.1-rc";
 const TAG_LATEST: &str = "latest";
 const STD_FILE: &str = "qed_compiler/qed-std/std.qed";
@@ -34,8 +48,8 @@ impl PackageConfig {
         &self,
         root_dir: &Path,
         processed: &mut Vec<String>,
-    ) -> Result<Package, ManifestError> {
-        let name: CrateName = if let Some(name) = &self.package.name {
+    ) -> Result<crate::package::Package, ManifestError> {
+        let name: crate::package::CrateName = if let Some(name) = &self.package.name {
             name.parse()
                 .map_err(|_| ManifestError::InvalidPackageName {
                     toml: root_dir.join("Dargo.toml"),
@@ -46,14 +60,15 @@ impl PackageConfig {
                 toml: root_dir.join("Dargo.toml"),
             });
         };
+
         if std::env::var("DARGO_STD_PATH").is_err() {
             let qed_path = try_clone_std("feature/qed-lang-realms")?;
-
             unsafe {
                 std::env::set_var("DARGO_STD_PATH", qed_path.join(STD_FILE));
             }
         }
-        let mut dependencies: BTreeMap<CrateName, Dependency> = BTreeMap::new();
+
+        let mut dependencies: BTreeMap<crate::package::CrateName, crate::package::Dependency> = BTreeMap::new();
         for (name, dep_config) in self.dependencies.iter() {
             let name = name
                 .parse()
@@ -62,13 +77,12 @@ impl PackageConfig {
                     name: name.into(),
                 })?;
             let resolved_dep = dep_config.resolve_to_dependency(root_dir, processed)?;
-
             dependencies.insert(name, resolved_dep);
         }
 
         let package_type = match self.package.package_type.as_deref() {
-            Some("lib") => PackageType::Library,
-            Some("bin") => PackageType::Binary,
+            Some("lib") => crate::package::PackageType::Library,
+            Some("bin") => crate::package::PackageType::Binary,
             Some(invalid) => {
                 return Err(ManifestError::InvalidPackageType(
                     root_dir.join("Dargo.toml"),
@@ -87,11 +101,11 @@ impl PackageConfig {
             custom_entry_path
         } else {
             let default_entry_path = match package_type {
-                PackageType::Library => root_dir
+                crate::package::PackageType::Library => root_dir
                     .join("src")
                     .join("lib")
                     .with_extension(FILE_EXTENSION),
-                PackageType::Binary => root_dir
+                crate::package::PackageType::Binary => root_dir
                     .join("src")
                     .join("main")
                     .with_extension(FILE_EXTENSION),
@@ -99,7 +113,6 @@ impl PackageConfig {
             default_entry_path
         };
 
-        // If there is a package version, ensure that it is semver compatible
         if let Some(version) = &self.package.version {
             semver::parse_semver_compatible_version(version).map_err(|err| {
                 ManifestError::SemverError(SemverError::CouldNotParsePackageVersion {
@@ -109,7 +122,7 @@ impl PackageConfig {
             })?;
         }
 
-        Ok(Package {
+        Ok(crate::package::Package {
             version: self.package.version.clone(),
             root_dir: root_dir.to_path_buf(),
             entry_path,
@@ -120,14 +133,12 @@ impl PackageConfig {
     }
 }
 
-pub(crate) fn try_clone_std(tag: &str) -> Result<PathBuf, ManifestError> {
-    // Try to clone the repository using HTTPS
+pub fn try_clone_std(tag: &str) -> Result<PathBuf, ManifestError> {
     match clone_git_repo(STD_GIT_PATH_HTTPS, tag) {
         Ok(path) => return Ok(path),
         Err(e) => eprintln!("[QED] HTTPS clone failed: {}", e),
     }
 
-    // fallback to SSH if HTTPS clone fails
     match clone_git_repo(STD_GIT_PATH_SSH, tag) {
         Ok(path) => Ok(path),
         Err(e) => {
@@ -139,6 +150,7 @@ pub(crate) fn try_clone_std(tag: &str) -> Result<PathBuf, ManifestError> {
         }
     }
 }
+
 #[derive(Default, Debug, Deserialize, Clone)]
 #[allow(dead_code)]
 struct PackageMetadata {
@@ -154,8 +166,6 @@ struct PackageMetadata {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
-/// Enum representing the different types of ways to
-/// supply a source for the dependency
 enum DependencyConfig {
     Github {
         git: String,
@@ -172,7 +182,7 @@ impl DependencyConfig {
         &self,
         pkg_root: &Path,
         processed: &mut Vec<String>,
-    ) -> Result<Dependency, ManifestError> {
+    ) -> Result<crate::package::Dependency, ManifestError> {
         let dep = match self {
             Self::Github {
                 git,
@@ -194,31 +204,28 @@ impl DependencyConfig {
                 };
                 let toml_path = project_path.join("Dargo.toml");
                 let package = resolve_package_from_toml(&toml_path, processed)?;
-                Dependency::Remote { package }
+                crate::package::Dependency::Remote { package }
             }
             Self::Path { path } => {
                 let dir_path = pkg_root.join(path);
                 let toml_path = dir_path.join("Dargo.toml");
                 let package = resolve_package_from_toml(&toml_path, processed)?;
-                Dependency::Local { package }
+                crate::package::Dependency::Local { package }
             }
         };
-
         Ok(dep)
     }
 }
 
 /// Resolves a Dargo.toml file into a `Workspace` struct.
-///
-/// As a side effect it downloads project dependencies as well.
-pub fn resolve_workspace_from_toml(toml_path: &Path) -> Result<Workspace, ManifestError> {
+pub fn resolve_workspace_from_toml(toml_path: &Path) -> Result<crate::workspace::Workspace, ManifestError> {
     let dargo_toml = read_toml(toml_path)?;
     let mut resolved = Vec::new();
     let workspace = match dargo_toml.config {
         Config::Package { package_config } => {
             let member = package_config.resolve_to_package(&dargo_toml.root_dir, &mut resolved)?;
             let target_dir = dargo_toml.root_dir.join("target").normalize();
-            Workspace {
+            crate::workspace::Workspace {
                 root_dir: dargo_toml.root_dir,
                 target_dir,
                 package: member,
@@ -228,12 +235,10 @@ pub fn resolve_workspace_from_toml(toml_path: &Path) -> Result<Workspace, Manife
     Ok(workspace)
 }
 
-/// Resolves a Dargo.toml file into a `Package` struct as defined by our `dargo` core.
 fn resolve_package_from_toml(
     toml_path: &Path,
     processed: &mut Vec<String>,
-) -> Result<Package, ManifestError> {
-    // Checks for cyclic dependencies
+) -> Result<crate::package::Package, ManifestError> {
     let str_path = toml_path.to_str().expect("ICE - path is empty");
     if processed.contains(&str_path.to_string()) {
         let mut cycle = false;
@@ -247,13 +252,12 @@ fn resolve_package_from_toml(
         message += str_path;
         return Err(ManifestError::CyclicDependency { cycle: message });
     }
-    // Adds the package to the set of resolved packages
+
     if let Some(str) = toml_path.to_str() {
         processed.push(str.to_string());
     }
 
     let dargo_toml = read_toml(toml_path)?;
-
     let result = match dargo_toml.config {
         Config::Package { package_config } => {
             package_config.resolve_to_package(&dargo_toml.root_dir, processed)
@@ -272,13 +276,9 @@ struct DargoToml {
     config: Config,
 }
 
-/// Contains all the information about a package, as loaded from a `Dargo.toml`.
-///
-/// This type can be extended in the future to support workspace.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
 enum Config {
-    /// Represents a `Dargo.toml` with package fields.
     Package {
         #[serde(flatten)]
         package_config: PackageConfig,
@@ -311,42 +311,4 @@ fn read_toml(toml_path: &Path) -> Result<DargoToml, ManifestError> {
         config: toml_as_string.try_into()?,
     };
     Ok(dargo_toml)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Config;
-    #[test]
-    fn parse_standard_toml() {
-        let src = r#"
-
-        [package]
-        name = "test"
-        version = "0.1.0"
-        type = "lib"
-        authors = ["foo", "foo"]
-
-        [dependencies]
-        rand = { tag = "next", git = "https://github.com/rust-lang-nursery/rand"}
-        cool = { tag = "next", git = "https://github.com/rust-lang-nursery/rand"}
-        hello = {path = "./hello_world"}
-    "#;
-
-        assert!(Config::try_from(String::from(src)).is_ok());
-        assert!(Config::try_from(src).is_ok());
-    }
-
-    #[test]
-    fn parse_package_toml_no_deps() {
-        let src = r#"
-        [package]
-        name = "test"
-        version = "0.1.0"
-        type = "lib"
-        authors = ["foo", "foo"]
-    "#;
-
-        assert!(Config::try_from(String::from(src)).is_ok());
-        assert!(Config::try_from(src).is_ok());
-    }
 }

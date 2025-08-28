@@ -19,12 +19,6 @@ pub mod stress_test;
 
 #[derive(Parser)]
 pub struct Cli {
-    #[arg(
-        long = "log-level",
-        default_value = "info",
-        help = "Set the log level (error, warn, info, debug, trace)"
-    )]
-    pub log_level: String,
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -207,8 +201,6 @@ pub struct RunArgs {
     #[arg(long, help = "Stop all running services")]
     pub stop: bool,
 
-    #[arg(long, help = "Override log level for all services")]
-    pub log_level: Option<String>,
 }
 
 #[derive(Parser)]

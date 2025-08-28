@@ -16,7 +16,7 @@ async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
     let cli = Cli::parse();
-    qed_rollup_utils::setup_logging(cli.log_level)?;
+    qed_common::setup_logging()?;
     match cli.command {
         Commands::CoordinatorEdge(args) => {
             coordinator_edge::run(args).await?;

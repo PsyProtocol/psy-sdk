@@ -1931,7 +1931,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     #[serial]
     async fn test_interpreter() {
-        qed_utils::setup_env_logger();
+        qed_common::setup_logging().ok();
 
         insta::glob!(
             "../../tests",
@@ -2004,7 +2004,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_format_file() {
-        qed_utils::setup_env_logger();
+        qed_common::setup_logging().ok();
 
         insta::glob!("../../tests", "*_test.qed", |path| {
             let entry: PathBuf = path.into();

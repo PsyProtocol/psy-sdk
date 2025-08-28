@@ -11,12 +11,6 @@ pub mod worker;
 
 #[derive(Parser)]
 pub struct Cli {
-    #[arg(
-        long = "log-level",
-        default_value = "info",
-        help = "Set the log level (error, warn, info, debug, trace)"
-    )]
-    pub log_level: String,
     #[command(subcommand)]
     pub command: Commands,
 }

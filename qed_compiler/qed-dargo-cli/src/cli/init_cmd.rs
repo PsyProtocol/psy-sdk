@@ -2,7 +2,7 @@ use crate::errors::{CliError, Result};
 
 use super::{write_to_file, DargoConfig};
 use clap::Args;
-use qed_dargo::package::{CrateName, PackageType};
+use qed_package::{CrateName, PackageType};
 use std::path::PathBuf;
 
 /// Create a project in the current directory.

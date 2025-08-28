@@ -23,6 +23,7 @@ qedlang_core = { workspace = true }
 qed_prover = { workspace = true, default-features = false}
 qed_data = { workspace = true }
 qed_rollup_utils = { workspace = true }
+qed-common = { workspace = true }
 qed_store = { workspace = true, default-features = false }
 kvq = { workspace = true }
 hashbrown = { workspace = true }

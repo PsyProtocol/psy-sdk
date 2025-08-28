@@ -3,7 +3,7 @@ use crate::cli::save_build_artifact_to_file;
 use crate::errors::Result;
 
 use clap::Args;
-use qed_dargo::workspace::Workspace;
+use qed_package::Workspace;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::collections::HashMap;
 use std::path::PathBuf;

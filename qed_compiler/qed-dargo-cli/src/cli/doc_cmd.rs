@@ -9,7 +9,7 @@ use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureMa
 use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-use qed_dargo::workspace::Workspace;
+use qed_package::Workspace;
 use qed_data::qblock::cmds::register_user::QBCRegisterUser;
 use qed_exec::vm::exec::QEDEvalSessionResult;
 use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
@@ -377,7 +377,7 @@ mod tests {
     use num_traits::Num;
     use plonky2::field::fft::ifft;
     use qed_ast::Location;
-    use qed_dargo::package::{CrateName, Package, PackageType};
+    use qed_package::{CrateName, Package, PackageType};
     use std::collections::BTreeMap;
     use std::default::Default;
     use std::path::PathBuf;

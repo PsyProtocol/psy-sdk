@@ -934,7 +934,7 @@ mod tests {
 
     #[test]
     fn test_scenario0() -> anyhow::Result<()> {
-        qed_rollup_utils::setup_logging("info".to_string())?;
+        qed_common::setup_logging()?;
         tracing::info!("test_scenario0");
         let project_path = std::env::var("CARGO_MANIFEST_DIR")
             .map_err(|e| anyhow::format_err!("Error `{}`, cannot get CARGO_MANIFEST_DIR env", e))?;
@@ -1042,7 +1042,7 @@ mod tests {
 
     #[test]
     fn test_two_contracts() -> anyhow::Result<()> {
-        qed_rollup_utils::setup_logging("info".to_string())?;
+        qed_common::setup_logging()?;
         tracing::info!("test_two_contracts");
         let project_path = std::env::var("CARGO_MANIFEST_DIR")
             .map_err(|e| anyhow::format_err!("Error `{}`, cannot get CARGO_MANIFEST_DIR env", e))?;

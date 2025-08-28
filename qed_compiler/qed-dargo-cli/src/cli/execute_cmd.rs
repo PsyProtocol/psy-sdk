@@ -1,6 +1,6 @@
 use crate::cli::compile_cmd::{compile_workspace_full, CompileOptions};
 use clap::Args;
-use qed_dargo::workspace::Workspace;
+use qed_package::Workspace;
 use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use qed_store::controllers::local::prepare_environment_with_real_contract;
 

@@ -11,10 +11,7 @@ mod test_cmd;
 use crate::errors::{CliError, Result};
 use clap::{Args, Parser, Subcommand};
 use qed_common::Graph;
-use qed_dargo::package::Dependency;
-use qed_dargo::workspace::Workspace;
-use qed_dargo_toml::files::{find_file_manifest_root, get_package_manifest};
-use qed_dargo_toml::resolve_workspace_from_toml;
+use qed_package::{files::{find_file_manifest_root, get_package_manifest}, resolve_workspace_from_toml, Dependency, Workspace};
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 

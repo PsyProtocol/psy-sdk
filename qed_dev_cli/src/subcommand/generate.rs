@@ -173,7 +173,7 @@ pub struct AwsServiceConfig {
     pub load_balancer: Option<LoadBalancerConfig>,
     // EC2-specific config
     pub ec2: Option<Ec2ServiceConfig>,
-    // ECS-specific config  
+    // ECS-specific config
     pub ecs: Option<EcsServiceConfig>,
 }
 
@@ -196,7 +196,7 @@ pub enum DeploymentType {
 pub struct Ec2ServiceConfig {
     pub instance_type: Option<String>, // Optional, can be auto-calculated
     pub min_instances: u32,
-    pub max_instances: u32, 
+    pub max_instances: u32,
     pub desired_instances: u32,
     pub security_groups: Option<Vec<String>>,
     pub iam_role: Option<String>,
@@ -519,7 +519,6 @@ fn start_coordinator_services(config: &Config, database: &str, args: &RunArgs) -
                 None,
                 &node.processor,
                 config,
-                args.log_level.as_deref(),
                 Some(backend_config),
             )?,
             &node.processor.env,
@@ -545,8 +544,7 @@ fn start_coordinator_services(config: &Config, database: &str, args: &RunArgs) -
                     None,
                     &node.worker,
                     config,
-                    args.log_level.as_deref(),
-                    Some(backend_config),
+                        Some(backend_config),
                 )?,
                 &node.worker.env,
             )?;
@@ -567,7 +565,6 @@ fn start_coordinator_services(config: &Config, database: &str, args: &RunArgs) -
                 None,
                 &node.edge,
                 config,
-                args.log_level.as_deref(),
                 Some(backend_config),
             )?,
             &node.edge.env,
@@ -604,8 +601,7 @@ fn start_realm_services(config: &Config, database: &str, args: &RunArgs) -> Resu
                     Some(realm_node),
                     &realm_node.processor,
                     config,
-                    args.log_level.as_deref(),
-                    Some(backend_config),
+                        Some(backend_config),
                 )?,
                 &realm_node.processor.env,
             )?;
@@ -630,8 +626,7 @@ fn start_realm_services(config: &Config, database: &str, args: &RunArgs) -> Resu
                         Some(realm_node),
                         &realm_node.worker,
                         config,
-                        args.log_level.as_deref(),
-                        Some(backend_config),
+                                Some(backend_config),
                     )?,
                     &realm_node.worker.env,
                 )?;
@@ -652,8 +647,7 @@ fn start_realm_services(config: &Config, database: &str, args: &RunArgs) -> Resu
                     Some(realm_node),
                     &realm_node.edge,
                     config,
-                    args.log_level.as_deref(),
-                    Some(backend_config),
+                        Some(backend_config),
                 )?,
                 &realm_node.edge.env,
             )?;
@@ -670,7 +664,6 @@ fn build_service_command(
     realm_node: Option<&RealmNode>,
     service_config: &ServiceConfig,
     config: &Config,
-    override_log_level: Option<&str>,
     backend_config: Option<&BackendConfig>,
 ) -> Result<Vec<String>> {
     let mut cmd = vec![
@@ -739,11 +732,6 @@ fn build_service_command(
         }
     }
 
-    // Override log level if specified
-    if let Some(log_level) = override_log_level {
-        cmd.push("--log-level".to_string());
-        cmd.push(log_level.to_string());
-    }
 
     Ok(cmd)
 }
@@ -817,7 +805,7 @@ async fn generate_docker_compose(config: &Config, args: GenerateDockerComposeArg
     // Use simplified instance selector to calculate recommendations
     let selector = SimpleInstanceSelector::new();
     let service_requirements = SimpleInstanceSelector::build_service_requirements_from_config(config);
-    
+
     let recommendations = if !service_requirements.is_empty() {
         match selector.calculate_multiple_recommendations(service_requirements) {
             Ok(recs) => recs,
@@ -840,10 +828,10 @@ async fn generate_docker_compose(config: &Config, args: GenerateDockerComposeArg
         .with_context(|| format!("Failed to write docker-compose.yml to {}", args.output))?;
 
     info!("Generated docker-compose.yml at {}", args.output);
-    
+
     // Print Docker Compose deployment summary (simplified version, no AWS info)
     print_docker_compose_summary(config)?;
-    
+
     Ok(())
 }
 
@@ -852,22 +840,22 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
     info!("┌─────────────────┬──────────────────────────────────┬──────────┬──────────────┬───────────────────────┬──────────────────────────┐");
     info!("│ Component       │ Services (Proc/Edge/Worker)      │ Total CPU│ Total Memory │ Instance Count        │ Instance Types           │");
     info!("├─────────────────┼──────────────────────────────────┼──────────┼──────────────┼───────────────────────┼──────────────────────────┤");
-    
+
     // Create recommendation mapping
     let mut recommendation_map = std::collections::HashMap::new();
     for rec in recommendations {
         recommendation_map.insert(rec.group_name.clone(), rec);
     }
-    
+
     // Coordinator section
     let coord_backend = config.nodes.coordinator.backend.as_ref()
         .ok_or_else(|| anyhow::anyhow!("No backend configuration found for coordinator"))?;
     let coord_storage = format_storage_info(coord_backend, Some("coordinator"));
-    
+
     let mut coord_services = Vec::new();
     let mut coord_total_cpu = 0;
     let mut coord_total_memory = 0;
-    
+
     if config.nodes.coordinator.processor.enabled {
         if let Some(aws) = &config.nodes.coordinator.processor.aws {
             let task_count = match &aws.deployment_type {
@@ -880,7 +868,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             coord_total_memory += aws.memory * task_count;
         }
     }
-    
+
     if config.nodes.coordinator.edge.enabled {
         if let Some(aws) = &config.nodes.coordinator.edge.aws {
             let task_count = match &aws.deployment_type {
@@ -893,7 +881,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             coord_total_memory += aws.memory * task_count;
         }
     }
-    
+
     if config.nodes.coordinator.worker.enabled {
         if let Some(aws) = &config.nodes.coordinator.worker.aws {
             let task_count = match &aws.deployment_type {
@@ -906,9 +894,9 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             coord_total_memory += aws.memory * task_count;
         }
     }
-    
+
     let coord_config_info = format!("Redis :6379, Edge :8545");
-    
+
     // Build instance details for each service
     let mut coord_instance_details = Vec::new();
     if config.nodes.coordinator.processor.enabled {
@@ -923,7 +911,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
         let rec = get_service_instance_recommendation(&config.nodes.coordinator.worker, "worker");
         coord_instance_details.push(format!("Worker: {}", rec));
     }
-    
+
     if !coord_services.is_empty() {
         // Build short instance summary for the main row
         let instance_summary = if coord_instance_details.len() > 0 {
@@ -931,7 +919,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
         } else {
             "No instances".to_string()
         };
-        
+
         // Count total EC2 instances (not tasks)
         let mut total_instances = 0;
         if config.nodes.coordinator.processor.enabled {
@@ -958,20 +946,20 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                 };
             }
         }
-            
+
         info!("│ {:<15} │ {:<32} │ {:<8} │ {:<12} │ {:<21} │                          │",
-            "Coordinator", 
+            "Coordinator",
             coord_services.join("+"),
             format!("{:.1}", coord_total_cpu as f32 / 1024.0),
             format!("{:.0}GB", coord_total_memory as f32 / 1024.0),
             format!("{} total", total_instances)
         );
-        
+
         // Display instance details on separate lines
         for detail in coord_instance_details {
             info!("│                 │                                  │          │              │                       │ {:<24} │", detail);
         }
-        
+
         info!("│                 │ {:<32} │          │              │                       │                          │",
             format!("Storage: {}", coord_storage)
         );
@@ -980,17 +968,17 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
         );
         info!("├─────────────────┼──────────────────────────────────┼──────────┼──────────────┼───────────────────────┼──────────────────────────┤");
     }
-    
+
     // Realm sections
     for realm in &config.nodes.realms {
         let realm_backend = realm.backend.as_ref()
             .ok_or_else(|| anyhow::anyhow!("No backend configuration found for realm {}", realm.id))?;
         let realm_storage = format_storage_info(realm_backend, Some(&format!("realm{}", realm.id)));
-        
+
         let mut realm_services = Vec::new();
         let mut realm_total_cpu = 0;
         let mut realm_total_memory = 0;
-        
+
         if realm.processor.enabled {
             if let Some(aws) = &realm.processor.aws {
                 let task_count = match &aws.deployment_type {
@@ -1003,7 +991,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                 realm_total_memory += aws.memory * task_count;
             }
         }
-        
+
         if realm.edge.enabled {
             if let Some(aws) = &realm.edge.aws {
                 let task_count = match &aws.deployment_type {
@@ -1016,7 +1004,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                 realm_total_memory += aws.memory * task_count;
             }
         }
-        
+
         if realm.worker.enabled {
             if let Some(aws) = &realm.worker.aws {
                 let task_count = match &aws.deployment_type {
@@ -1029,9 +1017,9 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                 realm_total_memory += aws.memory * task_count;
             }
         }
-        
+
         let realm_config_info = format!("Redis :{}, Edge :{}", 6380 + realm.id, 8546 + realm.id);
-        
+
         // Build instance details for each service
         let mut realm_instance_details = Vec::new();
         if realm.processor.enabled {
@@ -1046,7 +1034,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             let rec = get_service_instance_recommendation(&realm.worker, "worker");
             realm_instance_details.push(format!("Worker: {}", rec));
         }
-        
+
         if !realm_services.is_empty() {
             // Count total EC2 instances for this realm
             let mut realm_total_instances = 0;
@@ -1074,7 +1062,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                     };
                 }
             }
-            
+
             info!("│ {:<15} │ {:<32} │ {:<8} │ {:<12} │ {:<21} │                          │",
                 format!("Realm {}", realm.id),
                 realm_services.join("+"),
@@ -1082,12 +1070,12 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                 format!("{:.0}GB", realm_total_memory as f32 / 1024.0),
                 format!("{} total", realm_total_instances)
             );
-            
+
             // Display instance details on separate lines
             for detail in realm_instance_details {
                 info!("│                 │                                  │          │              │                       │ {:<24} │", detail);
             }
-            
+
             info!("│                 │ {:<32} │          │              │                       │                          │",
                 format!("Storage: {}", realm_storage)
             );
@@ -1099,7 +1087,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             }
         }
     }
-    
+
     // Prover section
     if let Some(prover) = &config.nodes.prover {
         if prover.enabled {
@@ -1113,12 +1101,12 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                 let prover_memory = aws.memory;
                 let prover_total_cpu = prover_cpu * task_count;
                 let prover_total_memory = prover_memory * task_count;
-                
+
                 let prover_instances = match &aws.deployment_type {
                     Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
                     _ => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1)
                 };
-                
+
                 info!("├─────────────────┼──────────────────────────────────┼──────────┼──────────────┼───────────────────────┼──────────────────────────┤");
                 info!("│ {:<15} │ {:<32} │ {:<8} │ {:<12} │ {:<21} │                          │",
                     "Prover",
@@ -1140,12 +1128,12 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             }
         }
     }
-    
+
     info!("└─────────────────┴──────────────────────────────────┴──────────┴──────────────┴───────────────────────┴──────────────────────────┘");
-    
+
     // Calculate total EC2 instances and quota usage
     let mut total_ec2_vcpus = 0;
-    
+
     // Calculate vCPUs for each service (assuming each task runs on its own EC2 instance)
     // Helper function to get instance vCPUs based on requirements
     let get_instance_vcpus = |cpu: u32| -> u32 {
@@ -1155,7 +1143,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             _ => 16,          // 4xlarge (16 vCPU)
         }
     };
-    
+
     // Coordinator services
     if config.nodes.coordinator.processor.enabled {
         if let Some(aws) = &config.nodes.coordinator.processor.aws {
@@ -1187,7 +1175,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             total_ec2_vcpus += instances * vcpus;
         }
     }
-    
+
     // Realm services
     for realm in &config.nodes.realms {
         if realm.processor.enabled {
@@ -1221,7 +1209,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             }
         }
     }
-    
+
     // Prover service
     if let Some(prover) = &config.nodes.prover {
         if prover.enabled {
@@ -1235,13 +1223,13 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             }
         }
     }
-    
+
     // Count storage instances only if any node is using ScyllaDB
     let has_scylla = config.nodes.coordinator.backend.as_ref()
         .map(|b| b.database == "scylla").unwrap_or(false) ||
-        config.nodes.realms.iter().any(|r| 
+        config.nodes.realms.iter().any(|r|
             r.backend.as_ref().map(|b| b.database == "scylla").unwrap_or(false));
-    
+
     let storage_instances = if has_scylla {
         // Count ScyllaDB instances for coordinator and each realm
         let coordinator_scylla = config.nodes.coordinator.backend.as_ref()
@@ -1250,7 +1238,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             .and_then(|aws| aws.ec2.as_ref())
             .map(|ec2| ec2.desired_instances)
             .unwrap_or(0);
-        
+
         let realm_scylla: u32 = config.nodes.realms.iter()
             .map(|realm| {
                 realm.backend.as_ref()
@@ -1261,12 +1249,12 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                     .unwrap_or(0)
             })
             .sum();
-        
+
         coordinator_scylla + realm_scylla
     } else {
         0 // LMDBX doesn't need separate storage instances
     };
-    
+
     // Calculate vCPUs for storage based on instance type
     // Get vCPUs from first ScyllaDB config (assume all use same instance type)
     let vcpus_per_instance = if let Some(scylla) = config.nodes.coordinator.backend.as_ref()
@@ -1278,11 +1266,11 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
         2
     };
     let storage_vcpus = storage_instances * vcpus_per_instance;
-    
+
     total_ec2_vcpus += storage_vcpus;
-    
+
     let quota_usage = (total_ec2_vcpus as f32 / 128.0 * 100.0) as u32;
-    
+
     info!("\n📊 Quota Summary:");
     info!("   Service instances: {} vCPUs", total_ec2_vcpus - storage_vcpus);
     if storage_instances > 0 {
@@ -1292,26 +1280,26 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                 .map(|b| b.database == "scylla").unwrap_or(false) {
                 clusters += 1;
             }
-            clusters += config.nodes.realms.iter().filter(|r| 
+            clusters += config.nodes.realms.iter().filter(|r|
                 r.backend.as_ref().map(|b| b.database == "scylla").unwrap_or(false)
             ).count();
             clusters
         } else {
             0
         };
-        info!("   Storage (ScyllaDB): {} clusters × {} nodes × {} vCPUs = {} vCPUs", 
+        info!("   Storage (ScyllaDB): {} clusters × {} nodes × {} vCPUs = {} vCPUs",
             num_clusters, storage_instances / num_clusters as u32, vcpus_per_instance, storage_vcpus);
     } else {
         info!("   Storage: LMDBX (no separate instances needed)");
     }
     info!("   Total vCPUs: {} / 128 ({}% usage)", total_ec2_vcpus, quota_usage);
-    
+
     if !recommendations.is_empty() {
         let total_hourly: f32 = recommendations.iter().map(|r| r.hourly_cost).sum();
         let total_monthly: f32 = recommendations.iter().map(|r| r.monthly_cost).sum();
         info!("   Estimated cost: ${:.2}/hour, ${:.0}/month", total_hourly, total_monthly);
     }
-    
+
     Ok(())
 }
 
@@ -1329,10 +1317,10 @@ async fn generate_aws_templates(config: &Config, args: GenerateAwsArgs) -> Resul
 
     // Use simplified instance selector
     let selector = SimpleInstanceSelector::new();
-    
+
     // Build service requirements from config
     let service_requirements = SimpleInstanceSelector::build_service_requirements_from_config(config);
-    
+
     if service_requirements.is_empty() {
         warn!("No services requiring instance calculation found");
         return Ok(());
@@ -1366,7 +1354,7 @@ async fn generate_aws_templates(config: &Config, args: GenerateAwsArgs) -> Resul
         let mut total_task_cpu = 0u32;
         let mut total_task_memory = 0u32;
         let mut total_task_count = 0u32;
-        
+
         // Check coordinator services
         if let Some(aws) = &config.nodes.coordinator.processor.aws {
             if let Some(DeploymentType::ECS) = &aws.deployment_type {
@@ -1398,7 +1386,7 @@ async fn generate_aws_templates(config: &Config, args: GenerateAwsArgs) -> Resul
                 total_task_count += task_count;
             }
         }
-        
+
         // Check realm services
         for realm in &config.nodes.realms {
             if let Some(aws) = &realm.processor.aws {
@@ -1432,28 +1420,28 @@ async fn generate_aws_templates(config: &Config, args: GenerateAwsArgs) -> Resul
                 }
             }
         }
-        
+
         // Calculate minimum instance type needed for ECS cluster
         // Note: This differs from the table display logic which shows optimal instance types
         // for each service individually. For ECS, we need ONE instance type that can handle
         // ANY task since tasks can be scheduled on any instance in the cluster.
-        // 
+        //
         // ECS container instances need to accommodate the largest single task
         let largest_task_cpu = max_task_cpu;
         let largest_task_memory = max_task_memory;
-        
-        debug!("ECS instance selection: largest_task_cpu={}, largest_task_memory={}", 
+
+        debug!("ECS instance selection: largest_task_cpu={}, largest_task_memory={}",
             largest_task_cpu, largest_task_memory);
-        
+
         // Select compute-optimized instance that can run the largest task
         let ecs_instance_type = match (largest_task_cpu, largest_task_memory) {
             (cpu, mem) if cpu <= 2048 && mem <= 4096 => "c6i.large",    // 2 vCPUs, 4GB
-            (cpu, mem) if cpu <= 4096 && mem <= 8192 => "c6i.xlarge",   // 4 vCPUs, 8GB  
+            (cpu, mem) if cpu <= 4096 && mem <= 8192 => "c6i.xlarge",   // 4 vCPUs, 8GB
             (cpu, mem) if cpu <= 8192 && mem <= 16384 => "c6i.2xlarge", // 8 vCPUs, 16GB
             (cpu, mem) if cpu <= 16384 && mem <= 32768 => "c6i.4xlarge", // 16 vCPUs, 32GB
             _ => "c6i.8xlarge", // 32 vCPUs, 64GB (fallback for larger tasks)
         };
-        
+
         let output = tmpl.render(context! {
             config => config,
             recommendations => &recommendations,
@@ -1479,10 +1467,10 @@ async fn generate_aws_templates(config: &Config, args: GenerateAwsArgs) -> Resul
 
     info!("AWS deployment files generated to {}", args.output_dir);
     info!("Note: Use the Dockerfile in the project root to build the image");
-    
+
     // Print deployment summary
     print_deployment_summary(config, &recommendations)?;
-    
+
 
     Ok(())
 }
@@ -1497,10 +1485,10 @@ fn get_service_instance_recommendation(service_config: &ServiceConfig, service_t
             Some(DeploymentType::EC2) => aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1),
             _ => 1
         };
-        
+
         let vcpus = aws_config.cpu / 1024;
         let memory_gb = aws_config.memory / 1024;
-        
+
         // Choose instance type based on service type and requirements
         let instance_type = match service_type {
             "processor" => {
@@ -1532,7 +1520,7 @@ fn get_service_instance_recommendation(service_config: &ServiceConfig, service_t
             },
             _ => "m6i.xlarge"
         };
-        
+
         format!("{}({})", instance_type, task_count)
     } else {
         "-".to_string()
@@ -1548,7 +1536,7 @@ fn format_deployment_info(service_config: &ServiceConfig, recommendation_map: &s
                 DeploymentType::EC2 => "EC2",
             })
             .unwrap_or("ECS"); // Default to ECS
-            
+
         let instance_info = if let Some(rec) = recommendation_map.get(group_name) {
             format!("{} x{} (${:.1}/h)", rec.instance_type.name, rec.instance_count, rec.hourly_cost)
         } else {
@@ -1569,13 +1557,13 @@ fn format_deployment_info(service_config: &ServiceConfig, recommendation_map: &s
                 total_memory_gb: memory_gb,
                 instance_count: task_count,
             };
-            
+
             match selector.calculate_recommendation(&requirements) {
                 Ok(rec) => format!("{} x{} (${:.1}/h)", rec.instance_type.name, rec.instance_count, rec.hourly_cost),
                 Err(_) => format!("{} {}vCPU/{}GB", deployment_type, vcpus, memory_gb as u32)
             }
         };
-        
+
         instance_info
     } else {
         "Local".to_string()
@@ -1607,7 +1595,7 @@ fn format_storage_info(backend: &BackendConfig, suffix: Option<&str>) -> String 
 /// Print storage details
 fn print_storage_details(config: &Config) -> Result<()> {
     info!("\n💾 Storage Details:");
-    
+
     // Redis details
     info!("\nRedis Instances:");
     if let Some(coordinator_redis) = &config.nodes.coordinator.redis {
@@ -1618,10 +1606,10 @@ fn print_storage_details(config: &Config) -> Result<()> {
             info!("  - Realm {}: {}", realm.id, realm_redis.uri);
         }
     }
-    
+
     // ScyllaDB details
     let mut scylla_clusters: Vec<(String, u32, String)> = Vec::new();
-    
+
     // Check coordinator
     let coord_backend = config.nodes.coordinator.backend.as_ref()
         .ok_or_else(|| anyhow::anyhow!("No backend configuration found for coordinator"))?;
@@ -1634,7 +1622,7 @@ fn print_storage_details(config: &Config) -> Result<()> {
             scylla_clusters.push(("Coordinator".to_string(), cluster_size, "scylla-coordinator".to_string()));
         }
     }
-    
+
     // Check realms
     for realm in &config.nodes.realms {
         let realm_backend = realm.backend.as_ref()
@@ -1653,7 +1641,7 @@ fn print_storage_details(config: &Config) -> Result<()> {
             }
         }
     }
-    
+
     if !scylla_clusters.is_empty() {
         info!("\nScyllaDB Clusters:");
         for (name, size, prefix) in scylla_clusters {
@@ -1663,7 +1651,7 @@ fn print_storage_details(config: &Config) -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -1671,10 +1659,10 @@ fn print_storage_details(config: &Config) -> Result<()> {
 fn print_docker_compose_summary(config: &Config) -> Result<()> {
     info!("\n🐳 Docker Compose Summary");
     info!("═══════════════════════════════════════════════════════════════");
-    
+
     // Count containers
     let mut total_containers = 0u32;
-    
+
     // Redis containers
     if config.nodes.coordinator.redis.is_some() {
         total_containers += 1;
@@ -1684,7 +1672,7 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
             total_containers += 1;
         }
     }
-    
+
     // Service containers
     if config.nodes.coordinator.processor.enabled {
         total_containers += 1;
@@ -1702,7 +1690,7 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
             .unwrap_or(1);
         total_containers += instances;
     }
-    
+
     for realm in &config.nodes.realms {
         if realm.processor.enabled {
             total_containers += 1;
@@ -1721,22 +1709,22 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
             total_containers += instances;
         }
     }
-    
+
     if let Some(prover) = &config.nodes.prover {
         if prover.enabled {
             total_containers += 1;
         }
     }
-    
+
     info!("📊 Total Containers: {}", total_containers);
-    
+
     // Network configuration
     let network = &config.nodes.deployment.docker;
     info!("🌐 Network: {} ({})", network.network_name, network.network_subnet);
-    
+
     // Service endpoints
     info!("\n🔗 Service Endpoints:");
-    
+
     // Coordinator endpoint
     if config.nodes.coordinator.edge.enabled {
         if let Some(listen_addr) = config.nodes.coordinator.edge.args.get("listen_addr") {
@@ -1750,7 +1738,7 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
             info!("  • Coordinator: http://localhost:8545");
         }
     }
-    
+
     // Realm endpoints
     for realm in &config.nodes.realms {
         if realm.edge.enabled {
@@ -1762,7 +1750,7 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
             }
         }
     }
-    
+
     // Prover endpoint
     if let Some(prover) = &config.nodes.prover {
         if prover.enabled {
@@ -1778,11 +1766,11 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
             }
         }
     }
-    
+
     info!("\n💡 Quick Start:");
     info!("   docker-compose up -d");
     info!("   docker-compose logs -f");
-    
+
     Ok(())
 }
 

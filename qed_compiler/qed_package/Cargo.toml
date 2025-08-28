@@ -1,15 +1,15 @@
 [package]
-name = "qed-dargo-toml"
+name = "qed_package"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 serde.workspace = true
+smol_str = { workspace = true, features = ["serde"] }
 thiserror.workspace = true
 toml = { workspace = true }
 url = { workspace = true }
 dirs = { workspace = true }
 semver = { workspace = true }
 tempfile = { workspace = true }
-qed-dargo = { workspace = true }
 md5 = { workspace = true }
