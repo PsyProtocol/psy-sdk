@@ -281,4 +281,7 @@ pub struct StressTestArgs {
 
     #[arg(long, default_value = "true", help = "Only run flow")]
     pub only_flow: bool,
+
+    #[arg(long, default_value = "false", help = "Only run multi transfer")]
+    pub only_multi_transfer: bool,
 }

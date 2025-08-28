@@ -24,11 +24,15 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
     let handle = pool.execute(move || {
         for repeat in 0..args.repeat {
             info!("🎯 Registering batch user - User count: {}, repeat: {}", args.concurrent_tasks, repeat);
-            if !args.only_user {
+            if args.only_user {
+                let _ = multicall.register_batch_user(args.concurrent_tasks as u64).unwrap();
+            }
+            if args.only_flow {
                 let user_info = multicall.register_batch_user(args.concurrent_tasks as u64).unwrap();
                 multicall.batch_flow(user_info).unwrap();
-            } else {
-                multicall.register_batch_user(args.concurrent_tasks as u64).unwrap();
+            }
+            if args.only_multi_transfer {
+                multicall.batch_multi_transfer(args.concurrent_tasks as u64).unwrap();
             }
         }
     });
@@ -199,4 +203,71 @@ impl Multicast {
         info!("batch_flow: end call");
         Ok(())
     }
+
+    pub fn batch_multi_transfer(&self, transfer_count: u64) -> Result<()> {
+        let user_info = self.register_batch_user(3)?;
+        let mut contract_call_args = vec![];
+        let from_user_id = user_info[0].user_id;
+        let mint_amount = 100000u64;
+        let transfer_amount = 2u64;
+        contract_call_args.push(ContractCallArgs {
+            contract_id: 0,
+            method_name: "simple_mint".to_string(),
+            inputs: vec![mint_amount],
+        });
+        {self.wallet_session.write().add_user(user_info[0].pk.clone())?;}
+        for i in 1..user_info.len() {
+            for _ in 0..transfer_count {
+                let to_user_id = user_info[i].user_id;
+                contract_call_args.push(ContractCallArgs {
+                    contract_id: 0,
+                    method_name: "simple_transfer".to_string(),
+                    inputs: vec![to_user_id, transfer_amount],
+                });
+            }
+            {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
+        }
+        let start = Instant::now();
+        self.exec_contract_call(user_info[0].pub_key, contract_call_args)?;
+        let duration = start.elapsed().as_millis() as u64;
+        info!("batch_flow: Batch transfer flow duration: {} ms", duration);
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 4)? {
+            return Err(anyhow::format_err!("mint timeout waiting for checkpoint"));
+        }
+
+        info!("batch_flow: Start to execute claim contract call");
+        for i in 1..user_info.len() {
+            let claim_contract_call_args = vec![ContractCallArgs {
+                contract_id: 0,
+                method_name: "simple_claim".to_string(),
+                inputs: vec![from_user_id],
+            }];
+            info!(
+                "Start to execute claim contract call for user {}",
+                user_info[i].pub_key,
+            );
+            let start = Instant::now();
+            for _ in 0..3 {
+                if let Err(err) = self.exec_contract_call(user_info[i].pub_key, claim_contract_call_args.clone())
+                    .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err)){
+                    error!("❌ Task {} - Claim contract call error: {}",i, err);
+                    continue;
+                }
+                break;
+            }
+
+            let duration = start.elapsed().as_millis() as u64;
+            info!("🔄 Task {} - Claim contract call duration: {} ms",i, duration);
+            info!("End to execute claim contract call for user {}", user_info[i].pub_key);
+        }
+
+        info!("batch_flow: claim contract call finished, start to wait for checkpoint");
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 1)? {
+            return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
+        }
+
+        info!("batch_flow: end call");
+        Ok(())
+    }
+
 }
