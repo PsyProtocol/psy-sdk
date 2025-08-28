@@ -272,4 +272,13 @@ pub struct StressTestArgs {
 
     #[arg(long, help = "Number of transaction tasks to execute (omit for unlimited)")]
     pub max_task: Option<u64>,
+
+    #[arg(long, default_value = "1", help = "Number of times to run the stress test")]
+    pub repeat: u64,
+
+    #[arg(long, default_value = "false", help = "Only run user registration")]
+    pub only_user: bool,
+
+    #[arg(long, default_value = "true", help = "Only run flow")]
+    pub only_flow: bool,
 }

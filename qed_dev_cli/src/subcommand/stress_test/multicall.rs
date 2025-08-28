@@ -8,15 +8,12 @@ use parking_lot::RwLock;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::config::store_config::QEDHasher;
-use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_prover::local::args::ContractCallArgs;
 use qed_prover::session::WalletSession;
 use scheduled_thread_pool::ScheduledThreadPool;
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tracing::log::{error, info};
 
 pub async fn run(args: StressTestArgs) -> Result<()> {
@@ -25,9 +22,15 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
     let pool = ScheduledThreadPool::new(num_cpus::get());
     // let mut handlers = vec![];
     let handle = pool.execute(move || {
-        info!("🎯 Registering batch user - User count: {}", args.concurrent_tasks);
-        let user_info = multicall.register_batch_user(args.concurrent_tasks as u64).unwrap();
-        multicall.batch_flow(user_info).unwrap();
+        for repeat in 0..args.repeat {
+            info!("🎯 Registering batch user - User count: {}, repeat: {}", args.concurrent_tasks, repeat);
+            if !args.only_user {
+                let user_info = multicall.register_batch_user(args.concurrent_tasks as u64).unwrap();
+                multicall.batch_flow(user_info).unwrap();
+            } else {
+                multicall.register_batch_user(args.concurrent_tasks as u64).unwrap();
+            }
+        }
     });
 
     tokio::signal::ctrl_c().await?;
@@ -84,7 +87,7 @@ impl Multicast {
         let now = Instant::now();
         let user_info = loop {
             let mut user_info = Vec::new();
-            if let Err(err) = wait_for_new_block(&self.wallet_session.read().st_provider, 2) {
+            if let Err(err) = wait_for_new_block(&self.wallet_session.read().st_provider, 4) {
                 error!("register_batch_user: Wait for new block error: {}", err);
                 continue
             }
