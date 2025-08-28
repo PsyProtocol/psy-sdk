@@ -26,12 +26,24 @@ use qed_crypto::hash::{merkle::{
     },
 }, traits::qhashable::QFieldHashable};
 use qed_data::{
+    protocol::circuit_inputs::{
+        agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput,
+        checkpoint_transition::QCQEDCheckpointStateTransitionInputPartial,
+    },
+    guta::{
+        header::GlobalUserTreeAggregatorHeader,
+        stats::GUTAStats,
+    },
     qdata::{
         checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
         contract::ContractCodeDefinition,
+        pm_reward_commitment::PMRewardCommitment,
+        pm_jobs_completed_stats::PMJobsCompletedStats,
     },
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
 };
+use qed_crypto::hash::merkle::treeprover::{AggStateTransition, subtree::SubTreeNodeStateTransition};
+use chrono::Utc;
 
 type F = GoldilocksField;
 #[async_trait]
@@ -180,31 +192,61 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, sync_info)
     }
 
-    async fn initialize_store(&self, genesis_config: Option<qed_core::config::genesis::GenesisConfig>) -> anyhow::Result<u64> {
-
+    async fn initialize_store(&self, deploy_contracts_root: QHashOut<F>, user_tree_root: QHashOut<F>) -> anyhow::Result<u64> {
         let latest_l2_block_state_or_err = self.get_latest_l2_block_state().await;
-        if latest_l2_block_state_or_err.is_ok() {
-            let v = latest_l2_block_state_or_err.unwrap();
+        if let Ok(v) = latest_l2_block_state_or_err {
             Ok(v.checkpoint_id)
         } else {
-            if let Some(ref _genesis_config) = genesis_config {
-                // Genesis config processing should be handled by external code
-                // that uses qed_prover to create deployment data and then calls
-                // appropriate store methods
-            }
-
             let genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
 
             let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
-            let stats_hash = genesis_checkpoint_stats.qfhash::<QEDHasher>();
 
-            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(1).await?;
-
-            let genesis_checkpoint_leaf = QEDCheckpointLeaf{
-                global_chain_root: genesis_global_state_roots.qfhash::<QEDHasher>(),
-                stats: genesis_checkpoint_stats,
+            let part_1_input = QCAggUserRegistartionDeployContractsGUTAInput {
+                register_users_state_transition: AggStateTransition {
+                    state_transition_start: QHashOut::ZERO,
+                    state_transition_end: QHashOut::ZERO,
+                },
+                deploy_contracts_state_transition: AggStateTransition {
+                    state_transition_start: QHashOut::ZERO,
+                    state_transition_end: deploy_contracts_root,
+                },
+                guta_proof_header: GlobalUserTreeAggregatorHeader {
+                    guta_circuit_whitelist: QHashOut::ZERO,
+                    checkpoint_tree_root: QHashOut::ZERO,
+                    state_transition: SubTreeNodeStateTransition {
+                        old_node_value: QHashOut::ZERO,
+                        new_node_value: user_tree_root,
+                        node_index: F::ZERO,
+                        node_level: F::ZERO,
+                    },
+                    stats: GUTAStats {
+                        fees_collected: F::ZERO,
+                        user_ops_processed: F::ZERO,
+                        total_transactions: F::ZERO,
+                        slots_modified: F::ZERO,
+                    },
+                },
             };
 
+            let pm_rewards_commitment = PMRewardCommitment {
+                register_users_root: QHashOut::ZERO,
+                gutas_root: QHashOut::ZERO,
+                deploy_contracts_root: QHashOut::ZERO,
+            };
+
+            let pm_jobs_completed_stats = PMJobsCompletedStats::new_empty();
+
+            let partial_input = QCQEDCheckpointStateTransitionInputPartial {
+                part_1_header: part_1_input,
+                old_stats: genesis_checkpoint_stats,
+                block_time: F::from_canonical_u64(Utc::now().timestamp_millis() as u64),
+                final_random_seed_contribution: QHashOut::rand(),
+                pm_rewards_commitment,
+                pm_jobs_completed: pm_jobs_completed_stats,
+            };
+
+            let genesis_checkpoint_leaf = partial_input.get_new_checkpoint_leaf::<QEDHasher>();
+            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(1).await?;
 
 
             self.set_l2_block_state_imm(&genesis_l2_block_state).await?;
@@ -224,9 +266,7 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
             self.set_checkpoint_sync_info_imm(sync_info).await?;
 
             Ok(0)
-
         }
-
     }
 
     async fn set_user_public_key_records(&self, records: &[qed_data::qdata::user_public_key::QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()> {

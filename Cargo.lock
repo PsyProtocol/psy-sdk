@@ -5068,6 +5068,7 @@ dependencies = [
  "qed_rollup_circuit",
  "qed_rollup_utils",
  "qed_store",
+ "qedlang_core",
  "rand 0.8.5",
  "redis 0.30.0",
  "reqwest 0.11.27",

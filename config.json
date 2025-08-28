@@ -22,6 +22,7 @@
     "prove_proxy_url": "http:/127.0.0.1:9999",
     "native_currency": "0",
     "native_currency_decimal": 9,
+    "native_currency_name": "PSY",
     "fees": {
       "register_user_fee": 0,
       "deploy_contract_fee": 0,
@@ -30,8 +31,8 @@
   },
   "genesis": {
     "precompiles": [
-      "qed_precompiles/rewards/target",
-      "qed_precompiles/token/target"
+      "qed_precompiles/rewards/target/rewards.json",
+      "qed_precompiles/token/target/token.json"
     ],
     "contracts": {
       "0": {

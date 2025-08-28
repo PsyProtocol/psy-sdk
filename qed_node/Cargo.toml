@@ -23,6 +23,7 @@ qed_rollup_circuit = { workspace = true }
 qed_data = { workspace = true }
 qed_crypto = { workspace = true }
 qed_store = { workspace = true }
+qedlang_core = { workspace = true }
 
 indexmap = { workspace = true }
 rand = { workspace = true }
