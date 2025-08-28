@@ -277,7 +277,7 @@ impl SimpleTestContract<C, D> {
     ) -> anyhow::Result<()> {
         for (i, f) in self.funcs.iter().enumerate() {
             if f.def.name.eq(fn_name) {
-                mgr.prove_contract_call(
+                mgr.prove_standard_call(
                     circuit_mgr,
                     F::from_canonical_u32(contract_id),
                     i as u32, //f.def.method_id,

@@ -17,7 +17,7 @@ dargo = { workspace = true }
 qed_package = { workspace = true }
 qed-interpreter = { workspace = true }
 qed_data = { workspace = true }
-minijinja = "2"
+minijinja = { workspace = true }
 
 [lints]
 workspace = true

@@ -148,7 +148,7 @@ pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
 
     let dapen_fc = cfc_code_definition_to_dapen_fc(&contract_code.functions[method_id as usize])?;
 
-    mgr.prove_contract_call(
+    mgr.prove_standard_call(
         circuit_mgr,
         F::from_canonical_u64(contract_id),
         method_id as u32,

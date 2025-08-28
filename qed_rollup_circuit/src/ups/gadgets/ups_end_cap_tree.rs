@@ -34,7 +34,7 @@ pub struct UPSEndCapFromProofTreeGadget {
     pub end_cap_core_gadget: UPSEndCapCoreGadget,
     pub current_proof_tree_root: HashOutTarget,
 
-    
+
 }
 impl UPSEndCapFromProofTreeGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>+MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
@@ -72,17 +72,31 @@ impl UPSEndCapFromProofTreeGadget {
         let empty_inline_tx_debt_tree_root = builder.constant_hash(H::get_zero_hash(INLINE_TRANSACTION_TREE_HEIGHT as usize));
 
 
+        let current_tx_hash_stack = verify_previous_ups_step_gadget.previous_step_header_gadget.current_state.tx_hash_stack;
+        let tx_count = verify_previous_ups_step_gadget.previous_step_header_gadget.current_state.tx_count;
+
+        // The current implementation assumes the burn transaction is the ONLY transaction in the UPS
+        // In this case, previous_tx_hash_stack should be the initial empty hash stack
+        // TODO: For multi-transaction UPS, this needs to be computed from the transaction history
+        
+        use plonky2::field::types::Field;
+        let initial_empty_stack = HashOut::<F> {
+            elements: [F::ZERO, F::ZERO, F::ZERO, F::ZERO],
+        };
+        let previous_tx_hash_stack = builder.constant_hash(initial_empty_stack);
+
         let end_cap_core_gadget = UPSEndCapCoreGadget::enforce_signature_constraints::<H,F,D>(
-            builder, 
-            &verify_previous_ups_step_gadget.previous_step_header_gadget, 
-            verify_zk_signature_proof_gadget.public_inputs_hash, 
-            verify_zk_signature_proof_gadget.fingerprint, 
-            user_public_key_param, 
-            nonce, 
+            builder,
+            &verify_previous_ups_step_gadget.previous_step_header_gadget,
+            verify_zk_signature_proof_gadget.public_inputs_hash,
+            verify_zk_signature_proof_gadget.fingerprint,
+            user_public_key_param,
+            nonce,
             slots_modified,
             network_magic,
             empty_deferred_tx_debt_tree_root,
             empty_inline_tx_debt_tree_root,
+            previous_tx_hash_stack,
         );
 
         Self {
@@ -133,9 +147,9 @@ impl UPSEndCapFromProofTreeGadget {
         target: &UPSEndCapFromProofTreeGadgetInput<F>,
     ) -> anyhow::Result<()> {
         self.set_witness_params(
-            witness, 
+            witness,
             &target.verify_previous_ups_step_input,
-            &target.verify_zk_signature_proof_input, 
+            &target.verify_zk_signature_proof_input,
             target.user_public_key_param,
             target.nonce,
             target.slots_modified,
