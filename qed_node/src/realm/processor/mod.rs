@@ -5,6 +5,7 @@ use crate::common::verifier::get_cached_generic_verifier;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use crate::realm::{C, D, F};
+use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
 };
@@ -51,14 +52,14 @@ pub struct RealmProcessor {
     pub task_store: Arc<QProvingTaskStoreImpl>,
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: u64,
+    pub config_path: String,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
     let mut realm_processor = RealmProcessor::new(config).await?;
-    
-    // Handle genesis state initialization
+
     realm_processor.initialize_genesis_state().await?;
-    
+
     let _ = realm_processor.start().await?;
     Ok(())
 }
@@ -96,6 +97,7 @@ impl RealmProcessor {
             task_store: Arc::new(task_store),
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: 0,
+            config_path: config.config_path.clone(),
         };
         Ok(processor)
     }
@@ -345,13 +347,10 @@ impl RealmProcessor {
         Ok(state.checkpoint_id)
     }
 
-    /// Initialize genesis state for this realm's users
     async fn initialize_genesis_state(&mut self) -> anyhow::Result<()> {
-        // Load genesis configuration from config file
-        let config_path = std::env::var("QED_CONFIG_PATH")
-            .unwrap_or_else(|_| "config.json".to_string());
-            
-        let genesis_config = match std::fs::read_to_string(&config_path) {
+        let config_path = &self.config_path;
+
+        let genesis_config = match std::fs::read_to_string(config_path) {
             Ok(config_content) => {
                 let config_value: serde_json::Value = serde_json::from_str(&config_content)?;
                 if let Some(genesis_obj) = config_value.get("genesis") {
@@ -372,45 +371,100 @@ impl RealmProcessor {
 
         if let Some(genesis_config) = genesis_config {
             info!("Processing genesis state for realm {}", self.realm_config.realm_id);
-            
-            // Calculate users per realm
+
             use qed_core::config::network_constants::REALM_USER_TREE_HEIGHT;
             let users_per_realm = 1u64 << REALM_USER_TREE_HEIGHT;
             let realm_start_user = (self.realm_config.realm_id as u64) * users_per_realm;
             let realm_end_user = ((self.realm_config.realm_id + 1) as u64) * users_per_realm;
-            
-            // Process genesis contract states for this realm's users
+
+            use qed_data::qstore::uct_merkle_nodes::{CSTUserUpdate, CSTDeltaNodeKey, CSTDeltaNode};
+            use qed_core::data::qhashout::QHashOut;
+            use qed_crypto::hash::merkle::utils::{simple_merkle_tree::SimpleMerkleTree, common::{SimpleMerkleNode, SimpleMerkleNodeKey}};
+            use qed_data::config::store_config::QEDHasher;
+            use qed_core::config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
+            use std::{str::FromStr, collections::HashMap};
+
+            let mut user_contract_states: HashMap<u64, HashMap<u64, Vec<(u64, QHashOut<F>)>>> = HashMap::new();
+
             for (contract_id_str, users) in genesis_config.get_all_contracts() {
                 let contract_id: u64 = contract_id_str.parse()
                     .map_err(|e| anyhow::anyhow!("Invalid contract ID {}: {}", contract_id_str, e))?;
-                
+
                 for (user_id_str, user_state) in users {
                     let user_id: u64 = user_id_str.parse()
                         .map_err(|e| anyhow::anyhow!("Invalid user ID {}: {}", user_id_str, e))?;
-                    
-                    // Check if this user belongs to our realm
+
                     if user_id >= realm_start_user && user_id < realm_end_user {
-                        info!("Processing genesis state for contract {} user {} (belongs to realm {})", 
-                              contract_id, user_id, self.realm_config.realm_id);
-                        
-                        // Log the genesis slots for this user
-                        for (slot_id, slot_value) in &user_state.slots {
-                            info!("  Genesis slot {}: {} for user {} contract {}", 
-                                  slot_id, slot_value, user_id, contract_id);
+                        let mut contract_slots = Vec::new();
+                        for (slot_id_str, hex_value) in &user_state.slots {
+                            let slot_id: u64 = slot_id_str.parse()
+                                .map_err(|e| anyhow::anyhow!("Invalid slot ID {}: {}", slot_id_str, e))?;
+                            let slot_value = QHashOut::<F>::from_str(hex_value)
+                                .map_err(|e| anyhow::anyhow!("Invalid hex value {}: {}", hex_value, e))?;
+
+                            info!("  Setting genesis slot {}: {} for user {} contract {}",
+                                  slot_id, hex_value, user_id, contract_id);
+                            contract_slots.push((slot_id, slot_value));
                         }
-                        
-                        // TODO: Implement proper state slot setting and root computation
-                        // This requires state tracker without circular dependencies
-                        // For now, realm will use the default state set by coordinator
-                        info!("Genesis state logged for user {} contract {} (realm {})", 
-                              user_id, contract_id, self.realm_config.realm_id);
+
+                        if !contract_slots.is_empty() {
+                            user_contract_states.entry(user_id).or_insert_with(HashMap::new)
+                                .insert(contract_id, contract_slots);
+                        }
                     }
                 }
             }
-            
+
+            for (user_id, contracts) in user_contract_states {
+                let mut all_cst_updates = Vec::new();
+                let mut user_contract_tree = SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(GLOBAL_USER_TREE_HEIGHT);
+
+                for (contract_id, slots) in contracts {
+                    let mut contract_state_tree = SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(MAX_CONTRACT_STATE_TREE_HEIGHT);
+
+                    for (slot_id, slot_value) in slots {
+                        let slot_key = SimpleMerkleNodeKey::new(MAX_CONTRACT_STATE_TREE_HEIGHT, slot_id);
+                        contract_state_tree.set_node_value(slot_key, slot_value);
+
+                        let cst_key = CSTDeltaNodeKey::new(contract_id as u32, MAX_CONTRACT_STATE_TREE_HEIGHT, slot_id);
+                        let cst_update = CSTDeltaNode { key: cst_key, value: slot_value };
+                        all_cst_updates.push(cst_update);
+                    }
+
+                    let contract_state_root = contract_state_tree.get_root();
+                    let contract_key = SimpleMerkleNodeKey::new(GLOBAL_USER_TREE_HEIGHT, contract_id);
+                    user_contract_tree.set_node_value(contract_key, contract_state_root);
+
+                    info!("  Contract {} state root: {} for user {}",
+                          contract_id, contract_state_root, user_id);
+                }
+
+                let user_contract_tree_root = user_contract_tree.get_root();
+                let user_index_in_realm = user_id % users_per_realm;
+
+                let mut uct_updates = Vec::new();
+                let uct_key = SimpleMerkleNodeKey::new(COORDINATOR_USER_TREE_HEIGHT, user_index_in_realm);
+                let uct_update = SimpleMerkleNode { key: uct_key, value: user_contract_tree_root };
+                uct_updates.push(uct_update);
+
+                let user_update = CSTUserUpdate {
+                    checkpoint_id: 0,
+                    user_id,
+                    uct_updates,
+                    updates: all_cst_updates,
+                };
+
+                use qed_store::node::realm::QEDRealmStoreWriterAsyncImm;
+                self.store.injest_checked_cst_nodes_imm(&[user_update]).await
+                    .map_err(|e| anyhow::anyhow!("Failed to set genesis state for user {}: {}", user_id, e))?;
+
+                info!("✅ Genesis state set for user {} with UCT root {} (realm {})",
+                      user_id, user_contract_tree_root, self.realm_config.realm_id);
+            }
+
             info!("Genesis state initialization completed for realm {}", self.realm_config.realm_id);
         }
-        
+
         Ok(())
     }
 }

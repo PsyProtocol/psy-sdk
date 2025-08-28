@@ -108,6 +108,10 @@ pub struct RealmNodeConfig {
     /// Queue configuration
     #[command(flatten)]
     pub queue: QueueConfig,
+
+    /// Path to configuration file
+    #[arg(long, help = "Path to configuration file", default_value = "config.json")]
+    pub config_path: String,
 }
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize, Parser)]
