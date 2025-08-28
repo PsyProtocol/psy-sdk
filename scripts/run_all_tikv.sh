@@ -39,7 +39,8 @@ WORKER0_LOG="$LOG_DIR/worker0.log"
 WORKER1_LOG="$LOG_DIR/worker1.log"
 WORKER2_LOG="$LOG_DIR/worker2.log"
 
-LOCAL_PROVE_PROXY_LOG="$LOG_DIR/local-user-prover.log"
+# LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
+LOCAL_PROVE_PROXY_LOG="$LOG_DIR/local-prove-proxy.log"
 WEB_WALLET_LOG="$LOG_DIR/web_wallet.log"
 
 # Clear log files at startup
@@ -82,8 +83,8 @@ run_service() {
     local log_file=$3
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting $service_name (logging to $log_file)..." | tee -a "$log_file"
     while true; do
-        # Run service and append both stdout and stderr to log file
-        ( $service_cmd 2>&1 | sed 's/\o033\[[0-9;]*m//g' ) >> "$log_file" &
+        # Run service with unbuffered output and append both stdout and stderr to log file
+        stdbuf -oL -eL $service_cmd 2>&1 | stdbuf -oL sed 's/\x1b\[[0-9;]*m//g' >> "$log_file" &
         local pid=$!
         PIDS+=("$pid")  # Add PID to array
         wait $pid
@@ -103,11 +104,11 @@ run_service "make run-realm-processor-tikv" "realm-processor-tikv" "$REALM_PROCE
 PIDS+=($!)
 run_service "make run-realm-processor1-tikv" "realm-processor1-tikv" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
-run_service "make run-worker" "worker0" "$WORKER0_LOG" &
+run_service "make run-worker0" "worker0" "$WORKER0_LOG" &
 PIDS+=($!)
-run_service "make run-worker" "worker1" "$WORKER1_LOG" &
+run_service "make run-worker1" "worker1" "$WORKER1_LOG" &
 PIDS+=($!)
-run_service "make run-worker" "worker2" "$WORKER2_LOG" &
+run_service "make run-worker2" "worker2" "$WORKER2_LOG" &
 PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors/workers)
