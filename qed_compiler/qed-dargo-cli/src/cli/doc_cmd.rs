@@ -81,7 +81,7 @@ pub enum CommentParamValue {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Comment(qed_ast::Comment);
+pub struct Comment(qed_ast::Comment);
 
 impl Comment {
     pub fn is_input_comment(&self) -> bool {
@@ -192,7 +192,7 @@ impl Deref for Comment {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct FunctionNode(CheckedFunctionNode);
+pub struct FunctionNode(CheckedFunctionNode);
 
 impl FunctionNode {
     pub fn is_input_comment(&self) -> bool {

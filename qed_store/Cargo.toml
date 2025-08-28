@@ -26,7 +26,6 @@ qed_core = { workspace = true }
 qed_data = { workspace = true, default-features = false }
 qed_crypto = { workspace = true }
 qedlang_core = { workspace = true }
-qed_precompiles = { workspace = true }
 qed_rollup_utils = { workspace = true }
 thiserror = { workspace = true }
 maybe-async = { workspace = true }

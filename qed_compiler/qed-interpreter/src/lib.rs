@@ -46,6 +46,7 @@ pub fn interpret(
 ) -> anyhow::Result<InterpretResult> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) = interpreter.typecheck(crate_path_graph)?;
+
     let compile_results = interpreter.interpret(
         &mut typechecker,
         &mut ctx,
@@ -500,6 +501,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             })?;
         Ok((typechecker, typechecker_context))
     }
+
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_function(
         &mut self,

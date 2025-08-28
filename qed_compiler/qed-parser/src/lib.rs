@@ -267,13 +267,16 @@ pub fn resolve_module_name<F: Clone + From<u32>>(
 }
 
 fn std_path() -> PathBuf {
+    if let Ok(std_path) = std::env::var("DARGO_STD_PATH") {
+        return PathBuf::from(std_path);
+    }
+
     if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
         let std_path = PathBuf::from(cargo_dir);
         return std_path.join("../qed-std/std.qed");
     }
 
-    let std_path = std::env::var("DARGO_STD_PATH").expect("Cannot find DARGO_STD_PATH");
-    return PathBuf::from(std_path);
+    panic!("Cannot find DARGO_STD_PATH and CARGO_MANIFEST_DIR is not set");
 }
 
 #[cfg(test)]

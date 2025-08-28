@@ -1781,16 +1781,14 @@ dependencies = [
  "qed-abi",
  "qed-ast",
  "qed-common",
- "qed-dargo",
- "qed-dargo-toml",
  "qed-interpreter",
  "qed-sema",
- "qed-utils",
  "qed_common_circuit",
  "qed_core",
  "qed_crypto",
  "qed_data",
  "qed_exec",
+ "qed_package",
  "qed_prover",
  "qed_store",
  "qedlang_core",
@@ -1798,8 +1796,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.16",
  "tokio",
- "tracing-appender",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -4703,61 +4699,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-cli"
+name = "qed-common"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "dotenv",
- "plonky2",
- "qed-common",
- "qed-interpreter",
- "qed-utils",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_exec",
- "qed_prover",
- "qed_store",
- "qedlang_core",
- "tokio",
-]
-
-[[package]]
-name = "qed-common"
-version = "0.1.0"
-dependencies = [
  "indexmap 2.11.0",
  "thiserror 2.0.16",
+ "tracing-subscriber",
 ]
-
-[[package]]
-name = "qed-dargo"
-version = "0.1.0"
-dependencies = [
- "serde",
- "smol_str",
-]
-
-[[package]]
-name = "qed-dargo-toml"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "md5",
- "qed-dargo",
- "semver 1.0.26",
- "serde",
- "tempfile",
- "thiserror 2.0.16",
- "toml",
- "url",
-]
-
-[[package]]
-name = "qed-derive"
-version = "0.1.0"
 
 [[package]]
 name = "qed-fmt"
@@ -4783,7 +4733,6 @@ dependencies = [
  "qed-fmt",
  "qed-parser",
  "qed-sema",
- "qed-utils",
  "qed_common_circuit",
  "qed_core",
  "qed_crypto",
@@ -4814,9 +4763,9 @@ dependencies = [
  "lsp-types 0.97.0",
  "qed-ast",
  "qed-common",
- "qed-dargo-toml",
  "qed-interpreter",
  "qed-sema",
+ "qed_package",
  "qedlang_core",
  "thiserror 2.0.16",
  "tokio",
@@ -4857,23 +4806,6 @@ dependencies = [
  "rangemap",
  "thiserror 2.0.16",
  "tracing",
-]
-
-[[package]]
-name = "qed-utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "kvq",
- "plonky2",
- "qed_common_circuit",
- "qed_core",
- "qed_data",
- "qed_prover",
- "qed_store",
- "qedlang_core",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -4992,6 +4924,7 @@ dependencies = [
  "kvq",
  "minijinja",
  "plonky2",
+ "qed-common",
  "qed_common_circuit",
  "qed_core",
  "qed_crypto",
@@ -5089,10 +5022,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "qed_package"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "md5",
+ "semver 1.0.26",
+ "serde",
+ "smol_str",
+ "tempfile",
+ "thiserror 2.0.16",
+ "toml",
+ "url",
+]
+
+[[package]]
 name = "qed_precompiles"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dargo",
+ "qed-interpreter",
+ "qed_package",
  "serde_json",
 ]
 
@@ -5121,6 +5072,7 @@ dependencies = [
  "kvq",
  "maybe-async",
  "plonky2",
+ "qed-common",
  "qed_common_circuit",
  "qed_core",
  "qed_crypto",
@@ -5183,6 +5135,7 @@ dependencies = [
  "dotenv",
  "kvq",
  "plonky2",
+ "qed-common",
  "qed_core",
  "qed_crypto",
  "qed_data",
@@ -5232,7 +5185,6 @@ dependencies = [
  "qed_core",
  "qed_crypto",
  "qed_data",
- "qed_precompiles",
  "qed_rollup_utils",
  "qedlang_core",
  "rand 0.8.5",
@@ -5269,6 +5221,7 @@ dependencies = [
  "js-sys",
  "kvq",
  "plonky2",
+ "qed-common",
  "qed_common_circuit",
  "qed_core",
  "qed_crypto",
