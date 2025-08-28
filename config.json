@@ -31,8 +31,18 @@
   },
   "genesis": {
     "precompiles": [
-      "qed_precompiles/rewards/target/rewards.json",
-      "qed_precompiles/token/target/token.json"
+      {
+        "name": "rewards",
+        "path": "qed_precompiles/rewards",
+        "contract_name": "ContractRef",
+        "method_names": ["batch_claim_pm_rewards", "simple_mint", "simple_burn", "simple_transfer", "simple_claim"]
+      },
+      {
+        "name": "token",
+        "path": "qed_precompiles/token",
+        "contract_name": "ContractRef",
+        "method_names": ["simple_mint", "simple_burn", "simple_transfer", "simple_claim"]
+      }
     ],
     "contracts": {
       "0": {

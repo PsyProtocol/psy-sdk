@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 serde_json = { workspace = true }
+qedlang_core = { workspace = true }
 
 [build-dependencies]
 serde_json = { workspace = true }
@@ -15,6 +16,8 @@ anyhow = { workspace = true }
 dargo = { workspace = true }
 qed_package = { workspace = true }
 qed-interpreter = { workspace = true }
+qed_data = { workspace = true }
+minijinja = "2"
 
 [lints]
 workspace = true

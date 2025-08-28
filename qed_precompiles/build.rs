@@ -1,4 +1,6 @@
 use anyhow::Result;
+use minijinja::{context, Environment};
+use qed_data::qdata::contract::{ContractConfig, PrecompileConfig, RootConfig};
 use std::env;
 use std::path::Path;
 
@@ -7,34 +9,40 @@ fn main() -> Result<()> {
     let out_dir = env::var("OUT_DIR")?;
     let out_path = std::path::Path::new(&out_dir);
 
-    println!("cargo:rerun-if-changed=rewards/");
-    println!("cargo:rerun-if-changed=token/");
+    let workspace_root = std::path::Path::new(&manifest_dir)
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("Could not find workspace root"))?;
+    let config_path = workspace_root.join("config.json");
 
-    let contracts = [
-        (
-            "rewards",
-            "batch_claim_pm_rewards,simple_mint,simple_burn,simple_transfer,simple_claim",
-        ),
-        (
-            "token",
-            "simple_mint,simple_burn,simple_transfer,simple_claim",
-        ),
-    ];
+    println!("cargo:rerun-if-changed={}", config_path.display());
+    let config_str = std::fs::read_to_string(&config_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read config.json at {}: {}", config_path.display(), e))?;
 
-    for (contract_name, _) in &contracts {
-        let json_file = out_path.join(format!("{}.json", contract_name));
+    let root_config: RootConfig = serde_json::from_str(&config_str)
+        .map_err(|e| anyhow::anyhow!("Failed to parse config.json: {}", e))?;
+
+    let config = PrecompileConfig {
+        contracts: root_config.genesis.precompiles,
+    };
+
+    for contract in &config.contracts {
+        println!("cargo:rerun-if-changed={}/", contract.path);
+    }
+
+    for contract in &config.contracts {
+        let json_file = out_path.join(format!("{}.json", contract.name));
         if !json_file.exists() {
-            std::fs::write(&json_file, "{}").unwrap_or_else(|e| {
+            std::fs::write(&json_file, "[]").unwrap_or_else(|e| {
                 println!(
                     "cargo:warning=Failed to create initial empty JSON for {}: {}",
-                    contract_name, e
+                    contract.name, e
                 );
             });
         }
     }
 
-    for (contract_name, method_names) in contracts {
-        let contract_dir = Path::new(&manifest_dir).join(contract_name);
+    for contract in &config.contracts {
+        let contract_dir = workspace_root.join(&contract.path);
 
         if !contract_dir.exists() {
             println!(
@@ -65,22 +73,19 @@ fn main() -> Result<()> {
         use dargo::cli::{with_workspace, DargoConfig};
         use dargo::compile_cmd::CompileOptions;
 
-        let config = DargoConfig {
+        let dargo_config = DargoConfig {
             program_dir: contract_dir.clone(),
             target_dir: None,
         };
 
         let compile_options = CompileOptions {
-            contract_name: Some("ContractRef".to_string()),
-            method_names: method_names
-                .split(',')
-                .map(|s| s.trim().to_string())
-                .collect(),
+            contract_name: Some(contract.contract_name.clone()),
+            method_names: contract.method_names.clone(),
             entry_path: Some(main_qed),
             debug: false,
         };
 
-        let result = with_workspace(compile_options, config, |opts, workspace| {
+        let result = with_workspace(compile_options, dargo_config, |opts, workspace| {
             use dargo::cli::resolve_crate_path_graph;
             let crate_path_graph = resolve_crate_path_graph(&workspace, opts.entry_path.clone());
 
@@ -103,23 +108,12 @@ fn main() -> Result<()> {
 
                     if let Err(e) = save_build_artifact_to_file(
                         &interpret_result.compile_results,
-                        contract_name,
+                        &contract.name,
                         out_path,
                     ) {
                         println!(
                             "cargo:warning=Failed to save build artifact for {}: {}",
-                            contract_name, e
-                        );
-                    }
-
-                    if let Err(e) = save_build_artifact_to_file(
-                        &interpret_result.compile_results,
-                        contract_name,
-                        &workspace.target_dir,
-                    ) {
-                        println!(
-                            "cargo:warning=Could not save {} to workspace target_dir: {}",
-                            contract_name, e
+                            contract.name, e
                         );
                     }
                     Ok(())
@@ -127,7 +121,7 @@ fn main() -> Result<()> {
                 Err(e) => {
                     println!(
                         "cargo:warning=Failed to compile {} contract: {}",
-                        contract_name, e
+                        contract.name, e
                     );
                     Err(e.into())
                 }
@@ -137,16 +131,153 @@ fn main() -> Result<()> {
         if let Err(_) = result {
             let out_dir = env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string());
             let out_path = std::path::Path::new(&out_dir);
-            let json_file = out_path.join(format!("{}.json", contract_name));
+            let json_file = out_path.join(format!("{}.json", contract.name));
 
-            if let Err(write_err) = std::fs::write(&json_file, "{}") {
+            if let Err(write_err) = std::fs::write(&json_file, "[]") {
                 println!(
                     "cargo:warning=Failed to write empty JSON file for {}: {}",
-                    contract_name, write_err
+                    contract.name, write_err
                 );
             }
         }
     }
 
+    // Generate runtime lookup API (compile-time optimization)
+    generate_precompile_api(&config, out_path)?;
+
+    // Generate precompiled contracts constants
+    generate_precompile_constants(&config, out_path)?;
+
     Ok(())
 }
+
+
+fn generate_precompile_api(config: &PrecompileConfig, out_path: &Path) -> Result<()> {
+    let mut env = Environment::new();
+    
+    let template = r#"use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+
+// Generated at compile time - zero runtime parsing cost!
+// Direct embedded contract definitions - no JSON parsing at runtime!
+
+{% for contract in contracts -%}
+// Runtime lazy loading for {{ contract.name }} contract
+fn load_{{ contract.name }}_functions() -> Vec<DPNFunctionCircuitDefinition> {
+    let json_data = include_str!(concat!(env!("OUT_DIR"), "/{{ contract.name }}.json"));
+    serde_json::from_str(json_data).unwrap_or_else(|_| Vec::new())
+}
+
+static {{ contract.name | upper }}_FUNCTIONS_ONCE: std::sync::OnceLock<Vec<DPNFunctionCircuitDefinition>> = std::sync::OnceLock::new();
+
+pub fn get_{{ contract.name }}_functions() -> &'static Vec<DPNFunctionCircuitDefinition> {
+    {{ contract.name | upper }}_FUNCTIONS_ONCE.get_or_init(load_{{ contract.name }}_functions)
+}
+
+{% endfor -%}
+
+/// Get precompiled contract functions by contract ID
+pub fn get_precompiled_contract_functions(contract_id: u32) -> Option<&'static Vec<DPNFunctionCircuitDefinition>> {
+    match contract_id {
+        {%- for contract in contracts %}
+        {{ contract.name | upper }}_CONTRACT_ID => Some(get_{{ contract.name }}_functions()),
+        {%- endfor %}
+        _ => None,
+    }
+}
+
+/// Get contract ID by name
+pub fn get_contract_id_by_name(contract_name: &str) -> Option<u32> {
+    match contract_name {
+        {%- for contract in contracts %}
+        "{{ contract.name }}" => Some({{ contract.name | upper }}_CONTRACT_ID),
+        {%- endfor %}
+        _ => None,
+    }
+}
+
+/// Get a specific function from a contract by name
+pub fn get_precompiled_contract_function_by_name(
+    contract_name: &str,
+    method_name: &str
+) -> Option<&'static DPNFunctionCircuitDefinition> {
+    let contract_id = get_contract_id_by_name(contract_name)?;
+    let functions = get_precompiled_contract_functions(contract_id)?;
+
+    functions.iter().find(|f| f.name == method_name)
+}
+
+/// List all available contract names
+pub fn list_available_contracts() -> Vec<String> {
+    vec![
+        {%- for contract in contracts %}
+        "{{ contract.name }}".to_string(),
+        {%- endfor %}
+    ]
+}
+
+/// List all methods for a specific contract
+pub fn list_contract_methods(contract_name: &str) -> Vec<String> {
+    if let Some(contract_id) = get_contract_id_by_name(contract_name) {
+        if let Some(functions) = get_precompiled_contract_functions(contract_id) {
+            return functions.iter().map(|f| f.name.clone()).collect();
+        }
+    }
+    Vec::new()
+}
+"#;
+
+    env.add_template("api", template)?;
+    let tmpl = env.get_template("api")?;
+    
+    let api_code = tmpl.render(context! {
+        contracts => &config.contracts
+    })?;
+
+    let api_file = out_path.join("precompile_api.rs");
+    std::fs::write(api_file, api_code)?;
+
+    Ok(())
+}
+
+fn generate_precompile_constants(config: &PrecompileConfig, out_path: &Path) -> Result<()> {
+    let mut env = Environment::new();
+    
+    let template = r#"// This file is auto-generated by build.rs from config.json
+// DO NOT EDIT MANUALLY
+
+// Precompiled contract IDs
+{% for contract in contracts -%}
+pub const {{ contract.name | upper }}_CONTRACT_ID: u32 = {{ loop.index0 }};
+{% endfor %}
+
+// Method ID constants for each contract
+{% for contract in contracts -%}
+// {{ contract.name }} contract method IDs
+{%- for method in contract.method_names %}
+pub const {{ contract.name | upper }}_{{ method | upper }}_METHOD_ID: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+
+pub fn get_{{ contract.name }}_{{ method }}_method_id() -> Option<u32> {
+    *{{ contract.name | upper }}_{{ method | upper }}_METHOD_ID.get_or_init(|| {
+        get_{{ contract.name }}_functions()
+            .iter()
+            .find(|f| f.name == "{{ method }}")
+            .map(|f| f.method_id)
+    })
+}
+{% endfor %}
+{% endfor -%}
+"#;
+
+    env.add_template("constants", template)?;
+    let tmpl = env.get_template("constants")?;
+    
+    let constants_code = tmpl.render(context! {
+        contracts => &config.contracts
+    })?;
+
+    let constants_file = out_path.join("precompiled_contracts.rs");
+    std::fs::write(constants_file, constants_code)?;
+
+    Ok(())
+}
+

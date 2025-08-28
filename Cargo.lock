@@ -5042,8 +5042,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "dargo",
+ "minijinja",
  "qed-interpreter",
+ "qed_data",
  "qed_package",
+ "qedlang_core",
  "serde_json",
 ]
 
