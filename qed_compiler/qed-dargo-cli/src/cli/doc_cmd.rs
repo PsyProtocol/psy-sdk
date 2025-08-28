@@ -426,9 +426,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_doc() {
-        unsafe {
-            std::env::set_var("DARGO_STD_PATH", "../../../qed-std/std.qed");
-        }
         insta::glob!("../../../tests", "*_test.qed", |path| {
             let workspace = Workspace {
                 root_dir: PathBuf::from("../../../tests"),

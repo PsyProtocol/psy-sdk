@@ -78,9 +78,6 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn qed_unit_test() {
-        unsafe {
-            std::env::set_var("DARGO_STD_PATH", "../../../qed-std/std.qed");
-        }
         insta::glob!("../../../tests", "*_test.qed", |path| {
             let args = TestCommand { file: path.into() };
             tokio::task::block_in_place(|| {

@@ -271,12 +271,38 @@ fn std_path() -> PathBuf {
         return PathBuf::from(std_path);
     }
 
-    if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-        let std_path = PathBuf::from(cargo_dir);
-        return std_path.join("../qed-std/std.qed");
+    let current_file = std::path::Path::new(file!());
+
+    if let Some(parser_dir) = current_file.parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+    {
+        let std_path = parser_dir.join("qed-std/std.qed");
+        if std_path.exists() {
+            return std_path;
+        }
     }
 
-    panic!("Cannot find DARGO_STD_PATH and CARGO_MANIFEST_DIR is not set");
+    if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        let candidates = [
+            "../qed-std/std.qed",
+            "../../qed-std/std.qed",
+            "../../../qed-std/std.qed",
+            "../qed_compiler/qed-std/std.qed",
+            "../../qed_compiler/qed-std/std.qed"
+        ];
+
+        for candidate in &candidates {
+            let std_path = PathBuf::from(&cargo_dir).join(candidate);
+            if std_path.exists() {
+                if let Ok(canonical) = std_path.canonicalize() {
+                    return canonical;
+                }
+            }
+        }
+    }
+
+    panic!("Cannot find qed-std/std.qed. Please set DARGO_STD_PATH environment variable or ensure qed-std is in the expected location relative to qed-parser.");
 }
 
 #[cfg(test)]

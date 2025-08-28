@@ -9,7 +9,7 @@ This document introduces how to use the QED language server `qed-lsp-server` for
 1. Clone repository:
 
 ```bash
-  git clone https://github.com/QEDProtocol/qed-lang.git
+  git clone https://github.com/QEDProtocol/qedlang-rust.git
   cd qed-lang
 ```
 
