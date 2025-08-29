@@ -179,9 +179,10 @@ impl RealmProcessor {
             info!("Start building block");
             let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
             let next_checkpoint_id = local_latest_checkpoint_id + 1;
-            self.store.commit(local_latest_checkpoint_id)?;
-            context.commit_offset().await?;
             if let Some(pending_checkpoint_id) = self.pending_checkpoint_id {
+                // todo
+                self.store.commit(pending_checkpoint_id)?;
+                context.commit_offset().await?;
                 if next_checkpoint_id <= pending_checkpoint_id {
                     warn!("Pending checkpoint {} is not ready, skipping block construction", pending_checkpoint_id);
                     continue;
@@ -200,13 +201,13 @@ impl RealmProcessor {
                     continue;
                 }
             };
+            if !self.slot_timer.is_can_reach_to_next_slot() {
+                warn!("Is not reach to next slot, skipping block construction");
+                continue;
+            }
             info!("Pushing job id to queue: {:?}, slot: {}", proving_data_job_id, slot);
             self.sync_proof.chq_push_imm(proving_data_job_id).await?;
             self.pending_checkpoint_id = Some(next_checkpoint_id);
-            // Send the job id to the channel for the next step
-            // if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
-            //     error!("Error chq_push_imm: {:?}", err);
-            // };
             info!("Pushing job to queueue done");
         }
     }
