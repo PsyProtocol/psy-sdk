@@ -187,7 +187,7 @@ compile:
 	# Compile token contract
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim batch_claim_pm_rewards
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/new_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names clear_entire_tree advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/new_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward claim_guta_proof
 
 run-coordinator-processor:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --database lmdbx --lmdbx-path ${PWD}/db/coordinator

@@ -1,10 +1,8 @@
-#[derive(Storage, StorageRef)]
 struct WeirdMerkleProofSiblingLevel {
     pub sibling_branch: [Felt; 4],
     pub sibling_reward_leaf: [Felt; 4],
 }
 
-#[derive(Storage, StorageRef)]
 struct VariableHeightRewardMerkleProof {
     pub top_siblings: [WeirdMerkleProofSiblingLevel; 27],
     pub left_branch: [Felt; 4],
@@ -12,13 +10,6 @@ struct VariableHeightRewardMerkleProof {
     pub reward_leaf: [Felt; 4],
     pub proof_height: Felt,
     pub index: Felt,
-}
-
-#[derive(Storage, StorageRef)]
-struct PMRewardCommitmentPreimage {
-    pub guta_rewards_tree_root: [Felt; 4],
-    pub registered_users_rewards_tree_root: [Felt; 4],
-    pub deploy_contracts_rewards_tree_root: [Felt; 4],
 }
 
 #[derive(Storage, StorageRef)]
@@ -44,7 +35,6 @@ impl VariableHeightRewardMerkleProof {
         let index = self.index;
         let max_height_minus_one = 27;
 
-
         assert(proof_height <= max_height_minus_one, "proof height too large");
 
         let mut nullifier_base = 0;
@@ -53,16 +43,14 @@ impl VariableHeightRewardMerkleProof {
         let leaf_hash = hash_two_to_one(self.left_branch, self.right_branch);
         let mut current_node_value = hash_two_to_one(leaf_hash, self.reward_leaf);
 
-
         for i in 0u32..27u32 {
             let level_index = i as Felt;
             let sibling = self.top_siblings[level_index];
             let sibling_node = sibling.sibling_branch;
             let reward_leaf = sibling.sibling_reward_leaf;
 
-            if (i as Felt) < proof_height {
-
-                let bit_position = i as Felt;
+            if level_index < proof_height {
+                let bit_position = level_index;
                 let index_bit = (index >> bit_position) & 1;
 
                 let branch_path_hash = if index_bit == 0 {
@@ -72,17 +60,23 @@ impl VariableHeightRewardMerkleProof {
                 };
                 current_node_value = hash_two_to_one(branch_path_hash, reward_leaf);
 
-
                 nullifier_base = nullifier_base + nullifier_level_start_index_multiplier;
                 nullifier_level_start_index_multiplier = nullifier_level_start_index_multiplier * 2;
             } else {
-
                 let zero_hash = [0, 0, 0, 0];
-                assert(reward_leaf[0] == zero_hash[0] && reward_leaf[1] == zero_hash[1] && reward_leaf[2] == zero_hash[2] && reward_leaf[3] == zero_hash[3], "unused reward leaf must be zero");
-                assert(sibling_node[0] == zero_hash[0] && sibling_node[1] == zero_hash[1] && sibling_node[2] == zero_hash[2] && sibling_node[3] == zero_hash[3], "unused sibling node must be zero");
+                assert(
+                    reward_leaf[0] == zero_hash[0]
+                    && reward_leaf[1] == zero_hash[1]
+                    && reward_leaf[2] == zero_hash[2]
+                    && reward_leaf[3] == zero_hash[3],
+                "unused reward leaf must be zero");
+                assert(sibling_node[0] == zero_hash[0]
+                    && sibling_node[1] == zero_hash[1]
+                    && sibling_node[2] == zero_hash[2]
+                    && sibling_node[3] == zero_hash[3],
+                "unused sibling node must be zero");
 
-
-                let bit_position = i as Felt;
+                let bit_position = level_index;
                 let index_bit = (index >> bit_position) & 1;
                 assert(index_bit == 0, "unused index bit must be zero");
             };
@@ -97,14 +91,8 @@ impl ContractRef {
     pub fn check_guta_reward(total_proofs_in_checkpoint: Felt, total_fees_paid: Felt, proposed_reward: Felt) -> bool {
         let user_transaction_inclusion_fee = 5000000000;
 
-
         let total_reward_if_all_claim = proposed_reward * total_proofs_in_checkpoint;
         proposed_reward < user_transaction_inclusion_fee && total_reward_if_all_claim < total_fees_paid
-    }
-
-    pub fn compute_combined_pm_commitment_hash(preimage: PMRewardCommitmentPreimage) -> [Felt; 4] {
-        let intermediate_hash = hash_two_to_one(preimage.guta_rewards_tree_root, preimage.registered_users_rewards_tree_root);
-        hash_two_to_one(intermediate_hash, preimage.deploy_contracts_rewards_tree_root)
     }
 
     pub fn advance_to_checkpoint(new_claim_checkpoint_id: Felt) {
@@ -124,7 +112,6 @@ impl ContractRef {
 
     pub fn claim_guta_proof(
         claim_checkpoint_id: Felt,
-        reward_commitment_preimage: PMRewardCommitmentPreimage,
         proof: VariableHeightRewardMerkleProof,
         proposed_reward: Felt
     ) {
@@ -132,20 +119,15 @@ impl ContractRef {
         let current_checkpoint = get_checkpoint_id();
         let claim_rewards_cooldown = 16;
 
-
         assert(current_checkpoint > claim_checkpoint_id + claim_rewards_cooldown, "cooldown not satisfied");
 
         let persistant_state = c.persistant_state.get();
 
-
         assert(current_checkpoint > persistant_state.sealed_for_ups_checkpoint_id, "checkpoint is sealed");
-
 
         assert(persistant_state.min_allowed_claimed_checkpoint == claim_checkpoint_id, "invalid claim checkpoint");
 
-
-        let expected_pm_commitment = Self::compute_combined_pm_commitment_hash(reward_commitment_preimage);
-
+        let guta_rewards_tree_root = get_gutas_root(claim_checkpoint_id);
 
         let result: ([Felt; 4], Felt) = proof.compute_root_and_nullifier_index();
 
@@ -153,19 +135,19 @@ impl ContractRef {
         let nullifier_index = result.1;
 
         assert(
-            guta_reward_tree_root[0] == reward_commitment_preimage.guta_rewards_tree_root[0]
-            && guta_reward_tree_root[1] == reward_commitment_preimage.guta_rewards_tree_root[1]
-            && guta_reward_tree_root[2] == reward_commitment_preimage.guta_rewards_tree_root[2]
-            && guta_reward_tree_root[3] == reward_commitment_preimage.guta_rewards_tree_root[3],
+            guta_reward_tree_root[0] == guta_rewards_tree_root[0]
+            && guta_reward_tree_root[1] == guta_rewards_tree_root[1]
+            && guta_reward_tree_root[2] == guta_rewards_tree_root[2]
+            && guta_reward_tree_root[3] == guta_rewards_tree_root[3],
         "guta tree root mismatch");
 
-
-        let user_id = get_user_id();
-        assert(proof.reward_leaf[0] == user_id, "reward not for current user");
-        assert(proof.reward_leaf[1] == 0, "reward leaf element 1 must be zero");
-        assert(proof.reward_leaf[2] == 0, "reward leaf element 2 must be zero");
-        assert(proof.reward_leaf[3] == 0, "reward leaf element 3 must be zero");
-
+        let user_public_key_hash = get_user_public_key_hash();
+        assert(
+            proof.reward_leaf[0] == user_public_key_hash[0]
+            && proof.reward_leaf[1] == user_public_key_hash[1]
+            && proof.reward_leaf[2] == user_public_key_hash[2]
+            && proof.reward_leaf[3] == user_public_key_hash[3],
+        "reward not for current user");
 
         assert(c.claimed_guta_nullifiers.index(nullifier_index).get() == 0, "reward already claimed");
 
@@ -191,13 +173,12 @@ impl ContractRef {
 
     pub fn advance_and_claim_guta_proof(
         claim_checkpoint_id: Felt,
-        reward_commitment_preimage: PMRewardCommitmentPreimage,
         proof: VariableHeightRewardMerkleProof,
         proposed_reward: Felt
     ) {
         Self::advance_to_checkpoint(claim_checkpoint_id);
 
-        Self::claim_guta_proof(claim_checkpoint_id, reward_commitment_preimage, proof, proposed_reward);
+        Self::claim_guta_proof(claim_checkpoint_id, proof, proposed_reward);
     }
 
     pub fn advance_to_checkpoint_and_seal(new_claim_checkpoint_id: Felt) {

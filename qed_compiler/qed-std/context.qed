@@ -12,7 +12,6 @@ pub fn get_checkpoint_id() -> Felt {
     __ctx_get_checkpoint_id()
 }
 
-
 pub fn get_register_users_root(checkpoint_id: Felt) -> Hash {
     __ctx_get_register_users_root(checkpoint_id)
 }
