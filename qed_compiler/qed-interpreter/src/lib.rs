@@ -774,18 +774,20 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValue<F>> {
         let rhs_value = self.interpret_expr(program, unary_node.rhs, ctx)?;
+        let rhs_borrow = rhs_value.borrow();
 
-        Ok(match unary_node.operator {
-            UnaryOperator::Neg => todo!(),
-            UnaryOperator::Not => {
-                if unary_node.type_id == BOOL_TYPE {
-                    CheckedValue::Bool(self.context.op_bool_not(rhs_value.to_bool()))
-                } else if unary_node.type_id == FELT_TYPE {
-                    CheckedValue::Bool(self.context.op_bool_not(rhs_value.to_felt()))
-                } else {
-                    todo!()
-                }
+        Ok(match (&*rhs_borrow, unary_node.operator) {
+            (CheckedValue::Bool(b), UnaryOperator::Neg) => {
+                CheckedValue::Bool(self.context.op_bool_not(*b))
             }
+            // TODO: should be bitwise not
+            (CheckedValue::Felt(v), UnaryOperator::Not) => {
+                CheckedValue::Felt(self.context.op_bool_not(*v))
+            }
+            (CheckedValue::Bool(v), UnaryOperator::Not) => {
+                CheckedValue::Bool(self.context.op_bool_not(*v))
+            }
+            _ => todo!(),
         })
     }
 
@@ -898,11 +900,22 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             (CheckedValue::Felt(l), CheckedValue::Felt(r), ModAssign) => {
                 CheckedValueRef::from_felt(self.context.op_mod(*l, *r))
             }
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitAndAssign) => unimplemented!(),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitOrAssign) => unimplemented!(),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitXorAssign) => unimplemented!(),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitShlAssign) => unimplemented!(),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitShrAssign) => unimplemented!(),
+            // TODO: don't use u32 opcodes
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitAndAssign) => {
+                CheckedValueRef::from_felt(self.context.op_u32_and(*l, *r))
+            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitOrAssign) => {
+                CheckedValueRef::from_felt(self.context.op_u32_or(*l, *r))
+            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitXorAssign) => {
+                CheckedValueRef::from_felt(self.context.op_u32_xor(*l, *r))
+            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitShlAssign) => {
+                CheckedValueRef::from_felt(self.context.op_u32_shl(*l, *r))
+            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitShrAssign) => {
+                CheckedValueRef::from_felt(self.context.op_u32_shr(*l, *r))
+            }
 
             (CheckedValue::U32(l), CheckedValue::U32(r), AddAssign) => {
                 CheckedValueRef::from_u32(self.context.op_u32_add(*l, *r))
