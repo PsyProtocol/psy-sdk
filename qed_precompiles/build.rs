@@ -78,9 +78,10 @@ fn main() -> Result<()> {
         use dargo::cli::{with_workspace, DargoConfig};
         use dargo::compile_cmd::CompileOptions;
 
+        let target_dir = contract_dir.join("target");
         let dargo_config = DargoConfig {
             program_dir: contract_dir.clone(),
-            target_dir: None,
+            target_dir: Some(target_dir.clone()),
         };
 
         let compile_options = CompileOptions {
@@ -108,6 +109,18 @@ fn main() -> Result<()> {
                     );
 
                     use dargo::cli::save_build_artifact_to_file;
+
+                    if let Err(e) = save_build_artifact_to_file(
+                        &interpret_result.compile_results,
+                        &contract.name,
+                        &target_dir,
+                    ) {
+                        println!(
+                            "cargo:warning=Failed to save build artifact to target dir for {}: {}",
+                            contract.name, e
+                        );
+                    }
+
                     let out_dir = env::var("OUT_DIR").map_err(anyhow::Error::from)?;
                     let out_path = std::path::Path::new(&out_dir);
 
@@ -117,7 +130,7 @@ fn main() -> Result<()> {
                         out_path,
                     ) {
                         println!(
-                            "cargo:warning=Failed to save build artifact for {}: {}",
+                            "cargo:warning=Failed to save build artifact to OUT_DIR for {}: {}",
                             contract.name, e
                         );
                     }

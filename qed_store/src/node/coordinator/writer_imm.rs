@@ -246,7 +246,7 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
             };
 
             let genesis_checkpoint_leaf = partial_input.get_new_checkpoint_leaf::<QEDHasher>();
-            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(1).await?;
+            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(0).await?;
 
 
             self.set_l2_block_state_imm(&genesis_l2_block_state).await?;

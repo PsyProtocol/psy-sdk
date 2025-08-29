@@ -303,10 +303,11 @@ impl
         use qed_crypto::hash::traits::qhashable::QFieldHashable;
         use qed_data::config::store_config::QEDHasher;
 
-        for precompile_path in genesis_config.get_precompile_paths() {
-            let contract_path = std::path::Path::new(precompile_path);
+        for precompile_config in genesis_config.get_precompile_configs() {
+            let contract_json_path = format!("{}/target/{}.json", precompile_config.path, precompile_config.name);
+            let contract_path = std::path::Path::new(&contract_json_path);
             if !contract_path.exists() {
-                warn!("Precompile contract file not found: {}", precompile_path);
+                warn!("Precompile contract file not found: {}", contract_json_path);
                 continue;
             }
 

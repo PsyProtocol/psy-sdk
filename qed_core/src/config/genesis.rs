@@ -2,8 +2,11 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GenesisPrecompileConfig {
-    pub precompiles: Vec<String>,
+pub struct ContractConfig {
+    pub name: String,
+    pub path: String,
+    pub contract_name: String,
+    pub method_names: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,7 +21,7 @@ pub struct GenesisContractUserState {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenesisConfig {
-    pub precompiles: Vec<String>,
+    pub precompiles: Vec<ContractConfig>,
     pub contracts: HashMap<String, HashMap<String, GenesisContractUserState>>,
 }
 
@@ -28,7 +31,11 @@ impl GenesisConfig {
         Ok(config)
     }
 
-    pub fn get_precompile_paths(&self) -> &[String] {
+    pub fn get_precompile_paths(&self) -> Vec<String> {
+        self.precompiles.iter().map(|config| config.path.clone()).collect()
+    }
+
+    pub fn get_precompile_configs(&self) -> &[ContractConfig] {
         &self.precompiles
     }
 
@@ -50,14 +57,6 @@ impl GenesisConfig {
     }
 }
 
-impl Default for GenesisConfig {
-    fn default() -> Self {
-        Self {
-            precompiles: vec!["qed_precompiles".to_string()],
-            contracts: HashMap::new(),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -68,7 +67,14 @@ mod tests {
     fn test_genesis_config_parsing() {
         let json = r#"
         {
-            "precompiles": ["qed_precompiles"],
+            "precompiles": [
+                {
+                    "name": "test",
+                    "path": "qed_precompiles",
+                    "contract_name": "ContractRef",
+                    "method_names": ["test_method"]
+                }
+            ],
             "contracts": {
                 "1": {
                     "0": {
@@ -84,7 +90,8 @@ mod tests {
 
         let config = GenesisConfig::from_json(json).unwrap();
         assert_eq!(config.precompiles.len(), 1);
-        assert_eq!(config.precompiles[0], "qed_precompiles");
+        assert_eq!(config.precompiles[0].path, "qed_precompiles");
+        assert_eq!(config.precompiles[0].name, "test");
 
         let user_state = config.get_contract_user_state(1, 0).unwrap();
         assert_eq!(user_state.slots.len(), 2);
