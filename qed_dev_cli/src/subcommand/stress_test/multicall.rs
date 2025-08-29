@@ -34,6 +34,9 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
             if args.only_multi_transfer {
                 multicall.batch_multi_transfer(args.concurrent_tasks as u64).unwrap();
             }
+            if args.only_mint {
+                multicall.multi_user_mint(args.concurrent_tasks as u64).unwrap();
+            }
         }
     });
 
@@ -267,6 +270,52 @@ impl Multicast {
         }
 
         info!("batch_flow: end call");
+        Ok(())
+    }
+
+    pub fn multi_user_mint(&self, count: u64) -> Result<()> {
+        let user_info = self.register_batch_user(count)?;
+        let mint_amount = 100000u64;
+        for i in 0..user_info.len() {
+            {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
+            let public_key = user_info[i].pub_key.clone();
+            match self.exec_contract_call(public_key, vec![ContractCallArgs {
+                contract_id: 0,
+                method_name: "simple_mint".to_string(),
+                inputs: vec![mint_amount],
+            }]){
+                Ok(_) => {
+                    info!("✅ Task {} - Mint contract call success",i);
+                },
+                Err(err) => {
+                    error!("❌ Task {} - Mint contract call error: {}",i, err);
+                }
+            }
+        }
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+            return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
+        }
+        info!("multi_user_mint: end call");
+        Ok(())
+    }
+
+    pub fn multi_user_transfer(&self, count: u64) -> Result<()> {
+        let user_info = self.register_batch_user(count)?;
+        let mut contract_call_args = vec![];
+        let from_user_id = user_info[0].user_id;
+        let mint_amount = 100000u64;
+        let transfer_amount = 2u64;
+        contract_call_args.push(ContractCallArgs {
+            contract_id: 0,
+            method_name: "simple_mint".to_string(),
+            inputs: vec![mint_amount],
+        });
+        {self.wallet_session.write().add_user(user_info[0].pk.clone())?;}
+
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+            return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
+        }
+        info!("multi_user_transfer: end call");
         Ok(())
     }
 
