@@ -51,6 +51,7 @@ pub struct RealmProcessor {
     pub task_store: Arc<QProvingTaskStoreImpl>,
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: u64,
+    pub pending_checkpoint_id: Option<u64>,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
@@ -92,6 +93,7 @@ impl RealmProcessor {
             task_store: Arc::new(task_store),
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: 0,
+            pending_checkpoint_id: None,
         };
         Ok(processor)
     }
@@ -179,6 +181,13 @@ impl RealmProcessor {
             let next_checkpoint_id = local_latest_checkpoint_id + 1;
             self.store.commit(local_latest_checkpoint_id)?;
             context.commit_offset().await?;
+            if let Some(pending_checkpoint_id) = self.pending_checkpoint_id {
+                if next_checkpoint_id <= pending_checkpoint_id {
+                    warn!("Pending checkpoint {} is not ready, skipping block construction", pending_checkpoint_id);
+                    continue;
+                }
+            }
+            self.pending_checkpoint_id = None;
             let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
             if !has_tasks {
                 warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
@@ -193,6 +202,7 @@ impl RealmProcessor {
             };
             info!("Pushing job id to queue: {:?}, slot: {}", proving_data_job_id, slot);
             self.sync_proof.chq_push_imm(proving_data_job_id).await?;
+            self.pending_checkpoint_id = Some(next_checkpoint_id);
             // Send the job id to the channel for the next step
             // if let Err(err) = self.queue.cdq_push_imm(proving_data_job_id).await {
             //     error!("Error chq_push_imm: {:?}", err);
