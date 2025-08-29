@@ -25,15 +25,6 @@ DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd qed_compiler/tests && ../../target/
 DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVEL} cd qed_compiler/tests && ../../target/${PROFILE}/dargo execute --debug --entry-path
 
 ci:
-	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
-	       --package qed-ast \
-	       --package qed-parser \
-	       --package qed-sema \
-	       --package qed-interpreter \
-	       -- \
-	       --nocapture
-	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/in_mod_attr_test.qed
-	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/should_panic_test.qed
 
 	@$(DARGO_CLI_COMPILE) ctx_test.qed
 	@$(DARGO_CLI_COMPILE) storage_test.qed --contract-name=SimpleContract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
@@ -79,6 +70,16 @@ ci:
 	@$(DARGO_CLI_EXECUTE) token.qed --contract-name=ContractRef --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
 	@$(DARGO_CLI_EXECUTE) two_user_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
 	@$(DARGO_CLI_EXECUTE) check_secp_sign_test.qed
+
+	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
+	       --package qed-ast \
+	       --package qed-parser \
+	       --package qed-sema \
+	       --package qed-interpreter \
+	       -- \
+	       --nocapture
+	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/in_mod_attr_test.qed
+	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/should_panic_test.qed
 
 update-snapshots:
 	@cargo insta review
@@ -141,12 +142,10 @@ init:
 	# Create token contract subdirectory
 	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/token
 	@cp qed_compiler/tests/new_token.qed ${PROJECT_DIR}/token/src/main.qed
-	# Create psy mining rewards claim contract subdirectory
-	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/psy_mining_rewards_claim
-	@cp qed_compiler/tests/psy_mining_rewards_claim_simple.qed ${PROJECT_DIR}/psy_mining_rewards_claim/src/main.qed
-	# Create psy token contract subdirectory
-	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/psy_token
-	@cp qed_compiler/tests/psy_token_simple.qed ${PROJECT_DIR}/psy_token/src/main.qed
+	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/rewards
+	@cp qed_compiler/tests/rewards.qed ${PROJECT_DIR}/rewards/src/main.qed
+	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/new_rewards
+	@cp qed_compiler/tests/new_rewards.qed ${PROJECT_DIR}/new_rewards/src/main.qed
 	@mkdir -p $(PWD)/db
 	@echo "Starting Redis containers..."
 	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
@@ -187,10 +186,8 @@ interpret:
 compile:
 	# Compile token contract
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim
-	# Compile psy mining rewards claim contract
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/psy_mining_rewards_claim && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names clear_entire_tree advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward
-	# Compile psy token contract
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/psy_token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names mint burn transfer claim_from claim_pow_rewards get_balance get_sent_to get_received_from get_last_claimed_checkpoint
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim batch_claim_pm_rewards
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/new_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names clear_entire_tree advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward
 
 run-coordinator-processor:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --database lmdbx --lmdbx-path ${PWD}/db/coordinator

@@ -811,8 +811,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             (CheckedValue::Felt(l), CheckedValue::Felt(r), Div) => self.context.op_div(*l, *r),
             (CheckedValue::Felt(l), CheckedValue::Felt(r), Pow) => self.context.op_exp(*l, *r),
             (CheckedValue::Felt(l), CheckedValue::Felt(r), Mod) => self.context.op_mod(*l, *r),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitShr) => unimplemented!(),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitShl) => unimplemented!(),
+            // TODO: don't use u32 opcodes
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitShr) => {
+                self.context.op_u32_shr(*l, *r)
+            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitShl) => {
+                self.context.op_u32_shl(*l, *r)
+            }
             (CheckedValue::Felt(l), CheckedValue::Felt(r), BitAnd) => {
                 self.context.op_u32_and(*l, *r)
             }
@@ -849,10 +854,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Or) => self.context.op_bool_or(*l, *r),
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Eq) => self.context.op_eq(*l, *r),
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Neq) => self.context.op_neq(*l, *r),
-            (CheckedValue::Bool(_), CheckedValue::Bool(_), Lt) => unimplemented!(),
-            (CheckedValue::Bool(_), CheckedValue::Bool(_), Lte) => unimplemented!(),
-            (CheckedValue::Bool(_), CheckedValue::Bool(_), Gt) => unimplemented!(),
-            (CheckedValue::Bool(_), CheckedValue::Bool(_), Gte) => unimplemented!(),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Lt) => self.context.op_lt(*l, *r),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Lte) => self.context.op_lte(*l, *r),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Gt) => self.context.op_gt(*l, *r),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Gte) => self.context.op_gte(*l, *r),
 
             _ => unreachable!(),
         };
