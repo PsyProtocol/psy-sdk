@@ -65,6 +65,7 @@ SELECT create_complete_worker_events_aggregate('worker_events_1h', '1 hour', '1 
 SELECT create_complete_worker_events_aggregate('worker_events_1d', '1 day', '7 days', '1 hour', '1 hour', '1 year');
 SELECT create_complete_worker_events_aggregate('worker_events_1w', '1 week', '1 month', '1 day', '1 day', '1 year');
 SELECT create_complete_worker_events_aggregate('worker_events_1m', '1 month', '1 year', '1 day', '1 day', '1 year');
+SELECT create_complete_worker_events_aggregate('worker_events_all_time', '20 years', '41 years', '1 hour', '1 hour');
 
 CREATE OR REPLACE FUNCTION create_complete_user_events_aggregate(
     view_name TEXT,
@@ -125,3 +126,4 @@ SELECT create_complete_user_events_aggregate('user_events_1h', '1 hour', '1 day'
 SELECT create_complete_user_events_aggregate('user_events_1d', '1 day', '7 days', '1 hour', '1 hour', '1 year');
 SELECT create_complete_user_events_aggregate('user_events_1w', '1 week', '1 month', '1 day', '1 day', '1 year');
 SELECT create_complete_user_events_aggregate('user_events_1m', '1 month', '1 year', '1 day', '1 day', '1 year');
+SELECT create_complete_user_events_aggregate('user_events_all_time', '20 years', '41 years', '1 hour', '1 hour');
