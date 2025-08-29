@@ -298,8 +298,31 @@ impl WalletSession {
         })
     }
 
-    pub async fn register_user(&self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        let pk_info = self.wallet.get_zk_pk_info(private_key).await?;
+    pub async fn register_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
+        self.register_user_with_type(private_key, SignType::SECP256K1Sign, None)
+            .await
+    }
+
+    pub async fn register_user_with_type(
+        &mut self,
+        private_key: QHashOut<F>,
+        sign_type: SignType,
+        fingerprint: Option<QHashOut<F>>,
+    ) -> anyhow::Result<QHashOut<F>> {
+        let pk_info = match sign_type {
+            SignType::ZKSign => self.wallet.add_zk_private_key(private_key).await?,
+            SignType::SECP256K1Sign => self.wallet.add_secp_private_key(private_key).await?,
+            SignType::SoftwareDefinedSign => {
+                self.wallet
+                    .add_software_defined_private_key(
+                        private_key,
+                        fingerprint.ok_or(anyhow::format_err!(
+                            "software defined sign need fingerprint"
+                        ))?,
+                    )
+                    .await?
+            }
+        };
         let pk_hash = pk_info.qfhash::<QEDHasher>();
 
         if let Ok(user_id) = self.st_provider.get_user_id(pk_hash).await {
@@ -319,7 +342,7 @@ impl WalletSession {
     }
 
     pub async fn add_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        self.add_user_with_type(private_key, SignType::ZKSign, None)
+        self.add_user_with_type(private_key, SignType::SECP256K1Sign, None)
             .await
     }
 
@@ -432,7 +455,7 @@ impl WalletSession {
         self.exec_contract_call_with_sign_type(
             pk_hash,
             contract_call_args,
-            SignType::ZKSign,
+            SignType::SECP256K1Sign,
             None,
             None,
             vec![],
@@ -599,7 +622,7 @@ impl WalletSession {
     }
 
     pub async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
-        self.sign_and_submit_with_sign_type(pk_hash, SignType::ZKSign, None, None, vec![])
+        self.sign_and_submit_with_sign_type(pk_hash, SignType::SECP256K1Sign, None, None, vec![])
             .await
     }
 
