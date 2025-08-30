@@ -7,7 +7,7 @@ use anyhow::{anyhow, bail};
 use chrono::Utc;
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, warn, trace};
 
 use kvq::traits::KVQSerializable;
 use plonky2::field::types::Field;
@@ -1668,11 +1668,11 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         };
         match j {
             Some(job) => {
-                debug!("Pending job from current task: {:?}", job);
+                trace!("Pending job from current task: {:?}", job);
                 Ok(Some(job))
             }
             None => {
-                debug!("No pending job from current task");
+                trace!("No pending job from current task");
                 Ok(None)
             }
         }

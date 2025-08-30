@@ -5,7 +5,12 @@ use crate::coordinator::state::processor::CoordinatorProcessorContext;
 use anyhow::{bail, Context};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::field::types::Field;
-use qed_core::config::genesis::GenesisConfig;
+use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
+use qed_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
+use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+use qed_crypto::common::user_id::get_user_id_from_registration_id;
+use qed_crypto::hash::merkle::utils::common::QMerkleNode;
+use qed_data::config::genesis_config::GenesisConfig;
 use qed_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
@@ -18,9 +23,11 @@ use qed_core::job::{
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::qdata::contract::QEDContractLeaf;
 use qed_data::{
-    config::store_config::QEDFelt, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
+    config::store_config::QEDFelt,
+    traits::qdatastore::{qtreedata::QEDComboDataStoreReaderWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use qed_store::node::coordinator::InitializeParams;
 use qed_store::node::coordinator::{
     QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
 };
@@ -35,6 +42,21 @@ use std::time::Duration;
 
 use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
+use qed_crypto::hash::merkle::utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey};
+use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
+use qed_data::qdata::user::QEDUserLeaf;
+use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use qed_data::qdata::user_public_key::QEDUserPublicKeyRecord;
+use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
+use qedlang_core::dpn::vm::compile::QEDCompileResult;
+use qed_data::config::store_config::QEDHasher;
+use qed_core::config::network_constants::BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT;
+use qed_data::qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition};
+use qed_data::config::store_config::UserTreeStore;
+use qed_core::config::network_constants::{USERS_PER_REALM, REALM_USER_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT};
+use std::str::FromStr;
+use std::collections::HashMap;
+use indexmap::IndexMap;
 use tokio::time::{sleep_until, Instant};
 use tracing::{debug, error, info, warn};
 use serde_json;
@@ -45,7 +67,6 @@ use crate::common::retry::Retryable;
 use crate::common::slot;
 use crate::common::slot::{LocalClock, Slot};
 use crate::realm::RealmProcessor;
-use qed_crypto::hash::merkle::utils::common::{QMerkleNode, SimpleMerkleNodeKey};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -191,34 +212,27 @@ impl
         let qed_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
         let qed_store = JournalStore::new(qed_store);
 
-        // Load genesis configuration from config file
-        let genesis_config = match std::fs::read_to_string(&cp_config.config_path) {
-            Ok(config_content) => {
-                let config_value: serde_json::Value = serde_json::from_str(&config_content)?;
-                if let Some(genesis_obj) = config_value.get("genesis") {
-                    let genesis_config = qed_core::config::genesis::GenesisConfig::from_json(
-                        &serde_json::to_string(genesis_obj)?
-                    )?;
-                    Some(genesis_config)
-                } else {
-                    None
-                }
-            }
-            Err(e) => {
-                warn!("Could not read config file {}: {}", cp_config.config_path, e);
-                None
-            }
-        };
+        let genesis_config = GenesisConfig::from_path(&cp_config.config_path)?;
 
-        let (deploy_contracts_root, user_tree_root) = if let Some(ref config) = genesis_config {
-            let deploy_root = Self::process_genesis_precompiles(&qed_store, config).await?;
-            let user_root = Self::process_genesis_contracts(&qed_store, config).await?;
-            (deploy_root, user_root)
+        let genesis_store_config = if let Some(ref config) = genesis_config {
+            let deploy_root = Self::process_genesis_contracts(&qed_store, config).await?;
+            let register_users_root = Self::process_genesis_user_registrations(&qed_store, config).await?;
+            let user_root = Self::process_genesis_user_states(&qed_store, config).await?;
+            let next_contract_id = config.get_precompile_configs().len() as u32;
+            let next_user_id = config.get_genesis_users().len() as u64;
+
+            InitializeParams {
+                gutas_root: user_root,
+                deploy_contracts_root: deploy_root,
+                register_users_root: register_users_root,
+                next_contract_id,
+                next_user_id,
+            }
         } else {
-            (QHashOut::ZERO, QHashOut::ZERO)
+            InitializeParams::default()
         };
 
-        match qed_store.initialize_store(deploy_contracts_root, user_tree_root).await {
+        match qed_store.initialize_store(genesis_store_config).await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
                 qed_store.commit(0)?;
             }
@@ -293,17 +307,11 @@ impl
         Ok(next_checkpoint_id)
     }
 
-    async fn process_genesis_precompiles<SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>>(
+    async fn process_genesis_contracts<SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>>(
         store: &SR,
-        genesis_config: &GenesisConfig,
+        genesis_config: &GenesisConfig<F>,
     ) -> anyhow::Result<QHashOut<F>> {
-        use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
-        use qedlang_core::dpn::vm::compile::QEDCompileResult;
-        use qed_data::qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition};
-        use qed_crypto::hash::traits::qhashable::QFieldHashable;
-        use qed_data::config::store_config::QEDHasher;
-
-        for precompile_config in genesis_config.get_precompile_configs() {
+        for (contract_index, precompile_config) in genesis_config.get_precompile_configs().iter().enumerate() {
             let contract_json_path = format!("{}/target/{}.json", precompile_config.path, precompile_config.name);
             let contract_path = std::path::Path::new(&contract_json_path);
             if !contract_path.exists() {
@@ -315,7 +323,7 @@ impl
             let function_defs: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&contract_json)?;
 
             if !function_defs.is_empty() {
-                let genesis_deployer = QHashOut::from_values(0, 0, 0, 1);
+                let genesis_deployer = precompile_config.deployer;
 
                 let (circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
                     genesis_deployer,
@@ -323,7 +331,7 @@ impl
                     &function_defs,
                 )?;
 
-                let contract_id = store.get_latest_l2_block_state().await?.next_contract_id as u64;
+                let contract_id = contract_index as u64;
 
                 let function_tree_root = store.set_contract_function_whitelist_imm(
                     0,
@@ -348,49 +356,71 @@ impl
         Ok(store.get_contract_tree_root(0).await?)
     }
 
-    async fn process_genesis_contracts<SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>>(
+    async fn process_genesis_user_states<SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + QTreeDataStoreWriterSync<F>>(
         store: &SR,
-        genesis_config: &GenesisConfig,
+        genesis_config: &GenesisConfig<F>,
     ) -> anyhow::Result<QHashOut<F>> {
-        use qed_data::config::store_config::{UserTreeStore, QEDHasher};
-        use qed_crypto::hash::merkle::utils::common::{QMerkleNode, SimpleMerkleNodeKey};
-        use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
-        use qed_core::config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, USERS_PER_REALM, REALM_USER_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT};
-        use std::str::FromStr;
-        use std::collections::HashMap;
+        let mut user_contract_states: HashMap<u64, HashMap<u64, QHashOut<F>>> = HashMap::new();
+        let mut user_id_to_register_id: HashMap<u64, u64> = HashMap::new();
 
-        let mut realm_user_trees: HashMap<(u64, u64), SimpleMerkleTree<QEDHasher, QHashOut<F>>> = HashMap::new();
-
-        for (contract_id_str, user_states) in genesis_config.get_all_contracts() {
-            let contract_id = contract_id_str.parse::<u64>()?;
-
-            for (user_id_str, user_state) in user_states {
-                let user_id = user_id_str.parse::<u64>()?;
-                let realm_id = user_id / USERS_PER_REALM;
-                let user_index_in_realm = user_id % USERS_PER_REALM;
+        for (contract_id, user_states) in genesis_config.get_all_contracts() {
+            for (register_id, user_state) in user_states {
+                let user_id = get_user_id_from_registration_id(*register_id);
+                user_id_to_register_id.insert(user_id, *register_id);
 
                 let mut contract_state_tree = SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(MAX_CONTRACT_STATE_TREE_HEIGHT);
 
-                for (slot_id_str, hex_value) in &user_state.slots {
-                    let slot_id = slot_id_str.parse::<u64>()?;
-                    let slot_value = QHashOut::<F>::from_str(hex_value)?;
-                    let slot_key = SimpleMerkleNodeKey::new(MAX_CONTRACT_STATE_TREE_HEIGHT, slot_id);
-                    contract_state_tree.set_node_value(slot_key, slot_value);
+                for (slot_id, slot_value) in &user_state.slots {
+                    contract_state_tree.set_leaf(*slot_id, slot_value.clone());
                 }
 
                 let contract_state_root = contract_state_tree.get_root();
 
-                let realm_tree = realm_user_trees
-                    .entry((contract_id, realm_id))
-                    .or_insert_with(|| SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(REALM_USER_TREE_HEIGHT));
-
-                let user_key = SimpleMerkleNodeKey::new(REALM_USER_TREE_HEIGHT, user_index_in_realm);
-                realm_tree.set_node_value(user_key, contract_state_root);
+                user_contract_states
+                    .entry(user_id)
+                    .or_insert_with(HashMap::new)
+                    .insert(*contract_id, contract_state_root);
             }
         }
 
-        for ((contract_id, realm_id), realm_tree) in realm_user_trees {
-            let realm_root = realm_tree.get_root();
+        let mut realm_user_trees: HashMap<u64, SimpleMerkleTree<QEDHasher, QHashOut<F>>> = HashMap::new();
+
+        let genesis_users = genesis_config.get_genesis_users();
+        for (user_id, contract_states) in user_contract_states {
+            let realm_id = user_id / USERS_PER_REALM;
+
+            let mut user_contracts_tree = SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(GLOBAL_CONTRACT_TREE_HEIGHT);
+
+            for (contract_id, contract_state_root) in &contract_states {
+                user_contracts_tree.set_leaf(*contract_id, *contract_state_root);
+            }
+
+            let user_state_root = user_contracts_tree.get_root();
+
+
+            let register_id = user_id_to_register_id[&user_id];
+            let user_leaf = QEDUserLeaf {
+                public_key: genesis_users[register_id as usize].get_public_key::<QEDHasher>(),
+                user_state_tree_root: user_state_root,
+                balance: F::ZERO,
+                nonce: F::ZERO,
+                last_checkpoint_id: F::ZERO,
+                event_index: F::ZERO,
+                user_id: F::from_canonical_u64(user_id),
+            };
+
+            let user_leaf_hash = user_leaf.qfhash::<QEDHasher>();
+
+            let realm_tree = realm_user_trees
+                .entry(realm_id)
+                .or_insert_with(|| SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(GLOBAL_USER_TREE_HEIGHT));
+
+            realm_tree.set_leaf(user_id, user_leaf_hash);
+        }
+
+        let mut coordinator_updates = Vec::new();
+        for (realm_id, realm_tree) in realm_user_trees {
+            let realm_root = realm_tree.get_node_value(&SimpleMerkleNodeKey { level: COORDINATOR_USER_TREE_HEIGHT, index: realm_id });
 
             let coordinator_update = QMerkleNode {
                 key: SimpleMerkleNodeKey {
@@ -399,11 +429,57 @@ impl
                 },
                 value: realm_root,
             };
-
-            store.injest_user_tree_nodes_imm(0, 0, &[coordinator_update]).await?;
+            coordinator_updates.push(coordinator_update);
         }
 
-        Ok(store.get_user_tree_root(0).await?)
+        if !coordinator_updates.is_empty() {
+            store.injest_user_tree_nodes_imm(0, 0, &coordinator_updates).await?;
+        }
+
+        let final_root = store.get_user_tree_root(0).await?;
+        Ok(final_root)
+    }
+
+    async fn process_genesis_user_registrations<S: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>>(
+        store: &S,
+        config: &GenesisConfig<F>,
+    ) -> anyhow::Result<QHashOut<F>> {
+        let start_registration_user_id = 0u64;
+        let user_registrations = config.get_genesis_users();
+
+        let new_user_records = user_registrations
+            .iter()
+            .enumerate()
+            .map(|(i, x)| {
+                let registration_id = start_registration_user_id + (i as u64);
+                let user_id = get_user_id_from_registration_id(registration_id);
+                QEDUserPublicKeyRecord {
+                    public_key_param: x.public_key_param,
+                    fingerprint: x.fingerprint,
+                    public_key: x.get_public_key::<QEDHasher>(),
+                    user_id,
+                    checkpoint_id: 0,
+                }
+            })
+            .collect::<Vec<_>>();
+
+        store.set_user_public_key_records(&new_user_records).await?;
+
+        let new_public_keys: Vec<QHashOut<F>> = user_registrations
+            .iter()
+            .map(|x| x.get_public_key::<QEDHasher>())
+            .collect();
+
+        let _wits = store
+            .batch_append_user_registration_tree_imm(
+                0,
+                start_registration_user_id,
+                BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT as u8,
+                &new_public_keys,
+            )
+            .await?;
+
+        Ok(store.get_user_registration_tree_root(0).await?)
     }
 }
 

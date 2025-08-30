@@ -451,7 +451,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         let current_layer = match self.peek_current_layer().await? {
             Some(layer) => layer,
             None => {
-                debug!("No layers available");
+                trace!("No layers available");
                 return Ok(None);
             }
         };

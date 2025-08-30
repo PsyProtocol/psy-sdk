@@ -70,7 +70,7 @@ pub enum Commands {
     #[command(about = "Get job proof for reward claiming")]
     GetJobProof(GetJobProofArgs),
 
-    #[command(name = "q-hash", about = "QHashOut utility commands")]
+    #[command(name = "qhash", about = "QHashOut utility commands")]
     QHash(qhash::QHashArgs),
 
     #[command(about = "Run stress test by continuously sending transactions")]

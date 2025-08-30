@@ -5,7 +5,7 @@ use plonky2::{
 };
 use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager;
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT, GUTA_FEE}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
+use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GUTA_FEE, INLINE_TRANSACTION_TREE_HEIGHT, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
 use qed_crypto::{common::witnesses::qrecursion::{header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput}, proof_data::{InputLeafProof, TreeAwareTreeProofRecord}}, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use qed_data::{
     dpn::proving_session::{DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem, QEDLocalTransactionRecord}, guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf, user_contract_state::{SignContext, UserContractState}}, qstore::imm::cmd::QSRCmdGetContractCodeDefinition, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
@@ -498,9 +498,6 @@ impl<
         &mut self,
         circuit_mgr: &QCircuitManager<C, D>,
     ) -> anyhow::Result<()> {
-        const TOKEN_CONTRACT_ID: u32 = 1;
-        const TOKEN_SIMPLE_BURN_METHOD_ID: u32 = 2923993647;
-
         tracing::info!("Adding burn transaction for GUTA fee: {}", GUTA_FEE);
 
         let (burn_fn_id, burn_fn_circuit_def) = self.resolve_contract_function(

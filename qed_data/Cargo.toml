@@ -18,6 +18,7 @@ thiserror = { workspace = true }
 async-trait = { workspace = true }
 hashbrown = { workspace = true }
 tracing = { workspace = true }
+indexmap = { workspace = true }
 
 
 kvq = { workspace = true }

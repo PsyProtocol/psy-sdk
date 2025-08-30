@@ -170,7 +170,7 @@ shutdown:
 	@redis-cli -p 6380 FLUSHALL > /dev/null 2>&1 || true
 	@redis-cli -p 6381 FLUSHALL > /dev/null 2>&1 || true
 	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
-	@rm -fr ${PROJECT_DIR} ${PWD}/db > /dev/null 2>&1 || true
+	@rm -fr ${PROJECT_DIR} ${PWD}/db logs > /dev/null 2>&1 || true
 	@echo "Removing user job tracker JSON files..."
 	@rm -f ${USER0_PUBLIC_KEY}.json ${USER0_SECP_ZK_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER1_SECP_ZK_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER2_SECP_ZK_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json ${USER3_SECP_ZK_PUBLIC_KEY}.json > /dev/null 2>&1 || true
 
@@ -353,10 +353,6 @@ deploy-contract:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
 	@echo "USER1 deploying token contract..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
-	@echo "USER0 deploying psy mining rewards claim contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/psy_mining_rewards_claim/target/psy_mining_rewards_claim.json
-	@echo "USER0 deploying psy token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/psy_token/target/psy_token.json
 
 multi-contract-call:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli wallet-session -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}

@@ -552,7 +552,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     merkle_proof = ?merkle_proof,
                     "Successfully fetched merkle proof"
                 );
-                debug!("Retrieved merkle proof: {:#?}", merkle_proof);
+                debug!("Retrieved bottom merkle proof: {}", serde_json::to_string_pretty(&merkle_proof).unwrap());
                 info!("Merkle proof root: {:?}", merkle_proof.root.to_string());
                 info!("Merkle proof value: {:?}", merkle_proof.value.to_string());
                 debug!(
@@ -570,7 +570,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                         self.get_realm_id(user_id),
                     )
                     .await?;
-                debug!("Retrieved top proof: {:#?}", top_proof);
+                debug!("Retrieved top proof: {}", serde_json::to_string_pretty(&top_proof).unwrap());
                 let mut new_siblings = vec![];
                 new_siblings.extend_from_slice(
                     &merkle_proof.siblings[0..(REALM_USER_TREE_HEIGHT as usize)],
@@ -578,7 +578,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 new_siblings.extend_from_slice(&top_proof.siblings);
                 merkle_proof.root = top_proof.root;
                 merkle_proof.siblings = new_siblings;
-                debug!("Modified merkle proof with top proof: {:#?}", merkle_proof);
+                debug!("Modified merkle proof with top proof: {}", serde_json::to_string_pretty(&merkle_proof).unwrap());
 
                 debug!(
                     checkpoint_id = checkpoint_id,
