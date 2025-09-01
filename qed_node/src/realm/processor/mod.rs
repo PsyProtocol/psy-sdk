@@ -51,7 +51,6 @@ pub struct RealmProcessor {
     pub task_store: Arc<QProvingTaskStoreImpl>,
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: u64,
-    pub pending_checkpoint_id: Option<u64>,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
@@ -90,7 +89,6 @@ impl RealmProcessor {
             task_store: Arc::new(task_store),
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: 0,
-            pending_checkpoint_id: None,
         };
         Ok(processor)
     }
@@ -120,34 +118,32 @@ impl RealmProcessor {
 
     pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
         info!("Realm Processor starting");
-        let mut context = self.context().await?;
-        info!("Realm Processor started");
-
+        let sync_queue = Arc::new(self.sync_proof.clone());
         // Check for incomplete consumption state on startup
-        if let Ok(Some(last_state)) = context.sync_queue.get_last_peek_offset().await {
+        if let Ok(Some(last_state)) = sync_queue.get_last_peek_offset().await {
             info!("🔄 Found incomplete consumption state for checkpoint {} on startup", last_state.checkpoint_id);
         }
 
-        if let Ok(local_latest_l2_block_state) = context.store.get_latest_l2_block_state().await {
+        if let Ok(local_latest_l2_block_state) = self.store.get_latest_l2_block_state().await {
             info!(
                 "local_latest_l2_block_state: {:?}",
                 local_latest_l2_block_state
             );
 
-            let pending_users_count = context.sync_queue.get_pending_users_count().await?;
+            let pending_users_count = sync_queue.get_pending_users_count().await?;
             info!("Found {} pending users in Redis queue during recovery", pending_users_count);
         }
 
-        // Ensure checkpoint sync first
-        self.ensure_checkpoint_sync(&mut context).await?;
-
-        // todo
         let slot_timer = self.slot_timer.clone();
+        let mut context = self.context().await?;
+        let mut pending_checkpoint_id = None;
         loop {
+            let mut is_syncing = true;
             tokio::select! {
-                checkpoint_sync_result = self.ensure_checkpoint_sync(&mut context) => {
+                checkpoint_sync_result = self.ensure_checkpoint_sync() => {
                     match checkpoint_sync_result {
                         Ok(true) => {
+                            is_syncing = false;
                             info!("Checkpoint sync completed");
                         }
                         Ok(false) => {
@@ -164,12 +160,17 @@ impl RealmProcessor {
                 }
             }
 
+            if is_syncing {
+                continue;
+            }
+
             // Build block based on slot timing
             if let Err(err) = self.validate_slot() {
                 warn!("Error validating slot: {:?}", err);
                 continue
             }
 
+            // TODO remove the code?
             let slot = self.slot_timer.get_current_slot();
             if let SlotPhase::BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
                 let current_timestamp = self.slot_timer.get_current_timestamp();
@@ -183,19 +184,22 @@ impl RealmProcessor {
             info!("Start building block");
             let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
             let next_checkpoint_id = local_latest_checkpoint_id + 1;
-            if let Some(pending_checkpoint_id) = self.pending_checkpoint_id {
-                context.commit(pending_checkpoint_id).await?;
-                if next_checkpoint_id <= pending_checkpoint_id {
-                    warn!("Pending checkpoint {} is not ready, skipping block construction", pending_checkpoint_id);
-                    continue;
+            if let Some(pending_checkpoint_id) = pending_checkpoint_id {
+                // todo
+                if pending_checkpoint_id == local_latest_checkpoint_id {
+                    context.commit(pending_checkpoint_id).await?;
+                } else {
+                    context.rollback(pending_checkpoint_id).await?;
+                    warn!("rollback before: {}, start new block for next checkpoint: {}", pending_checkpoint_id, next_checkpoint_id);
                 }
             }
-            self.pending_checkpoint_id = None;
+            pending_checkpoint_id = None;
             let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
             if !has_tasks {
                 warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
                 continue;
             }
+            // TODO async
             let proving_data_job_id: ProvingJobDataId = match self.build_block(next_checkpoint_id, &mut context).await {
                 Ok(job_id) => job_id,
                 Err(err) => {
@@ -203,23 +207,31 @@ impl RealmProcessor {
                     continue;
                 }
             };
+
+            if next_checkpoint_id <= self.get_local_latest_checkpoint_id().await? {
+                warn!("Local latest checkpoint id is greater than pending checkpoint id, skipping block construction");
+                context.rollback(next_checkpoint_id).await?;
+                continue
+            }
+
             if !self.slot_timer.is_can_reach_to_next_slot() {
                 warn!("Is not reach to next slot, skipping block construction");
+                context.rollback(next_checkpoint_id).await?;
                 continue;
             }
             info!("Pushing job id to queue: {:?}, slot: {}", proving_data_job_id, slot);
             self.sync_proof.chq_push_imm(proving_data_job_id).await?;
-            self.pending_checkpoint_id = Some(next_checkpoint_id);
+            pending_checkpoint_id = Some(next_checkpoint_id);
             info!("Pushing job to queueue done");
         }
     }
 
     async fn ensure_checkpoint_sync(
         &mut self,
-        context: &mut ConcreteRealmProcessorContext,
     ) -> anyhow::Result<bool> {
+        let mut context = self.context().await?;
         loop {
-            match self.sync_checkpoint(context).await {
+            match self.sync_checkpoint(&mut context).await {
                 Ok(true) => return Ok(true),  // Sync completed
                 Err(err) => {
                     tokio::time::sleep(Duration::from_millis(100)).await;
