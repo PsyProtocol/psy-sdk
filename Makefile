@@ -112,8 +112,8 @@ config_gen_v2:
 #                                   TMP                                        #
 ################################################################################
 PROJECT_DIR              := $(PWD)/examples
-FILE                     := $(PWD)/examples/token/src/main.qed
-PARAMETERS               :=
+FILE                     := $(PWD)/qed_compiler/tests/opcode_test.qed
+PARAMETERS               := 1,2
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
 USER0_PUBLIC_KEY         := 6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5
 USER0_SECP_ZK_PUBLIC_KEY := 49deab842acf3d26236419d4fce1b2cb01081aef55d4ef0e566f980e3890cf2f
@@ -193,7 +193,7 @@ run-scenario0:
 	@./scripts/run_scenario0.sh
 
 interpret:
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo execute --debug --entry-path ${FILE} --parameters ${PARAMETERS}
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo execute --program-dir $(dir ${FILE}) --debug --entry-path $(notdir ${FILE}) --parameters ${PARAMETERS}
 
 compile:
 	# Compile token contract
