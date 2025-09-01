@@ -84,6 +84,6 @@ pub fn invoke_deferred<T, U>(contract_id: Felt, method_id: Felt, inputs: U) {
     __invoke_deferred(contract_id, method_id, inputs);
 }
 
-pub fn clear_entire_tree(contract_state_tree_height: Felt) {
-    __ctx_clear_entire_tree(contract_state_tree_height);
+pub fn clear_entire_tree() {
+    __ctx_clear_entire_tree();
 }

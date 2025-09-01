@@ -101,7 +101,7 @@ impl PsyPOWMiningRewardsClaimContractRef {
         let persistant_state = c.persistant_state.get();
         assert(new_claim_checkpoint_id > persistant_state.min_allowed_claimed_checkpoint, "checkpoint must be greater");
 
-        clear_entire_tree(32);
+        clear_entire_tree();
 
         c.persistant_state.set(new PersistantState {
             min_allowed_claimed_checkpoint: new_claim_checkpoint_id,
@@ -187,7 +187,7 @@ impl PsyPOWMiningRewardsClaimContractRef {
         let persistant_state = c.persistant_state.get();
         assert(new_claim_checkpoint_id > persistant_state.min_allowed_claimed_checkpoint, "checkpoint must be greater");
 
-        clear_entire_tree(32);
+        clear_entire_tree();
 
         c.persistant_state.set(new PersistantState {
             min_allowed_claimed_checkpoint: new_claim_checkpoint_id,

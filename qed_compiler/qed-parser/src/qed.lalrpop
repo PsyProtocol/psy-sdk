@@ -96,10 +96,9 @@ IntrinsicStatement: StmtNode = {
             }
         )
     },
-    <l:@L> <comments: Comment*> <variable:CTX_CLEAR_ENTIRE_TREE> "(" <contract_state_tree_height: Expression> ")" ";" <r:@R> => {
+    <l:@L> <comments: Comment*> <variable:CTX_CLEAR_ENTIRE_TREE> "(" ")" ";" <r:@R> => {
         StmtNode::Intrinsic(
             IntrinsicStmtNode::ClearEntireTree {
-                contract_state_tree_height: expr_nodes.alloc_item(contract_state_tree_height),
                 comments,
                 location: Location::new(file_id, l, r),
             }

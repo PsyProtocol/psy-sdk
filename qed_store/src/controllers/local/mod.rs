@@ -40,10 +40,11 @@ pub async fn prepare_environment_with_real_contract(
     let final_user_id = QEDFelt::from_canonical_u64(user_id.unwrap_or(5));
     let final_nonce = nonce.unwrap_or(QEDFelt::ZERO);
     let final_height = session_proof_tree_height.unwrap_or(GLOBAL_USER_TREE_HEIGHT as usize);
+    let final_checkpoint_id = QEDFelt::from_canonical_u64(latest_l2_block_state.checkpoint_id);
 
     Ok(QEDLocalProvingSessionStore::new_at(
         final_store,
-        QEDFelt::from_canonical_u64(latest_l2_block_state.checkpoint_id),
+        final_checkpoint_id,
         final_user_id,
         final_nonce,
         final_height,

@@ -1579,23 +1579,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                 ))
             }
             IntrinsicStmtNode::ClearEntireTree {
-                contract_state_tree_height,
                 comments,
                 location,
             } => {
-                let checked_height = self.visit_expr(contract_state_tree_height, ctx)?;
-                
-                if !self.unify(checked_height.ty(), FELT_TYPE, ctx) {
-                    return Err(Error::TypeMismatch {
-                        location: location,
-                        expected: vec![FELT_TYPE],
-                        found: checked_height.ty(),
-                    });
-                }
-
                 Ok(CheckedStmtNode::Intrinsic(
                     CheckedIntrinsicStmtNode::ClearEntireTree {
-                        contract_state_tree_height: self.program.exprs.alloc_item(checked_height),
                         comments: comments,
                         location: location,
                     },

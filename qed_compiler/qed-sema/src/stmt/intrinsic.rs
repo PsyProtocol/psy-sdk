@@ -16,7 +16,6 @@ pub enum CheckedIntrinsicStmtNode {
         location: Location,
     },
     ClearEntireTree {
-        contract_state_tree_height: ExprId,
         comments: Vec<Comment>,
         location: Location,
     },

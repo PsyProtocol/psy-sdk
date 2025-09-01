@@ -1248,13 +1248,11 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     message.unwrap_or_default()
                 )
             }
-            qed_ast::IntrinsicStmtNode::ClearEntireTree { contract_state_tree_height, comments, .. } => {
-                let contract_state_tree_height = self.visit_expr(contract_state_tree_height, ctx)?;
+            qed_ast::IntrinsicStmtNode::ClearEntireTree { comments, .. } => {
                 let comments_content = self.visit_comments(&comments);
                 format!(
-                    "{}__clear_entire_tree({});",
+                    "{}__ctx_clear_entire_tree();",
                     comments_content,
-                    contract_state_tree_height
                 )
             }
         };

@@ -442,8 +442,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *left = self.rewrite_expr(*left, ctx)?;
                         *right = self.rewrite_expr(*right, ctx)?;
                     }
-                    CheckedIntrinsicStmtNode::ClearEntireTree { contract_state_tree_height, .. } => {
-                        *contract_state_tree_height = self.rewrite_expr(*contract_state_tree_height, ctx)?;
+                    CheckedIntrinsicStmtNode::ClearEntireTree { .. } => {
                     }
                 }
             }
