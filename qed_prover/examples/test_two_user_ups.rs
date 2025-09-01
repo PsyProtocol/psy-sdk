@@ -407,7 +407,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     mgr.prove_ups_start(&main_circuits)?;
     timer.lap("proved ups_start");
 
-    mgr.prove_standard_call(
+    mgr.prove_contract_call(
         &main_circuits,
         contract_id,
         0,
@@ -420,7 +420,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
 
 
-    mgr.prove_standard_call(
+    mgr.prove_contract_call(
         &main_circuits,
         contract_id,
         1,
@@ -471,7 +471,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     mgr.prove_ups_start(&main_circuits)?;
     timer.lap("proved ups_start");
 
-    mgr.prove_standard_call(
+    mgr.prove_contract_call(
         &main_circuits,
         contract_id,
         0,
@@ -484,7 +484,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
 
 
-    mgr.prove_standard_call(
+    mgr.prove_contract_call(
         &main_circuits,
         contract_id,
         1,

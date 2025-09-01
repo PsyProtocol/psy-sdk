@@ -21,7 +21,7 @@ use qed_core::job::drain_queue::{
     DrainQueueMetadataTagged, WithDrainQueueMetadata,
 };
 use qed_core::job::id::{
-    JobProof, JobProofSibling, ProvingJobCircuitType, QJobTopic, QProvingJobDataID,
+    VariableHeightRewardMerkleProof, ProvingJobCircuitType, QJobTopic, QProvingJobDataID,
 };
 use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 
@@ -1499,7 +1499,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         &self,
         checkpoint_id: u64,
         job_ids: Vec<QProvingJobDataID>,
-    ) -> RpcResult<Vec<(JobProof, QProvingJobDataID)>> {
+    ) -> RpcResult<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>> {
         use jsonrpsee::types::ErrorObject;
 
         for job_id in &job_ids {
@@ -1614,7 +1614,14 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 )),
             };
 
-            match graph.generate_variable_height_proof(job_id, &*self.proof_store, max_height).await {
+            // Load the task graph (fallback to legacy method for now)
+            let graph = self.task_store.load_job_dependency_graph(checkpoint_id).await.map_err(|e| ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InternalError.code(),
+                format!("Failed to load task graph: {}", e),
+                None::<()>,
+            ))?;
+            
+            match graph.generate_variable_height_reward_proof(job_id, &*self.proof_store, max_height).await {
                 Ok((variable_height_proof, root_job_id)) => {
                     // Convert to old format for compatibility (if needed)
                     // For now, we'll need to compute the root from the variable height proof
@@ -1629,9 +1636,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                         );
                     }
 
-                    // Convert to JobProof format for backward compatibility
-                    let job_proof = qed_core::job::id::convert_variable_height_to_job_proof(variable_height_proof);
-                    proofs.push((job_proof, root_job_id));
+                    proofs.push((variable_height_proof, root_job_id));
                 }
                 Err(e) => {
                     error!("Failed to generate proof for job {:?}: {}", job_id, e);

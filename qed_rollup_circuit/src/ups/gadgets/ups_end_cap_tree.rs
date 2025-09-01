@@ -28,6 +28,7 @@ pub struct UPSEndCapFromProofTreeGadget {
     pub user_public_key_param: HashOutTarget,
     pub nonce: Target,
     pub slots_modified: Target,
+    pub second_to_last_tx_hash_stack: HashOutTarget,
 
 
     // start computed
@@ -43,13 +44,13 @@ impl UPSEndCapFromProofTreeGadget {
         ups_circuit_whitelist_tree_height: usize,
         network_magic: u64,
     ) -> Self {
-
         let user_public_key_param = builder.add_virtual_hash();
         let nonce = builder.add_virtual_target();
         let slots_modified = builder.add_virtual_target();
+        let second_to_last_tx_hash_stack = builder.add_virtual_hash();
 
         let verify_previous_ups_step_gadget = VerifyPreviousUPSStepProofInProofTreeGadget::add_virtual_to::<H,F,D>(
-             builder,
+            builder,
             ups_session_proof_tree_height,
             ups_circuit_whitelist_tree_height,
         );
@@ -72,18 +73,7 @@ impl UPSEndCapFromProofTreeGadget {
         let empty_inline_tx_debt_tree_root = builder.constant_hash(H::get_zero_hash(INLINE_TRANSACTION_TREE_HEIGHT as usize));
 
 
-        let current_tx_hash_stack = verify_previous_ups_step_gadget.previous_step_header_gadget.current_state.tx_hash_stack;
         let tx_count = verify_previous_ups_step_gadget.previous_step_header_gadget.current_state.tx_count;
-
-        // The current implementation assumes the burn transaction is the ONLY transaction in the UPS
-        // In this case, previous_tx_hash_stack should be the initial empty hash stack
-        // TODO: For multi-transaction UPS, this needs to be computed from the transaction history
-        
-        use plonky2::field::types::Field;
-        let initial_empty_stack = HashOut::<F> {
-            elements: [F::ZERO, F::ZERO, F::ZERO, F::ZERO],
-        };
-        let previous_tx_hash_stack = builder.constant_hash(initial_empty_stack);
 
         let end_cap_core_gadget = UPSEndCapCoreGadget::enforce_signature_constraints::<H,F,D>(
             builder,
@@ -96,7 +86,7 @@ impl UPSEndCapFromProofTreeGadget {
             network_magic,
             empty_deferred_tx_debt_tree_root,
             empty_inline_tx_debt_tree_root,
-            previous_tx_hash_stack,
+            second_to_last_tx_hash_stack,
         );
 
         Self {
@@ -105,6 +95,7 @@ impl UPSEndCapFromProofTreeGadget {
             user_public_key_param,
             nonce,
             slots_modified,
+            second_to_last_tx_hash_stack,
 
             end_cap_core_gadget,
             current_proof_tree_root,
@@ -118,6 +109,7 @@ impl UPSEndCapFromProofTreeGadget {
         user_public_key_param: QHashOut<F>,
         nonce: F,
         slots_modified: F,
+        second_to_last_tx_hash_stack: QHashOut<F>,
     ) -> anyhow::Result<()>  {
         witness.set_hash_target(
             self.user_public_key_param,
@@ -139,6 +131,10 @@ impl UPSEndCapFromProofTreeGadget {
         witness.set_target(
             self.slots_modified,
             slots_modified,
+        )?;
+        witness.set_hash_target(
+            self.second_to_last_tx_hash_stack,
+            second_to_last_tx_hash_stack.0,
         )
     }
     pub fn set_witness<F: RichField>(
@@ -153,7 +149,7 @@ impl UPSEndCapFromProofTreeGadget {
             target.user_public_key_param,
             target.nonce,
             target.slots_modified,
+            target.second_to_last_tx_hash_stack,
         )
     }
-
 }

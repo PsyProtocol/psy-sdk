@@ -197,7 +197,7 @@ impl RealmProcessor {
             context.commit_offset().await?;
             let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
             if !has_tasks {
-                warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
+                warn!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
                 continue;
             }
             let proving_data_job_id: ProvingJobDataId = match self.build_block(next_checkpoint_id, &mut context, &realm_qps).await {

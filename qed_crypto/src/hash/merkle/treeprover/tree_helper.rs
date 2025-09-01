@@ -6,6 +6,7 @@ use qed_core::{
         id::{ProvingJobCircuitType, QProvingJobDataID},
         traits::QProofStore,
     },
+    utils::graph::BidirectionalGraph,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -90,8 +91,8 @@ pub fn prepare_plan_tree_prover_from_leaves<
         let dummy = DummyAggStateTransition {
             state_transition_hash: dummy_state_root,
             allowed_circuit_hashes_root: allowed_circuit_hashes_root,
-            is_deploy_contracts: false,
-            is_register_users: false,
+            is_deploy_contracts: dummy_id.circuit_type == ProvingJobCircuitType::DummyBatchDeployContractsAggregate,
+            is_register_users: dummy_id.circuit_type == ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate,
         };
         let dv = bincode::serialize(&dummy)?;
         let dummy = IO::get_dummy_value(dummy_state_root);
@@ -169,23 +170,28 @@ pub fn plan_tree_prover_from_leaves<
     dummy_id: QProvingJobDataID,
     dummy_state_root: QHashOut<F>,
     allowed_circuit_hashes_root: QHashOut<F>,
-) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, AggStateTransition<F>)> {
+) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, AggStateTransition<F>, BidirectionalGraph<QProvingJobDataID>)> {
     if leaves.len() == 0 {
         //let dummy = IO::get_dummy_value(dummy_state_root);
         let dummy = DummyAggStateTransition {
             state_transition_hash: dummy_state_root,
             allowed_circuit_hashes_root: allowed_circuit_hashes_root,
-            is_deploy_contracts: false,
-            is_register_users: false,
+            is_deploy_contracts: dummy_id.circuit_type == ProvingJobCircuitType::DummyBatchDeployContractsAggregate,
+            is_register_users: dummy_id.circuit_type == ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate,
         };
         proof_store.set_bytes_by_id(dummy_id, &bincode::serialize(&dummy)?)?;
         let dummy = IO::get_dummy_value(dummy_state_root);
 
-        return Ok((vec![vec![dummy_id]], dummy.get_state_transition()));
+        let mut graph = BidirectionalGraph::new();
+        graph.add_node(dummy_id.get_output_id());
+        return Ok((vec![vec![dummy_id]], dummy.get_state_transition(), graph));
     } else if leaves.len() == 1 {
+        let mut graph = BidirectionalGraph::new();
+        graph.add_node(leaves[0].job_id.get_output_id());
         return Ok((
             vec![vec![leaves[0].job_id]],
             leaves[0].get_state_transition(),
+            graph,
         ));
     }
 
@@ -193,6 +199,12 @@ pub fn plan_tree_prover_from_leaves<
     let mut job_ids = vec![leaves.iter().map(|x| x.job_id).collect::<Vec<_>>()];
     let total_levels = levels.len();
     let mut last_node_state = AggStateTransition::default();
+
+    let mut graph = BidirectionalGraph::new();
+
+    for &leaf_job in &job_ids[0] {
+        graph.add_node(leaf_job.get_output_id());
+    }
 
     for (level, level_nodes) in levels.into_iter().enumerate() {
         let mut level_job_ids: Vec<QProvingJobDataID> = Vec::with_capacity(level_nodes.len());
@@ -210,6 +222,12 @@ pub fn plan_tree_prover_from_leaves<
             if (level + 1) == total_levels && (index + 1) == total_nodes {
                 last_node_state = node.input.get_state_transition();
             }
+
+            graph.add_node(self_witness_id.get_output_id());
+            for &dep in &dependencies {
+                graph.add_edge(self_witness_id.get_output_id(), dep);
+            }
+
             let input_data = bincode::serialize(&CircuitInputWithDependencies {
                 input: node.input,
                 dependencies,
@@ -219,7 +237,7 @@ pub fn plan_tree_prover_from_leaves<
         }
         job_ids.push(level_job_ids);
     }
-    Ok((job_ids, last_node_state))
+    Ok((job_ids, last_node_state, graph))
 }
 
 pub fn plan_tree_prover_from_leaves_with_events<
@@ -240,7 +258,7 @@ pub fn plan_tree_prover_from_leaves_with_events<
     dummy_id: QProvingJobDataID,
     dummy_state_root: QHashOut<F>,
     allowed_circuit_hashes_root: QHashOut<F>,
-) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, AggStateTransitionWithEvents<F>)> {
+) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, AggStateTransitionWithEvents<F>, BidirectionalGraph<QProvingJobDataID>)> {
     if leaves.len() == 0 {
         let dummy = DummyAggStateTransitionWithEvents {
             state_transition_hash: dummy_state_root,
@@ -250,14 +268,20 @@ pub fn plan_tree_prover_from_leaves_with_events<
         proof_store.set_bytes_by_id(dummy_id, &bincode::serialize(&dummy)?)?;
         let dummy = IO::get_dummy_value(dummy_state_root);
 
+        let mut graph = BidirectionalGraph::new();
+        graph.add_node(dummy_id.get_output_id());
         return Ok((
             vec![vec![dummy_id]],
             dummy.get_state_transition_with_events(),
+            graph,
         ));
     } else if leaves.len() == 1 {
+        let mut graph = BidirectionalGraph::new();
+        graph.add_node(leaves[0].job_id.get_output_id());
         return Ok((
             vec![vec![leaves[0].job_id]],
             leaves[0].get_state_transition_with_events(),
+            graph,
         ));
     }
 
@@ -265,6 +289,12 @@ pub fn plan_tree_prover_from_leaves_with_events<
     let mut job_ids = vec![leaves.iter().map(|x| x.job_id).collect::<Vec<_>>()];
     let total_levels = levels.len();
     let mut last_node_state = AggStateTransitionWithEvents::default();
+
+    let mut graph = BidirectionalGraph::new();
+
+    for &leaf_job in &job_ids[0] {
+        graph.add_node(leaf_job.get_output_id());
+    }
     for (level, level_nodes) in levels.into_iter().enumerate() {
         let mut level_job_ids: Vec<QProvingJobDataID> = Vec::with_capacity(level_nodes.len());
         let last_index = level_nodes.len();
@@ -280,6 +310,12 @@ pub fn plan_tree_prover_from_leaves_with_events<
             if (level + 1) == total_levels && (index + 1) == last_index {
                 last_node_state = node.input.get_state_transition_with_events();
             }
+
+            graph.add_node(self_witness_id.get_output_id());
+            for &dep in &dependencies {
+                graph.add_edge(self_witness_id.get_output_id(), dep);
+            }
+
             let input_data = bincode::serialize(&CircuitInputWithDependencies {
                 input: node.input,
                 dependencies,
@@ -289,7 +325,7 @@ pub fn plan_tree_prover_from_leaves_with_events<
         }
         job_ids.push(level_job_ids);
     }
-    Ok((job_ids, last_node_state))
+    Ok((job_ids, last_node_state, graph))
 }
 
 
@@ -320,7 +356,7 @@ pub fn prepare_plan_tree_prover_from_leaves_with_events<
         let dv = bincode::serialize(&dummy)?;
         let dummy = IO::get_dummy_value(dummy_state_root);
 
-        
+
 
         return Ok((
             vec![KVQPair{

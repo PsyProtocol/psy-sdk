@@ -96,7 +96,9 @@ where
             gutas_completed: final_gutas,
         };
 
-        let commitment = builder.hash_two_to_one::<C::Hasher>(child_commitment, worker_public_key);
+        let zero_hash = builder.constant_hash(HashOut::ZERO);
+        let children_commitment = builder.hash_two_to_one::<C::Hasher>(child_commitment, zero_hash);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(children_commitment, worker_public_key);
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);

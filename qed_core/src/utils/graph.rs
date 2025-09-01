@@ -2,12 +2,13 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BidirectionalGraph<T: Eq + Hash + Debug> {
-    edges: HashMap<T, HashSet<T>>,
-    reverse_edges: HashMap<T, HashSet<T>>,
+    edges: HashMap<T, IndexSet<T>>,
+    reverse_edges: HashMap<T, IndexSet<T>>,
 }
 
 impl<T: Eq + Hash + Clone + Debug> BidirectionalGraph<T> {
@@ -36,11 +37,11 @@ impl<T: Eq + Hash + Clone + Debug> BidirectionalGraph<T> {
         self.reverse_edges.entry(node).or_default();
     }
 
-    pub fn get_dependencies(&self, node: &T) -> Option<&HashSet<T>> {
+    pub fn get_dependencies(&self, node: &T) -> Option<&IndexSet<T>> {
         self.edges.get(node)
     }
 
-    pub fn get_dependents(&self, node: &T) -> Option<&HashSet<T>> {
+    pub fn get_dependents(&self, node: &T) -> Option<&IndexSet<T>> {
         self.reverse_edges.get(node)
     }
 

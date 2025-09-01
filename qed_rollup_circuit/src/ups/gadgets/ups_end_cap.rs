@@ -13,7 +13,6 @@ use super::{ups_end_cap_result::UPSEndCapResultCompactGadget, ups_signature_data
 
 #[derive(Clone, Debug)]
 pub struct UPSEndCapCoreGadget {
-
     // start require witness
 
     // start computed
@@ -35,9 +34,8 @@ impl UPSEndCapCoreGadget {
         network_magic: u64,
         empty_deferred_tx_debt_tree_root: HashOutTarget,
         empty_inline_tx_debt_tree_root: HashOutTarget,
-        previous_tx_hash_stack: HashOutTarget,
+        second_to_last_tx_hash_stack: HashOutTarget,
     ) -> Self {
-
         builder.connect(
             last_header_gadget.current_state.user_leaf.nonce,
             last_header_gadget.session_start_context.start_session_user_leaf.nonce,
@@ -70,10 +68,10 @@ impl UPSEndCapCoreGadget {
 
 
 
-        builder.connect(
-            real_end_user_leaf.user_id,
-            last_header_gadget.session_start_context.start_session_user_leaf.user_id,
-        );
+        // builder.connect(
+        //     real_end_user_leaf.user_id,
+        //     last_header_gadget.session_start_context.start_session_user_leaf.user_id,
+        // );
 
 
         let start_user_leaf_hash = last_header_gadget.session_start_context.start_session_user_leaf_hash;
@@ -126,11 +124,11 @@ impl UPSEndCapCoreGadget {
             real_end_user_leaf.last_checkpoint_id,
         );
 
-        builder.ensure_is_greater_than(
-            CHECKPOINT_TREE_HEIGHT as usize,
-            real_end_user_leaf.last_checkpoint_id,
-            last_header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id,
-        );
+        // builder.ensure_is_greater_than(
+        //     CHECKPOINT_TREE_HEIGHT as usize,
+        //     real_end_user_leaf.last_checkpoint_id,
+        //     last_header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id,
+        // );
 
 
 
@@ -148,11 +146,10 @@ impl UPSEndCapCoreGadget {
         );
 
 
-        let zero_placeholder = builder.zero();
         let one_target = builder.one();
 
         let tx_count = last_header_gadget.current_state.tx_count;
-        builder.ensure_is_greater_than(32, tx_count, zero_placeholder);
+        builder.ensure_is_greater_than(MAX_NONCE_BITS as usize, tx_count, one_target);
 
         let burn_contract_id = builder.constant_u64(TOKEN_CONTRACT_ID as u64);
         let burn_method_id = builder.constant_u64(TOKEN_SIMPLE_BURN_METHOD_ID as u64);
@@ -168,7 +165,7 @@ impl UPSEndCapCoreGadget {
         let expected_burn_tx_hash = expected_burn_transaction.to_hash::<H,F,D>(builder);
 
         let reconstructed_current_stack = builder.hash_two_to_one::<H>(
-            previous_tx_hash_stack,
+            second_to_last_tx_hash_stack,
             expected_burn_tx_hash
         );
         builder.connect_hashes(reconstructed_current_stack, current_tx_stack);
@@ -179,13 +176,6 @@ impl UPSEndCapCoreGadget {
             total_transactions: tx_count,
             slots_modified: slots_modified,
         };
-
-
-
-
-
-
-
 
         Self {
             sig_data_compact_gadget,

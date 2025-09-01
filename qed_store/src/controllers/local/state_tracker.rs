@@ -86,7 +86,7 @@ impl<F: RichField> QEDContractStateTracker<F> {
     }
     #[instrument(skip(self, dmp), fields(contract_id = self.contract_id, slot_index = dmp.index, total_slots_modified = self.total_slots_modified))]
     pub fn notify_update_slot_dmp(&mut self, dmp: &DeltaMerkleProofCore<QHashOut<F>>) -> i32 {
-        tracing::debug!("State tracker DMP: {:#?}", dmp);
+        tracing::debug!("State tracker DMP: {}", serde_json::to_string_pretty(&dmp).unwrap());
         if self.total_slots_modified == 0 {
             self.start_state_root = dmp.old_root;
             self.end_state_root = dmp.new_root;

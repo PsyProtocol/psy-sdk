@@ -44,7 +44,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
     match job_id.circuit_type {
         ProvingJobCircuitType::AppendUserRegistrationTree => {
             tracing::info!("verify append user registration: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 16 {
+            if proof.public_inputs.len() != 19 {
                 anyhow::bail!("invalid public input length");
             }
             use qed_data::protocol::circuit_inputs::append_user_registration_tree::QCAppendUserRegistrationTreeCircuitInput;
@@ -55,7 +55,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             )?;
 
             let register_users_circuit_whitelist = input.register_users_circuit_whitelist;
-            if register_users_circuit_whitelist.0.elements != proof.public_inputs[8..12] {
+            if register_users_circuit_whitelist.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid register users circuit whitelist");
             }
             let old_root = input.spiderman_append_proofs[0].top_line_proof.old_root;
@@ -64,7 +64,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 .new_root;
 
             let state_transition_hash = QEDHasher::two_to_one(&old_root, &new_root);
-            if proof.public_inputs[12..16] != state_transition_hash.0.elements {
+            if proof.public_inputs[15..19] != state_transition_hash.0.elements {
                 anyhow::bail!("invalid state transition hash");
             }
         }
@@ -73,7 +73,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 "verify append user registration aggregate: {:?}",
                 proof.public_inputs
             );
-            if proof.public_inputs.len() != 16 {
+            if proof.public_inputs.len() != 19 {
                 anyhow::bail!("invalid public input length");
             }
             let r: CircuitInputWithDependencies<AggStateTransitionInput<F>> = bincode::deserialize(
@@ -95,7 +95,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let allowed_circuit_hashes_root =
                 QEDHasher::two_to_one(&leaf_fingerprint, &agg_fingerprint);
 
-            if proof.public_inputs[8..12] != allowed_circuit_hashes_root.0.elements {
+            if proof.public_inputs[11..15] != allowed_circuit_hashes_root.0.elements {
                 anyhow::bail!("invalid allowed circuit hashes root");
             }
 
@@ -103,7 +103,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let right_state_transition_end = r.input.right_input.state_transition_end;
             let state_transition_hash =
                 QEDHasher::two_to_one(&left_state_transition_start, &right_state_transition_end);
-            if proof.public_inputs[12..16] != state_transition_hash.0.elements {
+            if proof.public_inputs[15..19] != state_transition_hash.0.elements {
                 anyhow::bail!("invalid state transition hash");
             }
         }
@@ -112,7 +112,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 "verify dummy append user registration aggregate: {:?}",
                 proof.public_inputs
             );
-            if proof.public_inputs.len() != 16 {
+            if proof.public_inputs.len() != 19 {
                 anyhow::bail!("invalid public input length");
             }
 
@@ -126,17 +126,17 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let transition =
                 QEDHasher::two_to_one(&input.state_transition_hash, &input.state_transition_hash);
 
-            if input.allowed_circuit_hashes_root.0.elements != proof.public_inputs[8..12] {
+            if input.allowed_circuit_hashes_root.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid allowed circuit hashes root");
             }
-            if transition.0.elements != proof.public_inputs[12..16] {
+            if transition.0.elements != proof.public_inputs[15..19] {
                 anyhow::bail!("invalid transition");
             }
         }
 
         ProvingJobCircuitType::BatchDeployContracts => {
             tracing::info!("verify batch deploy contracts: {:?}", proof.public_inputs);
-            if proof.public_inputs.len() != 16 {
+            if proof.public_inputs.len() != 19 {
                 anyhow::bail!("invalid public input length");
             }
 
@@ -152,10 +152,10 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 &input.spiderman_append_proof.top_line_proof.new_root,
             );
 
-            if proof.public_inputs[8..12] != input.deploy_contract_circuit_whitelist.0.elements {
+            if proof.public_inputs[11..15] != input.deploy_contract_circuit_whitelist.0.elements {
                 anyhow::bail!("invalid deploy contract circuit whitelist");
             }
-            if proof.public_inputs[12..16] != state_transition_hash.0.elements {
+            if proof.public_inputs[15..19] != state_transition_hash.0.elements {
                 anyhow::bail!("invalid state transition hash");
             }
         }
@@ -204,7 +204,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 "verify dummy batch deploy contracts aggregate: {:?}",
                 proof.public_inputs
             );
-            if proof.public_inputs.len() != 16 {
+            if proof.public_inputs.len() != 19 {
                 anyhow::bail!("invalid public input length");
             }
 
@@ -218,10 +218,10 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let transition =
                 QEDHasher::two_to_one(&input.state_transition_hash, &input.state_transition_hash);
 
-            if proof.public_inputs[8..12] != input.allowed_circuit_hashes_root.0.elements {
+            if proof.public_inputs[11..15] != input.allowed_circuit_hashes_root.0.elements {
                 anyhow::bail!("invalid allowed circuit hashes root");
             }
-            if transition.0.elements != proof.public_inputs[12..16] {
+            if transition.0.elements != proof.public_inputs[15..19] {
                 anyhow::bail!("invalid transition");
             }
         }
@@ -294,7 +294,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 "verify rollup state transition aggregate: {:?}",
                 proof.public_inputs
             );
-            if proof.public_inputs.len() != 16 {
+            if proof.public_inputs.len() != 19 {
                 anyhow::bail!("invalid rollup state transition proof");
             }
 
@@ -312,10 +312,10 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let old_checkpoint_tree_root = r.input.previous_checkpoint_proof.root;
             let new_checkpoint_tree_root = r.input.append_checkpoint_tree_proof.new_root;
 
-            if old_checkpoint_tree_root.0.elements != proof.public_inputs[8..12] {
+            if old_checkpoint_tree_root.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid old checkpoint tree root");
             }
-            if new_checkpoint_tree_root.0.elements != proof.public_inputs[12..16] {
+            if new_checkpoint_tree_root.0.elements != proof.public_inputs[15..19] {
                 anyhow::bail!("invalid new checkpoint tree root");
             }
         }
@@ -694,7 +694,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 "guta_no_change public_inputs_hash: {:?}",
                 public_inputs_hash
             );
-            if public_inputs_hash.0.elements != proof.public_inputs[8..12] {
+            if public_inputs_hash.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid guta header hash");
             }
         }

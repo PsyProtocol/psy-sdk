@@ -37,10 +37,10 @@ pub struct UserProvingSessionManager<
     circuit_info: SessionCircuitInfoStore<F>,
     pub proof_tree_state: PortableQTreeRecursionManager<C, D>,
     pub current_ups_header: UserProvingSessionHeader<F>,
+    pub previous_ups_header: UserProvingSessionHeader<F>,
     current_checkpoint_leaf: QEDCheckpointLeaf<F>,
     current_global_state_roots: QEDCheckpointGlobalStateRoots<F>,
     last_ups_step_proof_info: TreeAwareTreeProofRecord<F>,
-
 
     tx_log: Vec<DPNProvingSessionSimpleMethodCall<F>>,
 }
@@ -125,7 +125,8 @@ impl<
         Ok(Self {
             lps,
             proof_tree_state,
-            current_ups_header,
+            current_ups_header: current_ups_header.clone(),
+            previous_ups_header: current_ups_header,
             current_checkpoint_leaf,
             current_global_state_roots,
             last_ups_step_proof_info: TreeAwareTreeProofRecord::default(),
@@ -147,6 +148,7 @@ impl<
             lps,
             proof_tree_state,
             current_ups_header: UserProvingSessionHeader::default(),
+            previous_ups_header: UserProvingSessionHeader::default(),
             current_checkpoint_leaf: QEDCheckpointLeaf::default(),
             current_global_state_roots: QEDCheckpointGlobalStateRoots::default(),
             last_ups_step_proof_info: TreeAwareTreeProofRecord::default(),
@@ -270,6 +272,7 @@ impl<
             known_proof_tree_root,
             proof_tree_index: last_ups_step_proof_index,
         };
+        self.previous_ups_header = self.current_ups_header.clone();
         self.current_ups_header = input.ups_header;
         timer.lap("injest_single_leaf_proof");
 
@@ -296,7 +299,6 @@ impl<
             None => anyhow::bail!("could not find historical root proof for root {:?}",self.last_ups_step_proof_info.known_proof_tree_root),
         };
         let inclusion_proof = self.proof_tree_state.get_leaf_merkle_proof(self.last_ups_step_proof_info.proof_tree_index).await;
-
 
         let proof_attestation_witness = AttestTreeAwareProofInTreeInput {
             fingerprint: ups_circuit_whitelist_merkle_proof.value,
@@ -337,17 +339,33 @@ impl<
         Ok((fn_id, fn_circuit_def))
     }
 
+    pub async fn prove_contract_call(
+        &mut self,
+        circuit_mgr: &QCircuitManager<C, D>,
+        contract_id: F,
+        fn_id: u32,
+        fn_circuit_def: &DPNFunctionCircuitDefinition,
+        inputs: Vec<F>,
+    ) -> anyhow::Result<()> {
+        self.prove_standard_call(
+            circuit_mgr,
+            contract_id,
+            fn_id,
+            fn_circuit_def,
+            inputs
+        )?;
+        self.prove_burn_fee(circuit_mgr).await?;
+        Ok(())
+    }
+
     pub async fn prove_standard_call(
         &mut self,
         circuit_mgr: &QCircuitManager<C, D>,
         contract_id: F,
         fn_id: u32,
-        // fn_circuit: &DapenContractFunctionCircuit<C, D>,
         fn_circuit_def: &DPNFunctionCircuitDefinition,
         inputs: Vec<F>,
     ) -> anyhow::Result<()> {
-        //let last_session_header = self.current_ups_header.clone();
-        //let ups_standard_whitelist_merkle_proof = circuit_mgr.ups_cfc_standard_tx_whitelist_proof.clone();
         let deferred_tx_pivot_index = self.lps.get_deferred_tx_debt_latest_index();
         let inline_tx_pivot_index = self.lps.get_inline_tx_debt_latest_index();
         let tx_log_item = DPNProvingSessionSimpleMethodCall {
@@ -357,7 +375,6 @@ impl<
         };
         let (fn_circuit_fingerprint, fn_circuit_verifier_data) = circuit_mgr.get_contract_method_common_data(contract_id.to_canonical_u64(), fn_id).await?;
         let cfc_proof_input = self.exec_contract_call(contract_id, fn_circuit_def, inputs).await?;
-        // let cfc_proof = fn_circuit.prove_base(&cfc_proof_input)?;
         let cfc_proof = circuit_mgr.prove_contract_call(contract_id.to_canonical_u64(), fn_id, &cfc_proof_input).await?;
         let cfc_proof_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
             leaf_circuit_type: CFC_LEAF_TYPE,
@@ -369,7 +386,6 @@ impl<
             contract_id.to_canonical_u64() as u32,
             fn_id,
         ).await?;
-        //println!("cfc_proof_input.session_proof_tree_root: {:?}",&cfc_proof_input.session_proof_tree_root);
         let historical_root_proof = match self.proof_tree_state.find_zero_hash_proof_for_historical_root(cfc_proof_input.session_proof_tree_root).await {
             Some(mp) => mp,
             None => anyhow::bail!("error finding historical root proof in proof_tree_state"),
@@ -402,7 +418,7 @@ impl<
             event_index: process_cfc_state_delta_input.cfc_transaction_input_context.transaction_call_start_ctx.start_user_event_index+process_cfc_state_delta_input.cfc_transaction_input_context.transaction_end_ctx.total_events_emitted,
             nonce: self.current_ups_header.current_state.user_leaf.nonce,
             last_checkpoint_id: self.current_ups_header.current_state.user_leaf.last_checkpoint_id,
-            user_id:  self.current_ups_header.current_state.user_leaf.user_id,
+            user_id: self.current_ups_header.current_state.user_leaf.user_id,
         };
         let tx_log_item_hash = tx_log_item.qfhash::<H>();
         let new_step_tx_hash_stack = H::q_two_to_one(
@@ -428,7 +444,6 @@ impl<
             verify_previous_ups_step,
             standard_cfc_step: ups_cfc_standard_input,
         };
-        // let ups_proof = circuit_mgr.ups_cfc_standard_tx.prove_base(&circuit_input)?;
         let ups_proof = circuit_mgr.prove_ups_cfc_standard_tx(&circuit_input).await?;
 
         self.last_ups_step_proof_info.circuit_id = LocalCircuitType::UPSCFCStandard.into();
@@ -449,6 +464,7 @@ impl<
             known_proof_tree_root: new_step_known_proof_tree_root,
             proof_tree_index: ups_step_proof_tree_index,
         };
+        self.previous_ups_header = self.current_ups_header.clone();
         self.current_ups_header = new_ups_header;
         self.tx_log.push(tx_log_item);
 
@@ -462,7 +478,6 @@ impl<
             self.repay_deferred_debt(circuit_mgr, debt_item).await?;
         }
 
-        self.prove_burn_fee(circuit_mgr).await?;
         Ok(())
     }
 
@@ -603,6 +618,7 @@ impl<
             user_public_key_param: public_key_param,
             nonce,
             slots_modified: self.lps.get_total_slots_modified(),
+            second_to_last_tx_hash_stack: self.previous_ups_header.current_state.tx_hash_stack,
         };
 
         //println!("endcap_from_proof_tree: {:?}",end_cap_from_proof_tree_input);
@@ -696,15 +712,8 @@ impl<
             &fn_circuit_def,
             deferred_tx.inputs.clone(),
         ).await?;
-        // let fn_circuit = DapenContractFunctionCircuit::<C, D>::new(
-        //     &fn_circuit_def,
-        //     contract_def.state_tree_height as usize,
-        //     UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-        //     false,
-        // );
 
         let (fn_circuit_fingerprint, fn_circuit_verifier_data) = circuit_mgr.get_contract_method_common_data(deferred_tx.contract_id.to_canonical_u64(), fn_id as u32).await?;
-        // let cfc_proof = fn_circuit.prove_base(&cfc_proof_input)?;
         let cfc_proof = circuit_mgr.prove_contract_call(deferred_tx.contract_id.to_canonical_u64(), fn_id as u32, &cfc_proof_input).await?;
         let cfc_proof_index = self.proof_tree_state.injest_single_leaf_proof(InputLeafProof{
             leaf_circuit_type: CFC_LEAF_TYPE,
@@ -803,6 +812,7 @@ impl<
             known_proof_tree_root: new_step_known_proof_tree_root,
             proof_tree_index: ups_step_proof_tree_index,
         };
+        self.previous_ups_header = self.current_ups_header.clone();
         self.current_ups_header = new_ups_header;
         self.tx_log.push(tx_log_item);
         Ok(())

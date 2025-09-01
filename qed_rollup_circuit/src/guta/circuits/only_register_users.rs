@@ -9,7 +9,7 @@ use plonky2::{
     }, field::types::Field
 };
 use qed_common_circuit::{
-    builder::{comparison::CircuitBuilderComparison, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic, traits::ToTargets
 };
 use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::QProofStoreReaderAsync}};
@@ -68,10 +68,11 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
         
-        // Ensure worker_public_key is not zero hash
         builder.assert_non_zero_hash(worker_public_key);
         
-        let commitment = worker_public_key; // For leaf circuits, commitment = worker_public_key
+        let zero_hash = builder.constant_hash(HashOut::ZERO);
+        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
 
         // Create PM jobs completed stats gadget for register users (using max_users as the count)
         let users_count = builder.constant(C::F::from_canonical_usize(max_users));

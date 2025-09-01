@@ -34,8 +34,8 @@
       {
         "name": "token",
         "path": "qed_precompiles/token",
-        "contract_name": "ContractRef",
-        "method_names": ["simple_mint", "simple_burn", "simple_transfer", "simple_claim"],
+        "contract_name": "PsyTokenContractRef",
+        "method_names": ["simple_mint", "simple_burn", "simple_transfer", "simple_claim", "simple_claim_pow_rewards"],
         "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
       },
       {
@@ -43,6 +43,13 @@
         "path": "qed_precompiles/rewards",
         "contract_name": "ContractRef",
         "method_names": ["batch_claim_pm_rewards", "simple_mint", "simple_burn", "simple_transfer", "simple_claim"],
+        "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
+      },
+      {
+        "name": "new_rewards",
+        "path": "qed_precompiles/new_rewards",
+        "contract_name": "PsyPOWMiningRewardsClaimContractRef",
+        "method_names": ["advance_and_claim_guta_proof", "advance_to_checkpoint_and_seal"],
         "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
       }
     ],
@@ -76,32 +83,32 @@
       "0": {
         "0": {
           "slots": {
-            "0": "00000000000000000000000000000000000000000000000000000000000003e8"
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
           }
         },
         "1": {
           "slots": {
-            "0": "00000000000000000000000000000000000000000000000000000000000003e8"
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
           }
         },
         "2": {
           "slots": {
-            "0": "00000000000000000000000000000000000000000000000000000000000003e8"
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
           }
         },
         "3": {
           "slots": {
-            "0": "00000000000000000000000000000000000000000000000000000000000003e8"
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
           }
         },
         "4": {
           "slots": {
-            "0": "00000000000000000000000000000000000000000000000000000000000003e8"
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
           }
         },
         "5": {
           "slots": {
-            "0": "00000000000000000000000000000000000000000000000000000000000003e8"
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
           }
         }
       }

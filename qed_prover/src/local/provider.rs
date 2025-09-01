@@ -10,7 +10,7 @@ use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::cir
     PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
     PortableQTreeRecursionCircuitsTrait,
 };
-use qed_core::job::id::{JobProof, QProvingJobDataID};
+use qed_core::job::id::{VariableHeightRewardMerkleProof, QProvingJobDataID};
 use qed_crypto::{
     common::witnesses::qrecursion::proof_data::{
         AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs,
@@ -336,13 +336,14 @@ impl RpcProvider {
         &self,
         checkpoint_id: u64,
         job_id: QProvingJobDataID,
-    ) -> anyhow::Result<(JobProof, QProvingJobDataID)> {
+    ) -> anyhow::Result<(VariableHeightRewardMerkleProof, QProvingJobDataID)> {
         let url = self.get_coordinator_url()?;
 
+        let output_job_id = job_id.get_output_id();
         let request = serde_json::json!({
             "jsonrpc": "2.0",
-            "method": "qed_generate_batch_proofs",
-            "params": [checkpoint_id, vec![job_id]],
+            "method": "generate_batch_variable_height_reward_proofs",
+            "params": [checkpoint_id, vec![output_job_id]],
             "id": 1
         });
 
@@ -363,8 +364,7 @@ impl RpcProvider {
             .get("result")
             .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
 
-        // The result should be a Vec<(JobProof, QProvingJobDataID)>, get the first one
-        let proofs: Vec<(JobProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
+        let proofs: Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
 
         if proofs.is_empty() {
             return Err(anyhow::format_err!("No proof returned for job ID"));
@@ -378,17 +378,18 @@ impl RpcProvider {
         realm_id: u64,
         checkpoint_id: u64,
         job_id: QProvingJobDataID,
-    ) -> anyhow::Result<(JobProof, QProvingJobDataID)> {
+    ) -> anyhow::Result<(VariableHeightRewardMerkleProof, QProvingJobDataID)> {
         let realm_urls = self
             .realm_configs
             .get(&realm_id)
             .ok_or(anyhow::format_err!("Realm {} not configured", realm_id))?;
         let url = &realm_urls[0];
 
+        let output_job_id = job_id.get_output_id();
         let request = serde_json::json!({
             "jsonrpc": "2.0",
-            "method": "qed_generate_batch_proofs",
-            "params": [checkpoint_id, vec![job_id]],
+            "method": "generate_batch_variable_height_reward_proofs",
+            "params": [checkpoint_id, vec![output_job_id]],
             "id": 1
         });
 
@@ -409,8 +410,7 @@ impl RpcProvider {
             .get("result")
             .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
 
-        // The result should be a Vec<(JobProof, QProvingJobDataID)>, get the first one
-        let proofs: Vec<(JobProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
+        let proofs: Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
 
         if proofs.is_empty() {
             return Err(anyhow::format_err!("No proof returned for job ID"));
