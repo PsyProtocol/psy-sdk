@@ -282,28 +282,29 @@ impl
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
         let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
 
-        // Check if there are pending tasks for this checkpoint
         if !self.ctx.has_pending_tasks(next_checkpoint_id).await
             .map_err(|e| anyhow::anyhow!("Failed to check pending tasks: {:?}", e))? {
-            bail!(
-                "No pending tasks for checkpoint {}, slot {}",
-                next_checkpoint_id, slot
-            );
+            return Ok(latest_l2_block_state.checkpoint_id);
         }
 
         let ctx = self.ctx.clone();
         let journal_store = self.journal_store.clone();
         self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
-            // Build and prove the block (all logic including logging is inside ctx.build_block)
             if let Err(e) = ctx.build_block(slot).await {
                 journal_store.rollback(next_checkpoint_id)?;
                 bail!("Failed to build and prove block: {}", e);
             }
             Ok(())
         }).await?;
-        // Commit the changes
+
         self.journal_store.commit(next_checkpoint_id)?;
         self.ctx.commit_offset().await?;
+
+        info!(
+            "✅ Successfully built and committed block {}, slot {}",
+            next_checkpoint_id, slot
+        );
+
         Ok(next_checkpoint_id)
     }
 
@@ -500,16 +501,8 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         }
 
         let slot = slot_timer_other.get_current_slot();
-        match coordinator_processor.build_block(slot).await {
-            Ok(checkpoint_id) => {
-                info!(
-                    "✅ Successfully built and committed block {}, slot {}",
-                    checkpoint_id, slot
-                );
-            }
-            Err(e) => {
-                error!("❌ Failed to build block: {:?}, slot: {}", e, slot);
-            }
+        if let Err(err) = coordinator_processor.build_block(slot).await {
+            error!("❌ Failed to build block: {:?}, slot: {}", err, slot);
         }
     }
 }
