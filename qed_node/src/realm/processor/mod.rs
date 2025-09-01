@@ -46,7 +46,7 @@ pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub sync_proof: ProofStoreRedisAsync,
     pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
-    pub store: Arc<JournalStore<QEDStore>>,
+    pub store: QEDStore,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub task_store: Arc<QProvingTaskStoreImpl>,
     pub slot_timer: SlotTimer<LocalClock>,
@@ -77,9 +77,6 @@ impl RealmProcessor {
             config.queue.queue_biz_key,
         ).await?;
         let store = QEDStore::new(&config.backend.to_backend()).await?;
-        let store = Arc::new(JournalStore::new(store));
-        let store_reader = store.clone();
-
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
         // Use the same ProofStoreRedisAsync for checkpoint sync
@@ -88,7 +85,7 @@ impl RealmProcessor {
             realm_config,
             sync_proof: realm_qps,
             sync_checkpoint,
-            store: store_reader,
+            store,
             proof_verifier,
             task_store: Arc::new(task_store),
             slot_timer: SlotTimer::new(LocalClock),
@@ -98,11 +95,11 @@ impl RealmProcessor {
         Ok(processor)
     }
 
-    pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
-        info!("Realm Processor starting");
-        let st = self.store.clone();
+    async fn context(
+        &self,
+    ) -> anyhow::Result<ConcreteRealmProcessorContext> {
         let realm_qps = Arc::new(self.sync_proof.clone());
-        let mut context: ConcreteRealmProcessorContext = RealmProcessorContext::<
+        RealmProcessorContext::<
             JournalStore<QEDStore>,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
@@ -111,14 +108,19 @@ impl RealmProcessor {
             QProvingTaskStoreImpl,
         >::new(
             self.realm_config,
-            st.clone(),
+            JournalStore::new(self.store.clone()),
             realm_qps.clone(),
             realm_qps.clone(),
             realm_qps.clone(),
             realm_qps.clone(),
             self.task_store.clone(),
             self.proof_verifier.clone(),
-        ).await?;
+        ).await
+    }
+
+    pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
+        info!("Realm Processor starting");
+        let mut context = self.context().await?;
         info!("Realm Processor started");
 
         // Check for incomplete consumption state on startup
@@ -138,6 +140,8 @@ impl RealmProcessor {
 
         // Ensure checkpoint sync first
         self.ensure_checkpoint_sync(&mut context).await?;
+
+        // todo
         let slot_timer = self.slot_timer.clone();
         loop {
             tokio::select! {
@@ -177,12 +181,10 @@ impl RealmProcessor {
             }
 
             info!("Start building block");
-            let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
+            let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
             let next_checkpoint_id = local_latest_checkpoint_id + 1;
             if let Some(pending_checkpoint_id) = self.pending_checkpoint_id {
-                // todo
-                self.store.commit(pending_checkpoint_id)?;
-                context.commit_offset().await?;
+                context.commit(pending_checkpoint_id).await?;
                 if next_checkpoint_id <= pending_checkpoint_id {
                     warn!("Pending checkpoint {} is not ready, skipping block construction", pending_checkpoint_id);
                     continue;
@@ -194,7 +196,7 @@ impl RealmProcessor {
                 warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
                 continue;
             }
-            let proving_data_job_id: ProvingJobDataId = match self.build_block(next_checkpoint_id, &mut context, &realm_qps).await {
+            let proving_data_job_id: ProvingJobDataId = match self.build_block(next_checkpoint_id, &mut context).await {
                 Ok(job_id) => job_id,
                 Err(err) => {
                     error!("Error building block: {:?}, slot: {}", err, slot);
@@ -234,7 +236,7 @@ impl RealmProcessor {
         &mut self,
         context: &mut ConcreteRealmProcessorContext,
     ) -> anyhow::Result<bool> {
-        let (expected_checkpoint,local_checkpoint_id) = if let Ok(local_checkpoint_id) = self.get_local_latest_l2_block_state().await {
+        let (expected_checkpoint,local_checkpoint_id) = if let Ok(local_checkpoint_id) = self.get_local_latest_checkpoint_id().await {
             // Get the next expected checkpoint
             (local_checkpoint_id + 1, local_checkpoint_id)
         } else {
@@ -269,7 +271,7 @@ impl RealmProcessor {
                     Ok(_) => {
                         info!(?checkpoint_id, "Sync to new checkpoint");
                         info!("Checkpoint sync reg users len: {}", block.compact.registered_users.len());
-                        self.store.commit(checkpoint_id)?;
+                        context.commit(checkpoint_id).await?;
 
                         // Check updated pending users count
                         let pending_users_count = context.sync_queue.get_pending_users_count().await?;
@@ -286,7 +288,7 @@ impl RealmProcessor {
                     }
                     Err(err) => {
                         error!(?checkpoint_id, ?err, "Error sync checkpoint");
-                        self.store.rollback(checkpoint_id)?;
+                        context.rollback(checkpoint_id).await?; //todo
                         Err(err)
                     }
                 }
@@ -306,9 +308,7 @@ impl RealmProcessor {
         &self,
         next_checkpoint_id: u64,
         context: &ConcreteRealmProcessorContext,
-        realm_qps: &ProofStoreRedisAsync,
     ) -> anyhow::Result<ProvingJobDataId> {
-        let store = self.store.clone();
         self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
             // Build block with enhanced error handling(all logic including logging is inside context.build_block)
             match context.build_block().await {
@@ -319,7 +319,7 @@ impl RealmProcessor {
                 },
                 Err(err) => {
                     // Rollback database changes
-                    store.rollback(next_checkpoint_id)?;
+                    context.rollback(next_checkpoint_id).await?;
 
                     error!("Build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
                     Err(err)
@@ -343,7 +343,7 @@ impl RealmProcessor {
     fn is_current_slot(&self) -> bool {
         self.remote_latest_slot == 0 || self.slot_timer.get_current_slot() > self.remote_latest_slot
     }
-    pub async fn get_local_latest_l2_block_state(&self) -> anyhow::Result<u64> {
+    pub async fn get_local_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
         let state = self
             .store
             .get_latest_l2_block_state()

@@ -586,7 +586,7 @@ impl<
                 SimpleMerkleNode {
                     key: SimpleMerkleNodeKey {
                         level: self.coordinator_config.realm_root_level,
-                        index: x.realm_id,
+                        index: x.realm_id,//todo
                     },
                     value: x.top_line_proof.new_root,
                 }

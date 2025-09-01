@@ -43,6 +43,7 @@ use qed_store::{
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, error};
 use qed_store::queue::redis_queue::QueueOffsetState;
+use qed_store::store::journal::Journal;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -97,14 +98,14 @@ impl RealmConfig {
 }
 #[derive(Clone)]
 pub struct RealmProcessorContext<
-    SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F>,
+    SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F> + Journal,
     DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     TS: QProvingTaskStore,
 > {
-    pub store: Arc<SR>,
+    pub store: SR,
     pub checkpoint_queue: Arc<DQ>,
     pub sync_queue: Arc<HQ>,
     pub prover_queue: Arc<WQ>,
@@ -115,7 +116,7 @@ pub struct RealmProcessorContext<
 }
 
 impl<
-        SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F>,
+        SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F> + Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
@@ -125,7 +126,7 @@ impl<
 {
     pub async fn new(
         realm_config: RealmConfig,
-        store: Arc<SR>,
+        store: SR,
         checkpoint_queue: Arc<DQ>,
         sync_queue: Arc<HQ>,
         prover_queue: Arc<WQ>,
@@ -145,7 +146,7 @@ impl<
         })
     }
 
-    pub fn verify_proof_of_type(
+    fn verify_proof_of_type(
         &self,
         circuit_type: ProvingJobCircuitType,
         proof: &ProofWithPublicInputs<F, C, D>,
@@ -179,7 +180,7 @@ impl<
         Ok(())
     }
 
-    pub async fn handle_guta_state_updates_from_users(
+    async fn handle_guta_state_updates_from_users(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<()> {
@@ -197,7 +198,7 @@ impl<
         self.store.injest_checked_cst_nodes_imm(&updates).await
     }
 
-    pub async fn handle_guta_from_users_ensure_no_topline(
+    async fn handle_guta_from_users_ensure_no_topline(
         &self,
         checkpoint_id: u64,
         pending_register_users: &[MerkleProofCore<QHashOut<F>>],
@@ -488,7 +489,7 @@ impl<
         ))
     }
 
-    pub async fn handle_guta_from_users(
+    async fn handle_guta_from_users(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<(
@@ -783,7 +784,7 @@ impl<
         Ok((levels, guta, res.link_proof))
     }
 
-    pub async fn plan_jobs(
+    async fn plan_jobs(
         &self,
         new_checkpoint_id: u64,
         guta_jobs: &Vec<Vec<QProvingJobDataID>>,
@@ -883,7 +884,7 @@ impl<
 
 
     // commit redis queue
-    pub async fn commit_offset(&self) -> anyhow::Result<()> {
+    async fn commit_offset(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         if let Some(state) = self.sync_queue.get_last_peek_offset().await? {
             self.sync_queue.commit_offset(&state).await?;
         }
@@ -894,5 +895,14 @@ impl<
             self.checkpoint_queue.commit_offset(&state).await?;
         }
         Ok(())
+    }
+
+    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        self.store.commit(checkpoint_id)?;
+        self.commit_offset(checkpoint_id).await
+    }
+
+    pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        self.store.rollback(checkpoint_id)
     }
 }
