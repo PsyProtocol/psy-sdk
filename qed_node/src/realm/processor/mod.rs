@@ -14,7 +14,7 @@ use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_store::queue::QPendingUserStoreAsyncImm;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use qed_store::store::QEDStore;
-use std::sync::Arc;
+use std::sync::{atomic, Arc};
 use std::thread::sleep;
 use std::time::Duration;
 use tokio::task::JoinHandle;
@@ -138,61 +138,46 @@ impl RealmProcessor {
         let mut context = self.context().await?;
         let mut pending_checkpoint_id = None;
         loop {
-            let mut is_syncing = true;
-            tokio::select! {
-                checkpoint_sync_result = self.ensure_checkpoint_sync() => {
-                    match checkpoint_sync_result {
-                        Ok(true) => {
-                            is_syncing = false;
-                            info!("Checkpoint sync completed");
-                        }
-                        Ok(false) => {
-                            info!("No new checkpoint to sync");
-                        }
-                        Err(err) => {
-                            error!("Checkpoint sync failed: {:?}", err);
-                        }
-                    }
-                    continue;
-                },
-                slot = slot_timer.wait_for_next_slot() => {
-                    info!("Next slot: {}", slot);
-                }
+            match self.ensure_checkpoint_sync().await {
+                Ok(true) => info!("Checkpoint sync completed wait before"),
+                _ => continue,
             }
-
-            if is_syncing {
-                continue;
+            // let mut is_syncing = atomic::AtomicBool::new(false);
+            let slot = slot_timer.wait_for_next_slot().await;
+            info!("Next slot: {}", slot);
+            match self.ensure_checkpoint_sync().await {
+                Ok(true) => info!("Checkpoint sync completed wait after"),
+               _ => continue,
             }
-
-            // Build block based on slot timing
-            if let Err(err) = self.validate_slot() {
-                warn!("Error validating slot: {:?}", err);
-                continue
-            }
-
-            // TODO remove the code?
-            let slot = self.slot_timer.get_current_slot();
-            if let SlotPhase::BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
-                let current_timestamp = self.slot_timer.get_current_timestamp();
-                if current_timestamp < build_phase_start {
-                    let tt = build_phase_start - current_timestamp;
-                    info!("Waiting for build phase to start: sleep {} ms, slot: {}", tt, slot);
-                    tokio::time::sleep(Duration::from_millis(tt)).await;
-                }
-            }
-
-            info!("Start building block");
             let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
             let next_checkpoint_id = local_latest_checkpoint_id + 1;
             if let Some(pending_checkpoint_id) = pending_checkpoint_id {
                 // todo
-                if pending_checkpoint_id == local_latest_checkpoint_id {
+                if pending_checkpoint_id <= local_latest_checkpoint_id {
                     context.commit(pending_checkpoint_id).await?;
                 } else {
                     context.rollback(pending_checkpoint_id).await?;
                     warn!("rollback before: {}, start new block for next checkpoint: {}", pending_checkpoint_id, next_checkpoint_id);
                 }
             }
+            if let Err(err) = self.validate_slot() {
+                warn!("Error validating slot: {:?}", err);
+                continue
+            }
+
+            // let slot = self.slot_timer.get_current_slot();
+            // TODO remove the code?
+            // if let SlotPhase::BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
+            //     let current_timestamp = self.slot_timer.get_current_timestamp();
+            //     if current_timestamp < build_phase_start {
+            //         let tt = build_phase_start - current_timestamp;
+            //         info!("Waiting for build phase to start: sleep {} ms, slot: {}", tt, slot);
+            //         tokio::time::sleep(Duration::from_millis(tt)).await;
+            //     }
+            // }
+
+            info!("Start building block");
+            // Build block based on slot timing
             pending_checkpoint_id = None;
             let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
             if !has_tasks {
@@ -353,7 +338,7 @@ impl RealmProcessor {
     }
 
     fn is_current_slot(&self) -> bool {
-        self.remote_latest_slot == 0 || self.slot_timer.get_current_slot() > self.remote_latest_slot
+        self.remote_latest_slot == 0 || self.slot_timer.get_current_slot() >= self.remote_latest_slot
     }
     pub async fn get_local_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
         let state = self
