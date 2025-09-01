@@ -1,14 +1,11 @@
 use async_trait::async_trait;
 use plonky2::{
-    hash::hash_types::HashOutTarget,
-    iop::{target::Target, witness::{PartialWitness, WitnessWrite}},
-    plonk::{
+    field::types::Field, hash::hash_types::{HashOut, HashOutTarget}, iop::{target::Target, witness::{PartialWitness, WitnessWrite}}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    },
-    field::types::Field,
+    }
 };
 use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::DummyAggStateTransition};
@@ -66,7 +63,9 @@ where
 
         builder.assert_non_zero_hash(worker_public_key);
 
-        let commitment = worker_public_key;
+        let zero_hash = builder.constant_hash(HashOut::ZERO);
+        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
 
         let transition =
             builder.hash_two_to_one::<C::Hasher>(state_transition_hash, state_transition_hash);

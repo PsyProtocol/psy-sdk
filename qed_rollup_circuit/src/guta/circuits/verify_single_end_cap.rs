@@ -65,11 +65,11 @@ where
         let worker_public_key = builder.add_virtual_hash();
 
         builder.assert_non_zero_hash(worker_public_key);
-        
+
         let zero_hash = builder.constant_hash(HashOut::ZERO);
         let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
         let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
-        
+
         let one = builder.one();
         let pm_jobs_completed = PMJobsCompletedStatsGadget::new_gutas(&mut builder, one);
 
@@ -107,9 +107,9 @@ where
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.guta_circuit_whitelist_root_hash, input.guta_circuit_whitelist.0)?;
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
-        
+
         let jobs_completed_stats = PMJobsCompletedStats::new_gutas(C::F::ONE);
-        <PMJobsCompletedStats<C::F> as WitnessValueFor<PMJobsCompletedStatsGadget, C::F, true>>::set_for_witness(&jobs_completed_stats, &mut pw, &self.pm_jobs_completed)?;
+        self.pm_jobs_completed.set_witness(&mut pw, &jobs_completed_stats)?;
 
         self.a_end_cap_gadget.set_witness(
             &mut pw,

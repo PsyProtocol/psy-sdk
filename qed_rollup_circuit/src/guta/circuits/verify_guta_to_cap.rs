@@ -67,14 +67,12 @@ where
             ]
         };
 
-        // Extract PM stats from child GUTA proof
         let child_pm_jobs_completed = [
             verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[8],
-            verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[9], 
+            verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[9],
             verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[10],
         ];
-        
-        // Add 1 GUTA completion to child stats
+
         let one = builder.one();
         let final_gutas = builder.add(child_pm_jobs_completed[2], one);
         let pm_jobs_completed = PMJobsCompletedStatsGadget {

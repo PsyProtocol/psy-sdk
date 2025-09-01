@@ -126,9 +126,9 @@ where
         ];
 
         let combined_deploy_contracts = builder.add(a_pm_jobs_completed[0], b_pm_jobs_completed[0]);
-        let combined_register_users = builder.add(a_pm_jobs_completed[1], b_pm_jobs_completed[1]); 
+        let combined_register_users = builder.add(a_pm_jobs_completed[1], b_pm_jobs_completed[1]);
         let combined_gutas = builder.add(a_pm_jobs_completed[2], b_pm_jobs_completed[2]);
-        
+
         let one = builder.one();
         let final_gutas = builder.add(combined_gutas, one);
         let pm_jobs_completed = PMJobsCompletedStatsGadget {

@@ -67,16 +67,15 @@ where
         );
 
         let worker_public_key = builder.add_virtual_hash();
-        
+
         builder.assert_non_zero_hash(worker_public_key);
-        
+
         let zero_hash = builder.constant_hash(HashOut::ZERO);
         let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
         let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
 
-        // Create PM jobs completed stats gadget for register users (using max_users as the count)
-        let users_count = builder.constant(C::F::from_canonical_usize(max_users));
-        let pm_jobs_completed = PMJobsCompletedStatsGadget::new_register_users(&mut builder, users_count);
+        let count = builder.one();
+        let pm_jobs_completed = PMJobsCompletedStatsGadget::new_register_users(&mut builder, count);
 
         let public_inputs_hash = register_batch_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
@@ -144,9 +143,7 @@ where
 
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
-        // Set witness for pm_jobs_completed stats (register_users count based on actual users registered)
-        let actual_users_count = C::F::from_canonical_usize(guta_register_user_inputs.len());
-        let pm_stats = PMJobsCompletedStats::new_register_users(actual_users_count);
+        let pm_stats = PMJobsCompletedStats::new_register_users(C::F::ONE);
         self.pm_jobs_completed.set_witness(&mut pw, &pm_stats)?;
 
         let p = self.circuit_data.prove(pw)?;

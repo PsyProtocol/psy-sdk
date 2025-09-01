@@ -61,7 +61,9 @@ where
             batch_append_gadget.new_root,
         );
 
-        let commitment = worker_public_key;
+        let zero_hash = builder.constant_hash(HashOut::ZERO);
+        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
 
         let one = builder.one();
         let pm_jobs_completed = PMJobsCompletedStatsGadget::new_register_users(&mut builder, one);
@@ -102,7 +104,7 @@ where
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
         let jobs_completed_stats = PMJobsCompletedStats::new_register_users(C::F::ONE);
-        <PMJobsCompletedStats<C::F> as WitnessValueFor<PMJobsCompletedStatsGadget, C::F, true>>::set_for_witness(&jobs_completed_stats, &mut pw, &self.pm_jobs_completed)?;
+        self.pm_jobs_completed.set_witness(&mut pw, &jobs_completed_stats);
 
         self.batch_append_gadget.set_witness_params(
             &mut pw,

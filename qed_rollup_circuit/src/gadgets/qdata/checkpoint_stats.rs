@@ -17,7 +17,7 @@ pub struct QEDCheckpointLeafStatsGadget {
     pub pm_jobs_completed: PMJobsCompletedStatsGadget,
 
     pub block_time: Target,
-    
+
     pub random_seed: HashOutTarget,
     pub pm_rewards_commitment: PMRewardCommitmentGadget,
 
@@ -31,10 +31,10 @@ impl QEDCheckpointLeafStatsGadget {
 
         witness.set_target(self.user_ops_processed, target.user_ops_processed)?;
         witness.set_target(self.total_transactions, target.total_transactions)?;
-        
+
         witness.set_target(self.slots_modified, target.slots_modified)?;
         self.pm_jobs_completed.set_witness(witness, &target.pm_jobs_completed)?;
-        
+
         witness.set_target(self.block_time, target.block_time)?;
 
         witness.set_hash_target(self.random_seed, target.random_seed.0)?;
@@ -80,7 +80,7 @@ impl CreatableTarget for QEDCheckpointLeafStatsGadget {
             pm_rewards_commitment,
             da_challenges_claimed,
         }
-        
+
     }
 }
 impl ToTargets for QEDCheckpointLeafStatsGadget {
@@ -110,27 +110,27 @@ impl FromTargets for QEDCheckpointLeafStatsGadget {
         if targets.len() != expected_len {
             panic!("Invalid number of elements for QEDCheckpointLeafStatsGadget, expected {} got {}", expected_len, targets.len());
         }
-        
+
         let mut offset = 0;
         let fees_collected = targets[offset]; offset += 1;
         let user_ops_processed = targets[offset]; offset += 1;
         let total_transactions = targets[offset]; offset += 1;
         let slots_modified = targets[offset]; offset += 1;
-        
+
         let pm_jobs_completed = PMJobsCompletedStatsGadget::from_targets(&targets[offset..offset + PM_JOBS_COMPLETED_STATS_TARGET_SIZE]);
         offset += PM_JOBS_COMPLETED_STATS_TARGET_SIZE;
-        
+
         let block_time = targets[offset]; offset += 1;
         let random_seed = HashOutTarget {
             elements: [targets[offset], targets[offset+1], targets[offset+2], targets[offset+3]],
         };
         offset += 4;
-        
+
         let pm_rewards_commitment = PMRewardCommitmentGadget::from_targets(&targets[offset..offset + PM_REWARD_COMMITMENT_TARGET_SIZE]);
         offset += PM_REWARD_COMMITMENT_TARGET_SIZE;
-        
+
         let da_challenges_claimed = targets[offset..].try_into().unwrap();
-        
+
         QEDCheckpointLeafStatsGadget {
             fees_collected,
             user_ops_processed,

@@ -65,8 +65,7 @@ where
         let public_inputs_hash = register_batch_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         let worker_public_key = builder.add_virtual_hash();
-        
-        // Ensure worker_public_key is not zero hash
+
         builder.assert_non_zero_hash(worker_public_key);
 
         let child_commitment = HashOutTarget {
@@ -78,21 +77,17 @@ where
             ]
         };
 
-        // Extract PM stats from child GUTA proof
         let child_pm_jobs_completed = [
             register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[8],
-            register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[9], 
+            register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[9],
             register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[10],
         ];
-        
-        // Add user registrations (max_users) and 1 GUTA completion to child stats
-        let users_count = builder.constant(C::F::from_canonical_usize(max_users));
+
         let one = builder.one();
-        let final_register_users = builder.add(child_pm_jobs_completed[1], users_count);
         let final_gutas = builder.add(child_pm_jobs_completed[2], one);
         let pm_jobs_completed = PMJobsCompletedStatsGadget {
             deploy_contracts_completed: child_pm_jobs_completed[0],
-            register_users_completed: final_register_users,
+            register_users_completed: child_pm_jobs_completed[1],
             gutas_completed: final_gutas,
         };
 

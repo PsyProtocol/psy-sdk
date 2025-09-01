@@ -109,10 +109,10 @@ where
         // Extract PM stats from child B (GUTA) proof and combine
         let b_pm_jobs_completed = [
             b_guta_gadget.proof_target.public_inputs[8],
-            b_guta_gadget.proof_target.public_inputs[9], 
+            b_guta_gadget.proof_target.public_inputs[9],
             b_guta_gadget.proof_target.public_inputs[10],
         ];
-        
+
         // End cap (A) doesn't contribute additional stats, so start with child B stats
         let one = builder.one();
         let final_gutas = builder.add(b_pm_jobs_completed[2], one); // Add 1 to gutas_completed

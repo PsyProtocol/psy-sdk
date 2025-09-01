@@ -206,7 +206,6 @@ pub struct CheckpointStateTransitionChildProofsGadget<const D: usize> {
 impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
     pub fn add_virtual_to<C: GenericConfig<D, F = F>, F: RichField + Extendable<D>>(
         builder: &mut CircuitBuilder<F, D>,
-
         part_1_common_data: &CommonCircuitData<F, D>,
         part_1_common_data_verifier_data_cap_height: usize,
         known_part_1_fingerprint: QHashOut<C::F>,
@@ -278,7 +277,6 @@ impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
             ]
         };
 
-        // Connect the pm_rewards_commitment from input with the values from proof
         builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.register_users_root, register_users_root_from_proof);
         builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.deploy_contracts_root, deploy_contracts_root_from_proof);
         builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.gutas_root, gutas_root_from_proof);
