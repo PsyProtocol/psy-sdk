@@ -232,7 +232,7 @@ impl
             InitializeParams::default()
         };
 
-        match qed_store.initialize_store(genesis_store_config).await {
+        match qed_store.initialize_store(Some(genesis_store_config)).await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
                 qed_store.commit(0)?;
             }

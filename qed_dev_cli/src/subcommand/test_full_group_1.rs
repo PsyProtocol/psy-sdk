@@ -78,7 +78,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let store_reader =
         Arc::new(KVQlibmdbxStore::new_write("db")?);
 
-    store_reader.initialize_store(Default::default()).await?;
+    store_reader.initialize_store(None).await?;
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 

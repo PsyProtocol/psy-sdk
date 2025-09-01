@@ -30,6 +30,8 @@ use qed_data::{
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
 };
 
+use super::InitializeParams;
+
 type F = GoldilocksField;
 #[async_trait]
 impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreWriterAsyncImm<F>
@@ -183,34 +185,42 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, sync_info)
     }
 
-    async fn initialize_store(&self, params: super::InitializeParams<F>) -> anyhow::Result<u64> {
+    async fn initialize_store(&self, params: Option<InitializeParams<F>>) -> anyhow::Result<u64> {
         let latest_l2_block_state_or_err = self.get_latest_l2_block_state().await;
         if let Ok(v) = latest_l2_block_state_or_err {
             Ok(v.checkpoint_id)
         } else {
             let mut genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
-
-            genesis_l2_block_state.next_contract_id = params.next_contract_id;
-            genesis_l2_block_state.next_user_id = params.next_user_id;
-
             let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
-
             let genesis_global_state_roots = self.get_checkpoint_global_state_roots(0).await?;
 
-            if genesis_global_state_roots.contract_tree_root != params.deploy_contracts_root {
-                return Err(anyhow::anyhow!(
-                    "Contract tree root mismatch: expected {:?}, got {:?}",
-                    params.deploy_contracts_root,
-                    genesis_global_state_roots.contract_tree_root
-                ));
-            }
+            if let Some(params) = params {
+                genesis_l2_block_state.next_contract_id = params.next_contract_id;
+                genesis_l2_block_state.next_user_id = params.next_user_id;
 
-            if genesis_global_state_roots.user_tree_root != params.gutas_root {
-                return Err(anyhow::anyhow!(
-                    "User tree root mismatch: expected {:?}, got {:?}",
-                    params.gutas_root,
-                    genesis_global_state_roots.user_tree_root
-                ));
+                if genesis_global_state_roots.contract_tree_root != params.deploy_contracts_root {
+                    return Err(anyhow::anyhow!(
+                        "Contract tree root mismatch: expected {:?}, got {:?}",
+                        params.deploy_contracts_root,
+                        genesis_global_state_roots.contract_tree_root
+                    ));
+                }
+
+                if genesis_global_state_roots.user_tree_root != params.gutas_root {
+                    return Err(anyhow::anyhow!(
+                        "User tree root mismatch: expected {:?}, got {:?}",
+                        params.gutas_root,
+                        genesis_global_state_roots.user_tree_root
+                    ));
+                }
+
+                if genesis_global_state_roots.user_registration_tree_root != params.register_users_root {
+                    return Err(anyhow::anyhow!(
+                        "User registration root mismatch: expected {:?}, got {:?}",
+                        params.register_users_root,
+                        genesis_global_state_roots.user_registration_tree_root
+                    ));
+                }
             }
 
             let genesis_checkpoint_leaf = QEDCheckpointLeaf {

@@ -15,7 +15,7 @@ async fn test_simple_block_processor() -> anyhow::Result<()> {
     t.lap("start");
     let st = Arc::new(KVQSimpleMemoryBackingStore::new());
     use qed_core::data::qhashout::QHashOut;
-    let cur_checkpoint = st.initialize_store(Default::default()).await?;
+    let cur_checkpoint = st.initialize_store(None).await?;
     t.event(format!("current_checkpoint: {}", cur_checkpoint));
 
     let circuit_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();

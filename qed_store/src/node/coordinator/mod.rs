@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::{HashOut, RichField};
 use qed_core::data::qhashout::QHashOut;
 
 #[derive(Debug, Clone)]
@@ -212,7 +212,7 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
 
     async fn set_l2_block_state_imm(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()>;
     async fn set_checkpoint_sync_info_imm(&self, sync_info: QEDCheckpointSyncInfoCompact<F>) -> anyhow::Result<()>;
-    async fn initialize_store(&self, params: InitializeParams<F>) -> anyhow::Result<u64>;
+    async fn initialize_store(&self, params: Option<InitializeParams<F>>) -> anyhow::Result<u64>;
 
     async fn set_user_public_key_records(&self, records: &[QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()>;
 

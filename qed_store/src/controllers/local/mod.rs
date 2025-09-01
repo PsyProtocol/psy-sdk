@@ -28,7 +28,7 @@ pub async fn prepare_environment_with_real_contract(
 
     let store = KVQSimpleMemoryBackingStore::new();
     use qed_core::data::qhashout::QHashOut;
-    store.initialize_store(Default::default()).await?;
+    store.initialize_store(None).await?;
 
     let final_store = SimpleBlockProcessor::prepare_environment_with_real_contract(
         register_users,
