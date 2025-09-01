@@ -31,6 +31,7 @@ members = [
     "qed_compiler/qed-dargo",
     "qed_compiler/qed-dargo-toml",
     "qed_compiler/qed-dargo-cli",
+    "qed_api_services",
 ]
 resolver = "2"
 
