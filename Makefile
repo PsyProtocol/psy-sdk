@@ -18,6 +18,13 @@ build: config_gen_v2
 fmt:
 	@cargo fmt
 
+install:
+	@cargo install --path qed_compiler/qed-dargo-cli
+	@cargo install --path qed_compiler/qed-lsp-server
+	@cargo install --path qed_user_cli
+	@cargo install --path qed_rollup_cli
+	@cargo install --path qed_dev_cli
+
 clean:
 	@rm -r target
 
