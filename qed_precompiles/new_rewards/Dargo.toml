@@ -4,4 +4,3 @@ type = "bin"
 authors = [""]
 
 [dependencies]
-# new_rewards = { path = "../new_rewards" }
