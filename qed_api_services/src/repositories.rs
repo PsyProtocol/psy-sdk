@@ -614,7 +614,7 @@ impl RealmStatsRepository {
             SELECT
                 COUNT(DISTINCT public_key) FILTER (WHERE public_key IS NOT NULL) as active_users_24h
             FROM user_events
-            WHERE updated_at >= $1
+            WHERE timestamp >= $1
             "#,
             twenty_four_hours_ago
         )
