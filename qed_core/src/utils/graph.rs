@@ -27,6 +27,10 @@ impl<T: Eq + Hash + Clone + Debug> BidirectionalGraph<T> {
     }
 
     pub fn add_edge(&mut self, from: T, to: T) {
+        if from == to {
+            self.add_node(from);
+            return;
+        }
         self.edges.entry(from.clone()).or_default().insert(to.clone());
         self.reverse_edges.entry(to).or_default().insert(from);
     }

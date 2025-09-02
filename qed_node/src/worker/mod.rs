@@ -69,7 +69,7 @@ pub async fn run_worker(
                         info!("Successfully submitted proof for job: {:?}", job_id);
                         {
                             let mut tracker = job_tracker.lock().await;
-                            tracker.add_completed_job(job_id, location.clone());
+                            tracker.add_completed_job(job_id.get_output_id(), location.clone());
                             if let Err(e) = tracker.save_to_file(&worker_public_key.to_string()) {
                                 error!("Failed to save job tracker: {:?}", e);
                             }

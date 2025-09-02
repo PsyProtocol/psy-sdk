@@ -4854,6 +4854,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "serde_with",
+ "tracing",
  "ts-rs",
  "uuid 1.18.0",
 ]

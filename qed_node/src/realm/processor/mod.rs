@@ -190,7 +190,6 @@ impl RealmProcessor {
                 }
             }
 
-            info!("Start building block");
             let local_latest_checkpoint_id = self.get_local_latest_l2_block_state().await?;
             let next_checkpoint_id = local_latest_checkpoint_id + 1;
             self.store.commit(local_latest_checkpoint_id)?;
@@ -245,7 +244,7 @@ impl RealmProcessor {
         } else {
             (0, 0)
         };
-        debug!("local_checkpoint_id {}, expected_checkpoint {}",local_checkpoint_id, expected_checkpoint);
+        trace!("local_checkpoint_id {}, expected_checkpoint {}",local_checkpoint_id, expected_checkpoint);
 
         // Wait for the next checkpoint sync info
         let block = self.sync_checkpoint.wait_for_next_item_imm::<CheckpointSyncInfo<F>>(

@@ -968,7 +968,7 @@ impl<
             .cdq_peek_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(self.coordinator_config.deploy_contract_channel_id)
             .await?;
 
-        debug!("Checking deploy contracts queue: {} items", deploy_items.len());
+        trace!("Checking deploy contracts queue: {} items", deploy_items.len());
         if !deploy_items.is_empty() {
             info!(
                 "Found {} pending deploy contract tasks for checkpoint {}",
@@ -983,7 +983,7 @@ impl<
             .cdq_peek_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID)
             .await?;
 
-        debug!("Checking user registration queue: {} items", user_reg_items.len());
+        trace!("Checking user registration queue: {} items", user_reg_items.len());
         if !user_reg_items.is_empty() {
             info!(
                 "Found {} pending user registration tasks for checkpoint {}",
@@ -998,7 +998,7 @@ impl<
             .cdq_peek_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(self.coordinator_config.guta_channel_id)
             .await?;
 
-        debug!("Checking GUTA queue: {} items", guta_items.len());
+        trace!("Checking GUTA queue: {} items", guta_items.len());
         if !guta_items.is_empty() {
             info!("Found {} pending GUTA tasks for checkpoint {}", guta_items.len(), checkpoint_id);
             return Ok(true);

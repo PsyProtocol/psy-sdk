@@ -38,6 +38,7 @@ use qed_store::queue::rsmq_queue::CEQueueNotification;
 use qed_core::config::network_constants::COORDINATOR_TO_REALM_CHANNEL;
 use qed_store::store::QEDStore;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use tracing::trace;
 use std::time::Duration;
 
 use qed_store::store::journal::{Journal, JournalStore};
@@ -168,7 +169,7 @@ impl<
     pub async fn wait_for_make_block(&mut self) -> bool {
         match self.wait_for_produce_block().await {
             Ok(true) => {
-                info!("✅ Successfully wait for produce block");
+                trace!("✅ Successfully wait for produce block");
                 true
             }
             Ok(false) => {
@@ -496,7 +497,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 }
             }
             slot = slot_timer.wait_for_next_slot() => {
-                info!("✅ Successfully wait for next slot: {}", slot);
+                trace!("✅ Successfully wait for next slot: {}", slot);
             }
         }
 

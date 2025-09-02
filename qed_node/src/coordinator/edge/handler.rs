@@ -257,9 +257,9 @@ impl CoordinatorEdgeHandler {
 
         // write to proof store
         proof_store.set_proof_by_id(proof_id, &proof).await?;
-        info!("✅ wrote guta result to proof store");
+        trace!("✅ wrote guta result to proof store");
         checkpoint_queue.cdq_push_imm(queue_item.clone()).await?;
-        info!("✅ wrote guta result to proof store end");
+        trace!("✅ wrote guta result to proof store end");
         let metadata = queue_item.get_dq_metadata();
         let items: Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> =
             checkpoint_queue.cdq_peek_imm(metadata.channel_id).await?;

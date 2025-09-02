@@ -401,7 +401,7 @@ impl<
                 let n_guta = w.input.get_new_guta_header::<QEDHasher>();
                 tracing::debug!(n_guta = %serde_json::to_string_pretty(&n_guta).unwrap(), n_guta_hash = %n_guta.qfhash::<QEDHasher>(), "New GUTA state");
 
-                guta_graph.add_edge(w_id.get_output_id(), n_jobs.last().unwrap().last().unwrap().get_output_id());
+                guta_graph.add_edge(w_id.get_output_id(), w.dependencies[0]);
 
                 return Ok((
                     n_jobs,
@@ -450,7 +450,7 @@ impl<
             0,
         );
 
-        guta_graph.add_edge(ww_id.get_output_id(), jobs.last().as_ref().unwrap().last().unwrap().get_output_id());
+        guta_graph.add_edge(ww_id.get_output_id(), ww.dependencies[0]);
 
         self.proof_store
             .set_bytes_by_id(
