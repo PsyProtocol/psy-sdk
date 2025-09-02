@@ -178,9 +178,7 @@ impl RealmProcessor {
                 warn!("Error validating slot: {:?}", err);
                 continue
             }
-
-            // let slot = self.slot_timer.get_current_slot();
-            // TODO remove the code?
+            // TODO remove the code
             // if let SlotPhase::BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
             //     let current_timestamp = self.slot_timer.get_current_timestamp();
             //     if current_timestamp < build_phase_start {
@@ -357,9 +355,9 @@ impl RealmProcessor {
             bail!("Not in current slot, slot: {}, remote latest slot: {}", slot, self.remote_latest_slot)
         }
 
-        if !self.slot_timer.is_can_reach_to_next_slot() {
-            bail!("Not reach to next slot")
-        }
+        // if !self.slot_timer.is_can_reach_to_next_slot() {
+        //     bail!("Not reach to next slot")
+        // }
         Ok(())
     }
 
