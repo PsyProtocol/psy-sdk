@@ -828,7 +828,7 @@ impl<
             ],
         };
 
-        tracing::debug!(part_1_input = ?part_1_input, "Part 1 input for AggUserRegisterDeployContractsGUTA");
+        tracing::debug!(part_1_input = %serde_json::to_string_pretty(&part_1_input).unwrap(), "Part 1 input for AggUserRegisterDeployContractsGUTA");
         self.proof_store
             .set_bytes_by_id(
                 state_part_1_id.get_input_witness_id(),
@@ -952,7 +952,7 @@ impl<
             slot,
         };
 
-        tracing::debug!(l2_sync = ?l2_sync, "Checkpoint sync info");
+        tracing::debug!(l2_sync = %serde_json::to_string_pretty(&l2_sync).unwrap(), "Checkpoint sync info");
         self.store.set_checkpoint_sync_info_imm(l2_sync.clone()).await?;
 
         info!("✅ Successfully built block for checkpoint {}", new_checkpoint_id);

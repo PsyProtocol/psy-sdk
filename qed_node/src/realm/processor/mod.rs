@@ -26,7 +26,7 @@ use tokio::time::Instant;
 use anyhow::{anyhow, bail};
 use futures::future::{err, ok};
 use tower_http::follow_redirect::policy::PolicyExt;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 use qed_store::queue::new_redis_async_pool;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
@@ -197,7 +197,7 @@ impl RealmProcessor {
             context.commit_offset().await?;
             let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
             if !has_tasks {
-                warn!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
+                trace!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
                 continue;
             }
             let proving_data_job_id: ProvingJobDataId = match self.build_block(next_checkpoint_id, &mut context, &realm_qps).await {
