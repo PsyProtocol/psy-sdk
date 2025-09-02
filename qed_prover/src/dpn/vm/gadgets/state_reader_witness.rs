@@ -385,7 +385,6 @@ impl StateReaderGadget {
                 )?;
             }
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => {
-
                 let user_target_id = c.user_id;
                 let contract_target_id = c.contract_id;
 
@@ -420,8 +419,6 @@ impl StateReaderGadget {
                 )?;
 
                 for (i , mp) in read_witness.state_slot_proofs.iter().enumerate() {
-
-
                     let cst_ck = StateCommandCacheKey::new_read_other_user_contract_range(
                         user_target_id,
                         contract_target_id,
@@ -429,7 +426,6 @@ impl StateReaderGadget {
                         c.length,
                         i as u64,
                     );
-
 
                     self.set_witness_for_key_mp(
                         witness,
@@ -474,7 +470,7 @@ impl StateReaderGadget {
             DPNStateCmd::ClearEntireTree(c) => {
                 let clear_tree_witness = cmd_witness.witness.get_clear_entire_tree_ref();
 
-                if let Some(reader_ref_key) = self.gadget_map.get(&StateCommandCacheKey::new_clear_entire_tree_with_condition(c.condition)) {
+                if let Some(reader_ref_key) = self.gadget_map.get(&StateCommandCacheKey::new_clear_entire_tree_with_condition(c.condition, self.write_epoch)) {
                     match reader_ref_key.gadget_type {
                         StateReaderReferenceKeyType::ClearEntireTree => {
                             let index = reader_ref_key.gadget_index;
@@ -487,6 +483,8 @@ impl StateReaderGadget {
                         v => anyhow::bail!("ClearEntireTree expects ClearEntireTree reference key type, but got {:?}", v)
                     }
                 }
+
+                wb_state.inc_write_epoch();
             },
         };
         Ok(())

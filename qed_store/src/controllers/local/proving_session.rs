@@ -927,6 +927,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
     }
 
     pub fn notify_clear_entire_tree(&mut self, contract_id: u64, zero_hash: QHashOut<GF>) -> anyhow::Result<()> {
+        self.state_tree_store.clear();
         self.local_state_tracker.notify_clear_entire_tree(contract_id, zero_hash);
         Ok(())
     }

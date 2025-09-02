@@ -12,10 +12,10 @@ use qed_crypto::hash::{
     traits::{qhashable::QFieldHashable, hasher::MerkleZeroHasher},
     utils::safe_hash_fixed_length,
 };
-use qed_data::dpn::{
+use qed_data::{dpn::{
     cfc_context_input::{DapenCFCUserTransactionEndContext, DapenCFCUserTransactionInputContext},
     proving_session::DPNProvingSessionSimpleMethodCall,
-};
+}, qstore::imm::cmd_processor::DPNClearEntireTreeWitness};
 use qed_data::{
     config::store_config::QEDHasher,
     qstore::imm::{
@@ -1110,8 +1110,8 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                     })
                     .await?;
 
-                let state_tree_height = contract_leaf.state_tree_height.to_canonical_u64() as usize;
-                let zero_hash = QEDHasher::get_zero_hash(state_tree_height);
+                let state_tree_height = contract_leaf.state_tree_height.to_canonical_u64();
+                let zero_hash = QEDHasher::get_zero_hash(state_tree_height as usize);
 
                 self.notify_clear_entire_tree(current_contract_id.to_canonical_u64(), zero_hash)?;
 
@@ -1124,7 +1124,7 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                 Ok(QEDCmdWithInputAndWitness {
                     state_cmd: state_cmd.clone(),
                     result: zero_hash_felts,
-                    witness: DPNStateCmdWitness::TargetArray(witness_data),
+                    witness: DPNStateCmdWitness::ClearEntireTree(DPNClearEntireTreeWitness { state_tree_height, zero_hash }),
                 })
             }
         }

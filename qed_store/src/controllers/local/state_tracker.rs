@@ -134,7 +134,7 @@ impl<F: RichField> QEDContractStateTracker<F> {
     pub fn notify_clear_entire_tree(&mut self, zero_hash: QHashOut<F>) {
         self.slots.clear();
         self.end_state_root = zero_hash;
-        self.total_slots_modified = 1;
+        self.total_slots_modified = 0;
     }
 
     pub fn to_result(&self) -> QEDStateTrackerContractResult<F> {

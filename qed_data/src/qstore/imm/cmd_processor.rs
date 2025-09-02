@@ -122,7 +122,7 @@ pub struct DPNCheckpointLeafStatsWitness<F: RichField> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNClearEntireTreeWitness<F: RichField> {
-    pub state_tree_height: u32,
+    pub state_tree_height: u64,
     pub zero_hash: QHashOut<F>,
 }
 

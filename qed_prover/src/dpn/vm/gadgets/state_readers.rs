@@ -19,7 +19,7 @@ use qed_common_circuit::{
     },
     traits::{CreatableTarget, ToTargets},
 };
-use qed_core::{config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::base_types::hash256::Hash256};
+use qed_core::{config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::{base_types::hash256::Hash256, qhashout::QHashOut}};
 use qed_crypto::hash::core::sha256;
 use qed_rollup_circuit::gadgets::qdata::{
     checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget,
@@ -50,10 +50,10 @@ impl ClearEntireTreeGadget {
     pub fn set_witness<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
-        state_tree_height: u32,
-        zero_hash: qed_core::data::qhashout::QHashOut<F>,
+        state_tree_height: u64,
+        zero_hash: QHashOut<F>,
     ) -> anyhow::Result<()> {
-        witness.set_target(self.state_tree_height, F::from_canonical_u32(state_tree_height));
+        witness.set_target(self.state_tree_height, F::from_canonical_u64(state_tree_height));
         witness.set_hash_target(self.zero_hash, zero_hash.into());
         Ok(())
     }
@@ -323,6 +323,7 @@ pub struct CKGetCheckpointStats {
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct CKClearEntireTree {
     pub condition: u64,
+    pub write_epoch: u32,
 }
 impl StateCommandCacheKey {
     pub fn new_read_current_contract_slot(slot_target_id: u64, write_epoch: u32) -> Self {
@@ -489,8 +490,8 @@ impl StateCommandCacheKey {
             checkpoint_id,
         })
     }
-    pub fn new_clear_entire_tree_with_condition(condition: u64) -> Self {
-        Self::ClearEntireTree(CKClearEntireTree { condition })
+    pub fn new_clear_entire_tree_with_condition(condition: u64, write_epoch: u32) -> Self {
+        Self::ClearEntireTree(CKClearEntireTree { condition, write_epoch })
     }
 }
 
@@ -735,7 +736,6 @@ impl StateReaderGadget {
             self.write_epoch,
         );
         let uct_root = self.user_contract_tree_state_root;
-        //let call_epoch = self.contract_call_epoch;
         let expected_contract_state_tree_root = {
             let (is_new_uct, mp_uct) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(
                 builder,
@@ -1555,9 +1555,9 @@ impl StateReaderGadget {
                 }
             },
             DPNStateCmd::ClearEntireTree(c) => {
-                let ck = StateCommandCacheKey::new_clear_entire_tree_with_condition(c.condition);
+                let ck = StateCommandCacheKey::new_clear_entire_tree_with_condition(c.condition, self.write_epoch);
 
-                if let Some(existing_result) = self.result_map.get(&ck) {
+                let result = if let Some(existing_result) = self.result_map.get(&ck) {
                     existing_result.clone()
                 } else {
                     let condition = dpn.resolve_bool(builder, c.condition);
@@ -1581,7 +1581,10 @@ impl StateReaderGadget {
                     let result = result_hash.elements.to_vec();
                     self.result_map.insert(ck, result.clone());
                     result
-                }
+                };
+
+                self.write_epoch += 1;
+                result
             },
         };
         value
