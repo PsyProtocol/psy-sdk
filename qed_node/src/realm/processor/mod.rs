@@ -144,25 +144,28 @@ impl RealmProcessor {
         let mut pending_checkpoint_id = None;
         loop {
             tokio::select! {
+                biased;
                 checkpoint_sync_result = self.ensure_checkpoint_sync() => {
                     match checkpoint_sync_result {
                         Ok(ret) => {
                             info!("Checkpoint sync completed wait after");
-                            if let Some(pending_checkpoint_id) = pending_checkpoint_id {
+                            if let Some(pending_checkpoint) = pending_checkpoint_id {
                                 let realm_root = context.store.get_user_sub_tree_merkle_proof(
-                                    pending_checkpoint_id,
+                                    pending_checkpoint,
                                     0,
                                     COORDINATOR_USER_TREE_HEIGHT,
                                     self.realm_config.realm_id as u64,
                                 ).await?;
                                 info!("pending checkpoint id: {}, latest checkpoint id: {}, realm_root: {}, expected realm_root: {}",
-                                    pending_checkpoint_id, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
+                                    pending_checkpoint, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
 
-                                if ret.latest_checkpoint_id >= pending_checkpoint_id && realm_root.value == ret.realm_root {
-                                    context.commit(pending_checkpoint_id).await?;
+                                if ret.latest_checkpoint_id >= pending_checkpoint && realm_root.value == ret.realm_root {
+                                    context.commit(pending_checkpoint).await?;
+                                    pending_checkpoint_id = None;
                                 } else {
-                                    if ret.latest_checkpoint_id > pending_checkpoint_id + 1 || ret.latest_checkpoint_id < pending_checkpoint_id - 1 {
-                                        context.rollback(pending_checkpoint_id).await?;
+                                    if ret.latest_checkpoint_id > pending_checkpoint + 1 || ret.latest_checkpoint_id < pending_checkpoint - 1 {
+                                        warn!("Invalid checkpoint sync result, rollback");
+                                        context.rollback(pending_checkpoint).await?;
                                     } else {
                                         continue
                                     }
@@ -176,13 +179,17 @@ impl RealmProcessor {
                 },
                 slot = slot_timer.wait_for_next_slot() => {
                     info!("Next slot: {}", slot);
+                    if let Some(pending_checkpoint) = pending_checkpoint_id {
+                        warn!("Pending checkpoint id: {}, continue", pending_checkpoint);
+                        continue
+                    }
                     if let Err(err) = self.validate_slot() {
                         warn!("Error validating slot: {:?}", err);
                         continue
                     }
 
                     if !self.is_synced.load(atomic::Ordering::Relaxed) {
-                        info!("Is syncing, continue");
+                        warn!("Is syncing, continue");
                         continue;
                     }
                     // TODO remove the code
