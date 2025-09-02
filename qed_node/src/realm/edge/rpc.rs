@@ -273,8 +273,8 @@ pub trait RealmEdgeRpc {
         .await
     }
 
-    #[method(name = "generate_batch_proofs")]
-    async fn generate_batch_proofs(
+    #[method(name = "generate_batch_variable_height_reward_proofs")]
+    async fn generate_batch_variable_height_reward_proofs(
         &self,
         checkpoint_id: u64,
         job_ids: Vec<QProvingJobDataID>,

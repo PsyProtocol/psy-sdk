@@ -1,73 +1,193 @@
+use std::{collections::HashMap, str::FromStr};
+
 use anyhow::Result;
-use jsonrpsee::core::client::ClientT;
-use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
-use jsonrpsee::rpc_params;
-use qed_core::job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof};
+use kvq::traits::KVQSerializable;
+use plonky2::{
+    field::{goldilocks_field::GoldilocksField, types::Field},
+    hash::hash_types::HashOut,
+    plonk::config::PoseidonGoldilocksConfig,
+};
+use qed_core::{
+    data::{base_types::hash256::Hash256, qhashout::QHashOut},
+    job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE},
+};
+use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+use qed_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
+use qed_node::worker::job_tracker::{JobInfo, JobLocation, WorkerJobTracker};
+use qed_prover::local::provider::{RpcConfig, RpcProvider};
 use serde_json::json;
+use tracing::info;
 
 use crate::subcommand::GetJobProofArgs;
 
+type F = GoldilocksField;
+type C = PoseidonGoldilocksConfig;
+const D: usize = 2;
+
 pub async fn run(args: GetJobProofArgs) -> Result<()> {
-    let job_id = parse_job_id(&args.job_id)?;
+    info!("Starting get job proof with checkpoint_id: {}", args.checkpoint_id);
 
-    println!("Fetching job proof for:");
-    println!("  Checkpoint ID: {}", args.checkpoint_id);
-    println!("  Job ID: {:?}", job_id);
-    println!("  Coordinator URL: {}", args.coordinator_url);
+    let config_str = std::fs::read_to_string(&args.rpc_config)?;
+    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let private_key = QHashOut::from(Hash256::from_hex_string(&args.private_key)?);
 
-    let proof = generate_batch_proof(&args.coordinator_url, args.checkpoint_id, job_id).await?;
+    let provider = RpcProvider::new_with_config(&rpc_config)?;
 
-    println!("\n=== Variable Height Reward Merkle Proof ===");
-    println!("Left Branch: {:?}", proof.left_branch);
-    println!("Right Branch: {:?}", proof.right_branch);
-    println!("Reward Leaf: {:?}", proof.reward_leaf);
-    println!("Proof Height: {:?}", proof.proof_height);
-    println!("Index: {:?}", proof.index);
-    println!("Number of top siblings: {}", proof.top_siblings.len());
+    let user_pk_hash = private_key;
 
-    for (idx, sibling) in proof.top_siblings.iter().enumerate() {
-        println!("  Top Sibling[{}]:", idx);
-        println!("    Branch: {:?}", sibling.sibling_branch);
-        println!("    Reward Leaf: {:?}", sibling.sibling_reward_leaf);
+    let job_infos = if let Some(job_id_hex) = &args.job_id {
+        let job_id = parse_job_id_from_hex(job_id_hex)?;
+        vec![JobInfo {
+            job_id,
+            location: JobLocation::Coordinator,
+        }]
+    } else {
+        load_jobs_from_tracker_file(&user_pk_hash, args.checkpoint_id)?
+    };
+
+    info!("Processing {} jobs for checkpoint {}", job_infos.len(), args.checkpoint_id);
+
+    let mut proofs = Vec::new();
+
+    for job_info in &job_infos {
+        info!("Processing job: {:?}", job_info.job_id);
+
+        match get_job_proof(&provider, &job_info, args.checkpoint_id) {
+            Ok(job_proof) => {
+                info!("Successfully got proof for job: {}", job_info.job_id.to_hex_string());
+
+                let (verified, root, nullifier_index) = match verify_proof(&job_proof) {
+                    Ok((root, nullifier_index)) => (true, Some(root), Some(nullifier_index)),
+                    Err(_) => (false, None, None),
+                };
+
+                proofs.push((job_info.clone(), job_proof, verified, root, nullifier_index));
+            }
+            Err(e) => {
+                info!("Skipping job due to error: {:?} - {}", job_info.job_id, e);
+                continue;
+            }
+        }
     }
 
-    println!("\n=== JSON Output ===");
-    let json_output = serde_json::to_string_pretty(&proof)?;
-    println!("{}", json_output);
+    if proofs.is_empty() {
+        return Err(anyhow::format_err!("No valid proofs found"));
+    }
+
+    info!("Successfully processed {} proofs for checkpoint {}", proofs.len(), args.checkpoint_id);
+
+    let json_data: Result<Vec<_>> = proofs
+        .iter()
+        .map(|(info, proof, verified, root, nullifier_index)| {
+            let mut json_obj = serde_json::json!({
+                "job_id": info.job_id.to_hex_string(),
+                "circuit_type": format!("{:?}", info.job_id.circuit_type),
+                "location": format!("{:?}", info.location),
+                "verified": verified,
+                "proof": proof
+            });
+
+            if let Some(root) = root {
+                json_obj["root"] = serde_json::json!(format!("{}", root));
+            }
+
+            if let Some(nullifier_index) = nullifier_index {
+                json_obj["nullifier_index"] = serde_json::json!(nullifier_index.0);
+            }
+
+            Ok(json_obj)
+        })
+        .collect();
+
+    let json_data = json_data?;
+    let output = serde_json::to_string_pretty(&json_data)?;
+    println!("{}", output);
 
     Ok(())
 }
 
-fn parse_job_id(hex_str: &str) -> Result<QProvingJobDataID> {
+fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64) -> Result<qed_core::job::id::VariableHeightRewardMerkleProof> {
+    let job_proof = match &job_info.location {
+        JobLocation::Realm(realm_id) => {
+            let (realm_proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id())?;
+            info!("DEBUG: Got realm {} proof: {:?}", realm_id, realm_proof);
+
+            match provider.get_job_proof_from_coordinator(checkpoint_id, root_job_id.get_output_id()) {
+                Ok((coordinator_proof, _)) => {
+                    info!("DEBUG: Got coordinator proof, combining");
+                    realm_proof.combine_with(coordinator_proof)
+                }
+                Err(e) => {
+                    info!("DEBUG: Failed to get coordinator proof: {}, using realm proof only", e);
+                    realm_proof
+                }
+            }
+        }
+        JobLocation::Coordinator => {
+            let (proof, _) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id())?;
+            info!("DEBUG: Got coordinator proof: {:?}", proof);
+            proof
+        }
+    };
+
+    Ok(job_proof)
+}
+
+fn verify_proof(proof: &VariableHeightRewardMerkleProof) -> Result<(QHashOut<F>, F)> {
+    let (root, nullifier_index) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+    Ok((root, nullifier_index))
+}
+
+fn load_jobs_from_tracker_file(public_key: &QHashOut<F>, target_checkpoint_id: u64) -> Result<Vec<JobInfo>> {
+    let filename = format!("{}.json", public_key.to_string());
+
+    if !std::path::Path::new(&filename).exists() {
+        info!("No job tracker file found: {}", filename);
+        return Ok(Vec::new());
+    }
+
+    let content = std::fs::read_to_string(&filename)?;
+    let tracker: WorkerJobTracker = serde_json::from_str(&content)?;
+
+    let mut job_infos = Vec::new();
+
+    if let Some(coordinator_jobs) = tracker.coordinator.get(&target_checkpoint_id) {
+        for job_hex in coordinator_jobs {
+            let job_id = parse_job_id_from_hex(job_hex)?;
+            job_infos.push(JobInfo {
+                job_id,
+                location: JobLocation::Coordinator,
+            });
+        }
+    }
+
+    for realm in &tracker.realms {
+        if let Some(realm_jobs) = realm.checkpoints.get(&target_checkpoint_id) {
+            for job_hex in realm_jobs {
+                let job_id = parse_job_id_from_hex(job_hex)?;
+                job_infos.push(JobInfo {
+                    job_id,
+                    location: JobLocation::Realm(realm.id as u64),
+                });
+            }
+        }
+    }
+
+    info!(
+        "Loaded {} jobs from tracker file {} for checkpoint {}",
+        job_infos.len(),
+        filename,
+        target_checkpoint_id
+    );
+    Ok(job_infos)
+}
+
+fn parse_job_id_from_hex(hex_str: &str) -> Result<QProvingJobDataID> {
     let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
-
     let bytes = hex::decode(hex_str)?;
-
     if bytes.len() != 24 {
         anyhow::bail!("Invalid job ID length: expected 24 bytes, got {}", bytes.len());
     }
-
-    let job_id = QProvingJobDataID::try_from_byte_vec(&bytes)?;
-    Ok(job_id)
-}
-
-async fn generate_batch_proof(
-    coordinator_url: &str,
-    checkpoint_id: u64,
-    job_id: QProvingJobDataID,
-) -> Result<VariableHeightRewardMerkleProof> {
-    let client = HttpClientBuilder::default()
-        .build(coordinator_url)?;
-
-    let output_job_id = job_id.get_output_id();
-    let job_ids = vec![output_job_id];
-    let proofs: Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)> = client
-        .request("generate_batch_variable_height_reward_proofs", rpc_params![checkpoint_id, job_ids])
-        .await?;
-
-    if proofs.is_empty() {
-        anyhow::bail!("No proof returned for job ID {:?}", job_id);
-    }
-
-    Ok(proofs.into_iter().next().unwrap().0)
+    QProvingJobDataID::try_from_byte_vec(&bytes)
 }

@@ -240,8 +240,8 @@ pub trait CoordinatorEdgeRpc {
     #[method(name = "get_checkpoint_tree_merkle_proof_f")]
     async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
-    #[method(name = "generate_batch_proofs")]
-    async fn generate_batch_proofs(&self, checkpoint_id: u64, job_ids: Vec<QProvingJobDataID>) -> RpcResult<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>>;
+    #[method(name = "generate_batch_variable_height_reward_proofs")]
+    async fn generate_batch_variable_height_reward_proofs(&self, checkpoint_id: u64, job_ids: Vec<QProvingJobDataID>) -> RpcResult<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>>;
 
     #[method(name = "get_graphviz")]
     async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String>;

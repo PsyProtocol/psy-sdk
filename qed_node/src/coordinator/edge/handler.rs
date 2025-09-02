@@ -1495,7 +1495,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .map_err(RpcError::Anyhow)
     }
 
-    async fn generate_batch_proofs(
+    async fn generate_batch_variable_height_reward_proofs(
         &self,
         checkpoint_id: u64,
         job_ids: Vec<QProvingJobDataID>,
@@ -1625,7 +1625,8 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
                     if computed_root != expected_root {
                         tracing::warn!(
-                            "Root mismatch for job {:?}: expected {:?}, got {:?}",
+                            "Root mismatch for job({}) {:?}: expected {}, got {}",
+                            job_id.to_hex_string(),
                             job_id,
                             expected_root,
                             computed_root

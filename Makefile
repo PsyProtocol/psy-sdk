@@ -6,7 +6,7 @@ LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_c
 default: build wallet-build
 
 check:
-	@cargo check --workspace --all-targets --tests --benches --examples
+	@cargo check --workspace --all-targets --tests --benches --examples --bins
 
 fix:
 	# @cargo machete --fix
@@ -396,8 +396,10 @@ return-back:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
 claim-rewards:
-	@echo "Claiming rewards for checkpoint ${CHECKPOINT_ID}..."
 	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --contract-id 2 --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type $(SIGN_TYPE)
+
+get-job-proof:
+	@RUST_LOG=info ./target/${PROFILE}/qed_dev_cli get-job-proof --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY}
 
 # Unified RPC commands using qed_user_cli automatic routing
 balance-of:

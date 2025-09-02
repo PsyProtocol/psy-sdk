@@ -23,35 +23,11 @@ use serde_json::json;
 use tracing::info;
 
 use super::args::ClaimRewardsArgs;
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct RealmJobData {
-    id: u32,
-    checkpoints: HashMap<u64, Vec<String>>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct WorkerJobTracker {
-    coordinator: HashMap<u64, Vec<String>>,
-    realms: Vec<RealmJobData>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-enum JobLocation {
-    Realm(u64),
-    Coordinator,
-}
+use qed_node::worker::job_tracker::{JobInfo, JobLocation, WorkerJobTracker};
 
 type F = GoldilocksField;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
-
-#[derive(Debug, Clone)]
-struct JobInfo {
-    job_id: QProvingJobDataID,
-    location: JobLocation,
-}
-
 
 pub fn run(args: ClaimRewardsArgs) -> Result<()> {
     info!(
@@ -191,7 +167,7 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     let mut contract_call_args = Vec::new();
     for (i, proof) in proofs.iter().enumerate() {
-        info!("Preparing GUTA reward {}/{}: height={}, index={}", 
+        info!("Preparing GUTA reward {}/{}: height={}, index={}",
               i + 1, proofs.len(), proof.proof_height.0, proof.index.0);
 
         let inputs = vec![

@@ -241,14 +241,20 @@ pub struct GetJobProofArgs {
     #[arg(long, help = "Checkpoint ID")]
     pub checkpoint_id: u64,
 
-    #[arg(long, help = "Job ID in hex format")]
-    pub job_id: String,
+    #[arg(long, help = "Private key (hex string)")]
+    pub private_key: String,
 
-    #[arg(long, default_value = "http://localhost:5551", help = "Coordinator edge RPC URL")]
-    pub coordinator_url: String,
+    #[arg(long, help = "RPC config file path", default_value = "config.json")]
+    pub rpc_config: String,
 
-    #[arg(long, help = "Realm edge RPC URL (optional, will be determined from job ID if not provided)")]
-    pub realm_url: Option<String>,
+    #[arg(long, help = "Job ID in hex format (optional, if not provided will get all jobs for checkpoint)")]
+    pub job_id: Option<String>,
+
+    #[arg(long, help = "Sign type", default_value = "zk")]
+    pub sign_type: qed_prover::local::args::SignType,
+
+    #[arg(long, help = "Enable verbose output showing all sibling details")]
+    pub verbose: bool,
 }
 
 #[derive(Parser)]

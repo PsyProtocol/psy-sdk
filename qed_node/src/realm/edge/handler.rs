@@ -622,7 +622,7 @@ where
     }
 
 
-    async fn generate_batch_proofs(
+    async fn generate_batch_variable_height_reward_proofs(
         &self,
         checkpoint_id: u64,
         job_ids: Vec<QProvingJobDataID>,
@@ -687,7 +687,6 @@ where
                 }
             };
 
-            // Determine max height based on job type
             let max_height = match job_id.circuit_type {
                 ProvingJobCircuitType::AppendUserRegistrationTree
                 | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
@@ -729,7 +728,8 @@ where
 
                     if computed_root != expected_root {
                         tracing::warn!(
-                            "Root mismatch for job {:?}: expected {:?}, got {:?}",
+                            "Root mismatch for job({}) {:?}: expected {}, got {}",
+                            job_id.to_hex_string(),
                             job_id, expected_root, computed_root
                         );
                     }
