@@ -15,6 +15,7 @@ use qed_store::queue::QPendingUserStoreAsyncImm;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use qed_store::store::QEDStore;
 use std::sync::{atomic, Arc};
+use std::sync::atomic::AtomicBool;
 use std::thread::sleep;
 use std::time::Duration;
 use tokio::task::JoinHandle;
@@ -53,6 +54,7 @@ pub struct RealmProcessor {
     pub task_store: Arc<QProvingTaskStoreImpl>,
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: u64,
+    pub is_synced: AtomicBool,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
@@ -91,6 +93,7 @@ impl RealmProcessor {
             task_store: Arc::new(task_store),
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: 0,
+            is_synced: AtomicBool::new(false),
         };
         Ok(processor)
     }
@@ -140,88 +143,94 @@ impl RealmProcessor {
         let mut context = self.context().await?;
         let mut pending_checkpoint_id = None;
         loop {
-            match self.ensure_checkpoint_sync().await {
-                Ok(ret) => info!("Checkpoint sync completed wait before"),
-                _ => continue,
-            }
-            // let mut is_syncing = atomic::AtomicBool::new(false);
-            let slot = slot_timer.wait_for_next_slot().await;
-            info!("Next slot: {}", slot);
-            match self.ensure_checkpoint_sync().await {
-                Ok(ret) => {
-                    info!("Checkpoint sync completed wait after");
-                    if let Some(pending_checkpoint_id) = pending_checkpoint_id {
-                        let realm_root = context.store.get_user_sub_tree_merkle_proof(
-                            pending_checkpoint_id,
-                            0,
-                            COORDINATOR_USER_TREE_HEIGHT,
-                            self.realm_config.realm_id as u64,
-                        ).await?;
-                        info!("pending checkpoint id: {}, latest checkpoint id: {}, realm_root: {}, expected realm_root: {}", 
-                            pending_checkpoint_id, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
-                        
-                        if ret.latest_checkpoint_id >= pending_checkpoint_id && realm_root.value == ret.realm_root {
-                            context.commit(pending_checkpoint_id).await?;
-                        } else {
-                            if ret.latest_checkpoint_id > pending_checkpoint_id + 1 && ret.latest_checkpoint_id < pending_checkpoint_id - 1 {
-                                context.rollback(pending_checkpoint_id).await?;
-                            } else {
-                                continue
+            tokio::select! {
+                checkpoint_sync_result = self.ensure_checkpoint_sync() => {
+                    match checkpoint_sync_result {
+                        Ok(ret) => {
+                            info!("Checkpoint sync completed wait after");
+                            if let Some(pending_checkpoint_id) = pending_checkpoint_id {
+                                let realm_root = context.store.get_user_sub_tree_merkle_proof(
+                                    pending_checkpoint_id,
+                                    0,
+                                    COORDINATOR_USER_TREE_HEIGHT,
+                                    self.realm_config.realm_id as u64,
+                                ).await?;
+                                info!("pending checkpoint id: {}, latest checkpoint id: {}, realm_root: {}, expected realm_root: {}",
+                                    pending_checkpoint_id, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
+
+                                if ret.latest_checkpoint_id >= pending_checkpoint_id && realm_root.value == ret.realm_root {
+                                    context.commit(pending_checkpoint_id).await?;
+                                } else {
+                                    if ret.latest_checkpoint_id > pending_checkpoint_id + 1 || ret.latest_checkpoint_id < pending_checkpoint_id - 1 {
+                                        context.rollback(pending_checkpoint_id).await?;
+                                    } else {
+                                        continue
+                                    }
+                                }
                             }
+                        },
+                        Err(err) => {
+                            error!("Checkpoint sync failed: {:?}", err);
                         }
                     }
                 },
-               _ => continue,
-            }
+                slot = slot_timer.wait_for_next_slot() => {
+                    info!("Next slot: {}", slot);
+                    if let Err(err) = self.validate_slot() {
+                        warn!("Error validating slot: {:?}", err);
+                        continue
+                    }
 
-            if let Err(err) = self.validate_slot() {
-                warn!("Error validating slot: {:?}", err);
-                continue
-            }
-            // TODO remove the code
-            // if let SlotPhase::BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
-            //     let current_timestamp = self.slot_timer.get_current_timestamp();
-            //     if current_timestamp < build_phase_start {
-            //         let tt = build_phase_start - current_timestamp;
-            //         info!("Waiting for build phase to start: sleep {} ms, slot: {}", tt, slot);
-            //         tokio::time::sleep(Duration::from_millis(tt)).await;
-            //     }
-            // }
+                    if !self.is_synced.load(atomic::Ordering::Relaxed) {
+                        info!("Is syncing, continue");
+                        continue;
+                    }
+                    // TODO remove the code
+                    // if let SlotPhase::BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
+                    //     let current_timestamp = self.slot_timer.get_current_timestamp();
+                    //     if current_timestamp < build_phase_start {
+                    //         let tt = build_phase_start - current_timestamp;
+                    //         info!("Waiting for build phase to start: sleep {} ms, slot: {}", tt, slot);
+                    //         tokio::time::sleep(Duration::from_millis(tt)).await;
+                    //     }
+                    // }
 
-            info!("Start building block");
-            // Build block based on slot timing
-            pending_checkpoint_id = None;
-            let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
-            let next_checkpoint_id = local_latest_checkpoint_id + 1;
-            let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
-            if !has_tasks {
-                warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
-                continue;
-            }
-            // TODO async
-            let proving_data_job_id: ProvingJobDataId = match self.build_block(next_checkpoint_id, &mut context).await {
-                Ok(job_id) => job_id,
-                Err(err) => {
-                    error!("Error building block: {:?}, slot: {}", err, slot);
-                    continue;
+                    info!("Start building block");
+                    // Build block based on slot timing
+                    pending_checkpoint_id = None;
+                    let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
+                    let next_checkpoint_id = local_latest_checkpoint_id + 1;
+                    let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
+                    if !has_tasks {
+                        warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
+                        continue;
+                    }
+                    // TODO async
+                    let proving_data_job_id: ProvingJobDataId = match self.build_block(next_checkpoint_id, &mut context).await {
+                        Ok(job_id) => job_id,
+                        Err(err) => {
+                            error!("Error building block: {:?}, slot: {}", err, slot);
+                            continue;
+                        }
+                    };
+
+                    // if next_checkpoint_id <= self.get_local_latest_checkpoint_id().await? {
+                    //     warn!("Local latest checkpoint id is greater than pending checkpoint id, skipping block construction");
+                    //     context.rollback(next_checkpoint_id).await?;
+                    //     continue
+                    // }
+
+                    // if !self.slot_timer.is_can_reach_to_next_slot() {
+                    //     warn!("Is not reach to next slot, skipping block construction");
+                    //     context.rollback(next_checkpoint_id).await?;
+                    //     continue;
+                    // }
+                    info!("Pushing job id to queue: {:?}, slot: {}", proving_data_job_id, slot);
+                    self.sync_proof.chq_push_imm(proving_data_job_id).await?;
+                    pending_checkpoint_id = Some(next_checkpoint_id);
+                    info!("Pushing job to queueue done");
                 }
-            };
-
-            // if next_checkpoint_id <= self.get_local_latest_checkpoint_id().await? {
-            //     warn!("Local latest checkpoint id is greater than pending checkpoint id, skipping block construction");
-            //     context.rollback(next_checkpoint_id).await?;
-            //     continue
-            // }
-
-            // if !self.slot_timer.is_can_reach_to_next_slot() {
-            //     warn!("Is not reach to next slot, skipping block construction");
-            //     context.rollback(next_checkpoint_id).await?;
-            //     continue;
-            // }
-            info!("Pushing job id to queue: {:?}, slot: {}", proving_data_job_id, slot);
-            self.sync_proof.chq_push_imm(proving_data_job_id).await?;
-            pending_checkpoint_id = Some(next_checkpoint_id);
-            info!("Pushing job to queueue done");
+            }
         }
     }
 
@@ -232,6 +241,7 @@ impl RealmProcessor {
         loop {
             match self.sync_checkpoint(&mut context).await {
                 Ok(ret) => {
+                    self.is_synced.store(ret.is_synced, atomic::Ordering::Relaxed);
                     if ret.is_synced {
                         // Sync completed
                         return Ok(ret)

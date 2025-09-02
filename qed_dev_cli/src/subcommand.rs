@@ -279,7 +279,7 @@ pub struct StressTestArgs {
     #[arg(long, default_value = "false", help = "Only run user registration")]
     pub only_user: bool,
 
-    #[arg(long, default_value = "true", help = "Only run flow")]
+    #[arg(long, default_value = "false", help = "Only run flow")]
     pub only_flow: bool,
 
     #[arg(long, default_value = "false", help = "Only run multi transfer")]
