@@ -136,7 +136,7 @@ async fn main() {
             QHashOut::rand(),
         ],
     };
-    
+
     let mut lps = prepare_environment_with_real_contract(
         vec![
             QBCRegisterUser::new_from_u64s([1;4], [1;4]),

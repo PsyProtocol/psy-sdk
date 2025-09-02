@@ -649,6 +649,69 @@ impl QProvingJobGraph {
 
         Ok((proof, root_job_id))
     }
+
+    pub fn get_graphviz(&self) -> String {
+        let mut output = String::new();
+        output.push_str("digraph QProvingJobGraph {\n");
+        output.push_str("  rankdir=TB;\n");
+
+        output.push_str("  subgraph cluster_deploy_contracts {\n");
+        output.push_str("    label=\"Deploy Contracts\";\n");
+        output.push_str("    color=blue;\n");
+        self.add_graph_to_dot(&mut output, &self.deploy_contracts_graph, "deploy");
+        output.push_str("  }\n\n");
+
+        output.push_str("  subgraph cluster_user_registrations {\n");
+        output.push_str("    label=\"User Registrations\";\n");
+        output.push_str("    color=green;\n");
+        self.add_graph_to_dot(&mut output, &self.user_registrations_graph, "user");
+        output.push_str("  }\n\n");
+
+        output.push_str("  subgraph cluster_guta {\n");
+        output.push_str("    label=\"GUTA\";\n");
+        output.push_str("    color=red;\n");
+        self.add_graph_to_dot(&mut output, &self.guta_graph, "guta");
+        output.push_str("  }\n\n");
+
+        output.push_str("}\n");
+        output
+    }
+
+    fn add_graph_to_dot(&self, output: &mut String, graph: &BidirectionalGraph<QProvingJobDataID>, prefix: &str) {
+        let levels = graph.ts_order();
+
+        for (level_idx, level) in levels.iter().enumerate() {
+            for job_id in level {
+                let job_id_hex = job_id.to_hex_string();
+                let node_name = format!("{}_{}", prefix, job_id_hex);
+                let circuit_type = format!("{:?}", job_id.circuit_type);
+
+                output.push_str(&format!(
+                    "    \"{}\" [label=\"{}\\n{}\", shape=box, style=filled, fillcolor=lightblue];\n",
+                    node_name, circuit_type, job_id_hex
+                ));
+            }
+        }
+
+        for level in &levels {
+            for job_id in level {
+                if let Some(dependencies) = graph.get_dependencies(job_id) {
+                    for dep_job_id in dependencies {
+                        let dep_job_id_hex = dep_job_id.to_hex_string();
+                        let job_id_hex = job_id.to_hex_string();
+
+                        let from_node = format!("{}_{}", prefix, dep_job_id_hex);
+                        let to_node = format!("{}_{}", prefix, job_id_hex);
+
+                        output.push_str(&format!(
+                            "    \"{}\" -> \"{}\";\n",
+                            from_node, to_node
+                        ));
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl QProvingTaskGraph {
@@ -1624,6 +1687,91 @@ mod tests {
                 .copied()
                 .ok_or_else(|| anyhow::anyhow!("Worker public key not found for job ID: {:?}", job_id))
         }
+    }
+
+    #[test]
+    fn test_empty_graph_graphviz() {
+        let graph = QProvingJobGraph::new();
+        let output = graph.get_graphviz();
+
+        assert!(output.contains("digraph QProvingJobGraph"));
+        assert!(output.contains("cluster_deploy_contracts"));
+        assert!(output.contains("cluster_user_registrations"));
+        assert!(output.contains("cluster_guta"));
+        assert!(output.contains("Deploy Contracts"));
+        assert!(output.contains("User Registrations"));
+        assert!(output.contains("GUTA"));
+    }
+
+    #[test]
+    fn test_single_node_graphviz() {
+        let mut graph = QProvingJobGraph::new();
+        let guta_job = QProvingJobDataID::new_proof_job_id(100, ProvingJobCircuitType::GUTATwoEndCap, 1, 2, 3);
+
+        graph.guta_graph.add_node(guta_job);
+
+        let output = graph.get_graphviz();
+
+        assert!(output.contains("digraph QProvingJobGraph"));
+        assert!(output.contains("GUTATwoEndCap"));
+        let expected_hex = guta_job.to_hex_string();
+        assert!(output.contains(&expected_hex));
+        assert!(output.contains(&format!("guta_{}", expected_hex)));
+    }
+
+    #[test]
+    fn test_multiple_nodes_with_dependencies_graphviz() {
+        let mut graph = QProvingJobGraph::new();
+
+        let guta_job1 = QProvingJobDataID::new_proof_job_id(100, ProvingJobCircuitType::GUTATwoEndCap, 1, 1, 1);
+        let guta_job2 = QProvingJobDataID::new_proof_job_id(100, ProvingJobCircuitType::GUTATwoGUTA, 1, 1, 2);
+        let deploy_job = QProvingJobDataID::new_proof_job_id(100, ProvingJobCircuitType::BatchDeployContracts, 2, 1, 1);
+
+        graph.guta_graph.add_node(guta_job1);
+        graph.guta_graph.add_node(guta_job2);
+        graph.guta_graph.add_edge(guta_job1, guta_job2);
+
+        graph.deploy_contracts_graph.add_node(deploy_job);
+
+        let output = graph.get_graphviz();
+
+        assert!(output.contains("GUTATwoEndCap"));
+        assert!(output.contains("GUTATwoGUTA"));
+        assert!(output.contains("BatchDeployContracts"));
+        assert!(output.contains(&format!("guta_{}", guta_job1.to_hex_string())));
+        assert!(output.contains(&format!("guta_{}", guta_job2.to_hex_string())));
+        assert!(output.contains(&format!("deploy_{}", deploy_job.to_hex_string())));
+        assert!(output.contains("->"));
+    }
+
+    #[test]
+    fn test_user_registration_graph_graphviz() {
+        let mut graph = QProvingJobGraph::new();
+        let user_job = QProvingJobDataID::new_proof_job_id(200, ProvingJobCircuitType::AppendUserRegistrationTree, 3, 4, 5);
+
+        graph.user_registrations_graph.add_node(user_job);
+
+        let output = graph.get_graphviz();
+
+        assert!(output.contains("AppendUserRegistrationTree"));
+        assert!(output.contains(&user_job.to_hex_string()));
+        assert!(output.contains(&format!("user_{}", user_job.to_hex_string())));
+        assert!(output.contains("User Registrations"));
+    }
+
+    #[test]
+    fn test_graphviz_node_formatting() {
+        let mut graph = QProvingJobGraph::new();
+        let job = QProvingJobDataID::new_proof_job_id(0x123, ProvingJobCircuitType::GUTASingleEndCap, 0x456, 0x789, 0xABC);
+
+        graph.guta_graph.add_node(job);
+
+        let output = graph.get_graphviz();
+
+        assert!(output.contains("GUTASingleEndCap"));
+        assert!(output.contains(&job.to_hex_string()));
+        assert!(output.contains("shape=box"));
+        assert!(output.contains("fillcolor=lightblue"));
     }
 }
 

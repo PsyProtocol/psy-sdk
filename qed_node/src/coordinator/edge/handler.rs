@@ -1584,7 +1584,6 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 }
             };
 
-            // Determine max height based on job type
             let max_height = match job_id.circuit_type {
                 ProvingJobCircuitType::AppendUserRegistrationTree
                 | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
@@ -1614,19 +1613,16 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 )),
             };
 
-            // Load the task graph (fallback to legacy method for now)
             let graph = self.task_store.load_job_dependency_graph(checkpoint_id).await.map_err(|e| ErrorObject::owned(
                 jsonrpsee::types::ErrorCode::InternalError.code(),
                 format!("Failed to load task graph: {}", e),
                 None::<()>,
             ))?;
-            
+
             match graph.generate_variable_height_reward_proof(job_id, &*self.proof_store, max_height).await {
                 Ok((variable_height_proof, root_job_id)) => {
-                    // Convert to old format for compatibility (if needed)
-                    // For now, we'll need to compute the root from the variable height proof
                     let computed_root = qed_core::job::id::compute_root_from_variable_height_proof(&variable_height_proof);
-                    
+
                     if computed_root != expected_root {
                         tracing::warn!(
                             "Root mismatch for job {:?}: expected {:?}, got {:?}",
@@ -1650,6 +1646,28 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         }
 
         Ok(proofs)
+    }
+
+    async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String> {
+        use jsonrpsee::types::ErrorObject;
+
+        let graph = self
+            .task_store
+            .load_job_dependency_graph(checkpoint_id)
+            .await
+            .map_err(|e| {
+                ErrorObject::owned(
+                    jsonrpsee::types::ErrorCode::InternalError.code(),
+                    format!(
+                        "Failed to load job dependency graph for checkpoint {}: {}",
+                        checkpoint_id, e
+                    ),
+                    None::<()>,
+                )
+            })?;
+
+        let graphviz_content = graph.get_graphviz();
+        Ok(graphviz_content)
     }
 }
 

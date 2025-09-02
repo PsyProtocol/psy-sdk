@@ -242,4 +242,7 @@ pub trait CoordinatorEdgeRpc {
 
     #[method(name = "generate_batch_proofs")]
     async fn generate_batch_proofs(&self, checkpoint_id: u64, job_ids: Vec<QProvingJobDataID>) -> RpcResult<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>>;
+
+    #[method(name = "get_graphviz")]
+    async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String>;
 }

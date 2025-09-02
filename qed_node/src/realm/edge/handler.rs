@@ -722,7 +722,7 @@ where
                 format!("Failed to load job dependency graph: {}", e),
                 None::<()>,
             ))?;
-            
+
             match job_graph.generate_variable_height_reward_proof(job_id, &*self.ctx.proof_store, max_height).await {
                 Ok((variable_height_proof, root_job_id)) => {
                     let computed_root = qed_core::job::id::compute_root_from_variable_height_proof(&variable_height_proof);
@@ -748,6 +748,17 @@ where
         }
 
         Ok(proofs)
+    }
+
+    async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String> {
+        let graph = self.task_store.load_job_dependency_graph(checkpoint_id).await
+            .map_err(|e| ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InternalError.code(),
+                format!("Failed to load job dependency graph: {}", e),
+                None::<()>,
+            ))?;
+        let graphviz_content = graph.get_graphviz();
+        Ok(graphviz_content)
     }
 }
 

@@ -9,11 +9,11 @@ pub fn setup_logging() -> anyhow::Result<()> {
             .unwrap_or_else(|_| EnvFilter::new("info"));
 
         let fmt_layer = tracing_subscriber::fmt::layer()
-            .with_thread_ids(true)
-            .with_thread_names(true)
+            .with_thread_ids(false)
+            .with_thread_names(false)
             .with_file(true)
             .with_line_number(true)
-            .with_target(true)
+            .with_target(false)
             .with_ansi(false);
 
         tracing_subscriber::registry()

@@ -143,7 +143,7 @@ STRATEGY                 := 2
 SIGN_TYPE                := zk
 
 COORDINATOR_RPC_URL      := $(shell jq -r '.network.coordinator_configs[].rpc_url[]' config.json)
-REALM_RPC_URL            := $(shell jq -r '.network.realm_configs[0].rpc_url[]' config.json)
+REALM_RPC_URL            := $(shell jq -r '.network.realm_configs[${REALM_ID}].rpc_url[]' config.json)
 
 GLOBAL_USER_TREE_HEIGHT  := $(shell jq -r '.network.global_user_tree_height' config.json)
 REALM_USER_TREE_HEIGHT   := $(shell jq -r '.network.realm_user_tree_height' config.json)
@@ -478,6 +478,14 @@ get-user-contract-state-tree-merkle-proof:
 # Check if user exists in realm
 check-user-id:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_check_user_id_in_realm", "params": [${USER_ID}], "id": 1 }' | jq .
+
+get-graphviz-coordinator:
+	@echo "Getting graphviz from coordinator for checkpoint ${CHECKPOINT_ID}..."
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "qed_get_graphviz", "params": [${CHECKPOINT_ID}], "id": 1}' | jq -r '.result' | sed 's/\\n/\n/g'
+
+get-graphviz-realm:
+	@echo "Getting graphviz from realm0 for checkpoint ${CHECKPOINT_ID}..."
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "qed_get_graphviz", "params": [${CHECKPOINT_ID}], "id": 1}' | jq -r '.result' | sed 's/\\n/\n/g'
 
 get-user-id-from-registration-id:
 	@./target/${PROFILE}/qed_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY}
