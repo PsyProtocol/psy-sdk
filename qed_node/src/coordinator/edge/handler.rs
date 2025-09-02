@@ -288,6 +288,7 @@ impl CoordinatorEdgeHandler {
 
     pub async fn get_checkpoint_sync_info(
         &self,
+        realm_id: Option<u32>,
         request_checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo<F>> {
         let latest = self.get_latest_checkpoint_id().await?;
@@ -305,14 +306,20 @@ impl CoordinatorEdgeHandler {
             .get_checkpoint_sync_info_compact(request_checkpoint_id)
             .await?;
 
+        let is_pack_guta = if let Some(realm_id) = realm_id {
+                Some(self.verify_realm_guta_production(realm_id as u64, request_checkpoint_id).await?)
+            } else {
+                None
+            };
+
         // Convert compact to full sync info with all required fields
         let sync_info = CheckpointSyncInfo {
-            pending_checkpoint_id: None, // todo if something pending, we need to get it from db
             latest_checkpoint_id: latest,
             description: None,
             source_coordinator_edge_id: None,
             sync_timestamp: Utc::now().timestamp() as u64,
             compact,
+            is_pack_guta,
         };
         Ok(sync_info)
     }
@@ -911,6 +918,26 @@ impl CoordinatorEdgeHandler {
             reason, job.job_id, job.layer_id, job.msg_id
         );
     }
+
+    /// Verify if a realm produced GUTA for a specific checkpoint
+    pub async fn verify_realm_guta_production(
+        &self,
+        realm_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<bool> {
+        let realm_merkle_proof = self
+            .get_user_top_tree_merkle_proof(
+                checkpoint_id,
+                self.ctx.coordinator_config.realm_root_level,
+                realm_id,
+            )
+            .await?;
+        if !realm_merkle_proof.verify::<QEDHasher>() {
+            return Ok(false);
+        }
+        let has_guta = realm_merkle_proof.value != QHashOut::<QEDFelt>::ZERO;
+        Ok(has_guta)
+    }
 }
 
 use super::error::RpcError;
@@ -989,9 +1016,10 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
     async fn get_checkpoint_sync_info(
         &self,
+        realm_id: Option<u32>,
         checkpoint_id: u64,
     ) -> RpcResult<CheckpointSyncInfo<F>> {
-        self.get_checkpoint_sync_info(checkpoint_id)
+        self.get_checkpoint_sync_info(realm_id, checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }

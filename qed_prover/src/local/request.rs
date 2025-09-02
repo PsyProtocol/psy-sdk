@@ -566,6 +566,7 @@ pub struct QGetUserIdRPCRequest<F: RichField> {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct QGetCheckpointSyncInfoRPCRequest {
+    pub realm_id: Option<u32>,
     pub checkpoint_id: u64,
 }
 

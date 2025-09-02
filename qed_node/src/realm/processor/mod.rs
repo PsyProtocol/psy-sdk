@@ -325,6 +325,10 @@ impl RealmProcessor {
         }).await
     }
 
+    fn try_confirm_checkpoint(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
+        
+    }
+
     fn validate_slot(&self) -> anyhow::Result<()> {
         let slot = self.slot_timer.get_current_slot();
         if !self.is_current_slot() {
