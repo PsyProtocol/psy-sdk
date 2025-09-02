@@ -237,11 +237,11 @@ impl CoordinatorEdgeHandler {
         };
 
         info!(
-            "old root from db: {:?}, hex = {:?}",
+            "old root from db: {}, hex = {:?}",
             old_root,
             hex::encode(old_root.to_bytes()?)
         );
-        info!("old root from realm: {:?}", input.top_line_proof.old_root);
+        info!("old root from realm: {}", input.top_line_proof.old_root);
         if old_root != input.top_line_proof.old_root && old_root != input.top_line_proof.new_root {
             anyhow::bail!("invalid top line proof old value from realm");
         }

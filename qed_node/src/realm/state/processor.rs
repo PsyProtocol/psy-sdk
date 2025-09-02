@@ -211,7 +211,7 @@ impl<
         self.handle_guta_state_updates_from_users(checkpoint_id).await?;
 
         let (jobs, guta, proof, mut guta_graph) = self.handle_guta_from_users(checkpoint_id).await?;
-        tracing::debug!(guta = ?guta, guta_hash = ?guta.qfhash::<QEDHasher>(), jobs = ?jobs, "Processing GUTA and jobs");
+        tracing::debug!(guta = %serde_json::to_string_pretty(&guta).unwrap(), guta_hash = %guta.qfhash::<QEDHasher>(), jobs = ?jobs, "Processing GUTA and jobs");
 
         let bp = self
             .store
@@ -285,7 +285,7 @@ impl<
                         global_state_roots: roots,
                     },
                 };
-                tracing::debug!(input = ?input, "GUTA no change input");
+                tracing::debug!(input = %serde_json::to_string_pretty(&input).unwrap(), "GUTA no change input");
 
                 let w_id = QProvingJobDataID::core_op_witness(
                     ProvingJobCircuitType::GUTANoChange,
@@ -321,7 +321,7 @@ impl<
                     },
                     stats: guta.stats,
                 };
-                tracing::debug!(guta_new = ?guta_new, guta_new_hash = ?guta_new.qfhash::<QEDHasher>(), "New GUTA after user registration");
+                tracing::debug!(guta_new = %serde_json::to_string_pretty(&guta_new).unwrap(), guta_new_hash = %guta_new.qfhash::<QEDHasher>(), "New GUTA after user registration");
                 let w = GUTAOnlyRegisterUsersInput {
                     checkpoint_tree_root: guta.checkpoint_tree_root,
                     guta_register_user_inputs: regs,
@@ -475,7 +475,7 @@ impl<
             },
             stats: new_g.stats,
         };
-        tracing::debug!("New GUTA after register users: {:#?}", n_guta);
+        tracing::debug!("New GUTA after register users: {}", serde_json::to_string_pretty(&n_guta).unwrap());
 
         let mut n_jobs = jobs.clone();
 
@@ -592,7 +592,7 @@ impl<
                     }],
                 )
                 .await?;
-            tracing::debug!(r = ?r, single = ?single, "Single GUTA processing");
+            tracing::debug!(r = %serde_json::to_string_pretty(&r).unwrap(), single = %serde_json::to_string_pretty(&single).unwrap(), "Single GUTA processing");
 
             let id = QProvingJobDataID::core_op_witness(
                 ProvingJobCircuitType::GUTASingleEndCap,
@@ -639,7 +639,7 @@ impl<
             .store
             .injest_user_tree_nodes_imm(checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, &mnu)
             .await?;
-        tracing::debug!(res = ?res, "GUTA aggregation result");
+        tracing::debug!(res = %serde_json::to_string_pretty(&res).unwrap(), "GUTA aggregation result");
 
         let mut updates = Vec::with_capacity(res.nca_proofs.len());
         let mut combo_stats = Vec::with_capacity(res.nca_proofs.len());
@@ -801,7 +801,7 @@ impl<
             stats: combo_stats[res.root_proof_index].1,
         };
 
-        tracing::debug!(guta = ?guta, guta_hash = ?guta.qfhash::<QEDHasher>(), "Final aggregated GUTA");
+        tracing::debug!(guta = %serde_json::to_string_pretty(&guta).unwrap(), guta_hash = %guta.qfhash::<QEDHasher>(), "Final aggregated GUTA");
 
         Ok((levels, guta, res.link_proof, graph))
     }
@@ -816,7 +816,6 @@ impl<
         let finished_job_task = QProvingTask::new(&[finished_job]);
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
 
-        // Finalize and save the task topology
         self.task_store.finalize_and_save_topology().await?;
 
         self.task_store.save_job_dependency_graph(new_checkpoint_id).await
@@ -850,7 +849,9 @@ impl<
             proof_id: **(guta_jobs.last().as_ref().unwrap().last().as_ref().unwrap()),
         };
         self.proof_store.set_bytes_by_id(finished_job, &bincode::serialize(&res).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
-        // Plan the job dependency graph
+
+        let empty_graph = BidirectionalGraph::new();
+        self.task_store.set_job_dependency_graph(empty_graph.clone(), empty_graph, guta_graph).await?;
         self.plan_jobs(new_checkpoint_id, &guta_jobs, finished_job).await?;
 
         tracing::info!("Processed {} pending users for checkpoint {}", pending_users.len(), new_checkpoint_id);
@@ -865,6 +866,7 @@ impl<
         info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(realm_worker_output_job_id)
     }
+
     /// Check if there are pending tasks for the given checkpoint
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
         // Check if there are pending user registrations in Redis queue

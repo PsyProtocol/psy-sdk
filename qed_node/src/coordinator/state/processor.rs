@@ -694,6 +694,9 @@ impl<
         deploy_jobs: &Vec<Vec<QProvingJobDataID>>,
         guta_jobs: &Vec<Vec<QProvingJobDataID>>,
     ) -> anyhow::Result<(QProvingJobDataID, QProvingJobDataID)> {
+        tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
+        tracing::debug!("Generated Deploy jobs: {:#?}", deploy_jobs);
+        tracing::debug!("Generated registration jobs: {:#?}", user_registration_jobs);
         let notify_block_complete = QProvingJobDataID::notify_block_complete(new_checkpoint_id);
         let root_state_transition = QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id);
         let root_state_transition_task = QProvingTask::new(&[root_state_transition]);
@@ -891,7 +894,7 @@ impl<
             .store
             .get_checkpoint_tree_merkle_proof(last_l2_blockstate.checkpoint_id, last_l2_blockstate.checkpoint_id)
             .await?;
-        tracing::debug!(previous_checkpoint_proof = ?previous_checkpoint_proof, "Previous checkpoint proof");
+        tracing::debug!(previous_checkpoint_proof = %serde_json::to_string_pretty(&previous_checkpoint_proof).unwrap(), "Previous checkpoint proof");
 
         let checkpoint_dmp = self
             .store
