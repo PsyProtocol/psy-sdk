@@ -166,6 +166,11 @@ pub struct WorkerStats {
     pub total_proofs: i64,  // Number of proofs completed in the last 24 hours
     pub completed_24h: i64,
     pub failed_24h: i64,
+    pub total_rewards_24h: i64, // Total rewards earned in last 24 hours
+    pub total_completed: i64,   // Total completed tasks of all time
+    pub total_failed: i64,      // Total failed tasks of all time
+    pub completed_1h: i64,      // Completed tasks in last 1 hour
+    pub failed_1h: i64,         // Failed tasks in last 1 hour
     pub last_updated: DateTime<Utc>,
 }
 

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_1h,\n                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed_1h\n            FROM worker_events\n            WHERE public_key = $1 AND timestamp >= $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "completed_1h",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "failed_1h",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "51873ef9ce9c74aee815ba124b1ba90c8cdbb381cc5c81dfbde554cc8bc18fd0"
+}

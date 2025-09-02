@@ -641,6 +641,7 @@ impl WorkerStatsRepository {
     pub async fn get_worker_stats(pool: &PgPool, worker_public_key: &str) -> Result<WorkerStats> {
         let now = Utc::now();
         let twenty_four_hours_ago = now - chrono::Duration::hours(24);
+        let one_hour_ago = now - chrono::Duration::hours(1);
 
         // Get processing tasks count grouped by realm_id
         let processing_tasks_rows = sqlx::query!(
@@ -688,7 +689,66 @@ impl WorkerStatsRepository {
         let failed_24h = completion_stats_row.failed_24h.unwrap_or(0);
         let total_proofs = completion_stats_row.total_proofs.unwrap_or(0);
 
-        // Currently, the total rewards is 0
+        // Get completed and failed tasks in the last 1h
+        let completion_1h_stats_row = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_1h,
+                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed_1h
+            FROM worker_events
+            WHERE public_key = $1 AND timestamp >= $2
+            "#,
+            worker_public_key,
+            one_hour_ago
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let completed_1h = completion_1h_stats_row.completed_1h.unwrap_or(0);
+        let failed_1h = completion_1h_stats_row.failed_1h.unwrap_or(0);
+
+        // Get total completed and failed tasks of all time
+        let total_completion_stats_row = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as total_completed,
+                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as total_failed
+            FROM worker_events
+            WHERE public_key = $1
+            "#,
+            worker_public_key
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let total_completed = total_completion_stats_row.total_completed.unwrap_or(0);
+        let total_failed = total_completion_stats_row.total_failed.unwrap_or(0);
+
+        // Calculate total rewards in the last 24 hours
+        // Only count rewards for GenerateStandardProof jobs (topic = 0) with COMPLETED status
+        const REWARD_PER_PROOF: i64 = 5_000_000_000; // 5*10^9 psy
+        const TOPIC_GENERATE_STANDARD_PROOF: i16 = 0;
+
+        let rewards_24h_row = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as reward_proofs_24h
+            FROM worker_events
+            WHERE public_key = $1
+                AND topic = $2
+                AND status = 'COMPLETED'
+                AND timestamp >= $3
+            "#,
+            worker_public_key,
+            TOPIC_GENERATE_STANDARD_PROOF,
+            twenty_four_hours_ago
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let reward_proofs_24h = rewards_24h_row.reward_proofs_24h.unwrap_or(0);
+        let total_rewards_24h = reward_proofs_24h * REWARD_PER_PROOF;
+
+        // Currently, the total rewards is 0 (reserved field)
         let total_rewards = 0i64;
 
         Ok(WorkerStats {
@@ -698,6 +758,11 @@ impl WorkerStatsRepository {
             total_proofs,
             completed_24h,
             failed_24h,
+            total_rewards_24h,
+            total_completed,
+            total_failed,
+            completed_1h,
+            failed_1h,
             last_updated: now,
         })
     }
