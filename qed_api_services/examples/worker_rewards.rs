@@ -206,6 +206,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             rewards.total_proofs, rewards.total_rewards
         );
         println!("   • Each proof = 5,000,000,000 psy (5×10⁹)");
+        
+        println!("⏰ Time-based Rewards:");
+        println!(
+            "   • Last 24 hours: {} psy",
+            rewards.total_rewards_24h
+        );
+        println!(
+            "   • Last 7 days: {} psy",
+            rewards.total_rewards_7d
+        );
+        println!(
+            "   • Last 30 days: {} psy",
+            rewards.total_rewards_30d
+        );
 
         if rewards.total_proofs > 0 {
             let claimed_percentage =
@@ -239,6 +253,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   ✓ Claimed rewards: checkpoint_id < query parameter");
     println!("   ✓ Unclaimed rewards: checkpoint_id >= query parameter");
     println!("   ✓ Total rewards = claimed + unclaimed");
+    println!("   🆕 Time-based rewards: 24h, 7d, 30d total rewards (claimed + unclaimed)");
 
     println!("\n🎉 Worker rewards API example completed successfully!");
     println!(

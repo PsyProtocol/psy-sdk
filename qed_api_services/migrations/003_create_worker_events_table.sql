@@ -57,6 +57,8 @@ CREATE INDEX idx_worker_events_source ON worker_events(source, timestamp DESC);
 CREATE INDEX idx_worker_events_topic ON worker_events(topic, timestamp DESC);
 CREATE INDEX idx_worker_events_circuit_type ON worker_events(circuit_type, timestamp DESC);
 CREATE INDEX idx_worker_events_topic_circuit_type ON worker_events(topic, circuit_type, timestamp DESC);
+-- Optimized index for worker rewards queries: WHERE public_key = ? AND topic = ? AND status = 'COMPLETED'
+CREATE INDEX idx_worker_events_rewards_query ON worker_events(public_key, topic, status, timestamp DESC);
 
 CREATE TRIGGER update_worker_events_updated_at
     BEFORE UPDATE ON worker_events

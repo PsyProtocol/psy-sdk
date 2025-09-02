@@ -180,6 +180,9 @@ pub struct WorkerRewards {
     pub claimed_proofs: i64,    // number of claimed proofs
     pub unclaimed_proofs: i64,  // number of unclaimed proofs
     pub total_proofs: i64,      // total proofs count
+    pub total_rewards_24h: i64, // total rewards in last 24 hours (claimed + unclaimed)
+    pub total_rewards_7d: i64,  // total rewards in last 7 days (claimed + unclaimed)
+    pub total_rewards_30d: i64, // total rewards in last 30 days (claimed + unclaimed)
     pub last_updated: DateTime<Utc>,
 }
 

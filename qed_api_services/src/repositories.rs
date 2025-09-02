@@ -712,6 +712,9 @@ impl WorkerRewardsRepository {
         checkpoint_id: i64,
     ) -> Result<WorkerRewards> {
         let now = Utc::now();
+        let twenty_four_hours_ago = now - chrono::Duration::hours(24);
+        let seven_days_ago = now - chrono::Duration::days(7);
+        let thirty_days_ago = now - chrono::Duration::days(30);
 
         // Constants
         const REWARD_PER_PROOF: i64 = 5_000_000_000; // 5*10^9 psy
@@ -745,6 +748,36 @@ impl WorkerRewardsRepository {
         let unclaimed_rewards = unclaimed_proofs * REWARD_PER_PROOF;
         let total_rewards = claimed_rewards + unclaimed_rewards;
 
+        // Query for time-based rewards (24h, 7d, 30d)
+        let time_rewards_row = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(CASE WHEN timestamp >= $2 THEN 1 END) as proofs_24h,
+                COUNT(CASE WHEN timestamp >= $3 THEN 1 END) as proofs_7d,
+                COUNT(CASE WHEN timestamp >= $4 THEN 1 END) as proofs_30d
+            FROM worker_events
+            WHERE public_key = $1
+                AND topic = $5
+                AND status = 'COMPLETED'
+            "#,
+            worker_public_key,
+            twenty_four_hours_ago,
+            seven_days_ago,
+            thirty_days_ago,
+            TOPIC_GENERATE_STANDARD_PROOF
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let proofs_24h = time_rewards_row.proofs_24h.unwrap_or(0);
+        let proofs_7d = time_rewards_row.proofs_7d.unwrap_or(0);
+        let proofs_30d = time_rewards_row.proofs_30d.unwrap_or(0);
+
+        // Calculate time-based total rewards
+        let total_rewards_24h = proofs_24h * REWARD_PER_PROOF;
+        let total_rewards_7d = proofs_7d * REWARD_PER_PROOF;
+        let total_rewards_30d = proofs_30d * REWARD_PER_PROOF;
+
         Ok(WorkerRewards {
             worker_public_key: worker_public_key.to_string(),
             checkpoint_id,
@@ -754,6 +787,9 @@ impl WorkerRewardsRepository {
             claimed_proofs,
             unclaimed_proofs,
             total_proofs,
+            total_rewards_24h,
+            total_rewards_7d,
+            total_rewards_30d,
             last_updated: now,
         })
     }
