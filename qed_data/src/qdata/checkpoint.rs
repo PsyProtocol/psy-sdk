@@ -501,7 +501,7 @@ pub struct CheckpointSyncInfo<F: RichField> {
     pub source_coordinator_edge_id: Option<String>,
     pub sync_timestamp: u64, // sync timestamp
     pub compact: QEDCheckpointSyncInfoCompact<F>,
-    pub is_pack_guta: Option<bool>,
+    pub realm_root: QHashOut<F>,
 }
 
 impl<F: RichField + Serialize + for<'de> Deserialize<'de>> KVQSerializable

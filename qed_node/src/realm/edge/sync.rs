@@ -33,6 +33,7 @@ where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
     IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 {
+    realm_id: u32,
     store_reader: Arc<SR>,
     sync_queue: Arc<IQ>,
     client: HttpClient,
@@ -47,6 +48,7 @@ where
     IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 {
     pub fn new(
+        realm_id: u32,
         store_reader: Arc<SR>,
         interval_sync_queue: Arc<IQ>,
         coordinator_addr: &str,
@@ -56,6 +58,7 @@ where
             .map_err(|e| anyhow::anyhow!("Failed to create RPC client to coordinator {}: {:?}", coordinator_addr, e))?;
 
         Ok(Self {
+            realm_id,
             store_reader,
             sync_queue: interval_sync_queue,
             client,
@@ -155,7 +158,7 @@ where
             let next_checkpoint_id = self.next_checkpoint_id();
             debug!("Attempting to fetch checkpoint {} from coordinator...", next_checkpoint_id);
 
-            let params = rpc_params![next_checkpoint_id];
+            let params = rpc_params![self.realm_id, next_checkpoint_id];
             match self.client.request::<Option<CheckpointSyncInfo<F>>, _>(
                 "qed_get_checkpoint_sync_info",
                 params
@@ -222,12 +225,14 @@ pub async fn spawn_active_checkpoint_sync_task<
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
     IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 >(
+    realm_id: u32,
     store_reader: Arc<SR>,
     interval_sync_queue: Arc<IQ>,
     coordinator_addr: String,
 ) -> Result<()> {
     info!(coordinator = %coordinator_addr, interval = ?SYNC_INTERVAL, "Spawning active checkpoint sync task");
     let sync_manager = CheckpointSyncManager::new(
+        realm_id,
         store_reader,
         interval_sync_queue,
         &coordinator_addr,
