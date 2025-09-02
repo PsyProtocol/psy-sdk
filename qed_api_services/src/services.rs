@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::handlers::websocket::WebSocketManager;
+use crate::handlers::websocket::{UserEventManager, WorkerEventManager};
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -8,7 +8,8 @@ use tokio::sync::RwLock;
 #[derive(Clone)]
 pub struct ApiService {
     pub pool: PgPool,
-    pub websocket_manager: WebSocketManager,
+    pub user_event_manager: UserEventManager,
+    pub worker_event_manager: WorkerEventManager,
 }
 
 impl ApiService {
@@ -16,7 +17,10 @@ impl ApiService {
         tracing::info!("Initializing ApiService with database pool");
         Self {
             pool,
-            websocket_manager: WebSocketManager {
+            user_event_manager: UserEventManager {
+                connections: Arc::new(RwLock::new(HashMap::new())),
+            },
+            worker_event_manager: WorkerEventManager {
                 connections: Arc::new(RwLock::new(HashMap::new())),
             },
         }
