@@ -189,6 +189,7 @@ pub struct TpsData {
     pub tps: f64,
     pub transaction_count: i64,
     pub time_window_seconds: i64,
+    pub block_height: i64,
     pub timestamp: DateTime<Utc>,
 }
 

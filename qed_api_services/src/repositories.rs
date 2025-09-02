@@ -761,6 +761,20 @@ impl WorkerRewardsRepository {
 
 /// TPS Repository
 impl TpsRepository {
+    /// Get the maximum checkpoint ID from worker_events table
+    pub async fn get_max_checkpoint(pool: &PgPool) -> Result<i64> {
+        let row = sqlx::query!(
+            r#"
+            SELECT MAX(checkpoint_id) as max_checkpoint
+            FROM worker_events
+            "#
+        )
+        .fetch_one(pool)
+        .await?;
+
+        Ok(row.max_checkpoint.unwrap_or(0))
+    }
+
     /// Calculate current TPS based on the last 12 seconds of user events
     pub async fn calculate_current_tps(pool: &PgPool) -> Result<TpsData> {
         let now = Utc::now();
@@ -794,10 +808,14 @@ impl TpsRepository {
         // Calculate TPS
         let tps = total_transaction_count as f64 / TIME_WINDOW_SECONDS as f64;
 
+        // Get the current block height (max checkpoint)
+        let block_height = Self::get_max_checkpoint(pool).await?;
+
         Ok(TpsData {
             tps,
             transaction_count: total_transaction_count,
             time_window_seconds: TIME_WINDOW_SECONDS,
+            block_height,
             timestamp: now,
         })
     }
