@@ -72,7 +72,7 @@ impl<
         input: SubmitUserEndCapNonProofInput<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
-        debug!("Processing user end cap input: {:#?}", input);
+        debug!("Processing user end cap input: {}", serde_json::to_string_pretty(&input).unwrap());
         // start validation
         if proof.public_inputs.len() != 4 {
             anyhow::bail!("invalid proof");

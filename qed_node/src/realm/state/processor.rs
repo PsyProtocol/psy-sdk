@@ -379,9 +379,9 @@ impl<
                     guta_proof_header: guta,
                     top_line_siblings: good_sibs,
                 };
-                tracing::debug!(input = ?input, "GUTA to cap input");
+                tracing::debug!(input = %serde_json::to_string_pretty(&input).unwrap(), "GUTA to cap input");
                 let new_g = input.get_new_guta_header::<QEDHasher>();
-                tracing::debug!(new_g = ?new_g, new_g_hash = ?new_g.qfhash::<QEDHasher>(), "New GUTA after to cap");
+                tracing::debug!(new_g = %serde_json::to_string_pretty(&new_g).unwrap(), new_g_hash = %new_g.qfhash::<QEDHasher>(), "New GUTA after to cap");
                 let w = CircuitInputWithDependencies::<VerifyGUTAToCapCircuitInputSimple<F>> {
                     input,
                     dependencies: vec![jobs.last().as_ref().unwrap().last().unwrap().get_output_id()],
@@ -399,7 +399,7 @@ impl<
                 n_jobs.push(vec![w_id]);
 
                 let n_guta = w.input.get_new_guta_header::<QEDHasher>();
-                tracing::debug!(n_guta = ?n_guta, n_guta_hash = ?n_guta.qfhash::<QEDHasher>(), "New GUTA state");
+                tracing::debug!(n_guta = %serde_json::to_string_pretty(&n_guta).unwrap(), n_guta_hash = %n_guta.qfhash::<QEDHasher>(), "New GUTA state");
 
                 guta_graph.add_edge(w_id.get_output_id(), n_jobs.last().unwrap().last().unwrap().get_output_id());
 
@@ -507,7 +507,7 @@ impl<
             self.realm_config.guta_channel_id,
             checkpoint_id,
         ).await?;
-        debug!(guta_queue_items = ?guta_queue_items, "GUTA queue items for aggregation");
+        debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items).unwrap(), "GUTA queue items for aggregation");
         if guta_queue_items.len() == 0 {
             tracing::debug!("No GUTA queue items to aggregate");
             let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
