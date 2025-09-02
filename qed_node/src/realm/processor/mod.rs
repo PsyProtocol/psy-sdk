@@ -147,8 +147,6 @@ impl RealmProcessor {
             // let mut is_syncing = atomic::AtomicBool::new(false);
             let slot = slot_timer.wait_for_next_slot().await;
             info!("Next slot: {}", slot);
-            let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
-            let next_checkpoint_id = local_latest_checkpoint_id + 1;
             match self.ensure_checkpoint_sync().await {
                 Ok(ret) => {
                     info!("Checkpoint sync completed wait after");
@@ -159,12 +157,16 @@ impl RealmProcessor {
                             COORDINATOR_USER_TREE_HEIGHT,
                             self.realm_config.realm_id as u64,
                         ).await?;
+                        info!("pending checkpoint id: {}, latest checkpoint id: {}, realm_root: {}, expected realm_root: {}", 
+                            pending_checkpoint_id, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
+                        
                         if ret.latest_checkpoint_id >= pending_checkpoint_id && realm_root.value == ret.realm_root {
                             context.commit(pending_checkpoint_id).await?;
                         } else {
-                            if (ret.latest_checkpoint_id > pending_checkpoint_id + 1 && ret.latest_checkpoint_id < pending_checkpoint_id - 1) {
+                            if ret.latest_checkpoint_id > pending_checkpoint_id + 1 && ret.latest_checkpoint_id < pending_checkpoint_id - 1 {
                                 context.rollback(pending_checkpoint_id).await?;
-                                warn!("rollback before: {}, start new block for next checkpoint: {}", pending_checkpoint_id, next_checkpoint_id);
+                            } else {
+                                continue
                             }
                         }
                     }
@@ -191,6 +193,8 @@ impl RealmProcessor {
             info!("Start building block");
             // Build block based on slot timing
             pending_checkpoint_id = None;
+            let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
+            let next_checkpoint_id = local_latest_checkpoint_id + 1;
             let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
             if !has_tasks {
                 warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
@@ -205,17 +209,17 @@ impl RealmProcessor {
                 }
             };
 
-            if next_checkpoint_id <= self.get_local_latest_checkpoint_id().await? {
-                warn!("Local latest checkpoint id is greater than pending checkpoint id, skipping block construction");
-                context.rollback(next_checkpoint_id).await?;
-                continue
-            }
+            // if next_checkpoint_id <= self.get_local_latest_checkpoint_id().await? {
+            //     warn!("Local latest checkpoint id is greater than pending checkpoint id, skipping block construction");
+            //     context.rollback(next_checkpoint_id).await?;
+            //     continue
+            // }
 
-            if !self.slot_timer.is_can_reach_to_next_slot() {
-                warn!("Is not reach to next slot, skipping block construction");
-                context.rollback(next_checkpoint_id).await?;
-                continue;
-            }
+            // if !self.slot_timer.is_can_reach_to_next_slot() {
+            //     warn!("Is not reach to next slot, skipping block construction");
+            //     context.rollback(next_checkpoint_id).await?;
+            //     continue;
+            // }
             info!("Pushing job id to queue: {:?}, slot: {}", proving_data_job_id, slot);
             self.sync_proof.chq_push_imm(proving_data_job_id).await?;
             pending_checkpoint_id = Some(next_checkpoint_id);
