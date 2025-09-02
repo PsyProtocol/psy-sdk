@@ -74,7 +74,7 @@ use qed_store::{
     },
 };
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, trace};
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -1001,7 +1001,7 @@ impl<
             return Ok(true);
         }
 
-        info!("No pending tasks found for checkpoint {}", checkpoint_id);
+        trace!("No pending tasks found for checkpoint {}", checkpoint_id);
         Ok(false)
     }
 

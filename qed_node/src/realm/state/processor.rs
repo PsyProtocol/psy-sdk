@@ -42,7 +42,7 @@ use qed_store::{
     queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm, redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition},
 };
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, error};
+use tracing::{debug, error, info, trace};
 use qed_store::queue::redis_queue::QueueOffsetState;
 
 type F = QEDFelt;
@@ -900,7 +900,7 @@ impl<
             return Ok(true);
         }
 
-        info!("No pending tasks found for checkpoint {}", checkpoint_id);
+        trace!("No pending tasks found for checkpoint {}", checkpoint_id);
         Ok(false)
     }
 

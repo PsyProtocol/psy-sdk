@@ -14,7 +14,7 @@ use qed_core::{
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
 use qed_node::worker::job_tracker::{JobInfo, JobLocation, WorkerJobTracker};
-use qed_prover::local::provider::{RpcConfig, RpcProvider};
+use qed_prover::{local::provider::{RpcConfig, RpcProvider}, session::WalletSession};
 use serde_json::json;
 use tracing::info;
 
@@ -34,7 +34,9 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
 
     let provider = RpcProvider::new_with_config(&rpc_config)?;
 
-    let user_pk_hash = private_key;
+    let mut wallet_session = WalletSession::new(&rpc_config)?;
+    let user_pk_hash =
+        wallet_session.add_user_with_type(private_key, args.sign_type.clone(), None)?;
 
     let job_infos = if let Some(job_id_hex) = &args.job_id {
         let job_id = parse_job_id_from_hex(job_id_hex)?;

@@ -342,7 +342,7 @@ impl RpcProvider {
         let output_job_id = job_id.get_output_id();
         let request = serde_json::json!({
             "jsonrpc": "2.0",
-            "method": "generate_batch_variable_height_reward_proofs",
+            "method": "qed_generate_batch_variable_height_reward_proofs",
             "params": [checkpoint_id, vec![output_job_id]],
             "id": 1
         });
@@ -388,7 +388,7 @@ impl RpcProvider {
         let output_job_id = job_id.get_output_id();
         let request = serde_json::json!({
             "jsonrpc": "2.0",
-            "method": "generate_batch_variable_height_reward_proofs",
+            "method": "qed_generate_batch_variable_height_reward_proofs",
             "params": [checkpoint_id, vec![output_job_id]],
             "id": 1
         });

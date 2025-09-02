@@ -170,7 +170,7 @@ impl RealmProcessor {
                     continue;
                 },
                 slot = slot_timer.wait_for_next_slot() => {
-                    info!("Next slot: {}", slot);
+                    trace!("Next slot: {}", slot);
                 }
             }
 
@@ -185,7 +185,7 @@ impl RealmProcessor {
                 let current_timestamp = self.slot_timer.get_current_timestamp();
                 if current_timestamp < build_phase_start {
                     let tt = build_phase_start - current_timestamp;
-                    info!("Waiting for build phase to start: sleep {} ms, slot: {}", tt, slot);
+                    trace!("Waiting for build phase to start: sleep {} ms, slot: {}", tt, slot);
                     tokio::time::sleep(Duration::from_millis(tt)).await;
                 }
             }
