@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub const SLOT0: u64 = 0;
 pub const SLOT_SIZE: u64 = 6000; // 6s
 pub const SLOT0_TIMESTAMP: u64 = 1753891200000; // 2025-07-31 00:00:00
-pub const NETWORK_COST_TIME_MS: u64 = 500; // 500ms
+pub const NETWORK_COST_TIME_MS: u64 = 1000; // 500ms
 
 #[auto_impl(&, Box, Arc)]
 pub trait Clock {

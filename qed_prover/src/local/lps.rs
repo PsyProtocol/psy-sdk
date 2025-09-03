@@ -312,7 +312,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
-                debug!("Merkle proof verification result: {:#?}", merkle_proof.verify::<QEDHasher>());
+                debug!("Merkle proof verification result: {}", merkle_proof.verify::<QEDHasher>());
                 Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
@@ -453,7 +453,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_core::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, "Fetching user tree root");
-        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QUserTreeRootRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
             self,

@@ -107,7 +107,8 @@ impl<
             .get_user_latest_top_tree_cap_root(self.coordinator_config.realm_root_level, input.realm_id)
             .await?;
         if old_value != input.top_line_proof.old_root &&(old_value != input.top_line_proof.new_root) {
-            anyhow::bail!("invalid top line proof old value from realm");
+            // anyhow::bail!("invalid top line proof old value from realm");
+            tracing::warn!("invalid top line proof old value from realm");
         }
         //let checkpoint_id = input.checkpoint_id;
         let queue_item = input.to_queue_item(

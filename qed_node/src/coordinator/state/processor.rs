@@ -311,9 +311,9 @@ impl<
             })
             .collect::<Vec<_>>();
         tracing::info!(
-            "injest_checkpoint_sync_data_imm: start_registration_user_id: {}, new_user_records: {:?}",
+            "injest_checkpoint_sync_data_imm: start_registration_user_id: {}, new_user_records len: {:?}",
             start_registration_user_id,
-            new_user_records
+            new_user_records.len(),
         );
         self.store.set_user_public_key_records(&new_user_records).await?;
 
@@ -683,7 +683,7 @@ impl<
             };
             tracing::debug!(guta = %serde_json::to_string_pretty(&guta).unwrap(), guta_hash = %guta.qfhash::<QEDHasher>(), "GUTA subtree");
         }
-        
+
         Ok((levels, guta, graph))
     }
 
@@ -936,8 +936,6 @@ impl<
             next_contract_id,
         };
 
-        tracing::debug!(new_l2_block_state = %serde_json::to_string_pretty(&new_l2_block_state).unwrap(), "New L2 block state");
-
         // Save checkpoint data
         self.store.set_checkpoint_leaf_data_imm(new_checkpoint_id, &new_checkpoint_leaf).await?;
         self.store.set_l2_block_state_imm(&new_l2_block_state).await?;
@@ -957,8 +955,6 @@ impl<
 
         tracing::debug!(l2_sync = %serde_json::to_string_pretty(&l2_sync).unwrap(), "Checkpoint sync info");
         self.store.set_checkpoint_sync_info_imm(l2_sync.clone()).await?;
-
-        info!("✅ Successfully built block for checkpoint {}", new_checkpoint_id);
         Ok(())
     }
 
@@ -968,13 +964,8 @@ impl<
             .cdq_peek_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(self.coordinator_config.deploy_contract_channel_id)
             .await?;
 
-        trace!("Checking deploy contracts queue: {} items", deploy_items.len());
+        trace!("Checking deploy contracts queue: {} items, checkpoint: {}", deploy_items.len(), checkpoint_id);
         if !deploy_items.is_empty() {
-            info!(
-                "Found {} pending deploy contract tasks for checkpoint {}",
-                deploy_items.len(),
-                checkpoint_id
-            );
             return Ok(true);
         }
 
@@ -983,13 +974,8 @@ impl<
             .cdq_peek_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID)
             .await?;
 
-        trace!("Checking user registration queue: {} items", user_reg_items.len());
+        trace!("Checking user registration queue: {} items, checkpoint: {}", user_reg_items.len(), checkpoint_id);
         if !user_reg_items.is_empty() {
-            info!(
-                "Found {} pending user registration tasks for checkpoint {}",
-                user_reg_items.len(),
-                checkpoint_id
-            );
             return Ok(true);
         }
 
@@ -998,13 +984,10 @@ impl<
             .cdq_peek_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(self.coordinator_config.guta_channel_id)
             .await?;
 
-        trace!("Checking GUTA queue: {} items", guta_items.len());
+        trace!("Checking GUTA queue: {} items, checkpoint: {}", guta_items.len(), checkpoint_id);
         if !guta_items.is_empty() {
-            info!("Found {} pending GUTA tasks for checkpoint {}", guta_items.len(), checkpoint_id);
             return Ok(true);
         }
-
-        trace!("No pending tasks found for checkpoint {}", checkpoint_id);
         Ok(false)
     }
 

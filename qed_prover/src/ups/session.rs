@@ -819,7 +819,9 @@ impl<
     }
 
     pub async fn get_api_input(&mut self) -> anyhow::Result<SubmitUserEndCapNonProofInput<F>> {
-        let checkpoint_id = self.current_ups_header.session_start_context.checkpoint_id;
+        // TODO
+        // let checkpoint_id = self.current_ups_header.session_start_context.checkpoint_id;
+        let checkpoint_id = self.current_ups_header.current_state.user_leaf.last_checkpoint_id;
 
         let updates = self.get_user_session_update_history().await?;
 

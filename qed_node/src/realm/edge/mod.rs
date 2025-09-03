@@ -126,7 +126,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         None,
     )
     .await?;
-    spawn_active_checkpoint_sync_task(store_reader, sync_queue, config.rpc.coordinator_addr)
+    spawn_active_checkpoint_sync_task(realm_config.realm_id, store_reader, sync_queue, config.rpc.coordinator_addr)
         .await?;
 
     // Keep server running¶

@@ -393,17 +393,20 @@ fn execute_transfer_multi_transaction_sync(
     // let private_key_to3 = QHashOut::<GoldilocksField>::rand();
 
     info!("🔑 Task {} - Registering user_from and user_to", task_id);
+    let start = Instant::now();
     let pk_hash_from = wallet_session.register_user(private_key_from)?;
     let pk_hash_to1 = wallet_session.register_user(private_key_to1)?;
     let pk_hash_to2 = wallet_session.register_user(private_key_to2)?;
     // let pk_hash_to3 = wallet_session.register_user(private_key_to3)?;
+    let duration = start.elapsed().as_millis() as u64;
+    info!("🔑 Task {} - Register user duration: {} ms", task_id, duration);
 
     println!("pk_hash_from: {}", pk_hash_from);
     println!("pk_hash_to1: {}", pk_hash_to1);
     println!("pk_hash_to2: {}", pk_hash_to2);
     // println!("pk_hash_to3: {}", pk_hash_to3);
 
-    if !wait_for_new_block(wallet_session, 2)? {
+    if !wait_for_new_block(&wallet_session.st_provider, 2)? {
         return Err(anyhow::format_err!(
             "register user timeout waiting for checkpoint"
         ));
@@ -417,16 +420,16 @@ fn execute_transfer_multi_transaction_sync(
     // wallet_session.add_user(private_key_to3)?;
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;
-    let pk_info_from = wallet_session.wallet.get_zk_pk_info(private_key_from)?;
+    let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from)?;
     let pk_hash_from = pk_info_from.qfhash::<QEDHasher>();
     // println!("pk_hash_from: {}", pk_hash_from);
     let user_id_from = wallet_session.st_provider.get_user_id(pk_hash_from)?;
     info!("👥 Task {} - User_id_from: {}", task_id, user_id_from);
-    let pk_info_to1 = wallet_session.wallet.get_zk_pk_info(private_key_to1)?;
+    let pk_info_to1 = wallet_session.wallet.get_secp_pk_info(private_key_to1)?;
     let pk_hash_to1 = pk_info_to1.qfhash::<QEDHasher>();
     let user_id_to1 = wallet_session.st_provider.get_user_id(pk_hash_to1)?;
     info!("👥 Task {} - User_id_to1: {}", task_id, user_id_to1);
-    let pk_info_to2 = wallet_session.wallet.get_zk_pk_info(private_key_to2)?;
+    let pk_info_to2 = wallet_session.wallet.get_secp_pk_info(private_key_to2)?;
     let pk_hash_to2 = pk_info_to2.qfhash::<QEDHasher>();
     let user_id_to2 = wallet_session.st_provider.get_user_id(pk_hash_to2)?;
     info!("👥 Task {} - User_id_to2: {}", task_id, user_id_to2);
@@ -460,16 +463,46 @@ fn execute_transfer_multi_transaction_sync(
     // });
 
     info!("Start to execute multi contract call");
-    wallet_session.exec_contract_call_with_sign_type(
-        pk_hash_from,
-        contract_call_args,
-        SignType::ZKSign,
-        None,
-        Some(0),
-        vec![],
-    )?;
-
+    let start = Instant::now();
+    wallet_session
+        .exec_contract_call(pk_hash_from, contract_call_args)
+        .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err))?;
+    let duration = start.elapsed().as_millis() as u64;
+    info!("🔄 Task {} - Multi contract call duration: {} ms", task_id, duration);
     info!("End to execute multi contract call");
+
+    if !wait_for_new_block(&wallet_session.st_provider, 1)? {
+        return Err(anyhow::format_err!(
+            "multi contract call timeout waiting for checkpoint"
+        ));
+    }
+
+    // claim
+    let users = vec![pk_hash_to1, pk_hash_to2];
+    for user in users {
+        let claim_contract_call_args = vec![ContractCallArgs {
+            contract_id: 0,
+            method_name: "simple_claim".to_string(),
+            inputs: vec![user_id_from],
+        }];
+        info!("Start to execute claim contract call for user {}", user);
+        let start = Instant::now();
+        // try to claim
+        wallet_session
+            .exec_contract_call(user.clone(), claim_contract_call_args)
+            .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err))?;
+        let duration = start.elapsed().as_millis() as u64;
+        info!("🔄 Task {} - Claim contract call duration: {} ms", task_id, duration);
+        info!("End to execute claim contract call for user {}", user);
+    }
+
+    if !wait_for_new_block(&wallet_session.st_provider, 1)? {
+        return Err(anyhow::format_err!(
+            "claim timeout waiting for checkpoint"
+        ));
+    }
+
+    info!("🔑 Task {} - Claimed user_to1 and user_to2", task_id);
 
     Ok(())
 }

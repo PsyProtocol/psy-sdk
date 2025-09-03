@@ -57,7 +57,7 @@ pub trait CoordinatorEdgeRpc {
 
     // Checkpoint sync info
     #[method(name = "get_checkpoint_sync_info")]
-    async fn get_checkpoint_sync_info(&self, checkpoint_id: u64) -> RpcResult<CheckpointSyncInfo<F>>;
+    async fn get_checkpoint_sync_info(&self, realm_id: u32, checkpoint_id: u64) -> RpcResult<CheckpointSyncInfo<F>>;
 
     #[method(name = "get_checkpoint_sync_info_compact")]
     async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> RpcResult<QCheckpointSyncInfoCompact>;

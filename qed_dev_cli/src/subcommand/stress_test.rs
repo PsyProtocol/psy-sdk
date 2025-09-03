@@ -1,5 +1,6 @@
 mod transfer;
 mod transfer_multi;
+mod multicall;
 
 use std::{
     path::Path,
@@ -15,7 +16,8 @@ use qed_prover::{
     session::WalletSession,
 };
 use tracing::{error, info};
-
+use qed_node::common::slot::{SLOT_SIZE, LocalClock, Slot};
+use qed_prover::local::provider::RpcProvider;
 use crate::subcommand::StressTestArgs;
 
 type F = GoldilocksField;
@@ -29,6 +31,7 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
     match args.task_type.as_str() {
         "transfer" => transfer::run(args).await,
         "transfer_multi" => transfer_multi::run(args).await,
+        "multicall" => multicall::run(args).await,
         _ => {
             error!("❌ Unsupported task type: {}", args.task_type);
             anyhow::bail!("Unsupported task type: {}", args.task_type);
@@ -61,39 +64,38 @@ pub(crate) fn load_rpc_config(config_path: &str) -> Result<RpcConfig> {
     Ok(rpc_config)
 }
 
-pub(crate) fn wait_for_new_block(wallet_session: &mut WalletSession, offset: u64) -> Result<bool> {
-    let starting_checkpoint = wallet_session
-        .st_provider
+pub(crate) fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -> Result<bool> {
+    let mut start_checkpoint = st_provider
         .get_latest_l2_block_state()?
         .checkpoint_id;
-    info!("current checkpoint: {}", starting_checkpoint);
-    let timeout_duration = Duration::from_secs(300);
-    let interval = Duration::from_secs(3);
+    info!("current checkpoint: {}", start_checkpoint);
+    let local_clock = LocalClock{};
+    let timeout_duration = Duration::from_millis(10 * offset * SLOT_SIZE);
+    let interval = Duration::from_millis(SLOT_SIZE);
     let start_time = Instant::now();
-    let mut last_checkpoint = starting_checkpoint;
-    wallet_session.st_provider.produce_block::<F>()?;
+    let mut pre_checkpoint = start_checkpoint;
     loop {
-        let checkpoint = wallet_session
-            .st_provider
+        let slot = local_clock.get_current_slot();
+        thread::sleep(interval);
+        let last_checkpoint = st_provider
             .get_latest_l2_block_state()?
             .checkpoint_id;
-        info!("get latest checkpoint: {}", checkpoint);
+        info!("get latest checkpoint: {}", last_checkpoint);
         let duration = start_time.elapsed();
-        if checkpoint >= starting_checkpoint + offset {
+        if last_checkpoint >= start_checkpoint + offset {
             info!(
                 "🔄 Wait {} seconds for finalizing block",
                 duration.as_secs()
             );
             return Ok(true);
         }
-        if checkpoint != last_checkpoint {
-            info!("new checkpoint: {}", checkpoint);
-            last_checkpoint = checkpoint;
-            wallet_session.st_provider.produce_block::<F>()?;
+        let latest_slot = local_clock.get_current_slot();
+        if pre_checkpoint == last_checkpoint && latest_slot > slot {
+            st_provider.produce_block::<F>()?;
         }
+        pre_checkpoint = last_checkpoint;
         if duration > timeout_duration {
             return Ok(false);
         }
-        thread::sleep(interval);
     }
 }

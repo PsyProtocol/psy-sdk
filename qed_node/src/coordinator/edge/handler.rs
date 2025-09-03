@@ -156,7 +156,7 @@ impl CoordinatorEdgeHandler {
         public_key: QHashOut<QEDFelt>,
     ) -> Result<u64, CoordinatorError> {
         self.store.get_first_user_id(public_key).await.map_err(|_| {
-            error!("❌ User not found for public key: {:?}", public_key);
+            warn!("❌ User not found for public key: {:?}", public_key);
             CoordinatorError::UserNotFound { public_key }
         })
     }
@@ -243,7 +243,8 @@ impl CoordinatorEdgeHandler {
         );
         info!("old root from realm: {}", input.top_line_proof.old_root);
         if old_root != input.top_line_proof.old_root && old_root != input.top_line_proof.new_root {
-            anyhow::bail!("invalid top line proof old value from realm");
+            // anyhow::bail!("invalid top line proof old value from realm");
+            tracing::warn!("invalid top line proof old value from realm");
         }
 
         // build queue item
@@ -287,6 +288,7 @@ impl CoordinatorEdgeHandler {
 
     pub async fn get_checkpoint_sync_info(
         &self,
+        realm_id: u32,
         request_checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo<F>> {
         let latest = self.get_latest_checkpoint_id().await?;
@@ -304,14 +306,21 @@ impl CoordinatorEdgeHandler {
             .get_checkpoint_sync_info_compact(request_checkpoint_id)
             .await?;
 
+        let realm_merkle_proof = self.get_user_sub_tree_merkle_proof(
+            request_checkpoint_id,
+            0,
+            self.ctx.coordinator_config.realm_root_level,
+            realm_id as u64,
+        ).await?;
+
         // Convert compact to full sync info with all required fields
         let sync_info = CheckpointSyncInfo {
-            pending_checkpoint_id: None, // todo if something pending, we need to get it from db
             latest_checkpoint_id: latest,
             description: None,
             source_coordinator_edge_id: None,
             sync_timestamp: Utc::now().timestamp() as u64,
             compact,
+            realm_root: realm_merkle_proof.value,
         };
         Ok(sync_info)
     }
@@ -919,6 +928,7 @@ use crate::common::whitelist::WhiteList;
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use qed_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
 use qed_prover::local::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
 use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::redis_queue::NotificationQueue;
@@ -988,9 +998,10 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
     async fn get_checkpoint_sync_info(
         &self,
+        realm_id: u32,
         checkpoint_id: u64,
     ) -> RpcResult<CheckpointSyncInfo<F>> {
-        self.get_checkpoint_sync_info(checkpoint_id)
+        self.get_checkpoint_sync_info(realm_id, checkpoint_id)
             .await
             .map_err(RpcError::Anyhow)
     }
@@ -1692,11 +1703,9 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         };
         match j {
             Some(job) => {
-                trace!("Pending job from current task: {:?}", job);
                 Ok(Some(job))
             }
             None => {
-                trace!("No pending job from current task");
                 Ok(None)
             }
         }

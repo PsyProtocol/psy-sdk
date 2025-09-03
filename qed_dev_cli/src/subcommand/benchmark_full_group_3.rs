@@ -88,6 +88,7 @@ use plonky2::{
 use qed_core::data::qhashout::QHashOut;
 use qed_store::queue::QPendingUserStoreAsyncImm;
 use qed_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
+use qed_store::store::journal::{Journal, JournalStore};
 
 struct TestGrouping<
     CSR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
@@ -110,6 +111,7 @@ struct TestGrouping<
         + QEDCoordinatorStoreReaderAsync<F>
         + Send
         + Sync
+        + Journal
         + KVQBinaryStore,
     RPDQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
     RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
@@ -154,6 +156,7 @@ impl<
             + QEDCoordinatorStoreReaderAsync<F>
             + Send
             + Sync
+            + Journal
             + KVQBinaryStore,
         RPDQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
@@ -307,7 +310,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let realm_qps = Arc::new(realm_q.clone());
 
-    let st = Arc::new(store_reader.clone());
+    let st = store_reader.clone();
 
     timer.lap("initialized store");
 
@@ -329,7 +332,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let coordinator_edge_node =
         CoordinatorEdgeContext::new(
             coord_config,
-            Arc::clone(&st),
+            st.clone(),
             qps.clone(),
             qps.clone(),
             Arc::clone(&proof_verifier),
@@ -338,7 +341,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
-        Arc::clone(&st),
+        st.clone(),
         qps.clone(),
         qps.clone(),
         qps.clone(),
@@ -394,7 +397,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     .await?;
     let mut realm_processor_node = RealmProcessorContext::new(
         realm_config,
-        st.clone(),
+        JournalStore::new(st.clone()),
         realm_qps.clone(),
         realm_qps.clone(),
         realm_qps.clone(),
