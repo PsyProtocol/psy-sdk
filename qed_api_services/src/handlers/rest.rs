@@ -401,7 +401,7 @@ async fn stats_handler(
         "timestamp".to_string(),
         serde_json::Value::String(now.to_rfc3339()),
     );
-    
+
     // Get block height (maximum checkpoint ID from worker_events)
     let block_height = match TpsRepository::get_max_checkpoint(&service.pool).await {
         Ok(height) => {
@@ -498,16 +498,18 @@ async fn worker_rewards_handler(
     Path(worker_public_key): Path<String>,
     Query(query): Query<WorkerRewardsQuery>,
 ) -> Result<Json<WorkerRewards>, StatusCode> {
+    let checkpoint_id = query.checkpoint_id;
+
     tracing::info!(
         "Worker rewards request for worker: {}, checkpoint_id: {}",
         worker_public_key,
-        query.checkpoint_id
+        checkpoint_id
     );
 
     match WorkerRewardsRepository::get_worker_rewards(
         &service.pool,
         &worker_public_key,
-        query.checkpoint_id,
+        checkpoint_id,
     )
     .await
     {
@@ -519,7 +521,7 @@ async fn worker_rewards_handler(
             tracing::error!(
                 "Failed to retrieve worker rewards for worker {} with checkpoint_id {}: {}",
                 worker_public_key,
-                query.checkpoint_id,
+                checkpoint_id,
                 e
             );
             Err(StatusCode::INTERNAL_SERVER_ERROR)

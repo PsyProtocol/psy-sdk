@@ -896,25 +896,21 @@ impl WorkerRewardsRepository {
         let seven_days_ago = now - chrono::Duration::days(7);
         let thirty_days_ago = now - chrono::Duration::days(30);
 
-        // Constants
-        const REWARD_PER_PROOF: i64 = 5_000_000_000; // 5*10^9 psy
-        const TOPIC_GENERATE_STANDARD_PROOF: i16 = 0; // QJobTopic::GenerateStandardProof.to_u8() as i16
-
-        // Query for all GenerateStandardProof jobs with COMPLETED status
+        // Get rewards and proofs counts by checkpoint (claimed vs unclaimed)
         let rewards_row = sqlx::query!(
             r#"
             SELECT
-                COUNT(CASE WHEN checkpoint_id < $2 THEN 1 END) as claimed_proofs,
-                COUNT(CASE WHEN checkpoint_id >= $2 THEN 1 END) as unclaimed_proofs,
-                COUNT(*) as total_proofs
-            FROM worker_events
+                COUNT(CASE WHEN checkpoint_id < $2 THEN 1 END)::BIGINT as claimed_proofs,
+                COUNT(CASE WHEN checkpoint_id >= $2 THEN 1 END)::BIGINT as unclaimed_proofs,
+                COUNT(*)::BIGINT as total_proofs,
+                COALESCE(SUM(CASE WHEN checkpoint_id < $2 THEN reward_amount END), 0)::BIGINT as claimed_rewards,
+                COALESCE(SUM(CASE WHEN checkpoint_id >= $2 THEN reward_amount END), 0)::BIGINT as unclaimed_rewards,
+                COALESCE(SUM(reward_amount), 0)::BIGINT as total_rewards
+            FROM worker_event_rewards
             WHERE public_key = $1
-                AND topic = $3
-                AND status = 'COMPLETED'
             "#,
             worker_public_key,
-            checkpoint_id,
-            TOPIC_GENERATE_STANDARD_PROOF
+            checkpoint_id
         )
         .fetch_one(pool)
         .await?;
@@ -922,41 +918,34 @@ impl WorkerRewardsRepository {
         let claimed_proofs = rewards_row.claimed_proofs.unwrap_or(0);
         let unclaimed_proofs = rewards_row.unclaimed_proofs.unwrap_or(0);
         let total_proofs = rewards_row.total_proofs.unwrap_or(0);
+        let claimed_rewards = rewards_row.claimed_rewards.unwrap_or(0);
+        let unclaimed_rewards = rewards_row.unclaimed_rewards.unwrap_or(0);
+        let total_rewards = rewards_row.total_rewards.unwrap_or(0);
 
-        // Calculate rewards
-        let claimed_rewards = claimed_proofs * REWARD_PER_PROOF;
-        let unclaimed_rewards = unclaimed_proofs * REWARD_PER_PROOF;
-        let total_rewards = claimed_rewards + unclaimed_rewards;
-
-        // Query for time-based rewards (24h, 7d, 30d)
+        // Query for time-based rewards (24h, 7d, 30d) from worker_event_rewards
         let time_rewards_row = sqlx::query!(
             r#"
             SELECT
-                COUNT(CASE WHEN timestamp >= $2 THEN 1 END) as proofs_24h,
-                COUNT(CASE WHEN timestamp >= $3 THEN 1 END) as proofs_7d,
-                COUNT(CASE WHEN timestamp >= $4 THEN 1 END) as proofs_30d
-            FROM worker_events
+                COUNT(CASE WHEN timestamp >= $2 THEN 1 END)::BIGINT as proofs_24h,
+                COUNT(CASE WHEN timestamp >= $3 THEN 1 END)::BIGINT as proofs_7d,
+                COUNT(CASE WHEN timestamp >= $4 THEN 1 END)::BIGINT as proofs_30d,
+                COALESCE(SUM(CASE WHEN timestamp >= $2 THEN reward_amount END), 0)::BIGINT as total_rewards_24h,
+                COALESCE(SUM(CASE WHEN timestamp >= $3 THEN reward_amount END), 0)::BIGINT as total_rewards_7d,
+                COALESCE(SUM(CASE WHEN timestamp >= $4 THEN reward_amount END), 0)::BIGINT as total_rewards_30d
+            FROM worker_event_rewards
             WHERE public_key = $1
-                AND topic = $5
-                AND status = 'COMPLETED'
             "#,
             worker_public_key,
             twenty_four_hours_ago,
             seven_days_ago,
-            thirty_days_ago,
-            TOPIC_GENERATE_STANDARD_PROOF
+            thirty_days_ago
         )
         .fetch_one(pool)
         .await?;
 
-        let proofs_24h = time_rewards_row.proofs_24h.unwrap_or(0);
-        let proofs_7d = time_rewards_row.proofs_7d.unwrap_or(0);
-        let proofs_30d = time_rewards_row.proofs_30d.unwrap_or(0);
-
-        // Calculate time-based total rewards
-        let total_rewards_24h = proofs_24h * REWARD_PER_PROOF;
-        let total_rewards_7d = proofs_7d * REWARD_PER_PROOF;
-        let total_rewards_30d = proofs_30d * REWARD_PER_PROOF;
+        let total_rewards_24h = time_rewards_row.total_rewards_24h.unwrap_or(0);
+        let total_rewards_7d = time_rewards_row.total_rewards_7d.unwrap_or(0);
+        let total_rewards_30d = time_rewards_row.total_rewards_30d.unwrap_or(0);
 
         Ok(WorkerRewards {
             worker_public_key: worker_public_key.to_string(),
