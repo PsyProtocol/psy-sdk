@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use plonky2::{
-    hash::hash_types::{HashOut, HashOutTarget},
+    field::types::Field, hash::hash_types::{HashOut, HashOutTarget},
     iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
@@ -10,11 +10,11 @@ use plonky2::{
     },
 };
 use qed_common_circuit::{
-    builder::pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}},
     circuits::traits::qstandard::{
         QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
     },
-    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    proof_minifier::pm_core::get_circuit_fingerprint_generic, traits::{ToTargets, WitnessValueFor},
 };
 use qed_core::{
     data::qhashout::QHashOut,
@@ -29,16 +29,17 @@ use qed_crypto::{
 };
 use qed_data::{
     guta::proof_input::GUTANoChangeFullInput,
-    qdata::checkpoint::QEDCheckpointLeafCompactWithStateRoots,
+    qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, pm_jobs_completed_stats::PMJobsCompletedStats},
 };
 
-use crate::guta::gadgets::guta_no_change_gadget::GUTANoChangeGadget;
+use crate::{guta::gadgets::guta_no_change_gadget::GUTANoChangeGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 #[derive(Debug)]
 pub struct GUTANoChangeCircuit<C: GenericConfig<D>, const D: usize> {
     no_change_gadget: GUTANoChangeGadget,
     guta_circuit_whitelist: HashOutTarget,
     worker_public_key: HashOutTarget,
+    pm_jobs_completed: PMJobsCompletedStatsGadget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -61,7 +62,15 @@ where
         );
 
         let worker_public_key = builder.add_virtual_hash();
-        let commitment = worker_public_key;
+
+        builder.assert_non_zero_hash(worker_public_key);
+
+        let zero_hash = builder.constant_hash(HashOut::ZERO);
+        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
+
+        let one = builder.one();
+        let pm_jobs_completed = PMJobsCompletedStatsGadget::new_gutas(&mut builder, one);
 
         let public_inputs_hash = no_change_gadget
             .new_guta_header
@@ -69,6 +78,7 @@ where
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&public_inputs_hash.elements);
         builder.add_qed_type_c_common_gates();
         pad_circuit_degree(&mut builder, 12);
@@ -82,6 +92,7 @@ where
             no_change_gadget,
             guta_circuit_whitelist,
             worker_public_key,
+            pm_jobs_completed,
 
             circuit_data,
             fingerprint,
@@ -99,6 +110,9 @@ where
 
         pw.set_hash_target(self.guta_circuit_whitelist, guta_circuit_whitelist_root.0)?;
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
+
+        let jobs_completed_stats = PMJobsCompletedStats::new_gutas(C::F::ONE);
+        self.pm_jobs_completed.set_witness(&mut pw, &jobs_completed_stats)?;
 
         self.no_change_gadget.set_witness_params(
             &mut pw,

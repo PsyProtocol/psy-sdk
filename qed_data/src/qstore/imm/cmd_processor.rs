@@ -121,6 +121,14 @@ pub struct DPNCheckpointLeafStatsWitness<F: RichField> {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
+pub struct DPNClearEntireTreeWitness<F: RichField> {
+    pub state_tree_height: u64,
+    pub zero_hash: QHashOut<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub enum DPNStateCmdWitness<F: RichField> {
     MerkleProof(MerkleProofCore<QHashOut<F>>),
     DeltaMerkleProof(DeltaMerkleProofCore<QHashOut<F>>),
@@ -129,6 +137,7 @@ pub enum DPNStateCmdWitness<F: RichField> {
     ReadOtherUserContractState(DPNReadOtherUserContractStateLeafMerkleProof<F>),
     InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness<F>),
     CheckpointLeafStats(DPNCheckpointLeafStatsWitness<F>),
+    ClearEntireTree(DPNClearEntireTreeWitness<F>),
     TargetArray(Vec<F>),
     TargetArray2D(Vec<Vec<F>>),
 }
@@ -211,6 +220,14 @@ impl<F: RichField> DPNStateCmdWitness<F> {
             _ => panic!("get_checkpoint_leaf_stats_ref expects witness type to be CheckpointLeafStats, but got {:?}",&self),
         }
     }
+    pub fn get_clear_entire_tree_ref(&self) -> &DPNClearEntireTreeWitness<F> {
+        match &self {
+            DPNStateCmdWitness::ClearEntireTree(witness) => {
+                witness
+            },
+            _ => panic!("get_clear_entire_tree_ref expects witness type to be ClearEntireTree, but got {:?}",&self),
+        }
+    }
     pub fn get_merkle_proof(self) -> MerkleProofCore<QHashOut<F>> {
         match self {
             DPNStateCmdWitness::MerkleProof(merkle_proof) => {
@@ -277,6 +294,14 @@ impl<F: RichField> DPNStateCmdWitness<F> {
                 w
             },
             _ => panic!("get_target_array_2d expects witnesss type to be TargetArray2D, but got {:?}",&self),
+        }
+    }
+    pub fn get_clear_entire_tree(self) -> DPNClearEntireTreeWitness<F> {
+        match self {
+            DPNStateCmdWitness::ClearEntireTree(witness) => {
+                witness
+            },
+            _ => panic!("get_clear_entire_tree expects witness type to be ClearEntireTree, but got {:?}",&self),
         }
     }
 }

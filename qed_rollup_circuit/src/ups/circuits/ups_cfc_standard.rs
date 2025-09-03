@@ -40,7 +40,6 @@ where
             )
         }
     pub fn new_with_config(
-        //coset_gate: &GateRef<C::F, D>,
         ups_session_proof_tree_height: usize,
         ups_circuit_whitelist_tree_height: usize,
     ) -> Self {

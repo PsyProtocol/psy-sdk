@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOut, HashOutTarget, RichField},
-    iop::target::Target,
+    iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_common_circuit::{
@@ -17,9 +17,9 @@ use qed_common_circuit::{
         sub_slot_merkle_proof_batch::SubSlotMerkleProofBatchGadget,
         historical_root_merkle_proof::HistoricalRootMerkleProofGadget,
     },
-    traits::CreatableTarget,
+    traits::{CreatableTarget, ToTargets},
 };
-use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::base_types::hash256::Hash256};
+use qed_core::{config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::{base_types::hash256::Hash256, qhashout::QHashOut}};
 use qed_crypto::hash::core::sha256;
 use qed_rollup_circuit::gadgets::qdata::{
     checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget,
@@ -30,6 +30,34 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::dpn::vm::ops::SimpleDPNBuilder;
+
+#[derive(Clone, Debug)]
+pub struct ClearEntireTreeGadget {
+    pub state_tree_height: Target,
+    pub zero_hash: HashOutTarget,
+}
+
+impl ClearEntireTreeGadget {
+    pub fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        Self {
+            state_tree_height: builder.add_virtual_target(),
+            zero_hash: builder.add_virtual_hash(),
+        }
+    }
+
+    pub fn set_witness<W: Witness<F>, F: RichField>(
+        &self,
+        witness: &mut W,
+        state_tree_height: u64,
+        zero_hash: QHashOut<F>,
+    ) -> anyhow::Result<()> {
+        witness.set_target(self.state_tree_height, F::from_canonical_u64(state_tree_height));
+        witness.set_hash_target(self.zero_hash, zero_hash.into());
+        Ok(())
+    }
+}
 
 #[derive(
     Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
@@ -42,6 +70,7 @@ pub enum StateReaderReferenceKeyType {
     CheckpointStats = 3,
     CheckpointStateRoots = 4,
     HistoricalProof = 5,
+    ClearEntireTree = 6,
 }
 impl StateReaderReferenceKeyType {
     pub fn to_u8(&self) -> u8 {
@@ -61,6 +90,10 @@ impl TryFrom<u8> for StateReaderReferenceKeyType {
             0 => Ok(StateReaderReferenceKeyType::MerkleProof),
             1 => Ok(StateReaderReferenceKeyType::DeltaMerkleProof),
             2 => Ok(StateReaderReferenceKeyType::UserLeaf),
+            3 => Ok(StateReaderReferenceKeyType::CheckpointStats),
+            4 => Ok(StateReaderReferenceKeyType::CheckpointStateRoots),
+            5 => Ok(StateReaderReferenceKeyType::HistoricalProof),
+            6 => Ok(StateReaderReferenceKeyType::ClearEntireTree),
             _ => Err(anyhow::format_err!(
                 "Invalid StateReaderReferenceKeyType value: {}",
                 value
@@ -96,6 +129,12 @@ impl StateReaderReferenceKey {
     pub fn new_checkpoint_stats_key(index: usize) -> Self {
         Self {
             gadget_type: StateReaderReferenceKeyType::CheckpointStats,
+            gadget_index: index,
+        }
+    }
+    pub fn new_clear_entire_tree_key(index: usize) -> Self {
+        Self {
+            gadget_type: StateReaderReferenceKeyType::ClearEntireTree,
             gadget_index: index,
         }
     }
@@ -273,11 +312,18 @@ pub enum StateCommandCacheKey {
     ReadOtherUserContractContractRange(CKReadOtherUserContractContractRange),
     ReadOtherUserContractContractSingle(CKReadOtherUserContractContractSingle),
     GetCheckpointStats(CKGetCheckpointStats),
+    ClearEntireTree(CKClearEntireTree),
 }
 
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct CKGetCheckpointStats {
     pub checkpoint_id: u64,
+}
+
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct CKClearEntireTree {
+    pub condition: u64,
+    pub write_epoch: u32,
 }
 impl StateCommandCacheKey {
     pub fn new_read_current_contract_slot(slot_target_id: u64, write_epoch: u32) -> Self {
@@ -444,6 +490,9 @@ impl StateCommandCacheKey {
             checkpoint_id,
         })
     }
+    pub fn new_clear_entire_tree_with_condition(condition: u64, write_epoch: u32) -> Self {
+        Self::ClearEntireTree(CKClearEntireTree { condition, write_epoch })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -454,12 +503,13 @@ pub struct StateReaderGadget {
     pub checkpoint_stats_requests: Vec<QEDCheckpointLeafStatsGadget>,
     pub checkpoint_state_roots_requests: Vec<QEDCheckpointGlobalStateRootsGadget>,
     pub historical_proofs: Vec<HistoricalRootMerkleProofGadget>,
+    pub clear_entire_tree_requests: Vec<ClearEntireTreeGadget>,
     pub start_contract_state_root: HashOutTarget,
     pub end_contract_state_root: HashOutTarget,
     pub user_contract_tree_state_root: HashOutTarget,
     pub chain_state_roots: QEDCheckpointGlobalStateRootsGadget,
     pub checkpoint_stats: QEDCheckpointLeafStatsGadget,
-    pub checkpoint_tree_root: HashOutTarget,  // Add checkpoint tree root
+    pub checkpoint_tree_root: HashOutTarget,
 
     pub start_deferred_tx_tree_root: HashOutTarget,
     pub end_deferred_tx_tree_root: HashOutTarget,
@@ -501,6 +551,7 @@ impl StateReaderGadget {
             checkpoint_stats_requests: vec![],
             checkpoint_state_roots_requests: vec![],
             historical_proofs: vec![],
+            clear_entire_tree_requests: vec![],
             start_deferred_tx_tree_root: deferred_tx_tree_root,
             end_deferred_tx_tree_root: deferred_tx_tree_root,
             start_contract_state_root: contract_state_root,
@@ -685,7 +736,6 @@ impl StateReaderGadget {
             self.write_epoch,
         );
         let uct_root = self.user_contract_tree_state_root;
-        //let call_epoch = self.contract_call_epoch;
         let expected_contract_state_tree_root = {
             let (is_new_uct, mp_uct) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(
                 builder,
@@ -1452,7 +1502,7 @@ impl StateReaderGadget {
 
                     let historical_proof = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<H, F, D>(
                         builder,
-                        qed_core::config::network_constants::CHECKPOINT_TREE_HEIGHT as usize
+                        CHECKPOINT_TREE_HEIGHT as usize
                     );
 
                     builder.connect(historical_proof.index, requested_checkpoint_id);
@@ -1487,7 +1537,7 @@ impl StateReaderGadget {
                     result.push(requested_checkpoint_stats.user_ops_processed);
                     result.push(requested_checkpoint_stats.total_transactions);
                     result.push(requested_checkpoint_stats.slots_modified);
-                    result.push(requested_checkpoint_stats.pm_jobs_completed);
+                    result.extend_from_slice(&requested_checkpoint_stats.pm_jobs_completed.to_targets());
                     result.push(requested_checkpoint_stats.block_time);
 
                     result.extend_from_slice(&requested_checkpoint_stats.random_seed.elements);
@@ -1503,6 +1553,38 @@ impl StateReaderGadget {
 
                     result
                 }
+            },
+            DPNStateCmd::ClearEntireTree(c) => {
+                let ck = StateCommandCacheKey::new_clear_entire_tree_with_condition(c.condition, self.write_epoch);
+
+                let result = if let Some(existing_result) = self.result_map.get(&ck) {
+                    existing_result.clone()
+                } else {
+                    let condition = dpn.resolve_bool(builder, c.condition);
+                    let zero_hash_constant = builder.constant_hash(H::get_zero_hash(self.contract_state_tree_height));
+
+                    let new_end_state_root = builder.select_hash(condition, zero_hash_constant, self.end_contract_state_root);
+                    self.end_contract_state_root = new_end_state_root;
+
+                    let clear_tree_gadget = ClearEntireTreeGadget::create_virtual(builder);
+                    let height_constant = builder.constant(F::from_canonical_usize(self.contract_state_tree_height));
+
+                    builder.connect_hashes(clear_tree_gadget.zero_hash, zero_hash_constant);
+                    builder.connect(clear_tree_gadget.state_tree_height, height_constant);
+
+                    let index = self.clear_entire_tree_requests.len();
+                    self.clear_entire_tree_requests.push(clear_tree_gadget.clone());
+                    let ref_key = StateReaderReferenceKey::new_clear_entire_tree_key(index);
+                    self.gadget_map.insert(ck.clone(), ref_key);
+
+                    let result_hash = builder.select_hash(condition, zero_hash_constant, self.start_contract_state_root);
+                    let result = result_hash.elements.to_vec();
+                    self.result_map.insert(ck, result.clone());
+                    result
+                };
+
+                self.write_epoch += 1;
+                result
             },
         };
         value

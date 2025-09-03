@@ -1,19 +1,18 @@
 use async_trait::async_trait;
 use plonky2::{
-    hash::hash_types::HashOutTarget,
-    iop::witness::{PartialWitness, WitnessWrite},
-    plonk::{
+    field::types::Field, hash::hash_types::{HashOut, HashOutTarget}, iop::{target::Target, witness::{PartialWitness, WitnessWrite}}, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    },
+    }
 };
 use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::DummyAggStateTransition};
 
 use crate::{
     builder::{
+        comparison::CircuitBuilderComparison,
         hash::core::CircuitBuilderHashCore,
         pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
     },
@@ -29,6 +28,9 @@ pub struct AggStateTransitionDummyCircuit<C: GenericConfig<D>, const D: usize>
     pub state_transition_hash: HashOutTarget,
     pub allowed_circuit_hashes_root: HashOutTarget,
     pub worker_public_key: HashOutTarget,
+    pub is_deploy_contracts: Target,
+    pub is_register_users: Target,
+    pub pm_jobs_completed: [Target; 3],
 
     // end circuit targets
     pub circuit_data: CircuitData<C::F, C, D>,
@@ -45,13 +47,32 @@ where
         let state_transition_hash = builder.add_virtual_hash();
         let allowed_circuit_hashes_root = builder.add_virtual_hash();
         let worker_public_key = builder.add_virtual_hash();
-        let commitment = worker_public_key;
+        let is_deploy_contracts = builder.add_virtual_target();
+        let is_register_users = builder.add_virtual_target();
+
+        let sum = builder.add(is_deploy_contracts, is_register_users);
+        let one = builder.one();
+        builder.connect(sum, one);
+
+        let zero = builder.zero();
+        let pm_jobs_completed = [
+            is_deploy_contracts,
+            is_register_users,
+            zero,
+        ];
+
+        builder.assert_non_zero_hash(worker_public_key);
+
+        let zero_hash = builder.constant_hash(HashOut::ZERO);
+        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
 
         let transition =
             builder.hash_two_to_one::<C::Hasher>(state_transition_hash, state_transition_hash);
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_jobs_completed);
         builder.register_public_inputs(&allowed_circuit_hashes_root.elements);
         builder.register_public_inputs(&transition.elements);
 
@@ -65,6 +86,9 @@ where
             state_transition_hash,
             allowed_circuit_hashes_root,
             worker_public_key,
+            is_deploy_contracts,
+            is_register_users,
+            pm_jobs_completed,
             circuit_data,
             fingerprint,
         }
@@ -74,16 +98,18 @@ where
         worker_public_key: QHashOut<C::F>,
         state_transition_hash: QHashOut<C::F>,
         allowed_circuit_hashes_root: QHashOut<C::F>,
+        is_deploy_contracts: bool,
+        is_register_users: bool,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
-        //tracing::info!("agg_fingerprint: {}", agg_fingerprint.to_string());
-        //tracing::info!("leaf_fingerprint: {}", leaf_fingerprint.to_string());
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
         pw.set_hash_target(self.state_transition_hash, state_transition_hash.0)?;
         pw.set_hash_target(
             self.allowed_circuit_hashes_root,
             allowed_circuit_hashes_root.0,
         )?;
+        pw.set_target(self.is_deploy_contracts, if is_deploy_contracts { C::F::ONE } else { C::F::ZERO })?;
+        pw.set_target(self.is_register_users, if is_register_users { C::F::ONE } else { C::F::ZERO })?;
         self.circuit_data.prove(pw)
     }
 }
@@ -136,6 +162,8 @@ where
             get_default_worker_public_key(),
             input.state_transition_hash,
             input.allowed_circuit_hashes_root,
+            input.is_deploy_contracts,
+            input.is_register_users,
         )
     }
 }
@@ -180,6 +208,8 @@ where
             worker_public_key,
             r.state_transition_hash,
             r.allowed_circuit_hashes_root,
+            r.is_deploy_contracts,
+            r.is_register_users,
         )
     }
 }

@@ -34,6 +34,7 @@ use crate::
         checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget,
         checkpoint_stats::QEDCheckpointLeafStatsGadget,
         pm_reward_commitment::PMRewardCommitmentGadget,
+        pm_jobs_completed_stats::PMJobsCompletedStatsGadget,
     }
 ;
 
@@ -59,6 +60,14 @@ pub struct QEDPart1StateDeltaResultGadget {
 impl QEDPart1StateDeltaResultGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        let empty_pm_jobs = PMJobsCompletedStatsGadget::new_empty(builder);
+        Self::add_virtual_to_with_pm_jobs::<H, F, D>(builder, empty_pm_jobs)
+    }
+
+    pub fn add_virtual_to_with_pm_jobs<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        pm_jobs_completed: PMJobsCompletedStatsGadget,
     ) -> Self {
         let part_1_header =
             VerifyAggUserRegistartionDeployContractsGUTAHeaderGadget::add_virtual_to(builder);
@@ -123,7 +132,7 @@ impl QEDPart1StateDeltaResultGadget {
                 .global_user_tree_delta
                 .stats
                 .slots_modified,
-            pm_jobs_completed: zero,
+            pm_jobs_completed: pm_jobs_completed,
             block_time,
             random_seed: builder
                 .hash_two_to_one::<H>(old_stats.random_seed, final_random_seed_contribution),
@@ -191,12 +200,12 @@ pub struct CheckpointStateTransitionChildProofsGadget<const D: usize> {
     pub part_1_verifier_data: VerifierCircuitTarget,
     pub part_1_proof_target: ProofWithPublicInputsTarget<D>,
     pub state_delta_gadget: QEDPart1StateDeltaResultGadget,
+    pub combined_pm_jobs_completed: PMJobsCompletedStatsGadget,
 }
 
 impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
     pub fn add_virtual_to<C: GenericConfig<D, F = F>, F: RichField + Extendable<D>>(
         builder: &mut CircuitBuilder<F, D>,
-
         part_1_common_data: &CommonCircuitData<F, D>,
         part_1_common_data_verifier_data_cap_height: usize,
         known_part_1_fingerprint: QHashOut<C::F>,
@@ -219,8 +228,14 @@ impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
         let expected_part_1_fingerprint = builder.constant_qhash(known_part_1_fingerprint);
         builder.connect_hashes(part_1_fingerprint, expected_part_1_fingerprint);
 
+        let combined_pm_jobs_completed_from_proof = PMJobsCompletedStatsGadget {
+            deploy_contracts_completed: part_1_proof_target.public_inputs[16],
+            register_users_completed: part_1_proof_target.public_inputs[17],
+            gutas_completed: part_1_proof_target.public_inputs[18],
+        };
+
         let state_delta_gadget =
-            QEDPart1StateDeltaResultGadget::add_virtual_to::<C::Hasher, C::F, D>(builder);
+            QEDPart1StateDeltaResultGadget::add_virtual_to_with_pm_jobs::<C::Hasher, C::F, D>(builder, combined_pm_jobs_completed_from_proof);
 
         let part_1_header_hash = state_delta_gadget
             .part_1_header
@@ -262,7 +277,6 @@ impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
             ]
         };
 
-        // Connect the pm_rewards_commitment from input with the values from proof
         builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.register_users_root, register_users_root_from_proof);
         builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.deploy_contracts_root, deploy_contracts_root_from_proof);
         builder.connect_hashes(state_delta_gadget.pm_rewards_commitment.gutas_root, gutas_root_from_proof);
@@ -271,6 +285,7 @@ impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
             part_1_verifier_data,
             part_1_proof_target,
             state_delta_gadget,
+            combined_pm_jobs_completed: combined_pm_jobs_completed_from_proof,
         }
     }
     pub fn set_witness_params<C: GenericConfig<D, F = F>, F: RichField + Extendable<D>>(

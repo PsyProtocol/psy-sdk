@@ -102,7 +102,7 @@ pub enum DPNOpType {
     U32Mod = 75,
     U32Exp = 76,
 
-    CheckSecpSign = 77,
+    Secp256k1Verify = 77,
     HashTwoToOne = 78,
 }
 
@@ -177,7 +177,7 @@ impl From<u16> for DPNOpType {
             74 => DPNOpType::BoolInputTarget,
             75 => DPNOpType::U32Mod,
             76 => DPNOpType::U32Exp,
-            77 => DPNOpType::CheckSecpSign,
+            77 => DPNOpType::Secp256k1Verify,
             78 => DPNOpType::HashTwoToOne,
             _ => panic!("Unknown DPNOpType: {}", value),
         }
@@ -299,7 +299,7 @@ impl DPNOpType {
             DPNOpType::BoolInputTarget => DPNBuiltInDataType::Bool,
             DPNOpType::U32Mod => DPNBuiltInDataType::U32Target,
             DPNOpType::U32Exp => DPNBuiltInDataType::U32Target,
-            DPNOpType::CheckSecpSign => DPNBuiltInDataType::Bool,
+            DPNOpType::Secp256k1Verify => DPNBuiltInDataType::Bool,
             DPNOpType::HashTwoToOne => DPNBuiltInDataType::HashOut,
         }
     }
@@ -426,7 +426,7 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::BoolInputTarget => "BoolInputTarget",
             DPNOpType::U32Mod => "U32Mod",
             DPNOpType::U32Exp => "U32Exp",
-            DPNOpType::CheckSecpSign => "CheckSecpSign",
+            DPNOpType::Secp256k1Verify => "Secp256k1Verify",
             DPNOpType::HashTwoToOne => "HashTwoToOne",
         };
         write!(f, "DPNOpType::{}", r)

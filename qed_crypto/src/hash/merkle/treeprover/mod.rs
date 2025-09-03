@@ -31,6 +31,8 @@ pub trait AggStateTrackableInput<F: RichField> {
 pub struct DummyAggStateTransition<F: RichField> {
     pub state_transition_hash: QHashOut<F>,
     pub allowed_circuit_hashes_root: QHashOut<F>,
+    pub is_deploy_contracts: bool,
+    pub is_register_users: bool,
 }
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]

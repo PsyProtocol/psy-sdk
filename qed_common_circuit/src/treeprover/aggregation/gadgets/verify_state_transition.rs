@@ -63,8 +63,8 @@ impl<const D: usize> VerifyStateTransitionProofGadget<D> {
 
         assert_eq!(
             proof_target.public_inputs.len(),
-            16,
-            "agg proofs should have 16 public inputs"
+            19,
+            "agg proofs should have 19 public inputs"
         );
         builder.verify_proof::<C>(&proof_target, &verifier_data, proof_common_data);
 

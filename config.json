@@ -20,7 +20,99 @@
       }
     ],
     "prove_proxy_url": "http:/127.0.0.1:9999",
-    "native_currency": "0"
+    "native_currency": "0",
+    "native_currency_decimal": 9,
+    "native_currency_name": "PSY",
+    "fees": {
+      "register_user_fee": 0,
+      "deploy_contract_fee": 0,
+      "guta_fee": 5000000000
+    }
+  },
+  "genesis": {
+    "precompiles": [
+      {
+        "name": "token",
+        "path": "qed_precompiles/token",
+        "contract_name": "PsyTokenContractRef",
+        "method_names": ["simple_mint", "simple_burn", "simple_transfer", "simple_claim", "simple_claim_pow_rewards"],
+        "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
+      },
+      {
+        "name": "rewards",
+        "path": "qed_precompiles/rewards",
+        "contract_name": "ContractRef",
+        "method_names": ["batch_claim_pm_rewards", "simple_mint", "simple_burn", "simple_transfer", "simple_claim"],
+        "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
+      },
+      {
+        "name": "new_rewards",
+        "path": "qed_precompiles/new_rewards",
+        "contract_name": "PsyPOWMiningRewardsClaimContractRef",
+        "method_names": ["advance_and_claim_guta_proof", "advance_to_checkpoint_and_seal"],
+        "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
+      }
+    ],
+    "users": [
+      {
+        "public_key_param": "352637524d9b8482d65b9c8bc78d0d4849a063bc53558158f84ee3863081ab4b",
+        "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0"
+      },
+      {
+        "public_key_param": "cad421940097e1a1257a0d85faf9441d6e52d17f2dcda0da6da5c3a4ea80fe15",
+        "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0"
+      },
+      {
+        "public_key_param": "948eecedbc5579156b0ba347124538e2f1beb430f86615d656cea54bfc20a4b3",
+        "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0"
+      },
+      {
+        "public_key_param": "dbd2e2a55edadf05a6e5a812ab25af092b56c64f491e321d2f2edf397e724afa",
+        "fingerprint": "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c"
+      },
+      {
+        "public_key_param": "bcc12b70cae01e5ad93935a55ae3b23926686602d46e30fd5d5b94d05b063eeb",
+        "fingerprint": "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c"
+      },
+      {
+        "public_key_param": "3807dfb9dc2d5f9236f08931e2eb0e26762a1fb0d752a875b0a97e8960270dec",
+        "fingerprint": "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c"
+      }
+    ],
+    "contracts": {
+      "0": {
+        "0": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        },
+        "1": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        },
+        "2": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        },
+        "3": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        },
+        "4": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        },
+        "5": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        }
+      }
+    }
   },
   "nodes": {
     "coordinator": {

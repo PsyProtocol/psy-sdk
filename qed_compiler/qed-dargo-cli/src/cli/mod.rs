@@ -1,6 +1,6 @@
-mod compile_cmd;
+pub mod compile_cmd;
 mod complete_cmd;
-mod doc_cmd;
+pub mod doc_cmd;
 mod execute_cmd;
 mod fmt_cmd;
 mod generate_abi_cmd;
@@ -11,10 +11,7 @@ mod test_cmd;
 use crate::errors::{CliError, Result};
 use clap::{Args, Parser, Subcommand};
 use qed_common::Graph;
-use qed_dargo::package::Dependency;
-use qed_dargo::workspace::Workspace;
-use qed_dargo_toml::files::{find_file_manifest_root, get_package_manifest};
-use qed_dargo_toml::resolve_workspace_from_toml;
+use qed_package::{files::{find_file_manifest_root, get_package_manifest}, resolve_workspace_from_toml, Dependency, Workspace};
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
@@ -59,14 +56,14 @@ enum DargoCommand {
 }
 
 #[derive(Args, Clone, Debug)]
-pub(crate) struct DargoConfig {
+pub struct DargoConfig {
     // REMINDER: Also change this flag in the LSP test lens if renamed
     #[arg(long, hide = true, global = true, default_value = "./", value_parser = parse_path)]
-    program_dir: PathBuf,
+    pub program_dir: PathBuf,
 
     /// Override the default target directory.
     #[arg(long, hide = true, global = true, value_parser = parse_path)]
-    target_dir: Option<PathBuf>,
+    pub target_dir: Option<PathBuf>,
 }
 
 /// Parses a path and turns it into an absolute one by joining to the current directory.
@@ -80,7 +77,7 @@ fn parse_path(path: &str) -> std::result::Result<PathBuf, String> {
     Ok(path)
 }
 
-fn with_workspace<C, R>(cmd: C, config: DargoConfig, run: R) -> Result<()>
+pub fn with_workspace<C, R>(cmd: C, config: DargoConfig, run: R) -> Result<()>
 where
     R: FnOnce(C, Workspace) -> Result<()>,
 {
@@ -143,7 +140,7 @@ pub fn resolve_crate_path_graph(
     graph
 }
 
-pub(crate) fn save_build_artifact_to_file<T: ?Sized + serde::Serialize>(
+pub fn save_build_artifact_to_file<T: ?Sized + serde::Serialize>(
     build_artifact: &T,
     artifact_name: &str,
     output_dir: &Path,

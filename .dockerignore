@@ -40,3 +40,4 @@ README.md
 *.md
 
 # Keep only source code and build configurations needed for Rust build
+rust-toolchain.toml

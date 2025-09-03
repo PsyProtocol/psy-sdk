@@ -1,0 +1,6 @@
+[package]
+name = "new_rewards"
+type = "bin"
+authors = [""]
+
+[dependencies]

@@ -6,7 +6,7 @@ use jsonrpsee::rpc_params;
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use serde::{Serialize, Deserialize};
-use tracing::{info, error, warn, debug};
+use tracing::{info, error, warn, debug, trace};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use anyhow::{anyhow, Result};
 use http::{HeaderMap, HeaderValue};
@@ -97,7 +97,7 @@ where
     }
 
     async fn update_local_checkpoint(&mut self) -> bool {
-        debug!("Starting active checkpoint sync cycle...");
+        trace!("Starting active checkpoint sync cycle...");
         match self.store_reader.get_latest_l2_block_state().await {
             Ok(state) => {
                 self.current_local_checkpoint_id = state.checkpoint_id;
@@ -124,7 +124,7 @@ where
             Ok(latest_checkpoint) => {
                 self.latest_checkpoint_id = latest_checkpoint.checkpoint_id;
                 if self.is_up_to_date() {
-                    info!(
+                    trace!(
                         "Local checkpoint {} is up-to-date with coordinator at checkpoint {}",
                         self.current_local_checkpoint_id,
                         self.latest_checkpoint_id
@@ -169,7 +169,7 @@ where
                     }
                 }
                 Ok(None) => {
-                    info!("Realm is up-to-date with coordinator at checkpoint {}", next_checkpoint_id);
+                    trace!("Realm is up-to-date with coordinator at checkpoint {}", next_checkpoint_id);
                     break;
                 }
                 Err(e) => {

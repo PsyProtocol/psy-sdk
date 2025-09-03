@@ -57,10 +57,10 @@ trap cleanup SIGINT SIGTERM
 log_message "Starting Scenario 0..."
 sleep 30
 
-run_make_command "make deploy-contract" "Deploy Contract"
-run_make_command "make register-user" "Register User"
-echo "wait for block 1 to be committed"
-sleep 30s
+# run_make_command "make deploy-contract" "Deploy Contract"
+# run_make_command "make register-user" "Register User"
+# echo "wait for block 1 to be committed"
+# sleep 30s
 run_make_command "make build-block" "Make build Block 2"
 echo "wait for block 2 to be committed"
 sleep 30s

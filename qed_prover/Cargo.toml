@@ -28,6 +28,7 @@ qed_core = { workspace = true }
 qed_common_circuit = { workspace = true, default-features = false }
 qed_rollup_circuit = { workspace = true, default-features = false }
 qed_rollup_utils = { workspace = true }
+qed-common = { workspace = true }
 qedlang_core = { workspace = true }
 qed_data = { workspace = true, default-features = false }
 qed_crypto = { workspace = true }
@@ -77,6 +78,9 @@ parking_lot = { workspace = true}
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
 
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 
 [features]
 default = ["is_sync"]

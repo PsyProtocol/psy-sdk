@@ -28,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
     let cli = Cli::parse();
-    qed_rollup_utils::setup_logging(cli.log_level)?;
+    qed_common::setup_logging()?;
     tracing::info!("qed user cli");
     match cli.command {
         Commands::GetPublicKey(args) => get_public_key::run(args)?,

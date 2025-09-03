@@ -1,13 +1,11 @@
 use plonky2::{
     field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::target::Target, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}
 };
-use qed_common_circuit::
-    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore}
-;
-use qed_core::config::network_constants::CHECKPOINT_TREE_HEIGHT;
+use qed_common_circuit::builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, core::CircuitBuilderHelpersCore};
+use qed_core::config::network_constants::{CHECKPOINT_TREE_HEIGHT, GUTA_FEE, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID};
 
 use crate::{gadgets::qdata::{
-    ups_context_input::UserProvingSessionHeaderGadget, user_contract_state::{SignContextGadget, UserContractStateGadget}}, guta::gadgets::guta_stats::GUTAStatsGadget}
+    ups_context_input::UserProvingSessionHeaderGadget, user_contract_state::{SignContextGadget, UserContractStateGadget}, contract_function_call::DPNProvingSessionSimpleMethodCallGadget}, guta::gadgets::guta_stats::GUTAStatsGadget}
 ;
 
 use super::{ups_end_cap_result::UPSEndCapResultCompactGadget, ups_signature_data::QEDUserProvingSessionSignatureDataCompactGadget};
@@ -15,11 +13,10 @@ use super::{ups_end_cap_result::UPSEndCapResultCompactGadget, ups_signature_data
 
 #[derive(Clone, Debug)]
 pub struct UPSEndCapCoreGadget {
-
     // start require witness
 
     // start computed
-    pub sig_data_compact_gadget: QEDUserProvingSessionSignatureDataCompactGadget,    
+    pub sig_data_compact_gadget: QEDUserProvingSessionSignatureDataCompactGadget,
     pub end_cap_result_gadget: UPSEndCapResultCompactGadget,
     pub guta_stats: GUTAStatsGadget,
 }
@@ -37,13 +34,13 @@ impl UPSEndCapCoreGadget {
         network_magic: u64,
         empty_deferred_tx_debt_tree_root: HashOutTarget,
         empty_inline_tx_debt_tree_root: HashOutTarget,
+        second_to_last_tx_hash_stack: HashOutTarget,
     ) -> Self {
-
         builder.connect(
             last_header_gadget.current_state.user_leaf.nonce,
             last_header_gadget.session_start_context.start_session_user_leaf.nonce,
         );
-        
+
         builder.ensure_is_greater_than(
             MAX_NONCE_BITS as usize,
             nonce,
@@ -71,10 +68,10 @@ impl UPSEndCapCoreGadget {
 
 
 
-        builder.connect(
-            real_end_user_leaf.user_id,
-            last_header_gadget.session_start_context.start_session_user_leaf.user_id,
-        );
+        // builder.connect(
+        //     real_end_user_leaf.user_id,
+        //     last_header_gadget.session_start_context.start_session_user_leaf.user_id,
+        // );
 
 
         let start_user_leaf_hash = last_header_gadget.session_start_context.start_session_user_leaf_hash;
@@ -93,7 +90,7 @@ impl UPSEndCapCoreGadget {
                 .checkpoint_tree_root,
             user_leaf: last_header_gadget.current_state.user_leaf,
         };
-        
+
         let ups_end_cap_sighash = sig_data_compact_gadget.get_sig_action_with_user_info::<H,F,D>(
             builder,
             network_magic,
@@ -127,11 +124,11 @@ impl UPSEndCapCoreGadget {
             real_end_user_leaf.last_checkpoint_id,
         );
 
-        builder.ensure_is_greater_than(
-            CHECKPOINT_TREE_HEIGHT as usize,
-            real_end_user_leaf.last_checkpoint_id,
-            last_header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id,
-        );
+        // builder.ensure_is_greater_than(
+        //     CHECKPOINT_TREE_HEIGHT as usize,
+        //     real_end_user_leaf.last_checkpoint_id,
+        //     last_header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id,
+        // );
 
 
 
@@ -149,23 +146,36 @@ impl UPSEndCapCoreGadget {
         );
 
 
-        let zero_placeholder = builder.zero();
         let one_target = builder.one();
 
+        let tx_count = last_header_gadget.current_state.tx_count;
+        builder.ensure_is_greater_than(MAX_NONCE_BITS as usize, tx_count, one_target);
 
-        let guta_stats = GUTAStatsGadget{
-            fees_collected: zero_placeholder,
-            user_ops_processed: one_target,
-            total_transactions: last_header_gadget.current_state.tx_count,
-            slots_modified: slots_modified,
+        let burn_contract_id = builder.constant_u64(TOKEN_CONTRACT_ID as u64);
+        let burn_method_id = builder.constant_u64(TOKEN_SIMPLE_BURN_METHOD_ID as u64);
+        let burn_amount = builder.constant_u64(GUTA_FEE);
+
+        let expected_burn_transaction = DPNProvingSessionSimpleMethodCallGadget {
+            contract_id: burn_contract_id,
+            method_id: burn_method_id,
+            inputs: vec![burn_amount],
         };
 
+        let current_tx_stack = last_header_gadget.current_state.tx_hash_stack;
+        let expected_burn_tx_hash = expected_burn_transaction.to_hash::<H,F,D>(builder);
 
+        let reconstructed_current_stack = builder.hash_two_to_one::<H>(
+            second_to_last_tx_hash_stack,
+            expected_burn_tx_hash
+        );
+        builder.connect_hashes(reconstructed_current_stack, current_tx_stack);
 
-
-
-
-
+        let guta_stats = GUTAStatsGadget{
+            fees_collected: burn_amount,
+            user_ops_processed: one_target,
+            total_transactions: tx_count,
+            slots_modified: slots_modified,
+        };
 
         Self {
             sig_data_compact_gadget,

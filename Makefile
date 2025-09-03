@@ -1,22 +1,29 @@
 export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
 PROFILE := release
-LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
 
 default: build wallet-build
 
 check:
-	@cargo check --all-targets --examples
+	@cargo check --workspace --all-targets --tests --benches --examples --bins
 
 fix:
 	# @cargo machete --fix
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: config_gen_v2
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server --bin qed_api_services
 
 fmt:
 	@cargo fmt
+
+install:
+	@cargo install --path qed_compiler/qed-dargo-cli
+	@cargo install --path qed_compiler/qed-lsp-server
+	@cargo install --path qed_user_cli
+	@cargo install --path qed_rollup_cli
+	@cargo install --path qed_dev_cli
 
 clean:
 	@rm -r target
@@ -25,15 +32,6 @@ DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd qed_compiler/tests && ../../target/
 DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVEL} cd qed_compiler/tests && ../../target/${PROFILE}/dargo execute --debug --entry-path
 
 ci:
-	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
-	       --package qed-ast \
-	       --package qed-parser \
-	       --package qed-sema \
-	       --package qed-interpreter \
-	       -- \
-	       --nocapture
-	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/in_mod_attr_test.qed
-	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/should_panic_test.qed
 
 	@$(DARGO_CLI_COMPILE) ctx_test.qed
 	@$(DARGO_CLI_COMPILE) storage_test.qed --contract-name=SimpleContract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
@@ -79,6 +77,22 @@ ci:
 	@$(DARGO_CLI_EXECUTE) token.qed --contract-name=ContractRef --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
 	@$(DARGO_CLI_EXECUTE) two_user_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
 	@$(DARGO_CLI_EXECUTE) check_secp_sign_test.qed
+	@$(DARGO_CLI_EXECUTE) clear_entire_tree_test.qed
+
+	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/in_mod_attr_test.qed
+	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/should_panic_test.qed
+
+	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
+	       --package qed-ast \
+	       --package qed-parser \
+	       -- \
+	       --nocapture
+
+	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
+	       --package qed-sema \
+	       --package qed-interpreter \
+	       -- \
+	       --nocapture
 
 update-snapshots:
 	@cargo insta review
@@ -99,8 +113,8 @@ config_gen_v2:
 #                                   TMP                                        #
 ################################################################################
 PROJECT_DIR              := $(PWD)/examples
-FILE                     := $(PWD)/examples/token/src/main.qed
-PARAMETERS               :=
+FILE                     := $(PWD)/qed_compiler/tests/opcode_test.qed
+PARAMETERS               := 1,2
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
 USER0_PUBLIC_KEY         := 6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5
 USER0_SECP_ZK_PUBLIC_KEY := 49deab842acf3d26236419d4fce1b2cb01081aef55d4ef0e566f980e3890cf2f
@@ -129,7 +143,7 @@ STRATEGY                 := 2
 SIGN_TYPE                := zk
 
 COORDINATOR_RPC_URL      := $(shell jq -r '.network.coordinator_configs[].rpc_url[]' config.json)
-REALM_RPC_URL            := $(shell jq -r '.network.realm_configs[0].rpc_url[]' config.json)
+REALM_RPC_URL            := $(shell jq -r '.network.realm_configs[${REALM_ID}].rpc_url[]' config.json)
 
 GLOBAL_USER_TREE_HEIGHT  := $(shell jq -r '.network.global_user_tree_height' config.json)
 REALM_USER_TREE_HEIGHT   := $(shell jq -r '.network.realm_user_tree_height' config.json)
@@ -141,14 +155,17 @@ init:
 	# Create token contract subdirectory
 	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/token
 	@cp qed_compiler/tests/new_token.qed ${PROJECT_DIR}/token/src/main.qed
-	# Create rewards contract subdirectory
 	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/rewards
 	@cp qed_compiler/tests/rewards.qed ${PROJECT_DIR}/rewards/src/main.qed
+	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/new_rewards
+	@cp qed_compiler/tests/new_rewards.qed ${PROJECT_DIR}/new_rewards/src/main.qed
 	@mkdir -p $(PWD)/db
 	@echo "Starting Redis containers..."
 	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
+	@echo "Starting TimescaleDB container..."
+	@docker start timescaledb || docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
 	@sleep 10
 	# @echo "Starting ScyllaDB containers..."
 	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
@@ -157,10 +174,13 @@ init:
 	@echo "Waiting for databases to be ready..."
 	@sleep 10
 
+init-api-services:
+	@docker start timescaledb || docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
+
 .PHONY: shutdown
 shutdown:
 	@echo "Stopping and removing database containers..."
-	@docker rm -f qed-redis-coordinator qed-redis-realm0 qed-redis-realm1 > /dev/null 2>&1 || true
+	@docker rm -f qed-redis-coordinator timescaledb qed-redis-realm0 qed-redis-realm1 > /dev/null 2>&1 || true
 	@docker exec qed-redis-coordinator redis-cli FLUSHALL > /dev/null 2>&1 || true
 	@docker exec qed-redis-realm0 redis-cli FLUSHALL > /dev/null 2>&1 || true
 	@docker exec qed-redis-realm1 redis-cli FLUSHALL > /dev/null 2>&1 || true
@@ -168,7 +188,7 @@ shutdown:
 	@redis-cli -p 6380 FLUSHALL > /dev/null 2>&1 || true
 	@redis-cli -p 6381 FLUSHALL > /dev/null 2>&1 || true
 	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
-	@rm -fr ${PROJECT_DIR} ${PWD}/db > /dev/null 2>&1 || true
+	@rm -fr ${PROJECT_DIR} ${PWD}/db logs > /dev/null 2>&1 || true
 	@echo "Removing user job tracker JSON files..."
 	@rm -f ${USER0_PUBLIC_KEY}.json ${USER0_SECP_ZK_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER1_SECP_ZK_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER2_SECP_ZK_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json ${USER3_SECP_ZK_PUBLIC_KEY}.json > /dev/null 2>&1 || true
 
@@ -179,13 +199,16 @@ run-scenario0:
 	@./scripts/run_scenario0.sh
 
 interpret:
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR} && ../target/${PROFILE}/dargo execute --debug --entry-path ${FILE} --parameters ${PARAMETERS}
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo execute --program-dir $(dir ${FILE}) --debug --entry-path $(notdir ${FILE}) --parameters ${PARAMETERS}
 
 compile:
 	# Compile token contract
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
-	# Compile rewards contract
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names claim_batch_job_rewards
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim batch_claim_pm_rewards
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/new_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward claim_guta_proof
+
+run-api-services:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_api_services
 
 run-coordinator-processor:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --database lmdbx --lmdbx-path ${PWD}/db/coordinator
@@ -351,54 +374,52 @@ deploy-contract:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
 	@echo "USER1 deploying token contract..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
-	@echo "USER0 deploying rewards contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/rewards/target/rewards.json
 
 multi-contract-call:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli wallet-session -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}
 
 mint:
 	@echo "All users minting 1000 tokens..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000 --sign-type zk
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000 --sign-type zk
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000 --sign-type $(SIGN_TYPE)
 	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER2_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000
 	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER3_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000
 
 transfer:
 	@echo "USER0 transferring 250 to USER1(8388608)..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER1(8388608) transferring 250 to USER0..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER3(8388609) zk transferring 250 to USER4(2)..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 2 --inputs 250000000000 --sign-type zk
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 2 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER4(2) zk transferring 250 to USER3(8388609)..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388609 --inputs 250000000000 --sign-type zk
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388609 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
 claim:
 	@echo "USER1 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0 --sign-type $(SIGN_TYPE)
 	@echo "USER0 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 8388608
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 8388608 --sign-type $(SIGN_TYPE)
 	@echo "USER4 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 8388609 --sign-type zk
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 8388609 --sign-type $(SIGN_TYPE)
 	@echo "USER3 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 2 --sign-type zk
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 2 --sign-type $(SIGN_TYPE)
 
 return-back:
 	@echo "USER1 transferring back to USER0..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER0 transferring back to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER4 zk transferring 250 to USER3..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388609 --inputs 250000000000 --sign-type zk
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388609 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER3 zk transferring 250 to USER4..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 2 --inputs 250000000000 --sign-type zk
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 2 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
 claim-rewards:
-	@echo "Claiming rewards for checkpoint ${CHECKPOINT_ID}..."
-	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --contract-id 2 --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
+	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --contract-id 2 --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type $(SIGN_TYPE)
+
+get-job-proof:
+	@RUST_LOG=info ./target/${PROFILE}/qed_dev_cli get-job-proof --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
 
 # Unified RPC commands using qed_user_cli automatic routing
 balance-of:
@@ -479,6 +500,14 @@ get-user-contract-state-tree-merkle-proof:
 # Check if user exists in realm
 check-user-id:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_check_user_id_in_realm", "params": [${USER_ID}], "id": 1 }' | jq .
+
+get-graphviz-coordinator:
+	@echo "Getting graphviz from coordinator for checkpoint ${CHECKPOINT_ID}..."
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "qed_get_graphviz", "params": [${CHECKPOINT_ID}], "id": 1}' | jq -r '.result' | sed 's/\\n/\n/g'
+
+get-graphviz-realm:
+	@echo "Getting graphviz from realm0 for checkpoint ${CHECKPOINT_ID}..."
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "qed_get_graphviz", "params": [${CHECKPOINT_ID}], "id": 1}' | jq -r '.result' | sed 's/\\n/\n/g'
 
 get-user-id-from-registration-id:
 	@./target/${PROFILE}/qed_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY}

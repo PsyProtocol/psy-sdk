@@ -12,7 +12,6 @@ pub fn get_checkpoint_id() -> Felt {
     __ctx_get_checkpoint_id()
 }
 
-
 pub fn get_register_users_root(checkpoint_id: Felt) -> Hash {
     __ctx_get_register_users_root(checkpoint_id)
 }
@@ -23,6 +22,34 @@ pub fn get_gutas_root(checkpoint_id: Felt) -> Hash {
 
 pub fn get_deploy_contracts_root(checkpoint_id: Felt) -> Hash {
     __ctx_get_deploy_contracts_root(checkpoint_id)
+}
+
+pub fn get_fees_collected(checkpoint_id: Felt) -> Felt {
+    __ctx_get_fees_collected(checkpoint_id)
+}
+
+pub fn get_user_ops_processed(checkpoint_id: Felt) -> Felt {
+    __ctx_get_user_ops_processed(checkpoint_id)
+}
+
+pub fn get_total_transactions(checkpoint_id: Felt) -> Felt {
+    __ctx_get_total_transactions(checkpoint_id)
+}
+
+pub fn get_slots_modified(checkpoint_id: Felt) -> Felt {
+    __ctx_get_slots_modified(checkpoint_id)
+}
+
+pub fn get_deploy_contracts_completed(checkpoint_id: Felt) -> Felt {
+    __ctx_get_deploy_contracts_completed(checkpoint_id)
+}
+
+pub fn get_register_users_completed(checkpoint_id: Felt) -> Felt {
+    __ctx_get_register_users_completed(checkpoint_id)
+}
+
+pub fn get_gutas_completed(checkpoint_id: Felt) -> Felt {
+    __ctx_get_gutas_completed(checkpoint_id)
 }
 
 pub fn get_last_nonce() -> Felt {
@@ -55,4 +82,8 @@ pub fn invoke_sync<T, U>(contract_id: Felt, method_id: Felt, inputs: U) -> T {
 
 pub fn invoke_deferred<T, U>(contract_id: Felt, method_id: Felt, inputs: U) {
     __invoke_deferred(contract_id, method_id, inputs);
+}
+
+pub fn clear_entire_tree() {
+    __ctx_clear_entire_tree();
 }

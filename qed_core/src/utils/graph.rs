@@ -1,13 +1,16 @@
-use std::collections::{HashMap, HashSet};
-use std::fmt::Debug;
-use std::hash::Hash;
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    hash::Hash,
+};
 
+use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BidirectionalGraph<T: Eq + Hash + Debug> {
-    edges: HashMap<T, HashSet<T>>,
-    reverse_edges: HashMap<T, HashSet<T>>,
+    edges: HashMap<T, IndexSet<T>>,
+    reverse_edges: HashMap<T, IndexSet<T>>,
 }
 
 impl<T: Eq + Hash + Clone + Debug> BidirectionalGraph<T> {
@@ -24,10 +27,11 @@ impl<T: Eq + Hash + Clone + Debug> BidirectionalGraph<T> {
     }
 
     pub fn add_edge(&mut self, from: T, to: T) {
-        self.edges
-            .entry(from.clone())
-            .or_default()
-            .insert(to.clone());
+        if from == to {
+            self.add_node(from);
+            return;
+        }
+        self.edges.entry(from.clone()).or_default().insert(to.clone());
         self.reverse_edges.entry(to).or_default().insert(from);
     }
 
@@ -36,62 +40,258 @@ impl<T: Eq + Hash + Clone + Debug> BidirectionalGraph<T> {
         self.reverse_edges.entry(node).or_default();
     }
 
-    pub fn get_dependencies(&self, node: &T) -> Option<&HashSet<T>> {
+    pub fn get_dependencies(&self, node: &T) -> Option<&IndexSet<T>> {
         self.edges.get(node)
     }
 
-    pub fn get_dependents(&self, node: &T) -> Option<&HashSet<T>> {
+    pub fn get_dependents(&self, node: &T) -> Option<&IndexSet<T>> {
         self.reverse_edges.get(node)
     }
 
     pub fn ts_order(&self) -> Vec<Vec<T>> {
-        let mut in_degrees: HashMap<T, usize> = self
-            .edges
-            .keys()
-            .map(|node| {
-                let degree = self.edges.get(node).map_or(0, |deps| deps.len());
-                (node.clone(), degree)
-            })
-            .collect();
+        let mut all_nodes: std::collections::HashSet<T> = std::collections::HashSet::new();
+        for node in self.edges.keys() {
+            all_nodes.insert(node.clone());
+        }
+        for node in self.reverse_edges.keys() {
+            all_nodes.insert(node.clone());
+        }
 
-        let mut current_layer: Vec<T> = in_degrees
-            .iter()
-            .filter_map(|(node, &degree)| {
-                if degree == 0 {
-                    Some(node.clone())
+        if all_nodes.is_empty() {
+            return Vec::new();
+        }
+
+        let total_nodes = all_nodes.len();
+        let mut processed_nodes = 0;
+        let mut remaining: Vec<T> = all_nodes.into_iter().collect();
+        let mut solved: std::collections::HashSet<T> = std::collections::HashSet::new();
+        let mut levels = Vec::new();
+
+        while processed_nodes < total_nodes {
+            let mut new_remaining = Vec::new();
+            let mut level = Vec::new();
+
+            for node in remaining {
+                let dependencies = self.edges.get(&node);
+                let all_deps_solved = match dependencies {
+                    None => true,
+                    Some(deps) => deps.iter().all(|dep| solved.contains(dep)),
+                };
+
+                if all_deps_solved {
+                    level.push(node.clone());
+                    processed_nodes += 1;
                 } else {
-                    None
-                }
-            })
-            .collect();
-
-        let mut sorted_layers = Vec::new();
-        let mut processed_tasks_count = 0;
-
-        while !current_layer.is_empty() {
-            println!("current_layer: {:?}", current_layer);
-            sorted_layers.push(current_layer.clone());
-            processed_tasks_count += current_layer.len();
-            let mut next_layer = Vec::new();
-            for item in current_layer.iter() {
-                if let Some(reverse_edge) = self.reverse_edges.get(item) {
-                    for reverse_edge in reverse_edge.iter() {
-                        let degree = in_degrees.get_mut(reverse_edge).unwrap();
-                        *degree -= 1;
-                        if *degree == 0 {
-                            next_layer.push(reverse_edge.clone());
-                        }
-                    }
+                    new_remaining.push(node);
                 }
             }
 
-            current_layer = next_layer;
+            for node in level.iter() {
+                solved.insert(node.clone());
+            }
+
+            remaining = new_remaining;
+
+            if level.is_empty() {
+                break;
+            }
+
+            levels.push(level);
         }
 
-        if processed_tasks_count != self.edges.len() {
-            panic!("Cycle detected in the task graph.");
-        } else {
-            sorted_layers
-        }
+        levels
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_empty_graph() {
+        let graph: BidirectionalGraph<i32> = BidirectionalGraph::new();
+        let result = graph.ts_order();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_single_node() {
+        let mut graph = BidirectionalGraph::new();
+        graph.add_node(1);
+        let result = graph.ts_order();
+        assert_eq!(result, vec![vec![1]]);
+    }
+
+    #[test]
+    fn test_simple_dependency() {
+        let mut graph = BidirectionalGraph::new();
+        // A depends on B: A -> B
+        graph.add_edge(1, 2); // 1 depends on 2
+        let result = graph.ts_order();
+        assert_eq!(result, vec![vec![2], vec![1]]);
+    }
+
+    #[test]
+    fn test_multiple_dependencies() {
+        let mut graph = BidirectionalGraph::new();
+        // A depends on B and C: A -> B, A -> C
+        // D depends on B: D -> B
+        graph.add_edge(1, 2); // A depends on B
+        graph.add_edge(1, 3); // A depends on C
+        graph.add_edge(4, 2); // D depends on B
+
+        let result = graph.ts_order();
+
+        // First level should be B(2) and C(3) - no dependencies
+        assert_eq!(result.len(), 2);
+        let mut first_level = result[0].clone();
+        first_level.sort();
+        assert_eq!(first_level, vec![2, 3]);
+
+        // Second level should be A(1) and D(4)
+        let mut second_level = result[1].clone();
+        second_level.sort();
+        assert_eq!(second_level, vec![1, 4]);
+    }
+
+    #[test]
+    fn test_chain_dependency() {
+        let mut graph = BidirectionalGraph::new();
+        // Chain: A -> B -> C -> D
+        graph.add_edge(1, 2); // A depends on B
+        graph.add_edge(2, 3); // B depends on C
+        graph.add_edge(3, 4); // C depends on D
+
+        let result = graph.ts_order();
+        assert_eq!(
+            result,
+            vec![
+                vec![4], // D first
+                vec![3], // then C
+                vec![2], // then B
+                vec![1]  // finally A
+            ]
+        );
+    }
+
+    #[test]
+    fn test_no_dependencies() {
+        let mut graph = BidirectionalGraph::new();
+        graph.add_node(1);
+        graph.add_node(2);
+        graph.add_node(3);
+
+        let result = graph.ts_order();
+        assert_eq!(result.len(), 1);
+        let mut first_level = result[0].clone();
+        first_level.sort();
+        assert_eq!(first_level, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_cycle_handling() {
+        let mut graph = BidirectionalGraph::new();
+        // Create a cycle: A -> B -> C -> A
+        graph.add_edge(1, 2); // A depends on B
+        graph.add_edge(2, 3); // B depends on C
+        graph.add_edge(3, 1); // C depends on A (cycle!)
+
+        // Add an independent node
+        graph.add_node(4);
+
+        let result = graph.ts_order();
+
+        // Should only process the independent node
+        // The cycle should be gracefully ignored
+        assert_eq!(result, vec![vec![4]]);
+    }
+
+    #[test]
+    fn test_partial_cycle() {
+        let mut graph = BidirectionalGraph::new();
+        // A -> B (no cycle)
+        // C -> D -> C (cycle)
+        graph.add_edge(1, 2); // A depends on B
+        graph.add_edge(3, 4); // C depends on D
+        graph.add_edge(4, 3); // D depends on C (cycle!)
+
+        let result = graph.ts_order();
+
+        // Should process A and B, ignore the C-D cycle
+        assert_eq!(result, vec![vec![2], vec![1]]);
+    }
+
+    #[test]
+    fn test_complex_graph() {
+        let mut graph = BidirectionalGraph::new();
+
+        // Complex dependency structure:
+        // E has no deps (level 0)
+        // D depends on E (level 1)
+        // B depends on E (level 1)
+        // C depends on D, E (level 2)
+        // A depends on B, C (level 3)
+
+        graph.add_edge(1, 2); // A depends on B
+        graph.add_edge(1, 3); // A depends on C
+        graph.add_edge(2, 5); // B depends on E
+        graph.add_edge(3, 4); // C depends on D
+        graph.add_edge(3, 5); // C depends on E
+        graph.add_edge(4, 5); // D depends on E
+
+        let result = graph.ts_order();
+
+        assert_eq!(result.len(), 4);
+
+        // Level 0: E
+        assert_eq!(result[0], vec![5]);
+
+        // Level 1: B, D (both depend only on E)
+        let mut level1 = result[1].clone();
+        level1.sort();
+        assert_eq!(level1, vec![2, 4]);
+
+        // Level 2: C (depends on D and E)
+        assert_eq!(result[2], vec![3]);
+
+        // Level 3: A (depends on B and C)
+        assert_eq!(result[3], vec![1]);
+    }
+
+    #[test]
+    fn test_self_dependency() {
+        let mut graph = BidirectionalGraph::new();
+        // A depends on itself
+        graph.add_edge(1, 1);
+
+        let result = graph.ts_order();
+
+        // Self-dependency should be handled gracefully (no infinite loop)
+        // Since A depends on A, it can never be resolved
+        assert_eq!(result, Vec::<Vec<i32>>::new());
+    }
+
+    #[test]
+    fn test_mixed_nodes_and_edges() {
+        let mut graph = BidirectionalGraph::new();
+
+        // Add some isolated nodes
+        graph.add_node(10);
+        graph.add_node(20);
+
+        // Add some connected nodes
+        graph.add_edge(1, 2); // 1 depends on 2
+
+        let result = graph.ts_order();
+
+        assert_eq!(result.len(), 2);
+
+        // First level should have independent nodes: 2, 10, 20
+        let mut level0 = result[0].clone();
+        level0.sort();
+        assert_eq!(level0, vec![2, 10, 20]);
+
+        // Second level should have dependent node: 1
+        assert_eq!(result[1], vec![1]);
     }
 }

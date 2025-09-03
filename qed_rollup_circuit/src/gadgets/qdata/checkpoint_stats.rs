@@ -4,6 +4,7 @@ use qed_core::config::network_constants::DA_CHALLENGE_WINDOW;
 use qed_data::qdata::checkpoint::QEDCheckpointLeafStats;
 
 use super::pm_reward_commitment::{PMRewardCommitmentGadget, PM_REWARD_COMMITMENT_TARGET_SIZE};
+use super::pm_jobs_completed_stats::{PMJobsCompletedStatsGadget, PM_JOBS_COMPLETED_STATS_TARGET_SIZE};
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
 pub struct QEDCheckpointLeafStatsGadget {
@@ -13,10 +14,10 @@ pub struct QEDCheckpointLeafStatsGadget {
     pub total_transactions: Target,
 
     pub slots_modified: Target,
-    pub pm_jobs_completed: Target,
+    pub pm_jobs_completed: PMJobsCompletedStatsGadget,
 
     pub block_time: Target,
-    
+
     pub random_seed: HashOutTarget,
     pub pm_rewards_commitment: PMRewardCommitmentGadget,
 
@@ -30,10 +31,10 @@ impl QEDCheckpointLeafStatsGadget {
 
         witness.set_target(self.user_ops_processed, target.user_ops_processed)?;
         witness.set_target(self.total_transactions, target.total_transactions)?;
-        
+
         witness.set_target(self.slots_modified, target.slots_modified)?;
-        witness.set_target(self.pm_jobs_completed, target.pm_jobs_completed)?;
-        
+        self.pm_jobs_completed.set_witness(witness, &target.pm_jobs_completed)?;
+
         witness.set_target(self.block_time, target.block_time)?;
 
         witness.set_hash_target(self.random_seed, target.random_seed.0)?;
@@ -59,7 +60,7 @@ impl CreatableTarget for QEDCheckpointLeafStatsGadget {
         let user_ops_processed = builder.add_virtual_target();
         let total_transactions = builder.add_virtual_target();
         let slots_modified = builder.add_virtual_target();
-        let pm_jobs_completed = builder.add_virtual_target();
+        let pm_jobs_completed = PMJobsCompletedStatsGadget::create_virtual(builder);
         let block_time = builder.add_virtual_target();
 
 
@@ -79,7 +80,7 @@ impl CreatableTarget for QEDCheckpointLeafStatsGadget {
             pm_rewards_commitment,
             da_challenges_claimed,
         }
-        
+
     }
 }
 impl ToTargets for QEDCheckpointLeafStatsGadget {
@@ -88,15 +89,16 @@ impl ToTargets for QEDCheckpointLeafStatsGadget {
             self.fees_collected,
             self.user_ops_processed,
             self.total_transactions,
-
             self.slots_modified,
-            self.pm_jobs_completed,
+        ];
+        result.extend_from_slice(&self.pm_jobs_completed.to_targets());
+        result.extend_from_slice(&[
             self.block_time,
             self.random_seed.elements[0],
             self.random_seed.elements[1],
             self.random_seed.elements[2],
             self.random_seed.elements[3],
-        ];
+        ]);
         result.extend_from_slice(&self.pm_rewards_commitment.to_targets());
         result.extend_from_slice(&self.da_challenges_claimed);
         result
@@ -104,27 +106,41 @@ impl ToTargets for QEDCheckpointLeafStatsGadget {
 }
 impl FromTargets for QEDCheckpointLeafStatsGadget {
     fn from_targets(targets: &[Target]) -> Self {
-        if targets.len() != 10 + PM_REWARD_COMMITMENT_TARGET_SIZE + DA_CHALLENGE_WINDOW {
-            panic!("Invalid number of elements for QEDCheckpointLeafStats");
+        let expected_len = 4 + PM_JOBS_COMPLETED_STATS_TARGET_SIZE + 5 + PM_REWARD_COMMITMENT_TARGET_SIZE + DA_CHALLENGE_WINDOW;
+        if targets.len() != expected_len {
+            panic!("Invalid number of elements for QEDCheckpointLeafStatsGadget, expected {} got {}", expected_len, targets.len());
         }
+
+        let mut offset = 0;
+        let fees_collected = targets[offset]; offset += 1;
+        let user_ops_processed = targets[offset]; offset += 1;
+        let total_transactions = targets[offset]; offset += 1;
+        let slots_modified = targets[offset]; offset += 1;
+
+        let pm_jobs_completed = PMJobsCompletedStatsGadget::from_targets(&targets[offset..offset + PM_JOBS_COMPLETED_STATS_TARGET_SIZE]);
+        offset += PM_JOBS_COMPLETED_STATS_TARGET_SIZE;
+
+        let block_time = targets[offset]; offset += 1;
+        let random_seed = HashOutTarget {
+            elements: [targets[offset], targets[offset+1], targets[offset+2], targets[offset+3]],
+        };
+        offset += 4;
+
+        let pm_rewards_commitment = PMRewardCommitmentGadget::from_targets(&targets[offset..offset + PM_REWARD_COMMITMENT_TARGET_SIZE]);
+        offset += PM_REWARD_COMMITMENT_TARGET_SIZE;
+
+        let da_challenges_claimed = targets[offset..].try_into().unwrap();
+
         QEDCheckpointLeafStatsGadget {
-            fees_collected: targets[0],
-            user_ops_processed: targets[1],
-            total_transactions: targets[2],
-            slots_modified: targets[3],
-            pm_jobs_completed: targets[4],
-            block_time: targets[5],
-            random_seed: HashOutTarget {
-                elements: [
-                    targets[6],
-                    targets[7],
-                    targets[8],
-                    targets[9],
-                ]
-            },
-            pm_rewards_commitment: PMRewardCommitmentGadget::from_targets(&targets[10..(10+PM_REWARD_COMMITMENT_TARGET_SIZE)]),
-            da_challenges_claimed: targets[(10+PM_REWARD_COMMITMENT_TARGET_SIZE)..].try_into().unwrap(),
-            
+            fees_collected,
+            user_ops_processed,
+            total_transactions,
+            slots_modified,
+            pm_jobs_completed,
+            block_time,
+            random_seed,
+            pm_rewards_commitment,
+            da_challenges_claimed,
         }
     }
 }

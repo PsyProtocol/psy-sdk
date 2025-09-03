@@ -682,11 +682,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 builder.assert_zero(high);
                 self.u32s.push(U32Target(low));
             }
-            DPNOpType::CheckSecpSign => {
+            DPNOpType::Secp256k1Verify => {
                 type CURVE = Secp256K1;
                 assert!(
                     op.inputs.len() == 36,
-                    "CheckSecpSign op must have 36 inputs"
+                    "Secp256k1Verify op must have 36 inputs"
                 );
                 let msg_u32_targets = op.inputs[32..36]
                     .iter()

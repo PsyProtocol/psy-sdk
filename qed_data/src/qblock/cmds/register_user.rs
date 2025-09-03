@@ -12,7 +12,6 @@ pub struct QBCRegisterUser<F: RichField> {
 }
 
 impl<F: RichField> QBCRegisterUser<F> {
-
     pub fn new_from_u64s(fingerprint: [u64; 4], public_key_param: [u64; 4]) -> Self {
         Self {
             fingerprint: QHashOut::from_values(

@@ -5,12 +5,16 @@ use crate::common::verifier::get_cached_generic_verifier;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use crate::realm::{C, D, F};
+use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
 };
 use qed_core::job::id::ProvingJobDataId;
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use qed_crypto::hash::merkle::utils::common::{QMerkleNode, SimpleMerkleNodeKey};
+use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use qed_data::config::genesis_config::GenesisConfig;
 use qed_store::queue::QPendingUserStoreAsyncImm;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use qed_store::store::QEDStore;
@@ -23,8 +27,7 @@ use tokio::time::Instant;
 use anyhow::{anyhow, bail};
 use futures::future::{err, ok};
 use tower_http::follow_redirect::policy::PolicyExt;
-use tracing::{debug, error, info, warn};
-use qed_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
+use tracing::{debug, error, info, trace, warn};
 use qed_core::data::qhashout::QHashOut;
 use qed_store::queue::new_redis_async_pool;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
@@ -35,6 +38,16 @@ use crate::common::clock::SlotTimer;
 use crate::common::slot::{Clock, LocalClock, Slot};
 use crate::common::retry::Retryable;
 use crate::realm::processor::slot_phase::SlotPhase;
+use qed_core::config::network_constants::{REALM_USER_TREE_HEIGHT, USERS_PER_REALM};
+use qed_data::config::store_config::QEDHasher;
+use qed_core::config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
+use qed_data::qdata::user::QEDUserLeaf;
+use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use qed_store::node::realm::QEDRealmStoreWriterAsyncImm;
+use qed_crypto::common::user_id::get_user_id_from_registration_id;
+use plonky2::field::types::Field;
+use qed_data::traits::qdatastore::{qtreedata::{QTreeDataStoreWriterSync}, qmetadata::QMetaDataStoreWriterSync};
+use std::{str::FromStr, collections::HashMap};
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<QEDStore>,
@@ -54,11 +67,12 @@ pub struct RealmProcessor {
     pub task_store: Arc<QProvingTaskStoreImpl>,
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: u64,
+    pub config_path: String,
     pub is_synced: AtomicBool,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
-    let realm_processor = RealmProcessor::new(config).await?;
+    let mut realm_processor = RealmProcessor::new(config).await?;
     let _ = realm_processor.start().await?;
     Ok(())
 }
@@ -82,7 +96,6 @@ impl RealmProcessor {
         let store = QEDStore::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
-        // Use the same ProofStoreRedisAsync for checkpoint sync
         let sync_checkpoint = Arc::new(realm_qps.clone());
         let processor = RealmProcessor {
             realm_config,
@@ -93,6 +106,7 @@ impl RealmProcessor {
             task_store: Arc::new(task_store),
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: 0,
+            config_path: config.config_path.clone(),
             is_synced: AtomicBool::new(false),
         };
         Ok(processor)
@@ -309,9 +323,13 @@ impl RealmProcessor {
                     Ok(_) => {
                         info!(?checkpoint_id, "Sync to new checkpoint");
                         info!("Checkpoint sync reg users len: {}", block.compact.registered_users.len());
+
+                        if checkpoint_id == 0 {
+                            self.initialize_genesis_state().await?;
+                        }
+
                         context.commit(checkpoint_id).await?;
 
-                        // Check updated pending users count
                         let pending_users_count = context.sync_queue.get_pending_users_count().await?;
                         info!("Pending users count after checkpoint sync: {}", pending_users_count);
 
@@ -389,6 +407,98 @@ impl RealmProcessor {
             .await
             .map_err(|err| anyhow!("Error getting latest l2 block state: {:?}", err))?;
         Ok(state.checkpoint_id)
+    }
+
+    async fn initialize_genesis_state(&mut self) -> anyhow::Result<()> {
+        let genesis_config = GenesisConfig::from_path(&self.config_path)?;
+
+        if let Some(genesis_config) = genesis_config {
+            info!("Processing genesis state for realm {}", self.realm_config.realm_id);
+
+
+            let realm_start_user = (self.realm_config.realm_id as u64) * USERS_PER_REALM;
+            let realm_end_user = ((self.realm_config.realm_id + 1) as u64) * USERS_PER_REALM;
+
+            let mut user_contract_states: HashMap<u64, HashMap<u64, Vec<(u64, QHashOut<F>)>>> = HashMap::new();
+            let mut user_id_to_register_id: HashMap<u64, u64> = HashMap::new();
+
+            for (contract_id, users) in genesis_config.get_all_contracts() {
+                for (register_id, user_state) in users {
+
+                    let user_id = get_user_id_from_registration_id(*register_id);
+
+                    if user_id >= realm_start_user && user_id < realm_end_user {
+                        user_id_to_register_id.insert(user_id, *register_id);
+
+                        let mut contract_slots = Vec::new();
+                        for (slot_id, slot_value) in &user_state.slots {
+                            contract_slots.push((*slot_id, *slot_value));
+                        }
+
+                        if !contract_slots.is_empty() {
+                            user_contract_states.entry(user_id).or_insert_with(HashMap::new)
+                                .insert(*contract_id, contract_slots);
+                        }
+                    }
+                }
+            }
+
+            let genesis_users = genesis_config.get_genesis_users();
+
+            let mut realm_updates = Vec::new();
+            for (user_id, contracts) in user_contract_states {
+                let register_id = user_id_to_register_id[&user_id];
+
+                let mut user_contract_tree_root = QEDHasher::get_zero_hash(GLOBAL_CONTRACT_TREE_HEIGHT.into());
+
+                for (contract_id, slots) in contracts {
+                    let mut contract_state_root = QEDHasher::get_zero_hash(MAX_CONTRACT_STATE_TREE_HEIGHT.into());
+                    for (slot_id, slot_value) in slots {
+                        contract_state_root = self.store.set_user_state_tree_leaf_hash(0, user_id, contract_id as u32, MAX_CONTRACT_STATE_TREE_HEIGHT, slot_id, slot_value)?.new_root;
+                    }
+
+                    user_contract_tree_root = self.store.set_user_contract_tree_leaf_hash(
+                        0,
+                        user_id,
+                        contract_id as u32,
+                        contract_state_root,
+                    )?.new_root;
+                }
+
+                let user_leaf = QEDUserLeaf {
+                    public_key: genesis_users[register_id as usize].get_public_key::<QEDHasher>(),
+                    user_state_tree_root: user_contract_tree_root,
+                    balance: F::ZERO,
+                    nonce: F::ZERO,
+                    last_checkpoint_id: F::ZERO,
+                    event_index: F::ZERO,
+                    user_id: F::from_canonical_u64(user_id),
+                };
+
+                let user_leaf_hash = user_leaf.qfhash::<QEDHasher>();
+
+                self.store.set_user_leaf_data(0, &user_leaf)
+                    .map_err(|e| anyhow::anyhow!("Failed to set user leaf data for user {}: {}", user_id, e))?;
+
+                let realm_update = QMerkleNode {
+                    key: SimpleMerkleNodeKey {
+                        level: GLOBAL_USER_TREE_HEIGHT,
+                        index: user_id,
+                    },
+                    value: user_leaf_hash,
+                };
+                realm_updates.push(realm_update);
+
+                info!("✅ Genesis state set for user {} with UCT root {} (realm {})",
+                      user_id, user_contract_tree_root, self.realm_config.realm_id);
+            }
+
+            self.store.injest_user_tree_nodes_imm(0, COORDINATOR_USER_TREE_HEIGHT, &realm_updates).await?;
+
+            info!("Genesis state initialization completed for realm {}", self.realm_config.realm_id);
+        }
+
+        Ok(())
     }
 }
 

@@ -1,31 +1,83 @@
-use super::mode::QWorkerMode;
-use crate::config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROOF_SYNC_CHANNEL};
-use crate::data::qhashout::QHashOut;
-use crate::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
-use crate::job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged};
-use crate::utils::graph::BidirectionalGraph;
+use std::{
+    collections::HashMap,
+    fmt,
+    sync::atomic::{AtomicU64, Ordering},
+};
+
 use anyhow::{Context, Result};
 use hex::FromHexError;
 use indexmap::{IndexMap, IndexSet};
 use kvq::traits::KVQSerializable;
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::field::types::Field;
-use plonky2::hash::hash_types::HashOut;
-use plonky2::hash::poseidon::PoseidonHash;
-use plonky2::plonk::config::{Hasher, PoseidonGoldilocksConfig};
-use plonky2::plonk::proof::ProofWithPublicInputs;
+use plonky2::{
+    field::{
+        goldilocks_field::GoldilocksField,
+        types::{Field, PrimeField64},
+    },
+    hash::{
+        hash_types::{HashOut, RichField},
+        poseidon::PoseidonHash,
+    },
+    plonk::{
+        config::{GenericConfig, Hasher, PoseidonGoldilocksConfig},
+        proof::ProofWithPublicInputs,
+    },
+};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
-use std::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::collections::HashMap;
 use uuid::Uuid;
 
+use super::{mode::QWorkerMode, traits::QProofStoreAsyncImm};
+
+#[async_trait::async_trait]
+pub trait QJobRewardDataProvider {
+    async fn get_job_commitment(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>>;
+    async fn get_job_worker_public_key(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>>;
+}
+
+#[async_trait::async_trait]
+impl<T: QProofStoreAsyncImm> QJobRewardDataProvider for T {
+    async fn get_job_commitment(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>> {
+        let proof = self.get_proof_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
+        Ok(QHashOut(HashOut {
+            elements: [
+                proof.public_inputs[0],
+                proof.public_inputs[1],
+                proof.public_inputs[2],
+                proof.public_inputs[3],
+            ],
+        }))
+    }
+
+    async fn get_job_worker_public_key(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>> {
+        let proof = self.get_proof_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
+        Ok(QHashOut(HashOut {
+            elements: [
+                proof.public_inputs[4],
+                proof.public_inputs[5],
+                proof.public_inputs[6],
+                proof.public_inputs[7],
+            ],
+        }))
+    }
+}
+use crate::{
+    config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROOF_SYNC_CHANNEL},
+    data::qhashout::QHashOut,
+    job::{
+        drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},
+        history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged},
+    },
+    utils::graph::BidirectionalGraph,
+};
+
 type F = GoldilocksField;
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+
+pub const GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE: usize = 15;
+pub const CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT_MINUS_ONE: usize = 15;
+pub const USER_REGISTRATION_REWARDS_MAX_HEIGHT_MINUS_ONE: usize = 15;
+
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum QCircuitCommonGatesType {
     A = 0,
@@ -35,9 +87,7 @@ pub enum QCircuitCommonGatesType {
     E = 4,
     F = 5,
 }
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum QJobTopic {
     GenerateStandardProof = 0,
@@ -73,9 +123,7 @@ impl TryFrom<u8> for QJobTopic {
     }
 }
 
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum ProvingJobDataType {
     InputWitness = 0,
@@ -96,10 +144,7 @@ impl TryFrom<u8> for ProvingJobDataType {
             1 => Ok(ProvingJobDataType::BaseInputProof),
             8 => Ok(ProvingJobDataType::OutputProof),
             16 => Ok(ProvingJobDataType::Counter),
-            _ => Err(anyhow::format_err!(
-                "Invalid ProvingJobDataType value: {}",
-                value
-            )),
+            _ => Err(anyhow::format_err!("Invalid ProvingJobDataType value: {}", value)),
         }
     }
 }
@@ -109,9 +154,7 @@ impl From<ProvingJobDataType> for u8 {
     }
 }
 
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum ProvingJobCircuitType {
     AppendUserRegistrationTree = 0,
@@ -183,32 +226,18 @@ impl ProvingJobCircuitType {
     }
     pub fn get_agg_leaf_circuit_type_or_err(&self) -> anyhow::Result<Self> {
         let leaf_type = match self {
-            ProvingJobCircuitType::AppendUserRegistrationTree => {
-                ProvingJobCircuitType::AppendUserRegistrationTree
-            }
-            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => {
-                ProvingJobCircuitType::AppendUserRegistrationTree
-            }
+            ProvingJobCircuitType::AppendUserRegistrationTree => ProvingJobCircuitType::AppendUserRegistrationTree,
+            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => ProvingJobCircuitType::AppendUserRegistrationTree,
             ProvingJobCircuitType::AddL1Deposit => ProvingJobCircuitType::AddL1Deposit,
             ProvingJobCircuitType::AddL1DepositAggregate => ProvingJobCircuitType::AddL1Deposit,
             ProvingJobCircuitType::ClaimL1Deposit => ProvingJobCircuitType::ClaimL1Deposit,
             ProvingJobCircuitType::ClaimL1DepositAggregate => ProvingJobCircuitType::ClaimL1Deposit,
             ProvingJobCircuitType::AddL1Withdrawal => ProvingJobCircuitType::AddL1Withdrawal,
-            ProvingJobCircuitType::AddL1WithdrawalAggregate => {
-                ProvingJobCircuitType::AddL1Withdrawal
-            }
-            ProvingJobCircuitType::BatchDeployContracts => {
-                ProvingJobCircuitType::BatchDeployContracts
-            }
-            ProvingJobCircuitType::BatchDeployContractsAggregate => {
-                ProvingJobCircuitType::BatchDeployContracts
-            }
-            ProvingJobCircuitType::ProcessL1Withdrawal => {
-                ProvingJobCircuitType::ProcessL1Withdrawal
-            }
-            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => {
-                ProvingJobCircuitType::ProcessL1Withdrawal
-            }
+            ProvingJobCircuitType::AddL1WithdrawalAggregate => ProvingJobCircuitType::AddL1Withdrawal,
+            ProvingJobCircuitType::BatchDeployContracts => ProvingJobCircuitType::BatchDeployContracts,
+            ProvingJobCircuitType::BatchDeployContractsAggregate => ProvingJobCircuitType::BatchDeployContracts,
+            ProvingJobCircuitType::ProcessL1Withdrawal => ProvingJobCircuitType::ProcessL1Withdrawal,
+            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => ProvingJobCircuitType::ProcessL1Withdrawal,
             _ => anyhow::bail!("circuit type {:?} does not have a leaf type", self),
         };
         Ok(leaf_type)
@@ -216,106 +245,44 @@ impl ProvingJobCircuitType {
 
     pub fn get_agg_circuit_type_or_err(&self) -> anyhow::Result<Self> {
         let leaf_type = match self {
-            ProvingJobCircuitType::AppendUserRegistrationTree => {
-                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
-            }
-            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => {
-                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
-            }
+            ProvingJobCircuitType::AppendUserRegistrationTree => ProvingJobCircuitType::AppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => ProvingJobCircuitType::AppendUserRegistrationTreeAggregate,
             ProvingJobCircuitType::AddL1Deposit => ProvingJobCircuitType::AddL1DepositAggregate,
-            ProvingJobCircuitType::AddL1DepositAggregate => {
-                ProvingJobCircuitType::AddL1DepositAggregate
-            }
+            ProvingJobCircuitType::AddL1DepositAggregate => ProvingJobCircuitType::AddL1DepositAggregate,
             ProvingJobCircuitType::ClaimL1Deposit => ProvingJobCircuitType::ClaimL1DepositAggregate,
-            ProvingJobCircuitType::ClaimL1DepositAggregate => {
-                ProvingJobCircuitType::ClaimL1DepositAggregate
-            }
-            ProvingJobCircuitType::AddL1Withdrawal => {
-                ProvingJobCircuitType::AddL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::AddL1WithdrawalAggregate => {
-                ProvingJobCircuitType::AddL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::BatchDeployContracts => {
-                ProvingJobCircuitType::BatchDeployContractsAggregate
-            }
-            ProvingJobCircuitType::BatchDeployContractsAggregate => {
-                ProvingJobCircuitType::BatchDeployContractsAggregate
-            }
-            ProvingJobCircuitType::ProcessL1Withdrawal => {
-                ProvingJobCircuitType::ProcessL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => {
-                ProvingJobCircuitType::ProcessL1WithdrawalAggregate
-            }
-            _ => anyhow::bail!(
-                "circuit type {:?} does not have a aggregated circuit type",
-                self
-            ),
+            ProvingJobCircuitType::ClaimL1DepositAggregate => ProvingJobCircuitType::ClaimL1DepositAggregate,
+            ProvingJobCircuitType::AddL1Withdrawal => ProvingJobCircuitType::AddL1WithdrawalAggregate,
+            ProvingJobCircuitType::AddL1WithdrawalAggregate => ProvingJobCircuitType::AddL1WithdrawalAggregate,
+            ProvingJobCircuitType::BatchDeployContracts => ProvingJobCircuitType::BatchDeployContractsAggregate,
+            ProvingJobCircuitType::BatchDeployContractsAggregate => ProvingJobCircuitType::BatchDeployContractsAggregate,
+            ProvingJobCircuitType::ProcessL1Withdrawal => ProvingJobCircuitType::ProcessL1WithdrawalAggregate,
+            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => ProvingJobCircuitType::ProcessL1WithdrawalAggregate,
+            _ => anyhow::bail!("circuit type {:?} does not have a aggregated circuit type", self),
         };
         Ok(leaf_type)
     }
 
     pub fn get_agg_dummy_circuit_type_or_err(&self) -> anyhow::Result<Self> {
         let leaf_type = match self {
-            ProvingJobCircuitType::AppendUserRegistrationTree => {
-                ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate
-            }
-            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => {
-                ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate
-            }
-            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-                ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate
-            }
-            ProvingJobCircuitType::AddL1Deposit => {
-                ProvingJobCircuitType::DummyAddL1DepositAggregate
-            }
-            ProvingJobCircuitType::AddL1DepositAggregate => {
-                ProvingJobCircuitType::DummyAddL1DepositAggregate
-            }
-            ProvingJobCircuitType::DummyAddL1DepositAggregate => {
-                ProvingJobCircuitType::DummyAddL1DepositAggregate
-            }
-            ProvingJobCircuitType::ClaimL1Deposit => {
-                ProvingJobCircuitType::DummyClaimL1DepositAggregate
-            }
-            ProvingJobCircuitType::ClaimL1DepositAggregate => {
-                ProvingJobCircuitType::DummyClaimL1DepositAggregate
-            }
-            ProvingJobCircuitType::DummyClaimL1DepositAggregate => {
-                ProvingJobCircuitType::DummyClaimL1DepositAggregate
-            }
-            ProvingJobCircuitType::AddL1Withdrawal => {
-                ProvingJobCircuitType::DummyAddL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::AddL1WithdrawalAggregate => {
-                ProvingJobCircuitType::DummyAddL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::DummyAddL1WithdrawalAggregate => {
-                ProvingJobCircuitType::DummyAddL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::BatchDeployContracts => {
-                ProvingJobCircuitType::DummyBatchDeployContractsAggregate
-            }
-            ProvingJobCircuitType::BatchDeployContractsAggregate => {
-                ProvingJobCircuitType::DummyBatchDeployContractsAggregate
-            }
-            ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
-                ProvingJobCircuitType::DummyBatchDeployContractsAggregate
-            }
-            ProvingJobCircuitType::ProcessL1Withdrawal => {
-                ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => {
-                ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate => {
-                ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate
-            }
-            _ => anyhow::bail!(
-                "circuit type {:?} does not have a aggregated dummy circuit type",
-                self
-            ),
+            ProvingJobCircuitType::AppendUserRegistrationTree => ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::AddL1Deposit => ProvingJobCircuitType::DummyAddL1DepositAggregate,
+            ProvingJobCircuitType::AddL1DepositAggregate => ProvingJobCircuitType::DummyAddL1DepositAggregate,
+            ProvingJobCircuitType::DummyAddL1DepositAggregate => ProvingJobCircuitType::DummyAddL1DepositAggregate,
+            ProvingJobCircuitType::ClaimL1Deposit => ProvingJobCircuitType::DummyClaimL1DepositAggregate,
+            ProvingJobCircuitType::ClaimL1DepositAggregate => ProvingJobCircuitType::DummyClaimL1DepositAggregate,
+            ProvingJobCircuitType::DummyClaimL1DepositAggregate => ProvingJobCircuitType::DummyClaimL1DepositAggregate,
+            ProvingJobCircuitType::AddL1Withdrawal => ProvingJobCircuitType::DummyAddL1WithdrawalAggregate,
+            ProvingJobCircuitType::AddL1WithdrawalAggregate => ProvingJobCircuitType::DummyAddL1WithdrawalAggregate,
+            ProvingJobCircuitType::DummyAddL1WithdrawalAggregate => ProvingJobCircuitType::DummyAddL1WithdrawalAggregate,
+            ProvingJobCircuitType::BatchDeployContracts => ProvingJobCircuitType::DummyBatchDeployContractsAggregate,
+            ProvingJobCircuitType::BatchDeployContractsAggregate => ProvingJobCircuitType::DummyBatchDeployContractsAggregate,
+            ProvingJobCircuitType::DummyBatchDeployContractsAggregate => ProvingJobCircuitType::DummyBatchDeployContractsAggregate,
+            ProvingJobCircuitType::ProcessL1Withdrawal => ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate,
+            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate,
+            ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate => ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate,
+            _ => anyhow::bail!("circuit type {:?} does not have a aggregated dummy circuit type", self),
         };
         Ok(leaf_type)
     }
@@ -372,10 +339,7 @@ impl TryFrom<u8> for ProvingJobCircuitType {
             228 => Ok(ProvingJobCircuitType::TypeE),
             229 => Ok(ProvingJobCircuitType::TypeF),
             255 => Ok(ProvingJobCircuitType::Unknown),
-            _ => Err(anyhow::format_err!(
-                "Invalid ProvingJobCircuitType value: {}",
-                value
-            )),
+            _ => Err(anyhow::format_err!("Invalid ProvingJobCircuitType value: {}", value)),
         }
     }
 }
@@ -390,9 +354,7 @@ pub type QProvingJobDataIDSerialized = [u8; 24];
 
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Copy, Eq, Hash, Clone, Debug)]
-pub struct QProvingJobDataIDSerializedWrapped(
-    #[serde_as(as = "serde_with::hex::Hex")] pub QProvingJobDataIDSerialized,
-);
+pub struct QProvingJobDataIDSerializedWrapped(#[serde_as(as = "serde_with::hex::Hex")] pub QProvingJobDataIDSerialized);
 
 impl QProvingJobDataIDSerializedWrapped {
     pub fn from_hex_string(s: &str) -> Result<Self, FromHexError> {
@@ -412,7 +374,8 @@ pub struct QWorkerJobBenchmark {
     pub duration: u64,
 }
 
-type LayerId = TaskId;
+pub type LayerId = TaskId;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct QProvingTaskLayer {
     pub layer_id: LayerId,
@@ -439,7 +402,6 @@ impl QProvingTask {
         self.task_id
     }
 }
-static DEBUG_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TaskId(pub Uuid);
@@ -463,111 +425,293 @@ pub struct JobProofSibling {
     pub is_left: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct JobProof {
     pub value: QHashOut<F>,
-    pub siblings: [JobProofSibling; 32],
+    pub siblings: Vec<JobProofSibling>,
     pub root: QHashOut<F>,
 }
 
-// Custom serialization for JobProof to handle large array
-impl Serialize for JobProof {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("JobProof", 3)?;
-        state.serialize_field("value", &self.value)?;
-        state.serialize_field("siblings", &self.siblings.to_vec())?;
-        state.serialize_field("root", &self.root)?;
-        state.end()
-    }
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub struct VariableHeightProofSibling {
+    pub sibling_branch: QHashOut<F>,
+    pub sibling_reward_leaf: QHashOut<F>,
 }
 
-impl<'de> Deserialize<'de> for JobProof {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use serde::de::{self, MapAccess, SeqAccess, Visitor};
-        use std::fmt;
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct VariableHeightRewardMerkleProof {
+    pub top_siblings: Vec<VariableHeightProofSibling>, // MAX_HEIGHT_MINUS_ONE elements
+    pub left_branch: QHashOut<F>,
+    pub right_branch: QHashOut<F>,
+    pub reward_leaf: QHashOut<F>,
+    pub proof_height: F,
+    pub index: F,
+}
 
-        #[derive(Deserialize)]
-        #[serde(field_identifier, rename_all = "snake_case")]
-        enum Field { Value, Siblings, Root }
+impl VariableHeightRewardMerkleProof {
+    pub fn combine_with(self, top_proof: VariableHeightRewardMerkleProof) -> VariableHeightRewardMerkleProof {
+        use plonky2::field::goldilocks_field::GoldilocksField as F;
 
-        struct JobProofVisitor;
+        let mut combined_top_siblings = self.top_siblings;
+        combined_top_siblings.extend(top_proof.top_siblings);
 
-        impl<'de> Visitor<'de> for JobProofVisitor {
-            type Value = JobProof;
+        let bottom_height = self.proof_height.to_canonical_u64();
+        let top_index = top_proof.index.to_canonical_u64();
+        let combined_index = self.index.to_canonical_u64() | (top_index << bottom_height);
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("struct JobProof")
-            }
-
-            fn visit_map<V>(self, mut map: V) -> Result<JobProof, V::Error>
-            where
-                V: MapAccess<'de>,
-            {
-                let mut value = None;
-                let mut siblings = None;
-                let mut root = None;
-
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        Field::Value => {
-                            if value.is_some() {
-                                return Err(de::Error::duplicate_field("value"));
-                            }
-                            value = Some(map.next_value()?);
-                        }
-                        Field::Siblings => {
-                            if siblings.is_some() {
-                                return Err(de::Error::duplicate_field("siblings"));
-                            }
-                            let siblings_vec: Vec<JobProofSibling> = map.next_value()?;
-                            let mut siblings_array = [JobProofSibling {
-                                hash: QHashOut::ZERO,
-                                is_left: false,
-                            }; 32];
-                            for (i, s) in siblings_vec.iter().enumerate() {
-                                if i < 32 {
-                                    siblings_array[i] = *s;
-                                }
-                            }
-                            siblings = Some(siblings_array);
-                        }
-                        Field::Root => {
-                            if root.is_some() {
-                                return Err(de::Error::duplicate_field("root"));
-                            }
-                            root = Some(map.next_value()?);
-                        }
-                    }
-                }
-
-                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let siblings = siblings.ok_or_else(|| de::Error::missing_field("siblings"))?;
-                let root = root.ok_or_else(|| de::Error::missing_field("root"))?;
-
-                Ok(JobProof {
-                    value,
-                    siblings,
-                    root,
-                })
-            }
+        VariableHeightRewardMerkleProof {
+            top_siblings: combined_top_siblings,
+            left_branch: self.left_branch,
+            right_branch: self.right_branch,
+            reward_leaf: self.reward_leaf,
+            proof_height: self.proof_height + top_proof.proof_height,
+            index: F::from_canonical_u64(combined_index),
         }
-
-        const FIELDS: &'static [&'static str] = &["value", "siblings", "root"];
-        deserializer.deserialize_struct("JobProof", FIELDS, JobProofVisitor)
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct QProvingTaskGraph {
-    pub tasks: HashMap<LayerId, QProvingTask>,
-    pub graph: BidirectionalGraph<LayerId>,
+    pub tasks: HashMap<TaskId, QProvingTask>,
+    pub graph: BidirectionalGraph<TaskId>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct QProvingJobGraph {
+    pub deploy_contracts_graph: BidirectionalGraph<QProvingJobDataID>,
+    pub user_registrations_graph: BidirectionalGraph<QProvingJobDataID>,
+    pub guta_graph: BidirectionalGraph<QProvingJobDataID>,
+}
+
+impl QProvingJobGraph {
+    pub fn new() -> Self {
+        Self {
+            deploy_contracts_graph: BidirectionalGraph::new(),
+            user_registrations_graph: BidirectionalGraph::new(),
+            guta_graph: BidirectionalGraph::new(),
+        }
+    }
+
+    pub fn get_graph_for_job(&self, job_id: &QProvingJobDataID) -> anyhow::Result<&BidirectionalGraph<QProvingJobDataID>> {
+        use ProvingJobCircuitType::*;
+
+        match job_id.circuit_type {
+            BatchDeployContracts | BatchDeployContractsAggregate | DummyBatchDeployContractsAggregate => Ok(&self.deploy_contracts_graph),
+            AppendUserRegistrationTree | AppendUserRegistrationTreeAggregate | DummyAppendUserRegistrationTreeAggregate => {
+                Ok(&self.user_registrations_graph)
+            }
+            GUTAOnlyRegisterUsers
+            | GUTARegisterUsers
+            | GUTATwoEndCap
+            | GUTATwoGUTA
+            | GUTALeftEndCapRightGUTA
+            | GUTALeftGUTARightEndCap
+            | GUTASingleEndCap
+            | GUTAVerifyToCap
+            | GUTANoChange => Ok(&self.guta_graph),
+            _ => anyhow::bail!("Unsupported circuit type: {:?}", job_id.circuit_type),
+        }
+    }
+
+    pub async fn generate_variable_height_reward_proof<P: QJobRewardDataProvider>(
+        &self,
+        job_id: QProvingJobDataID,
+        provider: &P,
+        max_height: usize,
+    ) -> anyhow::Result<(VariableHeightRewardMerkleProof, QProvingJobDataID)> {
+        use plonky2::{field::goldilocks_field::GoldilocksField as F, hash::hash_types::HashOut};
+
+        let graph = self.get_graph_for_job(&job_id)?;
+
+        let mut path_to_root = Vec::new();
+        let mut current_job = job_id;
+
+        while let Some(dependents) = graph.get_dependents(&current_job) {
+            if dependents.is_empty() {
+                break;
+            }
+            let parent = *dependents.iter().next().unwrap();
+            path_to_root.push((current_job, parent));
+            current_job = parent;
+        }
+
+        let root_job_id = current_job;
+
+        if path_to_root.len() > max_height {
+            anyhow::bail!("Path to root exceeds max_height: {} > {}", path_to_root.len(), max_height);
+        }
+
+        let actual_height = path_to_root.len();
+        let mut top_siblings = Vec::new();
+
+        for &(child, parent) in path_to_root.iter() {
+            if let Some(parent_dependencies) = graph.get_dependencies(&parent) {
+                let deps_vec: Vec<_> = parent_dependencies.iter().cloned().collect();
+
+                let (sibling_branch, sibling_reward_leaf) = if deps_vec.len() == 2 {
+                    let sibling_id = if child == deps_vec[0] { deps_vec[1] } else { deps_vec[0] };
+                    let sibling_branch = provider.get_job_commitment(sibling_id).await?;
+                    let sibling_reward_leaf = provider.get_job_worker_public_key(sibling_id).await?;
+                    (sibling_branch, sibling_reward_leaf)
+                } else if deps_vec.len() == 1 {
+                    let parent_reward_leaf = provider.get_job_worker_public_key(parent).await?;
+                    (QHashOut(HashOut { elements: [F::ZERO; 4] }), parent_reward_leaf)
+                } else {
+                    (QHashOut(HashOut { elements: [F::ZERO; 4] }), QHashOut(HashOut { elements: [F::ZERO; 4] }))
+                };
+
+                top_siblings.push(VariableHeightProofSibling {
+                    sibling_branch,
+                    sibling_reward_leaf,
+                });
+            } else {
+                top_siblings.push(VariableHeightProofSibling {
+                    sibling_branch: QHashOut(HashOut { elements: [F::ZERO; 4] }),
+                    sibling_reward_leaf: QHashOut(HashOut { elements: [F::ZERO; 4] }),
+                });
+            }
+        }
+
+        while top_siblings.len() < max_height {
+            top_siblings.push(VariableHeightProofSibling {
+                sibling_branch: QHashOut(HashOut { elements: [F::ZERO; 4] }),
+                sibling_reward_leaf: QHashOut(HashOut { elements: [F::ZERO; 4] }),
+            });
+        }
+
+        let mut index_bits = vec![0u8; actual_height];
+
+        for (level, &(child, parent)) in path_to_root.iter().enumerate() {
+            if let Some(parent_dependencies) = graph.get_dependencies(&parent) {
+                let deps_vec: Vec<_> = parent_dependencies.iter().cloned().collect();
+
+                let bit_value = match deps_vec.len() {
+                    1 => {
+                        if child != deps_vec[0] {
+                            return Err(anyhow::anyhow!("Child not found in single dependency"));
+                        }
+                        0
+                    }
+                    2 => {
+                        if child == deps_vec[0] {
+                            0
+                        } else if child == deps_vec[1] {
+                            1
+                        } else {
+                            return Err(anyhow::anyhow!("Child not found in dependencies"));
+                        }
+                    }
+                    _ => {
+                        return Err(anyhow::anyhow!("Invalid number of dependencies: {}", deps_vec.len()));
+                    }
+                };
+
+                index_bits[actual_height - 1 - level] = bit_value;
+            }
+        }
+
+        let mut index_value = 0u64;
+        for (i, &bit) in index_bits.iter().enumerate() {
+            if bit == 1 {
+                index_value |= 1u64 << (actual_height - 1 - i);
+            }
+        }
+
+        let (left_branch, right_branch) = if let Some(job_dependencies) = graph.get_dependencies(&job_id) {
+            let deps_vec: Vec<_> = job_dependencies.iter().cloned().collect();
+            if deps_vec.len() == 2 {
+                let left = provider.get_job_commitment(deps_vec[0]).await?;
+                let right = provider.get_job_commitment(deps_vec[1]).await?;
+                (left, right)
+            } else if deps_vec.len() == 1 {
+                let left = provider.get_job_commitment(deps_vec[0]).await?;
+                let right = QHashOut(HashOut { elements: [F::ZERO; 4] });
+                (left, right)
+            } else {
+                let zero = QHashOut(HashOut { elements: [F::ZERO; 4] });
+                (zero, zero)
+            }
+        } else {
+            let zero = QHashOut(HashOut { elements: [F::ZERO; 4] });
+            (zero, zero)
+        };
+
+        let reward_leaf = provider.get_job_worker_public_key(job_id).await?;
+
+        let proof = VariableHeightRewardMerkleProof {
+            top_siblings,
+            left_branch,
+            right_branch,
+            reward_leaf,
+            proof_height: F::from_canonical_usize(actual_height),
+            index: F::from_canonical_u64(index_value),
+        };
+
+        Ok((proof, root_job_id))
+    }
+
+    pub fn get_graphviz(&self) -> String {
+        let mut output = String::new();
+        output.push_str("digraph QProvingJobGraph {\n");
+        output.push_str("  rankdir=TB;\n");
+
+        output.push_str("  subgraph cluster_deploy_contracts {\n");
+        output.push_str("    label=\"Deploy Contracts\";\n");
+        output.push_str("    color=blue;\n");
+        self.add_graph_to_dot(&mut output, &self.deploy_contracts_graph, "deploy");
+        output.push_str("  }\n\n");
+
+        output.push_str("  subgraph cluster_user_registrations {\n");
+        output.push_str("    label=\"User Registrations\";\n");
+        output.push_str("    color=green;\n");
+        self.add_graph_to_dot(&mut output, &self.user_registrations_graph, "user");
+        output.push_str("  }\n\n");
+
+        output.push_str("  subgraph cluster_guta {\n");
+        output.push_str("    label=\"GUTA\";\n");
+        output.push_str("    color=red;\n");
+        self.add_graph_to_dot(&mut output, &self.guta_graph, "guta");
+        output.push_str("  }\n\n");
+
+        output.push_str("}\n");
+        output
+    }
+
+    fn add_graph_to_dot(&self, output: &mut String, graph: &BidirectionalGraph<QProvingJobDataID>, prefix: &str) {
+        let levels = graph.ts_order();
+
+        for (level_idx, level) in levels.iter().enumerate() {
+            for job_id in level {
+                let job_id_hex = job_id.to_hex_string();
+                let node_name = format!("{}_{}", prefix, job_id_hex);
+                let circuit_type = format!("{:?}", job_id.circuit_type);
+
+                output.push_str(&format!(
+                    "    \"{}\" [label=\"{}\\n{}\", shape=box, style=filled, fillcolor=lightblue];\n",
+                    node_name, circuit_type, job_id_hex
+                ));
+            }
+        }
+
+        for level in &levels {
+            for job_id in level {
+                if let Some(dependencies) = graph.get_dependencies(job_id) {
+                    for dep_job_id in dependencies {
+                        let dep_job_id_hex = dep_job_id.to_hex_string();
+                        let job_id_hex = job_id.to_hex_string();
+
+                        let from_node = format!("{}_{}", prefix, dep_job_id_hex);
+                        let to_node = format!("{}_{}", prefix, job_id_hex);
+
+                        output.push_str(&format!(
+                            "    \"{}\" -> \"{}\";\n",
+                            from_node, to_node
+                        ));
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl QProvingTaskGraph {
@@ -595,7 +739,7 @@ impl QProvingTaskGraph {
         self.add_task(dep_task);
     }
 
-    pub fn ts(&self) -> Vec<LayerId> {
+    pub fn ts(&self) -> Vec<TaskId> {
         let ts_order = self.graph.ts_order();
         ts_order.into_iter().flatten().collect()
     }
@@ -607,11 +751,13 @@ impl QProvingTaskGraph {
             let layer_id = LayerId::new();
             let mut job_ids = Vec::new();
             let task_ids = current_layer.clone();
+
             for &task_id in &task_ids {
                 if let Some(task) = self.tasks.get(&task_id) {
                     job_ids.extend(task.job_ids.clone());
                 }
             }
+
             sorted_layers.push(QProvingTaskLayer {
                 layer_id,
                 task_ids: task_ids.clone(),
@@ -623,239 +769,6 @@ impl QProvingTaskGraph {
 
     pub fn get_task(&self, task_id: TaskId) -> Option<&QProvingTask> {
         self.tasks.get(&task_id)
-    }
-
-    pub async fn generate_proof<PS: crate::job::traits::QProofStoreAsyncImm>(
-        &self,
-        leaf_job_id: QProvingJobDataID,
-        proof_store: &PS,
-    ) -> anyhow::Result<JobProof> {
-        let task_levels = self.get_task_levels();
-
-        let (leaf_level, leaf_task_id, leaf_job_index) = task_levels
-            .iter()
-            .enumerate()
-            .find_map(|(level_idx, level_tasks)| {
-                level_tasks.iter().find_map(|&task_id| {
-                    self.tasks.get(&task_id).and_then(|task| {
-                        task.job_ids
-                            .iter()
-                            .position(|&id| id == leaf_job_id)
-                            .map(|idx| (level_idx, task_id, idx))
-                    })
-                })
-            })
-            .ok_or_else(|| anyhow::anyhow!("Leaf job not found in any task"))?;
-
-        let leaf_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> = proof_store
-            .get_proof_by_id(leaf_job_id.get_output_id())
-            .await?;
-
-        let leaf_value = if leaf_proof.public_inputs.len() >= 4 {
-            let mut elements = [F::ZERO; 4];
-            elements.copy_from_slice(&leaf_proof.public_inputs[0..4]);
-            QHashOut(HashOut { elements })
-        } else {
-            return Err(anyhow::anyhow!("Invalid proof public inputs length"));
-        };
-
-        let mut siblings = [JobProofSibling {
-            hash: QHashOut::ZERO,
-            is_left: false,
-        }; 32];
-        let mut sibling_count = 0;
-        let mut current_task_id = leaf_task_id;
-        let mut current_job_index = leaf_job_index;
-        let mut current_level = leaf_level;
-
-        while current_level < task_levels.len() - 1 {
-            let current_task = &self.tasks[&current_task_id];
-            let current_job = current_task.job_ids[current_job_index];
-
-            let sibling_idx = match current_job_index {
-                idx if idx % 2 == 0 && idx + 1 < current_task.job_ids.len() => Some(idx + 1),
-                idx if idx % 2 == 1 => Some(idx - 1),
-                _ => None,
-            };
-
-            if let Some(idx) = sibling_idx {
-                if sibling_count >= 32 {
-                    return Err(anyhow::anyhow!("Task graph depth exceeds maximum of 32 levels"));
-                }
-
-                let sibling_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> =
-                    proof_store.get_proof_by_id(current_task.job_ids[idx].get_output_id()).await?;
-
-                let mut elements = [F::ZERO; 4];
-                elements.copy_from_slice(&sibling_proof.public_inputs[0..4]);
-
-                siblings[sibling_count] = JobProofSibling {
-                    hash: QHashOut(HashOut { elements }),
-                    is_left: idx < current_job_index,
-                };
-                sibling_count += 1;
-            }
-
-            let parent_info = self.graph.get_dependents(&current_task_id)
-                .and_then(|parents| parents.iter().next())
-                .and_then(|parent_id| {
-                    let parent_task = &self.tasks[&parent_id];
-                    parent_task.job_ids.iter()
-                        .position(|&id| {
-                            if sibling_idx.is_none() {
-                                id == current_job
-                            } else {
-                                current_job_index / 2 < parent_task.job_ids.len() &&
-                                id == parent_task.job_ids[current_job_index / 2]
-                            }
-                        })
-                        .map(|idx| (parent_id.clone(), idx))
-                });
-
-            match parent_info {
-                Some((parent_id, parent_idx)) => {
-                    if sibling_idx.is_some() {
-                        if sibling_count >= 32 {
-                            return Err(anyhow::anyhow!("Task graph depth exceeds maximum of 32 levels"));
-                        }
-
-                        let parent_proof: ProofWithPublicInputs<F, PoseidonGoldilocksConfig, 2> =
-                            proof_store.get_proof_by_id(self.tasks[&parent_id].job_ids[parent_idx].get_output_id()).await?;
-
-                        if parent_proof.public_inputs.len() >= 8 {
-                            let mut elements = [F::ZERO; 4];
-                            elements.copy_from_slice(&parent_proof.public_inputs[4..8]);
-                            siblings[sibling_count] = JobProofSibling {
-                                hash: QHashOut(HashOut { elements }),
-                                is_left: false,
-                            };
-                            sibling_count += 1;
-                        }
-                    }
-
-                    current_task_id = parent_id;
-                    current_job_index = parent_idx;
-                    current_level += 1;
-                }
-                None => break,
-            }
-        }
-
-        let root = self.compute_root_from_proof(&leaf_value, &siblings[..sibling_count]);
-
-        Ok(JobProof {
-            value: leaf_value,
-            siblings,
-            root,
-        })
-    }
-
-    pub async fn generate_batch_proofs<PS: crate::job::traits::QProofStoreAsyncImm>(
-        &self,
-        leaf_job_ids: &[QProvingJobDataID],
-        proof_store: &PS,
-    ) -> anyhow::Result<Vec<JobProof>> {
-        let mut results = Vec::new();
-
-        for &leaf_job_id in leaf_job_ids {
-            let proof = self.generate_proof(leaf_job_id, proof_store).await?;
-            results.push(proof);
-        }
-
-        Ok(results)
-    }
-
-    fn get_task_levels(&self) -> Vec<Vec<LayerId>> {
-        let mut levels = Vec::new();
-        let mut processed = IndexSet::new();
-
-        let mut current_level = Vec::new();
-        for &task_id in self.tasks.keys() {
-            if self.graph.get_dependencies(&task_id).map_or(true, |deps| deps.is_empty()) {
-                current_level.push(task_id);
-                processed.insert(task_id);
-            }
-        }
-
-        if current_level.is_empty() {
-            return levels;
-        }
-
-        levels.push(current_level.clone());
-
-        while !current_level.is_empty() {
-            let mut next_level = Vec::new();
-
-            for &task_id in &current_level {
-                if let Some(parent_tasks) = self.graph.get_dependents(&task_id) {
-                    for &parent_task_id in parent_tasks {
-                        if let Some(parent_deps) = self.graph.get_dependencies(&parent_task_id) {
-                            if parent_deps.iter().all(|dep| processed.contains(dep)) {
-                                if !processed.contains(&parent_task_id) {
-                                    next_level.push(parent_task_id);
-                                    processed.insert(parent_task_id);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if !next_level.is_empty() {
-                levels.push(next_level.clone());
-            }
-            current_level = next_level;
-        }
-
-        levels
-    }
-
-    pub fn verify_proof(&self, proof: &JobProof) -> bool {
-        let computed_root = self.compute_root_from_proof_array(&proof.value, &proof.siblings);
-        computed_root == proof.root
-    }
-
-    fn compute_root_from_proof(
-        &self,
-        value: &QHashOut<F>,
-        siblings: &[JobProofSibling],
-    ) -> QHashOut<F> {
-        let mut current_hash = *value;
-
-        for sibling in siblings {
-            let hash_array = if sibling.is_left {
-                [sibling.hash.0, current_hash.0]
-            } else {
-                [current_hash.0, sibling.hash.0]
-            };
-            current_hash = QHashOut(PoseidonHash::two_to_one(hash_array[0], hash_array[1]));
-        }
-
-        current_hash
-    }
-
-    fn compute_root_from_proof_array(
-        &self,
-        value: &QHashOut<F>,
-        siblings: &[JobProofSibling; 32],
-    ) -> QHashOut<F> {
-        let mut current_hash = *value;
-
-        for sibling in siblings {
-            // Skip zero siblings (padding)
-            if sibling.hash == QHashOut::ZERO {
-                break;
-            }
-
-            let hash_array = if sibling.is_left {
-                [sibling.hash.0, current_hash.0]
-            } else {
-                [current_hash.0, sibling.hash.0]
-            };
-            current_hash = QHashOut(PoseidonHash::two_to_one(hash_array[0], hash_array[1]));
-        }
-
-        current_hash
     }
 }
 
@@ -993,11 +906,7 @@ impl QProvingJobDataID {
             data_index,
         }
     }
-    pub fn guta_two_end_cap_witness(
-        checkpoint_id: u64,
-        sub_group_id: u32,
-        task_index: u32,
-    ) -> Self {
+    pub fn guta_two_end_cap_witness(checkpoint_id: u64, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
@@ -1021,11 +930,7 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn guta_left_end_cap_right_guta_witness(
-        checkpoint_id: u64,
-        sub_group_id: u32,
-        task_index: u32,
-    ) -> Self {
+    pub fn guta_left_end_cap_right_guta_witness(checkpoint_id: u64, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
@@ -1037,11 +942,7 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn guta_left_guta_right_end_cap_witness(
-        checkpoint_id: u64,
-        sub_group_id: u32,
-        task_index: u32,
-    ) -> Self {
+    pub fn guta_left_guta_right_end_cap_witness(checkpoint_id: u64, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
@@ -1053,11 +954,7 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn guta_single_end_cap_witness(
-        checkpoint_id: u64,
-        sub_group_id: u32,
-        task_index: u32,
-    ) -> Self {
+    pub fn guta_single_end_cap_witness(checkpoint_id: u64, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
@@ -1069,11 +966,7 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn core_op_witness(
-        circuit_type: ProvingJobCircuitType,
-        checkpoint_id: u64,
-        task_index: u32,
-    ) -> Self {
+    pub fn core_op_witness(circuit_type: ProvingJobCircuitType, checkpoint_id: u64, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
@@ -1121,11 +1014,7 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn claim_deposit_l1_signature_proof(
-        rpc_node_id: u32,
-        block_id: u64,
-        deposit_id: u32,
-    ) -> Self {
+    pub fn claim_deposit_l1_signature_proof(rpc_node_id: u32, block_id: u64, deposit_id: u32) -> Self {
         Self {
             topic: QJobTopic::BlockUserSignatureProof,
             goal_id: block_id,
@@ -1137,13 +1026,7 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn new_proof_job_id(
-        goal_id: u64,
-        circuit_type: ProvingJobCircuitType,
-        group_id: u32,
-        sub_group_id: u32,
-        task_index: u32,
-    ) -> Self {
+    pub fn new_proof_job_id(goal_id: u64, circuit_type: ProvingJobCircuitType, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id,
@@ -1155,13 +1038,7 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn new_groth16_proof_job_id(
-        goal_id: u64,
-        circuit_type: ProvingJobCircuitType,
-        group_id: u32,
-        sub_group_id: u32,
-        task_index: u32,
-    ) -> Self {
+    pub fn new_groth16_proof_job_id(goal_id: u64, circuit_type: ProvingJobCircuitType, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateGroth16Proof,
             goal_id,
@@ -1189,8 +1066,7 @@ impl QProvingJobDataID {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: block_id,
-            group_id: ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA
-                .to_circuit_group_id(),
+            group_id: ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA.to_circuit_group_id(),
             circuit_type: ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA,
             sub_group_id: 0,
             task_index: 0,
@@ -1202,8 +1078,7 @@ impl QProvingJobDataID {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: block_id,
-            group_id: ProvingJobCircuitType::AggAddProcessL1WithdrawalAddL1Deposit
-                .to_circuit_group_id(),
+            group_id: ProvingJobCircuitType::AggAddProcessL1WithdrawalAddL1Deposit.to_circuit_group_id(),
             circuit_type: ProvingJobCircuitType::AggAddProcessL1WithdrawalAddL1Deposit,
             sub_group_id: 0,
             task_index: 0,
@@ -1215,8 +1090,7 @@ impl QProvingJobDataID {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: block_id,
-            group_id: ProvingJobCircuitType::GenerateRollupStateTransitionProof
-                .to_circuit_group_id(),
+            group_id: ProvingJobCircuitType::GenerateRollupStateTransitionProof.to_circuit_group_id(),
             circuit_type: ProvingJobCircuitType::GenerateRollupStateTransitionProof,
             sub_group_id: 0,
             task_index: 0,
@@ -1228,8 +1102,7 @@ impl QProvingJobDataID {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: block_id,
-            group_id: ProvingJobCircuitType::GenerateSigHashIntrospectionProof
-                .to_circuit_group_id(),
+            group_id: ProvingJobCircuitType::GenerateSigHashIntrospectionProof.to_circuit_group_id(),
             circuit_type: ProvingJobCircuitType::GenerateSigHashIntrospectionProof,
             sub_group_id: 0,
             task_index: input_id as u32,
@@ -1278,64 +1151,32 @@ impl QProvingJobDataID {
     }
 
     pub fn is_notify_complete(&self) -> bool {
-        self.is_notify_coordinator_complete()
-            || self.is_notify_realm_complete()
+        self.is_notify_coordinator_complete() || self.is_notify_realm_complete()
     }
 
     pub fn is_provable(&self) -> bool {
-        self.topic == QJobTopic::GenerateStandardProof
-            &&!self.is_notify_complete()
+        self.topic == QJobTopic::GenerateStandardProof && !self.is_notify_complete()
     }
 
     pub fn get_tree_parent_proof_input_id(&self) -> Self {
         let parent_type = match self.circuit_type {
-            ProvingJobCircuitType::AppendUserRegistrationTree => {
-                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
-            }
-            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => {
-                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
-            }
-            ProvingJobCircuitType::BatchDeployContracts => {
-                ProvingJobCircuitType::BatchDeployContractsAggregate
-            }
-            ProvingJobCircuitType::BatchDeployContractsAggregate => {
-                ProvingJobCircuitType::BatchDeployContractsAggregate
-            }
+            ProvingJobCircuitType::AppendUserRegistrationTree => ProvingJobCircuitType::AppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => ProvingJobCircuitType::AppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::BatchDeployContracts => ProvingJobCircuitType::BatchDeployContractsAggregate,
+            ProvingJobCircuitType::BatchDeployContractsAggregate => ProvingJobCircuitType::BatchDeployContractsAggregate,
             ProvingJobCircuitType::AddL1Deposit => ProvingJobCircuitType::AddL1DepositAggregate,
-            ProvingJobCircuitType::AddL1DepositAggregate => {
-                ProvingJobCircuitType::AddL1DepositAggregate
-            }
+            ProvingJobCircuitType::AddL1DepositAggregate => ProvingJobCircuitType::AddL1DepositAggregate,
             ProvingJobCircuitType::ClaimL1Deposit => ProvingJobCircuitType::ClaimL1DepositAggregate,
-            ProvingJobCircuitType::ClaimL1DepositAggregate => {
-                ProvingJobCircuitType::ClaimL1DepositAggregate
-            }
-            ProvingJobCircuitType::AddL1Withdrawal => {
-                ProvingJobCircuitType::AddL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::AddL1WithdrawalAggregate => {
-                ProvingJobCircuitType::AddL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::ProcessL1Withdrawal => {
-                ProvingJobCircuitType::ProcessL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => {
-                ProvingJobCircuitType::ProcessL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
-            }
-            ProvingJobCircuitType::DummyAddL1DepositAggregate => {
-                ProvingJobCircuitType::AddL1DepositAggregate
-            }
-            ProvingJobCircuitType::DummyClaimL1DepositAggregate => {
-                ProvingJobCircuitType::ClaimL1DepositAggregate
-            }
-            ProvingJobCircuitType::DummyAddL1WithdrawalAggregate => {
-                ProvingJobCircuitType::AddL1WithdrawalAggregate
-            }
-            ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate => {
-                ProvingJobCircuitType::ProcessL1WithdrawalAggregate
-            }
+            ProvingJobCircuitType::ClaimL1DepositAggregate => ProvingJobCircuitType::ClaimL1DepositAggregate,
+            ProvingJobCircuitType::AddL1Withdrawal => ProvingJobCircuitType::AddL1WithdrawalAggregate,
+            ProvingJobCircuitType::AddL1WithdrawalAggregate => ProvingJobCircuitType::AddL1WithdrawalAggregate,
+            ProvingJobCircuitType::ProcessL1Withdrawal => ProvingJobCircuitType::ProcessL1WithdrawalAggregate,
+            ProvingJobCircuitType::ProcessL1WithdrawalAggregate => ProvingJobCircuitType::ProcessL1WithdrawalAggregate,
+            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => ProvingJobCircuitType::AppendUserRegistrationTreeAggregate,
+            ProvingJobCircuitType::DummyAddL1DepositAggregate => ProvingJobCircuitType::AddL1DepositAggregate,
+            ProvingJobCircuitType::DummyClaimL1DepositAggregate => ProvingJobCircuitType::ClaimL1DepositAggregate,
+            ProvingJobCircuitType::DummyAddL1WithdrawalAggregate => ProvingJobCircuitType::AddL1WithdrawalAggregate,
+            ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate => ProvingJobCircuitType::ProcessL1WithdrawalAggregate,
             _ => self.circuit_type,
         };
         Self {
@@ -1389,10 +1230,7 @@ impl QProvingJobDataID {
         self.into()
     }
     pub fn with_task_index(&self, task_index: u32) -> Self {
-        Self {
-            task_index,
-            ..*self
-        }
+        Self { task_index, ..*self }
     }
     pub fn to_hex_string(&self) -> String {
         hex::encode(&self.to_fixed_bytes())
@@ -1407,10 +1245,7 @@ pub struct ProvingJobDataId {
 
 impl ProvingJobDataId {
     pub fn new(checkpoint_id: u64, job_id: QProvingJobDataID) -> Self {
-        Self {
-            checkpoint_id,
-            job_id,
-        }
+        Self { checkpoint_id, job_id }
     }
 }
 
@@ -1446,10 +1281,7 @@ impl KVQSerializable for ProvingJobDataId {
         }
         let checkpoint_id = u64::from_le_bytes(bytes[0..8].try_into()?);
         let job_id = QProvingJobDataID::from_bytes(&bytes[8..])?;
-        Ok(Self {
-            checkpoint_id,
-            job_id,
-        })
+        Ok(Self { checkpoint_id, job_id })
     }
 }
 
@@ -1460,12 +1292,8 @@ impl QWorkerModeFilter for QWorkerMode {
     fn can_process_job(&self, job_id: QProvingJobDataID) -> bool {
         match *self {
             QWorkerMode::All => true,
-            QWorkerMode::NoGroth16 => {
-                job_id.circuit_type != ProvingJobCircuitType::WrapFinalSigHashProofBLS12381
-            }
-            QWorkerMode::OnlyGroth16 => {
-                job_id.circuit_type == ProvingJobCircuitType::WrapFinalSigHashProofBLS12381
-            }
+            QWorkerMode::NoGroth16 => job_id.circuit_type != ProvingJobCircuitType::WrapFinalSigHashProofBLS12381,
+            QWorkerMode::OnlyGroth16 => job_id.circuit_type == ProvingJobCircuitType::WrapFinalSigHashProofBLS12381,
         }
     }
 }
@@ -1480,561 +1308,493 @@ impl KVQSerializable for QProvingJobDataID {
     }
 }
 
+impl VariableHeightRewardMerkleProof {
+    pub fn compute_root_and_nullifier_index(&self, max_height_minus_one: usize) -> (QHashOut<F>, F) {
+        let proof_height = self.proof_height.to_canonical_u64() as usize;
+        let index = self.index.to_canonical_u64();
+
+        assert!(proof_height <= max_height_minus_one);
+        assert!(index < (1 << max_height_minus_one));
+
+        let mut nullifier_base = 0u64;
+        let mut nullifier_level_start_index_multiplier = 1u64;
+
+        let mut current_node_value = PoseidonHash::two_to_one(PoseidonHash::two_to_one(self.left_branch.0, self.right_branch.0), self.reward_leaf.0);
+
+        for i in 0..max_height_minus_one {
+            if i < proof_height && i < self.top_siblings.len() {
+                let sibling = &self.top_siblings[i];
+                let sibling_node = sibling.sibling_branch.0;
+                let reward_leaf = sibling.sibling_reward_leaf.0;
+
+                let index_bit = (index >> i) & 1;
+                let branch_path_hash = if index_bit == 0 {
+                    PoseidonHash::two_to_one(current_node_value, sibling_node)
+                } else {
+                    PoseidonHash::two_to_one(sibling_node, current_node_value)
+                };
+                current_node_value = PoseidonHash::two_to_one(branch_path_hash, reward_leaf);
+
+                nullifier_base += nullifier_level_start_index_multiplier;
+                nullifier_level_start_index_multiplier *= 2;
+            } else if i < self.top_siblings.len() {
+                let sibling = &self.top_siblings[i];
+                assert!(sibling.sibling_reward_leaf.0.elements.iter().all(|&x| x == F::ZERO));
+                assert!(sibling.sibling_branch.0.elements.iter().all(|&x| x == F::ZERO));
+                assert!((index >> i) & 1 == 0);
+            }
+        }
+
+        let nullifier_final_index = F::from_canonical_u64(nullifier_base + index);
+        (QHashOut(current_node_value), nullifier_final_index)
+    }
+
+    pub fn verify_proof(&self, expected_root: &QHashOut<F>, max_height_minus_one: usize) -> bool {
+        let (computed_root, _) = self.compute_root_and_nullifier_index(max_height_minus_one);
+        computed_root == *expected_root
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_decode() {
-        let job =
-            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 0, 0);
+    fn test_variable_height_proof_verification() {
+        let proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(1, 2, 3, 4),
+                sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
+            }],
+            left_branch: QHashOut::from_values(5, 6, 7, 8),
+            right_branch: QHashOut::from_values(9, 10, 11, 12),
+            reward_leaf: QHashOut::from_values(13, 14, 15, 16),
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(0),
+        };
 
-        let result = bincode::serialize(&job).unwrap();
+        let (root, nullifier) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
 
-        let result2 = job.to_fixed_bytes();
-        assert_eq!(result, result2.to_vec());
-
-        let decoded_job: QProvingJobDataID = bincode::deserialize(&result).unwrap();
-
-        assert_eq!(job, decoded_job);
-        let decoded_job2: QProvingJobDataID = bincode::deserialize(&result2).unwrap();
-
-        assert_eq!(job, decoded_job2);
+        assert!(proof.verify_proof(&root, GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE));
+        assert!(nullifier != F::ZERO);
     }
 
     #[test]
-    fn test_jobs_task_graph_topological_sort() {
-        let mut graph = QProvingTaskGraph::new();
-
-        let task1 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![QProvingJobDataID::new_proof_job_id(
+    fn test_job_graph_creation() {
+        let graph = QProvingJobGraph::new();
+        assert!(graph
+            .deploy_contracts_graph
+            .get_dependencies(&QProvingJobDataID::new_proof_job_id(
                 1,
-                ProvingJobCircuitType::AddL1Deposit,
+                ProvingJobCircuitType::BatchDeployContracts,
                 0,
                 0,
-                0,
-            )],
-        };
-        let task2 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![QProvingJobDataID::new_proof_job_id(
-                1,
-                ProvingJobCircuitType::AddL1Deposit,
-                0,
-                1,
-                0,
-            )],
-        };
-        let task3 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![QProvingJobDataID::new_proof_job_id(
-                1,
-                ProvingJobCircuitType::AddL1Deposit,
-                0,
-                2,
-                0,
-            )],
-        };
-
-        graph.add_dep(task3.clone(), task1.clone());
-        graph.add_dep(task3.clone(), task2.clone());
-
-        let sorted = graph.ts();
-
-        let task1_pos = sorted.iter().position(|&t| t == task1.task_id).unwrap();
-        let task2_pos = sorted.iter().position(|&t| t == task2.task_id).unwrap();
-        let task3_pos = sorted.iter().position(|&t| t == task3.task_id).unwrap();
-
-        assert!(task1_pos < task3_pos);
-        assert!(task2_pos < task3_pos);
+                0
+            ))
+            .is_none());
     }
 
     #[test]
-    fn test_job_proof_verification() {
-        use plonky2::field::goldilocks_field::GoldilocksField;
+    fn test_get_graph_for_job_selection() {
+        let graph = QProvingJobGraph::new();
 
-        let graph = QProvingTaskGraph::new();
+        let deploy_job = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::BatchDeployContracts, 0, 0, 0);
+        let user_reg_job = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 0, 0);
+        let guta_job = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTAOnlyRegisterUsers, 0, 0, 0);
 
-        let job_id =
-            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 0, 0);
-        let value = QHashOut::<GoldilocksField>::from_values(1, 2, 3, 4);
-
-        // Test with siblings including parent public key as a separate sibling
-        let mut siblings = [JobProofSibling {
-            hash: QHashOut::ZERO,
-            is_left: false,
-        }; 32];
-
-        siblings[0] = JobProofSibling {
-            hash: QHashOut::from_values(5, 6, 7, 8),
-            is_left: true,
-        };
-        siblings[1] = JobProofSibling {
-            hash: QHashOut::from_values(9, 10, 11, 12),
-            is_left: false,
-        };
-        siblings[2] = JobProofSibling {
-            hash: QHashOut::from_values(13, 14, 15, 16), // parent public key as sibling
-            is_left: false,
-        };
-
-        let mut current = value;
-        for sibling in &siblings {
-            // Skip zero siblings (padding)
-            if sibling.hash == QHashOut::ZERO {
-                break;
-            }
-            let hash_array = if sibling.is_left {
-                [sibling.hash.0, current.0]
-            } else {
-                [current.0, sibling.hash.0]
-            };
-            current = QHashOut(PoseidonHash::two_to_one(hash_array[0], hash_array[1]));
-        }
-
-
-        let proof = JobProof {
-            value,
-            siblings,
-            root: current,
-        };
-
-        assert!(graph.verify_proof(&proof));
-
-        // Test with wrong root
-        let wrong_proof = JobProof {
-            value,
-            siblings: proof.siblings,
-            root: QHashOut::from_values(0, 0, 0, 0),
-        };
-        assert!(!graph.verify_proof(&wrong_proof));
+        assert!(std::ptr::eq(graph.get_graph_for_job(&deploy_job).unwrap(), &graph.deploy_contracts_graph));
+        assert!(std::ptr::eq(
+            graph.get_graph_for_job(&user_reg_job).unwrap(),
+            &graph.user_registrations_graph
+        ));
+        assert!(std::ptr::eq(graph.get_graph_for_job(&guta_job).unwrap(), &graph.guta_graph));
     }
 
     #[test]
-    #[ignore]
-    #[should_panic(expected = "cycle detected")]
-    fn test_cycle_detection() {
-        let mut graph = QProvingTaskGraph::new();
-
-        let task1 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
+    fn test_variable_height_proof_with_multiple_levels() {
+        let proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![
+                VariableHeightProofSibling {
+                    sibling_branch: QHashOut::from_values(1, 2, 3, 4),
+                    sibling_reward_leaf: QHashOut::from_values(5, 6, 7, 8),
+                },
+                VariableHeightProofSibling {
+                    sibling_branch: QHashOut::from_values(9, 10, 11, 12),
+                    sibling_reward_leaf: QHashOut::from_values(13, 14, 15, 16),
+                },
+            ],
+            left_branch: QHashOut::from_values(17, 18, 19, 20),
+            right_branch: QHashOut::from_values(21, 22, 23, 24),
+            reward_leaf: QHashOut::from_values(25, 26, 27, 28),
+            proof_height: F::from_canonical_usize(2),
+            index: F::from_canonical_usize(1),
         };
-        let task2 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
 
-        graph.add_dep(task1.clone(), task2.clone());
-        graph.add_dep(task2.clone(), task1.clone());
+        let (root, nullifier) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
 
-        graph.ts();
+        assert!(proof.verify_proof(&root, GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE));
+        assert!(nullifier != F::ZERO);
     }
 
     #[test]
-    fn test_5_nodes_task_structure() {
-        // This test verifies the structure of a 5-node binary tree in JobsTaskGraph
-        // We test that the graph correctly handles the odd 5th node (Job4)
-        // which gets promoted to a higher level in the tree
+    fn test_variable_height_proof_zero_height() {
+        let proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![],
+            left_branch: QHashOut::from_values(1, 2, 3, 4),
+            right_branch: QHashOut::from_values(5, 6, 7, 8),
+            reward_leaf: QHashOut::from_values(9, 10, 11, 12),
+            proof_height: F::from_canonical_usize(0),
+            index: F::from_canonical_usize(0),
+        };
 
-        let mut graph = QProvingTaskGraph::new();
+        let (root, nullifier) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
 
-        let leaf_jobs: Vec<QProvingJobDataID> = (0..5)
-            .map(|i| {
-                QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, i, 0)
-            })
-            .collect();
+        assert!(proof.verify_proof(&root, GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE));
+        assert_eq!(nullifier, F::from_canonical_usize(0));
+    }
 
-        // Create the leaf task with all 5 jobs
-        let task0 = QProvingTask::new(&leaf_jobs);
-        graph.add_task(task0.clone());
+    #[test]
+    fn test_compute_root_from_variable_height_proof() {
+        let proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(100, 101, 102, 103),
+                sibling_reward_leaf: QHashOut::from_values(200, 201, 202, 203),
+            }],
+            left_branch: QHashOut::from_values(1, 2, 3, 4),
+            right_branch: QHashOut::from_values(5, 6, 7, 8),
+            reward_leaf: QHashOut::from_values(9, 10, 11, 12),
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(0),
+        };
 
-        // Parent layer: Jobs 0+1 and 2+3 combine
-        let parent_jobs = vec![
-            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 1, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 1, 1, 0),
+        let root1 = compute_root_from_variable_height_proof(&proof);
+        let (root2, _) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+
+        assert_eq!(root1, root2);
+    }
+
+    #[test]
+    fn test_job_graph_all_circuit_types() {
+        let graph = QProvingJobGraph::new();
+
+        let deploy_jobs = vec![
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::BatchDeployContracts, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::BatchDeployContractsAggregate, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::DummyBatchDeployContractsAggregate, 0, 0, 0),
         ];
 
-        let task1 = QProvingTask::new(&parent_jobs);
-        graph.add_dep(task1.clone(), task0.clone());
-
-        // Combine parent_jobs[0] and parent_jobs[1]
-        let root_job =
-            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 2, 0, 0);
-        let task2 = QProvingTask::new(&[root_job]);
-        graph.add_dep(task2.clone(), task1.clone());
-
-        // Final root: combine root_job with Job4 (the odd leaf)
-        let final_root_job =
-            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 3, 0, 0);
-        let task3 = QProvingTask::new(&[final_root_job]);
-        graph.add_dep(task3.clone(), task2.clone());
-        graph.add_dep(task3.clone(), task0.clone()); // Direct dependency on leaf task for Job4
-
-        // Verify the task levels
-        let levels = graph.get_task_levels();
-        assert_eq!(levels.len(), 4, "Should have 4 levels");
-        assert_eq!(levels[0].len(), 1, "Level 0 should have 1 task (leaves)");
-        assert!(levels[0].contains(&task0.task_id));
-        assert_eq!(levels[1].len(), 1, "Level 1 should have 1 task");
-        assert!(levels[1].contains(&task1.task_id));
-        assert_eq!(levels[2].len(), 1, "Level 2 should have 1 task");
-        assert!(levels[2].contains(&task2.task_id));
-        assert_eq!(
-            levels[3].len(),
-            1,
-            "Level 3 should have 1 task (final root)"
-        );
-        assert!(levels[3].contains(&task3.task_id));
-
-        // Verify task dependencies
-        assert_eq!(
-            graph.tasks[&task0.task_id].job_ids.len(),
-            5,
-            "Leaf task should have 5 jobs"
-        );
-        assert_eq!(
-            graph.tasks[&task1.task_id].job_ids.len(),
-            2,
-            "First parent task should have 2 jobs"
-        );
-        assert_eq!(
-            graph.tasks[&task2.task_id].job_ids.len(),
-            1,
-            "Root task should have 1 job"
-        );
-        assert_eq!(
-            graph.tasks[&task3.task_id].job_ids.len(),
-            1,
-            "Final root task should have 1 job"
-        );
-
-        println!("✓ 5-node tree structure verified successfully");
-    }
-
-    #[test]
-    fn test_get_task_levels_simple() {
-        let mut graph = QProvingTaskGraph::new();
-
-        let task1 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task2 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-
-        graph.add_dep(task1.clone(), task2.clone());
-
-        let levels = graph.get_task_levels();
-        assert_eq!(levels.len(), 2);
-        assert_eq!(levels[0].len(), 1);
-        assert!(levels[0].contains(&task2.task_id));
-        assert_eq!(levels[1].len(), 1);
-        assert!(levels[1].contains(&task1.task_id));
-    }
-
-    #[test]
-    fn test_get_task_levels_parallel() {
-        let mut graph = QProvingTaskGraph::new();
-
-        let task1 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task2 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task3 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-
-        graph.add_dep(task3.clone(), task1.clone());
-        graph.add_dep(task3.clone(), task2.clone());
-
-        let levels = graph.get_task_levels();
-        assert_eq!(levels.len(), 2);
-        assert_eq!(levels[0].len(), 2);
-        assert!(levels[0].contains(&task1.task_id));
-        assert!(levels[0].contains(&task2.task_id));
-        assert_eq!(levels[1].len(), 1);
-        assert!(levels[1].contains(&task3.task_id));
-    }
-
-    #[test]
-    fn test_get_task_levels_diamond() {
-        let mut graph = QProvingTaskGraph::new();
-
-        let task1 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task2 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task3 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task4 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-
-        graph.add_dep(task2.clone(), task1.clone());
-        graph.add_dep(task3.clone(), task1.clone());
-        graph.add_dep(task4.clone(), task2.clone());
-        graph.add_dep(task4.clone(), task3.clone());
-
-        let levels = graph.get_task_levels();
-        assert_eq!(levels.len(), 3);
-        assert_eq!(levels[0].len(), 1);
-        assert!(levels[0].contains(&task1.task_id));
-        assert_eq!(levels[1].len(), 2);
-        assert!(levels[1].contains(&task2.task_id));
-        assert!(levels[1].contains(&task3.task_id));
-        assert_eq!(levels[2].len(), 1);
-        assert!(levels[2].contains(&task4.task_id));
-    }
-
-    #[test]
-    #[ignore]
-    fn test_get_task_levels_complex() {
-        let mut graph = QProvingTaskGraph::new();
-
-        let task1 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task2 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task3 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task4 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task5 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-
-        graph.add_dep(task2.clone(), task1.clone());
-        graph.add_dep(task3.clone(), task2.clone());
-        graph.add_dep(task4.clone(), task1.clone());
-        graph.add_dep(task5.clone(), task3.clone());
-        graph.add_dep(task5.clone(), task4.clone());
-
-        let levels = graph.get_task_levels();
-        assert_eq!(levels.len(), 3);
-        assert_eq!(levels[0].len(), 1);
-        assert!(levels[0].contains(&task1.task_id));
-        assert_eq!(levels[1].len(), 2);
-        assert!(levels[1].contains(&task2.task_id));
-        assert!(levels[1].contains(&task4.task_id));
-        assert_eq!(levels[2].len(), 2);
-        assert!(levels[2].contains(&task3.task_id));
-        assert!(levels[2].contains(&task5.task_id));
-    }
-
-    #[test]
-    fn test_get_task_levels_empty() {
-        let graph = QProvingTaskGraph::new();
-        let levels = graph.get_task_levels();
-        assert_eq!(levels.len(), 0);
-    }
-
-    #[test]
-    fn test_get_task_levels_odd_leaves() {
-        let mut graph = QProvingTaskGraph::new();
-
-        let task1 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task2 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task3 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-        let task4 = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-
-        graph.add_dep(task4.clone(), task1.clone());
-        graph.add_dep(task4.clone(), task2.clone());
-        graph.add_dep(task4.clone(), task3.clone());
-
-        let levels = graph.get_task_levels();
-        assert_eq!(levels.len(), 2);
-        assert_eq!(levels[0].len(), 3);
-        assert!(levels[0].contains(&task1.task_id));
-        assert!(levels[0].contains(&task2.task_id));
-        assert!(levels[0].contains(&task3.task_id));
-        assert_eq!(levels[1].len(), 1);
-        assert!(levels[1].contains(&task4.task_id));
-    }
-
-    #[test]
-    fn test_get_task_levels_single_task() {
-        let mut graph = QProvingTaskGraph::new();
-
-        let task = QProvingTask {
-            task_id: LayerId::new(),
-            job_ids: vec![],
-        };
-
-        graph.tasks.insert(task.task_id, task.clone());
-
-        let levels = graph.get_task_levels();
-        assert_eq!(levels.len(), 1);
-        assert_eq!(levels[0].len(), 1);
-        assert_eq!(levels[0][0], task.task_id);
-    }
-
-    #[test]
-    fn test_generate_batch_proofs_for_qed() {
-        // Generate batch proof data for QED testing
-        use crate::job::traits::QDummyProofStore;
-
-        let mut graph = QProvingTaskGraph::new();
-
-        // Create 3 different jobs with different values for variety
-        let job_ids = vec![
-            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 1, 0),
-            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AddL1Deposit, 0, 2, 0),
+        let user_reg_jobs = vec![
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AppendUserRegistrationTreeAggregate, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate, 0, 0, 0),
         ];
 
-        // Create tasks
-        let task0 = QProvingTask::new(&job_ids);
-        graph.add_task(task0.clone());
+        let guta_jobs = vec![
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTAOnlyRegisterUsers, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTARegisterUsers, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoEndCap, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoGUTA, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTALeftEndCapRightGUTA, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTALeftGUTARightEndCap, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTASingleEndCap, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTAVerifyToCap, 0, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTANoChange, 0, 0, 0),
+        ];
 
-        // Use QDummyProofStore which generates deterministic hashes
-        let proof_store = QDummyProofStore {};
-
-        // Generate proofs for all 3 jobs
-        println!("\n// ===== Batch proof data for QED test =====");
-
-        for (idx, job_id) in job_ids.iter().enumerate() {
-            // Skip proof generation in sync test since generate_proof is now async
-            // This test is now just for documentation purposes
-            println!("\n// Proof {} for job_id {:?}:", idx, job_id);
-            println!("// (Proof generation skipped - generate_proof is now async)");
+        for job in deploy_jobs {
+            assert!(std::ptr::eq(graph.get_graph_for_job(&job).unwrap(), &graph.deploy_contracts_graph));
         }
 
-        println!("\n// ===== End of batch proof data =====");
+        for job in user_reg_jobs {
+            assert!(std::ptr::eq(graph.get_graph_for_job(&job).unwrap(), &graph.user_registrations_graph));
+        }
+
+        for job in guta_jobs {
+            assert!(std::ptr::eq(graph.get_graph_for_job(&job).unwrap(), &graph.guta_graph));
+        }
     }
 
     #[test]
-    fn test_print_sample_proof_for_qed() {
-        // This test prints sample proof data that can be used in QED tests
-        use plonky2::field::goldilocks_field::GoldilocksField;
-        use plonky2::field::types::PrimeField64;
-        use plonky2::hash::poseidon::PoseidonHash;
-        use plonky2::plonk::config::{GenericHashOut, Hasher};
+    fn test_nullifier_calculation() {
+        let proof1 = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(1, 2, 3, 4),
+                sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
+            }],
+            left_branch: QHashOut::from_values(5, 6, 7, 8),
+            right_branch: QHashOut::from_values(9, 10, 11, 12),
+            reward_leaf: QHashOut::from_values(13, 14, 15, 16),
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(0),
+        };
 
-        type F = GoldilocksField;
+        let proof2 = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(1, 2, 3, 4),
+                sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
+            }],
+            left_branch: QHashOut::from_values(5, 6, 7, 8),
+            right_branch: QHashOut::from_values(9, 10, 11, 12),
+            reward_leaf: QHashOut::from_values(13, 14, 15, 16),
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(1),
+        };
 
-        // Create sample hashes
-        let node0 = PoseidonHash::hash_no_pad(&[
-            F::from_canonical_u64(1),
-            F::from_canonical_u64(2),
-            F::from_canonical_u64(3),
-            F::from_canonical_u64(4),
-        ]);
-        let sibling0 = PoseidonHash::hash_no_pad(&[
-            F::from_canonical_u64(5),
-            F::from_canonical_u64(6),
-            F::from_canonical_u64(7),
-            F::from_canonical_u64(8),
-        ]);
+        let (_, nullifier1) = proof1.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+        let (_, nullifier2) = proof2.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
 
-        // First level: hash node with sibling
-        let parent0 = PoseidonHash::two_to_one(node0, sibling0);
-
-        // Second level with parent_public_key
-        let parent_key1 = PoseidonHash::hash_no_pad(&[
-            F::from_canonical_u64(100),
-            F::from_canonical_u64(101),
-            F::from_canonical_u64(102),
-            F::from_canonical_u64(103),
-        ]);
-        let sibling1 = PoseidonHash::hash_no_pad(&[
-            F::from_canonical_u64(9),
-            F::from_canonical_u64(10),
-            F::from_canonical_u64(11),
-            F::from_canonical_u64(12),
-        ]);
-
-        // According to generate_proof logic:
-        // parent = hash_two_to_one(parent, parent_public_key)
-        let temp1 = PoseidonHash::two_to_one(parent0, parent_key1);
-        // parent = hash_two_to_one(node, parent)
-        let temp2 = PoseidonHash::two_to_one(parent0, temp1);
-        // parent = hash_two_to_one(parent, sibling)
-        let parent1 = PoseidonHash::two_to_one(temp2, sibling1);
-
-        // Print the proof data for QED
-        println!("\n// ===== Sample proof data for QED test =====");
-        println!("// Level 0 (no parent_public_key):");
-        println!(
-            "// node: [{}, {}, {}, {}]",
-            node0.elements[0].to_canonical_u64(),
-            node0.elements[1].to_canonical_u64(),
-            node0.elements[2].to_canonical_u64(),
-            node0.elements[3].to_canonical_u64()
-        );
-        println!(
-            "// sibling: [{}, {}, {}, {}]",
-            sibling0.elements[0].to_canonical_u64(),
-            sibling0.elements[1].to_canonical_u64(),
-            sibling0.elements[2].to_canonical_u64(),
-            sibling0.elements[3].to_canonical_u64()
-        );
-        println!(
-            "// result: [{}, {}, {}, {}]",
-            parent0.elements[0].to_canonical_u64(),
-            parent0.elements[1].to_canonical_u64(),
-            parent0.elements[2].to_canonical_u64(),
-            parent0.elements[3].to_canonical_u64()
-        );
-
-        println!("\n// Level 1 (with parent_public_key):");
-        println!(
-            "// parent_public_key: [{}, {}, {}, {}]",
-            parent_key1.elements[0].to_canonical_u64(),
-            parent_key1.elements[1].to_canonical_u64(),
-            parent_key1.elements[2].to_canonical_u64(),
-            parent_key1.elements[3].to_canonical_u64()
-        );
-        println!(
-            "// sibling1: [{}, {}, {}, {}]",
-            sibling1.elements[0].to_canonical_u64(),
-            sibling1.elements[1].to_canonical_u64(),
-            sibling1.elements[2].to_canonical_u64(),
-            sibling1.elements[3].to_canonical_u64()
-        );
-        println!(
-            "// Final root: [{}, {}, {}, {}]",
-            parent1.elements[0].to_canonical_u64(),
-            parent1.elements[1].to_canonical_u64(),
-            parent1.elements[2].to_canonical_u64(),
-            parent1.elements[3].to_canonical_u64()
-        );
-        println!("// ===== End of sample proof data =====\n");
+        assert_ne!(nullifier1, nullifier2);
+        assert_eq!(nullifier1, F::from_canonical_usize(1));
+        assert_eq!(nullifier2, F::from_canonical_usize(2));
     }
+
+    #[test]
+    fn test_job_data_id_serialization() {
+        let job_id = QProvingJobDataID::new_proof_job_id(12345, ProvingJobCircuitType::BatchDeployContracts, 100, 200, 300);
+
+        let bytes = job_id.to_fixed_bytes();
+        let recovered = QProvingJobDataID::try_from(bytes).unwrap();
+
+        assert_eq!(job_id, recovered);
+        assert_eq!(job_id.goal_id, 12345);
+        assert_eq!(job_id.circuit_type, ProvingJobCircuitType::BatchDeployContracts);
+        assert_eq!(job_id.group_id, 100);
+        assert_eq!(job_id.sub_group_id, 200);
+        assert_eq!(job_id.task_index, 300);
+    }
+
+    #[test]
+    fn test_job_data_id_hex_conversion() {
+        let job_id = QProvingJobDataID::new_proof_job_id(
+            0x1234567890ABCDEF,
+            ProvingJobCircuitType::GUTAOnlyRegisterUsers,
+            0x12345678,
+            0x87654321,
+            0xABCDEF00,
+        );
+
+        let hex_string = job_id.to_hex_string();
+        let bytes_from_hex = hex::decode(&hex_string).unwrap();
+        let recovered = QProvingJobDataID::try_from_byte_vec(&bytes_from_hex).unwrap();
+
+        assert_eq!(job_id, recovered);
+        assert!(hex_string.len() == 48); // 24 bytes * 2 chars per byte
+    }
+
+    #[test]
+    fn test_max_height_limits() {
+        assert_eq!(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE, 15);
+        assert_eq!(CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT_MINUS_ONE, 15);
+        assert_eq!(USER_REGISTRATION_REWARDS_MAX_HEIGHT_MINUS_ONE, 15);
+
+        let max_index = (1u64 << GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE) - 1;
+        assert_eq!(max_index, 32767); // 2^15 - 1
+    }
+
+    #[test]
+    fn test_proof_height_validation() {
+        let proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![],
+            left_branch: QHashOut::from_values(1, 2, 3, 4),
+            right_branch: QHashOut::from_values(5, 6, 7, 8),
+            reward_leaf: QHashOut::from_values(9, 10, 11, 12),
+            proof_height: F::from_canonical_usize(20), // > max_height_minus_one
+            index: F::from_canonical_usize(0),
+        };
+
+        std::panic::catch_unwind(|| {
+            proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+        })
+        .expect_err("Should panic when proof_height > max_height_minus_one");
+    }
+
+    #[test]
+    fn test_index_validation() {
+        let proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![],
+            left_branch: QHashOut::from_values(1, 2, 3, 4),
+            right_branch: QHashOut::from_values(5, 6, 7, 8),
+            reward_leaf: QHashOut::from_values(9, 10, 11, 12),
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(1 << 16), // > 2^max_height_minus_one
+        };
+
+        std::panic::catch_unwind(|| {
+            proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+        })
+        .expect_err("Should panic when index >= 2^max_height_minus_one");
+    }
+
+    #[test]
+    fn test_job_reward_data_provider_trait() {
+        use std::collections::HashMap;
+
+        let job_a = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 0, 100);
+
+        let mut commitments = HashMap::new();
+        let mut public_keys = HashMap::new();
+
+        commitments.insert(job_a, QHashOut::from_values(10, 11, 12, 13));
+        public_keys.insert(job_a, QHashOut::from_values(20, 21, 22, 23));
+
+        let _provider = MockJobRewardDataProvider { commitments, public_keys };
+    }
+
+    #[test]
+    fn test_job_graph_dependency_structure() {
+        let job_a = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 0, 100);
+        let job_b = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AppendUserRegistrationTreeAggregate, 0, 0, 200);
+
+        let mut graph = QProvingJobGraph::new();
+        graph.user_registrations_graph.add_node(job_a);
+        graph.user_registrations_graph.add_node(job_b);
+        graph.user_registrations_graph.add_edge(job_b, job_a);
+
+        assert!(graph.user_registrations_graph.get_dependents(&job_a).unwrap().contains(&job_b));
+        assert!(graph.user_registrations_graph.get_dependencies(&job_b).unwrap().contains(&job_a));
+
+        let job_c = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 0, 300);
+        let job_d = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::AppendUserRegistrationTreeAggregate, 0, 0, 400);
+
+        graph.user_registrations_graph.add_node(job_c);
+        graph.user_registrations_graph.add_node(job_d);
+        graph.user_registrations_graph.add_edge(job_d, job_a);
+        graph.user_registrations_graph.add_edge(job_d, job_c);
+
+        let deps = graph.user_registrations_graph.get_dependencies(&job_d).unwrap();
+        assert_eq!(deps.len(), 2);
+        assert!(deps.contains(&job_a));
+        assert!(deps.contains(&job_c));
+    }
+
+    struct MockJobRewardDataProvider {
+        commitments: std::collections::HashMap<QProvingJobDataID, QHashOut<F>>,
+        public_keys: std::collections::HashMap<QProvingJobDataID, QHashOut<F>>,
+    }
+
+    #[async_trait::async_trait]
+    impl QJobRewardDataProvider for MockJobRewardDataProvider {
+        async fn get_job_commitment(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>> {
+            self.commitments
+                .get(&job_id)
+                .copied()
+                .ok_or_else(|| anyhow::anyhow!("Commitment not found for job ID: {:?}", job_id))
+        }
+
+        async fn get_job_worker_public_key(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>> {
+            self.public_keys
+                .get(&job_id)
+                .copied()
+                .ok_or_else(|| anyhow::anyhow!("Worker public key not found for job ID: {:?}", job_id))
+        }
+    }
+
+    #[test]
+    fn test_empty_graph_graphviz() {
+        let graph = QProvingJobGraph::new();
+        let output = graph.get_graphviz();
+
+        assert!(output.contains("digraph QProvingJobGraph"));
+        assert!(output.contains("cluster_deploy_contracts"));
+        assert!(output.contains("cluster_user_registrations"));
+        assert!(output.contains("cluster_guta"));
+        assert!(output.contains("Deploy Contracts"));
+        assert!(output.contains("User Registrations"));
+        assert!(output.contains("GUTA"));
+    }
+
+    #[test]
+    fn test_single_node_graphviz() {
+        let mut graph = QProvingJobGraph::new();
+        let guta_job = QProvingJobDataID::new_proof_job_id(100, ProvingJobCircuitType::GUTATwoEndCap, 1, 2, 3);
+
+        graph.guta_graph.add_node(guta_job);
+
+        let output = graph.get_graphviz();
+
+        assert!(output.contains("digraph QProvingJobGraph"));
+        assert!(output.contains("GUTATwoEndCap"));
+        let expected_hex = guta_job.to_hex_string();
+        assert!(output.contains(&expected_hex));
+        assert!(output.contains(&format!("guta_{}", expected_hex)));
+    }
+
+    #[test]
+    fn test_multiple_nodes_with_dependencies_graphviz() {
+        let mut graph = QProvingJobGraph::new();
+
+        let guta_job1 = QProvingJobDataID::new_proof_job_id(100, ProvingJobCircuitType::GUTATwoEndCap, 1, 1, 1);
+        let guta_job2 = QProvingJobDataID::new_proof_job_id(100, ProvingJobCircuitType::GUTATwoGUTA, 1, 1, 2);
+        let deploy_job = QProvingJobDataID::new_proof_job_id(100, ProvingJobCircuitType::BatchDeployContracts, 2, 1, 1);
+
+        graph.guta_graph.add_node(guta_job1);
+        graph.guta_graph.add_node(guta_job2);
+        graph.guta_graph.add_edge(guta_job1, guta_job2);
+
+        graph.deploy_contracts_graph.add_node(deploy_job);
+
+        let output = graph.get_graphviz();
+
+        assert!(output.contains("GUTATwoEndCap"));
+        assert!(output.contains("GUTATwoGUTA"));
+        assert!(output.contains("BatchDeployContracts"));
+        assert!(output.contains(&format!("guta_{}", guta_job1.to_hex_string())));
+        assert!(output.contains(&format!("guta_{}", guta_job2.to_hex_string())));
+        assert!(output.contains(&format!("deploy_{}", deploy_job.to_hex_string())));
+        assert!(output.contains("->"));
+    }
+
+    #[test]
+    fn test_user_registration_graph_graphviz() {
+        let mut graph = QProvingJobGraph::new();
+        let user_job = QProvingJobDataID::new_proof_job_id(200, ProvingJobCircuitType::AppendUserRegistrationTree, 3, 4, 5);
+
+        graph.user_registrations_graph.add_node(user_job);
+
+        let output = graph.get_graphviz();
+
+        assert!(output.contains("AppendUserRegistrationTree"));
+        assert!(output.contains(&user_job.to_hex_string()));
+        assert!(output.contains(&format!("user_{}", user_job.to_hex_string())));
+        assert!(output.contains("User Registrations"));
+    }
+
+    #[test]
+    fn test_graphviz_node_formatting() {
+        let mut graph = QProvingJobGraph::new();
+        let job = QProvingJobDataID::new_proof_job_id(0x123, ProvingJobCircuitType::GUTASingleEndCap, 0x456, 0x789, 0xABC);
+
+        graph.guta_graph.add_node(job);
+
+        let output = graph.get_graphviz();
+
+        assert!(output.contains("GUTASingleEndCap"));
+        assert!(output.contains(&job.to_hex_string()));
+        assert!(output.contains("shape=box"));
+        assert!(output.contains("fillcolor=lightblue"));
+    }
+}
+
+pub fn compute_root_from_variable_height_proof(proof: &VariableHeightRewardMerkleProof) -> QHashOut<F> {
+    let mut current_node_value = PoseidonHash::two_to_one(proof.left_branch.0, proof.right_branch.0);
+    current_node_value = PoseidonHash::two_to_one(current_node_value, proof.reward_leaf.0);
+
+    let proof_height = proof.proof_height.to_canonical_u64() as usize;
+    let index = proof.index.to_canonical_u64();
+
+    for i in 0..proof_height.min(proof.top_siblings.len()) {
+        let sibling = &proof.top_siblings[i];
+        let sibling_node = sibling.sibling_branch.0;
+        let reward_leaf = sibling.sibling_reward_leaf.0;
+
+        let index_bit = (index >> i) & 1;
+        let branch_path_hash = if index_bit == 0 {
+            PoseidonHash::two_to_one(current_node_value, sibling_node)
+        } else {
+            PoseidonHash::two_to_one(sibling_node, current_node_value)
+        };
+        current_node_value = PoseidonHash::two_to_one(branch_path_hash, reward_leaf);
+    }
+
+    QHashOut(current_node_value)
 }

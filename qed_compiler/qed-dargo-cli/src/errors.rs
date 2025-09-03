@@ -1,4 +1,4 @@
-use qed_dargo_toml::errors::ManifestError;
+use qed_package::ManifestError;
 use std::path::PathBuf;
 use thiserror::Error;
 

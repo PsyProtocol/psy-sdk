@@ -10,7 +10,7 @@ use plonky2::{
     },
 };
 use qed_common_circuit::{
-    builder::pad_circuit::CircuitBuilderQEDCommonGates, circuits::traits::qstandard::{
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{
         QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
     }, proof_minifier::pm_core::get_circuit_fingerprint_generic
 };
@@ -99,10 +99,19 @@ where
         //let combo_hash = builder.hash_two_to_one::<C::Hasher>(expected_old_checkpoint_root, new_checkpoint_root);
 
         let worker_public_key = builder.add_virtual_hash();
-        let commitment = worker_public_key;
+        let zero_hash = builder.constant_hash(HashOut::ZERO);
+        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
+
+        let pm_stats_targets = [
+            child_proofs_gadget.state_delta_gadget.new_stats.pm_jobs_completed.deploy_contracts_completed,
+            child_proofs_gadget.state_delta_gadget.new_stats.pm_jobs_completed.register_users_completed,
+            child_proofs_gadget.state_delta_gadget.new_stats.pm_jobs_completed.gutas_completed,
+        ];
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_stats_targets);
         builder.register_public_inputs(&core_checkpoint_gadget.old_checkpoint_tree_root.elements);
         builder.register_public_inputs(&new_checkpoint_root.elements);
         builder.add_qed_type_d_common_gates();

@@ -57,7 +57,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     checkpoint_id = checkpoint_id,
                     user_id = user_id,
                     contract_id = contract_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -114,7 +114,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     contract_id = contract_id,
                     height = height,
                     leaf_id = leaf_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -173,7 +173,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     contract_id = contract_id,
                     height = height,
                     leaf_id = leaf_id,
-                    merkle_proof = ?merkle_proof,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
                 Ok(merkle_proof)
@@ -215,7 +215,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     user_id = user_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -261,7 +261,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     checkpoint_id = checkpoint_id,
                     user_id = user_id,
                     contract_id = contract_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -309,7 +309,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     checkpoint_id = checkpoint_id,
                     user_id = user_id,
                     contract_id = contract_id,
-                    merkle_proof = ?merkle_proof,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
                 debug!("Merkle proof verification result: {}", merkle_proof.verify::<QEDHasher>());
@@ -346,7 +346,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             ResponseResult::Success(hash) => {
                 debug!(
                     checkpoint_id = checkpoint_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -388,7 +388,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     leaf_index = leaf_index,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -432,7 +432,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     leaf_index = leaf_index,
-                    merkle_proof = ?merkle_proof,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
                 Ok(merkle_proof)
@@ -465,7 +465,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             ResponseResult::Success(hash) => {
                 debug!(
                     checkpoint_id = checkpoint_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -506,7 +506,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     user_id = user_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -549,16 +549,16 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     user_id = user_id,
-                    merkle_proof = serde_json::to_string_pretty(&merkle_proof)?,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
-                debug!("Retrieved merkle proof: {}", serde_json::to_string(&merkle_proof)?);
-                info!("Merkle proof root: {}", merkle_proof.root.to_string());
-                info!("Merkle proof value: {}", merkle_proof.value.to_string());
+                debug!("Retrieved bottom merkle proof: {}", serde_json::to_string_pretty(&merkle_proof).unwrap());
+                info!("Merkle proof root: {:?}", merkle_proof.root.to_string());
+                info!("Merkle proof value: {:?}", merkle_proof.value.to_string());
                 debug!(
                     checkpoint_id = checkpoint_id,
                     user_id = user_id,
-                    verify_result = ?merkle_proof.verify::<QEDHasher>(),
+                    verify_result = %merkle_proof.verify::<QEDHasher>(),
                     "Before verify"
                 );
 
@@ -570,7 +570,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                         self.get_realm_id(user_id),
                     )
                     .await?;
-                debug!("Retrieved top proof: {}", serde_json::to_string_pretty(&top_proof)?);
+                debug!("Retrieved top proof: {}", serde_json::to_string_pretty(&top_proof).unwrap());
                 let mut new_siblings = vec![];
                 new_siblings.extend_from_slice(
                     &merkle_proof.siblings[0..(REALM_USER_TREE_HEIGHT as usize)],
@@ -578,12 +578,12 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 new_siblings.extend_from_slice(&top_proof.siblings);
                 merkle_proof.root = top_proof.root;
                 merkle_proof.siblings = new_siblings;
-                debug!("Modified merkle proof with top proof: {}", serde_json::to_string_pretty(&merkle_proof)?);
+                debug!("Modified merkle proof with top proof: {}", serde_json::to_string_pretty(&merkle_proof).unwrap());
 
                 debug!(
                     checkpoint_id = checkpoint_id,
                     user_id = user_id,
-                    verify_result = ?merkle_proof.verify::<QEDHasher>(),
+                    verify_result = %merkle_proof.verify::<QEDHasher>(),
                     "After verify"
                 );
                 Ok(merkle_proof)
@@ -632,7 +632,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     root_level = root_level,
                     leaf_level = leaf_level,
                     leaf_index = leaf_index,
-                    merkle_proof = ?merkle_proof,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
                 Ok(merkle_proof)
@@ -674,7 +674,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     contract_id = contract_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -720,7 +720,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     checkpoint_id = checkpoint_id,
                     contract_id = contract_id,
                     function_id = function_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -768,7 +768,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     checkpoint_id = checkpoint_id,
                     contract_id = contract_id,
                     function_id = function_id,
-                    merkle_proof = ?merkle_proof,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
                 Ok(merkle_proof)
@@ -801,7 +801,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             ResponseResult::Success(hash) => {
                 debug!(
                     checkpoint_id = checkpoint_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -842,7 +842,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     contract_id = contract_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -885,7 +885,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     contract_id = contract_id,
-                    merkle_proof = ?merkle_proof,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
                 Ok(merkle_proof)
@@ -918,7 +918,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             ResponseResult::Success(hash) => {
                 debug!(
                     checkpoint_id = checkpoint_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -960,7 +960,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     deposit_id = deposit_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -1000,7 +1000,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     deposit_id = deposit_id,
-                    merkle_proof = ?merkle_proof,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
                 Ok(merkle_proof)
@@ -1033,7 +1033,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             ResponseResult::Success(hash) => {
                 debug!(
                     checkpoint_id = checkpoint_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -1071,7 +1071,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     withdrawal_id = withdrawal_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -1111,7 +1111,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     withdrawal_id = withdrawal_id,
-                    merkle_proof = ?merkle_proof,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
                 Ok(merkle_proof)
@@ -1142,7 +1142,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         match response.result {
             ResponseResult::Success(hash) => {
                 debug!(
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -1175,7 +1175,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             ResponseResult::Success(hash) => {
                 debug!(
                     checkpoint_id = checkpoint_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -1213,7 +1213,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     leaf_checkpoint_id = leaf_checkpoint_id,
-                    hash = ?hash,
+                    hash = %hash,
                     "Successfully fetched hash"
                 );
                 Ok(hash)
@@ -1253,7 +1253,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     leaf_checkpoint_id = leaf_checkpoint_id,
-                    merkle_proof = ?merkle_proof,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
                 Ok(merkle_proof)
@@ -1296,10 +1296,10 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         match response.result {
             ResponseResult::Success(leaf) => {
                 info!(
-                    "Successfully fetched user leaf data checkpoint_id: {}, user_id: {}, leaf: {}, hash: {}",
+                    "Successfully fetched user leaf data checkpoint_id: {}, user_id: {}, leaf: {:?}, hash: {}",
                     checkpoint_id,
                     user_id,
-                    serde_json::to_string_pretty(&leaf)?,
+                    leaf,
                     leaf.qfhash::<QEDHasher>().to_string()
                 );
                 Ok(leaf)
@@ -1332,7 +1332,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
             ResponseResult::Success(leaf) => {
                 debug!(
                     contract_id = contract_id,
-                    leaf = ?leaf,
+                    leaf = %serde_json::to_string_pretty(&leaf).unwrap(),
                     "Successfully fetched contract leaf"
                 );
                 Ok(leaf)
@@ -1368,7 +1368,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
             ResponseResult::Success(leaf) => {
                 debug!(
                     checkpoint_id = checkpoint_id,
-                    leaf = ?leaf,
+                    leaf = %serde_json::to_string_pretty(&leaf).unwrap(),
                     "Successfully fetched checkpoint leaf"
                 );
                 Ok(leaf)
@@ -1437,7 +1437,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         match response.result {
             ResponseResult::Success(block_state) => {
                 debug!(
-                    block_state = ?block_state,
+                    block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
                     "Successfully fetched L2 block state"
                 );
                 Ok(block_state)
@@ -1470,7 +1470,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
             ResponseResult::Success(block_state) => {
                 debug!(
                     checkpoint_id = checkpoint_id,
-                    block_state = ?block_state,
+                    block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
                     "Successfully fetched L2 block state"
                 );
                 Ok(block_state)

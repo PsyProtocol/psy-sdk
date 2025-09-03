@@ -36,6 +36,41 @@ pub enum CheckedIntrinsicExprNode {
         type_id: TypeId,
         location: Location,
     },
+    GetFeesCollected {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    GetUserOpsProcessed {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    GetTotalTransactions {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    GetSlotsModified {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    GetRegisterUsersCompleted {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    GetGutasCompleted {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    GetDeployContractsCompleted {
+        checkpoint_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
     GetLastNonce {
         type_id: TypeId,
         location: Location,
@@ -134,7 +169,7 @@ pub enum CheckedIntrinsicExprNode {
         type_id: TypeId,
         location: Location,
     },
-    CheckSecpSign {
+    Secp256k1Verify {
         pub_key: ExprId,
         msg: ExprId,
         sig: ExprId,

@@ -17,20 +17,18 @@ members = [
     "qed_rollup_cli",
     "qed_dev_cli",
     "qed_rollup_utils",
+    "qed_precompiles",
     "qed_compiler/qed-fmt",
-    "qed_compiler/qed-cli",
     "qed_compiler/qed-lsp-server",
     "qed_compiler/qed-parser",
-    "qed_compiler/qed-utils",
     "qed_compiler/qed-common",
     "qed_compiler/qed-ast",
-    "qed_compiler/qed-derive",
     "qed_compiler/qed-sema",
     "qed_compiler/qed-lexer",
     "qed_compiler/qed-interpreter",
-    "qed_compiler/qed-dargo",
-    "qed_compiler/qed-dargo-toml",
+    "qed_compiler/qed_package",
     "qed_compiler/qed-dargo-cli",
+    "qed_api_services",
 ]
 resolver = "2"
 
@@ -39,7 +37,7 @@ edition = "2021"
 rust-version = "1.86"
 version = "0.1.0"
 homepage = "https://qedprotocol.com"
-repository = "https://github.com/QEDProtocol/qedlang-rustk"
+repository = "https://github.com/QEDProtocol/qedlang-rust"
 
 [workspace.lints]
 
@@ -144,7 +142,7 @@ tempfile = "3.19"
 miette = { version = "7.2", features = ["fancy"] }
 dotenv = "0.15"
 
-smol_str = "0.3"
+smol_str = { version = "0.3",  features = ["serde"] }
 thin-vec = "0.2"
 id-arena = "2.2"
 unescaper = "0.1"
@@ -240,20 +238,17 @@ qed_common_circuit = { path = "./qed_common_circuit" ,default-features = false}
 kvq = { path = "./kvq" }
 qed_rollup_circuit = { path = "./qed_rollup_circuit" , default-features = false}
 qed_rollup_utils= { path = "./qed_rollup_utils" , default-features = false}
+qed_precompiles = { path = "./qed_precompiles" , default-features = false}
 
 qed-ast = { path = "./qed_compiler/qed-ast" }
-qed-cli = { path = "./qed_compiler/qed-cli" }
-qed-derive = { path = "./qed_compiler/qed-derive" }
 qed-fmt = { path = "./qed_compiler/qed-fmt" }
 qed-lsp-server = { path = "./qed_compiler/qed-lsp-server" }
 qed-parser = { path = "./qed_compiler/qed-parser" }
-qed-utils = { path = "./qed_compiler/qed-utils" }
 qed-common = { path = "./qed_compiler/qed-common" }
 qed-sema = { path = "./qed_compiler/qed-sema" }
 qed-lexer = { path = "./qed_compiler/qed-lexer" }
 qed-interpreter = { path = "./qed_compiler/qed-interpreter" }
-qed-dargo = { path = "./qed_compiler/qed-dargo" }
-qed-dargo-toml = { path = "./qed_compiler/qed-dargo-toml" }
+qed_package = { path = "./qed_compiler/qed_package" }
 dargo = { path = "./qed_compiler/qed-dargo-cli" }
 qed-abi = { path = "./qed_compiler/qed-abi" }
 

@@ -52,6 +52,12 @@ pub enum QHashCommands {
         #[arg(help = "QHashOut strings to hash", num_args = 1..)]
         values: Vec<String>,
     },
+
+    #[command(about = "Get zero hash for given tree height")]
+    ZeroHash {
+        #[arg(help = "Tree height")]
+        height: u8,
+    },
 }
 
 pub fn run(args: QHashArgs) -> Result<()> {
@@ -117,6 +123,21 @@ pub fn run(args: QHashArgs) -> Result<()> {
 
             let output = QEDHasher::q_hash_many(&inputs);
             println!("{}", output.to_string());
+            Ok(())
+        }
+
+        QHashCommands::ZeroHash { height } => {
+            use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
+
+            let empty_tree = SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(height);
+            let zero_hash = empty_tree.get_root();
+            println!("Zero hash for height {}: {}", height, zero_hash.to_string());
+            println!("Elements: [{}, {}, {}, {}]",
+                zero_hash.0.elements[0].0,
+                zero_hash.0.elements[1].0,
+                zero_hash.0.elements[2].0,
+                zero_hash.0.elements[3].0
+            );
             Ok(())
         }
     }

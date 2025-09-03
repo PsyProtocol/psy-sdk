@@ -38,13 +38,13 @@ use qed_data::ups::ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput;
 use qed_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
+use qedlang_core::dpn::contract::cfc_code_definition_to_dapen_fc;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 // use crate::local::provider::LocalCommonCircuitsData;
-use crate::dpn::data::cfc_code_definition_to_dapen_fc;
 use crate::local::provider::QCommonCircuitData;
 
 type C = PoseidonGoldilocksConfig;

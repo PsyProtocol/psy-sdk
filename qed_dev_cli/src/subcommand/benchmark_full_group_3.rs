@@ -300,7 +300,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         Arc::new(KVQSimpleMemoryBackingStore::new());
 
     let mut checkpoint_id =
-        QEDCoordinatorStoreWriterAsyncImm::initialize_store(&store_reader).await?;
+        QEDCoordinatorStoreWriterAsyncImm::initialize_store(&store_reader, None).await?;
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 

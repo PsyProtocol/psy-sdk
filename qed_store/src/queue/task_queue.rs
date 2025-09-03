@@ -1,23 +1,27 @@
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Duration,
+};
+
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
+use qed_core::{
+    job::id::{LayerId, QProvingJobDataID, QProvingJobGraph, QProvingTask, QProvingTaskGraph, QProvingTaskLayer, TaskId},
+    utils::graph::BidirectionalGraph,
+};
 use redis::AsyncCommands;
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::time::Duration;
 use scylla::_macro_internal::SerializeRow;
-use tracing::{debug, error, info, trace, warn};
-use qed_core::job::id::{QProvingTaskLayer, QProvingTask, QProvingTaskGraph, QProvingJobDataID, TaskId};
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
+use tracing::{debug, error, info, trace, warn};
+
 use crate::queue::{new_redis_async_pool, QueueId, QueueStats, RsmqQueue};
 
 const TASK_COMMON_PREFIX: &str = "tasks:";
 const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(30);
-
-
-pub type LayerId = TaskId;
 
 /// Represents a single proving job with task assignment
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -84,28 +88,26 @@ pub struct QProvingTaskStoreImpl {
     redis_pool: Arc<Pool<RedisConnectionManager>>,
     rsmq: Arc<RsmqQueue>,
     task_graph: Arc<Mutex<QProvingTaskGraph>>,
+    job_graph: Arc<Mutex<QProvingJobGraph>>,
 }
 
 impl QProvingTaskStoreImpl {
     pub async fn new(redis_url: &str, pool_size: usize) -> Result<Self> {
         debug!("Initializing JobTaskStore with pool size {}", pool_size);
 
-        let redis_pool = Arc::new(
-            new_redis_async_pool(redis_url, pool_size)
-                .await
-                .context("Failed to create Redis pool")?
-        );
+        let redis_pool = Arc::new(new_redis_async_pool(redis_url, pool_size).await.context("Failed to create Redis pool")?);
 
         let rsmq = Arc::new(
             RsmqQueue::new(redis_url, pool_size, "task_store")
                 .await
-                .context("Failed to create RSMQ queue")?
+                .context("Failed to create RSMQ queue")?,
         );
 
         Ok(Self {
             redis_pool,
             rsmq,
             task_graph: Arc::new(Mutex::new(QProvingTaskGraph::new())),
+            job_graph: Arc::new(Mutex::new(QProvingJobGraph::new())),
         })
     }
 
@@ -160,7 +162,7 @@ impl QProvingTaskStoreImpl {
 
         pipe.query_async(&mut *conn).await?;
 
-        info!("Pushed {} layers to sorted set", layers.len());  // Changed from "list"
+        info!("Pushed {} layers to sorted set", layers.len()); // Changed from "list"
         Ok(())
     }
 
@@ -173,8 +175,8 @@ impl QProvingTaskStoreImpl {
         // ZRANGE gets elements by rank (0 = lowest score = first layer)
         let result: Vec<Vec<u8>> = redis::cmd("ZRANGE")
             .arg(&layers_key)
-            .arg(0)  // start rank
-            .arg(0)  // end rank (just get first element)
+            .arg(0) // start rank
+            .arg(0) // end rank (just get first element)
             .query_async(&mut *conn)
             .await?;
 
@@ -183,7 +185,7 @@ impl QProvingTaskStoreImpl {
                 let layer = bincode::deserialize(data)?;
                 Ok(Some(layer))
             }
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 
@@ -202,7 +204,7 @@ impl QProvingTaskStoreImpl {
                 let removed: i32 = conn.zrem(&layers_key, &expected_serialized).await?;
 
                 if removed > 0 {
-                    debug!("Successfully popped layer {:?} from head", expected_layer_id);
+                    info!("Successfully popped layer {:?} from head", expected_layer_id);
                     Ok(Some(*expected_layer_id))
                 } else {
                     // Shouldn't happen, but handle gracefully
@@ -237,8 +239,8 @@ impl QProvingTaskStoreImpl {
         // FIX: Use ZRANGE for sorted sets, not lrange
         let all_bytes: Vec<Vec<u8>> = redis::cmd("ZRANGE")
             .arg(&layers_key)
-            .arg(0)   // start index
-            .arg(-1)  // end index (all elements)
+            .arg(0) // start index
+            .arg(-1) // end index (all elements)
             .query_async(&mut *conn)
             .await?;
 
@@ -299,11 +301,7 @@ impl QProvingTaskStoreImpl {
 
         for layer in layers {
             let count = stats.get(&layer).copied().unwrap_or(0);
-            status.push_str(&format!(
-                "  Layer {}: {} pending jobs\n",
-                layer,
-                count
-            ));
+            status.push_str(&format!("  Layer {}: {} pending jobs\n", layer, count));
         }
 
         Ok(status)
@@ -324,10 +322,7 @@ impl QProvingTaskStoreImpl {
         };
 
         if current_layer != job.layer_id {
-            warn!(
-                "Job {} claims layer {} but current layer is {}",
-                job, job.layer_id, current_layer
-            );
+            warn!("Job {} claims layer {} but current layer is {}", job, job.layer_id, current_layer);
             return Ok(JobValidationStatus::WrongLayer {
                 expected: current_layer,
                 provided: job.layer_id,
@@ -339,10 +334,7 @@ impl QProvingTaskStoreImpl {
 
         match self.rsmq.change_message_visibility(&queue_id, &job.msg_id, VISIBILITY_TIMEOUT).await {
             Ok(_) => {
-                debug!(
-                    "Job {} validated: message {} is hidden and visibility extended",
-                    job, job.msg_id
-                );
+                debug!("Job {} validated: message {} is hidden and visibility extended", job, job.msg_id);
                 Ok(JobValidationStatus::Valid)
             }
             Err(e) => {
@@ -350,16 +342,10 @@ impl QProvingTaskStoreImpl {
                 let error_str = e.to_string().to_lowercase();
 
                 if error_str.contains("not found") || error_str.contains("does not exist") {
-                    warn!(
-                        "Job {} validation failed: message {} not found in queue",
-                        job, job.msg_id
-                    );
+                    warn!("Job {} validation failed: message {} not found in queue", job, job.msg_id);
                     Ok(JobValidationStatus::MessageNotFound)
                 } else if error_str.contains("visible") || error_str.contains("not hidden") {
-                    warn!(
-                        "Job {} validation failed: message {} is visible (not being processed)",
-                        job, job.msg_id
-                    );
+                    warn!("Job {} validation failed: message {} is visible (not being processed)", job, job.msg_id);
                     Ok(JobValidationStatus::MessageNotHidden)
                 } else {
                     // Unexpected error - propagate it
@@ -383,10 +369,7 @@ impl QProvingTaskStoreImpl {
 pub enum JobValidationStatus {
     Valid,
     NoActiveLayer,
-    WrongLayer {
-        expected: LayerId,
-        provided: LayerId
-    },
+    WrongLayer { expected: LayerId, provided: LayerId },
     MessageNotFound,
     MessageNotHidden,
 }
@@ -402,13 +385,23 @@ pub trait QProvingTaskStore {
     // Task graph management methods
     async fn write_next_tasks(&self, task: &QProvingTask, next_task: &QProvingTask) -> Result<()>;
     async fn write_multidimensional_tasks(&self, tasks: &[QProvingTask], next_task: &QProvingTask) -> Result<()>;
+    async fn add_task(&self, task: &QProvingTask) -> Result<()>;
     async fn get_task_graph(&self) -> QProvingTaskGraph;
     async fn clear_task_graph(&self) -> Result<()>;
     async fn finalize_and_save_topology(&self) -> Result<()>;
 
+    async fn set_job_dependency_graph(
+        &self,
+        deploy_contracts_graph: BidirectionalGraph<QProvingJobDataID>,
+        user_registrations_graph: BidirectionalGraph<QProvingJobDataID>,
+        guta_graph: BidirectionalGraph<QProvingJobDataID>,
+    ) -> Result<()>;
+
+    async fn get_graph_for_job(&self, job_id: &QProvingJobDataID) -> Result<BidirectionalGraph<QProvingJobDataID>>;
+
     // Legacy operations (kept for compatibility)
-    async fn save_job_dependency_graph(&self, graph: &QProvingTaskGraph, checkpoint_id: u64) -> Result<()> ;
-    async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<QProvingTaskGraph> ;
+    async fn save_job_dependency_graph(&self, checkpoint_id: u64) -> Result<()>;
+    async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<QProvingJobGraph>;
 }
 
 #[async_trait]
@@ -423,10 +416,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             self.rsmq.create_queue_if_not_exists(&queue_id).await?;
 
             // Create QJob instances for all job IDs in this layer
-            let jobs: Vec<QJob> = layer.job_ids
-                .iter()
-                .map(|job_id| QJob::new(job_id.clone(), layer.layer_id))
-                .collect();
+            let jobs: Vec<QJob> = layer.job_ids.iter().map(|job_id| QJob::new(job_id.clone(), layer.layer_id)).collect();
 
             // Send all jobs to the corresponding layer queue
             if !jobs.is_empty() {
@@ -450,6 +440,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         let current_layer = match self.peek_current_layer().await? {
             Some(layer) => layer,
             None => {
+                trace!("No layers available");
                 return Ok(None);
             }
         };
@@ -461,9 +452,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             Some((job, msg_id)) => {
                 Ok(Some(job.with_msg_id(msg_id)))
             }
-            None => {
-                    Ok(None)
-            }
+            None => Ok(None),
         }
     }
 
@@ -501,9 +490,9 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
                                 None => {
                                     // pop_current_layer returned Ok(None) - layer wasn't at top or didn't match
                                     warn!(
-                                       "Layer {} is complete but couldn't be popped (not at top or already removed by another thread)",
-                                    job.layer_id
-                                     );
+                                        "Layer {} is complete but couldn't be popped (not at top or already removed by another thread)",
+                                        job.layer_id
+                                    );
 
                                     // Debug: Check what's actually at the top
                                     if let Some(actual_top) = self.peek_current_layer().await? {
@@ -528,7 +517,6 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
                             info!("❌ Failed to pop layer, debug_print start ");
                             self.debug_print_all_layers().await?;
                             info!("❌ Failed to pop layer, debug_print end ");
-
                         }
                     }
                 }
@@ -546,17 +534,15 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
     }
 
     async fn count_pending_jobs_in_current_layer(&self) -> Result<u64> {
-        let layer = self.peek_current_layer().await?
-            .ok_or_else(|| anyhow!("No current layer"))?;
+        let layer = self.peek_current_layer().await?.ok_or_else(|| anyhow!("No current layer"))?;
 
         let queue_id = self.layer_queue_id(&layer);
-        self.rsmq.get_queue_length(&queue_id).await
-            .context("Failed to get queue length")
+        self.rsmq.get_queue_length(&queue_id).await.context("Failed to get queue length")
     }
 
-    async fn save_job_dependency_graph(&self, graph: &QProvingTaskGraph, checkpoint_id: u64) -> Result<()> {
+    async fn save_job_dependency_graph(&self, checkpoint_id: u64) -> Result<()> {
         let mut conn = self.redis_pool.get().await?;
-        let serialized = bincode::serialize(graph)?;
+        let serialized = bincode::serialize(&*self.job_graph.lock().await)?;
         let graph_key = self.graph_key(checkpoint_id);
         conn.set(graph_key, serialized).await?;
 
@@ -564,14 +550,51 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         Ok(())
     }
 
-    async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<QProvingTaskGraph> {
+    async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<QProvingJobGraph> {
         let mut conn = self.redis_pool.get().await?;
 
         let graph_key = self.graph_key(checkpoint_id);
         let graph_bytes: Vec<u8> = conn.get(graph_key).await?;
 
-        bincode::deserialize::<QProvingTaskGraph>(&graph_bytes)
-            .context("Failed to deserialize job graph")
+        bincode::deserialize::<QProvingJobGraph>(&graph_bytes).context("Failed to deserialize job graph")
+    }
+
+    async fn set_job_dependency_graph(
+        &self,
+        deploy_contracts_graph: BidirectionalGraph<QProvingJobDataID>,
+        user_registrations_graph: BidirectionalGraph<QProvingJobDataID>,
+        guta_graph: BidirectionalGraph<QProvingJobDataID>,
+    ) -> Result<()> {
+        self.job_graph.lock().await.deploy_contracts_graph = deploy_contracts_graph;
+        self.job_graph.lock().await.user_registrations_graph = user_registrations_graph;
+        self.job_graph.lock().await.guta_graph = guta_graph;
+        Ok(())
+    }
+
+    async fn get_graph_for_job(&self, job_id: &QProvingJobDataID) -> Result<BidirectionalGraph<QProvingJobDataID>> {
+        use qed_core::job::id::ProvingJobCircuitType;
+
+        match job_id.circuit_type {
+            ProvingJobCircuitType::BatchDeployContracts
+            | ProvingJobCircuitType::BatchDeployContractsAggregate
+            | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => Ok(self.job_graph.lock().await.deploy_contracts_graph.clone()),
+
+            ProvingJobCircuitType::AppendUserRegistrationTree
+            | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
+            | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => Ok(self.job_graph.lock().await.user_registrations_graph.clone()),
+
+            ProvingJobCircuitType::GUTAOnlyRegisterUsers
+            | ProvingJobCircuitType::GUTARegisterUsers
+            | ProvingJobCircuitType::GUTATwoEndCap
+            | ProvingJobCircuitType::GUTATwoGUTA
+            | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+            | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+            | ProvingJobCircuitType::GUTASingleEndCap
+            | ProvingJobCircuitType::GUTAVerifyToCap
+            | ProvingJobCircuitType::GUTANoChange => Ok(self.job_graph.lock().await.guta_graph.clone()),
+
+            _ => Err(anyhow!("Job ID {:?} does not belong to any known graph", job_id)),
+        }
     }
 
     async fn write_next_tasks(&self, task: &QProvingTask, next_task: &QProvingTask) -> Result<()> {
@@ -584,14 +607,16 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         let mut task_graph = self.task_graph.lock().await;
         let job_levels_count = tasks.len();
         for i in 0..job_levels_count {
-            let current_next_task = if i == job_levels_count - 1 {
-                next_task
-            } else {
-                &tasks[i + 1]
-            };
+            let current_next_task = if i == job_levels_count - 1 { next_task } else { &tasks[i + 1] };
             let current_task = &tasks[i];
             task_graph.add_dep(current_next_task.clone(), current_task.clone());
         }
+        Ok(())
+    }
+
+    async fn add_task(&self, task: &QProvingTask) -> Result<()> {
+        let mut task_graph = self.task_graph.lock().await;
+        task_graph.add_task(task.clone());
         Ok(())
     }
 
@@ -617,7 +642,6 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
 // Implementation-specific methods
 impl QProvingTaskStoreImpl {
-
     async fn layer_exists(&self, layer_id: &LayerId) -> Result<bool> {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layers_key();
@@ -642,9 +666,7 @@ impl QProvingTaskStoreImpl {
     pub async fn get_remaining_layers_count(&self) -> Result<usize> {
         self.get_layer_count().await
     }
-
 }
-
 
 impl QProvingTaskStoreImpl {
     /// Print detailed debug information about all layers
@@ -685,11 +707,9 @@ impl QProvingTaskStoreImpl {
             info!("    - Hidden messages: {}", queue_stats.hidden_messages);
             info!("    - Total sent: {}", queue_stats.total_sent);
             info!("    - Total received: {}", queue_stats.total_received);
-
         }
 
         info!("=== End Debug Report ===");
         Ok(())
     }
-
 }

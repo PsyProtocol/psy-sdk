@@ -46,6 +46,7 @@ pub fn interpret(
 ) -> anyhow::Result<InterpretResult> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) = interpreter.typecheck(crate_path_graph)?;
+
     let compile_results = interpreter.interpret(
         &mut typechecker,
         &mut ctx,
@@ -500,6 +501,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             })?;
         Ok((typechecker, typechecker_context))
     }
+
     #[instrument(level = "debug", skip_all)]
     pub fn interpret_function(
         &mut self,
@@ -693,6 +695,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         });
                     }
                 }
+                CheckedIntrinsicStmtNode::ClearEntireTree { .. } => {
+                    let _result = self.context.clear_entire_tree();
+                }
             },
         }
         Ok(ControlState::Normal(CheckedValueRef::new_rc(
@@ -769,18 +774,20 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<CheckedValue<F>> {
         let rhs_value = self.interpret_expr(program, unary_node.rhs, ctx)?;
+        let rhs_borrow = rhs_value.borrow();
 
-        Ok(match unary_node.operator {
-            UnaryOperator::Neg => todo!(),
-            UnaryOperator::Not => {
-                if unary_node.type_id == BOOL_TYPE {
-                    CheckedValue::Bool(self.context.op_bool_not(rhs_value.to_bool()))
-                } else if unary_node.type_id == FELT_TYPE {
-                    CheckedValue::Bool(self.context.op_bool_not(rhs_value.to_felt()))
-                } else {
-                    todo!()
-                }
+        Ok(match (&*rhs_borrow, unary_node.operator) {
+            (CheckedValue::Bool(b), UnaryOperator::Neg) => {
+                CheckedValue::Bool(self.context.op_bool_not(*b))
             }
+            // TODO: should be bitwise not
+            (CheckedValue::Felt(v), UnaryOperator::Not) => {
+                CheckedValue::Felt(self.context.op_bool_not(*v))
+            }
+            (CheckedValue::Bool(v), UnaryOperator::Not) => {
+                CheckedValue::Bool(self.context.op_bool_not(*v))
+            }
+            _ => todo!(),
         })
     }
 
@@ -806,8 +813,13 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             (CheckedValue::Felt(l), CheckedValue::Felt(r), Div) => self.context.op_div(*l, *r),
             (CheckedValue::Felt(l), CheckedValue::Felt(r), Pow) => self.context.op_exp(*l, *r),
             (CheckedValue::Felt(l), CheckedValue::Felt(r), Mod) => self.context.op_mod(*l, *r),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitShr) => unimplemented!(),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitShl) => unimplemented!(),
+            // TODO: don't use u32 opcodes
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitShr) => {
+                self.context.op_u32_shr(*l, *r)
+            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitShl) => {
+                self.context.op_u32_shl(*l, *r)
+            }
             (CheckedValue::Felt(l), CheckedValue::Felt(r), BitAnd) => {
                 self.context.op_u32_and(*l, *r)
             }
@@ -844,10 +856,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Or) => self.context.op_bool_or(*l, *r),
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Eq) => self.context.op_eq(*l, *r),
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Neq) => self.context.op_neq(*l, *r),
-            (CheckedValue::Bool(_), CheckedValue::Bool(_), Lt) => unimplemented!(),
-            (CheckedValue::Bool(_), CheckedValue::Bool(_), Lte) => unimplemented!(),
-            (CheckedValue::Bool(_), CheckedValue::Bool(_), Gt) => unimplemented!(),
-            (CheckedValue::Bool(_), CheckedValue::Bool(_), Gte) => unimplemented!(),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Lt) => self.context.op_lt(*l, *r),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Lte) => self.context.op_lte(*l, *r),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Gt) => self.context.op_gt(*l, *r),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), Gte) => self.context.op_gte(*l, *r),
 
             _ => unreachable!(),
         };
@@ -888,11 +900,22 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             (CheckedValue::Felt(l), CheckedValue::Felt(r), ModAssign) => {
                 CheckedValueRef::from_felt(self.context.op_mod(*l, *r))
             }
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitAndAssign) => unimplemented!(),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitOrAssign) => unimplemented!(),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitXorAssign) => unimplemented!(),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitShlAssign) => unimplemented!(),
-            (CheckedValue::Felt(_), CheckedValue::Felt(_), BitShrAssign) => unimplemented!(),
+            // TODO: don't use u32 opcodes
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitAndAssign) => {
+                CheckedValueRef::from_felt(self.context.op_u32_and(*l, *r))
+            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitOrAssign) => {
+                CheckedValueRef::from_felt(self.context.op_u32_or(*l, *r))
+            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitXorAssign) => {
+                CheckedValueRef::from_felt(self.context.op_u32_xor(*l, *r))
+            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitShlAssign) => {
+                CheckedValueRef::from_felt(self.context.op_u32_shl(*l, *r))
+            }
+            (CheckedValue::Felt(l), CheckedValue::Felt(r), BitShrAssign) => {
+                CheckedValueRef::from_felt(self.context.op_u32_shr(*l, *r))
+            }
 
             (CheckedValue::U32(l), CheckedValue::U32(r), AddAssign) => {
                 CheckedValueRef::from_u32(self.context.op_u32_add(*l, *r))
@@ -1219,7 +1242,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         );
                         return Ok(CheckedValueRef::new_rc(CheckedValue::Type(type_id.clone())));
                     }
-                    CheckedIntrinsicExprNode::CheckSecpSign {
+                    CheckedIntrinsicExprNode::Secp256k1Verify {
                         pub_key,
                         msg,
                         sig,
@@ -1277,6 +1300,76 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         let checkpoint_id_value = checkpoint_id.to_felt();
                         let root = self.context.get_deploy_contracts_root(checkpoint_id_value);
                         return Ok(CheckedValueRef::from_vec(type_id.clone(), root.to_vec()));
+                    }
+                    CheckedIntrinsicExprNode::GetFeesCollected {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let fees = self.context.get_fees_collected(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(fees));
+                    }
+                    CheckedIntrinsicExprNode::GetUserOpsProcessed {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let ops = self.context.get_user_ops_processed(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(ops));
+                    }
+                    CheckedIntrinsicExprNode::GetTotalTransactions {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let txns = self.context.get_total_transactions(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(txns));
+                    }
+                    CheckedIntrinsicExprNode::GetSlotsModified {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let slots = self.context.get_slots_modified(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(slots));
+                    }
+                    CheckedIntrinsicExprNode::GetRegisterUsersCompleted {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let completed = self.context.get_register_users_completed(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(completed));
+                    }
+                    CheckedIntrinsicExprNode::GetGutasCompleted {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let completed = self.context.get_gutas_completed(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(completed));
+                    }
+                    CheckedIntrinsicExprNode::GetDeployContractsCompleted {
+                        checkpoint_id,
+                        type_id,
+                        location,
+                    } => {
+                        let checkpoint_id = self.interpret_expr(program, checkpoint_id.clone(), ctx)?;
+                        let checkpoint_id_value = checkpoint_id.to_felt();
+                        let completed = self.context.get_deploy_contracts_completed(checkpoint_id_value);
+                        return Ok(CheckedValueRef::from_felt(completed));
                     }
                 }
             }),
@@ -1808,6 +1901,8 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
 #[cfg(test)]
 mod tests {
+    use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
+    use qed_store::controllers::local::prepare_environment_with_real_contract;
     use serial_test::serial;
     use std::{
         fs::File,
@@ -1819,14 +1914,10 @@ mod tests {
     use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
     use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
     use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-    use qed_data::qblock::cmds::register_user::QBCRegisterUser;
+    use qed_data::{config::store_config::{C, D}, qblock::cmds::register_user::QBCRegisterUser};
     use qed_exec::vm::exec::QEDEvalSessionResult;
 
     use qed_data::config::store_config::QEDHasher;
-    use qed_utils::{
-        gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract, C,
-        D,
-    };
     use qedlang_core::dpn::{
         ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
         vm::compile::QEDCompileResult,
@@ -1857,10 +1948,10 @@ mod tests {
         };
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     #[serial]
     async fn test_interpreter() {
-        qed_utils::setup_env_logger();
+        qed_common::setup_logging().ok();
 
         insta::glob!(
             "../../tests",
@@ -1894,7 +1985,7 @@ mod tests {
                 let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
                 let deployer = QHashOut::rand();
-                let (_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+                let (_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
                     deployer,
                     contract_state_tree_height as u8,
                     &compile_results,
@@ -1905,10 +1996,12 @@ mod tests {
                     tokio::runtime::Handle::current()
                         .block_on(async {
                             prepare_environment_with_real_contract(
-                                QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
-                                deploy_cmd,
-                            )
-                            .await
+                                vec![QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param)],
+                                vec![deploy_cmd],
+                                None,
+                                None,
+                                None,
+                            ).await
                         })
                 })
                 .unwrap();
@@ -1931,7 +2024,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_format_file() {
-        qed_utils::setup_env_logger();
+        qed_common::setup_logging().ok();
 
         insta::glob!("../../tests", "*_test.qed", |path| {
             let entry: PathBuf = path.into();

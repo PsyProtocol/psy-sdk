@@ -52,8 +52,6 @@ impl UPSCFCStandardStateDeltaGadget {
         corrections: &CorrectUPSHeaderHashesGadget,
         contract_state_tree_height: Target,
     ) -> (Self, UserProvingSessionHeaderGadget) {
-
-
         let proving_session_start_ctx_hash = previous_step_header_gadget.session_start_context_hash;
 
 

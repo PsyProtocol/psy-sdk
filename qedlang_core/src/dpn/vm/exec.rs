@@ -309,7 +309,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             DPNOpType::BoolOr => {
                 let left = self.resolve_bool(op.inputs[0]);
                 let right = self.resolve_bool(op.inputs[1]);
-                self.bools.push(left && right);
+                self.bools.push(left || right);
             },
             DPNOpType::Xor => {
                 let left = self.resolve_bool(op.inputs[0]);
@@ -644,12 +644,12 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 assert!( res <= 0xffffffffu64, "u32 exp value too large");
                 self.u32s.push(res as u32);
             }
-            DPNOpType::CheckSecpSign => {
+            DPNOpType::Secp256k1Verify => {
                 // 8 + 8 + 8 + 8 + 8 = 40
                 use k256::ecdsa::Signature;
                 use k256::ecdsa::signature::hazmat::PrehashVerifier;
                 let inputs = self.resolve_targets(&op.inputs);
-                assert!(inputs.len() == 36, "CheckSecpSign input length must be 36");
+                assert!(inputs.len() == 36, "Secp256k1Verify input length must be 36");
                 let pk_u32 = inputs[0..16]
                     .to_vec()
                     .iter()

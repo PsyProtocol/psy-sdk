@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                user_id, public_key, tx_type,\n                metadata, timestamp, created_at, updated_at\n            FROM user_events\n            WHERE ($1::VARCHAR IS NULL OR user_id = $1)\n                AND ($2::VARCHAR IS NULL OR public_key = $2)\n                AND ($3::VARCHAR IS NULL OR tx_type = $3)\n                AND ($4::TIMESTAMPTZ IS NULL OR timestamp >= $4)\n                AND ($5::TIMESTAMPTZ IS NULL OR timestamp <= $5)\n            ORDER BY timestamp DESC\n            LIMIT $6 OFFSET $7\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "public_key",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "tx_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Timestamptz",
+        "Timestamptz",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a83dbd0c96b59d80df83e3c8bd1083703b832de36b18be2553630b96f398769a"
+}

@@ -144,3 +144,28 @@ impl From<&ContractCodeDefinition> for SimpleContractCodeDefinition {
         }
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RootConfig {
+    pub genesis: GenesisConfig,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GenesisConfig {
+    pub precompiles: Vec<ContractConfig>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[ts(export)]
+pub struct PrecompileConfig {
+    pub contracts: Vec<ContractConfig>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[ts(export)]
+pub struct ContractConfig {
+    pub name: String,
+    pub path: String,
+    pub contract_name: String,
+    pub method_names: Vec<String>,
+}

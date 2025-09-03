@@ -1,4 +1,4 @@
-mod cli;
+pub mod cli;
 mod errors;
 
 pub use cli::*;
