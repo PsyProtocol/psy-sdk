@@ -119,11 +119,11 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
         inputs: vec![args.checkpoint_id],
     });
 
-    for (chunk_index, chunk) in all_proofs.chunks(32).enumerate() {
+    for (chunk_index, chunk) in all_proofs.chunks(8).enumerate() {
         info!("Processing chunk {} with {} proofs", chunk_index, chunk.len());
 
         let mut proof_inputs = Vec::new();
-        for i in 0..32 {
+        for i in 0..8 {
             if i < chunk.len() {
                 let proof = &chunk[i];
                 for j in 0..32 {

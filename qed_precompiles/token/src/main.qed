@@ -1,5 +1,5 @@
 use std::prelude::*;
-// use new_rewards::PsyPOWMiningRewardsClaimContractRef;
+// use mining_rewards::PsyPOWMiningRewardsClaimContractRef;
 
 #[derive(Storage, StorageRef)]
 struct OtherUserInfo {

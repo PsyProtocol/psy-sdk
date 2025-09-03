@@ -136,7 +136,7 @@ impl PsyPOWMiningRewardsClaimContractRef {
 
     pub fn batch_claim_guta_rewards(
         claim_checkpoint_id: Felt,
-        proofs: [VariableHeightRewardMerkleProof; 32],
+        proofs: [VariableHeightRewardMerkleProof; 8],
         proposed_reward: Felt
     ) {
         let c = PsyPOWMiningRewardsClaimContractRef::new(ContractMetadata::current());
@@ -165,7 +165,7 @@ impl PsyPOWMiningRewardsClaimContractRef {
 
         let mut total_rewards_claimed = 0;
 
-        for i in 0u32..32u32 {
+        for i in 0u32..8u32 {
             let idx = i as Felt;
             let proof = proofs[idx];
 

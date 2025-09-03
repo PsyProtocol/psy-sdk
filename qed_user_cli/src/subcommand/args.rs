@@ -478,9 +478,6 @@ pub struct ClaimRewardsArgs {
     #[arg(long)]
     pub checkpoint_id: u64,
 
-    /// Contract ID for the rewards contract
-    #[arg(long, default_value = "0")]
-    pub contract_id: u64,
 
     /// Job specifications in format "job_id:location" where location is either "realm:id" or "coordinator"
     /// Example: --job "12345:realm:0" --job "67890:coordinator"
