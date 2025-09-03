@@ -866,6 +866,22 @@ impl WorkerStatsRepository {
         // Currently, the total rewards is 0 (reserved field)
         let total_rewards = 0i64;
 
+        // Calculate average proof time from completed tasks
+        let avg_proof_time_row = sqlx::query!(
+            r#"
+            SELECT COALESCE(AVG(duration), 0)::BIGINT as avg_duration
+            FROM worker_events
+            WHERE public_key = $1
+                AND status = 'COMPLETED'
+                AND duration IS NOT NULL
+            "#,
+            worker_public_key
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let avg_proof_time = avg_proof_time_row.avg_duration.unwrap_or(0);
+
         Ok(WorkerStats {
             processing_tasks,
             total_processing_tasks,
@@ -878,6 +894,7 @@ impl WorkerStatsRepository {
             total_failed,
             completed_1h,
             failed_1h,
+            avg_proof_time,
             last_updated: now,
         })
     }

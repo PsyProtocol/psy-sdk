@@ -171,6 +171,7 @@ pub struct WorkerStats {
     pub total_failed: i64,      // Total failed tasks of all time
     pub completed_1h: i64,      // Completed tasks in last 1 hour
     pub failed_1h: i64,         // Failed tasks in last 1 hour
+    pub avg_proof_time: i64,    // Average proof generation time in milliseconds
     pub last_updated: DateTime<Utc>,
 }
 
