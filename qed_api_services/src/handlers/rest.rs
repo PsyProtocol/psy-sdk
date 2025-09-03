@@ -401,11 +401,28 @@ async fn stats_handler(
         "timestamp".to_string(),
         serde_json::Value::String(now.to_rfc3339()),
     );
+    
+    // Get block height (maximum checkpoint ID from worker_events)
+    let block_height = match TpsRepository::get_max_checkpoint(&service.pool).await {
+        Ok(height) => {
+            tracing::info!("Block height (max checkpoint): {}", height);
+            height
+        }
+        Err(e) => {
+            tracing::error!("Failed to get max checkpoint: {}", e);
+            0
+        }
+    };
+    stats.insert(
+        "block_height".to_string(),
+        serde_json::Value::Number(block_height.into()),
+    );
 
     tracing::info!(
-        "Stats generated successfully: worker_events_24h={}, user_events_24h={}",
+        "Stats generated successfully: worker_events_24h={}, user_events_24h={}, block_height={}",
         worker_events_count,
-        user_events.len()
+        user_events.len(),
+        block_height
     );
     tracing::debug!("Stats response: {:?}", stats);
 
