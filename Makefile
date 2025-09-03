@@ -180,7 +180,7 @@ init-api-services:
 .PHONY: shutdown
 shutdown:
 	@echo "Stopping and removing database containers..."
-	@docker rm -f qed-redis-coordinator qed-redis-realm0 qed-redis-realm1 > /dev/null 2>&1 || true
+	@docker rm -f qed-redis-coordinator timescaledb qed-redis-realm0 qed-redis-realm1 > /dev/null 2>&1 || true
 	@docker exec qed-redis-coordinator redis-cli FLUSHALL > /dev/null 2>&1 || true
 	@docker exec qed-redis-realm0 redis-cli FLUSHALL > /dev/null 2>&1 || true
 	@docker exec qed-redis-realm1 redis-cli FLUSHALL > /dev/null 2>&1 || true
