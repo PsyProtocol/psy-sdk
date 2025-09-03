@@ -50,8 +50,6 @@ pub async fn run_worker(
                 continue;
             }
         };
-
-        debug!("Received job, layer: {}", job.layer_id);
         let job_id = job.job_id;
         if !job_id.is_provable() {
             info!("skipping job proving: {:?}", job_id);

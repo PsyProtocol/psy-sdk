@@ -1662,11 +1662,9 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         };
         match j {
             Some(job) => {
-                debug!("Pending job from current task: {:?}", job);
                 Ok(Some(job))
             }
             None => {
-                debug!("No pending job from current task");
                 Ok(None)
             }
         }

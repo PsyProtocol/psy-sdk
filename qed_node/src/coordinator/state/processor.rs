@@ -1086,7 +1086,7 @@ impl<
             return Ok(true);
         }
 
-        info!("No pending tasks found for checkpoint {}", checkpoint_id);
+        debug!("No pending tasks found for checkpoint {}", checkpoint_id);
         Ok(false)
     }
 
