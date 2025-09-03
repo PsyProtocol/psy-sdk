@@ -15,9 +15,7 @@ use qed_crypto::{
 use qed_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
-use qed_prover::dpn::{
-    circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition,
-};
+use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
 use qed_data::config::store_config::QEDHasher;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
@@ -28,13 +26,10 @@ use qed_prover::local::{
 
 use super::args::DeployContractArgs;
 
-const D: usize = 2;
-type C = PoseidonGoldilocksConfig;
-
-
 #[cfg(feature = "is_sync")]
 pub fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     tracing::info!("user cli deploying contract");
+    use qed_data::config::store_config::{C, D};
     use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
 
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)?;
@@ -51,7 +46,7 @@ pub fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     let contract_state_tree_height = MAX_CONTRACT_STATE_TREE_HEIGHT as usize;
 
     tracing::info!("generating circuits");
-    let (_result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+    let (_result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
         deployer,
         contract_state_tree_height as u8,
         &defs_array,

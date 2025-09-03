@@ -3,13 +3,12 @@ use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-use qed_data::qblock::cmds::register_user::QBCRegisterUser;
+use qed_data::{config::store_config::{C, D}, qblock::cmds::register_user::QBCRegisterUser};
 use qed_exec::vm::exec::QEDEvalSessionResult;
 use qed_interpreter::Interpreter;
 use qed_data::config::store_config::QEDHasher;
-use qed_utils::{
-    gen_contract_deploy_and_circuits_for_functions, prepare_environment_with_real_contract, C, D,
-};
+use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
+use qed_store::controllers::local::prepare_environment_with_real_contract;
 use qedlang_core::dpn::{
     ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::compile::QEDCompileResult,
@@ -47,15 +46,18 @@ pub(crate) async fn run(args: TestCommand) -> crate::errors::Result<()> {
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
     let deployer = QHashOut::rand();
-    let (circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+    let (circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
         deployer,
         contract_state_tree_height as u8,
         &compile_results,
     )?;
 
     let mut lps = prepare_environment_with_real_contract(
-        QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param),
-        deploy_cmd,
+        vec![QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param)],
+        vec![deploy_cmd],
+        None,
+        None,
+        None,
     ).await?;
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
@@ -76,9 +78,6 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn qed_unit_test() {
-        unsafe {
-            std::env::set_var("DARGO_STD_PATH", "../../../qed-std/std.qed");
-        }
         insta::glob!("../../../tests", "*_test.qed", |path| {
             let args = TestCommand { file: path.into() };
             tokio::task::block_in_place(|| {

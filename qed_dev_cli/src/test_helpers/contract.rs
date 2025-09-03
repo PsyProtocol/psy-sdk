@@ -19,8 +19,7 @@ use qed_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
 use qed_prover::{
-    dpn::{circuits::cfc::DapenContractFunctionCircuit, data::dapen_fc_to_cfc_code_definition},
-    ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager},
+    dpn::circuits::cfc::DapenContractFunctionCircuit, session::gen_contract_deploy_and_circuits_for_functions, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}
 };
 use qed_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
@@ -155,58 +154,6 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     }
 }
 
-fn gen_contract_deploy_and_circuits_for_functions<C: GenericConfig<D>, const D: usize>(
-    deployer: QHashOut<C::F>,
-    contract_state_tree_height: u8,
-    defs: &[DPNFunctionCircuitDefinition],
-) -> anyhow::Result<(
-    Vec<DapenContractFunctionCircuit<C, D>>,
-    QBCDeployContract<C::F>,
-)>
-where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
-{
-    let code_defs = defs
-        .iter()
-        .map(|x| dapen_fc_to_cfc_code_definition(x))
-        .collect::<Vec<_>>();
-    let mut fingerprints = Vec::with_capacity(defs.len() * 2);
-    let circuits = defs
-        .iter()
-        .map(|x| {
-            let c = DapenContractFunctionCircuit::<C, D>::new(
-                x,
-                contract_state_tree_height as usize,
-                UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-                false,
-            );
-            fingerprints.push(c.get_fingerprint());
-
-            // sibling is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
-            let inputs_outputs_combo =
-                ((x.circuit_outputs.len() as u64) << 32u64) | (x.circuit_inputs.len() as u64);
-            fingerprints.push(QHashOut::from_values(
-                x.method_id as u64,
-                inputs_outputs_combo,
-                0,
-                0,
-            ));
-            c
-        })
-        .collect::<Vec<_>>();
-
-    let deploy = QBCDeployContract {
-        deployer,
-        code_definition: ContractCodeDefinition {
-            state_tree_height: contract_state_tree_height as u16,
-            functions: code_defs,
-        },
-        function_whitelist: fingerprints,
-    };
-
-    Ok((circuits, deploy))
-}
-
 fn compile_simple_mint_debug() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let mut ctx = QExecContext::new();
     let mut contract = SimpleContractStateful::new();
@@ -271,14 +218,14 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
 }
 
 #[derive(Debug)]
-pub struct SimpleTestContractItem<C: GenericConfig<D>, const D: usize> 
+pub struct SimpleTestContractItem<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F>
 {
     pub circuit: DapenContractFunctionCircuit<C, D>,
     pub def: DPNFunctionCircuitDefinition,
 }
-pub struct SimpleTestContract<C: GenericConfig<D>, const D: usize> 
+pub struct SimpleTestContract<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F>
 {
@@ -366,7 +313,7 @@ where
 
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
-    let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+    let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
         deployer,
         contract_state_tree_height as u8,
         &defs_array,

@@ -15,6 +15,7 @@ use crate::qsync::coordinator::QEDCheckpointSyncInfoCompact;
 use crate::config::store_config::QEDFelt;
 
 use super::pm_reward_commitment::PMRewardCommitment;
+use super::pm_jobs_completed_stats::PMJobsCompletedStats;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
 #[ts(export, concrete(F = GoldilocksField))]
@@ -26,7 +27,7 @@ pub struct QEDCheckpointLeafStats<F: RichField> {
     pub total_transactions: F,
 
     pub slots_modified: F,
-    pub pm_jobs_completed: F,
+    pub pm_jobs_completed: PMJobsCompletedStats<F>,
 
     pub block_time: F,
 
@@ -44,7 +45,7 @@ impl<F: RichField> QEDCheckpointLeafStats<F> {
             user_ops_processed: F::ZERO,
             total_transactions: F::ZERO,
             slots_modified: F::ZERO,
-            pm_jobs_completed: F::ZERO,
+            pm_jobs_completed: PMJobsCompletedStats::new_empty(),
             block_time: F::ZERO,
             random_seed: QHashOut::ZERO,
             pm_rewards_commitment: PMRewardCommitment::default(),
@@ -57,7 +58,7 @@ impl<F: RichField> QEDCheckpointLeafStats<F> {
             user_ops_processed: F::ZERO,
             total_transactions: F::ZERO,
             slots_modified: F::ZERO,
-            pm_jobs_completed: F::ZERO,
+            pm_jobs_completed: PMJobsCompletedStats::new_empty(),
             block_time: F::ZERO,
             random_seed: QHashOut::ZERO,
             pm_rewards_commitment: PMRewardCommitment::default(),
@@ -73,37 +74,40 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafStats<F> {
             self.user_ops_processed,
             self.total_transactions,
             self.slots_modified,
-            self.pm_jobs_completed,
+        ];
+        result.extend_from_slice(&self.pm_jobs_completed.to_qfelts());
+        result.extend_from_slice(&[
             self.block_time,
             self.random_seed.0.elements[0],
             self.random_seed.0.elements[1],
             self.random_seed.0.elements[2],
             self.random_seed.0.elements[3],
-        ];
+        ]);
         result.extend_from_slice(&self.pm_rewards_commitment.to_qfelts());
         result.extend_from_slice(&self.da_challenges_claimed);
         result
     }
 
     fn from_qfelts(felts: &[F]) -> Self {
-        let reward_com_size = PMRewardCommitment::<F>::q_felt_size();
-        if felts.len() != 10 + reward_com_size + DA_CHALLENGE_WINDOW {
-            panic!("Invalid number of elements for QEDCheckpointLeafStats");
+        if felts.len() != Self::q_felt_size() {
+            panic!("Invalid number of elements for QEDCheckpointLeafStats, expected {} got {}", Self::q_felt_size(), felts.len());
         }
+        
+        let pm_jobs_completed = PMJobsCompletedStats::from_qfelts(&felts[4..7]);
+        let pm_rewards_commitment = PMRewardCommitment::from_qfelts(&felts[12..24]);
+        
         QEDCheckpointLeafStats {
             fees_collected: felts[0],
             user_ops_processed: felts[1],
             total_transactions: felts[2],
             slots_modified: felts[3],
-            pm_jobs_completed: felts[4],
-            block_time: felts[5],
+            pm_jobs_completed,
+            block_time: felts[7],
             random_seed: QHashOut(HashOut {
-                elements: [felts[6], felts[7], felts[8], felts[9]],
+                elements: [felts[8], felts[9], felts[10], felts[11]],
             }),
-            pm_rewards_commitment: PMRewardCommitment::from_qfelts(
-                &felts[10..(10 + reward_com_size)],
-            ),
-            da_challenges_claimed: felts[(10 + reward_com_size)..].try_into().unwrap(),
+            pm_rewards_commitment,
+            da_challenges_claimed: felts[24..].try_into().unwrap(),
         }
     }
 }
@@ -119,7 +123,7 @@ impl<F: RichField> KVQSerializable for QEDCheckpointLeafStats<F> {
 
 impl<F: RichField> QFeltSized for QEDCheckpointLeafStats<F> {
     fn q_felt_size() -> usize {
-        10 + PMRewardCommitment::<F>::q_felt_size() + DA_CHALLENGE_WINDOW
+        4 + PMJobsCompletedStats::<F>::q_felt_size() + 5 + PMRewardCommitment::<F>::q_felt_size() + DA_CHALLENGE_WINDOW
     }
 }
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafStats<F> {

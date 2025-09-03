@@ -178,6 +178,10 @@ pub type ContractFunctionTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNod
 pub type DepositTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<DEPOSIT_TREE_TABLE_TYPE>, QEDHash>> = ProtocolTreeStore<S, DEPOSIT_TREE_ID, GLOBAL_DEPOSIT_TREE_HEIGHT, DEPOSIT_TREE_TABLE_TYPE, IDKVA>;
 pub type WithdrawalTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<WITHDRAWAL_TREE_TABLE_TYPE>, QEDHash>> = ProtocolTreeStore<S, WITHDRAWAL_TREE_ID, GLOBAL_WITHDRAWAL_TREE_HEIGHT, WITHDRAWAL_TREE_TABLE_TYPE, IDKVA>;
 
+pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
+pub const D: usize = 2;
+pub type F = crate::config::store_config::QEDFelt;
+
 // GLOBAL_CONTRACT_TREE_HEIGHT-th zero hash
 #[cfg(test)]
 mod tests {

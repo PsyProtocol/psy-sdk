@@ -3,19 +3,19 @@ use crate::cli::save_build_artifact_to_file;
 use crate::errors::Result;
 
 use clap::Args;
-use qed_dargo::workspace::Workspace;
+use qed_package::Workspace;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Compile the program and its secret execution trace
 #[derive(Debug, Clone, Args)]
-pub(crate) struct CompileCommand {
+pub struct CompileCommand {
     #[clap(flatten)]
-    compile_options: CompileOptions,
+    pub compile_options: CompileOptions,
 }
 
-pub(crate) fn run(args: CompileCommand, workspace: Workspace) -> Result<()> {
+pub fn run(args: CompileCommand, workspace: Workspace) -> Result<()> {
     compile_workspace_full(&workspace, &args.compile_options)?;
     Ok(())
 }
@@ -27,7 +27,7 @@ pub struct CompilationResult {
 
 /// Parse and compile the entire workspace, then report errors.
 /// This is the main entry point used by all other commands that need compilation.
-pub(super) fn compile_workspace_full(
+pub fn compile_workspace_full(
     workspace: &Workspace,
     compile_options: &CompileOptions,
 ) -> Result<CompilationResult> {

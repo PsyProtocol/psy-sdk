@@ -127,7 +127,6 @@ impl QProofStoreReaderAsync for ProofStoreRedisAsync {
         let data: Vec<u8> = con
             .hget(&self.proof_store_key(), id.to_fixed_bytes().as_slice())
             .await?;
-        tracing::info!(?id, "Got proof by id, data.len = {}", data.len());
         Ok(bincode::deserialize(&data)?)
     }
 
@@ -167,7 +166,6 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         self.set_bytes_by_id_batch_core(kv_pairs).await
     }
     async fn set_bytes_by_id(&self, id: QProvingJobDataID, data: &[u8]) -> anyhow::Result<()> {
-        tracing::info!(?id, "Setting bytes by id, data.len = {}", data.len());
         let mut con = self.pool.get().await?;
         let _: bool = con
             .hset_nx(

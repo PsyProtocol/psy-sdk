@@ -18,6 +18,13 @@ impl ContractRef {
         // invoke_deferred(0, 354447671, [999, 1]);
     }
 
+    pub fn simple_burn(amount: Felt) {
+        let c = ContractRef::new(ContractMetadata::current());
+        let current_balance = c.balance.get();
+        assert(current_balance >= amount, "insufficient balance");
+        c.balance.set(current_balance - amount);
+    }
+
     pub fn simple_transfer(recipient: Felt, amount: Felt) {
         let c = ContractRef::new(ContractMetadata::current());
         let current_balance = c.balance.get();

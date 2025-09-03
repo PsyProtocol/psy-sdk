@@ -16,7 +16,7 @@ qed-ast = { workspace = true }
 qed-interpreter = { workspace = true }
 qed-common = { workspace = true }
 dargo = { workspace = true }
-qed-dargo-toml = { workspace = true }
+qed_package = { workspace = true }
 
 qedlang_core = { workspace = true }
 

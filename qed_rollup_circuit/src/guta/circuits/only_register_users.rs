@@ -6,17 +6,17 @@ use plonky2::{
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }
+    }, field::types::Field
 };
 use qed_common_circuit::{
-    builder::pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
-        pm_core::get_circuit_fingerprint_generic
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+        pm_core::get_circuit_fingerprint_generic, traits::ToTargets
 };
 use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::QProofStoreReaderAsync}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::traits::hasher::MerkleZeroHasher};
-use qed_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput};
+use qed_data::{guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput}, qdata::pm_jobs_completed_stats::PMJobsCompletedStats};
 
-use crate::guta::gadgets::guta_only_register_users_gadget::GUTAOnlyRegisterUsersGadget;
+use crate::{guta::gadgets::guta_only_register_users_gadget::GUTAOnlyRegisterUsersGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 #[derive(Debug)]
 pub struct GUTAOnlyRegisterUsersCircuit<C: GenericConfig<D>, const D: usize>
@@ -25,6 +25,7 @@ pub struct GUTAOnlyRegisterUsersCircuit<C: GenericConfig<D>, const D: usize>
     guta_circuit_whitelist: HashOutTarget,
     checkpoint_tree_root: HashOutTarget,
     worker_public_key: HashOutTarget,
+    pm_jobs_completed: PMJobsCompletedStatsGadget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -66,13 +67,22 @@ where
         );
 
         let worker_public_key = builder.add_virtual_hash();
-        let commitment = worker_public_key; // For leaf circuits, commitment = worker_public_key
+
+        builder.assert_non_zero_hash(worker_public_key);
+
+        let zero_hash = builder.constant_hash(HashOut::ZERO);
+        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
+
+        let count = builder.one();
+        let pm_jobs_completed = PMJobsCompletedStatsGadget::new_register_users(&mut builder, count);
 
         let public_inputs_hash = register_batch_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
-        // Register 12 public inputs: commitment, worker_public_key, header_hash
+        // Register 15 public inputs: commitment, worker_public_key, pm_jobs_completed_stats, header_hash
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&public_inputs_hash.elements);
         builder.add_qed_type_c_common_gates();
         //builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
@@ -87,6 +97,7 @@ where
             guta_circuit_whitelist,
             checkpoint_tree_root,
             worker_public_key,
+            pm_jobs_completed,
 
             circuit_data,
             fingerprint,
@@ -131,6 +142,9 @@ where
         )?;
 
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
+
+        let pm_stats = PMJobsCompletedStats::new_register_users(C::F::ONE);
+        self.pm_jobs_completed.set_witness(&mut pw, &pm_stats)?;
 
         let p = self.circuit_data.prove(pw)?;
         Ok(p)

@@ -31,6 +31,8 @@ pub struct CoordinatorProcessorArgs {
     pub backend: BackendConfig,
     #[clap(flatten)]
     pub queue_args: CoordinatorQueueArgs,
+    #[arg(long, help = "Path to configuration file", default_value = "config.json")]
+    pub config_path: String,
 }
 
 #[derive(Clone, Debug, Args)]

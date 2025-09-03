@@ -19,12 +19,6 @@ pub mod stress_test;
 
 #[derive(Parser)]
 pub struct Cli {
-    #[arg(
-        long = "log-level",
-        default_value = "info",
-        help = "Set the log level (error, warn, info, debug, trace)"
-    )]
-    pub log_level: String,
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -76,7 +70,7 @@ pub enum Commands {
     #[command(about = "Get job proof for reward claiming")]
     GetJobProof(GetJobProofArgs),
 
-    #[command(name = "q-hash", about = "QHashOut utility commands")]
+    #[command(name = "qhash", about = "QHashOut utility commands")]
     QHash(qhash::QHashArgs),
 
     #[command(about = "Run stress test by continuously sending transactions")]
@@ -207,8 +201,6 @@ pub struct RunArgs {
     #[arg(long, help = "Stop all running services")]
     pub stop: bool,
 
-    #[arg(long, help = "Override log level for all services")]
-    pub log_level: Option<String>,
 }
 
 #[derive(Parser)]
@@ -249,14 +241,20 @@ pub struct GetJobProofArgs {
     #[arg(long, help = "Checkpoint ID")]
     pub checkpoint_id: u64,
 
-    #[arg(long, help = "Job ID in hex format")]
-    pub job_id: String,
+    #[arg(long, help = "Private key (hex string)")]
+    pub private_key: String,
 
-    #[arg(long, default_value = "http://localhost:5551", help = "Coordinator edge RPC URL")]
-    pub coordinator_url: String,
+    #[arg(long, help = "RPC config file path", default_value = "config.json")]
+    pub rpc_config: String,
 
-    #[arg(long, help = "Realm edge RPC URL (optional, will be determined from job ID if not provided)")]
-    pub realm_url: Option<String>,
+    #[arg(long, help = "Job ID in hex format (optional, if not provided will get all jobs for checkpoint)")]
+    pub job_id: Option<String>,
+
+    #[arg(long, help = "Sign type", default_value = "zk")]
+    pub sign_type: qed_prover::local::args::SignType,
+
+    #[arg(long, help = "Enable verbose output showing all sibling details")]
+    pub verbose: bool,
 }
 
 #[derive(Parser)]

@@ -7,7 +7,7 @@ use anyhow::{anyhow, bail};
 use chrono::Utc;
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, warn, trace};
 
 use kvq::traits::KVQSerializable;
 use plonky2::field::types::Field;
@@ -21,7 +21,7 @@ use qed_core::job::drain_queue::{
     DrainQueueMetadataTagged, WithDrainQueueMetadata,
 };
 use qed_core::job::id::{
-    JobProof, JobProofSibling, ProvingJobCircuitType, QJobTopic, QProvingJobDataID,
+    VariableHeightRewardMerkleProof, ProvingJobCircuitType, QJobTopic, QProvingJobDataID,
 };
 use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 
@@ -237,11 +237,11 @@ impl CoordinatorEdgeHandler {
         };
 
         info!(
-            "old root from db: {:?}, hex = {:?}",
+            "old root from db: {}, hex = {:?}",
             old_root,
             hex::encode(old_root.to_bytes()?)
         );
-        info!("old root from realm: {:?}", input.top_line_proof.old_root);
+        info!("old root from realm: {}", input.top_line_proof.old_root);
         if old_root != input.top_line_proof.old_root && old_root != input.top_line_proof.new_root {
             anyhow::bail!("invalid top line proof old value from realm");
         }
@@ -257,9 +257,9 @@ impl CoordinatorEdgeHandler {
 
         // write to proof store
         proof_store.set_proof_by_id(proof_id, &proof).await?;
-        info!("✅ wrote guta result to proof store");
+        trace!("✅ wrote guta result to proof store");
         checkpoint_queue.cdq_push_imm(queue_item.clone()).await?;
-        info!("✅ wrote guta result to proof store end");
+        trace!("✅ wrote guta result to proof store end");
         let metadata = queue_item.get_dq_metadata();
         let items: Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> =
             checkpoint_queue.cdq_peek_imm(metadata.channel_id).await?;
@@ -1495,11 +1495,11 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .map_err(RpcError::Anyhow)
     }
 
-    async fn generate_batch_proofs(
+    async fn generate_batch_variable_height_reward_proofs(
         &self,
         checkpoint_id: u64,
         job_ids: Vec<QProvingJobDataID>,
-    ) -> RpcResult<Vec<JobProof>> {
+    ) -> RpcResult<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>> {
         use jsonrpsee::types::ErrorObject;
 
         for job_id in &job_ids {
@@ -1584,18 +1584,56 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 }
             };
 
-            match graph.generate_proof(job_id, &*self.proof_store).await {
-                Ok(job_proof) => {
-                    if job_proof.root != expected_root {
+            let max_height = match job_id.circuit_type {
+                ProvingJobCircuitType::AppendUserRegistrationTree
+                | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
+                | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
+                    qed_core::job::id::USER_REGISTRATION_REWARDS_MAX_HEIGHT_MINUS_ONE
+                }
+                ProvingJobCircuitType::GUTARegisterUsers
+                | ProvingJobCircuitType::GUTAOnlyRegisterUsers
+                | ProvingJobCircuitType::GUTATwoGUTA
+                | ProvingJobCircuitType::GUTANoChange
+                | ProvingJobCircuitType::GUTASingleEndCap
+                | ProvingJobCircuitType::GUTATwoEndCap
+                | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+                | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                | ProvingJobCircuitType::GUTAVerifyToCap => {
+                    qed_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE
+                }
+                ProvingJobCircuitType::BatchDeployContracts
+                | ProvingJobCircuitType::BatchDeployContractsAggregate
+                | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
+                    qed_core::job::id::CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT_MINUS_ONE
+                }
+                _ => return Err(ErrorObject::owned(
+                    jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                    format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
+                    None::<()>,
+                )),
+            };
+
+            let graph = self.task_store.load_job_dependency_graph(checkpoint_id).await.map_err(|e| ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InternalError.code(),
+                format!("Failed to load task graph: {}", e),
+                None::<()>,
+            ))?;
+
+            match graph.generate_variable_height_reward_proof(job_id, &*self.proof_store, max_height).await {
+                Ok((variable_height_proof, root_job_id)) => {
+                    let computed_root = qed_core::job::id::compute_root_from_variable_height_proof(&variable_height_proof);
+
+                    if computed_root != expected_root {
                         tracing::warn!(
-                            "Root mismatch for job {:?}: expected {:?}, got {:?}",
+                            "Root mismatch for job({}) {:?}: expected {}, got {}",
+                            job_id.to_hex_string(),
                             job_id,
                             expected_root,
-                            job_proof.root
+                            computed_root
                         );
                     }
 
-                    proofs.push(job_proof);
+                    proofs.push((variable_height_proof, root_job_id));
                 }
                 Err(e) => {
                     error!("Failed to generate proof for job {:?}: {}", job_id, e);
@@ -1609,6 +1647,28 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         }
 
         Ok(proofs)
+    }
+
+    async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String> {
+        use jsonrpsee::types::ErrorObject;
+
+        let graph = self
+            .task_store
+            .load_job_dependency_graph(checkpoint_id)
+            .await
+            .map_err(|e| {
+                ErrorObject::owned(
+                    jsonrpsee::types::ErrorCode::InternalError.code(),
+                    format!(
+                        "Failed to load job dependency graph for checkpoint {}: {}",
+                        checkpoint_id, e
+                    ),
+                    None::<()>,
+                )
+            })?;
+
+        let graphviz_content = graph.get_graphviz();
+        Ok(graphviz_content)
     }
 }
 
@@ -1632,11 +1692,11 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         };
         match j {
             Some(job) => {
-                debug!("Pending job from current task: {:?}", job);
+                trace!("Pending job from current task: {:?}", job);
                 Ok(Some(job))
             }
             None => {
-                debug!("No pending job from current task");
+                trace!("No pending job from current task");
                 Ok(None)
             }
         }

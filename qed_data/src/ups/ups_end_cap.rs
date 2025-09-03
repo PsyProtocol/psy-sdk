@@ -21,6 +21,7 @@ pub struct UPSEndCapFromProofTreeGadgetInput<F: RichField> {
     pub user_public_key_param: QHashOut<F>,
     pub nonce: F,
     pub slots_modified: F,
+    pub second_to_last_tx_hash_stack: QHashOut<F>,
 }
 
 

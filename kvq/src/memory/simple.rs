@@ -45,7 +45,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         }
 
         let map = self.map.read().unwrap();
-        
+
         if fuzzy_bytes == 0 {
             let result = map.range(..=key.clone()).next_back();
             match result {
@@ -58,7 +58,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
             for i in 0..fuzzy_bytes {
                 base_key[key_len - i - 1] = 0;
             }
-            
+
             let rq = map
                 .range((Included(base_key), Included(key.clone())))
                 .next_back();
@@ -83,7 +83,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         }
 
         let map = self.map.read().unwrap();
-        
+
         if fuzzy_bytes == 0 {
             let result = map.range(..=key.clone()).next_back();
             match result {
@@ -99,7 +99,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
             for i in 0..fuzzy_bytes {
                 base_key[key_len - i - 1] = 0;
             }
-            
+
             let rq = map
                 .range((Included(base_key), Included(key.clone())))
                 .next_back();
@@ -191,7 +191,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
             })
             .collect::<Vec<_>>())
     }*/
-    
+
     fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         let key_end = key.to_vec();
         let mut base_key = key.to_vec();
@@ -278,3 +278,4 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         }
     }
 }
+

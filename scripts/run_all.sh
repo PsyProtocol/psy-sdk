@@ -56,6 +56,9 @@ cleanup() {
             kill -TERM "$pid" 2>/dev/null
         fi
     done
+    pkill -f qed_user_cli
+    pkill -f qed_rollup_cli
+    pkill -f qed_api_services
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] All processes terminated. Exiting."
     exit 0
 }
@@ -87,15 +90,9 @@ run_service "make run-realm-processor" "realm-processor" "$REALM_PROCESSOR_LOG" 
 PIDS+=($!)
 run_service "make run-realm-processor1" "realm-processor1" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
-run_service "make run-worker0" "worker0" "$WORKER0_LOG" &
-PIDS+=($!)
-run_service "make run-worker1" "worker1" "$WORKER1_LOG" &
-PIDS+=($!)
-run_service "make run-worker2" "worker2" "$WORKER2_LOG" &
-PIDS+=($!)
 
-# Group 2: Start edge services (depend on processors/workers)
-sleep 3
+# Group 2: Start edge services (depend on processors)
+sleep 8
 run_service "make run-coordinator-edge" "coordinator-edge" "$COORDINATOR_EDGE_LOG" &
 PIDS+=($!)
 run_service "make run-realm-edge" "realm-edge" "$REALM_EDGE_LOG" &
@@ -103,6 +100,14 @@ PIDS+=($!)
 run_service "make run-realm-edge1" "realm-edge1" "$REALM_EDGE1_LOG" &
 PIDS+=($!)
 
+# Group 3: Start worker services (depend on edges)
+sleep 2
+run_service "make run-worker0" "worker0" "$WORKER0_LOG" &
+PIDS+=($!)
+run_service "make run-worker1" "worker1" "$WORKER1_LOG" &
+PIDS+=($!)
+run_service "make run-worker2" "worker2" "$WORKER2_LOG" &
+PIDS+=($!)
 run_service "make run-api-services" "api-services" "$API_SERVICES_LOG" &
 PIDS+=($!)
 

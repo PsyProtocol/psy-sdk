@@ -393,11 +393,21 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn get_register_users_root(&mut self, checkpoint_id: F) -> [F; 4];
     fn get_gutas_root(&mut self, checkpoint_id: F) -> [F; 4];
     fn get_deploy_contracts_root(&mut self, checkpoint_id: F) -> [F; 4];
+    
+    // New checkpoint stats intrinsics
+    fn get_fees_collected(&mut self, checkpoint_id: F) -> F;
+    fn get_user_ops_processed(&mut self, checkpoint_id: F) -> F;
+    fn get_total_transactions(&mut self, checkpoint_id: F) -> F;
+    fn get_slots_modified(&mut self, checkpoint_id: F) -> F;
+    fn get_register_users_completed(&mut self, checkpoint_id: F) -> F;
+    fn get_gutas_completed(&mut self, checkpoint_id: F) -> F;
+    fn get_deploy_contracts_completed(&mut self, checkpoint_id: F) -> F;
 
     // state operations
     fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: F, user_id: F, index: F) -> F;
     fn op_set_state_felt(&mut self, index: F, value: F) -> F;
     fn op_set_state_obj<T: ToFelts<F>>(&mut self, index: F, value: T) -> T;
+    fn clear_entire_tree(&mut self) -> Vec<F>;
     fn cselect<V: ToFelts<F>>(&mut self, condition: F, if_true: V, if_false: V) -> V {
         let if_true = if_true.to_felts();
         let if_false = if_false.to_felts();

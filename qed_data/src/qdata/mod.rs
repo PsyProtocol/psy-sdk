@@ -3,6 +3,7 @@ pub mod user;
 pub mod contract;
 pub mod checkpoint;
 pub mod pm_reward_commitment;
+pub mod pm_jobs_completed_stats;
 pub mod u64_key;
 pub mod checkpoint_id_key;
 pub mod contract_inclusion;

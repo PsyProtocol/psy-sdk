@@ -1,10 +1,7 @@
 use std::str::FromStr;
 
 use crate::{
-    dpn::{
-        circuits::cfc::DapenContractFunctionCircuit,
-        data::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition},
-    },
+    dpn::circuits::cfc::DapenContractFunctionCircuit,
     local::{
         args::{ContractCallArgs, SignType},
         provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
@@ -29,8 +26,8 @@ use plonky2::{
         goldilocks_field::GoldilocksField,
         types::{Field, PrimeField64},
     },
-    hash::poseidon::PoseidonHash,
-    plonk::config::PoseidonGoldilocksConfig,
+    hash::{hash_types::HashOut, poseidon::PoseidonHash},
+    plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{
@@ -41,7 +38,7 @@ use qed_core::{
     traits::to_qfelts::ToQFelts,
     ups::circuits::LocalCircuitType,
 };
-use qed_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};
+use qed_crypto::{hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable}, signature::zk::data::ZKPublicKeyInfo};
 use qed_data::{
     config::store_config::QEDHasher,
     qdata::user_contract_state::UserContractState,
@@ -62,7 +59,9 @@ use qed_data::{
 use qed_store::controllers::local::{
     proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
 };
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use qedlang_core::dpn::{
+    contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}, vm::def::DPNFunctionCircuitDefinition,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::local::{
@@ -71,14 +70,17 @@ use crate::local::{
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
 
-pub fn gen_contract_deploy_and_circuits_for_functions(
-    deployer: QHashOut<GoldilocksField>,
+pub fn gen_contract_deploy_and_circuits_for_functions<C: GenericConfig<D>, const D: usize>(
+    deployer: QHashOut<C::F>,
     contract_state_tree_height: u8,
     defs: &[DPNFunctionCircuitDefinition],
 ) -> anyhow::Result<(
     Vec<DapenContractFunctionCircuit<C, D>>,
-    QBCDeployContract<GoldilocksField>,
-)> {
+    QBCDeployContract<C::F>,
+)>
+where
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
     let code_defs = defs
         .iter()
         .map(|x| dapen_fc_to_cfc_code_definition(x))
@@ -95,7 +97,6 @@ pub fn gen_contract_deploy_and_circuits_for_functions(
             );
             fingerprints.push(c.get_fingerprint());
 
-            // sibling is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
             let inputs_outputs_combo =
                 ((x.circuit_outputs.len() as u64) << 32u64) | (x.circuit_inputs.len() as u64);
             fingerprints.push(QHashOut::from_values(
@@ -875,7 +876,7 @@ impl WalletSession {
     ) -> anyhow::Result<QBCDeployContract<F>> {
         let contract_state_tree_height = MAX_CONTRACT_STATE_TREE_HEIGHT as usize;
 
-        let (_result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
+        let (_result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
             deployer,
             contract_state_tree_height as u8,
             &circuit_defs,
@@ -956,7 +957,7 @@ mod tests {
 
     #[test]
     fn test_scenario0() -> anyhow::Result<()> {
-        qed_rollup_utils::setup_logging("info".to_string())?;
+        qed_common::setup_logging()?;
         tracing::info!("test_scenario0");
         let project_path = std::env::var("CARGO_MANIFEST_DIR")
             .map_err(|e| anyhow::format_err!("Error `{}`, cannot get CARGO_MANIFEST_DIR env", e))?;
@@ -1064,7 +1065,7 @@ mod tests {
 
     #[test]
     fn test_two_contracts() -> anyhow::Result<()> {
-        qed_rollup_utils::setup_logging("info".to_string())?;
+        qed_common::setup_logging()?;
         tracing::info!("test_two_contracts");
         let project_path = std::env::var("CARGO_MANIFEST_DIR")
             .map_err(|e| anyhow::format_err!("Error `{}`, cannot get CARGO_MANIFEST_DIR env", e))?;

@@ -2,77 +2,48 @@ fn verify_batch_proofs() -> [Hash; 3] {
     let node0_1: Hash = [16490263548047147048, 1812405431586978162, 16859324901997577793, 7123796541406703579];
     let sibling0_1: Hash = [7960732875144974674, 4880003942261587667, 10014246746035155210, 8780265501506637771];
     let parent0_1 = hash_two_to_one(node0_1, sibling0_1);
-
     let parent_key1_1: Hash = [1042304382312913778, 8314516381991828581, 1364343693034906532, 9540254757402272528];
     let sibling1_1: Hash = [6084686210413039658, 12706324848409333224, 4275833510462540118, 15265034712989717073];
-
     let temp1_1 = hash_two_to_one(parent0_1, parent_key1_1);
     let temp2_1 = hash_two_to_one(parent0_1, temp1_1);
     let root1 = hash_two_to_one(temp2_1, sibling1_1);
-
     let node0_2: Hash = [1234567890123456789, 9876543210987654321, 1111111111111111111, 2222222222222222222];
     let sibling0_2: Hash = [3333333333333333333, 4444444444444444444, 5555555555555555555, 6666666666666666666];
     let parent0_2 = hash_two_to_one(node0_2, sibling0_2);
-
     let parent_key1_2: Hash = [7777777777777777777, 8888888888888888888, 9999999999999999999, 1010101010101010101];
     let sibling1_2: Hash = [1111111111111111111, 1212121212121212121, 1313131313131313131, 1414141414141414141];
-
     let temp1_2 = hash_two_to_one(parent0_2, parent_key1_2);
     let temp2_2 = hash_two_to_one(parent0_2, temp1_2);
     let root2 = hash_two_to_one(temp2_2, sibling1_2);
-
     let node0_3: Hash = [100, 200, 300, 400];
     let sibling0_3: Hash = [500, 600, 700, 800];
     let parent0_3 = hash_two_to_one(node0_3, sibling0_3);
-
     let parent_key1_3: Hash = [900, 1000, 1100, 1200];
     let sibling1_3: Hash = [1300, 1400, 1500, 1600];
-
     let temp1_3 = hash_two_to_one(parent0_3, parent_key1_3);
     let temp2_3 = hash_two_to_one(parent0_3, temp1_3);
     let root3 = hash_two_to_one(temp2_3, sibling1_3);
-
     [root1, root2, root3]
 }
 
 fn verify_batch_with_arrays() -> Hash {
     let job_count = 2;
-
-    let proof_values: [[Hash; 1]; 2] = [
-        [[16490263548047147048, 1812405431586978162, 16859324901997577793, 7123796541406703579]],
-        [[100, 200, 300, 400]]
-    ];
-
-    let proof_siblings: [[Hash; 2]; 2] = [
-        [
-            [7960732875144974674, 4880003942261587667, 10014246746035155210, 8780265501506637771],
-            [6084686210413039658, 12706324848409333224, 4275833510462540118, 15265034712989717073]
-        ],
-        [
-            [500, 600, 700, 800],
-            [1300, 1400, 1500, 1600]
-        ]
-    ];
-
-    let sibling_is_left: [[bool; 2]; 2] = [
-        [false, false],
-        [false, false]
-    ];
-
+    let proof_values: [[Hash; 1]; 2] = [[[16490263548047147048, 1812405431586978162, 16859324901997577793, 7123796541406703579]], [[100, 200, 300, 400]]];
+    let proof_siblings: [[Hash; 2]; 2] = [[[7960732875144974674, 4880003942261587667, 10014246746035155210, 8780265501506637771], [6084686210413039658, 12706324848409333224, 4275833510462540118, 15265034712989717073]], [[500, 600, 700, 800], [1300, 1400, 1500, 1600]]];
+    let sibling_is_left: [[bool; 2]; 2] = [[false, false], [false, false]];
     let sibling_counts: [Felt; 2] = [1, 1];
-
     let mut current_hash = proof_values[0][0];
     let mut i = 0;
     while i < sibling_counts[0] {
         let sibling = proof_siblings[0][i];
         if sibling_is_left[0][i] {
             current_hash = hash_two_to_one(sibling, current_hash);
-        } else {
+        }        
+        else {
             current_hash = hash_two_to_one(current_hash, sibling);
         };
         i = i + 1;
     }
-
     current_hash
 }
 
@@ -80,14 +51,11 @@ fn verify_real_proof_from_rust() -> Hash {
     let node: Hash = [16490263548047147048, 1812405431586978162, 16859324901997577793, 7123796541406703579];
     let sibling: Hash = [7960732875144974674, 4880003942261587667, 10014246746035155210, 8780265501506637771];
     let parent = hash_two_to_one(node, sibling);
-
     let parent_key: Hash = [1042304382312913778, 8314516381991828581, 1364343693034906532, 9540254757402272528];
     let sibling2: Hash = [6084686210413039658, 12706324848409333224, 4275833510462540118, 15265034712989717073];
-
     let temp1 = hash_two_to_one(parent, parent_key);
     let temp2 = hash_two_to_one(parent, temp1);
     let root = hash_two_to_one(temp2, sibling2);
-
     root
 }
 
@@ -95,6 +63,5 @@ fn main() -> [Hash; 3] {
     let results = verify_batch_proofs();
     let array_result = verify_batch_with_arrays();
     let real_root = verify_real_proof_from_rust();
-
     results
 }

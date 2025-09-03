@@ -15,6 +15,10 @@ pub enum CheckedIntrinsicStmtNode {
         comments: Vec<Comment>,
         location: Location,
     },
+    ClearEntireTree {
+        comments: Vec<Comment>,
+        location: Location,
+    },
 }
 
 impl NodeInfo for CheckedIntrinsicStmtNode {

@@ -6,17 +6,17 @@ use plonky2::{
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }
+    }, field::types::Field
 };
 use qed_common_circuit::{
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
-        pm_core::get_circuit_fingerprint_generic
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+        pm_core::get_circuit_fingerprint_generic, traits::ToTargets
 };
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::{core::MerkleProofCore, treeprover::data::CircuitInputWithDependencies}, traits::hasher::MerkleZeroHasher}};
 use qed_data::guta::{header::GlobalUserTreeAggregatorHeader, proof_input::VerifyGUTAToCapCircuitInputSimple};
 
-use crate::guta::gadgets::verify_guta_proof_to_line::VerifyGUTAProofToLineGadget;
+use crate::{guta::gadgets::verify_guta_proof_to_line::VerifyGUTAProofToLineGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 
 #[derive(Debug)]
@@ -24,6 +24,7 @@ pub struct GUTAVerifyGUTAToCapCircuit<C: GenericConfig<D>, const D: usize>
 {
     pub verify_to_line_gadget: VerifyGUTAProofToLineGadget<D>,
     pub worker_public_key_target: HashOutTarget,
+    pub pm_jobs_completed: PMJobsCompletedStatsGadget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -54,6 +55,9 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
 
+        // Ensure worker_public_key is not zero hash
+        builder.assert_non_zero_hash(worker_public_key);
+
         let child_commitment = HashOutTarget {
             elements: [
                 verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[0],
@@ -63,10 +67,27 @@ where
             ]
         };
 
-        let commitment = builder.hash_two_to_one::<C::Hasher>(child_commitment, worker_public_key);
+        let child_pm_jobs_completed = [
+            verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[8],
+            verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[9],
+            verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[10],
+        ];
+
+        let one = builder.one();
+        let final_gutas = builder.add(child_pm_jobs_completed[2], one);
+        let pm_jobs_completed = PMJobsCompletedStatsGadget {
+            deploy_contracts_completed: child_pm_jobs_completed[0],
+            register_users_completed: child_pm_jobs_completed[1],
+            gutas_completed: final_gutas,
+        };
+
+        let zero_hash = builder.constant_hash(HashOut::ZERO);
+        let children_commitment = builder.hash_two_to_one::<C::Hasher>(child_commitment, zero_hash);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(children_commitment, worker_public_key);
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&public_inputs_hash.elements);
 
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
@@ -82,6 +103,7 @@ where
             fingerprint,
             verify_to_line_gadget,
             worker_public_key_target: worker_public_key,
+            pm_jobs_completed,
         }
     }
 
@@ -156,7 +178,7 @@ where
                 .map_err(|e| anyhow::anyhow!(e))?;
 
         if r.dependencies.len() != 1 {
-            anyhow::bail!("invalid dependency count in two end guta input");
+            anyhow::bail!("invalid dependency count in guta to cap input");
         }
 
 

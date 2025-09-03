@@ -15,6 +15,12 @@ pub enum JobLocation {
     Coordinator,
 }
 
+#[derive(Debug, Clone)]
+pub struct JobInfo {
+    pub job_id: QProvingJobDataID,
+    pub location: JobLocation,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmJobData {
     pub id: u32,

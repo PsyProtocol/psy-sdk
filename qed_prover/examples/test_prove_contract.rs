@@ -18,7 +18,7 @@ use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
 use qed_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
-use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
+use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, prepare_environment_with_real_contract};
 use qedlang_core::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -84,64 +84,6 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     }
 }
 
-async fn prepare_environment_with_contract(
-    state_tree_height: u8,
-    session_proof_tree_height: usize,
-    whitelist: &[QHashOut<GoldilocksField>],
-) -> anyhow::Result<
-    QEDLocalProvingSessionStore<
-        GoldilocksField,
-        KVQSimpleMemoryBackingStore,
-    >,
-> {
-    let st = KVQSimpleMemoryBackingStore::new();
-    st.initialize_store().await?;
-    let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
-    SimpleBlockProcessor::process_block(
-        &st,
-        &QEDBlockCommands {
-            register_users: vec![
-                QBCRegisterUser::new_from_u64s([1;4], [1;4]),
-                QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]),
-                QBCRegisterUser::new_from_u64s([1;4], [13375, 13376, 13377, 13378]),
-                QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
-            ],
-            deploy_contracts: vec![
-                QBCDeployContract {
-                    deployer: QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]).get_public_key::<QEDHasher>(),
-                    code_definition: ContractCodeDefinition {
-                        state_tree_height: state_tree_height as u16,
-                        functions: vec![ContractFunctionCodeDefinition::default()],
-                    },
-                    function_whitelist: whitelist.to_vec(),
-                },
-                QBCDeployContract {
-                    deployer: QBCRegisterUser::new_from_u64s([1;4], [13375, 13376, 13377, 13378]).get_public_key::<QEDHasher>(),
-                    code_definition: ContractCodeDefinition {
-                        state_tree_height: state_tree_height as u16,
-                        functions: vec![ContractFunctionCodeDefinition::default()],
-                    },
-                    function_whitelist: whitelist.to_vec(),
-                },
-            ],
-            update_users: vec![],
-        },
-        &dummy_fingerprints,
-    )?;
-
-    let lps: QEDLocalProvingSessionStore<
-        GoldilocksField,
-        KVQSimpleMemoryBackingStore,
-    > = QEDLocalProvingSessionStore::new_at(
-        st,
-        GoldilocksField::ONE,
-        GoldilocksField::ONE,
-        GoldilocksField::ONE,
-        session_proof_tree_height
-    );
-
-    Ok(lps)
-}
 
 fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
     contract_id: GoldilocksField,
@@ -198,15 +140,31 @@ async fn test_prove_simple() -> anyhow::Result<()> {
 
 
     let contract_id = GoldilocksField::from_canonical_u64(1);
-    let mut lps = prepare_environment_with_contract(
-        contract_state_tree_height as u8,
-        session_proof_tree_height,
-        &[
+    let deployer_key = QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]);
+    let deploy_contract = QBCDeployContract {
+        deployer: deployer_key.get_public_key::<QEDHasher>(),
+        code_definition: ContractCodeDefinition {
+            state_tree_height: contract_state_tree_height as u16,
+            functions: vec![ContractFunctionCodeDefinition::default()],
+        },
+        function_whitelist: vec![
             QHashOut::rand(),
             QHashOut::rand(),
             QHashOut::rand(),
             QHashOut::rand(),
         ],
+    };
+    
+    let mut lps = prepare_environment_with_real_contract(
+        vec![
+            QBCRegisterUser::new_from_u64s([1;4], [1;4]),
+            deployer_key,
+            QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+        ],
+        vec![deploy_contract],
+        Some(1),
+        Some(GoldilocksField::ONE),
+        Some(session_proof_tree_height),
     ).await?;
     timer.lap("prepared environement");
 

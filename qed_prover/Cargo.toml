@@ -28,6 +28,7 @@ qed_core = { workspace = true }
 qed_common_circuit = { workspace = true, default-features = false }
 qed_rollup_circuit = { workspace = true, default-features = false }
 qed_rollup_utils = { workspace = true }
+qed-common = { workspace = true }
 qedlang_core = { workspace = true }
 qed_data = { workspace = true, default-features = false }
 qed_crypto = { workspace = true }

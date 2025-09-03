@@ -1,6 +1,27 @@
 use async_trait::async_trait;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::{HashOut, RichField};
 use qed_core::data::qhashout::QHashOut;
+
+#[derive(Debug, Clone)]
+pub struct InitializeParams<F: RichField> {
+    pub gutas_root: QHashOut<F>,
+    pub deploy_contracts_root: QHashOut<F>,
+    pub register_users_root: QHashOut<F>,
+    pub next_contract_id: u32,
+    pub next_user_id: u64,
+}
+
+impl<F: RichField> Default for InitializeParams<F> {
+    fn default() -> Self {
+        Self {
+            gutas_root: QHashOut::ZERO,
+            deploy_contracts_root: QHashOut::ZERO,
+            register_users_root: QHashOut::ZERO,
+            next_contract_id: 0,
+            next_user_id: 0,
+        }
+    }
+}
 use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
 use qed_data::{config::store_config::UserPublicKeyTableStore, models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user_public_key::QEDUserPublicKeyRecord}, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 
@@ -129,7 +150,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField> {
 
     async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>>;
     async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>>;
-    
+
     async fn get_first_user_id(&self, public_key: QHashOut<F>) -> anyhow::Result<u64>;
 }
 
@@ -191,8 +212,8 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
 
     async fn set_l2_block_state_imm(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()>;
     async fn set_checkpoint_sync_info_imm(&self, sync_info: QEDCheckpointSyncInfoCompact<F>) -> anyhow::Result<()>;
-    async fn initialize_store(&self) -> anyhow::Result<u64>;
-    
+    async fn initialize_store(&self, params: Option<InitializeParams<F>>) -> anyhow::Result<u64>;
+
     async fn set_user_public_key_records(&self, records: &[QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()>;
 
 }

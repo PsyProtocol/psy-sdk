@@ -14,7 +14,7 @@ use qed_data::{
     },
     traits::qdatastore::qmetadata::QMetaDataStoreWriterSync,
 };
-use crate::node::realm::{QEDRealmStoreWriterAsyncImm};
+use crate::node::realm::QEDRealmStoreWriterAsyncImm;
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::{
@@ -187,14 +187,14 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
                     value: x.value,
                 }
             }).collect::<Vec<_>>();
-            tracing::debug!("Realm writer nodes: {:#?}", nodes);
+            tracing::debug!("Realm writer nodes: {}", serde_json::to_string_pretty(&nodes).unwrap());
             let uct_nodes = upd.uct_updates.iter().map(|x|{
                 KVQPair {
                     key: UserContractTreeStore::<Self>::new_node_key_sfc(upd.checkpoint_id, upd.user_id, x.key.level, x.key.index),
                     value: x.value,
                 }
             }).collect::<Vec<_>>();
-            tracing::debug!("Realm writer UCT nodes: {:#?}", uct_nodes);
+            tracing::debug!("Realm writer UCT nodes: {}", serde_json::to_string_pretty(&uct_nodes).unwrap());
             BaseContractStateTreeStore::<Self>::set_nodes(self, &nodes)?;
             UserContractTreeStore::<Self>::set_nodes(self, &uct_nodes)?;
         }

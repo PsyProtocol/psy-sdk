@@ -1150,13 +1150,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 self.visit_expr(method_id, ctx)?,
                 self.visit_expr(inputs, ctx)?,
             )),
-            IntrinsicExprNode::CheckSecpSign {
+            IntrinsicExprNode::Secp256k1Verify {
                 pub_key,
                 msg,
                 sig,
                 ..
             } => Ok(format!(
-                "__invoke_deferred({}, {}, {})",
+                "__secp256k1_verify({}, {}, {})",
                 self.visit_expr(pub_key, ctx)?,
                 self.visit_expr(msg, ctx)?,
                 self.visit_expr(sig, ctx)?,
@@ -1175,6 +1175,34 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             )),
             IntrinsicExprNode::GetDeployContractsRoot { checkpoint_id, .. } => Ok(format!(
                 "__ctx_get_deploy_contracts_root({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
+            IntrinsicExprNode::GetFeesCollected { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_fees_collected({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
+            IntrinsicExprNode::GetUserOpsProcessed { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_user_ops_processed({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
+            IntrinsicExprNode::GetTotalTransactions { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_total_transactions({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
+            IntrinsicExprNode::GetSlotsModified { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_slots_modified({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
+            IntrinsicExprNode::GetRegisterUsersCompleted { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_register_users_completed({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
+            IntrinsicExprNode::GetGutasCompleted { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_gutas_completed({})",
+                self.visit_expr(checkpoint_id, ctx)?
+            )),
+            IntrinsicExprNode::GetDeployContractsCompleted { checkpoint_id, .. } => Ok(format!(
+                "__ctx_get_deploy_contracts_completed({})",
                 self.visit_expr(checkpoint_id, ctx)?
             )),
         }
@@ -1218,6 +1246,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     left,
                     right,
                     message.unwrap_or_default()
+                )
+            }
+            qed_ast::IntrinsicStmtNode::ClearEntireTree { comments, .. } => {
+                let comments_content = self.visit_comments(&comments);
+                format!(
+                    "{}__ctx_clear_entire_tree();",
+                    comments_content,
                 )
             }
         };

@@ -18,6 +18,7 @@ serde_json = { workspace = true }
 
 # QED dependencies
 qed_rollup_utils = { workspace = true }
+qed-common = { workspace = true }
 qed_core = { workspace = true }
 qed_data = { workspace = true }
 qed_crypto = { workspace = true }

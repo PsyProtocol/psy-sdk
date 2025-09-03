@@ -86,7 +86,7 @@ impl<F: RichField> QEDContractStateTracker<F> {
     }
     #[instrument(skip(self, dmp), fields(contract_id = self.contract_id, slot_index = dmp.index, total_slots_modified = self.total_slots_modified))]
     pub fn notify_update_slot_dmp(&mut self, dmp: &DeltaMerkleProofCore<QHashOut<F>>) -> i32 {
-        tracing::debug!("State tracker DMP: {:#?}", dmp);
+        tracing::debug!("State tracker DMP: {}", serde_json::to_string_pretty(&dmp).unwrap());
         if self.total_slots_modified == 0 {
             self.start_state_root = dmp.old_root;
             self.end_state_root = dmp.new_root;
@@ -131,6 +131,12 @@ impl<F: RichField> QEDContractStateTracker<F> {
             inc
         }
     }
+    pub fn notify_clear_entire_tree(&mut self, zero_hash: QHashOut<F>) {
+        self.slots.clear();
+        self.end_state_root = zero_hash;
+        self.total_slots_modified = 0;
+    }
+
     pub fn to_result(&self) -> QEDStateTrackerContractResult<F> {
         QEDStateTrackerContractResult {
             contract_id: self.contract_id,
@@ -172,6 +178,19 @@ impl<F: RichField> QEDLocalStateTracker<F> {
 
         self.total_slots_modified = ((self.total_slots_modified as i32)+inc_modified_slots) as u32;
     }
+
+    pub fn notify_clear_entire_tree(&mut self, contract_id: u64, zero_hash: QHashOut<F>) {
+        match self.contracts.get_mut(&contract_id) {
+            Some(c) => c.notify_clear_entire_tree(zero_hash),
+            None => {
+                let mut tracker = QEDContractStateTracker::new(contract_id);
+                tracker.notify_clear_entire_tree(zero_hash);
+                self.contracts.insert(contract_id, tracker);
+            }
+        }
+        self.total_slots_modified += 1;
+    }
+
     pub fn get_results(&self) -> Vec<QEDStateTrackerContractResult<F>> {
         self.contracts.values().map(|x|x.to_result()).collect()
     }

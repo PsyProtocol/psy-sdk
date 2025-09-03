@@ -6,17 +6,17 @@ use plonky2::{
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }
+    }, field::types::Field
 };
 use qed_common_circuit::{
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
-        pm_core::get_circuit_fingerprint_generic
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+        pm_core::get_circuit_fingerprint_generic, traits::ToTargets
 };
 use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher}};
 use qed_data::guta::proof_input::{VerifyLeftGUTARightEndCapInput, VerifyLeftGUTARightEndCapInputSimple};
 
-use crate::guta::gadgets::{helpers::ToGUTAHeader, two_nca_state_transition::TwoNCAStateTransitionGadget, verify_end_cap::VerifyEndCapProofGadget, verify_guta_proof::VerifyGUTAProofGadget};
+use crate::{guta::gadgets::{helpers::ToGUTAHeader, two_nca_state_transition::TwoNCAStateTransitionGadget, verify_end_cap::VerifyEndCapProofGadget, verify_guta_proof::VerifyGUTAProofGadget}, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 #[derive(Debug)]
 pub struct GUTAVerifyLeftGUTARightEndCapCircuit<C: GenericConfig<D> + 'static, const D: usize>
@@ -27,6 +27,7 @@ where
     pub b_end_cap_gadget: VerifyEndCapProofGadget<D>,
     pub nca_state_transition_gadget: TwoNCAStateTransitionGadget,
     pub worker_public_key: HashOutTarget,
+    pub pm_jobs_completed: PMJobsCompletedStatsGadget,
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
@@ -82,6 +83,9 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
 
+        // Ensure worker_public_key is not zero hash
+        builder.assert_non_zero_hash(worker_public_key);
+
         let a_commitment = HashOutTarget {
             elements: [
                 a_guta_gadget.proof_target.public_inputs[0],
@@ -100,6 +104,22 @@ where
             ]
         };
 
+        // Extract PM stats from child A (GUTA) proof and combine
+        let a_pm_jobs_completed = [
+            a_guta_gadget.proof_target.public_inputs[8],
+            a_guta_gadget.proof_target.public_inputs[9],
+            a_guta_gadget.proof_target.public_inputs[10],
+        ];
+
+        // End cap (B) doesn't contribute additional stats, so start with child A stats
+        let one = builder.one();
+        let final_gutas = builder.add(a_pm_jobs_completed[2], one); // Add 1 to gutas_completed
+        let pm_jobs_completed = PMJobsCompletedStatsGadget {
+            deploy_contracts_completed: a_pm_jobs_completed[0],
+            register_users_completed: a_pm_jobs_completed[1],
+            gutas_completed: final_gutas,
+        };
+
         let children_commitment = builder.hash_two_to_one::<C::Hasher>(a_commitment, b_commitment);
         let commitment = builder.hash_two_to_one::<C::Hasher>(children_commitment, worker_public_key);
 
@@ -107,6 +127,7 @@ where
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
+        builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&public_inputs_hash.elements);
 
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
@@ -121,6 +142,7 @@ where
             b_end_cap_gadget,
             nca_state_transition_gadget,
             worker_public_key,
+            pm_jobs_completed,
             circuit_data,
             fingerprint,
         }
@@ -205,8 +227,8 @@ where
         let r: CircuitInputWithDependencies<VerifyLeftGUTARightEndCapInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
-        if r.dependencies.len() != 1 {
-            anyhow::bail!("invalid dependency count in two end guta input");
+        if r.dependencies.len() != 2 {
+            anyhow::bail!("invalid dependency count in left guta right end cap input");
         }
 
 

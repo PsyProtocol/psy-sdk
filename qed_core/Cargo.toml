@@ -26,3 +26,4 @@ k256 = { workspace = true }
 
 kvq = { workspace = true }
 uuid = { workspace = true }
+tracing = { workspace = true }

@@ -11,17 +11,17 @@ use qed_data::{
 };
 
 use async_trait::async_trait;
-use plonky2::field::goldilocks_field::GoldilocksField;
 use kvq::traits::KVQBinaryStore;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::{
-    core::DeltaMerkleProofCore,
-    spiderman::SpidermanUpdateProof,
-    utils::{
-        common::QMerkleNode,
-        sub_tree_nca::UpdateNCAProofsWithDependencies,
+use qed_crypto::hash::{
+    merkle::{
+        core::DeltaMerkleProofCore,
+        spiderman::SpidermanUpdateProof,
+        utils::{common::QMerkleNode, sub_tree_nca::UpdateNCAProofsWithDependencies},
     },
-}, traits::qhashable::QFieldHashable};
+    traits::qhashable::QFieldHashable,
+};
 use qed_data::{
     qdata::{
         checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
@@ -30,11 +30,20 @@ use qed_data::{
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
 };
 
+use super::InitializeParams;
+
 type F = GoldilocksField;
 #[async_trait]
-impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreWriterAsyncImm<F> for T {
-    async fn batch_append_contract_tree_imm(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
-
+impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreWriterAsyncImm<F>
+    for T
+{
+    async fn batch_append_contract_tree_imm(
+        &self,
+        checkpoint_id: u64,
+        start_leaf_index: u64,
+        sub_tree_height: u8,
+        leaf_hashes: &[QHashOut<F>],
+    ) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
         <Self as QTreeDataStoreWriterSync<F>>::batch_append_contract_tree(
             self,
             checkpoint_id,
@@ -147,7 +156,6 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         checkpoint_id: u64,
         leaf_data: &QEDCheckpointLeaf<F>,
     ) -> anyhow::Result<()> {
-
         <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data(
             self,
             checkpoint_id,
@@ -177,59 +185,79 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, sync_info)
     }
 
-    async fn initialize_store(&self) -> anyhow::Result<u64> {
-
+    async fn initialize_store(&self, params: Option<InitializeParams<F>>) -> anyhow::Result<u64> {
         let latest_l2_block_state_or_err = self.get_latest_l2_block_state().await;
-        if latest_l2_block_state_or_err.is_ok() {
-            let v = latest_l2_block_state_or_err.unwrap();
+        if let Ok(v) = latest_l2_block_state_or_err {
             Ok(v.checkpoint_id)
-        }else{
-            // database not initialized with data for the genesis block
-
-            let genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
-
+        } else {
+            let mut genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
             let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
-            let stats_hash = genesis_checkpoint_stats.qfhash::<QEDHasher>();
+            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(0).await?;
 
-            let genesis_global_state_roots = self.get_checkpoint_global_state_roots(1).await?;
+            if let Some(params) = params {
+                genesis_l2_block_state.next_contract_id = params.next_contract_id;
+                genesis_l2_block_state.next_user_id = params.next_user_id;
 
-            let genesis_checkpoint_leaf = QEDCheckpointLeaf{
+                if genesis_global_state_roots.contract_tree_root != params.deploy_contracts_root {
+                    return Err(anyhow::anyhow!(
+                        "Contract tree root mismatch: expected {:?}, got {:?}",
+                        params.deploy_contracts_root,
+                        genesis_global_state_roots.contract_tree_root
+                    ));
+                }
+
+                if genesis_global_state_roots.user_tree_root != params.gutas_root {
+                    return Err(anyhow::anyhow!(
+                        "User tree root mismatch: expected {:?}, got {:?}",
+                        params.gutas_root,
+                        genesis_global_state_roots.user_tree_root
+                    ));
+                }
+
+                if genesis_global_state_roots.user_registration_tree_root != params.register_users_root {
+                    return Err(anyhow::anyhow!(
+                        "User registration root mismatch: expected {:?}, got {:?}",
+                        params.register_users_root,
+                        genesis_global_state_roots.user_registration_tree_root
+                    ));
+                }
+            }
+
+            let genesis_checkpoint_leaf = QEDCheckpointLeaf {
                 global_chain_root: genesis_global_state_roots.qfhash::<QEDHasher>(),
                 stats: genesis_checkpoint_stats,
             };
 
-
-            println!("genesis_stats_hash: {:?} ({})",stats_hash, serde_json::to_string_pretty(&stats_hash).unwrap());
-
-            println!("genesis_global_state_roots: {}",serde_json::to_string_pretty(&genesis_global_state_roots).unwrap());
-            println!("genesis_checkpoint_leaf: {}",serde_json::to_string_pretty(&genesis_checkpoint_leaf).unwrap());
-
             self.set_l2_block_state_imm(&genesis_l2_block_state).await?;
-            self.set_checkpoint_leaf_data_imm(0, &genesis_checkpoint_leaf).await?;
-            let r = self.set_checkpoint_tree_leaf_hash_imm(0, genesis_checkpoint_leaf.qfhash::<QEDHasher>()).await?;
+            self.set_checkpoint_leaf_data_imm(0, &genesis_checkpoint_leaf)
+                .await?;
+            let r = self
+                .set_checkpoint_tree_leaf_hash_imm(0, genesis_checkpoint_leaf.qfhash::<QEDHasher>())
+                .await?;
 
             let sync_info = QEDCheckpointSyncInfoCompact {
                 l2_block_state: genesis_l2_block_state,
-                stats:genesis_checkpoint_stats,
+                stats: genesis_checkpoint_stats,
                 state_roots: genesis_global_state_roots,
                 checkpoint_tree_update_siblings: r.siblings.clone(),
                 regsitered_users_start_pivot_siblings: vec![],
                 registered_users: vec![],
                 old_checkpoint_leaf_hash: r.old_value,
-                slot: 0,// fixed value
+                slot: 0,
             };
             self.set_checkpoint_sync_info_imm(sync_info).await?;
 
             Ok(0)
-
         }
-
     }
-    
-    async fn set_user_public_key_records(&self, records: &[qed_data::qdata::user_public_key::QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()> {
+
+    async fn set_user_public_key_records(
+        &self,
+        records: &[qed_data::qdata::user_public_key::QEDUserPublicKeyRecord<F>],
+    ) -> anyhow::Result<()> {
         use qed_data::config::store_config::UserPublicKeyTableStore;
         use qed_data::models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore;
-        
+
         UserPublicKeyTableStore::<Self>::set_user_public_key_records(self, records)
     }
 }

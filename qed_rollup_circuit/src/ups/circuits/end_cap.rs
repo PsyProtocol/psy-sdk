@@ -99,7 +99,6 @@ where
     pub fn new_with_config(
         proof_tree_agg_common_data: &CommonCircuitData<C::F, D>,
         proof_tree_agg_verifier_data_cap_height: usize,
-        //coset_gate: &GateRef<C::F, D>,
         ups_session_proof_tree_height: usize,
         ups_circuit_whitelist_tree_height: usize,
         network_magic: u64,
@@ -174,7 +173,6 @@ where
         let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(
             &base_circuit_data.verifier_only,
         ));
-        //println!("base_fingerprint: {:?}",base_fingerprint);
 
         let minifier_chain = if has_minifier {
             Some(
@@ -230,7 +228,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         // testing
 
-        /* 
+        /*
         let dbg_input: DebugEndCapPerfInputSer<C, D> = DebugEndCapPerfInputReady{
             core: DebugEndCapPerfInputCore{
                 end_cap_from_proof_tree_input: end_cap_from_proof_tree_input.to_owned(),

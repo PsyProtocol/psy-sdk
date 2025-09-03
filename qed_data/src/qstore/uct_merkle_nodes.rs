@@ -102,7 +102,7 @@ impl<Hash: PartialEq + Serialize + Copy + Display + std::fmt::Debug> CSTUserUpda
         &mut self,
         proof: &DeltaMerkleProofCore<Hash>,
     ) -> anyhow::Result<()> {
-        tracing::debug!("UCT merkle proof: {:#?}", proof);
+        tracing::debug!("UCT merkle proof: {}", serde_json::to_string_pretty(&proof).unwrap());
         let mut current = proof.old_value;
         for (i, sibling) in proof.siblings.iter().enumerate() {
             current = Hasher::two_to_one_swap(proof.index & (1 << i) != 0, &current, sibling);
@@ -133,7 +133,7 @@ impl<Hash: PartialEq + Serialize + Copy + Display + std::fmt::Debug> CSTUserUpda
         contract_id: u32,
         proof: &DeltaMerkleProofCore<Hash>,
     ) -> anyhow::Result<()> {
-        tracing::debug!("UCT delta merkle proof: {:#?}", proof);
+        tracing::debug!("UCT delta merkle proof: {}", serde_json::to_string_pretty(&proof).unwrap());
         let mut current = proof.old_value;
         for (i, sibling) in proof.siblings.iter().enumerate() {
             tracing::debug!("UCT proof step {} - before: current={}, sibling={}", i, current, sibling);
