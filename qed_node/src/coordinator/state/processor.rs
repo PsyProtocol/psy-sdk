@@ -955,8 +955,6 @@ impl<
 
         tracing::debug!(l2_sync = %serde_json::to_string_pretty(&l2_sync).unwrap(), "Checkpoint sync info");
         self.store.set_checkpoint_sync_info_imm(l2_sync.clone()).await?;
-
-        info!("✅ Successfully built block for checkpoint {}", new_checkpoint_id);
         Ok(())
     }
 
@@ -966,13 +964,8 @@ impl<
             .cdq_peek_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(self.coordinator_config.deploy_contract_channel_id)
             .await?;
 
-        trace!("Checking deploy contracts queue: {} items", deploy_items.len());
+        trace!("Checking deploy contracts queue: {} items, checkpoint: {}", deploy_items.len(), checkpoint_id);
         if !deploy_items.is_empty() {
-            info!(
-                "Found {} pending deploy contract tasks for checkpoint {}",
-                deploy_items.len(),
-                checkpoint_id
-            );
             return Ok(true);
         }
 
@@ -981,13 +974,8 @@ impl<
             .cdq_peek_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID)
             .await?;
 
-        trace!("Checking user registration queue: {} items", user_reg_items.len());
+        trace!("Checking user registration queue: {} items, checkpoint: {}", user_reg_items.len(), checkpoint_id);
         if !user_reg_items.is_empty() {
-            info!(
-                "Found {} pending user registration tasks for checkpoint {}",
-                user_reg_items.len(),
-                checkpoint_id
-            );
             return Ok(true);
         }
 
@@ -996,9 +984,8 @@ impl<
             .cdq_peek_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(self.coordinator_config.guta_channel_id)
             .await?;
 
-        trace!("Checking GUTA queue: {} items", guta_items.len());
+        trace!("Checking GUTA queue: {} items, checkpoint: {}", guta_items.len(), checkpoint_id);
         if !guta_items.is_empty() {
-            info!("Found {} pending GUTA tasks for checkpoint {}", guta_items.len(), checkpoint_id);
             return Ok(true);
         }
         Ok(false)

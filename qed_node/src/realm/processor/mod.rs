@@ -170,7 +170,7 @@ impl RealmProcessor {
                                     COORDINATOR_USER_TREE_HEIGHT,
                                     self.realm_config.realm_id as u64,
                                 ).await?;
-                                info!("pending checkpoint id: {}, latest checkpoint id: {}, realm_root: {}, expected realm_root: {}",
+                                debug!("pending checkpoint id: {}, latest checkpoint id: {}, realm_root: {}, expected realm_root: {}",
                                     pending_checkpoint, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
 
                                 if ret.latest_checkpoint_id >= pending_checkpoint && realm_root.value == ret.realm_root {

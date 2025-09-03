@@ -225,7 +225,7 @@ impl
             InitializeParams {
                 gutas_root: user_root,
                 deploy_contracts_root: deploy_root,
-                register_users_root: register_users_root,
+                register_users_root,
                 next_contract_id,
                 next_user_id,
             }
@@ -280,14 +280,6 @@ impl
     }
 
     pub async fn build_block(&mut self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
-        let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
-        let next_checkpoint_id = latest_l2_block_state.checkpoint_id + 1;
-
-        if !self.ctx.has_pending_tasks(next_checkpoint_id).await
-            .map_err(|e| anyhow::anyhow!("Failed to check pending tasks: {:?}", e))? {
-            return Ok(latest_l2_block_state.checkpoint_id);
-        }
-
         let ctx = self.ctx.clone();
         let journal_store = self.journal_store.clone();
         self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
@@ -505,6 +497,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 if !is {
                     continue;
                 }
+                debug!("✅ make block, checkpoint {}", next_checkpoint_id);
             }
             slot = slot_timer.wait_for_next_slot() => {
                 trace!("✅ Successfully wait for next slot: {}", slot);
