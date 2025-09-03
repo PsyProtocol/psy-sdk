@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT realm_id, COUNT(*) as task_count\n            FROM worker_events\n            WHERE public_key = $1 AND status = 'PROCESSING'\n            GROUP BY realm_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "realm_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "task_count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      null
+    ]
+  },
+  "hash": "9ac2db246c090b40ea31ef45f40fe0835eb358a6d24d9b80ea6009bbbf2c9e07"
+}

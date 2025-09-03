@@ -23,6 +23,8 @@ WORKER0_LOG="$LOG_DIR/worker0.log"
 WORKER1_LOG="$LOG_DIR/worker1.log"
 WORKER2_LOG="$LOG_DIR/worker2.log"
 
+API_SERVICES_LOG="$LOG_DIR/api-services.log"
+
 # LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
 LOCAL_PROVE_PROXY_LOG="$LOG_DIR/local-prove-proxy.log"
 WEB_WALLET_LOG="$LOG_DIR/web_wallet.log"
@@ -40,6 +42,7 @@ echo "Clearing log files..."
 : > "$WORKER0_LOG"
 : > "$WORKER1_LOG"
 : > "$WORKER2_LOG"
+: > "$API_SERVICES_LOG"
 
 # Array to store PIDs of background processes
 declare -a PIDS=()
@@ -55,6 +58,7 @@ cleanup() {
     done
     pkill -f qed_user_cli
     pkill -f qed_rollup_cli
+    pkill -f qed_api_services
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] All processes terminated. Exiting."
     exit 0
 }
@@ -88,7 +92,7 @@ run_service "make run-realm-processor1" "realm-processor1" "$REALM_PROCESSOR1_LO
 PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors)
-sleep 6
+sleep 8
 run_service "make run-coordinator-edge" "coordinator-edge" "$COORDINATOR_EDGE_LOG" &
 PIDS+=($!)
 run_service "make run-realm-edge" "realm-edge" "$REALM_EDGE_LOG" &
@@ -103,6 +107,8 @@ PIDS+=($!)
 run_service "make run-worker1" "worker1" "$WORKER1_LOG" &
 PIDS+=($!)
 run_service "make run-worker2" "worker2" "$WORKER2_LOG" &
+PIDS+=($!)
+run_service "make run-api-services" "api-services" "$API_SERVICES_LOG" &
 PIDS+=($!)
 
 sleep 1

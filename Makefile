@@ -1,7 +1,7 @@
 export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 
 PROFILE := release
-LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
 
 default: build wallet-build
 
@@ -13,7 +13,7 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: config_gen_v2
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server --bin qed_api_services
 
 fmt:
 	@cargo fmt
@@ -164,6 +164,8 @@ init:
 	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
+	@echo "Starting TimescaleDB container..."
+	@docker start timescaledb || docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
 	@sleep 10
 	# @echo "Starting ScyllaDB containers..."
 	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
@@ -171,6 +173,9 @@ init:
 	# @docker run -d --name qed-scylla-realm1 -p 9044:9042 scylladb/scylla:latest
 	@echo "Waiting for databases to be ready..."
 	@sleep 10
+
+init-api-services:
+	@docker start timescaledb || docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
 
 .PHONY: shutdown
 shutdown:
@@ -201,6 +206,9 @@ compile:
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim batch_claim_pm_rewards
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/new_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward claim_guta_proof
+
+run-api-services:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_api_services
 
 run-coordinator-processor:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --database lmdbx --lmdbx-path ${PWD}/db/coordinator

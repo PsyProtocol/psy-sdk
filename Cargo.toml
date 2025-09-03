@@ -28,6 +28,7 @@ members = [
     "qed_compiler/qed-interpreter",
     "qed_compiler/qed_package",
     "qed_compiler/qed-dargo-cli",
+    "qed_api_services",
 ]
 resolver = "2"
 
