@@ -4,8 +4,8 @@ use sqlx::PgPool;
 
 use crate::models::{
     job_id_to_json, GlobalRealmStats, RealmStats, TpsData, UserEvent, UserEventAggregation,
-    UserEventTxType, UserInfo, WorkerEvent, WorkerEventAggregation, WorkerEventSource,
-    WorkerEventStatus, WorkerRewards, WorkerStats,
+    UserEventTxType, UserInfo, WorkerEvent, WorkerEventAggregation, WorkerEventReward,
+    WorkerEventSource, WorkerEventStatus, WorkerRewards, WorkerStats,
 };
 use crate::Result;
 
@@ -17,6 +17,7 @@ pub struct UserEventAggregationRepository;
 pub struct RealmStatsRepository;
 pub struct WorkerStatsRepository;
 pub struct WorkerRewardsRepository;
+pub struct WorkerEventRewardRepository;
 pub struct TpsRepository;
 
 impl UserRepository {
@@ -299,6 +300,84 @@ impl WorkerEventRepository {
 
         Ok(row.count.unwrap_or(0))
     }
+
+    /// Get GUTA-related worker events that don't have rewards yet
+    pub async fn get_unprocessed_guta_worker_events(
+        pool: &PgPool,
+        checkpoint_range: Option<(i64, i64)>, // (min_checkpoint, max_checkpoint)
+    ) -> Result<Vec<WorkerEvent>> {
+        // Circuit types for GUTA-related events based on your requirements
+        let guta_circuit_types = vec![
+            ProvingJobCircuitType::GUTAOnlyRegisterUsers.to_u8() as i16,
+            ProvingJobCircuitType::GUTARegisterUsers.to_u8() as i16,
+            ProvingJobCircuitType::GUTATwoEndCap.to_u8() as i16,
+            ProvingJobCircuitType::GUTATwoGUTA.to_u8() as i16,
+            ProvingJobCircuitType::GUTALeftEndCapRightGUTA.to_u8() as i16,
+            ProvingJobCircuitType::GUTALeftGUTARightEndCap.to_u8() as i16,
+            ProvingJobCircuitType::GUTASingleEndCap.to_u8() as i16,
+            ProvingJobCircuitType::GUTAVerifyToCap.to_u8() as i16,
+            ProvingJobCircuitType::GUTANoChange.to_u8() as i16,
+        ];
+
+        let (min_checkpoint, max_checkpoint) = checkpoint_range.unwrap_or((0, i64::MAX));
+
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                we.id, we.realm_id, we.public_key, we.status, we.source,
+                we.job_id, we.topic, we.circuit_type, we.checkpoint_id,
+                we.duration, we.metadata, we.timestamp, we.created_at, we.updated_at
+            FROM worker_events we
+            LEFT JOIN worker_event_rewards wer ON we.id = wer.id
+            WHERE we.circuit_type = ANY($1::SMALLINT[])
+                AND we.status = 'COMPLETED'
+                AND we.checkpoint_id >= $2
+                AND we.checkpoint_id <= $3
+                AND wer.id IS NULL
+            ORDER BY we.checkpoint_id ASC, we.timestamp ASC
+            "#,
+            &guta_circuit_types,
+            min_checkpoint,
+            max_checkpoint
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut events = Vec::new();
+        for row in rows {
+            let parsed_job_id = crate::models::job_id_from_json(row.job_id)?;
+            events.push(WorkerEvent {
+                id: Some(row.id),
+                realm_id: row.realm_id,
+                public_key: row.public_key,
+                status: row.status.parse().unwrap(),
+                source: row.source.parse().unwrap(),
+                job_id: parsed_job_id,
+                checkpoint_id: row.checkpoint_id,
+                duration: row.duration,
+                metadata: row.metadata,
+                timestamp: row.timestamp,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+            });
+        }
+
+        Ok(events)
+    }
+
+    /// Get the maximum checkpoint_id from worker_events (for reward processing)
+    pub async fn get_max_checkpoint(pool: &PgPool) -> Result<Option<i64>> {
+        let result = sqlx::query!(
+            r#"
+            SELECT MAX(checkpoint_id) as max_checkpoint
+            FROM worker_events
+            "#
+        )
+        .fetch_one(pool)
+        .await?;
+
+        Ok(result.max_checkpoint)
+    }
 }
 
 /// User Event Queries
@@ -375,6 +454,42 @@ impl UserEventRepository {
             end_time,
             limit,
             offset
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let events = rows
+            .into_iter()
+            .map(|row| UserEvent {
+                user_id: row.user_id,
+                public_key: row.public_key,
+                tx_type: row.tx_type.parse().unwrap(),
+                metadata: row.metadata,
+                timestamp: row.timestamp,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+            })
+            .collect();
+
+        Ok(events)
+    }
+
+    /// Get GUTA user events for a specific checkpoint (for reward calculation)
+    pub async fn get_guta_events_by_checkpoint(
+        pool: &PgPool,
+        checkpoint_id: i64,
+    ) -> Result<Vec<UserEvent>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                user_id, public_key, tx_type,
+                metadata, timestamp, created_at, updated_at
+            FROM user_events
+            WHERE tx_type = 'GUTA'
+                AND metadata->>'checkpoint_id' = $1::text
+            ORDER BY timestamp DESC
+            "#,
+            checkpoint_id.to_string()
         )
         .fetch_all(pool)
         .await?;
@@ -919,5 +1034,124 @@ impl TpsRepository {
             block_height,
             timestamp: now,
         })
+    }
+}
+
+/// Worker Event Reward Repository
+impl WorkerEventRewardRepository {
+    /// Insert worker event rewards
+    pub async fn create_rewards(pool: &PgPool, rewards: &[WorkerEventReward]) -> Result<()> {
+        for reward in rewards {
+            sqlx::query!(
+                r#"
+                INSERT INTO worker_event_rewards
+                    (id, public_key, checkpoint_id, reward_amount, timestamp)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (id) DO NOTHING
+                "#,
+                reward.id,
+                reward.public_key,
+                reward.checkpoint_id,
+                reward.reward_amount,
+                reward.timestamp
+            )
+            .execute(pool)
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Check if a worker event already has a reward
+    pub async fn has_reward(pool: &PgPool, worker_event_id: uuid::Uuid) -> Result<bool> {
+        let result = sqlx::query!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM worker_event_rewards
+                WHERE id = $1
+            ) as exists
+            "#,
+            worker_event_id
+        )
+        .fetch_one(pool)
+        .await?;
+
+        Ok(result.exists.unwrap_or(false))
+    }
+
+    /// Get rewards for worker events by event IDs
+    pub async fn get_rewards_by_event_ids(
+        pool: &PgPool,
+        worker_event_ids: &[uuid::Uuid],
+    ) -> Result<Vec<WorkerEventReward>> {
+        let rewards = sqlx::query_as!(
+            WorkerEventReward,
+            r#"
+            SELECT id, public_key, checkpoint_id, reward_amount, timestamp, created_at, updated_at
+            FROM worker_event_rewards
+            WHERE id = ANY($1)
+            ORDER BY timestamp DESC
+            "#,
+            worker_event_ids
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rewards)
+    }
+
+    /// Get all rewards for worker events in a checkpoint range
+    pub async fn get_rewards_by_checkpoint_range(
+        pool: &PgPool,
+        start_checkpoint: i64,
+        end_checkpoint: i64,
+    ) -> Result<Vec<WorkerEventReward>> {
+        let rewards = sqlx::query_as!(
+            WorkerEventReward,
+            r#"
+            SELECT id, public_key, checkpoint_id, reward_amount,
+                   timestamp, created_at, updated_at
+            FROM worker_event_rewards
+            WHERE checkpoint_id >= $1 AND checkpoint_id <= $2
+            ORDER BY checkpoint_id DESC, timestamp DESC
+            "#,
+            start_checkpoint,
+            end_checkpoint
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rewards)
+    }
+
+    /// Get rewards for a specific worker (by public_key) in a checkpoint range
+    pub async fn get_worker_rewards(
+        pool: &PgPool,
+        public_key: &str,
+        start_checkpoint: Option<i64>,
+        end_checkpoint: Option<i64>,
+    ) -> Result<Vec<WorkerEventReward>> {
+        let start = start_checkpoint.unwrap_or(0);
+        let end = end_checkpoint.unwrap_or(i64::MAX);
+
+        let rewards = sqlx::query_as!(
+            WorkerEventReward,
+            r#"
+            SELECT id, public_key, checkpoint_id, reward_amount,
+                   timestamp, created_at, updated_at
+            FROM worker_event_rewards
+            WHERE public_key = $1
+                AND checkpoint_id >= $2
+                AND checkpoint_id <= $3
+            ORDER BY checkpoint_id DESC, timestamp DESC
+            "#,
+            public_key,
+            start,
+            end
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rewards)
     }
 }

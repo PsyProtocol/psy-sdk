@@ -191,6 +191,18 @@ pub struct WorkerRewards {
     pub last_updated: DateTime<Utc>,
 }
 
+// Worker event reward models
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkerEventReward {
+    pub id: uuid::Uuid,     // Same as worker_events.id (no Option, always present)
+    pub public_key: String, // Which worker processed this
+    pub checkpoint_id: i64, // Which checkpoint this reward belongs to
+    pub reward_amount: i64, // Reward for this specific worker event
+    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 // TPS models
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TpsData {

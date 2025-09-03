@@ -5,7 +5,7 @@ use tracing_subscriber::{self, EnvFilter};
 use qed_api_services::{
     config::Config,
     handlers,
-    services::{create_database_pool, ApiService},
+    services::{create_database_pool, ApiService, RewardService},
 };
 
 #[tokio::main]
@@ -27,7 +27,13 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("config: {:#?}", config);
 
     let pool = create_database_pool(&config).await?;
-    let api_service = ApiService::new(pool);
+    let api_service = ApiService::new(pool.clone());
+
+    // Start background reward processing task
+    tracing::info!("Starting reward processing background task");
+    tokio::spawn(async move {
+        RewardService::start_reward_processing_task(pool).await;
+    });
 
     // Create application router
     let app = Router::new()

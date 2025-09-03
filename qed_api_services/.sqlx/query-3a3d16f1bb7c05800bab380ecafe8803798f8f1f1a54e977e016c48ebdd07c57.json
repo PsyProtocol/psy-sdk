@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO worker_event_rewards\n                    (id, public_key, checkpoint_id, reward_amount, timestamp)\n                VALUES ($1, $2, $3, $4, $5)\n                ON CONFLICT (id) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Int8",
+        "Int8",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3a3d16f1bb7c05800bab380ecafe8803798f8f1f1a54e977e016c48ebdd07c57"
+}
