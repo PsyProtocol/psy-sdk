@@ -148,7 +148,7 @@ impl RealmProcessor {
                 checkpoint_sync_result = self.ensure_checkpoint_sync() => {
                     match checkpoint_sync_result {
                         Ok(ret) => {
-                            info!("Checkpoint sync completed wait after");
+                            debug!("Checkpoint sync completed");
                             if let Some(pending_checkpoint) = pending_checkpoint_id {
                                 let realm_root = context.store.get_user_sub_tree_merkle_proof(
                                     pending_checkpoint,
@@ -162,6 +162,7 @@ impl RealmProcessor {
                                 if ret.latest_checkpoint_id >= pending_checkpoint && realm_root.value == ret.realm_root {
                                     context.commit(pending_checkpoint).await?;
                                     pending_checkpoint_id = None;
+                                    info!("Commit checkpoint {}", pending_checkpoint);
                                 } else {
                                     if ret.latest_checkpoint_id > pending_checkpoint + 1 || ret.latest_checkpoint_id < pending_checkpoint - 1 {
                                         warn!("Invalid checkpoint sync result, rollback");
@@ -209,7 +210,7 @@ impl RealmProcessor {
                     let next_checkpoint_id = local_latest_checkpoint_id + 1;
                     let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
                     if !has_tasks {
-                        warn!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
+                        debug!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
                         continue;
                     }
                     // TODO async
@@ -232,7 +233,7 @@ impl RealmProcessor {
                     //     context.rollback(next_checkpoint_id).await?;
                     //     continue;
                     // }
-                    info!("Pushing job id to queue: {:?}, slot: {}", proving_data_job_id, slot);
+                    debug!("Pushing job id to queue: {:?}, slot: {}", proving_data_job_id, slot);
                     self.sync_proof.chq_push_imm(proving_data_job_id).await?;
                     pending_checkpoint_id = Some(next_checkpoint_id);
                     info!("Pushing job to queueue done");

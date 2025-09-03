@@ -42,7 +42,6 @@ use qed_store::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, error};
-use qed_store::queue::redis_queue::QueueOffsetState;
 use qed_store::store::journal::Journal;
 
 type F = QEDFelt;
@@ -173,7 +172,7 @@ impl<
             .collect();
 
         if !realm_users.is_empty() {
-            tracing::info!("Adding {} new pending users to Redis queue", realm_users.len());
+            info!("Adding {} new pending users to Redis queue", realm_users.len());
             self.sync_queue.push_pending_users(&realm_users).await?;
         }
 
@@ -210,7 +209,7 @@ impl<
         self.handle_guta_state_updates_from_users(checkpoint_id).await?;
 
         let (jobs, guta, proof) = self.handle_guta_from_users(checkpoint_id).await?;
-        tracing::debug!(guta = ?guta, guta_hash = ?guta.qfhash::<QEDHasher>(), jobs = ?jobs, "Processing GUTA and jobs");
+        debug!(guta = ?guta, guta_hash = ?guta.qfhash::<QEDHasher>(), jobs = ?jobs, "Processing GUTA and jobs");
 
         let bp = self
             .store
@@ -257,7 +256,7 @@ impl<
             .collect::<Vec<_>>();
         if pending_register_users.len() != 0 {
             if jobs.len() == 0 {
-                tracing::debug!("No jobs to process");
+                debug!("No jobs to process");
                 if pending_register_users.len() <= 64 {
                     let guta_new = GlobalUserTreeAggregatorHeader {
                         checkpoint_tree_root: guta.checkpoint_tree_root,
@@ -275,7 +274,7 @@ impl<
                         },
                         stats: guta.stats,
                     };
-                    tracing::debug!(guta_new = ?guta_new, guta_new_hash = ?guta_new.qfhash::<QEDHasher>(), "New GUTA after user registration");
+                    debug!(guta_new = ?guta_new, guta_new_hash = ?guta_new.qfhash::<QEDHasher>(), "New GUTA after user registration");
                     let w = GUTAOnlyRegisterUsersInput {
                         checkpoint_tree_root: guta.checkpoint_tree_root,
                         guta_register_user_inputs: regs,
@@ -314,13 +313,13 @@ impl<
         }
 
         if jobs.len() == 0 && pending_register_users.len() == 0 {
-            tracing::debug!("Processing empty jobs and users");
+            debug!("Processing empty jobs and users");
             let last_checkpoint_id = if checkpoint_id == 0 {
                 checkpoint_id
             } else {
                 checkpoint_id - 1
             };
-            tracing::debug!(checkpoint_id = checkpoint_id, last_checkpoint_id = last_checkpoint_id, "Checkpoint IDs");
+            debug!(checkpoint_id = checkpoint_id, last_checkpoint_id = last_checkpoint_id, "Checkpoint IDs");
             let roots = self
                 .store
                 .get_checkpoint_global_state_roots(last_checkpoint_id)
@@ -340,7 +339,7 @@ impl<
                     global_state_roots: roots,
                 },
             };
-            tracing::debug!(input = ?input, "GUTA no change input");
+            debug!(input = ?input, "GUTA no change input");
 
             let w_id = QProvingJobDataID::core_op_witness(
                 ProvingJobCircuitType::GUTANoChange,
@@ -359,12 +358,12 @@ impl<
         }
 
         if guta.state_transition.node_level == F::from_canonical_u8(COORDINATOR_USER_TREE_HEIGHT) {
-            tracing::debug!("Processing top level GUTA");
+            debug!("Processing top level GUTA");
             if pending_register_users.len() == 0 {
                 return Ok((jobs, guta, proof));
             }
         } else if pending_register_users.len() == 0 {
-            tracing::debug!("Processing non-top level GUTA");
+            debug!("Processing non-top level GUTA");
             // add a job to verify to the root cap
             let w_id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
@@ -381,9 +380,9 @@ impl<
                 guta_proof_header: guta,
                 top_line_siblings: good_sibs,
             };
-            tracing::debug!(input = ?input, "GUTA to cap input");
+            debug!(input = ?input, "GUTA to cap input");
             let new_g = input.get_new_guta_header::<QEDHasher>();
-            tracing::debug!(new_g = ?new_g, new_g_hash = ?new_g.qfhash::<QEDHasher>(), "New GUTA after to cap");
+            debug!(new_g = ?new_g, new_g_hash = ?new_g.qfhash::<QEDHasher>(), "New GUTA after to cap");
             let w = CircuitInputWithDependencies::<VerifyGUTAToCapCircuitInputSimple<F>> {
                 input,
                 dependencies: vec![jobs.last().as_ref().unwrap().last().unwrap().get_output_id()],
@@ -401,7 +400,7 @@ impl<
             n_jobs.push(vec![w_id]);
 
             let n_guta = w.input.get_new_guta_header::<QEDHasher>();
-            tracing::debug!(n_guta = ?n_guta, n_guta_hash = ?n_guta.qfhash::<QEDHasher>(), "New GUTA state");
+            debug!(n_guta = ?n_guta, n_guta_hash = ?n_guta.qfhash::<QEDHasher>(), "New GUTA state");
 
             return Ok((
                 n_jobs,
@@ -472,7 +471,7 @@ impl<
             },
             stats: new_g.stats,
         };
-        tracing::debug!("New GUTA after register users: {:#?}", n_guta);
+        debug!("New GUTA after register users: {:#?}", n_guta);
 
         let mut n_jobs = jobs.clone();
 
@@ -504,7 +503,7 @@ impl<
         ).await?;
         debug!(guta_queue_items = ?guta_queue_items, "GUTA queue items for aggregation");
         if guta_queue_items.len() == 0 {
-            tracing::debug!("No GUTA queue items to aggregate");
+            debug!("No GUTA queue items to aggregate");
             let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
             let last_user_tree_root = self
                 .store
@@ -536,7 +535,7 @@ impl<
                 ),
             ));
         } else if guta_queue_items.len() == 1 {
-            tracing::debug!("Single GUTA queue item");
+            debug!("Single GUTA queue item");
             let single = CircuitInputWithDependencies::<VerifySingleEndCapInput<F>> {
                 input: VerifySingleEndCapInput {
                     guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
@@ -586,7 +585,7 @@ impl<
                     }],
                 )
                 .await?;
-            tracing::debug!(r = ?r, single = ?single, "Single GUTA processing");
+            debug!(r = ?r, single = ?single, "Single GUTA processing");
 
             let id = QProvingJobDataID::core_op_witness(
                 ProvingJobCircuitType::GUTASingleEndCap,
@@ -630,7 +629,7 @@ impl<
             .store
             .injest_user_tree_nodes_imm(checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, &mnu)
             .await?;
-        tracing::debug!(res = ?res, "GUTA aggregation result");
+        debug!(res = ?res, "GUTA aggregation result");
 
         let mut updates = Vec::with_capacity(res.nca_proofs.len());
         let mut combo_stats = Vec::with_capacity(res.nca_proofs.len());
@@ -639,7 +638,7 @@ impl<
         for (i, p) in res.nca_proofs.iter().enumerate() {
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind == -1 && r_dep_ind == -1 {
-                tracing::debug!("Both GUTA dependencies are new");
+                debug!("Both GUTA dependencies are new");
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoEndCapCircuitInput {
                         guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
@@ -676,7 +675,7 @@ impl<
                     value: bincode::serialize(&x)?,
                 });
             } else if r_dep_ind != -1 && l_dep_ind != -1 {
-                tracing::debug!("Both GUTA dependencies exist");
+                debug!("Both GUTA dependencies exist");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
 
@@ -710,7 +709,7 @@ impl<
                     value: bincode::serialize(&x)?,
                 });
             } else if l_dep_ind != -1 {
-                tracing::debug!("Left GUTA dependency exists");
+                debug!("Left GUTA dependency exists");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
@@ -779,7 +778,7 @@ impl<
             stats: combo_stats[res.root_proof_index].1,
         };
 
-        tracing::debug!(guta = ?guta, guta_hash = ?guta.qfhash::<QEDHasher>(), "Final aggregated GUTA");
+        debug!(guta = ?guta, guta_hash = ?guta.qfhash::<QEDHasher>(), "Final aggregated GUTA");
 
         Ok((levels, guta, res.link_proof))
     }
@@ -800,7 +799,7 @@ impl<
         let task_graph = self.task_store.get_task_graph().await;
         self.task_store.save_job_dependency_graph(&task_graph, new_checkpoint_id).await
             .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
-        tracing::info!("Saved realm job dependency graph for checkpoint {}", new_checkpoint_id);
+        info!("Saved realm job dependency graph for checkpoint {}", new_checkpoint_id);
 
         Ok(())
     }
@@ -818,7 +817,7 @@ impl<
         // Use position-based consumption for pending users
         let (pending_users, _consumption_state) = self.sync_queue.peek_with_position(32, new_checkpoint_id).await?;
         let (guta_jobs, guta_transition, guta_dmp) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
-        tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
+        debug!("Generated GUTA jobs: {:#?}", guta_jobs);
         let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
         let res = GUTARealmCheckpointResult{
             checkpoint_id: new_checkpoint_id,
@@ -831,7 +830,7 @@ impl<
         // Plan the job dependency graph
         self.plan_jobs(new_checkpoint_id, &guta_jobs, finished_job).await?;
 
-        tracing::info!("Processed {} pending users for checkpoint {}", pending_users.len(), new_checkpoint_id);
+        debug!("Processed {} pending users for checkpoint {}", pending_users.len(), new_checkpoint_id);
 
         // Wait for proving jobs to complete and return the job ID
         info!("🐶 Waiting for realm proving jobs");
@@ -848,7 +847,7 @@ impl<
         // Check if there are pending user registrations in Redis queue
         let pending_users_count = self.sync_queue.get_pending_users_count().await?;
         if pending_users_count > 0 {
-            info!("Found {} pending user registrations in Redis queue", pending_users_count);
+            debug!("Found {} pending user registrations in Redis queue", pending_users_count);
             return Ok(true);
         }
 
@@ -861,7 +860,7 @@ impl<
             .await?;
 
         if !guta_queue_items.is_empty() {
-            info!("Found {} pending GUTA queue items", guta_queue_items.len());
+            debug!("Found {} pending GUTA queue items", guta_queue_items.len());
             return Ok(true);
         }
 
@@ -877,8 +876,6 @@ impl<
             info!("Found {} pending contract state updates", cst_updates.len());
             return Ok(true);
         }
-
-        debug!("No pending tasks found for checkpoint {}", checkpoint_id);
         Ok(false)
     }
 

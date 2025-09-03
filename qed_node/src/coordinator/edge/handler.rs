@@ -919,25 +919,6 @@ impl CoordinatorEdgeHandler {
             reason, job.job_id, job.layer_id, job.msg_id
         );
     }
-
-    pub async fn verify_realm_guta_production(
-        &self,
-        realm_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<bool> {
-        let realm_merkle_proof = self
-            .get_user_top_tree_merkle_proof(
-                checkpoint_id,
-                self.ctx.coordinator_config.realm_root_level,
-                realm_id,
-            )
-            .await?;
-        if !realm_merkle_proof.verify::<QEDHasher>() {
-            return Ok(false);
-        }
-        let has_guta = realm_merkle_proof.value != QHashOut::<QEDFelt>::ZERO;
-        Ok(has_guta)
-    }
 }
 
 use super::error::RpcError;

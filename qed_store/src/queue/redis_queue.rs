@@ -122,12 +122,10 @@ impl QProofStoreReaderAsync for ProofStoreRedisAsync {
         &self,
         id: QProvingJobDataID,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        tracing::info!(?id, "Getting proof by id");
         let mut con = self.pool.get().await?;
         let data: Vec<u8> = con
             .hget(&self.proof_store_key(), id.to_fixed_bytes().as_slice())
             .await?;
-        tracing::info!(?id, "Got proof by id, data.len = {}", data.len());
         Ok(bincode::deserialize(&data)?)
     }
 
@@ -147,7 +145,6 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         id: QProvingJobDataID,
         proof: &ProofWithPublicInputs<C::F, C, D>,
     ) -> anyhow::Result<()> {
-        tracing::info!(?id, "Setting proof by id");
         let data = bincode::serialize(&proof)?;
 
         let mut con = self.pool.get().await?;
@@ -167,7 +164,6 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         self.set_bytes_by_id_batch_core(kv_pairs).await
     }
     async fn set_bytes_by_id(&self, id: QProvingJobDataID, data: &[u8]) -> anyhow::Result<()> {
-        tracing::info!(?id, "Setting bytes by id, data.len = {}", data.len());
         let mut con = self.pool.get().await?;
         let _: bool = con
             .hset_nx(
@@ -622,7 +618,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!(e))?;
         conn.set_ex(&state_key, state_data, 3600).await?; // 1 hour TTL
         
-        tracing::info!("Consumed {} users from positions {}-{} for checkpoint {}", 
+        tracing::debug!("Consumed {} users from positions {}-{} for checkpoint {}", 
               users.len(), start_position, end_position, checkpoint_id);
         
         Ok((users, state))
@@ -643,7 +639,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         let state_key = format!("{}-{}", self.realm_pending_user_key(), "CONSUMPTION_STATE");
         conn.del(&state_key).await?;
         
-        tracing::info!("Committed consumption of {} users for checkpoint {}", 
+        tracing::debug!("Committed consumption of {} users for checkpoint {}", 
               state.consumed_count, state.checkpoint_id);
         
         Ok(())
@@ -702,7 +698,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!(e))?;
         con.set_ex(&state_key, state_data, 3600).await?; // 1 hour TTL
         
-        tracing::info!("Consumed {} items from drain queue {} for checkpoint {}", 
+        tracing::debug!("Consumed {} items from drain queue {} for checkpoint {}", 
               items.len(), channel_id, checkpoint_id);
         
         Ok((items, state))
@@ -736,7 +732,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         // Clear consumption state
         let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", state.channel_id);
         con.del(&state_key).await?;
-        tracing::info!("Committed consumption of {} items for checkpoint {}", 
+        tracing::debug!("Committed consumption of {} items for checkpoint {}", 
               state.consumed_count, state.checkpoint_id);
         
         Ok(())

@@ -102,7 +102,6 @@ impl QProofStoreReaderAsync for ProofStoreFred {
             .pool
             .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key(), &id.to_fixed_bytes())
             .await?;
-        tracing::info!(?id, "Got proof by id, data.len = {}", data.len());
         Ok(bincode::deserialize(&data)?)
     }
 

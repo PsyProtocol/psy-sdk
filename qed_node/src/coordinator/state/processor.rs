@@ -586,7 +586,7 @@ impl<
                 SimpleMerkleNode {
                     key: SimpleMerkleNodeKey {
                         level: self.coordinator_config.realm_root_level,
-                        index: x.realm_id,//todo
+                        index: x.realm_id,
                     },
                     value: x.top_line_proof.new_root,
                 }
@@ -1085,8 +1085,6 @@ impl<
             info!("Found {} pending GUTA tasks for checkpoint {}", guta_items.len(), checkpoint_id);
             return Ok(true);
         }
-
-        debug!("No pending tasks found for checkpoint {}", checkpoint_id);
         Ok(false)
     }
 

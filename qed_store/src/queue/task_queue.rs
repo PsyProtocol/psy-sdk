@@ -202,7 +202,7 @@ impl QProvingTaskStoreImpl {
                 let removed: i32 = conn.zrem(&layers_key, &expected_serialized).await?;
 
                 if removed > 0 {
-                    info!("Successfully popped layer {:?} from head", expected_layer_id);
+                    debug!("Successfully popped layer {:?} from head", expected_layer_id);
                     Ok(Some(*expected_layer_id))
                 } else {
                     // Shouldn't happen, but handle gracefully
