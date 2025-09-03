@@ -83,7 +83,6 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
 
-        // Ensure worker_public_key is not zero hash
         builder.assert_non_zero_hash(worker_public_key);
 
         let a_commitment = HashOutTarget {
@@ -95,25 +94,16 @@ where
             ]
         };
 
-        let b_commitment = HashOutTarget {
-            elements: [
-                b_end_cap_gadget.proof_target.public_inputs[0],
-                b_end_cap_gadget.proof_target.public_inputs[1],
-                b_end_cap_gadget.proof_target.public_inputs[2],
-                b_end_cap_gadget.proof_target.public_inputs[3],
-            ]
-        };
+        let b_commitment = builder.constant_hash(HashOut::ZERO);
 
-        // Extract PM stats from child A (GUTA) proof and combine
         let a_pm_jobs_completed = [
             a_guta_gadget.proof_target.public_inputs[8],
             a_guta_gadget.proof_target.public_inputs[9],
             a_guta_gadget.proof_target.public_inputs[10],
         ];
 
-        // End cap (B) doesn't contribute additional stats, so start with child A stats
         let one = builder.one();
-        let final_gutas = builder.add(a_pm_jobs_completed[2], one); // Add 1 to gutas_completed
+        let final_gutas = builder.add(a_pm_jobs_completed[2], one);
         let pm_jobs_completed = PMJobsCompletedStatsGadget {
             deploy_contracts_completed: a_pm_jobs_completed[0],
             register_users_completed: a_pm_jobs_completed[1],

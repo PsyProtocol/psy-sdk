@@ -9,7 +9,7 @@ use plonky2::{
 };
 use qed_core::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
-    job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE},
+    job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
@@ -137,7 +137,7 @@ fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64)
 }
 
 fn verify_proof(proof: &VariableHeightRewardMerkleProof) -> Result<(QHashOut<F>, F)> {
-    let (root, nullifier_index) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+    let (root, nullifier_index) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
     Ok((root, nullifier_index))
 }
 

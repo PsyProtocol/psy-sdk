@@ -30,7 +30,7 @@ use qed_crypto::{
 use qed_data::{
     guta::{
         api::{GUTARealmCheckpointResult, UserEndCapNonProofCoreInputQueueItem}, header::GlobalUserTreeAggregatorHeader, proof_input::{
-            GUTANoChangeFullInput, GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyEndCapSimpleStandardInput, VerifyGUTARegisterUsersCircuitInputSimple, VerifyGUTAToCapCircuitInputSimple, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput, VerifyTwoGUTAProofGadgetStandardInputSimple
+            GUTANoChangeFullInput, GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyEndCapSimpleStandardInput, VerifyGUTARegisterUsersCircuitInputSimple, VerifyGUTAToCapCircuitInputSimple, VerifyLeftEndCapRightGUTAInputSimple, VerifyLeftGUTARightEndCapInputSimple, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput, VerifyTwoGUTAProofGadgetStandardInputSimple
         }, stats::GUTAStats
     },
     qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, user::QEDUserLeaf},
@@ -300,9 +300,8 @@ impl<
                     )
                     .await?;
 
-                let mut graph = BidirectionalGraph::new();
-                graph.add_node(w_id.get_output_id());
-                return Ok((vec![vec![w_id]], guta, proof, graph));
+                guta_graph.add_node(w_id.get_output_id());
+                return Ok((vec![vec![w_id]], guta, proof, guta_graph));
             } else {
                 tracing::debug!("No jobs to process");
                 let guta_new = GlobalUserTreeAggregatorHeader {
@@ -344,8 +343,7 @@ impl<
                     )
                     .await?;
 
-                let mut graph = BidirectionalGraph::new();
-                graph.add_node(w_id.get_output_id());
+                guta_graph.add_node(w_id.get_output_id());
                 return Ok((
                     vec![vec![w_id.get_output_id()]],
                     guta_new,
@@ -354,7 +352,7 @@ impl<
                         guta_new.state_transition.old_node_value,
                         guta_new.state_transition.new_node_value,
                     ),
-                    graph,
+                    guta_graph,
                 ));
             }
         } else if pending_register_users.len() == 0 {
@@ -601,7 +599,7 @@ impl<
             );
 
             let mut graph = BidirectionalGraph::new();
-            graph.add_edge(id.get_output_id(), guta_queue_items[0].proof_id.get_output_id());
+            graph.add_node(id.get_output_id());
 
             self.proof_store
                 .set_bytes_by_id(id.get_input_witness_id(), &bincode::serialize(&single)?)
@@ -681,9 +679,7 @@ impl<
                         .combine_with(&guta_queue_items[i * 2 + 1].input.stats),
                 ));
 
-                for dep in &x.dependencies {
-                    graph.add_edge(w_id.get_output_id(), *dep)
-                }
+                graph.add_node(w_id.get_output_id());
 
                 updates.push(KVQPair {
                     key: w_id,
@@ -732,17 +728,16 @@ impl<
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
-                    input: VerifyTwoGUTAProofGadgetStandardInputSimple {
+                    input: VerifyLeftGUTARightEndCapInputSimple {
                         checkpoint_tree_root: a_checkpoint_tree_root,
-                        b_checkpoint_tree_root: guta_queue_items.last().as_ref().unwrap().checkpoint_tree_proof.root,
+                        b_end_cap: VerifyEndCapSimpleStandardInput {
+                            guta_stats: guta_queue_items[0].input.stats,
+                            checkpoint_root: guta_queue_items[0].checkpoint_tree_proof.root,
+                            checkpoint_historical_merkle_proof: guta_queue_items[0]
+                                .checkpoint_tree_proof
+                                .clone(),
+                        },
                         stats_a: l_stats,
-                        stats_b: guta_queue_items
-                            .last()
-                            .as_ref()
-                            .unwrap()
-                            .input
-                            .stats
-                            .clone(),
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
                     dependencies: vec![
@@ -753,18 +748,16 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
-                    ProvingJobCircuitType::GUTATwoGUTA.to_circuit_group_id(),
+                    ProvingJobCircuitType::GUTALeftGUTARightEndCap.to_circuit_group_id(),
                     p.nearest_common_ancestor_level as u32,
                     p.nearest_common_ancestor_index as u32,
-                    ProvingJobCircuitType::GUTATwoGUTA,
+                    ProvingJobCircuitType::GUTALeftGUTARightEndCap,
                     ProvingJobDataType::InputWitness,
                     0,
                 );
-                combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&x.input.stats_b)));
+                combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&guta_queue_items.last().as_ref().unwrap().input.stats)));
 
-                for dep in &x.dependencies {
-                    graph.add_edge(w_id.get_output_id(), *dep)
-                }
+                graph.add_edge(w_id.get_output_id(), l_proof_id.get_output_id());
 
                 updates.push(KVQPair {
                     key: w_id,

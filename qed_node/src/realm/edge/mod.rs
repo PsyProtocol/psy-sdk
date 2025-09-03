@@ -105,8 +105,9 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         edge_ctx.clone(),
         job_notify_queue,
         Arc::new(task_store),
-        Arc::new(whitelist)
-    );
+        Arc::new(whitelist),
+        &config.rpc.coordinator_addr,
+    )?;
     let mut rpc_module = RealmEdgeRpcServer::into_rpc(handler.clone());
     let job_rpc_module = JobSchedulerRpcServer::into_rpc(handler);
     rpc_module.merge(job_rpc_module)?;

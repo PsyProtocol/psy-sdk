@@ -6,6 +6,7 @@ use crate::realm::{C, D, F};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
+use jsonrpsee::rpc_params;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{field::types::PrimeField64, plonk::proof::ProofWithPublicInputs};
 use plonky2::field::types::Field;
@@ -47,8 +48,8 @@ pub struct RealmEdgeHandler<
     ctx: RealmEdgeContext<SR, DQ, PS>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
     task_store: Arc<QProvingTaskStoreImpl>,
-    white_list: Arc<WhiteList>
-
+    white_list: Arc<WhiteList>,
+    coordinator_client: HttpClient,
 }
 
 impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
@@ -61,15 +62,18 @@ where
         ctx: RealmEdgeContext<SR, DQ, PS>,
         job_notify_queue: Arc<ProofStoreRedisAsync>,
         task_store: Arc<QProvingTaskStoreImpl>,
-        white_list: Arc<WhiteList>
-
-    ) -> Self {
-        Self {
+        white_list: Arc<WhiteList>,
+        coordinator_addr: &str,
+    ) -> Result<Self, anyhow::Error> {
+        let coordinator_client = HttpClientBuilder::default()
+            .build(coordinator_addr)?;
+        Ok(Self {
             ctx,
             job_notify_queue,
             task_store,
-            white_list
-        }
+            white_list,
+            coordinator_client,
+        })
     }
 
     async fn log_suspicious_activity(&self, job: &QJob, reason: &str) {
@@ -648,7 +652,7 @@ where
                 None::<()>,
             ))?;
 
-        let graph = self.task_store
+        let job_graph = self.task_store
             .load_job_dependency_graph(checkpoint_id)
             .await
             .map_err(|e| ErrorObject::owned(
@@ -691,7 +695,7 @@ where
                 ProvingJobCircuitType::AppendUserRegistrationTree
                 | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
                 | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-                    qed_core::job::id::USER_REGISTRATION_REWARDS_MAX_HEIGHT_MINUS_ONE
+                    qed_core::job::id::USER_REGISTRATION_REWARDS_MAX_HEIGHT
                 }
                 ProvingJobCircuitType::GUTARegisterUsers
                 | ProvingJobCircuitType::GUTAOnlyRegisterUsers
@@ -702,12 +706,12 @@ where
                 | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
                 | ProvingJobCircuitType::GUTALeftGUTARightEndCap
                 | ProvingJobCircuitType::GUTAVerifyToCap => {
-                    qed_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE
+                    qed_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT
                 }
                 ProvingJobCircuitType::BatchDeployContracts
                 | ProvingJobCircuitType::BatchDeployContractsAggregate
                 | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
-                    qed_core::job::id::CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT_MINUS_ONE
+                    qed_core::job::id::CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT
                 }
                 _ => return Err(ErrorObject::owned(
                     jsonrpsee::types::ErrorCode::InvalidParams.code(),
@@ -716,15 +720,28 @@ where
                 )),
             };
 
-            let job_graph = self.task_store.load_job_dependency_graph(checkpoint_id).await.map_err(|e| ErrorObject::owned(
-                jsonrpsee::types::ErrorCode::InternalError.code(),
-                format!("Failed to load job dependency graph: {}", e),
-                None::<()>,
-            ))?;
-
             match job_graph.generate_variable_height_reward_proof(job_id, &*self.ctx.proof_store, max_height).await {
-                Ok((variable_height_proof, root_job_id)) => {
-                    let computed_root = qed_core::job::id::compute_root_from_variable_height_proof(&variable_height_proof);
+                Ok((realm_proof, root_job_id)) => {
+                    let combined_proof = match self.coordinator_client
+                        .request::<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>, _>(
+                            "qed_generate_batch_variable_height_reward_proofs",
+                            jsonrpsee::rpc_params![checkpoint_id, vec![root_job_id]]
+                        ).await {
+                        Ok(coordinator_proofs) if !coordinator_proofs.is_empty() => {
+                            let (coordinator_proof, _) = coordinator_proofs.into_iter().next().unwrap();
+                            realm_proof.combine_with(coordinator_proof)
+                        }
+                        Ok(_) => {
+                            info!("No coordinator proof returned, using realm proof only");
+                            realm_proof
+                        }
+                        Err(e) => {
+                            info!("Failed to get coordinator proof: {}, using realm proof only", e);
+                            realm_proof
+                        }
+                    };
+
+                    let computed_root = qed_core::job::id::compute_root_from_variable_height_proof(&combined_proof);
 
                     if computed_root != expected_root {
                         tracing::warn!(
@@ -734,7 +751,7 @@ where
                         );
                     }
 
-                    proofs.push((variable_height_proof, root_job_id));
+                    proofs.push((combined_proof, root_job_id));
                 }
                 Err(e) => {
                     error!("Failed to generate proof for job {:?}: {}", job_id, e);

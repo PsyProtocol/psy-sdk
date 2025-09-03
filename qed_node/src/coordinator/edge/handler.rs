@@ -1588,7 +1588,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 ProvingJobCircuitType::AppendUserRegistrationTree
                 | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
                 | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-                    qed_core::job::id::USER_REGISTRATION_REWARDS_MAX_HEIGHT_MINUS_ONE
+                    qed_core::job::id::USER_REGISTRATION_REWARDS_MAX_HEIGHT
                 }
                 ProvingJobCircuitType::GUTARegisterUsers
                 | ProvingJobCircuitType::GUTAOnlyRegisterUsers
@@ -1599,12 +1599,12 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
                 | ProvingJobCircuitType::GUTALeftGUTARightEndCap
                 | ProvingJobCircuitType::GUTAVerifyToCap => {
-                    qed_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE
+                    qed_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT
                 }
                 ProvingJobCircuitType::BatchDeployContracts
                 | ProvingJobCircuitType::BatchDeployContractsAggregate
                 | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
-                    qed_core::job::id::CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT_MINUS_ONE
+                    qed_core::job::id::CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT
                 }
                 _ => return Err(ErrorObject::owned(
                     jsonrpsee::types::ErrorCode::InvalidParams.code(),

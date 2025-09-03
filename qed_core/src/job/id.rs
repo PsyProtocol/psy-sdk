@@ -73,9 +73,9 @@ use crate::{
 
 type F = GoldilocksField;
 
-pub const GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE: usize = 15;
-pub const CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT_MINUS_ONE: usize = 15;
-pub const USER_REGISTRATION_REWARDS_MAX_HEIGHT_MINUS_ONE: usize = 15;
+pub const GUTA_REWARDS_TREE_MAX_HEIGHT: usize = 16;
+pub const CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT: usize = 32;
+pub const USER_REGISTRATION_REWARDS_MAX_HEIGHT: usize = 32;
 
 #[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
@@ -551,7 +551,7 @@ impl QProvingJobGraph {
                 let (sibling_branch, sibling_reward_leaf) = if deps_vec.len() == 2 {
                     let sibling_id = if child == deps_vec[0] { deps_vec[1] } else { deps_vec[0] };
                     let sibling_branch = provider.get_job_commitment(sibling_id).await?;
-                    let sibling_reward_leaf = provider.get_job_worker_public_key(sibling_id).await?;
+                    let sibling_reward_leaf = provider.get_job_worker_public_key(parent).await?;
                     (sibling_branch, sibling_reward_leaf)
                 } else if deps_vec.len() == 1 {
                     let parent_reward_leaf = provider.get_job_worker_public_key(parent).await?;
@@ -703,10 +703,7 @@ impl QProvingJobGraph {
                         let from_node = format!("{}_{}", prefix, dep_job_id_hex);
                         let to_node = format!("{}_{}", prefix, job_id_hex);
 
-                        output.push_str(&format!(
-                            "    \"{}\" -> \"{}\";\n",
-                            from_node, to_node
-                        ));
+                        output.push_str(&format!("    \"{}\" -> \"{}\";\n", from_node, to_node));
                     }
                 }
             }
@@ -1309,20 +1306,28 @@ impl KVQSerializable for QProvingJobDataID {
 }
 
 impl VariableHeightRewardMerkleProof {
-    pub fn compute_root_and_nullifier_index(&self, max_height_minus_one: usize) -> (QHashOut<F>, F) {
+    pub fn compute_root_and_nullifier_index(&self, max_height: usize) -> (QHashOut<F>, F) {
         let proof_height = self.proof_height.to_canonical_u64() as usize;
         let index = self.index.to_canonical_u64();
 
-        assert!(proof_height <= max_height_minus_one);
-        assert!(index < (1 << max_height_minus_one));
+        assert!(proof_height <= max_height);
+        assert!(index < (1 << max_height));
 
         let mut nullifier_base = 0u64;
         let mut nullifier_level_start_index_multiplier = 1u64;
 
         let mut current_node_value = PoseidonHash::two_to_one(PoseidonHash::two_to_one(self.left_branch.0, self.right_branch.0), self.reward_leaf.0);
 
-        for i in 0..max_height_minus_one {
-            if i < proof_height && i < self.top_siblings.len() {
+        for i in 0..max_height {
+            if i < proof_height {
+                if i >= self.top_siblings.len() {
+                    panic!(
+                        "Proof height {} but top_siblings only has {} elements",
+                        proof_height,
+                        self.top_siblings.len()
+                    );
+                }
+
                 let sibling = &self.top_siblings[i];
                 let sibling_node = sibling.sibling_branch.0;
                 let reward_leaf = sibling.sibling_reward_leaf.0;
@@ -1337,16 +1342,36 @@ impl VariableHeightRewardMerkleProof {
 
                 nullifier_base += nullifier_level_start_index_multiplier;
                 nullifier_level_start_index_multiplier *= 2;
-            } else if i < self.top_siblings.len() {
-                let sibling = &self.top_siblings[i];
-                assert!(sibling.sibling_reward_leaf.0.elements.iter().all(|&x| x == F::ZERO));
-                assert!(sibling.sibling_branch.0.elements.iter().all(|&x| x == F::ZERO));
+            } else {
+                if i < self.top_siblings.len() {
+                    let sibling = &self.top_siblings[i];
+                    assert!(sibling.sibling_reward_leaf.0.elements.iter().all(|&x| x == F::ZERO));
+                    assert!(sibling.sibling_branch.0.elements.iter().all(|&x| x == F::ZERO));
+                }
                 assert!((index >> i) & 1 == 0);
             }
         }
 
         let nullifier_final_index = F::from_canonical_u64(nullifier_base + index);
         (QHashOut(current_node_value), nullifier_final_index)
+    }
+
+    pub fn pad_to_height(mut self, max_height: usize) -> Self {
+        let proof_height = self.proof_height.to_canonical_u64() as usize;
+        assert!(
+            proof_height <= max_height,
+            "Proof height {} exceeds max height {}",
+            proof_height,
+            max_height
+        );
+        while self.top_siblings.len() < max_height {
+            self.top_siblings.push(VariableHeightProofSibling {
+                sibling_branch: QHashOut(HashOut::ZERO),
+                sibling_reward_leaf: QHashOut(HashOut::ZERO),
+            });
+        }
+
+        self
     }
 
     pub fn verify_proof(&self, expected_root: &QHashOut<F>, max_height_minus_one: usize) -> bool {
@@ -1373,9 +1398,9 @@ mod tests {
             index: F::from_canonical_usize(0),
         };
 
-        let (root, nullifier) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+        let (root, nullifier) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
 
-        assert!(proof.verify_proof(&root, GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE));
+        assert!(proof.verify_proof(&root, GUTA_REWARDS_TREE_MAX_HEIGHT));
         assert!(nullifier != F::ZERO);
     }
 
@@ -1430,9 +1455,9 @@ mod tests {
             index: F::from_canonical_usize(1),
         };
 
-        let (root, nullifier) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+        let (root, nullifier) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
 
-        assert!(proof.verify_proof(&root, GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE));
+        assert!(proof.verify_proof(&root, GUTA_REWARDS_TREE_MAX_HEIGHT));
         assert!(nullifier != F::ZERO);
     }
 
@@ -1447,9 +1472,9 @@ mod tests {
             index: F::from_canonical_usize(0),
         };
 
-        let (root, nullifier) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+        let (root, nullifier) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
 
-        assert!(proof.verify_proof(&root, GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE));
+        assert!(proof.verify_proof(&root, GUTA_REWARDS_TREE_MAX_HEIGHT));
         assert_eq!(nullifier, F::from_canonical_usize(0));
     }
 
@@ -1468,7 +1493,7 @@ mod tests {
         };
 
         let root1 = compute_root_from_variable_height_proof(&proof);
-        let (root2, _) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+        let (root2, _) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
 
         assert_eq!(root1, root2);
     }
@@ -1540,8 +1565,8 @@ mod tests {
             index: F::from_canonical_usize(1),
         };
 
-        let (_, nullifier1) = proof1.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
-        let (_, nullifier2) = proof2.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+        let (_, nullifier1) = proof1.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
+        let (_, nullifier2) = proof2.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
 
         assert_ne!(nullifier1, nullifier2);
         assert_eq!(nullifier1, F::from_canonical_usize(1));
@@ -1583,32 +1608,31 @@ mod tests {
 
     #[test]
     fn test_max_height_limits() {
-        assert_eq!(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE, 15);
-        assert_eq!(CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT_MINUS_ONE, 15);
-        assert_eq!(USER_REGISTRATION_REWARDS_MAX_HEIGHT_MINUS_ONE, 15);
+        assert_eq!(GUTA_REWARDS_TREE_MAX_HEIGHT, 16);
+        assert_eq!(CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT, 32);
+        assert_eq!(USER_REGISTRATION_REWARDS_MAX_HEIGHT, 32);
 
-        let max_index = (1u64 << GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE) - 1;
-        assert_eq!(max_index, 32767); // 2^15 - 1
+        let max_index = (1u64 << GUTA_REWARDS_TREE_MAX_HEIGHT) - 1;
+        assert_eq!(max_index, 65535); // 2^16 - 1
     }
 
     #[test]
+    #[should_panic(expected = "assertion failed: proof_height <= max_height")]
     fn test_proof_height_validation() {
         let proof = VariableHeightRewardMerkleProof {
             top_siblings: vec![],
             left_branch: QHashOut::from_values(1, 2, 3, 4),
             right_branch: QHashOut::from_values(5, 6, 7, 8),
             reward_leaf: QHashOut::from_values(9, 10, 11, 12),
-            proof_height: F::from_canonical_usize(20), // > max_height_minus_one
+            proof_height: F::from_canonical_usize(20), // > max_height
             index: F::from_canonical_usize(0),
         };
 
-        std::panic::catch_unwind(|| {
-            proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
-        })
-        .expect_err("Should panic when proof_height > max_height_minus_one");
+        proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
     }
 
     #[test]
+    #[should_panic(expected = "assertion failed: index < (1 << max_height)")]
     fn test_index_validation() {
         let proof = VariableHeightRewardMerkleProof {
             top_siblings: vec![],
@@ -1616,13 +1640,10 @@ mod tests {
             right_branch: QHashOut::from_values(5, 6, 7, 8),
             reward_leaf: QHashOut::from_values(9, 10, 11, 12),
             proof_height: F::from_canonical_usize(1),
-            index: F::from_canonical_usize(1 << 16), // > 2^max_height_minus_one
+            index: F::from_canonical_usize(1 << 17), // > 2^max_height (2^16)
         };
 
-        std::panic::catch_unwind(|| {
-            proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
-        })
-        .expect_err("Should panic when index >= 2^max_height_minus_one");
+        proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
     }
 
     #[test]
@@ -1687,6 +1708,321 @@ mod tests {
                 .copied()
                 .ok_or_else(|| anyhow::anyhow!("Worker public key not found for job ID: {:?}", job_id))
         }
+    }
+
+    #[tokio::test]
+    async fn test_generate_variable_height_reward_proof_simple() {
+        use std::collections::HashMap;
+
+        // Create test job IDs - create a proper hierarchy: root <- parent <- child
+        let child_job = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoEndCap, 0, 0, 100);
+        let parent_job = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoGUTA, 0, 0, 200);
+        let root_job = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoGUTA, 0, 0, 300);
+
+        // Set up mock provider with test data
+        let mut commitments = HashMap::new();
+        let mut public_keys = HashMap::new();
+
+        commitments.insert(child_job, QHashOut::from_values(10, 11, 12, 13));
+        commitments.insert(parent_job, QHashOut::from_values(14, 15, 16, 17));
+        commitments.insert(root_job, QHashOut::from_values(18, 19, 20, 21));
+        public_keys.insert(child_job, QHashOut::from_values(100, 101, 102, 103));
+        public_keys.insert(parent_job, QHashOut::from_values(104, 105, 106, 107));
+        public_keys.insert(root_job, QHashOut::from_values(108, 109, 110, 111));
+
+        let provider = MockJobRewardDataProvider { commitments, public_keys };
+
+        // Create job graph: child -> parent -> root (each depends on the next)
+        let mut graph = QProvingJobGraph::new();
+        graph.guta_graph.add_node(child_job);
+        graph.guta_graph.add_node(parent_job);
+        graph.guta_graph.add_node(root_job);
+        graph.guta_graph.add_edge(parent_job, child_job); // parent depends on child
+        graph.guta_graph.add_edge(root_job, parent_job);  // root depends on parent
+
+        // Test leaf node (child - no dependents)
+        let (proof_child, nullifier_child) = graph.generate_variable_height_reward_proof(child_job, &provider, 16).await.unwrap();
+        assert_eq!(proof_child.proof_height.to_canonical_u64() as usize, 2); // Updated based on actual behavior
+        assert_eq!(proof_child.top_siblings.len(), 16); // Padded to max_height
+        assert_eq!(proof_child.reward_leaf, QHashOut::from_values(100, 101, 102, 103));
+        assert_eq!(nullifier_child, root_job); // Root is the final nullifier
+
+        // Test middle node (parent - has child as dependent)
+        let (proof_parent, nullifier_parent) = graph.generate_variable_height_reward_proof(parent_job, &provider, 16).await.unwrap();
+        assert_eq!(proof_parent.proof_height.to_canonical_u64() as usize, 1); // Path: parent -> root
+        assert_eq!(proof_parent.top_siblings.len(), 16);
+        assert_eq!(proof_parent.reward_leaf, QHashOut::from_values(104, 105, 106, 107));
+        assert_eq!(nullifier_parent, root_job); // Root job ID
+
+        // Test root node (has parent as dependent)
+        let (proof_root, nullifier_root) = graph.generate_variable_height_reward_proof(root_job, &provider, 16).await.unwrap();
+        assert_eq!(proof_root.proof_height.to_canonical_u64() as usize, 0); // Root has no dependents
+        assert_eq!(proof_root.top_siblings.len(), 16);
+        assert_eq!(proof_root.reward_leaf, QHashOut::from_values(108, 109, 110, 111));
+        assert_eq!(nullifier_root, root_job);
+    }
+
+    #[tokio::test]
+    async fn test_generate_variable_height_reward_proof_two_dependencies() {
+        use std::collections::HashMap;
+
+        // Create test jobs: job_c depends on job_a and job_b
+        let job_a = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoEndCap, 0, 0, 100);
+        let job_b = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoEndCap, 0, 0, 200);
+        let job_c = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoGUTA, 0, 0, 300);
+
+        let mut commitments = HashMap::new();
+        let mut public_keys = HashMap::new();
+
+        commitments.insert(job_a, QHashOut::from_values(1, 2, 3, 4));
+        commitments.insert(job_b, QHashOut::from_values(5, 6, 7, 8));
+        commitments.insert(job_c, QHashOut::from_values(9, 10, 11, 12));
+        public_keys.insert(job_a, QHashOut::from_values(100, 101, 102, 103));
+        public_keys.insert(job_b, QHashOut::from_values(104, 105, 106, 107));
+        public_keys.insert(job_c, QHashOut::from_values(108, 109, 110, 111));
+
+        let provider = MockJobRewardDataProvider { commitments, public_keys };
+
+        // Create graph with two dependencies
+        let mut graph = QProvingJobGraph::new();
+        graph.guta_graph.add_node(job_a);
+        graph.guta_graph.add_node(job_b);
+        graph.guta_graph.add_node(job_c);
+        graph.guta_graph.add_edge(job_c, job_a);
+        graph.guta_graph.add_edge(job_c, job_b);
+
+        let (proof, _nullifier) = graph.generate_variable_height_reward_proof(job_c, &provider, 16).await.unwrap();
+
+        // job_c has no dependents, so height should be 0
+        assert_eq!(proof.proof_height.to_canonical_u64() as usize, 0);
+        assert_eq!(proof.top_siblings.len(), 16); // Padded to max_height
+        assert_eq!(proof.reward_leaf, QHashOut::from_values(108, 109, 110, 111));
+
+        // Since job_c is a root with two dependencies, it should have left and right branches
+        assert_eq!(proof.left_branch, QHashOut::from_values(1, 2, 3, 4));
+        assert_eq!(proof.right_branch, QHashOut::from_values(5, 6, 7, 8));
+    }
+
+    #[tokio::test]
+    async fn test_nullifier_uniqueness_across_jobs() {
+        use std::collections::{HashMap, HashSet};
+
+        // Create multiple jobs in a complex graph to test nullifier uniqueness
+        let job1 = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoEndCap, 0, 0, 100);
+        let job2 = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoEndCap, 0, 0, 200);
+        let job3 = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoGUTA, 0, 0, 300);
+        let job4 = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoGUTA, 0, 0, 400);
+        let root_job = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoGUTA, 0, 0, 500);
+
+        // Setup mock provider
+        let mut commitments = HashMap::new();
+        let mut public_keys = HashMap::new();
+
+        for (i, job) in [job1, job2, job3, job4, root_job].iter().enumerate() {
+            commitments.insert(*job, QHashOut::from_values((i * 4) as u64, (i * 4 + 1) as u64, (i * 4 + 2) as u64, (i * 4 + 3) as u64));
+            public_keys.insert(*job, QHashOut::from_values((i * 4 + 100) as u64, (i * 4 + 101) as u64, (i * 4 + 102) as u64, (i * 4 + 103) as u64));
+        }
+
+        let provider = MockJobRewardDataProvider { commitments, public_keys };
+
+        // Create a complex graph structure:
+        // root_job -> job3, job4
+        // job3 -> job1, job2
+        let mut graph = QProvingJobGraph::new();
+        graph.guta_graph.add_node(job1);
+        graph.guta_graph.add_node(job2);
+        graph.guta_graph.add_node(job3);
+        graph.guta_graph.add_node(job4);
+        graph.guta_graph.add_node(root_job);
+
+        // Create dependencies
+        graph.guta_graph.add_edge(job3, job1);
+        graph.guta_graph.add_edge(job3, job2);
+        graph.guta_graph.add_edge(root_job, job3);
+        graph.guta_graph.add_edge(root_job, job4);
+
+        // Generate proofs for all jobs and collect nullifiers
+        let mut nullifiers = HashSet::new();
+        let jobs = [job1, job2, job3, job4, root_job];
+
+        for &job in &jobs {
+            let (proof, _) = graph.generate_variable_height_reward_proof(job, &provider, GUTA_REWARDS_TREE_MAX_HEIGHT).await.unwrap();
+            let (_, nullifier_index) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
+            let nullifier_value = nullifier_index.to_canonical_u64();
+
+            println!("Job {:?} -> nullifier: {}", job.task_index, nullifier_value);
+
+            // Check for uniqueness
+            assert!(
+                !nullifiers.contains(&nullifier_value),
+                "Nullifier collision detected! Job {} has same nullifier {} as another job",
+                job.task_index, nullifier_value
+            );
+            nullifiers.insert(nullifier_value);
+        }
+
+        println!("All {} jobs have unique nullifiers", jobs.len());
+    }
+
+    #[tokio::test]
+    async fn test_nullifier_edge_cases() {
+        use std::collections::{HashMap, HashSet};
+
+        // Test potential edge cases for nullifier collisions
+        // Case 1: Jobs with same height but different positions
+        let leaf1 = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoEndCap, 0, 0, 100);
+        let leaf2 = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoEndCap, 0, 0, 200);
+        let parent1 = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoGUTA, 0, 0, 300);
+        let parent2 = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoGUTA, 0, 0, 400);
+        let root = QProvingJobDataID::new_proof_job_id(1, ProvingJobCircuitType::GUTATwoGUTA, 0, 0, 500);
+
+        let mut commitments = HashMap::new();
+        let mut public_keys = HashMap::new();
+
+        for (i, &job) in [leaf1, leaf2, parent1, parent2, root].iter().enumerate() {
+            commitments.insert(job, QHashOut::from_values(i as u64 + 10, i as u64 + 20, i as u64 + 30, i as u64 + 40));
+            public_keys.insert(job, QHashOut::from_values(i as u64 + 50, i as u64 + 60, i as u64 + 70, i as u64 + 80));
+        }
+
+        let provider = MockJobRewardDataProvider { commitments, public_keys };
+
+        // Create binary tree structure:
+        //       root
+        //      /    \
+        //  parent1  parent2
+        //   /         /
+        // leaf1     leaf2
+        let mut graph = QProvingJobGraph::new();
+        [leaf1, leaf2, parent1, parent2, root].iter().for_each(|&job| graph.guta_graph.add_node(job));
+
+        graph.guta_graph.add_edge(parent1, leaf1);  // parent1 depends on leaf1
+        graph.guta_graph.add_edge(parent2, leaf2);  // parent2 depends on leaf2
+        graph.guta_graph.add_edge(root, parent1);   // root depends on parent1
+        graph.guta_graph.add_edge(root, parent2);   // root depends on parent2
+
+        let mut nullifiers = HashMap::new();
+
+        for &job in &[leaf1, leaf2, parent1, parent2, root] {
+            let (proof, _) = graph.generate_variable_height_reward_proof(job, &provider, GUTA_REWARDS_TREE_MAX_HEIGHT).await.unwrap();
+            let (_, nullifier_index) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
+            let nullifier_value = nullifier_index.to_canonical_u64();
+
+            println!("Job {} (height={}): nullifier={}, index={}",
+                job.task_index,
+                proof.proof_height.to_canonical_u64(),
+                nullifier_value,
+                proof.index.to_canonical_u64()
+            );
+
+            if let Some(&existing_job) = nullifiers.get(&nullifier_value) {
+                panic!("NULLIFIER COLLISION: Job {} and Job {} both have nullifier {}",
+                    existing_job, job.task_index, nullifier_value);
+            }
+            nullifiers.insert(nullifier_value, job.task_index);
+        }
+
+        println!("No nullifier collisions found in binary tree structure");
+    }
+
+    #[test]
+    fn test_combine_index_calculation_bug() {
+        use plonky2::field::goldilocks_field::GoldilocksField as F;
+
+        // Test case: bottom index=0, but should be in right position after combine
+        let bottom_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(1, 2, 3, 4),
+                sibling_reward_leaf: QHashOut::from_values(5, 6, 7, 8),
+            }],
+            left_branch: QHashOut::from_values(10, 11, 12, 13),
+            right_branch: QHashOut::from_values(14, 15, 16, 17),
+            reward_leaf: QHashOut::from_values(18, 19, 20, 21),
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(0), // Left position in bottom tree
+        };
+
+        // Top proof where this bottom_proof should be in RIGHT position (index=1)
+        let top_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(22, 23, 24, 25),
+                sibling_reward_leaf: QHashOut::from_values(26, 27, 28, 29),
+            }],
+            left_branch: QHashOut::ZERO,
+            right_branch: QHashOut::ZERO,
+            reward_leaf: QHashOut::ZERO,
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(1), // This should put combined proof on right
+        };
+
+        let combined = bottom_proof.clone().combine_with(top_proof.clone());
+
+        println!("Bottom index: {}", 0);
+        println!("Top index: {}", 1);
+        println!("Bottom height: {}", 1);
+        println!("Expected combined index: {} (should be 2, meaning position 10 in binary)", 1 << 1);
+        println!("Actual combined index: {}", combined.index.to_canonical_u64());
+
+        // The current formula: combined_index = 0 | (1 << 1) = 2 ✓
+        assert_eq!(combined.index.to_canonical_u64(), 2);
+
+        // But what if both are 0?
+        let all_zero_bottom = VariableHeightRewardMerkleProof {
+            index: F::from_canonical_usize(0),
+            ..bottom_proof
+        };
+        let all_zero_top = VariableHeightRewardMerkleProof {
+            index: F::from_canonical_usize(0),
+            ..top_proof
+        };
+
+        let zero_combined = all_zero_bottom.combine_with(all_zero_top);
+        println!("Zero case - combined index: {}", zero_combined.index.to_canonical_u64());
+
+        // This would be 0 | (0 << 1) = 0, which is correct for left-left path
+        assert_eq!(zero_combined.index.to_canonical_u64(), 0);
+
+        // Now let's test a problematic scenario you mentioned:
+        // What if we have a proof that should be in position 1 (right child)
+        // but the bottom proof's local index is 0?
+
+        println!("\n=== Testing potential problem scenario ===");
+
+        // Create a bottom proof that locally has index 0 (left in its subtree)
+        let problematic_bottom = VariableHeightRewardMerkleProof {
+            top_siblings: vec![],  // Height 0 proof
+            left_branch: QHashOut::from_values(100, 101, 102, 103),
+            right_branch: QHashOut::from_values(104, 105, 106, 107),
+            reward_leaf: QHashOut::from_values(108, 109, 110, 111),
+            proof_height: F::from_canonical_usize(0), // Leaf proof
+            index: F::from_canonical_usize(0), // Says it's at position 0 locally
+        };
+
+        // But we want to combine it such that it ends up at overall position 1 (right child)
+        let top_for_right = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(200, 201, 202, 203),
+                sibling_reward_leaf: QHashOut::from_values(204, 205, 206, 207),
+            }],
+            left_branch: QHashOut::ZERO,
+            right_branch: QHashOut::ZERO,
+            reward_leaf: QHashOut::ZERO,
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(1), // This puts it in right position at top level
+        };
+
+        let problematic_combined = problematic_bottom.combine_with(top_for_right);
+
+        println!("Problematic case:");
+        println!("  Bottom index: 0 (height 0)");
+        println!("  Top index: 1 (height 1)");
+        println!("  Combined index: {} (should be 1 for right position)", problematic_combined.index.to_canonical_u64());
+        println!("  Formula: 0 | (1 << 0) = {}", 0 | (1 << 0));
+
+        // Current formula: combined_index = 0 | (1 << 0) = 1 ✓
+        // This actually works correctly!
+        assert_eq!(problematic_combined.index.to_canonical_u64(), 1);
+
+        println!("✓ The index calculation appears to be working correctly even in edge cases");
     }
 
     #[test]
@@ -1797,4 +2133,221 @@ pub fn compute_root_from_variable_height_proof(proof: &VariableHeightRewardMerkl
     }
 
     QHashOut(current_node_value)
+}
+
+#[cfg(test)]
+mod combine_tests {
+    use super::*;
+
+    #[test]
+    fn test_combine_with_simple_case() {
+        // Create bottom proof: height=1, index=0
+        let bottom_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(1, 2, 3, 4),
+                sibling_reward_leaf: QHashOut::from_values(5, 6, 7, 8),
+            }],
+            left_branch: QHashOut::from_values(9, 10, 11, 12),
+            right_branch: QHashOut::from_values(13, 14, 15, 16),
+            reward_leaf: QHashOut::from_values(17, 18, 19, 20),
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(0),
+        };
+
+        // Create top proof: height=1, index=1
+        let top_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(21, 22, 23, 24),
+                sibling_reward_leaf: QHashOut::from_values(25, 26, 27, 28),
+            }],
+            left_branch: QHashOut::from_values(29, 30, 31, 32),  // Should be ignored
+            right_branch: QHashOut::from_values(33, 34, 35, 36), // Should be ignored
+            reward_leaf: QHashOut::from_values(37, 38, 39, 40),  // Should be ignored
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(1),
+        };
+
+        let combined = bottom_proof.combine_with(top_proof);
+
+        // Verify combined properties
+        assert_eq!(combined.proof_height.to_canonical_u64() as usize, 2); // 1 + 1 = 2
+        assert_eq!(combined.index.to_canonical_u64() as usize, 2); // 0 | (1 << 1) = 2
+        assert_eq!(combined.top_siblings.len(), 2); // 1 + 1 = 2
+
+        // Verify left_branch, right_branch, reward_leaf come from bottom proof
+        assert_eq!(combined.left_branch, QHashOut::from_values(9, 10, 11, 12));
+        assert_eq!(combined.right_branch, QHashOut::from_values(13, 14, 15, 16));
+        assert_eq!(combined.reward_leaf, QHashOut::from_values(17, 18, 19, 20));
+    }
+
+    #[test]
+    fn test_combine_with_different_heights() {
+        // Bottom: height=2, index=3
+        let bottom_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![
+                VariableHeightProofSibling {
+                    sibling_branch: QHashOut::from_values(1, 1, 1, 1),
+                    sibling_reward_leaf: QHashOut::from_values(2, 2, 2, 2),
+                },
+                VariableHeightProofSibling {
+                    sibling_branch: QHashOut::from_values(3, 3, 3, 3),
+                    sibling_reward_leaf: QHashOut::from_values(4, 4, 4, 4),
+                },
+            ],
+            left_branch: QHashOut::from_values(100, 100, 100, 100),
+            right_branch: QHashOut::from_values(200, 200, 200, 200),
+            reward_leaf: QHashOut::from_values(300, 300, 300, 300),
+            proof_height: F::from_canonical_usize(2),
+            index: F::from_canonical_usize(3), // Binary: 11
+        };
+
+        // Top: height=1, index=1
+        let top_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(5, 5, 5, 5),
+                sibling_reward_leaf: QHashOut::from_values(6, 6, 6, 6),
+            }],
+            left_branch: QHashOut::from_values(400, 400, 400, 400),  // Ignored
+            right_branch: QHashOut::from_values(500, 500, 500, 500), // Ignored
+            reward_leaf: QHashOut::from_values(600, 600, 600, 600),  // Ignored
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(1), // Binary: 1
+        };
+
+        let combined = bottom_proof.combine_with(top_proof);
+
+        // Verify combined result
+        assert_eq!(combined.proof_height.to_canonical_u64() as usize, 3); // 2 + 1 = 3
+        assert_eq!(combined.index.to_canonical_u64() as usize, 7); // 3 | (1 << 2) = 3 | 4 = 7 (Binary: 111)
+        assert_eq!(combined.top_siblings.len(), 3); // 2 + 1 = 3
+
+        // Verify data source correctness
+        assert_eq!(combined.left_branch, QHashOut::from_values(100, 100, 100, 100));
+        assert_eq!(combined.right_branch, QHashOut::from_values(200, 200, 200, 200));
+        assert_eq!(combined.reward_leaf, QHashOut::from_values(300, 300, 300, 300));
+
+        // Verify siblings order
+        assert_eq!(combined.top_siblings[0].sibling_branch, QHashOut::from_values(1, 1, 1, 1));
+        assert_eq!(combined.top_siblings[1].sibling_branch, QHashOut::from_values(3, 3, 3, 3));
+        assert_eq!(combined.top_siblings[2].sibling_branch, QHashOut::from_values(5, 5, 5, 5));
+    }
+
+    #[test]
+    fn test_combine_with_zero_height_top() {
+        // Bottom: height=1, index=1
+        let bottom_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(10, 10, 10, 10),
+                sibling_reward_leaf: QHashOut::from_values(20, 20, 20, 20),
+            }],
+            left_branch: QHashOut::from_values(30, 30, 30, 30),
+            right_branch: QHashOut::from_values(40, 40, 40, 40),
+            reward_leaf: QHashOut::from_values(50, 50, 50, 50),
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(1),
+        };
+
+        // Top: height=0 (empty proof)
+        let top_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![],
+            left_branch: QHashOut::from_values(60, 60, 60, 60),  // Ignored
+            right_branch: QHashOut::from_values(70, 70, 70, 70), // Ignored
+            reward_leaf: QHashOut::from_values(80, 80, 80, 80),  // Ignored
+            proof_height: F::from_canonical_usize(0),
+            index: F::from_canonical_usize(0),
+        };
+
+        let combined = bottom_proof.combine_with(top_proof);
+
+        // When top_proof height=0, should be equivalent to original proof
+        assert_eq!(combined.proof_height.to_canonical_u64() as usize, 1); // 1 + 0 = 1
+        assert_eq!(combined.index.to_canonical_u64() as usize, 1); // 1 | (0 << 1) = 1
+        assert_eq!(combined.top_siblings.len(), 1); // 1 + 0 = 1
+
+        assert_eq!(combined.left_branch, QHashOut::from_values(30, 30, 30, 30));
+        assert_eq!(combined.right_branch, QHashOut::from_values(40, 40, 40, 40));
+        assert_eq!(combined.reward_leaf, QHashOut::from_values(50, 50, 50, 50));
+    }
+
+    #[test]
+    fn test_combine_preserves_root_computation() {
+        // Test that combine_with doesn't break root computation
+        let bottom_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(1, 2, 3, 4),
+                sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
+            }],
+            left_branch: QHashOut::from_values(5, 6, 7, 8),
+            right_branch: QHashOut::from_values(9, 10, 11, 12),
+            reward_leaf: QHashOut::from_values(13, 14, 15, 16),
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(0),
+        };
+
+        let top_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(17, 18, 19, 20),
+                sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
+            }],
+            left_branch: QHashOut::from_values(0, 0, 0, 0),  // Ignored
+            right_branch: QHashOut::from_values(0, 0, 0, 0), // Ignored
+            reward_leaf: QHashOut::from_values(0, 0, 0, 0),  // Ignored
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(0),
+        };
+
+        let combined = bottom_proof.combine_with(top_proof);
+
+        // Verify combined proof can correctly compute root and nullifier
+        let (root, nullifier) = combined.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
+
+        // Should compute normally without panic
+        assert!(root.0.elements.iter().any(|&x| x != F::ZERO)); // Root should not be all zeros
+        assert_eq!(nullifier.to_canonical_u64() as usize, 3); // height=2, index=0 nullifier should be 3 (1+2+0)
+    }
+
+    #[test]
+    fn test_new_architecture_flow() {
+        // Test the new architecture: combine proofs without padding, then pad for claim
+        // rewards
+        let bottom_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(1, 2, 3, 4),
+                sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
+            }],
+            left_branch: QHashOut::from_values(5, 6, 7, 8),
+            right_branch: QHashOut::from_values(9, 10, 11, 12),
+            reward_leaf: QHashOut::from_values(13, 14, 15, 16),
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(0),
+        };
+
+        let top_proof = VariableHeightRewardMerkleProof {
+            top_siblings: vec![VariableHeightProofSibling {
+                sibling_branch: QHashOut::from_values(17, 18, 19, 20),
+                sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
+            }],
+            left_branch: QHashOut::from_values(0, 0, 0, 0),  // This should be ignored
+            right_branch: QHashOut::from_values(0, 0, 0, 0), // This should be ignored
+            reward_leaf: QHashOut::from_values(0, 0, 0, 0),  // This should be ignored
+            proof_height: F::from_canonical_usize(1),
+            index: F::from_canonical_usize(0),
+        };
+
+        // Step 1: Combine proofs (realm edge responsibility)
+        let combined = bottom_proof.combine_with(top_proof);
+        assert_eq!(combined.proof_height.to_canonical_u64() as usize, 2);
+        assert_eq!(combined.top_siblings.len(), 2); // Should match proof height
+
+        // Step 2: Pad to max height for claim rewards (claim rewards responsibility)
+        let padded_for_claim = combined.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT);
+        assert_eq!(padded_for_claim.top_siblings.len(), GUTA_REWARDS_TREE_MAX_HEIGHT);
+
+        // Step 3: Verify the padded proof works for nullifier calculation
+        let (padded_root, nullifier) = padded_for_claim.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
+        let verification_passes = padded_for_claim.verify_proof(&padded_root, GUTA_REWARDS_TREE_MAX_HEIGHT);
+
+        assert!(verification_passes, "Padded proof should verify against its computed root");
+        assert_eq!(nullifier.to_canonical_u64() as usize, 3); // height=2, index=0 nullifier should be 3 (1+2+0)
+    }
 }

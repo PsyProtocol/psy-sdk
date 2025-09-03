@@ -11,13 +11,13 @@ mod tests {
     #[test]
     fn test_contract_id_lookup() {
         // Test contract ID lookup by name
-        assert_eq!(get_contract_id_by_name("rewards"), Some(0));
-        assert_eq!(get_contract_id_by_name("token"), Some(1));
+        assert_eq!(get_contract_id_by_name("token"), Some(0));
+        assert_eq!(get_contract_id_by_name("rewards"), Some(1));
         assert_eq!(get_contract_id_by_name("nonexistent"), None);
 
         // Test function lookup by contract ID
-        let rewards_functions = get_precompiled_contract_functions(0);
-        let token_functions = get_precompiled_contract_functions(1);
+        let token_functions = get_precompiled_contract_functions(0);
+        let rewards_functions = get_precompiled_contract_functions(1);
 
         println!("Rewards functions available: {}", rewards_functions.is_some());
         println!("Token functions available: {}", token_functions.is_some());
@@ -113,7 +113,7 @@ mod tests {
         assert_eq!(get_contract_id_by_name("token"), Some(TOKEN_CONTRACT_ID));
 
         // Test that constants are consecutive starting from 0
-        assert_eq!(REWARDS_CONTRACT_ID, 0);
-        assert_eq!(TOKEN_CONTRACT_ID, 1);
+        assert_eq!(TOKEN_CONTRACT_ID, 0);
+        assert_eq!(REWARDS_CONTRACT_ID, 1);
     }
 }
