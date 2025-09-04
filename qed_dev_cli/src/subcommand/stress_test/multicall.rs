@@ -16,6 +16,14 @@ use std::sync::Arc;
 use std::time::Instant;
 use tracing::log::{error, info};
 
+const USER0_PRIVATE_KEY: &str = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a";
+const USER0_PUBLIC_KEY: &str = "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5";
+const USER0_SECP_ZK_PUBLIC_KEY: &str = "49deab842acf3d26236419d4fce1b2cb01081aef55d4ef0e566f980e3890cf2f";
+
+const USER1_PRIVATE_KEY: &str = "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d";
+const USER1_PUBLIC_KEY: &str = "0aa313de0677ed55f51cca7094b519d53d661f131f481a03e12e45f0f3389f12";
+const USER1_SECP_ZK_PUBLIC_KEY: &str = "ac85e11f5c8a53241502c4519567aa3f02d30b1639fc49bb94c1d61335197e1a";
+
 pub async fn run(args: StressTestArgs) -> Result<()> {
     let rpc_config = load_rpc_config(&args.config)?;
     let multicall = Multicast::new(rpc_config)?;
@@ -33,6 +41,9 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
             }
             if args.only_multi_transfer {
                 multicall.batch_multi_transfer(args.concurrent_tasks as u64).unwrap();
+            }
+            if args.only_multi_user_transfer {
+                multicall.multi_user_transfer(args.concurrent_tasks as u64).unwrap();
             }
             if args.only_mint {
                 multicall.multi_user_mint(args.concurrent_tasks as u64).unwrap();
@@ -302,20 +313,56 @@ impl Multicast {
     pub fn multi_user_transfer(&self, count: u64) -> Result<()> {
         let user_info = self.register_batch_user(count)?;
         let mut contract_call_args = vec![];
-        let from_user_id = user_info[0].user_id;
-        let mint_amount = 100000u64;
-        let transfer_amount = 2u64;
-        contract_call_args.push(ContractCallArgs {
-            contract_id: 0,
-            method_name: "simple_mint".to_string(),
-            inputs: vec![mint_amount],
-        });
-        {self.wallet_session.write().add_user(user_info[0].pk.clone())?;}
-
+        let transfer_amount = 100000u64;
+        for i in 0..user_info.len() {
+            contract_call_args.push(ContractCallArgs {
+                contract_id: 0,
+                method_name: "simple_transfer".to_string(),
+                inputs: vec![user_info[i].user_id, transfer_amount],
+            });
+            {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
+        }
+        let from_user_id = 0;
+        {self.wallet_session.write().add_user(QHashOut::from_string_or_panic(USER0_PRIVATE_KEY))?;}
+        self.exec_contract_call(QHashOut::from_string_or_panic(USER0_SECP_ZK_PUBLIC_KEY), contract_call_args)?;
         if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
-            return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
+            return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
+        }
+        for i in 0..user_info.len() {
+            self.exec_contract_call(user_info[i].pub_key, vec![ContractCallArgs {
+                contract_id: 0,
+                method_name: "simple_claim".to_string(),
+                inputs: vec![from_user_id],
+            }])?;
+        }
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+            return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
         }
         info!("multi_user_transfer: end call");
+        Ok(())
+    }
+
+    pub fn transfer(&self, to_user_id: u64, to_user_public_key: QHashOut<GoldilocksField>, amount: u64) -> Result<()> {
+        let from_user_id = 0;
+        {self.wallet_session.write().add_user(QHashOut::from_string_or_panic(USER0_PRIVATE_KEY))?;}
+        self.exec_contract_call(QHashOut::from_string_or_panic(USER0_SECP_ZK_PUBLIC_KEY), vec![ContractCallArgs {
+            contract_id: 0,
+            method_name: "simple_transfer".to_string(),
+            inputs: vec![to_user_id, amount],
+        }])?;
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+            return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
+        }
+        self.exec_contract_call(to_user_public_key, vec![ContractCallArgs {
+            contract_id: 0,
+            method_name: "simple_claim".to_string(),
+            inputs: vec![from_user_id],
+        }])?;
+
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+            return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
+        }
+        info!("transfer: end call");
         Ok(())
     }
 
