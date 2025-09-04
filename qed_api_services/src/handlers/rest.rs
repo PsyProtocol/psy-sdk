@@ -34,6 +34,10 @@ pub fn create_router(api_service: ApiService) -> Router {
             get(worker_stats_handler),
         )
         .route("/rewards/{worker_public_key}", get(worker_rewards_handler))
+        .route(
+            "/rewards_aggregations/{worker_public_key}",
+            get(worker_rewards_aggregations_handler),
+        )
         .route("/leaderboard/workers", get(worker_leaderboard_handler))
         .with_state(api_service)
 }
@@ -554,6 +558,67 @@ async fn worker_leaderboard_handler(
         }
         Err(e) => {
             tracing::error!("Failed to retrieve worker leaderboard: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkerRewardsAggregationQuery {
+    pub bucket: String, // e.g., "1d", "1w", "1m"
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub limit: Option<i64>, // Number of buckets to return (default 100)
+}
+
+async fn worker_rewards_aggregations_handler(
+    State(service): State<ApiService>,
+    Path(worker_public_key): Path<String>,
+    Query(query): Query<WorkerRewardsAggregationQuery>,
+) -> Result<Json<Vec<WorkerRewardsAggregation>>, StatusCode> {
+    tracing::info!(
+        "Worker rewards aggregations request for worker: {}, bucket: {}",
+        worker_public_key,
+        query.bucket
+    );
+
+    // Determine view name based on bucket interval
+    let view_name = match query.bucket.as_str() {
+        "1d" => "worker_rewards_1d",
+        "1w" => "worker_rewards_1w",
+        "1m" => "worker_rewards_1m",
+        _ => {
+            tracing::warn!("Invalid bucket parameter: {}", query.bucket);
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    };
+
+    let limit = query.limit.unwrap_or(100).min(1000).max(1);
+
+    match WorkerRewardsAggregationRepository::get_aggregations(
+        &service.pool,
+        view_name,
+        &worker_public_key,
+        query.start_time,
+        query.end_time,
+        limit,
+    )
+    .await
+    {
+        Ok(aggregations) => {
+            tracing::info!(
+                "Retrieved {} worker rewards aggregation entries for worker: {}",
+                aggregations.len(),
+                worker_public_key
+            );
+            Ok(Json(aggregations))
+        }
+        Err(e) => {
+            tracing::error!(
+                "Failed to retrieve worker rewards aggregations for worker {}: {}",
+                worker_public_key,
+                e
+            );
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }

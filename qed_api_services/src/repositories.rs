@@ -5,7 +5,7 @@ use sqlx::PgPool;
 use crate::models::{
     job_id_to_json, GlobalRealmStats, RealmStats, TpsData, UserEvent, UserEventAggregation,
     UserEventTxType, UserInfo, WorkerEvent, WorkerEventAggregation, WorkerEventReward,
-    WorkerEventSource, WorkerEventStatus, WorkerLeaderboardEntry, WorkerRewards, WorkerStats,
+    WorkerEventSource, WorkerEventStatus, WorkerLeaderboardEntry, WorkerRewards, WorkerRewardsAggregation, WorkerStats,
 };
 use crate::Result;
 
@@ -20,6 +20,7 @@ pub struct WorkerRewardsRepository;
 pub struct WorkerEventRewardRepository;
 pub struct TpsRepository;
 pub struct WorkerLeaderboardRepository;
+pub struct WorkerRewardsAggregationRepository;
 
 impl UserRepository {
     /// Create a new user
@@ -1266,5 +1267,44 @@ impl WorkerLeaderboardRepository {
             .collect();
 
         Ok(entries)
+    }
+}
+
+/// Worker Rewards Aggregation Repository
+impl WorkerRewardsAggregationRepository {
+    /// Get worker rewards aggregations from materialized views
+    /// Note: Uses dynamic query for flexible view selection
+    pub async fn get_aggregations(
+        pool: &PgPool,
+        view_name: &str,
+        worker_public_key: &str,
+        start_time: Option<DateTime<Utc>>,
+        end_time: Option<DateTime<Utc>>,
+        limit: i64,
+    ) -> Result<Vec<WorkerRewardsAggregation>> {
+        // Note: view_name should be validated against a whitelist in production
+        let query = format!(
+            r#"
+            SELECT
+                bucket, public_key, completed_proofs, total_rewards, max_checkpoint
+            FROM {}
+            WHERE public_key = $1
+                AND ($2::TIMESTAMPTZ IS NULL OR bucket >= $2)
+                AND ($3::TIMESTAMPTZ IS NULL OR bucket <= $3)
+            ORDER BY bucket DESC
+            LIMIT $4
+            "#,
+            view_name
+        );
+
+        let aggregations = sqlx::query_as::<_, WorkerRewardsAggregation>(&query)
+            .bind(worker_public_key)
+            .bind(start_time)
+            .bind(end_time)
+            .bind(limit)
+            .fetch_all(pool)
+            .await?;
+
+        Ok(aggregations)
     }
 }

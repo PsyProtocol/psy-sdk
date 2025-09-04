@@ -227,6 +227,16 @@ pub struct WorkerLeaderboardEntry {
     pub rank: i64,                        // Ranking position (1-based)
 }
 
+// Worker rewards aggregation models
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkerRewardsAggregation {
+    pub bucket: DateTime<Utc>,     // Time bucket for aggregation
+    pub public_key: String,        // Worker's public key
+    pub completed_proofs: i64,     // Number of completed proofs in this bucket
+    pub total_rewards: i64,        // Total rewards earned in this bucket (in psy)
+    pub max_checkpoint: i64,       // Maximum checkpoint ID in this bucket
+}
+
 impl UserEvent {
     pub fn get_transaction_count(&self) -> i64 {
         match self.tx_type {
