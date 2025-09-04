@@ -1,5 +1,3 @@
-mod slot_phase;
-
 use std::ops::Deref;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::realm::config::RealmNodeConfig;
@@ -37,7 +35,6 @@ use qed_store::store::journal::{Journal, JournalStore};
 use crate::common::clock::SlotTimer;
 use crate::common::slot::{Clock, LocalClock, Slot};
 use crate::common::retry::Retryable;
-use crate::realm::processor::slot_phase::SlotPhase;
 use qed_core::config::network_constants::{REALM_USER_TREE_HEIGHT, USERS_PER_REALM};
 use qed_data::config::store_config::QEDHasher;
 use qed_core::config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
@@ -207,16 +204,6 @@ impl RealmProcessor {
                         warn!("Is syncing, continue");
                         continue;
                     }
-                    // TODO remove the code
-                    // if let SlotPhase::BuildPhase(build_phase_start) = SlotPhase::get_build_phase(self.slot_timer.deref()){
-                    //     let current_timestamp = self.slot_timer.get_current_timestamp();
-                    //     if current_timestamp < build_phase_start {
-                    //         let tt = build_phase_start - current_timestamp;
-                    //         info!("Waiting for build phase to start: sleep {} ms, slot: {}", tt, slot);
-                    //         tokio::time::sleep(Duration::from_millis(tt)).await;
-                    //     }
-                    // }
-
                     info!("Start building block");
                     // Build block based on slot timing
                     pending_checkpoint_id = None;
@@ -370,8 +357,6 @@ impl RealmProcessor {
             // Build block with enhanced error handling(all logic including logging is inside context.build_block)
             match context.build_block().await {
                 Ok(job_id) => {
-                    // Success - consumption is already committed in build_block
-                    //context.commit_offset().await?;
                     Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
                 },
                 Err(err) => {
