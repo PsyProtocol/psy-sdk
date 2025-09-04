@@ -270,7 +270,7 @@ async fn worker_events_aggregations_handler(
     tracing::info!("Worker events aggregations query: {:?}", query);
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
-        "2m" => "worker_events_2m",
+        "2min" => "worker_events_2min",
         "1h" => "worker_events_1h",
         "1d" => "worker_events_1d",
         "1w" => "worker_events_1w",
@@ -305,7 +305,7 @@ async fn user_events_aggregations_handler(
     tracing::info!("User events aggregations query: {:?}", query);
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
-        "2m" => "user_events_2m",
+        "2min" => "user_events_2min",
         "1h" => "user_events_1h",
         "1d" => "user_events_1d",
         "1w" => "user_events_1w",
