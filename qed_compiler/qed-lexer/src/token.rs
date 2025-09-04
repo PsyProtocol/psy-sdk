@@ -117,6 +117,12 @@ pub enum Token<'input> {
     #[token("__secp256k1_verify")]
     IntrinsicSecp256k1Verify,
 
+    #[token("__sum_bits")]
+    IntrinsicSumBits,
+
+    #[token("__split_bits")]
+    IntrinsicSplitBits,
+
     #[token("new")]
     KeywordNew,
     #[token("extern")]

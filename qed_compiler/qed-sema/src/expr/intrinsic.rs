@@ -176,6 +176,17 @@ pub enum CheckedIntrinsicExprNode {
         type_id: TypeId,
         location: Location,
     },
+    SumBits {
+        bits: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
+    SplitBits {
+        target: ExprId,
+        num_bits: u64,
+        type_id: TypeId,
+        location: Location,
+    },
 }
 
 impl NodeInfo for CheckedIntrinsicExprNode {

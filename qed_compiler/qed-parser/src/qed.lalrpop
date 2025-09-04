@@ -984,6 +984,23 @@ IntrinsicExpression: ExprNode<F> = {
             }
         )
     },
+    <l:@L> <variable:SUM_BITS> "(" <bits: Expression> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::SumBits {
+                bits: expr_nodes.alloc_item(bits),
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
+    <l:@L> <variable:SPLIT_BITS> "(" <target: Expression> "," <num_bits: U64> ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::SplitBits {
+                target: expr_nodes.alloc_item(target),
+                num_bits: num_bits,
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
     <l:@L> <variable:CHECK_SECP_SIGN> "(" <pub_key: Expression> "," <msg: Expression>  "," <sig: Expression> ")" <r:@R> => {
         ExprNode::Intrinsic(
             IntrinsicExprNode::Secp256k1Verify {
@@ -1257,6 +1274,9 @@ extern {
         INVOKE_DEFERRED => Token::IntrinsicInvokeDeferred,
 
         CHECK_SECP_SIGN => Token::IntrinsicSecp256k1Verify,
+
+        SUM_BITS => Token::IntrinsicSumBits,
+        SPLIT_BITS => Token::IntrinsicSplitBits,
 
         MOD => Token::KeywordMod,
         USE => Token::KeywordUse,

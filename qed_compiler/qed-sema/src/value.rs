@@ -434,6 +434,7 @@ impl<F: Clone + From<u32> + ContextFelt> CheckedValueRef<F> {
                 ];
                 if const_types.contains(&ctx.get_op_type(index)) {
                     let index = ctx.get_constant_value(index) as usize;
+                    assert!(index < arr.len(), "array index must less than array length");
                     arr.get(index).and_then(|inner| inner.get_path(ctx, rest))
                 } else {
                     let arr_size = ctx.op_const(arr.len() as u64);

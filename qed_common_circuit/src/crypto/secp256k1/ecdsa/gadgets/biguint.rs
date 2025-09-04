@@ -259,11 +259,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
     ) -> (BigUintTarget, BigUintTarget) {
         let a_len = a.limbs.len();
         let b_len = b.limbs.len();
-        let div_num_limbs = if b_len > a_len + 1 {
-            0
-        } else {
-            a_len - b_len + 1
-        };
+        let div_num_limbs = a_len;
+        // let div_num_limbs = if b_len > a_len + 1 {
+        //     0
+        // } else {
+        //     a_len - b_len + 1
+        // };
         let div = self.add_virtual_biguint_target(div_num_limbs);
         let rem = self.add_virtual_biguint_target(b_len);
 
@@ -314,7 +315,7 @@ impl<T: Witness<F>, F: PrimeField64> WitnessBigUint<F> for T {
 
     fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) -> anyhow::Result<()> {
         let mut limbs = value.to_u32_digits();
-        if limbs.len() > target.num_limbs() {
+        if limbs.len() >= target.num_limbs() {
             anyhow::bail!("invalid number of limbs passed to BigUintTarget: value has {} limbs but target only has {}", limbs.len(), target.num_limbs());
         }
         limbs.resize(target.num_limbs(), 0);

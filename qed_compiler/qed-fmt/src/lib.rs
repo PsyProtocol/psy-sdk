@@ -1205,6 +1205,22 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 "__ctx_get_deploy_contracts_completed({})",
                 self.visit_expr(checkpoint_id, ctx)?
             )),
+            IntrinsicExprNode::SumBits {
+                bits,
+                ..
+            } => Ok(format!(
+                "__sum_bits({})",
+                self.visit_expr(bits, ctx)?,
+            )),
+            IntrinsicExprNode::SplitBits {
+                target,
+                num_bits,
+                ..
+            } => Ok(format!(
+                "__split_bits({}, {})",
+                self.visit_expr(target, ctx)?,
+                num_bits,
+            )),
         }
     }
 

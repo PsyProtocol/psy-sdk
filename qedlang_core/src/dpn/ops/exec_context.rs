@@ -297,7 +297,7 @@ impl QExecContext {
 
             assert!(a_val <= 0xffffffffu64);
             assert!(b_val <= 0xffffffffu64);
-            assert!(op_type.eval_binary_constant(a_val, b_val) <= 0xffffffffu64);
+            assert!(op_type.eval_binary_constant(a_val, b_val) <= 0xffffffffu64, "u32 op `{}` overflow", op_type);
             let res = op_type.eval_binary_constant(a_val, b_val);
             let return_bool_ops = [
                 DPNOpType::Eq,
@@ -512,6 +512,13 @@ impl DPNContext<SymFeltRef> for QExecContext {
         result
     }
 
+    fn op_bool_xor(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::Xor, a, b);
+        }
+        self.op_std_binary_op(DPNOpType::Xor, a, b)
+    }
+
     fn op_add(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         if a.get_op_type() == DPNOpType::ConstantU32 && b.get_op_type() == DPNOpType::ConstantU32 {
             return self.op_std_binary_op_u32(DPNOpType::U32Add, a, b);
@@ -561,6 +568,11 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn op_exp(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::ExpConstantBase, a, b);
+        } else if b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::ExpConstantPower, a, b);
+        }
         self.op_std_binary_op(DPNOpType::Exp, a, b)
     }
 
@@ -618,6 +630,10 @@ impl DPNContext<SymFeltRef> for QExecContext {
         self.op_std_binary_op(DPNOpType::Gte, a, b)
     }
 
+    fn op_neg(&mut self, a: SymFeltRef) -> SymFeltRef {
+        self.op_std_unary_op(DPNOpType::UnaryNegative, a)
+    }
+
     fn op_u32_xor(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         self.op_std_binary_op_u32(DPNOpType::U32Xor, a, b)
     }
@@ -631,10 +647,22 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn op_u32_shl(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::U32ShiftLeftConstantValue, a, b);
+        } 
+        if b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::U32ShiftLeftConstantBitDistance, a, b);
+        }
         self.op_std_binary_op_u32(DPNOpType::U32ShiftLeft, a, b)
     }
 
     fn op_u32_shr(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
+        if a.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::U32ShiftRightConstantValue, a, b);
+        } 
+        if b.get_op_type() == DPNOpType::ConstantU32 {
+            return self.op_std_binary_op_u32(DPNOpType::U32ShiftRightConstantBitDistance, a, b);
+        }
         self.op_std_binary_op_u32(DPNOpType::U32ShiftRight, a, b)
     }
 

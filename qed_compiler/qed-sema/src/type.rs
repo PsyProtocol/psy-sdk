@@ -32,7 +32,7 @@ pub const STORAGE_REF_TYPE: TypeId = TypeId(30);
 
 // pub const T_TYPE: TypeId = TypeId(5);
 // pub const N_TYPE: TypeId = TypeId(6);
-// pub const ARRAY_TYPE: TypeId = TypeId(7);
+pub const ARRAY_TYPE: TypeId = TypeId(7);
 // pub const HASH_TYPE_LEN: TypeId = TypeId(8);
 
 pub const HASH_TYPE: TypeId = TypeId(9);
