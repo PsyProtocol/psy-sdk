@@ -452,7 +452,17 @@ impl<
             };
             tracing::debug!(guta_item = %serde_json::to_string_pretty(&guta_queue_items[0]).unwrap(), "First GUTA queue item");
 
-            let id = QProvingJobDataID::core_op_witness(ProvingJobCircuitType::GUTAVerifyToCap, checkpoint_id, 0);
+            let id = QProvingJobDataID::new(
+                QJobTopic::GenerateStandardProof,
+                checkpoint_id,
+                ProvingJobCircuitType::GUTAVerifyToCap.to_circuit_group_id(),
+                self.coordinator_config.coordinator_id,
+                0,
+                ProvingJobCircuitType::GUTAVerifyToCap,
+                ProvingJobDataType::InputWitness,
+                0,
+            );
+;
 
             let new_nodes = guta_queue_items
                 .iter()
