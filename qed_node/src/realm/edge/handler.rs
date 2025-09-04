@@ -722,24 +722,26 @@ where
 
             match job_graph.generate_variable_height_reward_proof(job_id, &*self.ctx.proof_store, max_height).await {
                 Ok((realm_proof, root_job_id)) => {
-                    let combined_proof = match self.coordinator_client
+                    let coordinator_proofs = self.coordinator_client
                         .request::<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>, _>(
                             "qed_generate_batch_variable_height_reward_proofs",
                             jsonrpsee::rpc_params![checkpoint_id, vec![root_job_id]]
-                        ).await {
-                        Ok(coordinator_proofs) if !coordinator_proofs.is_empty() => {
-                            let (coordinator_proof, _) = coordinator_proofs.into_iter().next().unwrap();
-                            realm_proof.combine_with(coordinator_proof)
-                        }
-                        Ok(_) => {
-                            info!("No coordinator proof returned, using realm proof only");
-                            realm_proof
-                        }
-                        Err(e) => {
-                            info!("Failed to get coordinator proof: {}, using realm proof only", e);
-                            realm_proof
-                        }
-                    };
+                        ).await.map_err(|e| ErrorObject::owned(
+                            jsonrpsee::types::ErrorCode::InternalError.code(),
+                            format!("Failed to get coordinator proof: {}", e),
+                            None::<()>,
+                        ))?;
+
+                    if coordinator_proofs.is_empty() {
+                        return Err(ErrorObject::owned(
+                            jsonrpsee::types::ErrorCode::InternalError.code(),
+                            "No coordinator proof returned".to_string(),
+                            None::<()>,
+                        ));
+                    }
+
+                    let (coordinator_proof, root_job_id) = coordinator_proofs.into_iter().next().unwrap();
+                    let combined_proof = realm_proof.combine_with(coordinator_proof);
 
                     let computed_root = qed_core::job::id::compute_root_from_variable_height_proof(&combined_proof);
 
