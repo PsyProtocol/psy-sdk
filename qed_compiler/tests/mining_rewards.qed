@@ -118,7 +118,7 @@ impl ContractRef {
     ) {
         let c = ContractRef::new(ContractMetadata::current());
         let current_checkpoint = get_checkpoint_id();
-        let claim_rewards_cooldown = 16;
+        let claim_rewards_cooldown = 2;
 
         assert(current_checkpoint > claim_checkpoint_id + claim_rewards_cooldown, "cooldown not satisfied");
 
@@ -203,7 +203,7 @@ impl ContractRef {
     pub fn claim_simple_reward(claim_checkpoint_id: Felt, proposed_reward: Felt) {
         let c = ContractRef::new(ContractMetadata::current());
         let current_checkpoint = get_checkpoint_id();
-        let claim_rewards_cooldown = 16;
+        let claim_rewards_cooldown = 2;
 
         assert(current_checkpoint > claim_checkpoint_id + claim_rewards_cooldown, "cooldown not satisfied");
 

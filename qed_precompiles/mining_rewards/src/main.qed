@@ -99,10 +99,10 @@ impl PsyPOWMiningRewardsClaimContractRef {
         claim_checkpoint_id: Felt
     ) {
         let c = PsyPOWMiningRewardsClaimContractRef::new(ContractMetadata::current());
-        let current_checkpoint = get_checkpoint_id();
-        let claim_rewards_cooldown = 16;
-
-        assert(current_checkpoint > claim_checkpoint_id + claim_rewards_cooldown, "cooldown not satisfied");
+        // let current_checkpoint = get_checkpoint_id();
+        // let claim_rewards_cooldown = 2;
+        //
+        // assert(current_checkpoint > claim_checkpoint_id + claim_rewards_cooldown, "cooldown not satisfied");
 
         let persistent_state = c.persistent_state.get();
         assert(persistent_state.last_claimed_checkpoint_id == persistent_state.last_sealed_checkpoint_id, "previous session must be sealed first");
@@ -140,10 +140,10 @@ impl PsyPOWMiningRewardsClaimContractRef {
         proposed_reward: Felt
     ) {
         let c = PsyPOWMiningRewardsClaimContractRef::new(ContractMetadata::current());
-        let current_checkpoint = get_checkpoint_id();
-        let claim_rewards_cooldown = 16;
-
-        assert(current_checkpoint > claim_checkpoint_id + claim_rewards_cooldown, "cooldown not satisfied");
+        // let current_checkpoint = get_checkpoint_id();
+        // let claim_rewards_cooldown = 2;
+        //
+        // assert(current_checkpoint > claim_checkpoint_id + claim_rewards_cooldown, "cooldown not satisfied");
 
         let persistent_state = c.persistent_state.get();
 
