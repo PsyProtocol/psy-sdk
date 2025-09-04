@@ -144,7 +144,7 @@ fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64)
 }
 
 fn verify_proof(proof: &VariableHeightRewardMerkleProof) -> Result<(QHashOut<F>, F)> {
-    let (root, nullifier_index) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT);
+    let (root, nullifier_index) = proof.compute_root_and_nullifier_index();
     Ok((root, nullifier_index))
 }
 

@@ -13,7 +13,7 @@ use plonky2::{
 use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use qed_core::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
-    job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof},
+    job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
@@ -237,19 +237,20 @@ fn parse_job_specs(specs: &[String]) -> Result<Vec<JobInfo>> {
     Ok(job_infos)
 }
 
-fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64) -> Result<qed_core::job::id::VariableHeightRewardMerkleProof> {
+fn get_job_proof(
+    provider: &RpcProvider,
+    job_info: &JobInfo,
+    checkpoint_id: u64,
+) -> anyhow::Result<qed_core::job::id::VariableHeightRewardMerkleProof> {
     let job_proof = match &job_info.location {
         JobLocation::Realm(realm_id) => {
             let (realm_proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id())?;
-
-            match provider.get_job_proof_from_coordinator(checkpoint_id, root_job_id.get_output_id()) {
-                Ok((coordinator_proof, _)) => realm_proof.pad_to_height(32),
-                Err(e) => realm_proof.pad_to_height(32),
-            }
+            let (coordinator_proof, _) = provider.get_job_proof_from_coordinator(checkpoint_id, root_job_id.get_output_id())?;
+            realm_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT * 2)
         }
         JobLocation::Coordinator => {
             let (proof, _) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id())?;
-            proof.pad_to_height(32)
+            proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT * 2)
         }
     };
 

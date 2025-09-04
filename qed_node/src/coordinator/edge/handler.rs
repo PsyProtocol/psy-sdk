@@ -1584,44 +1584,15 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 }
             };
 
-            let max_height = match job_id.circuit_type {
-                ProvingJobCircuitType::AppendUserRegistrationTree
-                | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
-                | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-                    qed_core::job::id::USER_REGISTRATION_REWARDS_MAX_HEIGHT
-                }
-                ProvingJobCircuitType::GUTARegisterUsers
-                | ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                | ProvingJobCircuitType::GUTATwoGUTA
-                | ProvingJobCircuitType::GUTANoChange
-                | ProvingJobCircuitType::GUTASingleEndCap
-                | ProvingJobCircuitType::GUTATwoEndCap
-                | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                | ProvingJobCircuitType::GUTAVerifyToCap => {
-                    qed_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT
-                }
-                ProvingJobCircuitType::BatchDeployContracts
-                | ProvingJobCircuitType::BatchDeployContractsAggregate
-                | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
-                    qed_core::job::id::CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT
-                }
-                _ => return Err(ErrorObject::owned(
-                    jsonrpsee::types::ErrorCode::InvalidParams.code(),
-                    format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
-                    None::<()>,
-                )),
-            };
-
             let graph = self.task_store.load_job_dependency_graph(checkpoint_id).await.map_err(|e| ErrorObject::owned(
                 jsonrpsee::types::ErrorCode::InternalError.code(),
                 format!("Failed to load task graph: {}", e),
                 None::<()>,
             ))?;
 
-            match graph.generate_variable_height_reward_proof(job_id, &*self.proof_store, max_height).await {
+            match graph.generate_variable_height_reward_proof(job_id, &*self.proof_store).await {
                 Ok((variable_height_proof, root_job_id)) => {
-                    let computed_root = qed_core::job::id::compute_root_from_variable_height_proof(&variable_height_proof);
+                    let (computed_root, _) = variable_height_proof.compute_root_and_nullifier_index();
 
                     if computed_root != expected_root {
                         tracing::warn!(

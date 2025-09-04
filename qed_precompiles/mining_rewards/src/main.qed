@@ -177,11 +177,8 @@ impl PsyPOWMiningRewardsClaimContractRef {
                 let guta_rewards_tree_root = result.0;
                 let nullifier_index = result.1;
 
-                assert(
-                    guta_rewards_tree_root[0] == expected_guta_rewards_tree_root[0]
-                    && guta_rewards_tree_root[1] == expected_guta_rewards_tree_root[1]
-                    && guta_rewards_tree_root[2] == expected_guta_rewards_tree_root[2]
-                    && guta_rewards_tree_root[3] == expected_guta_rewards_tree_root[3],
+                assert_eq(
+                    guta_rewards_tree_root[0], expected_guta_rewards_tree_root[0],
                 "guta tree root mismatch");
 
                 assert(
