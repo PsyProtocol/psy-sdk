@@ -1,4 +1,5 @@
 use axum::Router;
+use tokio::signal;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{self, EnvFilter};
 
@@ -53,7 +54,36 @@ async fn main() -> anyhow::Result<()> {
         config.server.port
     );
 
-    axum::serve(listener, app).await?;
+    // Run server with graceful shutdown
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
 
     Ok(())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("Received shutdown signal, starting graceful shutdown");
 }
