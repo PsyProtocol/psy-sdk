@@ -5,7 +5,7 @@ use sqlx::PgPool;
 use crate::models::{
     job_id_to_json, GlobalRealmStats, RealmStats, TpsData, UserEvent, UserEventAggregation,
     UserEventTxType, UserInfo, WorkerEvent, WorkerEventAggregation, WorkerEventReward,
-    WorkerEventSource, WorkerEventStatus, WorkerRewards, WorkerStats,
+    WorkerEventSource, WorkerEventStatus, WorkerLeaderboardEntry, WorkerRewards, WorkerStats,
 };
 use crate::Result;
 
@@ -19,6 +19,7 @@ pub struct WorkerStatsRepository;
 pub struct WorkerRewardsRepository;
 pub struct WorkerEventRewardRepository;
 pub struct TpsRepository;
+pub struct WorkerLeaderboardRepository;
 
 impl UserRepository {
     /// Create a new user
@@ -1195,5 +1196,75 @@ impl WorkerEventRewardRepository {
         .await?;
 
         Ok(rewards)
+    }
+}
+
+/// Worker Leaderboard Repository
+impl WorkerLeaderboardRepository {
+    /// Get worker leaderboard for the last 24 hours
+    /// Returns top workers ranked by total rewards earned, limited to specified count
+    pub async fn get_leaderboard_24h(
+        pool: &PgPool,
+        limit: i64, // Maximum number of entries to return (e.g., 100)
+    ) -> Result<Vec<WorkerLeaderboardEntry>> {
+        let twenty_four_hours_ago = Utc::now() - chrono::Duration::hours(24);
+
+        // Standard reward per completed proof (5*10^9 psy)
+        const REWARD_PER_PROOF: i64 = 5_000_000_000;
+
+        // Query to get worker leaderboard data based on worker_events table
+        // This approach calculates rewards based on completed tasks in the last 24 hours
+        // Prioritizes workers by proof count first, then by public key for consistent ranking
+        let rows = sqlx::query!(
+            r#"
+            WITH worker_stats AS (
+                SELECT
+                    we.public_key,
+                    COUNT(CASE WHEN we.status = 'COMPLETED' THEN 1 END)::BIGINT as proofs_24h
+                FROM worker_events we
+                WHERE we.public_key IS NOT NULL
+                    AND we.timestamp >= $1
+                GROUP BY we.public_key
+                HAVING COUNT(CASE WHEN we.status = 'COMPLETED' THEN 1 END) > 0
+            ),
+            ranked_workers AS (
+                SELECT
+                    ws.public_key as worker_public_key,
+                    ui.twitter_handle as twitter_username,
+                    ws.proofs_24h,
+                    (ws.proofs_24h * $3)::BIGINT as rewards_24h,
+                    ROW_NUMBER() OVER (ORDER BY ws.proofs_24h DESC, ws.public_key ASC) as rank
+                FROM worker_stats ws
+                LEFT JOIN user_info ui ON ws.public_key = ui.public_key
+            )
+            SELECT
+                worker_public_key,
+                twitter_username,
+                proofs_24h,
+                rewards_24h,
+                rank
+            FROM ranked_workers
+            WHERE rank <= $2
+            ORDER BY rank ASC
+            "#,
+            twenty_four_hours_ago,
+            limit,
+            REWARD_PER_PROOF
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let entries = rows
+            .into_iter()
+            .map(|row| WorkerLeaderboardEntry {
+                worker_public_key: row.worker_public_key.unwrap_or_default(),
+                twitter_username: row.twitter_username,
+                proofs_24h: row.proofs_24h.unwrap_or(0),
+                rewards_24h: row.rewards_24h.unwrap_or(0),
+                rank: row.rank.unwrap_or(0),
+            })
+            .collect();
+
+        Ok(entries)
     }
 }

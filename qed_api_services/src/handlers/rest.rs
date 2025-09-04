@@ -34,6 +34,7 @@ pub fn create_router(api_service: ApiService) -> Router {
             get(worker_stats_handler),
         )
         .route("/rewards/{worker_public_key}", get(worker_rewards_handler))
+        .route("/leaderboard/workers", get(worker_leaderboard_handler))
         .with_state(api_service)
 }
 
@@ -526,6 +527,33 @@ async fn worker_rewards_handler(
                 checkpoint_id,
                 e
             );
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkerLeaderboardQuery {
+    pub limit: Option<i64>, // Number of top workers to return (default 100, max 100)
+}
+
+async fn worker_leaderboard_handler(
+    State(service): State<ApiService>,
+    Query(query): Query<WorkerLeaderboardQuery>,
+) -> Result<Json<Vec<WorkerLeaderboardEntry>>, StatusCode> {
+    // Validate and set limit (default 100, max 100)
+    let limit = query.limit.unwrap_or(100).min(100).max(1);
+
+    tracing::info!("Worker leaderboard request received, limit: {}", limit);
+
+    match WorkerLeaderboardRepository::get_leaderboard_24h(&service.pool, limit).await {
+        Ok(leaderboard) => {
+            tracing::info!("Retrieved {} leaderboard entries", leaderboard.len());
+            tracing::debug!("Leaderboard entries: {:#?}", leaderboard);
+            Ok(Json(leaderboard))
+        }
+        Err(e) => {
+            tracing::error!("Failed to retrieve worker leaderboard: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }

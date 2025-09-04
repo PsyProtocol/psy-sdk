@@ -160,7 +160,7 @@ pub struct GlobalRealmStats {
 // Worker statistics models
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerStats {
-    pub public_key: String,     // Worker's public key
+    pub public_key: String,       // Worker's public key
     pub username: Option<String>, // Twitter handle from user_info table, or None if not found
     pub processing_tasks: std::collections::HashMap<String, i64>, // realm_id -> task count
     pub total_processing_tasks: i64,
@@ -215,6 +215,16 @@ pub struct TpsData {
     pub time_window_seconds: i64,
     pub block_height: i64,
     pub timestamp: DateTime<Utc>,
+}
+
+// Worker leaderboard models
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkerLeaderboardEntry {
+    pub worker_public_key: String,        // Worker's public key
+    pub twitter_username: Option<String>, // Worker's Twitter username from user_info table
+    pub proofs_24h: i64,                  // Number of proofs generated in last 24 hours
+    pub rewards_24h: i64,                 // Total rewards earned in last 24 hours (in psy)
+    pub rank: i64,                        // Ranking position (1-based)
 }
 
 impl UserEvent {
