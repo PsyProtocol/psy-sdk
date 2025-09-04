@@ -758,6 +758,22 @@ impl WorkerStatsRepository {
         let twenty_four_hours_ago = now - chrono::Duration::hours(24);
         let one_hour_ago = now - chrono::Duration::hours(1);
 
+        // Get username (twitter_handle) from user_info table by matching public_key
+        let username_row = sqlx::query!(
+            r#"
+            SELECT twitter_handle
+            FROM user_info
+            WHERE public_key = $1
+            "#,
+            worker_public_key
+        )
+        .fetch_optional(pool)
+        .await?;
+
+        let username = username_row
+            .and_then(|row| row.twitter_handle)
+            .filter(|s| !s.is_empty());
+
         // Get processing tasks count grouped by realm_id
         let processing_tasks_rows = sqlx::query!(
             r#"
@@ -882,7 +898,26 @@ impl WorkerStatsRepository {
 
         let avg_proof_time = avg_proof_time_row.avg_duration.unwrap_or(0);
 
+        // Get the block height of the last completed worker event
+        let last_completed_block_height_row = sqlx::query!(
+            r#"
+            SELECT checkpoint_id as block_height
+            FROM worker_events
+            WHERE public_key = $1 AND status = 'COMPLETED'
+            ORDER BY timestamp DESC
+            LIMIT 1
+            "#,
+            worker_public_key
+        )
+        .fetch_optional(pool)
+        .await?;
+
+        let last_completed_block_height =
+            last_completed_block_height_row.map(|row| row.block_height);
+
         Ok(WorkerStats {
+            public_key: worker_public_key.to_string(),
+            username,
             processing_tasks,
             total_processing_tasks,
             total_rewards,
@@ -895,6 +930,7 @@ impl WorkerStatsRepository {
             completed_1h,
             failed_1h,
             avg_proof_time,
+            last_completed_block_height,
             last_updated: now,
         })
     }

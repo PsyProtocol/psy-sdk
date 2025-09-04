@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT checkpoint_id as block_height\n            FROM worker_events\n            WHERE public_key = $1 AND status = 'COMPLETED'\n            ORDER BY timestamp DESC\n            LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "dddc9a27c3bb6af0a83c58828dc60d5f5abc687b0da3df5e01aee10b781e062e"
+}

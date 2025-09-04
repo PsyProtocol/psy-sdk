@@ -160,6 +160,8 @@ pub struct GlobalRealmStats {
 // Worker statistics models
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerStats {
+    pub public_key: String,     // Worker's public key
+    pub username: Option<String>, // Twitter handle from user_info table, or None if not found
     pub processing_tasks: std::collections::HashMap<String, i64>, // realm_id -> task count
     pub total_processing_tasks: i64,
     pub total_rewards: i64, // Reserved field, currently 0
@@ -172,6 +174,7 @@ pub struct WorkerStats {
     pub completed_1h: i64,      // Completed tasks in last 1 hour
     pub failed_1h: i64,         // Failed tasks in last 1 hour
     pub avg_proof_time: i64,    // Average proof generation time in milliseconds
+    pub last_completed_block_height: Option<i64>, // Block height of last completed worker event
     pub last_updated: DateTime<Utc>,
 }
 
