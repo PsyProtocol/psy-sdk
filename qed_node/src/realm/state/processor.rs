@@ -820,11 +820,6 @@ impl<
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
 
         self.task_store.finalize_and_save_topology().await?;
-
-        self.task_store.save_job_dependency_graph(new_checkpoint_id).await
-            .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
-        info!("Saved realm job dependency graph for checkpoint {}", new_checkpoint_id);
-
         Ok(())
     }
 
@@ -924,6 +919,7 @@ impl<
 
     pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         self.store.commit(checkpoint_id)?;
+        self.task_store.save_job_dependency_graph(checkpoint_id).await?;
         self.commit_offset(checkpoint_id).await
     }
 

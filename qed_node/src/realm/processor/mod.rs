@@ -224,7 +224,7 @@ impl RealmProcessor {
                     let next_checkpoint_id = local_latest_checkpoint_id + 1;
                     let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
                     if !has_tasks {
-                        debug!("No, pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
+                        debug!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
                         continue;
                     }
                     // TODO async
