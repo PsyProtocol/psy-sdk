@@ -14,7 +14,7 @@ use qed_crypto::common::{
 };
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::{sync::Arc, time::Duration};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, warn, trace};
 pub use worker_state::*;
 
 use crate::common::{
@@ -52,7 +52,7 @@ pub async fn run_worker(
         };
         let job_id = job.job_id;
         if !job_id.is_provable() {
-            info!("skipping job proving: {:?}", job_id);
+            trace!("skipping job proving: {:?}", job_id);
             job_receiver.submit_job_proof(job, None, wallet.clone()).await?;
             continue;
         }
