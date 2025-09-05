@@ -253,7 +253,6 @@ impl RealmProcessor {
                     self.is_synced.store(ret.is_synced, atomic::Ordering::Relaxed);
                     if ret.is_synced {
                         // Sync completed
-                        context.commit(ret.checkpoint_id).await?;
                         return Ok(ret)
                     }
                 },
