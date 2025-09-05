@@ -731,10 +731,10 @@ where
                     proofs.push((combined_proof, root_job_id));
                 }
                 Err(e) => {
-                    error!("Failed to generate proof for job {:?}: {}", job_id, e);
+                    error!("Failed to generate proof for job {}: {}", job_id.to_hex_string(), e);
                     return Err(ErrorObject::owned(
                         jsonrpsee::types::ErrorCode::InternalError.code(),
-                        format!("Failed to generate proof for job {:?}: {}", job_id, e),
+                        format!("Failed to generate proof for job {}: {}", job_id.to_hex_string(), e),
                         None::<()>,
                     ));
                 }
