@@ -191,7 +191,7 @@ where
             warn!(
                 expected = next_checkpoint_id,
                 received = sync_info.compact.l2_block_state.checkpoint_id,
-                lastest = sync_info.latest_checkpoint_id,
+                latest = sync_info.latest_checkpoint_id,
                 "Received out-of-order checkpoint sync info from coordinator. Retrying cycle."
             );
             return false;
