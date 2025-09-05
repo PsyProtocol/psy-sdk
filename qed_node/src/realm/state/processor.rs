@@ -287,9 +287,14 @@ impl<
                 };
                 tracing::debug!(input = %serde_json::to_string_pretty(&input).unwrap(), "GUTA no change input");
 
-                let w_id = QProvingJobDataID::core_op_witness(
-                    ProvingJobCircuitType::GUTANoChange,
+                let w_id = QProvingJobDataID::new(
+                    QJobTopic::GenerateStandardProof,
                     checkpoint_id,
+                    ProvingJobCircuitType::GUTANoChange.to_circuit_group_id(),
+                    self.realm_config.realm_id,
+                    0,
+                    ProvingJobCircuitType::GUTANoChange,
+                    ProvingJobDataType::InputWitness,
                     0,
                 );
 
@@ -592,9 +597,14 @@ impl<
                 .await?;
             tracing::debug!(r = %serde_json::to_string_pretty(&r).unwrap(), single = %serde_json::to_string_pretty(&single).unwrap(), "Single GUTA processing");
 
-            let id = QProvingJobDataID::core_op_witness(
-                ProvingJobCircuitType::GUTASingleEndCap,
+            let id = QProvingJobDataID::new(
+                QJobTopic::GenerateStandardProof,
                 checkpoint_id,
+                ProvingJobCircuitType::GUTASingleEndCap.to_circuit_group_id(),
+                self.realm_config.realm_id,
+                0,
+                ProvingJobCircuitType::GUTASingleEndCap,
+                ProvingJobDataType::InputWitness,
                 0,
             );
 

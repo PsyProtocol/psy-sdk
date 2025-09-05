@@ -413,7 +413,16 @@ impl<
             };
             tracing::debug!(input = ?input, "Single GUTA input");
 
-            let id = QProvingJobDataID::core_op_witness(ProvingJobCircuitType::GUTANoChange, checkpoint_id, 0);
+            let id = QProvingJobDataID::new(
+                QJobTopic::GenerateStandardProof,
+                checkpoint_id,
+                ProvingJobCircuitType::GUTANoChange.to_circuit_group_id(),
+                self.coordinator_config.coordinator_id,
+                0,
+                ProvingJobCircuitType::GUTANoChange,
+                ProvingJobDataType::InputWitness,
+                0
+            );
 
             self.proof_store
                 .set_bytes_by_id(id.get_input_witness_id(), &bincode::serialize(&input)?)

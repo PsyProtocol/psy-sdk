@@ -690,9 +690,11 @@ where
                     ));
                 }
             };
+            debug!("job_id: {}", job_id.to_hex_string());
 
             match job_graph.generate_variable_height_reward_proof(job_id, &*self.ctx.proof_store).await {
                 Ok((realm_proof, root_job_id)) => {
+                    debug!("realm proof: {}, root_job_id: {}", serde_json::to_string_pretty(&realm_proof).unwrap(), root_job_id.to_hex_string());
                     let coordinator_proofs = self.coordinator_client
                         .request::<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>, _>(
                             "qed_generate_batch_variable_height_reward_proofs",
@@ -712,7 +714,9 @@ where
                     }
 
                     let (coordinator_proof, root_job_id) = coordinator_proofs.into_iter().next().unwrap();
+                    debug!("coordinator proof: {}, root_job_id: {}", serde_json::to_string_pretty(&coordinator_proof).unwrap(), root_job_id.to_hex_string());
                     let combined_proof = realm_proof.combine_with(coordinator_proof);
+                    debug!("combined proof: {}", serde_json::to_string_pretty(&combined_proof).unwrap());
 
                     let (computed_root, _) = combined_proof.compute_root_and_nullifier_index();
 

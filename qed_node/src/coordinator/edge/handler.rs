@@ -1584,6 +1584,8 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 }
             };
 
+            debug!("job_id: {}", job_id.to_hex_string());
+
             let graph = self.task_store.load_job_dependency_graph(checkpoint_id).await.map_err(|e| ErrorObject::owned(
                 jsonrpsee::types::ErrorCode::InternalError.code(),
                 format!("Failed to load task graph: {}", e),
@@ -1592,6 +1594,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
             match graph.generate_variable_height_reward_proof(job_id, &*self.proof_store).await {
                 Ok((variable_height_proof, root_job_id)) => {
+                    debug!("coordinator proof: {}, root_job_id: {}", serde_json::to_string_pretty(&variable_height_proof).unwrap(), root_job_id.to_hex_string());
                     let (computed_root, _) = variable_height_proof.compute_root_and_nullifier_index();
 
                     if computed_root != expected_root {

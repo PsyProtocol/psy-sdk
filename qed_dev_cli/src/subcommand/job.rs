@@ -17,7 +17,6 @@ pub enum JobCommand {
 #[derive(Args)]
 pub struct DecodeArgs {
     /// Job ID in hex format
-    #[arg(short, long)]
     pub job_id: String,
 }
 

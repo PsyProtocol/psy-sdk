@@ -58,6 +58,12 @@ pub enum QHashCommands {
         #[arg(help = "Tree height")]
         height: u8,
     },
+
+    #[command(about = "Apply two_to_one sequentially to space-separated hashes")]
+    ManyToOne {
+        #[arg(help = "Space-separated QHashOut strings to reduce with two_to_one")]
+        hashes: String,
+    },
 }
 
 pub fn run(args: QHashArgs) -> Result<()> {
@@ -138,6 +144,29 @@ pub fn run(args: QHashArgs) -> Result<()> {
                 zero_hash.0.elements[2].0,
                 zero_hash.0.elements[3].0
             );
+            Ok(())
+        }
+
+        QHashCommands::ManyToOne { hashes } => {
+            let hash_strings: Vec<&str> = hashes.split_whitespace().collect();
+
+            if hash_strings.is_empty() {
+                return Err(anyhow::format_err!("No hashes provided"));
+            }
+
+            if hash_strings.len() == 1 {
+                println!("{}", hash_strings[0]);
+                return Ok(());
+            }
+
+            let mut result = QHashOut::<F>::from_string_or_panic(hash_strings[0]);
+
+            for hash_str in &hash_strings[1..] {
+                let next_hash = QHashOut::<F>::from_string_or_panic(hash_str);
+                result = QEDHasher::q_two_to_one(result, next_hash);
+            }
+
+            println!("{}", result.to_string());
             Ok(())
         }
     }
