@@ -1610,9 +1610,8 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
                     if computed_root != expected_root {
                         tracing::warn!(
-                            "Root mismatch for job({}) {:?}: expected {}, got {}",
+                            "Root mismatch for job({}): expected {}, got {}",
                             job_id.to_hex_string(),
-                            job_id,
                             expected_root,
                             computed_root
                         );

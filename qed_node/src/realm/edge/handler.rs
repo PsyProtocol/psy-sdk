@@ -722,9 +722,8 @@ where
 
                     if computed_root != expected_root {
                         tracing::warn!(
-                            "Root mismatch for job({}) {:?}: expected {}, got {}",
-                            job_id.to_hex_string(),
-                            job_id, expected_root, computed_root
+                            "Root mismatch for job({}): expected {}, got {}",
+                            job_id.to_hex_string(), expected_root, computed_root
                         );
                     }
 
