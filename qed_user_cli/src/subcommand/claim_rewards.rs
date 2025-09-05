@@ -82,11 +82,11 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
 
         match get_job_proof(&provider, &job_info, args.checkpoint_id) {
             Ok(job_proof) => {
-                info!("Found GUTA proof for job {:?}", job_info.job_id);
+                info!("Found GUTA proof for job {}", job_info.job_id.to_hex_string());
                 all_proofs.push(job_proof);
             }
             Err(e) => {
-                info!("Skipping job due to error: {:?} - {}", job_info.job_id, e);
+                info!("Skipping job due to error: {} - {}", job_info.job_id.to_hex_string(), e);
                 continue;
             }
         }

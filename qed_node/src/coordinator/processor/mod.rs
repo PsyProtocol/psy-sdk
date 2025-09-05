@@ -222,18 +222,18 @@ impl
             let next_contract_id = config.get_precompile_configs().len() as u32;
             let next_user_id = config.get_genesis_users().len() as u64;
 
-            InitializeParams {
+            Some(InitializeParams {
                 gutas_root: user_root,
                 deploy_contracts_root: deploy_root,
                 register_users_root,
                 next_contract_id,
                 next_user_id,
-            }
+            })
         } else {
-            InitializeParams::default()
+            None
         };
 
-        match qed_store.initialize_store(Some(genesis_store_config)).await {
+        match qed_store.initialize_store(genesis_store_config).await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
                 qed_store.commit(0)?;
             }
@@ -318,8 +318,7 @@ impl
             let contract_json_path = format!("{}/target/{}.json", precompile_config.path, precompile_config.name);
             let contract_path = std::path::Path::new(&contract_json_path);
             if !contract_path.exists() {
-                warn!("Precompile contract file not found: {}", contract_json_path);
-                continue;
+                return Err(anyhow::anyhow!("contract target: {} doesn't exists", contract_path.display()));
             }
 
             let contract_json = std::fs::read_to_string(contract_path)?;

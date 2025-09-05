@@ -193,7 +193,7 @@ impl RealmProcessor {
                     }
                 },
                 slot = slot_timer.wait_for_next_slot() => {
-                    info!("Next slot: {}", slot);
+                    trace!("Next slot: {}", slot);
                     if let Some(pending_checkpoint) = pending_checkpoint_id {
                         warn!("Pending checkpoint id: {}, continue", pending_checkpoint);
                         continue
@@ -217,14 +217,14 @@ impl RealmProcessor {
                     //     }
                     // }
 
-                    info!("Start building block");
+                    trace!("Start building block");
                     // Build block based on slot timing
                     pending_checkpoint_id = None;
                     let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
                     let next_checkpoint_id = local_latest_checkpoint_id + 1;
                     let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
                     if !has_tasks {
-                        debug!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
+                        trace!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
                         continue;
                     }
                     // TODO async
@@ -287,7 +287,7 @@ impl RealmProcessor {
         } else {
             (0, 0)
         };
-        debug!("local_checkpoint_id {}, expected_checkpoint {}",local_checkpoint_id, expected_checkpoint);
+        trace!("local_checkpoint_id {}, expected_checkpoint {}",local_checkpoint_id, expected_checkpoint);
 
         // Wait for the next checkpoint sync info
         let block = self.sync_checkpoint.wait_for_next_item_imm::<CheckpointSyncInfo<F>>(
