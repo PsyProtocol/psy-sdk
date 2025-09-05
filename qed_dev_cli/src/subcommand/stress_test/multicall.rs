@@ -146,16 +146,10 @@ impl Multicast {
 
     pub fn batch_flow(&self, user_info: Vec<UserInfo>) -> Result<()> {
         let mut contract_call_args = vec![];
-        let from_user_id = user_info[0].user_id;
-        let mint_amount = 100000u64;
-        let transfer_amount = 2u64;
-        contract_call_args.push(ContractCallArgs {
-            contract_id: 0,
-            method_name: "simple_mint".to_string(),
-            inputs: vec![mint_amount],
-        });
-        {self.wallet_session.write().add_user(user_info[0].pk.clone())?;}
-        for i in 1..user_info.len() {
+        let mint_amount = 250000000000u64;
+        let transfer_amount = 50000000000u64;
+        let (from_user_id, public_key0) = self.init_user0(mint_amount * 2 * user_info.len() as u64)?;
+        for i in 0..user_info.len() {
             let to_user_id = user_info[i].user_id;
             contract_call_args.push(ContractCallArgs {
                 contract_id: 0,
@@ -166,8 +160,8 @@ impl Multicast {
         }
 
         let count = 10;
-        for i in 1..count {
-            let to_user_id = user_info[2].user_id;
+        for i in 0..count {
+            let to_user_id = user_info[0].user_id;
             contract_call_args.push(ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
@@ -176,7 +170,7 @@ impl Multicast {
         }
 
         let start = Instant::now();
-        self.exec_contract_call(user_info[0].pub_key, contract_call_args)?;
+        self.exec_contract_call(public_key0, contract_call_args)?;
         let duration = start.elapsed().as_millis() as u64;
         info!("batch_flow: Batch transfer flow duration: {} ms", duration);
         if !wait_for_new_block(&self.wallet_session.read().st_provider, 4)? {
@@ -184,7 +178,7 @@ impl Multicast {
         }
         
         info!("batch_flow: Start to execute claim contract call");
-        for i in 1..user_info.len() {
+        for i in 0..user_info.len() {
             let claim_contract_call_args = vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
@@ -221,16 +215,10 @@ impl Multicast {
     pub fn batch_multi_transfer(&self, transfer_count: u64) -> Result<()> {
         let user_info = self.register_batch_user(3)?;
         let mut contract_call_args = vec![];
-        let from_user_id = user_info[0].user_id;
-        let mint_amount = 100000u64;
-        let transfer_amount = 2u64;
-        contract_call_args.push(ContractCallArgs {
-            contract_id: 0,
-            method_name: "simple_mint".to_string(),
-            inputs: vec![mint_amount],
-        });
-        {self.wallet_session.write().add_user(user_info[0].pk.clone())?;}
-        for i in 1..user_info.len() {
+        let mint_amount = 250000000000u64;
+        let transfer_amount = 50000000000u64;
+        let (from_user_id, public_key0) = self.init_user0(mint_amount * transfer_count)?;
+        for i in 0..user_info.len() {
             for _ in 0..transfer_count {
                 let to_user_id = user_info[i].user_id;
                 contract_call_args.push(ContractCallArgs {
@@ -242,7 +230,7 @@ impl Multicast {
             {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
         }
         let start = Instant::now();
-        self.exec_contract_call(user_info[0].pub_key, contract_call_args)?;
+        self.exec_contract_call(public_key0, contract_call_args)?;
         let duration = start.elapsed().as_millis() as u64;
         info!("batch_flow: Batch transfer flow duration: {} ms", duration);
         if !wait_for_new_block(&self.wallet_session.read().st_provider, 4)? {
@@ -250,7 +238,7 @@ impl Multicast {
         }
 
         info!("batch_flow: Start to execute claim contract call");
-        for i in 1..user_info.len() {
+        for i in 0..user_info.len() {
             let claim_contract_call_args = vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
@@ -286,7 +274,7 @@ impl Multicast {
 
     pub fn multi_user_mint(&self, count: u64) -> Result<()> {
         let user_info = self.register_batch_user(count)?;
-        let mint_amount = 100000u64;
+        let mint_amount = 250000000000u64;
         for i in 0..user_info.len() {
             {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
             let public_key = user_info[i].pub_key.clone();
@@ -310,10 +298,31 @@ impl Multicast {
         Ok(())
     }
 
+    fn init_user0(&self, mint_amount: u64) -> Result<(u64, QHashOut<GoldilocksField>)> {
+        let pk0 = QHashOut::from_string_or_panic(USER0_PRIVATE_KEY);
+        let public_key0 = QHashOut::from_string_or_panic(USER0_SECP_ZK_PUBLIC_KEY);
+        let from_user_id = {self.wallet_session.read().st_provider.get_user_id(public_key0)?};
+        {self.wallet_session.write().add_user(pk0)?;}
+        info!("Start to execute mint contract call");
+        self.exec_contract_call(public_key0, vec![ContractCallArgs {
+            contract_id: 0,
+            method_name: "simple_mint".to_string(),
+            inputs: vec![mint_amount],
+        }]);
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+            return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
+        }
+        Ok((from_user_id, public_key0))
+    }
+
     pub fn multi_user_transfer(&self, count: u64) -> Result<()> {
         let user_info = self.register_batch_user(count)?;
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+            return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
+        }
         let mut contract_call_args = vec![];
-        let transfer_amount = 100000u64;
+        let transfer_amount = 250000000000u64; //1000 000000000
+        let (from_user_id, public_key0) = self.init_user0(transfer_amount * 2 * count)?;
         for i in 0..user_info.len() {
             contract_call_args.push(ContractCallArgs {
                 contract_id: 0,
@@ -322,13 +331,13 @@ impl Multicast {
             });
             {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
         }
-        let from_user_id = 0;
-        {self.wallet_session.write().add_user(QHashOut::from_string_or_panic(USER0_PRIVATE_KEY))?;}
-        self.exec_contract_call(QHashOut::from_string_or_panic(USER0_SECP_ZK_PUBLIC_KEY), contract_call_args)?;
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+        info!("Start to execute transfer contract call");
+        self.exec_contract_call(public_key0, contract_call_args)?;
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 4)? {
             return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
         }
         for i in 0..user_info.len() {
+            info!("Start to execute claim contract call for user id {}", user_info[i].user_id);
             self.exec_contract_call(user_info[i].pub_key, vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
@@ -343,9 +352,8 @@ impl Multicast {
     }
 
     pub fn transfer(&self, to_user_id: u64, to_user_public_key: QHashOut<GoldilocksField>, amount: u64) -> Result<()> {
-        let from_user_id = 0;
-        {self.wallet_session.write().add_user(QHashOut::from_string_or_panic(USER0_PRIVATE_KEY))?;}
-        self.exec_contract_call(QHashOut::from_string_or_panic(USER0_SECP_ZK_PUBLIC_KEY), vec![ContractCallArgs {
+        let (from_user_id, public_key0) = self.init_user0(amount)?;
+        self.exec_contract_call(public_key0, vec![ContractCallArgs {
             contract_id: 0,
             method_name: "simple_transfer".to_string(),
             inputs: vec![to_user_id, amount],
