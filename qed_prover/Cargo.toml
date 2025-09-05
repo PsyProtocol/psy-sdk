@@ -71,6 +71,8 @@ thiserror = { workspace = true }
 alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
 alloy-primitives = { workspace = true }
+parking_lot = { workspace = true}
+
 
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]

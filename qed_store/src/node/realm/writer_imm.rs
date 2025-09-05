@@ -117,9 +117,9 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
             }
         }).collect::<Vec<_>>();
         tracing::info!(
-            "injest_checkpoint_sync_data_imm: start_registration_user_id: {}, new_user_records: {:?}",
+            "injest_checkpoint_sync_data_imm: start_registration_user_id: {}, new_user_records len: {}",
             start_registration_user_id,
-            new_user_records
+            new_user_records.len(),
         );
         UserPublicKeyTableStore::<Self>::set_user_public_key_records(self, &new_user_records)?;
         UserRegistrationTreeStore::<Self>::append_leaves_spider_man(

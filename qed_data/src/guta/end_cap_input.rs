@@ -20,15 +20,15 @@ pub struct SubmitUserEndCapNonProofInput<F: RichField> {
 impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
     pub fn ensure_simple_self_consistent<H: FieldQHasher<F>>(&self, proof_public_inputs_hash: QHashOut<F>, contract_helper: &SimpleContractHeightCache<F>) -> anyhow::Result<()> {
         if self.core.checkpoint_id != self.core.new_user_leaf.last_checkpoint_id {
-            anyhow::bail!("invalid checkpoint id");
+            anyhow::bail!("invalid checkpoint id, left: {}, right: {}", self.core.checkpoint_id, self.core.new_user_leaf.last_checkpoint_id);
         }
         if self.core.new_user_leaf.user_id != self.core.state_transition.user_id {
-            anyhow::bail!("inconsistent user id");
+            anyhow::bail!("inconsistent user id, left: {}, right: {}", self.core.new_user_leaf.user_id, self.core.state_transition.user_id);
         }
 
         let expected_proof_public_inputs_hash = self.core.get_proof_public_inputs_hash::<H>();
         if proof_public_inputs_hash != expected_proof_public_inputs_hash {
-            anyhow::bail!("invalid public inputs/state transition");
+            anyhow::bail!("invalid public inputs/state transition, left: {:?}, right: {:?}", proof_public_inputs_hash, expected_proof_public_inputs_hash);
         }
 
 
@@ -41,7 +41,7 @@ impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
         }
 
         if self.contract_state_updates.last().as_ref().unwrap().user_contract_tree_update_proof.new_root != self.core.new_user_leaf.user_state_tree_root {
-            anyhow::bail!("user_state_tree_root does not match the last new root");
+            anyhow::bail!("user_state_tree_root does not match the last new root, left: {:?}, right: {:?}", self.contract_state_updates.last().as_ref().unwrap().user_contract_tree_update_proof.new_root, self.core.new_user_leaf.user_state_tree_root);
         }
 
         for csu in self.contract_state_updates.iter() {

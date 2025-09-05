@@ -450,7 +450,6 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         // Try to claim a job from the current layer's merged queue
         match self.rsmq.receive_object_with_id::<QJob>(&queue_id, Some(VISIBILITY_TIMEOUT)).await? {
             Some((job, msg_id)) => {
-                debug!("Claimed {} from layer {}", job, current_layer);
                 Ok(Some(job.with_msg_id(msg_id)))
             }
             None => Ok(None),

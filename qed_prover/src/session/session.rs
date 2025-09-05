@@ -323,11 +323,11 @@ impl WalletSession {
                     .await?
             }
         };
-        let pk_hash = pk_info.qfhash::<QEDHasher>();
+        let public_key = pk_info.qfhash::<QEDHasher>();
 
-        if let Ok(user_id) = self.st_provider.get_user_id(pk_hash).await {
-            tracing::info!("user `{}` already registered with id {}", pk_hash, user_id);
-            return Ok(pk_hash);
+        if let Ok(user_id) = self.st_provider.get_user_id(public_key).await {
+            tracing::info!("user `{}` already registered with id {}", public_key, user_id);
+            return Ok(public_key);
         }
 
         self.st_provider
@@ -336,9 +336,9 @@ impl WalletSession {
             })
             .await?;
 
-        tracing::info!("user `{}` registered", pk_hash);
+        tracing::info!("user `{}` registered", public_key);
         tracing::warn!("please add this user after 2 checkpoints!");
-        Ok(pk_hash)
+        Ok(public_key)
     }
 
     pub async fn add_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
@@ -449,11 +449,11 @@ impl WalletSession {
 
     pub async fn exec_contract_call(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> anyhow::Result<()> {
         self.exec_contract_call_with_sign_type(
-            pk_hash,
+            public_key,
             contract_call_args,
             SignType::SECP256K1Sign,
             None,
@@ -465,7 +465,7 @@ impl WalletSession {
 
     pub async fn exec_contract_call_with_sign_type(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
         sign_type: SignType,
         fingerprint: Option<QHashOut<F>>,
@@ -478,14 +478,14 @@ impl WalletSession {
         );
         let result = self.st_provider.get_latest_l2_block_state().await?;
         tracing::info!("start session on checkpoint: {}", result.checkpoint_id);
-        self.start_session(pk_hash).await?;
+        self.start_session(public_key).await?;
         tracing::info!("prove contract calls");
-        self.prove_contract_calls(pk_hash, contract_call_args)
+        self.prove_contract_calls(public_key, contract_call_args)
             .await?;
         let result = self.st_provider.get_latest_l2_block_state().await?;
         tracing::info!("sign and submit on checkpoint: {}", result.checkpoint_id);
         self.sign_and_submit_with_sign_type(
-            pk_hash,
+            public_key,
             sign_type,
             fingerprint,
             sig_contract_id,
@@ -495,12 +495,13 @@ impl WalletSession {
         Ok(())
     }
 
-    pub async fn start_session(&self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
+    pub async fn start_session(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
         tracing::info!("start new user proving session");
+        tracing::info!("get user session manager: {:?}", self.user_session_mgrs.iter().map(|item| item.key().to_string()).collect::<Vec<_>>());
         let mut user_session_mgr = self
             .user_session_mgrs
-            .get_mut(&pk_hash)
-            .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
+            .get_mut(&public_key)
+            .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
         let latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
 
         match user_session_mgr.user_state {
@@ -539,10 +540,10 @@ impl WalletSession {
                 };
             }
             UserState::InActive | UserState::Registering => {
-                let user_id = self.st_provider.get_user_id(pk_hash).await.map_err(|e| {
+                let user_id = self.st_provider.get_user_id(public_key).await.map_err(|e| {
                     anyhow::format_err!(
                         "can not get user id for user `{}`, please add it first: {}",
-                        pk_hash.to_string(),
+                        public_key.to_string(),
                         e
                     )
                 })?;
@@ -553,7 +554,7 @@ impl WalletSession {
                     .map_err(|e| {
                         anyhow::format_err!(
                             "can not get user id for user `{}`, please wait for 2 blocks after register: {}",
-                            pk_hash.to_string(),
+                            public_key.to_string(),
                             e
                         )
                     })?;
@@ -583,13 +584,13 @@ impl WalletSession {
 
     pub async fn prove_contract_call(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         contract_call_arg: ContractCallArgs,
     ) -> anyhow::Result<()> {
         let mut user_session_mgr = self
             .user_session_mgrs
-            .get_mut(&pk_hash)
-            .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
+            .get_mut(&public_key)
+            .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
         tracing::info!(
             "prove contract call at contract {}, method {}",
             contract_call_arg.contract_id,
@@ -612,23 +613,23 @@ impl WalletSession {
 
     pub async fn prove_contract_calls(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> anyhow::Result<()> {
         for contract_call_arg in contract_call_args {
-            self.prove_contract_call(pk_hash, contract_call_arg).await?;
+            self.prove_contract_call(public_key, contract_call_arg).await?;
         }
         Ok(())
     }
 
-    pub async fn sign_and_submit(&self, pk_hash: QHashOut<F>) -> anyhow::Result<()> {
-        self.sign_and_submit_with_sign_type(pk_hash, SignType::SECP256K1Sign, None, None, vec![])
+    pub async fn sign_and_submit(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
+        self.sign_and_submit_with_sign_type(public_key, SignType::SECP256K1Sign, None, None, vec![])
             .await
     }
 
     pub async fn sign_and_submit_with_sign_type(
         &self,
-        pk_hash: QHashOut<F>,
+        public_key: QHashOut<F>,
         sign_type: SignType,
         fingerprint: Option<QHashOut<F>>,
         sig_contract_id: Option<u64>,
@@ -638,8 +639,8 @@ impl WalletSession {
 
         let mut user_session_mgr = self
             .user_session_mgrs
-            .get_mut(&pk_hash)
-            .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
+            .get_mut(&public_key)
+            .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
 
         let sighash = user_session_mgr
             .mgr
@@ -647,8 +648,8 @@ impl WalletSession {
 
         let pk_info = self
             .wallet_keys_store
-            .get(&pk_hash)
-            .ok_or_else(|| anyhow::format_err!("user {} not found", pk_hash.to_string()))?;
+            .get(&public_key)
+            .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
         tracing::info!("zk sign for signhash: {}", sighash.to_string());
         let signature_proof = match sign_type {
             SignType::ZKSign => {
@@ -782,7 +783,7 @@ impl WalletSession {
 
         let public_key_param = self
             .wallet_keys_store
-            .get(&pk_hash)
+            .get(&public_key)
             .ok_or(anyhow::format_err!(
                 "user {} not found, cannot get public key param",
                 user_session_mgr.user_id
@@ -941,9 +942,9 @@ pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
         serde_json::from_str(&std::fs::read_to_string(args.contract_calls)?)?;
 
     let mut wallet_session = WalletSession::new(&rpc_config)?;
-    let pk_hash = wallet_session.add_user(private_key)?;
+    let public_key = wallet_session.add_user(private_key)?;
 
-    wallet_session.exec_contract_call(pk_hash, contract_call_args)?;
+    wallet_session.exec_contract_call(public_key, contract_call_args)?;
 
     Ok(())
 }

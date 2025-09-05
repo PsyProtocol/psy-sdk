@@ -43,7 +43,7 @@ use qed_store::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
-use qed_store::queue::redis_queue::QueueOffsetState;
+use qed_store::store::journal::Journal;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -98,14 +98,14 @@ impl RealmConfig {
 }
 #[derive(Clone)]
 pub struct RealmProcessorContext<
-    SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F>,
+    SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F> + Journal,
     DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     TS: QProvingTaskStore,
 > {
-    pub store: Arc<SR>,
+    pub store: SR,
     pub checkpoint_queue: Arc<DQ>,
     pub sync_queue: Arc<HQ>,
     pub prover_queue: Arc<WQ>,
@@ -116,7 +116,7 @@ pub struct RealmProcessorContext<
 }
 
 impl<
-        SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F>,
+        SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F> + Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
@@ -126,7 +126,7 @@ impl<
 {
     pub async fn new(
         realm_config: RealmConfig,
-        store: Arc<SR>,
+        store: SR,
         checkpoint_queue: Arc<DQ>,
         sync_queue: Arc<HQ>,
         prover_queue: Arc<WQ>,
@@ -146,7 +146,7 @@ impl<
         })
     }
 
-    pub fn verify_proof_of_type(
+    fn verify_proof_of_type(
         &self,
         circuit_type: ProvingJobCircuitType,
         proof: &ProofWithPublicInputs<F, C, D>,
@@ -173,14 +173,14 @@ impl<
             .collect();
 
         if !realm_users.is_empty() {
-            tracing::info!("Adding {} new pending users to Redis queue", realm_users.len());
+            info!("Adding {} new pending users to Redis queue", realm_users.len());
             self.sync_queue.push_pending_users(&realm_users).await?;
         }
 
         Ok(())
     }
 
-    pub async fn handle_guta_state_updates_from_users(
+    async fn handle_guta_state_updates_from_users(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<()> {
@@ -198,7 +198,7 @@ impl<
         self.store.injest_checked_cst_nodes_imm(&updates).await
     }
 
-    pub async fn handle_guta_from_users_ensure_no_topline(
+    async fn handle_guta_from_users_ensure_no_topline(
         &self,
         checkpoint_id: u64,
         pending_register_users: &[MerkleProofCore<QHashOut<F>>],
@@ -496,7 +496,7 @@ impl<
         ))
     }
 
-    pub async fn handle_guta_from_users(
+    async fn handle_guta_from_users(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<(
@@ -512,7 +512,7 @@ impl<
         ).await?;
         debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items).unwrap(), "GUTA queue items for aggregation");
         if guta_queue_items.len() == 0 {
-            tracing::debug!("No GUTA queue items to aggregate");
+            debug!("No GUTA queue items to aggregate");
             let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
             let last_user_tree_root = self
                 .store
@@ -545,7 +545,7 @@ impl<
                 BidirectionalGraph::new(),
             ));
         } else if guta_queue_items.len() == 1 {
-            tracing::debug!("Single GUTA queue item");
+            debug!("Single GUTA queue item");
             let single = CircuitInputWithDependencies::<VerifySingleEndCapInput<F>> {
                 input: VerifySingleEndCapInput {
                     guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
@@ -657,7 +657,7 @@ impl<
         for (i, p) in res.nca_proofs.iter().enumerate() {
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind == -1 && r_dep_ind == -1 {
-                tracing::debug!("Both GUTA dependencies are new");
+                debug!("Both GUTA dependencies are new");
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoEndCapCircuitInput {
                         guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
@@ -696,7 +696,7 @@ impl<
                     value: bincode::serialize(&x)?,
                 });
             } else if r_dep_ind != -1 && l_dep_ind != -1 {
-                tracing::debug!("Both GUTA dependencies exist");
+                debug!("Both GUTA dependencies exist");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
 
@@ -734,7 +734,7 @@ impl<
                     value: bincode::serialize(&x)?,
                 });
             } else if l_dep_ind != -1 {
-                tracing::debug!("Left GUTA dependency exists");
+                debug!("Left GUTA dependency exists");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
@@ -809,7 +809,7 @@ impl<
         Ok((levels, guta, res.link_proof, graph))
     }
 
-    pub async fn plan_jobs(
+    async fn plan_jobs(
         &self,
         new_checkpoint_id: u64,
         guta_jobs: &Vec<Vec<QProvingJobDataID>>,
@@ -823,7 +823,7 @@ impl<
 
         self.task_store.save_job_dependency_graph(new_checkpoint_id).await
             .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
-        tracing::info!("Saved realm job dependency graph for checkpoint {}", new_checkpoint_id);
+        info!("Saved realm job dependency graph for checkpoint {}", new_checkpoint_id);
 
         Ok(())
     }
@@ -857,7 +857,7 @@ impl<
         self.task_store.set_job_dependency_graph(empty_graph.clone(), empty_graph, guta_graph).await?;
         self.plan_jobs(new_checkpoint_id, &guta_jobs, finished_job).await?;
 
-        tracing::info!("Processed {} pending users for checkpoint {}", pending_users.len(), new_checkpoint_id);
+        debug!("Processed {} pending users for checkpoint {}", pending_users.len(), new_checkpoint_id);
 
         // Wait for proving jobs to complete and return the job ID
         info!("🐶 Waiting for realm proving jobs");
@@ -875,7 +875,7 @@ impl<
         // Check if there are pending user registrations in Redis queue
         let pending_users_count = self.sync_queue.get_pending_users_count().await?;
         if pending_users_count > 0 {
-            info!("Found {} pending user registrations in Redis queue", pending_users_count);
+            debug!("Found {} pending user registrations in Redis queue", pending_users_count);
             return Ok(true);
         }
 
@@ -888,7 +888,7 @@ impl<
             .await?;
 
         if !guta_queue_items.is_empty() {
-            info!("Found {} pending GUTA queue items", guta_queue_items.len());
+            debug!("Found {} pending GUTA queue items", guta_queue_items.len());
             return Ok(true);
         }
 
@@ -904,14 +904,12 @@ impl<
             info!("Found {} pending contract state updates", cst_updates.len());
             return Ok(true);
         }
-
-        trace!("No pending tasks found for checkpoint {}", checkpoint_id);
         Ok(false)
     }
 
 
     // commit redis queue
-    pub async fn commit_offset(&self) -> anyhow::Result<()> {
+    async fn commit_offset(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         if let Some(state) = self.sync_queue.get_last_peek_offset().await? {
             self.sync_queue.commit_offset(&state).await?;
         }
@@ -922,5 +920,14 @@ impl<
             self.checkpoint_queue.commit_offset(&state).await?;
         }
         Ok(())
+    }
+
+    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        self.store.commit(checkpoint_id)?;
+        self.commit_offset(checkpoint_id).await
+    }
+
+    pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        self.store.rollback(checkpoint_id)
     }
 }

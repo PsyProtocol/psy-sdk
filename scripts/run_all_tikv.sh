@@ -85,8 +85,8 @@ run_service() {
     local log_file=$3
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting $service_name (logging to $log_file)..." | tee -a "$log_file"
     while true; do
-        # Run service and append both stdout and stderr to log file
-        ( $service_cmd 2>&1 | sed 's/\o033\[[0-9;]*m//g' ) >> "$log_file" &
+        # Run service with unbuffered output and append both stdout and stderr to log file
+        stdbuf -oL -eL $service_cmd 2>&1 | stdbuf -oL sed 's/\x1b\[[0-9;]*m//g' >> "$log_file" &
         local pid=$!
         PIDS+=("$pid")  # Add PID to array
         wait $pid

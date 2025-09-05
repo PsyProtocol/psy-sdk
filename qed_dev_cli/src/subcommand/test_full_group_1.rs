@@ -62,6 +62,7 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use qed_core::data::qhashout::QHashOut;
+use qed_store::store::journal::JournalStore;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -182,7 +183,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     .await?;
     let mut realm_processor_node = RealmProcessorContext::new(
         realm_config,
-        st.clone(),
+        JournalStore::new(st.clone()),
         realm_qps.clone(),
         realm_qps.clone(),
         realm_qps.clone(),

@@ -40,6 +40,10 @@ hex = { workspace = true }
 
 # Plonky2
 plonky2 = { workspace = true }
+parking_lot = { workspace = true}
+
+scheduled-thread-pool = "0.2.7"
+num_cpus = "1.17.0"
 
 [[bin]]
 name = "qed_dev_cli"
