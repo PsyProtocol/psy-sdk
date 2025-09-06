@@ -13,7 +13,7 @@ use crate::{qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLea
 
 use super::{end_cap_input::SubmitUserEndCapNonProofInput, proof_input::VerifyEndCapSimpleStandardInput, stats::GUTAStats};
 use std::collections::HashMap;
-use ts_rs::TS; 
+use ts_rs::TS;
 
 #[derive(Clone, Debug)]
 pub struct SimpleContractHeightCache<F: RichField> {
@@ -58,7 +58,7 @@ impl<F: RichField> QEDContractStateUpdateHistory<F> {
             anyhow::bail!("contract_state_tree_updates cannot be empty")
         }
         if self.contract_state_tree_updates[0].old_root != self.user_contract_tree_update_proof.old_value && (
-            self.user_contract_tree_update_proof.old_value != QHashOut::ZERO || (self.contract_state_tree_updates[0].old_root != contract_helper.get_contract_zero_hash(self.user_contract_tree_update_proof.index)?)   
+            self.user_contract_tree_update_proof.old_value != QHashOut::ZERO || (self.contract_state_tree_updates[0].old_root != contract_helper.get_contract_zero_hash(self.user_contract_tree_update_proof.index)?)
         ){
             anyhow::bail!("first CST old root does not match UCT old value");
         }
@@ -88,7 +88,7 @@ impl<F: RichField> QEDContractStateUpdateHistory<F> {
         injestor.verify_injest_uct_delta_merkle_proof::<H>(&self.user_contract_tree_update_proof)?;
 
         let contract_id = self.user_contract_tree_update_proof.index as u32;
-        
+
 
         for p in self.contract_state_tree_updates.iter() {
             injestor.verify_injest_delta_merkle_proof::<H>(contract_id, p)?;
@@ -96,7 +96,7 @@ impl<F: RichField> QEDContractStateUpdateHistory<F> {
 
         Ok(())
 
-        
+
 
     }
 }
@@ -306,7 +306,7 @@ impl<F: RichField > SubmitGUTARealmResultAPINoProofInput<F> {
                 QJobTopic::GenerateStandardProof,
                 self.checkpoint_id,
                 self.realm_id as u32,
-                realm_root_level,
+                0,
                 0,
                 self.circuit_type,
                 ProvingJobDataType::OutputProof,

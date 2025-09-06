@@ -615,8 +615,8 @@ impl QProvingJobGraph {
                 let right = QHashOut(HashOut { elements: [F::ZERO; 4] });
                 QHashOut(PoseidonHash::two_to_one(left.into(), right.into()))
             } else if job_id.group_id != node_id {
-                let left = provider.get_job_commitment(job_id).await?;
-                left
+                let sibling = provider.get_job_commitment(job_id).await?;
+                sibling
             } else {
                 let zero = QHashOut(HashOut { elements: [F::ZERO; 4] });
                 QHashOut(PoseidonHash::two_to_one(zero.into(), zero.into()))
