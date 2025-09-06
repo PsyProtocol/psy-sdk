@@ -21,7 +21,7 @@ fn gen_jobs_ids(checkpoint_id: u64, height: usize) -> Vec<Vec<QProvingJobDataID>
             }
         }else{
             for i in 0..num_nodes {
-                let id = QProvingJobDataID::guta_two_agg_witness(checkpoint_id, ProvingJobCircuitType::GUTATwoEndCap.to_circuit_group_id(), h as u32, i as u32);
+                let id = QProvingJobDataID::guta_two_agg_witness(checkpoint_id, ProvingJobCircuitType::GUTATwoGUTA.to_circuit_group_id(), h as u32, i as u32);
                 level_jobs.push(id);
             }
         }

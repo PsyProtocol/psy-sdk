@@ -441,8 +441,7 @@ pub struct VariableHeightProofSibling {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct VariableHeightRewardMerkleProof {
     pub top_siblings: Vec<VariableHeightProofSibling>,
-    pub left_branch: QHashOut<F>,
-    pub right_branch: QHashOut<F>,
+    pub sibling_branch: QHashOut<F>,
     pub reward_leaf: QHashOut<F>,
     pub proof_height: F,
     pub index: F,
@@ -461,8 +460,7 @@ impl VariableHeightRewardMerkleProof {
 
         VariableHeightRewardMerkleProof {
             top_siblings: combined_top_siblings,
-            left_branch: self.left_branch,
-            right_branch: self.right_branch,
+            sibling_branch: self.sibling_branch,
             reward_leaf: self.reward_leaf,
             proof_height: self.proof_height + top_proof.proof_height,
             index: F::from_canonical_u64(combined_index),
@@ -516,6 +514,7 @@ impl QProvingJobGraph {
     pub async fn generate_variable_height_reward_proof<P: QJobRewardDataProvider>(
         &self,
         job_id: QProvingJobDataID,
+        node_id: u32,
         provider: &P,
     ) -> anyhow::Result<(VariableHeightRewardMerkleProof, QProvingJobDataID)> {
         use plonky2::{field::goldilocks_field::GoldilocksField as F, hash::hash_types::HashOut};
@@ -605,31 +604,33 @@ impl QProvingJobGraph {
             }
         }
 
-        let (left_branch, right_branch) = if let Some(job_dependencies) = graph.get_dependencies(&job_id) {
+        let sibling_branch = if let Some(job_dependencies) = graph.get_dependencies(&job_id) {
             let deps_vec: Vec<_> = job_dependencies.iter().cloned().collect();
             if deps_vec.len() == 2 {
                 let left = provider.get_job_commitment(deps_vec[0]).await?;
                 let right = provider.get_job_commitment(deps_vec[1]).await?;
-                (left, right)
+                QHashOut(PoseidonHash::two_to_one(left.into(), right.into()))
             } else if deps_vec.len() == 1 {
                 let left = provider.get_job_commitment(deps_vec[0]).await?;
                 let right = QHashOut(HashOut { elements: [F::ZERO; 4] });
-                (left, right)
+                QHashOut(PoseidonHash::two_to_one(left.into(), right.into()))
+            } else if job_id.group_id != node_id {
+                let left = provider.get_job_commitment(job_id).await?;
+                left
             } else {
                 let zero = QHashOut(HashOut { elements: [F::ZERO; 4] });
-                (zero, zero)
+                QHashOut(PoseidonHash::two_to_one(zero.into(), zero.into()))
             }
         } else {
             let zero = QHashOut(HashOut { elements: [F::ZERO; 4] });
-            (zero, zero)
+            QHashOut(PoseidonHash::two_to_one(zero.into(), zero.into()))
         };
 
         let reward_leaf = provider.get_job_worker_public_key(job_id).await?;
 
         let proof = VariableHeightRewardMerkleProof {
             top_siblings,
-            left_branch,
-            right_branch,
+            sibling_branch,
             reward_leaf,
             proof_height: F::from_canonical_usize(actual_height),
             index: F::from_canonical_u64(index_value),
@@ -1305,7 +1306,7 @@ impl VariableHeightRewardMerkleProof {
         let mut nullifier_base = 0u64;
         let mut nullifier_level_start_index_multiplier = 1u64;
 
-        let mut current_node_value = PoseidonHash::two_to_one(PoseidonHash::two_to_one(self.left_branch.0, self.right_branch.0), self.reward_leaf.0);
+        let mut current_node_value = PoseidonHash::two_to_one(self.sibling_branch.0, self.reward_leaf.0);
 
         for i in 0..proof_height {
             let sibling = &self.top_siblings[i];
@@ -1363,8 +1364,10 @@ mod tests {
                 sibling_branch: QHashOut::from_values(1, 2, 3, 4),
                 sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
             }],
-            left_branch: QHashOut::from_values(5, 6, 7, 8),
-            right_branch: QHashOut::from_values(9, 10, 11, 12),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(5, 6, 7, 8).into(),
+                QHashOut::from_values(9, 10, 11, 12).into()
+            )),
             reward_leaf: QHashOut::from_values(13, 14, 15, 16),
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),
@@ -1420,8 +1423,10 @@ mod tests {
                     sibling_reward_leaf: QHashOut::from_values(13, 14, 15, 16),
                 },
             ],
-            left_branch: QHashOut::from_values(17, 18, 19, 20),
-            right_branch: QHashOut::from_values(21, 22, 23, 24),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(17, 18, 19, 20).into(),
+                QHashOut::from_values(21, 22, 23, 24).into()
+            )),
             reward_leaf: QHashOut::from_values(25, 26, 27, 28),
             proof_height: F::from_canonical_usize(2),
             index: F::from_canonical_usize(1),
@@ -1437,8 +1442,10 @@ mod tests {
     fn test_variable_height_proof_zero_height() {
         let proof = VariableHeightRewardMerkleProof {
             top_siblings: vec![],
-            left_branch: QHashOut::from_values(1, 2, 3, 4),
-            right_branch: QHashOut::from_values(5, 6, 7, 8),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(1, 2, 3, 4).into(),
+                QHashOut::from_values(5, 6, 7, 8).into()
+            )),
             reward_leaf: QHashOut::from_values(9, 10, 11, 12),
             proof_height: F::from_canonical_usize(0),
             index: F::from_canonical_usize(0),
@@ -1457,8 +1464,10 @@ mod tests {
                 sibling_branch: QHashOut::from_values(100, 101, 102, 103),
                 sibling_reward_leaf: QHashOut::from_values(200, 201, 202, 203),
             }],
-            left_branch: QHashOut::from_values(1, 2, 3, 4),
-            right_branch: QHashOut::from_values(5, 6, 7, 8),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(1, 2, 3, 4).into(),
+                QHashOut::from_values(5, 6, 7, 8).into()
+            )),
             reward_leaf: QHashOut::from_values(9, 10, 11, 12),
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),
@@ -1517,8 +1526,10 @@ mod tests {
                 sibling_branch: QHashOut::from_values(1, 2, 3, 4),
                 sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
             }],
-            left_branch: QHashOut::from_values(5, 6, 7, 8),
-            right_branch: QHashOut::from_values(9, 10, 11, 12),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(5, 6, 7, 8).into(),
+                QHashOut::from_values(9, 10, 11, 12).into()
+            )),
             reward_leaf: QHashOut::from_values(13, 14, 15, 16),
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),
@@ -1529,8 +1540,10 @@ mod tests {
                 sibling_branch: QHashOut::from_values(1, 2, 3, 4),
                 sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
             }],
-            left_branch: QHashOut::from_values(5, 6, 7, 8),
-            right_branch: QHashOut::from_values(9, 10, 11, 12),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(5, 6, 7, 8).into(),
+                QHashOut::from_values(9, 10, 11, 12).into()
+            )),
             reward_leaf: QHashOut::from_values(13, 14, 15, 16),
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(1),
@@ -1592,8 +1605,10 @@ mod tests {
     fn test_proof_height_validation() {
         let proof = VariableHeightRewardMerkleProof {
             top_siblings: vec![], // Empty siblings but proof_height = 20 should panic
-            left_branch: QHashOut::from_values(1, 2, 3, 4),
-            right_branch: QHashOut::from_values(5, 6, 7, 8),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(1, 2, 3, 4).into(),
+                QHashOut::from_values(5, 6, 7, 8).into()
+            )),
             reward_leaf: QHashOut::from_values(9, 10, 11, 12),
             proof_height: F::from_canonical_usize(20), // > top_siblings.len()
             index: F::from_canonical_usize(0),
@@ -1607,8 +1622,10 @@ mod tests {
     fn test_index_validation() {
         let proof = VariableHeightRewardMerkleProof {
             top_siblings: vec![], // Empty siblings but proof_height = 1 should panic
-            left_branch: QHashOut::from_values(1, 2, 3, 4),
-            right_branch: QHashOut::from_values(5, 6, 7, 8),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(1, 2, 3, 4).into(),
+                QHashOut::from_values(5, 6, 7, 8).into()
+            )),
             reward_leaf: QHashOut::from_values(9, 10, 11, 12),
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),
@@ -1712,21 +1729,21 @@ mod tests {
         graph.guta_graph.add_edge(root_job, parent_job); // root depends on parent
 
         // Test leaf node (child - no dependents)
-        let (proof_child, nullifier_child) = graph.generate_variable_height_reward_proof(child_job, &provider).await.unwrap();
+        let (proof_child, nullifier_child) = graph.generate_variable_height_reward_proof(child_job, 0, &provider).await.unwrap();
         assert_eq!(proof_child.proof_height.to_canonical_u64() as usize, 2); // Updated based on actual behavior
         assert_eq!(proof_child.top_siblings.len(), 2); // Actual height, no padding
         assert_eq!(proof_child.reward_leaf, QHashOut::from_values(100, 101, 102, 103));
         assert_eq!(nullifier_child, root_job); // Root is the final nullifier
 
         // Test middle node (parent - has child as dependent)
-        let (proof_parent, nullifier_parent) = graph.generate_variable_height_reward_proof(parent_job, &provider).await.unwrap();
+        let (proof_parent, nullifier_parent) = graph.generate_variable_height_reward_proof(parent_job, 0, &provider).await.unwrap();
         assert_eq!(proof_parent.proof_height.to_canonical_u64() as usize, 1); // Path: parent -> root
         assert_eq!(proof_parent.top_siblings.len(), 1);
         assert_eq!(proof_parent.reward_leaf, QHashOut::from_values(104, 105, 106, 107));
         assert_eq!(nullifier_parent, root_job); // Root job ID
 
         // Test root node (has parent as dependent)
-        let (proof_root, nullifier_root) = graph.generate_variable_height_reward_proof(root_job, &provider).await.unwrap();
+        let (proof_root, nullifier_root) = graph.generate_variable_height_reward_proof(root_job, 0, &provider).await.unwrap();
         assert_eq!(proof_root.proof_height.to_canonical_u64() as usize, 0); // Root has no dependents
         assert_eq!(proof_root.top_siblings.len(), 0);
         assert_eq!(proof_root.reward_leaf, QHashOut::from_values(108, 109, 110, 111));
@@ -1762,7 +1779,7 @@ mod tests {
         graph.guta_graph.add_edge(job_c, job_a);
         graph.guta_graph.add_edge(job_c, job_b);
 
-        let (proof, _nullifier) = graph.generate_variable_height_reward_proof(job_c, &provider).await.unwrap();
+        let (proof, _nullifier) = graph.generate_variable_height_reward_proof(job_c, 0, &provider).await.unwrap();
 
         // job_c has no dependents, so height should be 0
         assert_eq!(proof.proof_height.to_canonical_u64() as usize, 0);
@@ -1771,8 +1788,10 @@ mod tests {
 
         // Since job_c is a root with two dependencies, it should have left and right
         // branches
-        assert_eq!(proof.left_branch, QHashOut::from_values(1, 2, 3, 4));
-        assert_eq!(proof.right_branch, QHashOut::from_values(5, 6, 7, 8));
+        assert_eq!(proof.sibling_branch, QHashOut(PoseidonHash::two_to_one(
+            QHashOut::from_values(1, 2, 3, 4).into(),
+            QHashOut::from_values(5, 6, 7, 8).into()
+        )));
     }
 
     #[tokio::test]
@@ -1824,7 +1843,7 @@ mod tests {
         let jobs = [job1, job2, job3, job4, root_job];
 
         for &job in &jobs {
-            let (proof, _) = graph.generate_variable_height_reward_proof(job, &provider).await.unwrap();
+            let (proof, _) = graph.generate_variable_height_reward_proof(job, 0, &provider).await.unwrap();
             let (_, nullifier_index) = proof.compute_root_and_nullifier_index();
             let nullifier_value = nullifier_index.to_canonical_u64();
 
@@ -1884,7 +1903,7 @@ mod tests {
         let mut nullifiers = HashMap::new();
 
         for &job in &[leaf1, leaf2, parent1, parent2, root] {
-            let (proof, _) = graph.generate_variable_height_reward_proof(job, &provider).await.unwrap();
+            let (proof, _) = graph.generate_variable_height_reward_proof(job, 0, &provider).await.unwrap();
             let (_, nullifier_index) = proof.compute_root_and_nullifier_index();
             let nullifier_value = nullifier_index.to_canonical_u64();
 
@@ -1918,8 +1937,10 @@ mod tests {
                 sibling_branch: QHashOut::from_values(1, 2, 3, 4),
                 sibling_reward_leaf: QHashOut::from_values(5, 6, 7, 8),
             }],
-            left_branch: QHashOut::from_values(10, 11, 12, 13),
-            right_branch: QHashOut::from_values(14, 15, 16, 17),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(10, 11, 12, 13).into(),
+                QHashOut::from_values(14, 15, 16, 17).into()
+            )),
             reward_leaf: QHashOut::from_values(18, 19, 20, 21),
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0), // Left position in bottom tree
@@ -1931,8 +1952,10 @@ mod tests {
                 sibling_branch: QHashOut::from_values(22, 23, 24, 25),
                 sibling_reward_leaf: QHashOut::from_values(26, 27, 28, 29),
             }],
-            left_branch: QHashOut::ZERO,
-            right_branch: QHashOut::ZERO,
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::ZERO.into(),
+                QHashOut::ZERO.into()
+            )),
             reward_leaf: QHashOut::ZERO,
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(1), // This should put combined proof on right
@@ -1974,8 +1997,10 @@ mod tests {
         // Create a bottom proof that locally has index 0 (left in its subtree)
         let problematic_bottom = VariableHeightRewardMerkleProof {
             top_siblings: vec![], // Height 0 proof
-            left_branch: QHashOut::from_values(100, 101, 102, 103),
-            right_branch: QHashOut::from_values(104, 105, 106, 107),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(100, 101, 102, 103).into(),
+                QHashOut::from_values(104, 105, 106, 107).into()
+            )),
             reward_leaf: QHashOut::from_values(108, 109, 110, 111),
             proof_height: F::from_canonical_usize(0), // Leaf proof
             index: F::from_canonical_usize(0),        // Says it's at position 0 locally
@@ -1988,8 +2013,10 @@ mod tests {
                 sibling_branch: QHashOut::from_values(200, 201, 202, 203),
                 sibling_reward_leaf: QHashOut::from_values(204, 205, 206, 207),
             }],
-            left_branch: QHashOut::ZERO,
-            right_branch: QHashOut::ZERO,
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::ZERO.into(),
+                QHashOut::ZERO.into()
+            )),
             reward_leaf: QHashOut::ZERO,
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(1), // This puts it in right position at top level
@@ -2111,8 +2138,10 @@ mod combine_tests {
                 sibling_branch: QHashOut::from_values(1, 2, 3, 4),
                 sibling_reward_leaf: QHashOut::from_values(5, 6, 7, 8),
             }],
-            left_branch: QHashOut::from_values(9, 10, 11, 12),
-            right_branch: QHashOut::from_values(13, 14, 15, 16),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(9, 10, 11, 12).into(),
+                QHashOut::from_values(13, 14, 15, 16).into()
+            )),
             reward_leaf: QHashOut::from_values(17, 18, 19, 20),
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),
@@ -2124,8 +2153,10 @@ mod combine_tests {
                 sibling_branch: QHashOut::from_values(21, 22, 23, 24),
                 sibling_reward_leaf: QHashOut::from_values(25, 26, 27, 28),
             }],
-            left_branch: QHashOut::from_values(29, 30, 31, 32),  // Should be ignored
-            right_branch: QHashOut::from_values(33, 34, 35, 36), // Should be ignored
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(29, 30, 31, 32).into(), // Should be ignored
+                QHashOut::from_values(33, 34, 35, 36).into()  // Should be ignored
+            )),
             reward_leaf: QHashOut::from_values(37, 38, 39, 40),  // Should be ignored
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(1),
@@ -2138,9 +2169,11 @@ mod combine_tests {
         assert_eq!(combined.index.to_canonical_u64() as usize, 2); // 0 | (1 << 1) = 2
         assert_eq!(combined.top_siblings.len(), 2); // 1 + 1 = 2
 
-        // Verify left_branch, right_branch, reward_leaf come from bottom proof
-        assert_eq!(combined.left_branch, QHashOut::from_values(9, 10, 11, 12));
-        assert_eq!(combined.right_branch, QHashOut::from_values(13, 14, 15, 16));
+        // Verify sibling_branch, reward_leaf come from bottom proof
+        assert_eq!(combined.sibling_branch, QHashOut(PoseidonHash::two_to_one(
+            QHashOut::from_values(9, 10, 11, 12).into(),
+            QHashOut::from_values(13, 14, 15, 16).into()
+        )));
         assert_eq!(combined.reward_leaf, QHashOut::from_values(17, 18, 19, 20));
     }
 
@@ -2158,8 +2191,10 @@ mod combine_tests {
                     sibling_reward_leaf: QHashOut::from_values(4, 4, 4, 4),
                 },
             ],
-            left_branch: QHashOut::from_values(100, 100, 100, 100),
-            right_branch: QHashOut::from_values(200, 200, 200, 200),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(100, 100, 100, 100).into(),
+                QHashOut::from_values(200, 200, 200, 200).into()
+            )),
             reward_leaf: QHashOut::from_values(300, 300, 300, 300),
             proof_height: F::from_canonical_usize(2),
             index: F::from_canonical_usize(3), // Binary: 11
@@ -2171,8 +2206,10 @@ mod combine_tests {
                 sibling_branch: QHashOut::from_values(5, 5, 5, 5),
                 sibling_reward_leaf: QHashOut::from_values(6, 6, 6, 6),
             }],
-            left_branch: QHashOut::from_values(400, 400, 400, 400),  // Ignored
-            right_branch: QHashOut::from_values(500, 500, 500, 500), // Ignored
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(400, 400, 400, 400).into(), // Ignored
+                QHashOut::from_values(500, 500, 500, 500).into()  // Ignored
+            )),
             reward_leaf: QHashOut::from_values(600, 600, 600, 600),  // Ignored
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(1), // Binary: 1
@@ -2186,8 +2223,10 @@ mod combine_tests {
         assert_eq!(combined.top_siblings.len(), 3); // 2 + 1 = 3
 
         // Verify data source correctness
-        assert_eq!(combined.left_branch, QHashOut::from_values(100, 100, 100, 100));
-        assert_eq!(combined.right_branch, QHashOut::from_values(200, 200, 200, 200));
+        assert_eq!(combined.sibling_branch, QHashOut(PoseidonHash::two_to_one(
+            QHashOut::from_values(100, 100, 100, 100).into(),
+            QHashOut::from_values(200, 200, 200, 200).into()
+        )));
         assert_eq!(combined.reward_leaf, QHashOut::from_values(300, 300, 300, 300));
 
         // Verify siblings order
@@ -2204,8 +2243,10 @@ mod combine_tests {
                 sibling_branch: QHashOut::from_values(10, 10, 10, 10),
                 sibling_reward_leaf: QHashOut::from_values(20, 20, 20, 20),
             }],
-            left_branch: QHashOut::from_values(30, 30, 30, 30),
-            right_branch: QHashOut::from_values(40, 40, 40, 40),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(30, 30, 30, 30).into(),
+                QHashOut::from_values(40, 40, 40, 40).into()
+            )),
             reward_leaf: QHashOut::from_values(50, 50, 50, 50),
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(1),
@@ -2214,8 +2255,10 @@ mod combine_tests {
         // Top: height=0 (empty proof)
         let top_proof = VariableHeightRewardMerkleProof {
             top_siblings: vec![],
-            left_branch: QHashOut::from_values(60, 60, 60, 60),  // Ignored
-            right_branch: QHashOut::from_values(70, 70, 70, 70), // Ignored
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(60, 60, 60, 60).into(), // Ignored
+                QHashOut::from_values(70, 70, 70, 70).into()  // Ignored
+            )),
             reward_leaf: QHashOut::from_values(80, 80, 80, 80),  // Ignored
             proof_height: F::from_canonical_usize(0),
             index: F::from_canonical_usize(0),
@@ -2228,8 +2271,10 @@ mod combine_tests {
         assert_eq!(combined.index.to_canonical_u64() as usize, 1); // 1 | (0 << 1) = 1
         assert_eq!(combined.top_siblings.len(), 1); // 1 + 0 = 1
 
-        assert_eq!(combined.left_branch, QHashOut::from_values(30, 30, 30, 30));
-        assert_eq!(combined.right_branch, QHashOut::from_values(40, 40, 40, 40));
+        assert_eq!(combined.sibling_branch, QHashOut(PoseidonHash::two_to_one(
+            QHashOut::from_values(30, 30, 30, 30).into(),
+            QHashOut::from_values(40, 40, 40, 40).into()
+        )));
         assert_eq!(combined.reward_leaf, QHashOut::from_values(50, 50, 50, 50));
     }
 
@@ -2241,8 +2286,10 @@ mod combine_tests {
                 sibling_branch: QHashOut::from_values(1, 2, 3, 4),
                 sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
             }],
-            left_branch: QHashOut::from_values(5, 6, 7, 8),
-            right_branch: QHashOut::from_values(9, 10, 11, 12),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(5, 6, 7, 8).into(),
+                QHashOut::from_values(9, 10, 11, 12).into()
+            )),
             reward_leaf: QHashOut::from_values(13, 14, 15, 16),
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),
@@ -2253,8 +2300,10 @@ mod combine_tests {
                 sibling_branch: QHashOut::from_values(17, 18, 19, 20),
                 sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
             }],
-            left_branch: QHashOut::from_values(0, 0, 0, 0),  // Ignored
-            right_branch: QHashOut::from_values(0, 0, 0, 0), // Ignored
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(0, 0, 0, 0).into(), // Ignored
+                QHashOut::from_values(0, 0, 0, 0).into()  // Ignored
+            )),
             reward_leaf: QHashOut::from_values(0, 0, 0, 0),  // Ignored
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),
@@ -2279,8 +2328,10 @@ mod combine_tests {
                 sibling_branch: QHashOut::from_values(1, 2, 3, 4),
                 sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
             }],
-            left_branch: QHashOut::from_values(5, 6, 7, 8),
-            right_branch: QHashOut::from_values(9, 10, 11, 12),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(5, 6, 7, 8).into(),
+                QHashOut::from_values(9, 10, 11, 12).into()
+            )),
             reward_leaf: QHashOut::from_values(13, 14, 15, 16),
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),
@@ -2291,8 +2342,10 @@ mod combine_tests {
                 sibling_branch: QHashOut::from_values(17, 18, 19, 20),
                 sibling_reward_leaf: QHashOut::from_values(0, 0, 0, 0),
             }],
-            left_branch: QHashOut::from_values(0, 0, 0, 0),  // This should be ignored
-            right_branch: QHashOut::from_values(0, 0, 0, 0), // This should be ignored
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(0, 0, 0, 0).into(), // This should be ignored
+                QHashOut::from_values(0, 0, 0, 0).into()  // This should be ignored
+            )),
             reward_leaf: QHashOut::from_values(0, 0, 0, 0),  // This should be ignored
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),

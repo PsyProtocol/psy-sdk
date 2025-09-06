@@ -692,7 +692,7 @@ where
             };
             debug!("job_id: {}", job_id.to_hex_string());
 
-            match job_graph.generate_variable_height_reward_proof(job_id, &*self.ctx.proof_store).await {
+            match job_graph.generate_variable_height_reward_proof(job_id, self.ctx.realm_config.realm_id, &*self.ctx.proof_store).await {
                 Ok((realm_proof, root_job_id)) => {
                     debug!("realm proof: {}, root_job_id: {}", serde_json::to_string_pretty(&realm_proof).unwrap(), root_job_id.to_hex_string());
                     let coordinator_proofs = self.coordinator_client

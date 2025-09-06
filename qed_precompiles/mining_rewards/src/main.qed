@@ -5,8 +5,7 @@ struct WeirdMerkleProofSiblingLevel {
 
 struct VariableHeightRewardMerkleProof {
     pub top_siblings: [WeirdMerkleProofSiblingLevel; 32],
-    pub left_branch: [Felt; 4],
-    pub right_branch: [Felt; 4],
+    pub sibling_branch: [Felt; 4],
     pub reward_leaf: [Felt; 4],
     pub proof_height: Felt,
     pub index: Felt,
@@ -40,8 +39,7 @@ impl VariableHeightRewardMerkleProof {
         let mut nullifier_base = 0;
         let mut nullifier_level_start_index_multiplier = 1;
 
-        let leaf_hash = hash_two_to_one(self.left_branch, self.right_branch);
-        let mut current_node_value = hash_two_to_one(leaf_hash, self.reward_leaf);
+        let mut current_node_value = hash_two_to_one(self.sibling_branch, self.reward_leaf);
 
         for i in 0u32..32u32 {
             let level_index = i as Felt;

@@ -144,16 +144,10 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
                     }
                 }
                 proof_inputs.extend(vec![
-                    proof.left_branch.0.elements[0].0,
-                    proof.left_branch.0.elements[1].0,
-                    proof.left_branch.0.elements[2].0,
-                    proof.left_branch.0.elements[3].0,
-                ]);
-                proof_inputs.extend(vec![
-                    proof.right_branch.0.elements[0].0,
-                    proof.right_branch.0.elements[1].0,
-                    proof.right_branch.0.elements[2].0,
-                    proof.right_branch.0.elements[3].0,
+                    proof.sibling_branch.0.elements[0].0,
+                    proof.sibling_branch.0.elements[1].0,
+                    proof.sibling_branch.0.elements[2].0,
+                    proof.sibling_branch.0.elements[3].0,
                 ]);
                 proof_inputs.extend(vec![
                     proof.reward_leaf.0.elements[0].0,
