@@ -40,6 +40,10 @@ impl<T: Eq + Hash + Clone + Debug> BidirectionalGraph<T> {
         self.reverse_edges.entry(node).or_default();
     }
 
+    pub fn has_node(&self, node: &T) -> bool {
+        self.edges.contains_key(node) || self.reverse_edges.contains_key(node)
+    }
+
     pub fn get_dependencies(&self, node: &T) -> Option<&IndexSet<T>> {
         self.edges.get(node)
     }
@@ -261,7 +265,8 @@ mod tests {
     #[test]
     fn test_self_dependency() {
         let mut graph = BidirectionalGraph::new();
-        // A depends on itself - but add_edge(1,1) actually just adds node 1 without self-loop
+        // A depends on itself - but add_edge(1,1) actually just adds node 1 without
+        // self-loop
         graph.add_edge(1, 1);
 
         let result = graph.ts_order();

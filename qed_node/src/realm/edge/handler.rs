@@ -633,31 +633,56 @@ where
     ) -> RpcResult<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>> {
         use jsonrpsee::types::ErrorObject;
 
-        for job_id in &job_ids {
-            if job_id.goal_id != checkpoint_id {
-                return Err(ErrorObject::owned(
-                    jsonrpsee::types::ErrorCode::InvalidParams.code(),
-                    format!("Job ID {:?} does not belong to checkpoint {}", job_id, checkpoint_id),
-                    None::<()>,
-                ));
+        let mut actual_checkpoint_id = checkpoint_id;
+        let mut job_graph = None;
+
+        for offset in 0..5 {
+            let candidate_checkpoint_id = checkpoint_id + offset;
+
+            if let Ok(graph) = self.task_store.load_job_dependency_graph(candidate_checkpoint_id).await {
+                let all_jobs_found = job_ids.iter().all(|job_id| {
+                    match job_id.circuit_type {
+                        ProvingJobCircuitType::AppendUserRegistrationTree |
+                        ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
+                        ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
+                            graph.user_registrations_graph.has_node(job_id)
+                        }
+                        ProvingJobCircuitType::BatchDeployContracts |
+                        ProvingJobCircuitType::BatchDeployContractsAggregate |
+                        ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
+                            graph.deploy_contracts_graph.has_node(job_id)
+                        }
+                        ProvingJobCircuitType::GUTARegisterUsers |
+                        ProvingJobCircuitType::GUTAOnlyRegisterUsers |
+                        ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange |
+                        ProvingJobCircuitType::GUTASingleEndCap | ProvingJobCircuitType::GUTATwoEndCap |
+                        ProvingJobCircuitType::GUTALeftEndCapRightGUTA | ProvingJobCircuitType::GUTALeftGUTARightEndCap |
+                        ProvingJobCircuitType::GUTAVerifyToCap => {
+                            graph.guta_graph.has_node(job_id)
+                        }
+                        _ => false
+                    }
+                });
+                if all_jobs_found {
+                    actual_checkpoint_id = candidate_checkpoint_id;
+                    job_graph = Some(graph);
+                    break;
+                }
             }
         }
 
-        let checkpoint_leaf = self.ctx.store_reader
-            .get_checkpoint_leaf_data(checkpoint_id)
-            .await
-            .map_err(|e| ErrorObject::owned(
-                jsonrpsee::types::ErrorCode::InternalError.code(),
-                format!("Failed to get checkpoint data: {}", e),
-                None::<()>,
-            ))?;
+        let graph = job_graph.ok_or_else(|| ErrorObject::owned(
+            jsonrpsee::types::ErrorCode::InvalidParams.code(),
+            format!("Jobs not found in checkpoints {} to {}", checkpoint_id, checkpoint_id + 4),
+            None::<()>,
+        ))?;
 
-        let job_graph = self.task_store
-            .load_job_dependency_graph(checkpoint_id)
+        let checkpoint_leaf = self.ctx.store_reader
+            .get_checkpoint_leaf_data(actual_checkpoint_id)
             .await
             .map_err(|e| ErrorObject::owned(
                 jsonrpsee::types::ErrorCode::InternalError.code(),
-                format!("Failed to load job dependency graph for checkpoint {}: {}", checkpoint_id, e),
+                format!("Failed to get checkpoint data for {}: {}", actual_checkpoint_id, e),
                 None::<()>,
             ))?;
 
@@ -692,7 +717,7 @@ where
             };
             debug!("job_id: {}", job_id.to_hex_string());
 
-            match job_graph.generate_variable_height_reward_proof(job_id, self.ctx.realm_config.realm_id, &*self.ctx.proof_store).await {
+            match graph.generate_variable_height_reward_proof(job_id, self.ctx.realm_config.realm_id, &*self.ctx.proof_store).await {
                 Ok((realm_proof, root_job_id)) => {
                     debug!("realm proof: {}, root_job_id: {}", serde_json::to_string_pretty(&realm_proof).unwrap(), root_job_id.to_hex_string());
                     let coordinator_proofs = self.coordinator_client
