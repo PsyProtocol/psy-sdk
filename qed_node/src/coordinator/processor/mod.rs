@@ -245,7 +245,7 @@ impl
 
         let edge_command_queue = Arc::new(q.clone());
 
-        let coord_config = CoordinatorConfig::get_standard(0);
+        let coord_config = CoordinatorConfig::get_standard();
 
         let qps = Arc::new(q.clone());
 

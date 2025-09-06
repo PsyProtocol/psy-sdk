@@ -70,7 +70,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     debug!("created proof verifier successfully!");
 
     // Create Realm configuration
-    let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
+    let realm_config = RealmConfig::get_standard(config.realm.realm_id);
     debug!("created realm config successfully!");
 
     // Use the same ProofStoreRedisAsync for checkpoint sync

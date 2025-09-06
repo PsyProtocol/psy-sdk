@@ -33,20 +33,20 @@ impl ProcessManager {
         // Create log files
         let log_file = log_dir.join(format!("{}.log", name));
         let err_file = log_dir.join(format!("{}.err", name));
-        
+
         let out_file = fs::File::create(&log_file)?;
         let err_file = fs::File::create(&err_file)?;
-        
+
         info!("🚀 Starting {}", name);
         debug!("Command: {:?}", cmd);
-        
+
         // Spawn process
         let child = cmd
             .stdout(Stdio::from(out_file))
             .stderr(Stdio::from(err_file))
             .spawn()
             .with_context(|| format!("Failed to spawn {}", name))?;
-        
+
         // Track process
         let mut processes = self.processes.lock().unwrap();
         processes.push(ProcessInfo {
@@ -54,7 +54,7 @@ impl ProcessManager {
             child,
             log_file: log_file.clone(),
         });
-        
+
         Ok(())
     }
 
@@ -101,67 +101,67 @@ pub async fn launch(config_path: Option<String>, verbose: bool) -> Result<()> {
         .with_context(|| format!("Failed to read config file: {}", config_file))?;
     let config: Config = serde_json::from_str(&content)
         .with_context(|| "Failed to parse config.json")?;
-    
+
     if verbose {
         debug!("Configuration: {:#?}", config);
     }
-    
+
     // Create working directory
     let work_dir = PathBuf::from(".");
     let log_dir = work_dir.join("logs");
     fs::create_dir_all(&log_dir)?;
-    
+
     info!("🚀 QED Launch - Starting development environment");
     info!("📁 Working directory: {}", work_dir.display());
     info!("📝 Log directory: {}", log_dir.display());
-    
+
     let manager = ProcessManager::new();
-    
+
     // Phase 1: Start infrastructure
     info!("🏗️  Phase 1: Starting infrastructure...");
     start_infrastructure(&config, &manager, &work_dir, &log_dir).await?;
-    
+
     // Phase 2: Start coordinator
     info!("🏗️  Phase 2: Starting coordinator...");
     start_coordinator(&config, &manager, &work_dir, &log_dir).await?;
-    
+
     // Phase 3: Start realms
     info!("🏗️  Phase 3: Starting realms...");
     start_realms(&config, &manager, &work_dir, &log_dir).await?;
-    
+
     info!("✅ All services started successfully!");
     info!("");
     info!("📡 Service endpoints:");
-    
+
     // Display coordinator endpoint
     if let Some(coord_config) = config.network.coordinator_configs.first() {
         if let Some(url) = coord_config.rpc_url.first() {
             info!("  Coordinator RPC: {}", url);
         }
     }
-    
+
     // Display realm endpoints
     for realm_config in &config.network.realm_configs {
         if let Some(url) = realm_config.rpc_url.first() {
             info!("  Realm {} RPC: {}", realm_config.id, url);
         }
     }
-    
+
     info!("");
     info!("📊 Monitoring:");
     info!("  Logs: {}", log_dir.display());
     info!("");
     info!("Press Ctrl+C to stop all services...");
-    
+
     // Wait for interrupt
     tokio::signal::ctrl_c().await?;
-    
+
     info!("\n🛑 Shutting down...");
     manager.kill_all();
-    
+
     // Stop Docker containers if any
     stop_docker_containers();
-    
+
     Ok(())
 }
 
@@ -176,14 +176,14 @@ async fn start_infrastructure(
         .ok_or_else(|| anyhow::anyhow!("No Redis configuration found for coordinator"))?;
     let coordinator_uri = &coordinator_redis.uri;
     let coordinator_port = extract_port(coordinator_uri)?;
-    
+
     // Start Redis instances
     if check_command_exists("redis-server") {
         // Coordinator Redis
         let mut cmd = Command::new("redis-server");
         cmd.arg("--port").arg(coordinator_port.to_string());
         manager.spawn("redis-coordinator".to_string(), cmd, log_dir)?;
-        
+
         // Realm Redis instances
         for realm in &config.nodes.realms {
             if let Some(realm_redis) = &realm.redis {
@@ -198,14 +198,14 @@ async fn start_infrastructure(
         info!("Redis not found, using Docker containers...");
         start_redis_docker(config, manager, log_dir)?;
     }
-    
+
     // Start ScyllaDB if needed
     // Check if any node is using scylla
     let has_scylla = config.nodes.coordinator.backend.as_ref()
         .map(|b| b.database == "scylla").unwrap_or(false) ||
-        config.nodes.realms.iter().any(|r| 
+        config.nodes.realms.iter().any(|r|
             r.backend.as_ref().map(|b| b.database == "scylla").unwrap_or(false));
-    
+
     if has_scylla {
         start_scylla_docker(config, manager, log_dir)?;
         // Wait for ScyllaDB to be ready
@@ -213,7 +213,7 @@ async fn start_infrastructure(
         sleep(Duration::from_secs(30)).await;
         create_keyspaces(config)?;
     }
-    
+
     // Create LMDBX directories if needed for each component
     if let Some(coord_backend) = &config.nodes.coordinator.backend {
         if coord_backend.database == "lmdbx" {
@@ -222,7 +222,7 @@ async fn start_infrastructure(
             }
         }
     }
-    
+
     for realm in &config.nodes.realms {
         if let Some(realm_backend) = &realm.backend {
             if realm_backend.database == "lmdbx" {
@@ -232,10 +232,10 @@ async fn start_infrastructure(
             }
         }
     }
-    
+
     // Wait for infrastructure to be ready
     sleep(Duration::from_secs(2)).await;
-    
+
     Ok(())
 }
 
@@ -250,7 +250,7 @@ async fn start_coordinator(
         .ok_or_else(|| anyhow::anyhow!("No Redis configuration found for coordinator"))?;
     let redis_uri = &coordinator_redis.uri;
     let node_cfg = &config.nodes.coordinator;
-    
+
     // Start processor
     if node_cfg.processor.enabled {
         let mut cmd = Command::new(&binary);
@@ -260,7 +260,7 @@ async fn start_coordinator(
         add_service_args(&mut cmd, &node_cfg.processor)?;
         manager.spawn("coordinator-processor".to_string(), cmd, log_dir)?;
     }
-    
+
     // Start workers
     if node_cfg.worker.enabled {
         let worker_count = node_cfg.worker.aws.as_ref()
@@ -278,10 +278,10 @@ async fn start_coordinator(
             manager.spawn(format!("coordinator-worker-{}", i), cmd, log_dir)?;
         }
     }
-    
+
     // Wait a bit before starting edge
     sleep(Duration::from_secs(1)).await;
-    
+
     // Start edge
     if node_cfg.edge.enabled {
         let mut cmd = Command::new(&binary);
@@ -289,14 +289,14 @@ async fn start_coordinator(
         add_backend_args(&mut cmd, config, None)?;
         cmd.arg("--redis-uri").arg(redis_uri);
         add_service_args(&mut cmd, &node_cfg.edge)?;
-        
+
         // Set environment variables
         for (key, value) in &node_cfg.edge.env {
             cmd.env(key, value);
         }
-        
+
         manager.spawn("coordinator-edge".to_string(), cmd, log_dir)?;
-        
+
         // Wait for coordinator to be ready
         if let Some(listen_addr) = node_cfg.edge.args.get("listen_addr") {
             if let Value::String(addr) = listen_addr {
@@ -305,7 +305,7 @@ async fn start_coordinator(
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -316,41 +316,40 @@ async fn start_realms(
     log_dir: &Path,
 ) -> Result<()> {
     let binary = get_binary_path()?;
-    
+
     // Get coordinator URL
     let coordinator_url = if let Some(coord_cfg) = config.network.coordinator_configs.first() {
         coord_cfg.rpc_url.first().cloned().unwrap_or_else(|| "http://127.0.0.1:8545".to_string())
     } else {
         "http://127.0.0.1:8545".to_string()
     };
-    
+
     for realm_node in &config.nodes.realms {
         info!("🌍 Starting realm {}...", realm_node.id);
-        
+
         // Find corresponding Redis config
         let realm_redis = realm_node.redis.as_ref()
             .ok_or_else(|| anyhow::anyhow!("Redis config not found for realm {}", realm_node.id))?;
-        
+
         let redis_uri = &realm_redis.uri;
-        
+
         // Start processor
         if realm_node.processor.enabled {
             let mut cmd = Command::new(&binary);
             cmd.arg("realm-processor");
             add_backend_args(&mut cmd, config, Some(realm_node.id))?;
             cmd.arg("--redis-uri").arg(redis_uri);
-            cmd.arg("--node-id").arg(realm_node.node_id.to_string());
             cmd.arg("--realm-id").arg(realm_node.id.to_string());
             add_service_args(&mut cmd, &realm_node.processor)?;
-            
+
             // Set environment variables
             for (key, value) in &realm_node.processor.env {
                 cmd.env(key, value);
             }
-            
+
             manager.spawn(format!("realm-{}-processor", realm_node.id), cmd, log_dir)?;
         }
-        
+
         // Start workers
         if realm_node.worker.enabled {
             let worker_count = realm_node.worker.aws.as_ref()
@@ -365,28 +364,27 @@ async fn start_realms(
                 cmd.arg("realm-worker");
                 cmd.arg("--redis-uri").arg(redis_uri);
                 add_service_args(&mut cmd, &realm_node.worker)?;
-                
+
                 // Set environment variables
                 for (key, value) in &realm_node.worker.env {
                     cmd.env(key, value);
                 }
-                
+
                 manager.spawn(format!("realm-{}-worker-{}", realm_node.id, j), cmd, log_dir)?;
             }
         }
-        
+
         // Wait a bit before starting edge
         sleep(Duration::from_millis(500)).await;
-        
+
         // Start edge
         if realm_node.edge.enabled {
             let mut cmd = Command::new(&binary);
             cmd.arg("realm-edge");
             add_backend_args(&mut cmd, config, Some(realm_node.id))?;
             cmd.arg("--redis-uri").arg(redis_uri);
-            cmd.arg("--node-id").arg(realm_node.node_id.to_string());
             cmd.arg("--realm-id").arg(realm_node.id.to_string());
-            
+
             // Add coordinator address if specified
             if let Some(coord_addr) = realm_node.edge.args.get("coordinator_addr") {
                 if let Value::String(addr) = coord_addr {
@@ -395,16 +393,16 @@ async fn start_realms(
             } else {
                 cmd.arg("--coordinator-addr").arg(&coordinator_url);
             }
-            
+
             add_service_args(&mut cmd, &realm_node.edge)?;
-            
+
             // Set environment variables
             for (key, value) in &realm_node.edge.env {
                 cmd.env(key, value);
             }
-            
+
             manager.spawn(format!("realm-{}-edge", realm_node.id), cmd, log_dir)?;
-            
+
             // Wait for realm to be ready
             if let Some(listen_addr) = realm_node.edge.args.get("listen_addr") {
                 if let Value::String(addr) = listen_addr {
@@ -414,7 +412,7 @@ async fn start_realms(
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -480,13 +478,13 @@ fn get_binary_path() -> Result<PathBuf> {
     if release_path.exists() {
         return Ok(release_path);
     }
-    
+
     // Then check debug
     let debug_path = PathBuf::from("./target/debug/qed_rollup_cli");
     if debug_path.exists() {
         return Ok(debug_path);
     }
-    
+
     // Finally check if it's in PATH
     if let Ok(output) = Command::new("which").arg("qed_rollup_cli").output() {
         if output.status.success() {
@@ -494,7 +492,7 @@ fn get_binary_path() -> Result<PathBuf> {
             return Ok(PathBuf::from(path));
         }
     }
-    
+
     Err(anyhow::anyhow!(
         "qed_rollup_cli binary not found. Please build it first with 'cargo build --release'"
     ))
@@ -520,7 +518,7 @@ fn start_redis_docker(config: &Config, manager: &ProcessManager, log_dir: &Path)
         "redis:7-alpine"
     ]);
     manager.spawn("docker-redis-coordinator".to_string(), cmd, log_dir)?;
-    
+
     // Realm Redis instances
     for realm in &config.nodes.realms {
         if let Some(realm_redis) = &realm.redis {
@@ -534,7 +532,7 @@ fn start_redis_docker(config: &Config, manager: &ProcessManager, log_dir: &Path)
             manager.spawn(format!("docker-redis-realm-{}", realm.id), cmd, log_dir)?;
         }
     }
-    
+
     Ok(())
 }
 
@@ -557,7 +555,7 @@ fn create_keyspaces(config: &Config) -> Result<()> {
         .map(|r| format!("qed_realm_{}", r.id))
         .collect();
     keyspaces.extend(realm_keyspaces);
-    
+
     for keyspace in &keyspaces {
         info!("Creating keyspace: {}", keyspace);
         let output = Command::new("docker")
@@ -569,12 +567,12 @@ fn create_keyspaces(config: &Config) -> Result<()> {
                 )
             ])
             .output()?;
-        
+
         if !output.status.success() {
             warn!("Failed to create keyspace {}: {}", keyspace, String::from_utf8_lossy(&output.stderr));
         }
     }
-    
+
     Ok(())
 }
 
@@ -601,11 +599,11 @@ fn extract_port_from_addr(addr: &str) -> Result<u16> {
 fn stop_docker_containers() {
     let containers = vec![
         "qed-redis-coordinator",
-        "qed-redis-realm-0", 
+        "qed-redis-realm-0",
         "qed-redis-realm-1",
         "qed-scylladb"
     ];
-    
+
     for container in containers {
         let _ = Command::new("docker")
             .args(&["stop", container])
@@ -619,7 +617,7 @@ fn stop_docker_containers() {
 async fn wait_for_service(host: &str, port: u16, name: &str) -> Result<()> {
     let mut attempts = 0;
     let max_attempts = 30;
-    
+
     loop {
         match tokio::net::TcpStream::connect(format!("{}:{}", host, port)).await {
             Ok(_) => {

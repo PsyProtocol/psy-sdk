@@ -227,7 +227,6 @@ run-realm-processor1:
       --redis-uri=redis://127.0.0.1:6381 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm1 \
-      --node-id=2 \
       --realm-id=1 \
       --queue-biz-key=rwq1
 
@@ -238,7 +237,6 @@ run-realm-edge1:
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm1 \
       --coordinator-addr=http://127.0.0.1:8545 \
-      --node-id=2 \
       --realm-id=1 \
       --queue-biz-key=rwq1
 
@@ -303,7 +301,6 @@ run-realm-processor1-tikv:
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace realm1 \
-		--node-id=2 \
 		--realm-id=1 \
 		--queue-biz-key=rwq1
 
@@ -315,7 +312,6 @@ run-realm-edge1-tikv:
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace realm1 \
         --coordinator-addr=http://127.0.0.1:8545 \
-		--node-id=2 \
 		--realm-id=1 \
 		--queue-biz-key=rwq1
 

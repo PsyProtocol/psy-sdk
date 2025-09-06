@@ -51,7 +51,6 @@ const D: usize = 2;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct RealmConfig {
-    pub rpc_node_id: u32,
     pub realm_id: u32,
     pub users_per_realm: usize,
     pub realm_root_level: u8,
@@ -65,14 +64,13 @@ pub struct RealmConfig {
 
 impl RealmConfig {
 
-    pub fn get_standard(rpc_node_id: u32, realm_id: u32) -> Self {
+    pub fn get_standard(realm_id: u32) -> Self {
         let library = get_cached_circuit_library::<F>();
 
         let realm_root_level = COORDINATOR_USER_TREE_HEIGHT;
         let users_per_realm = 1usize << (REALM_USER_TREE_HEIGHT as usize);
 
         Self {
-            rpc_node_id,
             users_per_realm,
             realm_root_level,
             guta_channel_id: REALM_API_GUTA_FROM_USER_CHANNEL_ID + realm_id as u64,
@@ -290,8 +288,8 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
-                    ProvingJobCircuitType::GUTANoChange.to_circuit_group_id(),
                     self.realm_config.realm_id,
+                    0,
                     0,
                     ProvingJobCircuitType::GUTANoChange,
                     ProvingJobDataType::InputWitness,
@@ -333,8 +331,8 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
-                    ProvingJobCircuitType::GUTAOnlyRegisterUsers.to_circuit_group_id(),
                     self.realm_config.realm_id,
+                    0,
                     0,
                     ProvingJobCircuitType::GUTAOnlyRegisterUsers,
                     ProvingJobDataType::InputWitness,
@@ -370,8 +368,8 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
-                    ProvingJobCircuitType::GUTAVerifyToCap.to_circuit_group_id(),
                     self.realm_config.realm_id,
+                    0,
                     0,
                     ProvingJobCircuitType::GUTAVerifyToCap,
                     ProvingJobDataType::InputWitness,
@@ -445,8 +443,8 @@ impl<
         let ww_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
-            ProvingJobCircuitType::GUTARegisterUsers.to_circuit_group_id(),
             self.realm_config.realm_id,
+            0,
             0,
             ProvingJobCircuitType::GUTARegisterUsers,
             ProvingJobDataType::InputWitness,
@@ -600,8 +598,8 @@ impl<
             let id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 checkpoint_id,
-                ProvingJobCircuitType::GUTASingleEndCap.to_circuit_group_id(),
                 self.realm_config.realm_id,
+                0,
                 0,
                 ProvingJobCircuitType::GUTASingleEndCap,
                 ProvingJobDataType::InputWitness,
@@ -673,7 +671,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
-                    ProvingJobCircuitType::GUTATwoEndCap.to_circuit_group_id(),
+                    self.realm_config.realm_id,
                     p.nearest_common_ancestor_level as u32,
                     p.nearest_common_ancestor_index as u32,
                     ProvingJobCircuitType::GUTATwoEndCap,
@@ -703,7 +701,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
-                    ProvingJobCircuitType::GUTATwoGUTA.to_circuit_group_id(),
+                    self.realm_config.realm_id,
                     p.nearest_common_ancestor_level as u32,
                     p.nearest_common_ancestor_index as u32,
                     ProvingJobCircuitType::GUTATwoGUTA,
@@ -758,7 +756,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
-                    ProvingJobCircuitType::GUTALeftGUTARightEndCap.to_circuit_group_id(),
+                    self.realm_config.realm_id,
                     p.nearest_common_ancestor_level as u32,
                     p.nearest_common_ancestor_index as u32,
                     ProvingJobCircuitType::GUTALeftGUTARightEndCap,

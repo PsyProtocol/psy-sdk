@@ -95,7 +95,7 @@ impl RealmProcessor {
         ).await?;
         let store = QEDStore::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
-        let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
+        let realm_config = RealmConfig::get_standard(config.realm.realm_id);
         let sync_checkpoint = Arc::new(realm_qps.clone());
         let processor = RealmProcessor {
             realm_config,

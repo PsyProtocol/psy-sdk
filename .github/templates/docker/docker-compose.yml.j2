@@ -108,14 +108,14 @@ services:
   {% endfor -%}
   {% if ns.uses_scylla -%}
   # ScyllaDB clusters
-  
+
   # Coordinator ScyllaDB cluster
   {% if config.nodes.coordinator.backend and config.nodes.coordinator.backend.type == "scylla" -%}
     {% set coordinator_cluster_size = config.nodes.coordinator.backend.scylla.aws.ec2.desired_instances | default(1) -%}
   {% else -%}
     {% set coordinator_cluster_size = 0 -%}
   {% endif -%}
-  
+
   {% if coordinator_cluster_size > 0 -%}
   {% for i in range(1, coordinator_cluster_size + 1) -%}
   scylla-coordinator-{{ i }}:
@@ -149,7 +149,7 @@ services:
 
   {% endfor -%}
   {% endif -%}
-  
+
   # Realm ScyllaDB clusters
   {% for realm in config.nodes.realms -%}
   {% if realm.backend and realm.backend.type == "scylla" -%}
@@ -157,7 +157,7 @@ services:
   {% else -%}
     {% set realm_cluster_size = 0 -%}
   {% endif -%}
-  
+
   {% if realm_cluster_size > 0 -%}
   {% for i in range(1, realm_cluster_size + 1) -%}
   scylla-realm{{ realm.id }}-{{ i }}:
@@ -395,7 +395,6 @@ services:
       --scylla-keyspace qed_realm_{{ realm.id }}
       {% endif -%}
       --redis-uri redis://redis-realm{{ realm.id }}:6379
-      --node-id {{ realm.node_id }}
       --realm-id {{ realm.id }}
       {% for key, value in realm.processor.args | items -%}
       --{{ key | replace('_', '-') }} {{ value }}
@@ -460,7 +459,6 @@ services:
       --scylla-keyspace qed_realm_{{ realm.id }}
       {% endif -%}
       --redis-uri redis://redis-realm{{ realm.id }}:6379
-      --node-id {{ realm.node_id }}
       --realm-id {{ realm.id }}
       {% for key, value in realm.edge.args | items -%}
       --{{ key | replace('_', '-') }} {{ value }}

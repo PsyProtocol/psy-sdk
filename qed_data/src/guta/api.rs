@@ -305,9 +305,9 @@ impl<F: RichField > SubmitGUTARealmResultAPINoProofInput<F> {
             proof_id: QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 self.checkpoint_id,
-                self.circuit_type.to_circuit_group_id(),
-                realm_root_level,
                 self.realm_id as u32,
+                realm_root_level,
+                0,
                 self.circuit_type,
                 ProvingJobDataType::OutputProof,
                 0,

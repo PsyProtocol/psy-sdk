@@ -220,7 +220,6 @@
     "realms": [
       {
         "id": 0,
-        "node_id": 1,
         "redis": {
           "uri": "redis://127.0.0.1:6380",
           "pool_size": 10,
@@ -327,7 +326,6 @@
       },
       {
         "id": 1,
-        "node_id": 2,
         "redis": {
           "uri": "redis://127.0.0.1:6381",
           "pool_size": 10,

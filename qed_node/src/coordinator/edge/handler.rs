@@ -95,7 +95,7 @@ impl CoordinatorEdgeHandler {
         // init verifier
         let verifier = Arc::new(get_cached_generic_verifier::<_, 2>());
 
-        let edge_config = crate::coordinator::state::processor::CoordinatorConfig::get_standard(0);
+        let edge_config = crate::coordinator::state::processor::CoordinatorConfig::get_standard();
 
         // init context
         let ctx = CoordinatorEdgeContext::new(
