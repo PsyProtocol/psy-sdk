@@ -544,9 +544,10 @@ impl QProvingJobGraph {
 
                 let (sibling_branch, sibling_reward_leaf) = if deps_vec.len() == 2 {
                     let sibling_id = if child == deps_vec[0] { deps_vec[1] } else { deps_vec[0] };
-                    let sibling_branch = provider.get_job_commitment(sibling_id).await?;
+                    let sibling_commitment = provider.get_job_commitment(sibling_id).await?;
+                    let sibling_worker_public_key = provider.get_job_worker_public_key(sibling_id).await?;
                     let sibling_reward_leaf = provider.get_job_worker_public_key(parent).await?;
-                    (sibling_branch, sibling_reward_leaf)
+                    (QHashOut(PoseidonHash::two_to_one(sibling_commitment.into(), sibling_worker_public_key.into())), sibling_reward_leaf)
                 } else if deps_vec.len() == 1 {
                     let parent_reward_leaf = provider.get_job_worker_public_key(parent).await?;
                     (QHashOut(HashOut { elements: [F::ZERO; 4] }), parent_reward_leaf)
@@ -607,16 +608,22 @@ impl QProvingJobGraph {
         let sibling_branch = if let Some(job_dependencies) = graph.get_dependencies(&job_id) {
             let deps_vec: Vec<_> = job_dependencies.iter().cloned().collect();
             if deps_vec.len() == 2 {
-                let left = provider.get_job_commitment(deps_vec[0]).await?;
-                let right = provider.get_job_commitment(deps_vec[1]).await?;
+                let left_commitment = provider.get_job_commitment(deps_vec[0]).await?;
+                let left_worker_public_key = provider.get_job_worker_public_key(deps_vec[0]).await?;
+                let left = QHashOut(PoseidonHash::two_to_one(left_commitment.into(), left_worker_public_key.into()));
+                let right_commitment = provider.get_job_commitment(deps_vec[1]).await?;
+                let right_worker_public_key = provider.get_job_worker_public_key(deps_vec[1]).await?;
+                let right = QHashOut(PoseidonHash::two_to_one(right_commitment.into(), right_worker_public_key.into()));
                 QHashOut(PoseidonHash::two_to_one(left.into(), right.into()))
             } else if deps_vec.len() == 1 {
-                let left = provider.get_job_commitment(deps_vec[0]).await?;
+                let left_commitment = provider.get_job_commitment(deps_vec[0]).await?;
+                let left_worker_public_key = provider.get_job_worker_public_key(deps_vec[0]).await?;
+                let left = QHashOut(PoseidonHash::two_to_one(left_commitment.into(), left_worker_public_key.into()));
                 let right = QHashOut(HashOut { elements: [F::ZERO; 4] });
                 QHashOut(PoseidonHash::two_to_one(left.into(), right.into()))
             } else if job_id.group_id != node_id {
-                let sibling = provider.get_job_commitment(job_id).await?;
-                sibling
+                let sibling_commitment = provider.get_job_commitment(job_id).await?;
+                sibling_commitment
             } else {
                 let zero = QHashOut(HashOut { elements: [F::ZERO; 4] });
                 QHashOut(PoseidonHash::two_to_one(zero.into(), zero.into()))

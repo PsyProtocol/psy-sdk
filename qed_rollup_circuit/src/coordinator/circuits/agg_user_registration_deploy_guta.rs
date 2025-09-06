@@ -104,7 +104,7 @@ where
             .header
             .get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
 
-        let register_users_root = HashOutTarget {
+        let register_users_commitment = HashOutTarget {
             elements: [
                 verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[0],
                 verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[1],
@@ -112,8 +112,17 @@ where
                 verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[3],
             ]
         };
+        let register_users_worker_public_key = HashOutTarget {
+            elements: [
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[4],
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[5],
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[6],
+                verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[7],
+            ]
+        };
+        let register_users_root = builder.hash_two_to_one::<C::Hasher>(register_users_commitment, register_users_worker_public_key);
 
-        let deploy_contracts_root = HashOutTarget {
+        let deploy_contracts_commitment = HashOutTarget {
             elements: [
                 verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[0],
                 verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[1],
@@ -121,8 +130,17 @@ where
                 verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[3],
             ]
         };
+        let deploy_contracts_worker_public_key = HashOutTarget {
+            elements: [
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[4],
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[5],
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[6],
+                verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[7],
+            ]
+        };
+        let deploy_contracts_root = builder.hash_two_to_one::<C::Hasher>(deploy_contracts_commitment, deploy_contracts_worker_public_key);
 
-        let gutas_root = HashOutTarget {
+        let gutas_commitment = HashOutTarget {
             elements: [
                 verifier_gadget.verify_guta_gadget.proof_target.public_inputs[0],
                 verifier_gadget.verify_guta_gadget.proof_target.public_inputs[1],
@@ -130,6 +148,15 @@ where
                 verifier_gadget.verify_guta_gadget.proof_target.public_inputs[3],
             ]
         };
+        let gutas_worker_public_key = HashOutTarget {
+            elements: [
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[4],
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[5],
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[6],
+                verifier_gadget.verify_guta_gadget.proof_target.public_inputs[7],
+            ]
+        };
+        let gutas_root = builder.hash_two_to_one::<C::Hasher>(gutas_commitment, gutas_worker_public_key);
 
         builder.register_public_inputs(&state_transition_hash.elements);
         builder.register_public_inputs(&register_users_root.elements);

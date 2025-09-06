@@ -279,13 +279,25 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             if state_transition_hash.0.elements != proof.public_inputs[0..4] {
                 anyhow::bail!("invalid state transition hash");
             }
-            if user_registration_proof.public_inputs[0..4] != proof.public_inputs[4..8] {
+            // Verify that hash(child_commitment, child_worker_public_key) equals parent's expected value
+            let user_registration_commitment = QHashOut::from_felt_slice(&user_registration_proof.public_inputs[0..4]);
+            let user_registration_worker_pk = QHashOut::from_felt_slice(&user_registration_proof.public_inputs[4..8]);
+            let user_registration_final = QEDHasher::two_to_one(&user_registration_commitment, &user_registration_worker_pk);
+            if user_registration_final.0.elements != proof.public_inputs[4..8] {
                 anyhow::bail!("invalid user registration proof");
             }
-            if deploy_contracts_proof.public_inputs[0..4] != proof.public_inputs[8..12] {
+
+            let deploy_contracts_commitment = QHashOut::from_felt_slice(&deploy_contracts_proof.public_inputs[0..4]);
+            let deploy_contracts_worker_pk = QHashOut::from_felt_slice(&deploy_contracts_proof.public_inputs[4..8]);
+            let deploy_contracts_final = QEDHasher::two_to_one(&deploy_contracts_commitment, &deploy_contracts_worker_pk);
+            if deploy_contracts_final.0.elements != proof.public_inputs[8..12] {
                 anyhow::bail!("invalid deploy contracts proof");
             }
-            if guta_proof.public_inputs[0..4] != proof.public_inputs[12..16] {
+
+            let guta_commitment = QHashOut::from_felt_slice(&guta_proof.public_inputs[0..4]);
+            let guta_worker_pk = QHashOut::from_felt_slice(&guta_proof.public_inputs[4..8]);
+            let guta_final = QEDHasher::two_to_one(&guta_commitment, &guta_worker_pk);
+            if guta_final.0.elements != proof.public_inputs[12..16] {
                 anyhow::bail!("invalid guta proof");
             }
         }

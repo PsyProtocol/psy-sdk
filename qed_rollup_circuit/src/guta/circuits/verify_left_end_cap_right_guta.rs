@@ -97,6 +97,14 @@ where
                 b_guta_gadget.proof_target.public_inputs[3],
             ]
         };
+        let b_worker_public_key = HashOutTarget {
+            elements: [
+                b_guta_gadget.proof_target.public_inputs[4],
+                b_guta_gadget.proof_target.public_inputs[5],
+                b_guta_gadget.proof_target.public_inputs[6],
+                b_guta_gadget.proof_target.public_inputs[7],
+            ]
+        };
 
         let b_pm_jobs_completed = [
             b_guta_gadget.proof_target.public_inputs[8],
@@ -112,8 +120,8 @@ where
             gutas_completed: final_gutas,
         };
 
-        let children_commitment = builder.hash_two_to_one::<C::Hasher>(b_commitment, a_commitment);
-        let commitment = builder.hash_two_to_one::<C::Hasher>(children_commitment, worker_public_key);
+        let b_final_commitment = builder.hash_two_to_one::<C::Hasher>(b_commitment, b_worker_public_key);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(b_final_commitment, a_commitment);
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);

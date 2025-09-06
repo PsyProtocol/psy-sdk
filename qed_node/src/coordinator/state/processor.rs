@@ -856,14 +856,17 @@ impl<
             )
             .await?;
 
-        let register_users_root = QHashOut::try_from(&register_users_proof.public_inputs[0..4])?;
-        let deploy_contracts_root = QHashOut::try_from(&deploy_contracts_proof.public_inputs[0..4])?;
-        let gutas_root = QHashOut::try_from(&guta_proof.public_inputs[0..4])?;
+        let register_users_commitment = QHashOut::try_from(&register_users_proof.public_inputs[0..4])?;
+        let register_users_worker_public_key = QHashOut::try_from(&register_users_proof.public_inputs[4..8])?;
+        let deploy_contracts_commitment = QHashOut::try_from(&deploy_contracts_proof.public_inputs[0..4])?;
+        let deploy_contracts_worker_public_key = QHashOut::try_from(&deploy_contracts_proof.public_inputs[4..8])?;
+        let gutas_commitment = QHashOut::try_from(&guta_proof.public_inputs[0..4])?;
+        let gutas_worker_public_key = QHashOut::try_from(&guta_proof.public_inputs[4..8])?;
 
         let pm_rewards_commitment = PMRewardCommitment {
-            register_users_root,
-            gutas_root,
-            deploy_contracts_root,
+            register_users_root: QHashOut(QEDHasher::two_to_one(register_users_commitment.into(), register_users_worker_public_key.into())),
+            deploy_contracts_root: QHashOut(QEDHasher::two_to_one(deploy_contracts_commitment.into(), deploy_contracts_worker_public_key.into())),
+            gutas_root: QHashOut(QEDHasher::two_to_one(gutas_commitment.into(), gutas_worker_public_key.into())),
         };
 
         let register_users_stats = PMJobsCompletedStats {

@@ -62,8 +62,7 @@ where
         );
 
         let zero_hash = builder.constant_hash(HashOut::ZERO);
-        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
-        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
 
         let one = builder.one();
         let pm_jobs_completed = PMJobsCompletedStatsGadget::new_register_users(&mut builder, one);

@@ -104,6 +104,14 @@ where
                 a_guta_gadget.proof_target.public_inputs[3],
             ]
         };
+        let a_worker_public_key = HashOutTarget {
+            elements: [
+                a_guta_gadget.proof_target.public_inputs[4],
+                a_guta_gadget.proof_target.public_inputs[5],
+                a_guta_gadget.proof_target.public_inputs[6],
+                a_guta_gadget.proof_target.public_inputs[7],
+            ]
+        };
         let a_pm_jobs_completed = [
             a_guta_gadget.proof_target.public_inputs[8],
             a_guta_gadget.proof_target.public_inputs[9],
@@ -116,6 +124,14 @@ where
                 b_guta_gadget.proof_target.public_inputs[1],
                 b_guta_gadget.proof_target.public_inputs[2],
                 b_guta_gadget.proof_target.public_inputs[3],
+            ]
+        };
+        let b_worker_public_key = HashOutTarget {
+            elements: [
+                b_guta_gadget.proof_target.public_inputs[4],
+                b_guta_gadget.proof_target.public_inputs[5],
+                b_guta_gadget.proof_target.public_inputs[6],
+                b_guta_gadget.proof_target.public_inputs[7],
             ]
         };
         let b_pm_jobs_completed = [
@@ -136,8 +152,9 @@ where
             gutas_completed: final_gutas,
         };
 
-        let children_commitment = builder.hash_two_to_one::<C::Hasher>(a_commitment, b_commitment);
-        let commitment = builder.hash_two_to_one::<C::Hasher>(children_commitment, worker_public_key);
+        let a_final_commitment = builder.hash_two_to_one::<C::Hasher>(a_commitment, a_worker_public_key);
+        let b_final_commitment = builder.hash_two_to_one::<C::Hasher>(b_commitment, b_worker_public_key);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(a_final_commitment, b_final_commitment);
 
         let public_inputs_hash = nca_state_transition_gadget
             .new_guta_header
