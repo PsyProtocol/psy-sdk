@@ -175,9 +175,10 @@ impl RealmProcessor {
                                     pending_checkpoint_id = None;
                                     info!("Commit checkpoint {}", pending_checkpoint);
                                 } else {
-                                    if ret.latest_checkpoint_id > pending_checkpoint + 1 || ret.latest_checkpoint_id < pending_checkpoint - 1 {
+                                    if ret.latest_checkpoint_id > pending_checkpoint + 10 || ret.latest_checkpoint_id < pending_checkpoint - 1 {
                                         warn!("Invalid checkpoint sync result, rollback");
                                         context.rollback(pending_checkpoint).await?;
+                                        pending_checkpoint_id = None;
                                     } else {
                                         continue
                                     }
