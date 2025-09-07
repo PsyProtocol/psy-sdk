@@ -34,7 +34,7 @@ impl VariableHeightRewardMerkleProof {
         let max_height = 32;
 
         assert(proof_height <= max_height, "proof height too large");
-        assert(index < 2147483648, "index too large");
+        assert(index < 4294967296, "index too large");
 
         let mut nullifier_base = 0;
         let mut nullifier_level_start_index_multiplier = 1;
@@ -175,8 +175,11 @@ impl PsyPOWMiningRewardsClaimContractRef {
                 let guta_rewards_tree_root = result.0;
                 let nullifier_index = result.1;
 
-                assert_eq(
-                    guta_rewards_tree_root[0], expected_guta_rewards_tree_root[0],
+                assert(
+                    guta_rewards_tree_root[0] == expected_guta_rewards_tree_root[0]
+                    && guta_rewards_tree_root[1] == expected_guta_rewards_tree_root[1]
+                    && guta_rewards_tree_root[2] == expected_guta_rewards_tree_root[2]
+                    && guta_rewards_tree_root[3] == expected_guta_rewards_tree_root[3],
                 "guta tree root mismatch");
 
                 assert(

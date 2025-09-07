@@ -26,7 +26,7 @@ use qed_prover::{
     session::WalletSession,
 };
 use serde_json::json;
-use tracing::info;
+use tracing::{info, warn};
 
 use super::args::ClaimRewardsArgs;
 
@@ -80,15 +80,11 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
             }
         };
 
-        match get_job_proof(&provider, &job_info, args.checkpoint_id) {
-            Ok(job_proof) => {
-                info!("Found GUTA proof for job {}", job_info.job_id.to_hex_string());
-                all_proofs.push(job_proof);
-            }
-            Err(e) => {
-                info!("Skipping job due to error: {} - {}", job_info.job_id.to_hex_string(), e);
-                continue;
-            }
+        if let Ok(job_proof) = get_job_proof(&provider, &job_info, args.checkpoint_id) {
+            info!("Found GUTA proof for job {}", job_info.job_id.to_hex_string());
+            all_proofs.push(job_proof);
+        } else {
+            warn!("Skipping job {}: failed to get proof", job_info.job_id.to_hex_string());
         }
     }
 
@@ -157,7 +153,7 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
                 ]);
                 proof_inputs.extend(vec![proof.proof_height.0, proof.index.0]);
             } else {
-                proof_inputs.extend(vec![0u64; 270]);
+                proof_inputs.extend(vec![0u64; 266]);
             }
         }
 
@@ -238,17 +234,36 @@ fn get_job_proof(
 ) -> anyhow::Result<qed_core::job::id::VariableHeightRewardMerkleProof> {
     let job_proof = match &job_info.location {
         JobLocation::Realm(realm_id) => {
-            let (realm_proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id())?;
-            let (coordinator_proof, _) = provider.get_job_proof_from_coordinator(checkpoint_id, root_job_id.get_output_id())?;
-            realm_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT * 2)
+            let (proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id())?;
+
+            if root_job_id.goal_id != checkpoint_id {
+                return Err(anyhow::format_err!(
+                    "checkpoint mismatch: job {} was processed in checkpoint {} but expected {}",
+                    job_info.job_id.to_hex_string(),
+                    root_job_id.goal_id,
+                    checkpoint_id
+                ));
+            }
+
+            proof
         }
         JobLocation::Coordinator => {
-            let (proof, _) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id())?;
-            proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT * 2)
+            let (proof, root_job_id) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id())?;
+
+            if root_job_id.goal_id != checkpoint_id {
+                return Err(anyhow::format_err!(
+                    "checkpoint mismatch: job {} was processed in checkpoint {} but expected {}",
+                    job_info.job_id.to_hex_string(),
+                    root_job_id.goal_id,
+                    checkpoint_id
+                ));
+            }
+
+            proof
         }
     };
 
-    Ok(job_proof)
+    Ok(job_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT * 2))
 }
 
 fn load_jobs_from_tracker_file(public_key: &QHashOut<F>, target_checkpoint_id: u64) -> Result<Vec<JobInfo>> {

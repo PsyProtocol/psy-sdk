@@ -13,6 +13,7 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: config_gen_v2
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p qed_precompiles
 	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server --bin qed_api_services
 
 fmt:
