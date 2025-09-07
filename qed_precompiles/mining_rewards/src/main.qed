@@ -46,11 +46,9 @@ impl VariableHeightRewardMerkleProof {
             let sibling = self.top_siblings[level_index];
             let sibling_node = sibling.sibling_branch;
             let reward_leaf = sibling.sibling_reward_leaf;
+            let index_bit =  (index >> level_index) & 1;
 
             if level_index < proof_height {
-                let bit_position = level_index;
-                let index_bit = (index >> bit_position) & 1;
-
                 let branch_path_hash = if index_bit == 0 {
                     hash_two_to_one(current_node_value, sibling_node)
                 } else {
@@ -74,8 +72,6 @@ impl VariableHeightRewardMerkleProof {
                     && sibling_node[3] == zero_hash[3],
                 "unused sibling node must be zero");
 
-                let bit_position = level_index;
-                let index_bit = (index >> bit_position) & 1;
                 assert(index_bit == 0, "unused index bit must be zero");
             };
         }
