@@ -818,6 +818,7 @@ impl<
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
 
         self.task_store.finalize_and_save_topology().await?;
+        self.task_store.save_job_dependency_graph(new_checkpoint_id).await?;
         Ok(())
     }
 

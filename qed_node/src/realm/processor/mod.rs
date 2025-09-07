@@ -175,7 +175,6 @@ impl RealmProcessor {
 
                                 if ret.latest_checkpoint_id >= pending_checkpoint && realm_root.value == ret.realm_root {
                                     context.commit(pending_checkpoint).await?;
-                                    self.task_store.save_job_dependency_graph(ret.latest_checkpoint_id).await?;
                                     pending_checkpoint_id = None;
                                     info!("Commit checkpoint {}", pending_checkpoint);
                                 } else {

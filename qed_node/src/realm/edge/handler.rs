@@ -677,46 +677,11 @@ where
             None::<()>,
         ))?;
 
-        let checkpoint_leaf = self.ctx.store_reader
-            .get_checkpoint_leaf_data(actual_checkpoint_id)
-            .await
-            .map_err(|e| ErrorObject::owned(
-                jsonrpsee::types::ErrorCode::InternalError.code(),
-                format!("Failed to get checkpoint data for {}: {}", actual_checkpoint_id, e),
-                None::<()>,
-            ))?;
 
         let mut proofs = Vec::new();
 
         for job_id in job_ids {
-            let expected_root = match job_id.circuit_type {
-                ProvingJobCircuitType::AppendUserRegistrationTree |
-                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
-                ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-                    checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
-                }
-                ProvingJobCircuitType::GUTARegisterUsers |
-                ProvingJobCircuitType::GUTAOnlyRegisterUsers |
-                ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange | ProvingJobCircuitType::GUTASingleEndCap |
-                ProvingJobCircuitType::GUTATwoEndCap | ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
-                ProvingJobCircuitType::GUTALeftGUTARightEndCap | ProvingJobCircuitType::GUTAVerifyToCap => {
-                    checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
-                }
-                ProvingJobCircuitType::BatchDeployContracts |
-                ProvingJobCircuitType::BatchDeployContractsAggregate |
-                ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
-                    checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
-                }
-                _ => {
-                    return Err(ErrorObject::owned(
-                        jsonrpsee::types::ErrorCode::InvalidParams.code(),
-                        format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
-                        None::<()>,
-                    ));
-                }
-            };
             debug!("job_id: {}", job_id.to_hex_string());
-
             match graph.generate_variable_height_reward_proof(job_id, self.ctx.realm_config.realm_id, &*self.ctx.proof_store).await {
                 Ok((realm_proof, root_job_id)) => {
                     debug!("realm proof: {}, root_job_id: {}", serde_json::to_string_pretty(&realm_proof).unwrap(), root_job_id.to_hex_string());
@@ -744,6 +709,41 @@ where
                     debug!("combined proof: {}", serde_json::to_string_pretty(&combined_proof).unwrap());
 
                     let (computed_root, _) = combined_proof.compute_root_and_nullifier_index();
+
+                    let checkpoint_leaf = self.ctx.store_reader
+                        .get_checkpoint_leaf_data(root_job_id.goal_id)
+                        .await
+                        .map_err(|e| ErrorObject::owned(
+                            jsonrpsee::types::ErrorCode::InternalError.code(),
+                            format!("Failed to get checkpoint data for {}: {}", root_job_id.goal_id, e),
+                            None::<()>,
+                        ))?;
+                    let expected_root = match job_id.circuit_type {
+                        ProvingJobCircuitType::AppendUserRegistrationTree |
+                        ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
+                        ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
+                            checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
+                        }
+                        ProvingJobCircuitType::GUTARegisterUsers |
+                        ProvingJobCircuitType::GUTAOnlyRegisterUsers |
+                        ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange | ProvingJobCircuitType::GUTASingleEndCap |
+                        ProvingJobCircuitType::GUTATwoEndCap | ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
+                        ProvingJobCircuitType::GUTALeftGUTARightEndCap | ProvingJobCircuitType::GUTAVerifyToCap => {
+                            checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
+                        }
+                        ProvingJobCircuitType::BatchDeployContracts |
+                        ProvingJobCircuitType::BatchDeployContractsAggregate |
+                        ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
+                            checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
+                        }
+                        _ => {
+                            return Err(ErrorObject::owned(
+                                jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                                format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
+                                None::<()>,
+                            ));
+                        }
+                    };
 
                     if computed_root != expected_root {
                         tracing::warn!(
