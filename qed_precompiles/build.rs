@@ -91,7 +91,7 @@ fn main() -> Result<()> {
             debug: false,
         };
 
-        let result = with_workspace(compile_options, dargo_config, |opts, workspace| {
+        with_workspace(compile_options, dargo_config, |opts, workspace| {
             use dargo::cli::resolve_crate_path_graph;
             let crate_path_graph = resolve_crate_path_graph(&workspace, opts.entry_path.clone());
 
@@ -144,20 +144,7 @@ fn main() -> Result<()> {
                     Err(e.into())
                 }
             }
-        });
-
-        if let Err(_) = result {
-            let out_dir = env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string());
-            let out_path = std::path::Path::new(&out_dir);
-            let json_file = out_path.join(format!("{}.json", contract.name));
-
-            if let Err(write_err) = std::fs::write(&json_file, "[]") {
-                println!(
-                    "cargo:warning=Failed to write empty JSON file for {}: {}",
-                    contract.name, write_err
-                );
-            }
-        }
+        })?;
     }
 
     generate_precompile_api(&config, out_path)?;

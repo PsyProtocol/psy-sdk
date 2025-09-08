@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;
 use std::fs;
 use std::path::Path;
-use tracing::{error, info, warn};
+use tracing::{error, info, warn, trace};
 
 type F = GoldilocksField;
 
@@ -109,7 +109,7 @@ impl WorkerJobTracker {
     pub fn add_completed_job(&mut self, job_id: QProvingJobDataID, location: JobLocation) {
         // Filter out jobs that are not supported for rewards
         if !Self::is_job_type_supported_for_rewards(job_id.circuit_type) {
-            info!(
+            trace!(
                 "Skipping job {} (type: {:?}) - not supported for rewards",
                 job_id.to_hex_string(),
                 job_id.circuit_type

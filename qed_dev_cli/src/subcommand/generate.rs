@@ -147,7 +147,6 @@ pub struct NodeGroup {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmNode {
     pub id: u64,
-    pub node_id: u64,
     pub redis: Option<RedisInstance>,
     pub backend: Option<BackendConfig>,
     pub processor: ServiceConfig,
@@ -715,8 +714,6 @@ fn build_service_command(
 
     // Add realm-specific args
     if let Some(realm) = realm_node {
-        cmd.push("--node-id".to_string());
-        cmd.push(realm.node_id.to_string());
         cmd.push("--realm-id".to_string());
         cmd.push(realm.id.to_string());
     }

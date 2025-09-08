@@ -6,6 +6,7 @@ use crate::realm::{C, D, F};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
+use jsonrpsee::rpc_params;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{field::types::PrimeField64, plonk::proof::ProofWithPublicInputs};
 use plonky2::field::types::Field;
@@ -47,8 +48,8 @@ pub struct RealmEdgeHandler<
     ctx: RealmEdgeContext<SR, DQ, PS>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
     task_store: Arc<QProvingTaskStoreImpl>,
-    white_list: Arc<WhiteList>
-
+    white_list: Arc<WhiteList>,
+    coordinator_client: HttpClient,
 }
 
 impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
@@ -61,15 +62,18 @@ where
         ctx: RealmEdgeContext<SR, DQ, PS>,
         job_notify_queue: Arc<ProofStoreRedisAsync>,
         task_store: Arc<QProvingTaskStoreImpl>,
-        white_list: Arc<WhiteList>
-
-    ) -> Self {
-        Self {
+        white_list: Arc<WhiteList>,
+        coordinator_addr: &str,
+    ) -> Result<Self, anyhow::Error> {
+        let coordinator_client = HttpClientBuilder::default()
+            .build(coordinator_addr)?;
+        Ok(Self {
             ctx,
             job_notify_queue,
             task_store,
-            white_list
-        }
+            white_list,
+            coordinator_client,
+        })
     }
 
     async fn log_suspicious_activity(&self, job: &QJob, reason: &str) {
@@ -629,118 +633,132 @@ where
     ) -> RpcResult<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>> {
         use jsonrpsee::types::ErrorObject;
 
-        for job_id in &job_ids {
-            if job_id.goal_id != checkpoint_id {
-                return Err(ErrorObject::owned(
-                    jsonrpsee::types::ErrorCode::InvalidParams.code(),
-                    format!("Job ID {:?} does not belong to checkpoint {}", job_id, checkpoint_id),
-                    None::<()>,
-                ));
+        let mut actual_checkpoint_id = checkpoint_id;
+        let mut job_graph = None;
+
+        for offset in 0..5 {
+            let candidate_checkpoint_id = checkpoint_id + offset;
+
+            if let Ok(graph) = self.task_store.load_job_dependency_graph(candidate_checkpoint_id).await {
+                let all_jobs_found = job_ids.iter().all(|job_id| {
+                    match job_id.circuit_type {
+                        ProvingJobCircuitType::AppendUserRegistrationTree |
+                        ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
+                        ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
+                            graph.user_registrations_graph.has_node(job_id)
+                        }
+                        ProvingJobCircuitType::BatchDeployContracts |
+                        ProvingJobCircuitType::BatchDeployContractsAggregate |
+                        ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
+                            graph.deploy_contracts_graph.has_node(job_id)
+                        }
+                        ProvingJobCircuitType::GUTARegisterUsers |
+                        ProvingJobCircuitType::GUTAOnlyRegisterUsers |
+                        ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange |
+                        ProvingJobCircuitType::GUTASingleEndCap | ProvingJobCircuitType::GUTATwoEndCap |
+                        ProvingJobCircuitType::GUTALeftEndCapRightGUTA | ProvingJobCircuitType::GUTALeftGUTARightEndCap |
+                        ProvingJobCircuitType::GUTAVerifyToCap => {
+                            graph.guta_graph.has_node(job_id)
+                        }
+                        _ => false
+                    }
+                });
+                if all_jobs_found {
+                    actual_checkpoint_id = candidate_checkpoint_id;
+                    job_graph = Some(graph);
+                    break;
+                }
             }
         }
 
-        let checkpoint_leaf = self.ctx.store_reader
-            .get_checkpoint_leaf_data(checkpoint_id)
-            .await
-            .map_err(|e| ErrorObject::owned(
-                jsonrpsee::types::ErrorCode::InternalError.code(),
-                format!("Failed to get checkpoint data: {}", e),
-                None::<()>,
-            ))?;
+        let graph = job_graph.ok_or_else(|| ErrorObject::owned(
+            jsonrpsee::types::ErrorCode::InvalidParams.code(),
+            format!("Jobs not found in checkpoints {} to {}", checkpoint_id, checkpoint_id + 4),
+            None::<()>,
+        ))?;
 
-        let graph = self.task_store
-            .load_job_dependency_graph(checkpoint_id)
-            .await
-            .map_err(|e| ErrorObject::owned(
-                jsonrpsee::types::ErrorCode::InternalError.code(),
-                format!("Failed to load job dependency graph for checkpoint {}: {}", checkpoint_id, e),
-                None::<()>,
-            ))?;
 
         let mut proofs = Vec::new();
 
         for job_id in job_ids {
-            let expected_root = match job_id.circuit_type {
-                ProvingJobCircuitType::AppendUserRegistrationTree |
-                ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
-                ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-                    checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
-                }
-                ProvingJobCircuitType::GUTARegisterUsers |
-                ProvingJobCircuitType::GUTAOnlyRegisterUsers |
-                ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange | ProvingJobCircuitType::GUTASingleEndCap |
-                ProvingJobCircuitType::GUTATwoEndCap | ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
-                ProvingJobCircuitType::GUTALeftGUTARightEndCap | ProvingJobCircuitType::GUTAVerifyToCap => {
-                    checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
-                }
-                ProvingJobCircuitType::BatchDeployContracts |
-                ProvingJobCircuitType::BatchDeployContractsAggregate |
-                ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
-                    checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
-                }
-                _ => {
-                    return Err(ErrorObject::owned(
-                        jsonrpsee::types::ErrorCode::InvalidParams.code(),
-                        format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
-                        None::<()>,
-                    ));
-                }
-            };
+            debug!("job_id: {}", job_id.to_hex_string());
+            match graph.generate_variable_height_reward_proof(job_id, self.ctx.realm_config.realm_id, &*self.ctx.proof_store).await {
+                Ok((realm_proof, root_job_id)) => {
+                    debug!("realm proof: {}, root_job_id: {}", serde_json::to_string_pretty(&realm_proof).unwrap(), root_job_id.to_hex_string());
+                    let coordinator_proofs = self.coordinator_client
+                        .request::<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>, _>(
+                            "qed_generate_batch_variable_height_reward_proofs",
+                            jsonrpsee::rpc_params![checkpoint_id, vec![root_job_id]]
+                        ).await.map_err(|e| ErrorObject::owned(
+                            jsonrpsee::types::ErrorCode::InternalError.code(),
+                            format!("Failed to get coordinator proof: {}", e),
+                            None::<()>,
+                        ))?;
 
-            let max_height = match job_id.circuit_type {
-                ProvingJobCircuitType::AppendUserRegistrationTree
-                | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
-                | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-                    qed_core::job::id::USER_REGISTRATION_REWARDS_MAX_HEIGHT_MINUS_ONE
-                }
-                ProvingJobCircuitType::GUTARegisterUsers
-                | ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                | ProvingJobCircuitType::GUTATwoGUTA
-                | ProvingJobCircuitType::GUTANoChange
-                | ProvingJobCircuitType::GUTASingleEndCap
-                | ProvingJobCircuitType::GUTATwoEndCap
-                | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                | ProvingJobCircuitType::GUTAVerifyToCap => {
-                    qed_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE
-                }
-                ProvingJobCircuitType::BatchDeployContracts
-                | ProvingJobCircuitType::BatchDeployContractsAggregate
-                | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
-                    qed_core::job::id::CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT_MINUS_ONE
-                }
-                _ => return Err(ErrorObject::owned(
-                    jsonrpsee::types::ErrorCode::InvalidParams.code(),
-                    format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
-                    None::<()>,
-                )),
-            };
+                    if coordinator_proofs.is_empty() {
+                        return Err(ErrorObject::owned(
+                            jsonrpsee::types::ErrorCode::InternalError.code(),
+                            "No coordinator proof returned".to_string(),
+                            None::<()>,
+                        ));
+                    }
 
-            let job_graph = self.task_store.load_job_dependency_graph(checkpoint_id).await.map_err(|e| ErrorObject::owned(
-                jsonrpsee::types::ErrorCode::InternalError.code(),
-                format!("Failed to load job dependency graph: {}", e),
-                None::<()>,
-            ))?;
+                    let (coordinator_proof, root_job_id) = coordinator_proofs.into_iter().next().unwrap();
+                    debug!("coordinator proof: {}, root_job_id: {}", serde_json::to_string_pretty(&coordinator_proof).unwrap(), root_job_id.to_hex_string());
+                    let combined_proof = realm_proof.combine_with(coordinator_proof);
+                    debug!("combined proof: {}", serde_json::to_string_pretty(&combined_proof).unwrap());
 
-            match job_graph.generate_variable_height_reward_proof(job_id, &*self.ctx.proof_store, max_height).await {
-                Ok((variable_height_proof, root_job_id)) => {
-                    let computed_root = qed_core::job::id::compute_root_from_variable_height_proof(&variable_height_proof);
+                    let (computed_root, _) = combined_proof.compute_root_and_nullifier_index();
+
+                    let checkpoint_leaf = self.ctx.store_reader
+                        .get_checkpoint_leaf_data(root_job_id.goal_id)
+                        .await
+                        .map_err(|e| ErrorObject::owned(
+                            jsonrpsee::types::ErrorCode::InternalError.code(),
+                            format!("Failed to get checkpoint data for {}: {}", root_job_id.goal_id, e),
+                            None::<()>,
+                        ))?;
+                    let expected_root = match job_id.circuit_type {
+                        ProvingJobCircuitType::AppendUserRegistrationTree |
+                        ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
+                        ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
+                            checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
+                        }
+                        ProvingJobCircuitType::GUTARegisterUsers |
+                        ProvingJobCircuitType::GUTAOnlyRegisterUsers |
+                        ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange | ProvingJobCircuitType::GUTASingleEndCap |
+                        ProvingJobCircuitType::GUTATwoEndCap | ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
+                        ProvingJobCircuitType::GUTALeftGUTARightEndCap | ProvingJobCircuitType::GUTAVerifyToCap => {
+                            checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
+                        }
+                        ProvingJobCircuitType::BatchDeployContracts |
+                        ProvingJobCircuitType::BatchDeployContractsAggregate |
+                        ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
+                            checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
+                        }
+                        _ => {
+                            return Err(ErrorObject::owned(
+                                jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                                format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
+                                None::<()>,
+                            ));
+                        }
+                    };
 
                     if computed_root != expected_root {
                         tracing::warn!(
-                            "Root mismatch for job({}) {:?}: expected {}, got {}",
-                            job_id.to_hex_string(),
-                            job_id, expected_root, computed_root
+                            "Root mismatch for job({}): expected {}, got {}",
+                            job_id.to_hex_string(), expected_root, computed_root
                         );
                     }
 
-                    proofs.push((variable_height_proof, root_job_id));
+                    proofs.push((combined_proof, root_job_id));
                 }
                 Err(e) => {
-                    error!("Failed to generate proof for job {:?}: {}", job_id, e);
+                    error!("Failed to generate proof for job {}: {}", job_id.to_hex_string(), e);
                     return Err(ErrorObject::owned(
                         jsonrpsee::types::ErrorCode::InternalError.code(),
-                        format!("Failed to generate proof for job {:?}: {}", job_id, e),
+                        format!("Failed to generate proof for job {}: {}", job_id.to_hex_string(), e),
                         None::<()>,
                     ));
                 }

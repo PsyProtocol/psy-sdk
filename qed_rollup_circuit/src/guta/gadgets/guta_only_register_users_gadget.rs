@@ -32,7 +32,7 @@ impl GUTAOnlyRegisterUsersGadget {
     {
 
         assert!(global_user_tree_realm_height <= global_user_tree_height, "global_user_tree_realm_height cannot be taller than global_user_tree_height");
-        
+
         let register_users_gadget = GUTARegisterUsersGadget::add_virtual_to::<H, F, D>(
             builder,
             global_user_tree_realm_height,

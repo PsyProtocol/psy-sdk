@@ -194,7 +194,7 @@ impl<
         let proof_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
-            ProvingJobCircuitType::UserEndCap.to_circuit_group_id(),
+            self.realm_config.realm_id,
             GLOBAL_USER_TREE_HEIGHT as u32,
             user_id_u64 as u32,
             ProvingJobCircuitType::UserEndCap,

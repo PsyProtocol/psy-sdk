@@ -234,7 +234,7 @@ impl WorkerEventRepository {
 
         // Create a default QProvingJobDataID in case of conversion failure
         let default_job_id =
-            QProvingJobDataID::new_proof_job_id(0, ProvingJobCircuitType::AddL1Deposit, 0, 0, 0);
+            QProvingJobDataID::new_proof_job_id(0, 0, ProvingJobCircuitType::AddL1Deposit, 0, 0);
 
         let events = rows
             .into_iter()

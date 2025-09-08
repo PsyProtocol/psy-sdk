@@ -5164,6 +5164,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "serde_with",
+ "tokio",
  "tracing",
  "ts-rs",
  "uuid 1.18.1",

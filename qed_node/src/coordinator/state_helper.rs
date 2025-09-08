@@ -27,7 +27,7 @@ pub trait EdgeContext {
     ) -> anyhow::Result<u64> {
         Ok(store.get_latest_l2_block_state().await?.checkpoint_id)
     }
-    fn get_rpc_node_id(&self) -> u32;
+    fn get_node_id(&self) -> u32;
     async fn enqueue_user_end_cap_job<PS: QProofStoreWriterSyncImm + Sync>(
         &self,
         ps: &PS,
@@ -46,8 +46,8 @@ pub trait EdgeContext {
         let checkpoint_id = Self::get_checkpoint_u64(store).await?;
 
         let job_id = QProvingJobDataID::end_cap_proof(
-            self.get_rpc_node_id(),
             checkpoint_id,
+            self.get_node_id(),
             validated_input
                 .input
                 .core

@@ -50,7 +50,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 
-    let coord_config = CoordinatorConfig::get_standard(0);
+    let coord_config = CoordinatorConfig::get_standard();
 
     let qps = Arc::new(q.clone());
 

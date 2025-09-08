@@ -66,7 +66,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 
-    let coord_config = CoordinatorConfig::get_standard(0);
+    let coord_config = CoordinatorConfig::get_standard();
 
     let qps = Arc::new(q.clone());
 
@@ -143,7 +143,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &proof_verifier.library,
     ).await?;
 
-    let realm_config = RealmConfig::get_standard(0, 0);
+    let realm_config = RealmConfig::get_standard(0);
 
     let realm_edge_node = RealmEdgeContext::new(
         realm_config,

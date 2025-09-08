@@ -1,6 +1,5 @@
 use plonky2::{
-    hash::hash_types::{HashOut, RichField},
-    plonk::{
+    field::goldilocks_field::GoldilocksField, hash::hash_types::{HashOut, RichField}, plonk::{
         circuit_data::VerifierOnlyCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
@@ -27,7 +26,7 @@ use qed_crypto::{
     },
 };
 use qed_data::{
-    qdata::contract::ContractCodeDefinition,
+    qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition},
     ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{
@@ -48,7 +47,7 @@ use crate::local::request::{
     QSecpSignatureProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2,
     QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2,
     QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
-    RequestParamsV2,
+    QLatestL2BlockStateRPCRequest, RequestParamsV2,
 };
 use crate::wallet::software_defined_circuit::{
     SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
@@ -315,7 +314,7 @@ impl QUserRpcProvider for RpcProvider {
 #[maybe_async::maybe_async]
 impl RpcProvider {
     pub async fn get_user_id<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
-        tracing::info!("user: {:?}", public_key);
+        tracing::info!("user: {}", public_key);
         let url = self.get_coordinator_url()?;
         let response = qed_rpc_call_back!(
             self,
@@ -329,6 +328,36 @@ impl RpcProvider {
                 Ok(user_id)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    pub async fn get_realm_latest_l2_block_state(
+        &self,
+    ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
+        tracing::info!("Fetching latest realm L2 block state");
+        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        let input = QLatestL2BlockStateRPCRequest {};
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<GoldilocksField>::GetLatestL2BlockState(input),
+            QEDL2BlockState
+        );
+        match response.result {
+            ResponseResult::Success(block_state) => {
+                tracing::debug!(
+                    block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
+                    "Successfully fetched L2 block state"
+                );
+                Ok(block_state)
+            }
+            ResponseResult::Error(e) => {
+                tracing::error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!(
+                    "get_latest_l2_block_state rpc call failed `{:?}`",
+                    e
+                ))
+            }
         }
     }
 

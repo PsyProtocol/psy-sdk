@@ -42,14 +42,14 @@
         "name": "rewards",
         "path": "qed_precompiles/rewards",
         "contract_name": "ContractRef",
-        "method_names": ["batch_claim_pm_rewards", "simple_mint", "simple_burn", "simple_transfer", "simple_claim"],
+        "method_names": ["simple_mint", "simple_burn", "simple_transfer", "simple_claim", "batch_claim_pm_rewards"],
         "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
       },
       {
-        "name": "new_rewards",
-        "path": "qed_precompiles/new_rewards",
+        "name": "mining_rewards",
+        "path": "qed_precompiles/mining_rewards",
         "contract_name": "PsyPOWMiningRewardsClaimContractRef",
-        "method_names": ["advance_and_claim_guta_proof", "advance_to_checkpoint_and_seal"],
+        "method_names": ["start_session", "end_session", "batch_claim_guta_rewards"],
         "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
       }
     ],
@@ -220,7 +220,6 @@
     "realms": [
       {
         "id": 0,
-        "node_id": 1,
         "redis": {
           "uri": "redis://127.0.0.1:6380",
           "pool_size": 10,
@@ -327,7 +326,6 @@
       },
       {
         "id": 1,
-        "node_id": 2,
         "redis": {
           "uri": "redis://127.0.0.1:6381",
           "pool_size": 10,

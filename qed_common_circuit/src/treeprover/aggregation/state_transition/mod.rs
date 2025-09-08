@@ -179,6 +179,14 @@ where
                 left_proof.public_inputs[3],
             ],
         };
+        let left_child_worker_public_key = HashOutTarget {
+            elements: [
+                left_proof.public_inputs[4],
+                left_proof.public_inputs[5],
+                left_proof.public_inputs[6],
+                left_proof.public_inputs[7],
+            ],
+        };
         let left_child_pm_jobs_completed = [
             left_proof.public_inputs[8],
             left_proof.public_inputs[9],
@@ -209,6 +217,14 @@ where
                 right_proof.public_inputs[3],
             ],
         };
+        let right_child_worker_public_key = HashOutTarget {
+            elements: [
+                right_proof.public_inputs[4],
+                right_proof.public_inputs[5],
+                right_proof.public_inputs[6],
+                right_proof.public_inputs[7],
+            ],
+        };
         let right_child_pm_jobs_completed = [
             right_proof.public_inputs[8],
             right_proof.public_inputs[9],
@@ -236,8 +252,9 @@ where
         let final_gutas = builder.add(left_child_pm_jobs_completed[2], right_child_pm_jobs_completed[2]);
 
         let pm_jobs_completed = [final_deploy_contracts, final_register_users, final_gutas];
-        let children_hash = builder.hash_two_to_one::<C::Hasher>(left_child_commitment, right_child_commitment);
-        let commitment = builder.hash_two_to_one::<C::Hasher>(children_hash, worker_public_key);
+        let left_final_commitment = builder.hash_two_to_one::<C::Hasher>(left_child_commitment, left_child_worker_public_key);
+        let right_final_commitment = builder.hash_two_to_one::<C::Hasher>(right_child_commitment, right_child_worker_public_key);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(left_final_commitment, right_final_commitment);
         builder.connect_hashes(
             left_child_allowed_circuit_hashes_root,
             header_gadget.allowed_circuit_hashes_root,

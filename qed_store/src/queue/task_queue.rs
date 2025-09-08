@@ -204,7 +204,7 @@ impl QProvingTaskStoreImpl {
                 let removed: i32 = conn.zrem(&layers_key, &expected_serialized).await?;
 
                 if removed > 0 {
-                    info!("Successfully popped layer {:?} from head", expected_layer_id);
+                    trace!("Successfully popped layer {:?} from head", expected_layer_id);
                     Ok(Some(*expected_layer_id))
                 } else {
                     // Shouldn't happen, but handle gracefully
@@ -421,7 +421,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             // Send all jobs to the corresponding layer queue
             if !jobs.is_empty() {
                 self.rsmq.send_batch(&queue_id, &jobs).await?;
-                info!("Sent {} jobs to layer {} queue", jobs.len(), layer.layer_id);
+                trace!("Sent {} jobs to layer {} queue", jobs.len(), layer.layer_id);
             }
         }
 
@@ -431,7 +431,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
         // Step 3: Send all layers to the Redis list
         self.push_layers(&layers).await?;
-        info!("Successfully saved {} layers", layers.len());
+        trace!("Successfully saved {} layers", layers.len());
         Ok(())
     }
 
@@ -457,7 +457,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
     }
 
     async fn acknowledge_job_completion(&self, job: &QJob) -> Result<()> {
-        info!("Acknowledging job completion  {}", job);
+        trace!("Acknowledging job completion  {}", job);
 
         let queue_id = self.layer_queue_id(&job.layer_id);
 
@@ -469,7 +469,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         let remaining = self.rsmq.get_queue_length(&queue_id).await?;
 
         if remaining == 0 {
-            info!("Layer {} has no more jobs", job.layer_id);
+            trace!("Layer {} has no more jobs", job.layer_id);
 
             // Check if this is the current layer and remove it if complete
             if let Some(current_layer) = self.peek_current_layer().await? {
@@ -479,10 +479,10 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
                             match s {
                                 Some(popped_layer) => {
                                     // Actually popped the layer
-                                    info!("Successfully removed completed layer {} from list", popped_layer);
+                                    trace!("Successfully removed completed layer {} from list", popped_layer);
 
                                     if let Some(next_layer) = self.peek_current_layer().await? {
-                                        info!("Next layer is {}", next_layer);
+                                        trace!("Next layer is {}", next_layer);
                                     } else {
                                         info!("All layers completed!");
                                     }
@@ -525,7 +525,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             debug!("Layer {} has {} remaining jobs", job.layer_id, remaining);
         }
 
-        info!("Job completion acknowledged successfully");
+        trace!("Job completion acknowledged successfully");
         Ok(())
     }
 
@@ -675,7 +675,7 @@ impl QProvingTaskStoreImpl {
 
         // Get all layers
         let all_layers = self.get_all_layers().await?;
-        info!("Total layers in list: {}", all_layers.len());
+        trace!("Total layers in list: {}", all_layers.len());
 
         // Get current layer
         let current_layer = self.peek_current_layer().await?;

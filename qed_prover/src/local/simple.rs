@@ -75,7 +75,7 @@ C::Hasher:
     pub fn submit_proof(&mut self, proof_input: SubmitUserEndCapProofAPIInput<F, C, D>) -> anyhow::Result<()>{
 
         let user_id = proof_input.input.core.state_transition.user_id.to_canonical_u64();
-        let proof_id = QProvingJobDataID::end_cap_proof(0, self.latest_l2_block_state.checkpoint_id, user_id as u32);
+        let proof_id = QProvingJobDataID::end_cap_proof(self.latest_l2_block_state.checkpoint_id, 0, user_id as u32);
         self.proof_store.set_proof_by_id(proof_id, &proof_input.proof)?;
 
         let new_checkpoint_id = self.latest_l2_block_state.checkpoint_id+1;
@@ -138,8 +138,8 @@ C::Hasher:
                     b_end_cap,
                     nca_proof,
                 },
-                proof_a_id: QProvingJobDataID::end_cap_proof(0, self.latest_l2_block_state.checkpoint_id, results[i*2].input.core.state_transition.user_id.to_canonical_u64() as u32),
-                proof_b_id: QProvingJobDataID::end_cap_proof(0, self.latest_l2_block_state.checkpoint_id, results[i*2+1].input.core.state_transition.user_id.to_canonical_u64() as u32),
+                proof_a_id: QProvingJobDataID::end_cap_proof(self.latest_l2_block_state.checkpoint_id, 0, results[i*2].input.core.state_transition.user_id.to_canonical_u64() as u32),
+                proof_b_id: QProvingJobDataID::end_cap_proof(self.latest_l2_block_state.checkpoint_id, 0, results[i*2+1].input.core.state_transition.user_id.to_canonical_u64() as u32),
             };
             verify_two_end_cap_inputs.push(input)
         }

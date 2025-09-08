@@ -9,7 +9,7 @@ use plonky2::{
 };
 use qed_core::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
-    job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE},
+    job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
 use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
@@ -53,6 +53,23 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
     let mut proofs = Vec::new();
 
     for job_info in &job_infos {
+        match job_info.job_id.circuit_type {
+            ProvingJobCircuitType::GUTAOnlyRegisterUsers
+            | ProvingJobCircuitType::GUTARegisterUsers
+            | ProvingJobCircuitType::GUTATwoEndCap
+            | ProvingJobCircuitType::GUTATwoGUTA
+            | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+            | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+            | ProvingJobCircuitType::GUTASingleEndCap
+            | ProvingJobCircuitType::GUTAVerifyToCap
+            | ProvingJobCircuitType::GUTANoChange => {}
+
+            _ => {
+                info!("Skipping non-GUTA job type: {:?}", job_info.job_id.circuit_type);
+                continue;
+            }
+        };
+
         info!("Processing job: {:?}", job_info.job_id);
 
         match get_job_proof(&provider, &job_info, args.checkpoint_id) {
@@ -113,23 +130,13 @@ fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64)
     let job_proof = match &job_info.location {
         JobLocation::Realm(realm_id) => {
             let (realm_proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id())?;
-            info!("DEBUG: Got realm {} proof: {:?}", realm_id, realm_proof);
-
-            match provider.get_job_proof_from_coordinator(checkpoint_id, root_job_id.get_output_id()) {
-                Ok((coordinator_proof, _)) => {
-                    info!("DEBUG: Got coordinator proof, combining");
-                    realm_proof.combine_with(coordinator_proof)
-                }
-                Err(e) => {
-                    info!("DEBUG: Failed to get coordinator proof: {}, using realm proof only", e);
-                    realm_proof
-                }
-            }
+            info!("Got realm {} proof: {}", realm_id, serde_json::to_string_pretty(&realm_proof).unwrap());
+            realm_proof
         }
         JobLocation::Coordinator => {
-            let (proof, _) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id())?;
-            info!("DEBUG: Got coordinator proof: {:?}", proof);
-            proof
+            let (coordinator_proof, _) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id())?;
+            info!("Got coordinator proof: {}", serde_json::to_string_pretty(&coordinator_proof).unwrap());
+            coordinator_proof
         }
     };
 
@@ -137,7 +144,7 @@ fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64)
 }
 
 fn verify_proof(proof: &VariableHeightRewardMerkleProof) -> Result<(QHashOut<F>, F)> {
-    let (root, nullifier_index) = proof.compute_root_and_nullifier_index(GUTA_REWARDS_TREE_MAX_HEIGHT_MINUS_ONE);
+    let (root, nullifier_index) = proof.compute_root_and_nullifier_index();
     Ok((root, nullifier_index))
 }
 

@@ -5,66 +5,66 @@ Parameters:
   ProjectName:
     Type: String
     Default: qed-protocol
-  
+
   Environment:
     Type: String
     Default: dev
-  
+
   VPCId:
     Type: String
     Description: VPC ID from main stack
-  
+
   ECSClusterName:
     Type: String
     Description: ECS Cluster name from main stack
-  
+
   ECRRepositoryURI:
     Type: String
     Description: ECR Repository URI from main stack
-  
+
   ALBTargetGroupCoordinatorArn:
     Type: String
     Description: ALB Target Group ARN for Coordinator
-  
-  
+
+
   ALBTargetGroupRealm0Arn:
     Type: String
     Description: ALB Target Group ARN for Realm 0
-  
+
   ALBTargetGroupRealm1Arn:
     Type: String
     Description: ALB Target Group ARN for Realm 1
-  
-  
+
+
   TaskExecutionRoleArn:
     Type: String
     Description: ECS Task Execution Role ARN
-  
+
   TaskRoleArn:
     Type: String
     Description: ECS Task Role ARN
-  
+
   PrivateSubnetIds:
     Type: CommaDelimitedList
     Description: Private subnet IDs for services
-  
+
   ECSSecurityGroupId:
     Type: String
     Description: Security group ID for ECS tasks
-  
+
   ServiceDiscoveryNamespaceId:
     Type: String
     Description: Service Discovery Namespace ID from main stack
-  
-  
+
+
   EFSFileSystemId:
     Type: String
     Description: EFS File System ID for LMDBX storage
-  
+
 
 Resources:
   # Coordinator Services
-  
+
   CoordinatorProcessorTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -84,26 +84,26 @@ Resources:
             - coordinator-processor
             - --database
             - lmdbx
-            
+
             - --lmdbx-path
             - /data/coordinator
-            
+
             - --redis-uri
             - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
-            
+
             - --log-level
             - 'info'
-            
+
           Environment:
-            
+
             - Name: RUST_LOG
               Value: 'qed_node=info,plonky2=error'
-            
-          
+
+
           MountPoints:
             - SourceVolume: efs-storage
               ContainerPath: /data
-          
+
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -125,9 +125,9 @@ Resources:
           SecurityGroups:
             - !Ref ECSSecurityGroupId
           Subnets: !Ref PrivateSubnetIds
-  
 
-  
+
+
   CoordinatorEdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -145,21 +145,21 @@ Resources:
           Command:
             - qed_rollup_cli
             - coordinator-edge
-            
+
             - --redis-uri
             - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
-            
+
             - --listen-addr
             - '0.0.0.0:8545'
-            
+
             - --log-level
             - 'info'
-            
+
           Environment:
-            
+
             - Name: RUST_LOG
               Value: 'qed_node=info'
-            
+
           PortMappings:
             - ContainerPort: 8545
               Protocol: tcp
@@ -199,7 +199,7 @@ Resources:
       HealthCheckGracePeriodSeconds: 120
       ServiceRegistries:
         - RegistryArn: !GetAtt CoordinatorEdgeServiceDiscovery.Arn
-  
+
   CoordinatorEdgeServiceDiscovery:
     Type: AWS::ServiceDiscovery::Service
     Properties:
@@ -211,9 +211,9 @@ Resources:
         NamespaceId: !Ref ServiceDiscoveryNamespaceId
       HealthCheckCustomConfig:
         FailureThreshold: 1
-  
 
-  
+
+
   CoordinatorWorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -233,15 +233,15 @@ Resources:
             - coordinator-worker
             - --redis-uri
             - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
-            
+
             - --log-level
             - 'info'
-            
+
           Environment:
-            
+
             - Name: RUST_LOG
               Value: 'qed_node=info'
-            
+
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -263,12 +263,12 @@ Resources:
           SecurityGroups:
             - !Ref ECSSecurityGroupId
           Subnets: !Ref PrivateSubnetIds
-  
+
 
   # Realm Services
-  
+
   # Realm 0 Services
-  
+
   Realm0ProcessorTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -286,22 +286,20 @@ Resources:
           Command:
             - qed_rollup_cli
             - realm-processor
-            
+
             - --redis-uri
             - !Sub 'redis://${RedisRealm0Endpoint}:6379'
-            - --node-id
-            - '1'
             - --realm-id
             - '0'
-            
+
             - --log-level
             - 'info'
-            
+
           Environment:
-            
+
             - Name: RUST_LOG
               Value: 'qed_node=info,plonky2=error'
-            
+
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -323,9 +321,9 @@ Resources:
           SecurityGroups:
             - !Ref ECSSecurityGroupId
           Subnets: !Ref PrivateSubnetIds
-  
 
-  
+
+
   Realm0EdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -343,35 +341,33 @@ Resources:
           Command:
             - qed_rollup_cli
             - realm-edge
-            
+
             - --redis-uri
             - !Sub 'redis://${RedisRealm0Endpoint}:6379'
-            - --node-id
-            - '1'
             - --realm-id
             - '0'
             - --coordinator-addr
-            
+
             - 'http://coordinator-edge.qed.local:8545'
-            
-            
-            
-            
-            
+
+
+
+
+
             - --listen-addr
             - '0.0.0.0:8546'
-            
-            
-            
+
+
+
             - --log-level
             - 'info'
-            
-            
+
+
           Environment:
-            
+
             - Name: RUST_LOG
               Value: 'qed_node=info'
-            
+
           PortMappings:
             - ContainerPort: 8546
               Protocol: tcp
@@ -409,9 +405,9 @@ Resources:
           ContainerPort: 8546
           TargetGroupArn: !Ref ALBTargetGroupRealm0Arn
       HealthCheckGracePeriodSeconds: 120
-  
 
-  
+
+
   Realm0WorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -431,18 +427,18 @@ Resources:
             - realm-worker
             - --redis-uri
             - !Sub 'redis://${RedisRealm0Endpoint}:6379'
-            
+
             - --log-level
             - 'info'
 
             - --queue-biz-key
             - 'rwq0'
-            
+
           Environment:
-            
+
             - Name: RUST_LOG
               Value: 'qed_node=info'
-            
+
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -464,10 +460,10 @@ Resources:
           SecurityGroups:
             - !Ref ECSSecurityGroupId
           Subnets: !Ref PrivateSubnetIds
-  
-  
+
+
   # Realm 1 Services
-  
+
   Realm1ProcessorTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -485,22 +481,20 @@ Resources:
           Command:
             - qed_rollup_cli
             - realm-processor
-            
+
             - --redis-uri
             - !Sub 'redis://${RedisRealm1Endpoint}:6379'
-            - --node-id
-            - '2'
             - --realm-id
             - '1'
-            
+
             - --log-level
             - 'info'
-            
+
           Environment:
-            
+
             - Name: RUST_LOG
               Value: 'qed_node=info,plonky2=error'
-            
+
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -522,9 +516,9 @@ Resources:
           SecurityGroups:
             - !Ref ECSSecurityGroupId
           Subnets: !Ref PrivateSubnetIds
-  
 
-  
+
+
   Realm1EdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -542,35 +536,33 @@ Resources:
           Command:
             - qed_rollup_cli
             - realm-edge
-            
+
             - --redis-uri
             - !Sub 'redis://${RedisRealm1Endpoint}:6379'
-            - --node-id
-            - '2'
             - --realm-id
             - '1'
             - --coordinator-addr
-            
+
             - 'http://coordinator-edge.qed.local:8545'
-            
-            
-            
-            
-            
+
+
+
+
+
             - --listen-addr
             - '0.0.0.0:8547'
-            
-            
-            
+
+
+
             - --log-level
             - 'info'
-            
-            
+
+
           Environment:
-            
+
             - Name: RUST_LOG
               Value: 'qed_node=info'
-            
+
           PortMappings:
             - ContainerPort: 8547
               Protocol: tcp
@@ -608,9 +600,9 @@ Resources:
           ContainerPort: 8547
           TargetGroupArn: !Ref ALBTargetGroupRealm1Arn
       HealthCheckGracePeriodSeconds: 120
-  
 
-  
+
+
   Realm1WorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -630,18 +622,18 @@ Resources:
             - realm-worker
             - --redis-uri
             - !Sub 'redis://${RedisRealm1Endpoint}:6379'
-            
+
             - --log-level
             - 'info'
 
             - --queue-biz-key
             - 'rwq1'
-            
+
           Environment:
-            
+
             - Name: RUST_LOG
               Value: 'qed_node=info'
-            
+
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -663,8 +655,8 @@ Resources:
           SecurityGroups:
             - !Ref ECSSecurityGroupId
           Subnets: !Ref PrivateSubnetIds
-  
-  
+
+
 
   # Parameter Store entries for service discovery
   CoordinatorEndpointParameter:
@@ -675,7 +667,7 @@ Resources:
       Value: !Sub 'http://${ALBDNSName}:8545'
       Description: Coordinator RPC endpoint
 
-  
+
   Realm0EndpointParameter:
     Type: AWS::SSM::Parameter
     Properties:
@@ -683,7 +675,7 @@ Resources:
       Type: String
       Value: !Sub 'http://${ALBDNSName}:8546'
       Description: Realm 0 RPC endpoint
-  
+
   Realm1EndpointParameter:
     Type: AWS::SSM::Parameter
     Properties:
@@ -691,7 +683,7 @@ Resources:
       Type: String
       Value: !Sub 'http://${ALBDNSName}:8547'
       Description: Realm 1 RPC endpoint
-  
+
 
 Parameters:
   # These parameters need to be passed from external sources
@@ -699,21 +691,21 @@ Parameters:
     Type: String
     Default: '10.0.10.5:9042'
     Description: ScyllaDB endpoint
-  
+
   RedisCoordinatorEndpoint:
     Type: String
     Description: Redis Coordinator endpoint
-  
-  
+
+
   RedisRealm0Endpoint:
     Type: String
     Description: Redis Realm 0 endpoint
-  
+
   RedisRealm1Endpoint:
     Type: String
     Description: Redis Realm 1 endpoint
-  
-  
+
+
   ALBDNSName:
     Type: String
     Description: Application Load Balancer DNS name
@@ -723,15 +715,15 @@ Outputs:
     Value: !Sub 'http://${ALBDNSName}:8545'
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-endpoint'
-  
-  
+
+
   Realm0Endpoint:
     Value: !Sub 'http://${ALBDNSName}:8546'
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-0-endpoint'
-  
+
   Realm1Endpoint:
     Value: !Sub 'http://${ALBDNSName}:8547'
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-1-endpoint'
-  
+

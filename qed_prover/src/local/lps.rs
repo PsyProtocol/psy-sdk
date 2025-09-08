@@ -586,7 +586,10 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     verify_result = %merkle_proof.verify::<QEDHasher>(),
                     "After verify"
                 );
-                Ok(merkle_proof)
+                match merkle_proof.verify::<QEDHasher>() {
+                    true => Ok(merkle_proof),
+                    false => Err(anyhow::format_err!("user tree merkle proof verify failed")),
+                }
             }
             ResponseResult::Error(e) => {
                 error!("RPC call failed: {:?}", e);
@@ -1296,10 +1299,10 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         match response.result {
             ResponseResult::Success(leaf) => {
                 info!(
-                    "Successfully fetched user leaf data checkpoint_id: {}, user_id: {}, leaf: {:?}, hash: {}",
+                    "Successfully fetched user leaf data checkpoint_id: {}, user_id: {}, leaf: {}, hash: {}",
                     checkpoint_id,
                     user_id,
-                    leaf,
+                    serde_json::to_string_pretty(&leaf).unwrap(),
                     leaf.qfhash::<QEDHasher>().to_string()
                 );
                 Ok(leaf)
