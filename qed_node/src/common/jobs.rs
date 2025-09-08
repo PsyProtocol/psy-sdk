@@ -11,7 +11,7 @@ use jsonrpsee::{
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use qed_core::job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
 use qed_store::queue::task_queue::QJob;
-use tracing::info;
+use tracing::{info, trace};
 use qed_prover::wallet::secp_sign::{SignedRequest, Eip712Signable};
 use alloy_primitives::{keccak256, B256};
 use qed_prover::wallet::secp_wallet::{Wallet};
@@ -69,7 +69,7 @@ impl JobReceiver for JobClient {
         proof: Option<QEDProof>,
         wallet: Arc<Wallet>
     ) -> anyhow::Result<()> {
-        info!("Submitted job proof for job_id: {:?}", job);
+        trace!("Submitted job proof for job_id: {:?}", job);
         let signed = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &proof)?;
         JobSchedulerRpcClient::set_proof_by_id(&self.rpc_client, job, proof, signed).await?;
         Ok(())

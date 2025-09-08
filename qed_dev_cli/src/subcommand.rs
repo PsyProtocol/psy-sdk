@@ -288,6 +288,9 @@ pub struct StressTestArgs {
     #[arg(long, default_value = "false", help = "Only run multi transfer")]
     pub only_multi_transfer: bool,
 
+    #[arg(long, default_value = "false", help = "Only run multi user transfer")]
+    pub only_multi_user_transfer: bool,
+
     #[arg(long, default_value = "false", help = "Only run user mint")]
     pub only_mint: bool,
 }
