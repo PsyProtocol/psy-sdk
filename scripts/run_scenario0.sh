@@ -91,3 +91,7 @@ sleep 30s
 get_user_token_info
 
 log_message "Scenario 0 completed successfully."
+
+log_message "Running benchmark"
+
+run_make_command "make run-benchmark" "Benchmark"
