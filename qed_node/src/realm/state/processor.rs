@@ -154,7 +154,7 @@ impl<
     }
 
     pub async fn handle_checkpoint_sync(
-        &mut self,
+        &self,
         input: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
         let dmps = input.get_registered_user_merkle_proofs::<QEDHasher>();
