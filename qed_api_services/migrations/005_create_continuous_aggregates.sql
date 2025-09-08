@@ -61,6 +61,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+SELECT create_complete_worker_events_aggregate('worker_events_2min', '2 minutes', '10 minutes', '1 minute', '30 seconds', '2 month');
 SELECT create_complete_worker_events_aggregate('worker_events_1h', '1 hour', '1 day', '15 minutes', '5 minutes', '1 year');
 SELECT create_complete_worker_events_aggregate('worker_events_1d', '1 day', '7 days', '1 hour', '15 minutes', '1 year');
 SELECT create_complete_worker_events_aggregate('worker_events_1w', '1 week', '1 month', '1 day', '1 hour', '1 year');
@@ -122,6 +123,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+SELECT create_complete_user_events_aggregate('user_events_2min', '2 minutes', '10 minutes', '1 minute', '30 seconds', '1 week');
 SELECT create_complete_user_events_aggregate('user_events_1h', '1 hour', '1 day', '15 minutes', '5 minutes', '1 year');
 SELECT create_complete_user_events_aggregate('user_events_1d', '1 day', '7 days', '1 hour', '15 minutes', '1 year');
 SELECT create_complete_user_events_aggregate('user_events_1w', '1 week', '1 month', '1 day', '1 hour', '1 year');

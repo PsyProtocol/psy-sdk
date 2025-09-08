@@ -160,12 +160,21 @@ pub struct GlobalRealmStats {
 // Worker statistics models
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerStats {
+    pub public_key: String,       // Worker's public key
+    pub username: Option<String>, // Twitter handle from user_info table, or None if not found
     pub processing_tasks: std::collections::HashMap<String, i64>, // realm_id -> task count
     pub total_processing_tasks: i64,
     pub total_rewards: i64, // Reserved field, currently 0
     pub total_proofs: i64,  // Number of proofs completed in the last 24 hours
     pub completed_24h: i64,
     pub failed_24h: i64,
+    pub total_rewards_24h: i64, // Total rewards earned in last 24 hours
+    pub total_completed: i64,   // Total completed tasks of all time
+    pub total_failed: i64,      // Total failed tasks of all time
+    pub completed_1h: i64,      // Completed tasks in last 1 hour
+    pub failed_1h: i64,         // Failed tasks in last 1 hour
+    pub avg_proof_time: i64,    // Average proof generation time in milliseconds
+    pub last_completed_block_height: Option<i64>, // Block height of last completed worker event
     pub last_updated: DateTime<Utc>,
 }
 
@@ -180,7 +189,22 @@ pub struct WorkerRewards {
     pub claimed_proofs: i64,    // number of claimed proofs
     pub unclaimed_proofs: i64,  // number of unclaimed proofs
     pub total_proofs: i64,      // total proofs count
+    pub total_rewards_24h: i64, // total rewards in last 24 hours (claimed + unclaimed)
+    pub total_rewards_7d: i64,  // total rewards in last 7 days (claimed + unclaimed)
+    pub total_rewards_30d: i64, // total rewards in last 30 days (claimed + unclaimed)
     pub last_updated: DateTime<Utc>,
+}
+
+// Worker event reward models
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkerEventReward {
+    pub id: uuid::Uuid,     // Same as worker_events.id (no Option, always present)
+    pub public_key: String, // Which worker processed this
+    pub checkpoint_id: i64, // Which checkpoint this reward belongs to
+    pub reward_amount: i64, // Reward for this specific worker event
+    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 // TPS models
@@ -189,7 +213,28 @@ pub struct TpsData {
     pub tps: f64,
     pub transaction_count: i64,
     pub time_window_seconds: i64,
+    pub block_height: i64,
     pub timestamp: DateTime<Utc>,
+}
+
+// Worker leaderboard models
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkerLeaderboardEntry {
+    pub worker_public_key: String,        // Worker's public key
+    pub twitter_username: Option<String>, // Worker's Twitter username from user_info table
+    pub proofs_24h: i64,                  // Number of proofs generated in last 24 hours
+    pub rewards_24h: i64,                 // Total rewards earned in last 24 hours (in psy)
+    pub rank: i64,                        // Ranking position (1-based)
+}
+
+// Worker rewards aggregation models
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkerRewardsAggregation {
+    pub bucket: DateTime<Utc>,     // Time bucket for aggregation
+    pub public_key: String,        // Worker's public key
+    pub completed_proofs: i64,     // Number of completed proofs in this bucket
+    pub total_rewards: i64,        // Total rewards earned in this bucket (in psy)
+    pub max_checkpoint: i64,       // Maximum checkpoint ID in this bucket
 }
 
 impl UserEvent {

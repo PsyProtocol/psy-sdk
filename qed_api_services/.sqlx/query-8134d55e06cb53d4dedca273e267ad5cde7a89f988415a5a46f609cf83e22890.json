@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as total_completed,\n                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as total_failed\n            FROM worker_events\n            WHERE public_key = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total_completed",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_failed",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "8134d55e06cb53d4dedca273e267ad5cde7a89f988415a5a46f609cf83e22890"
+}

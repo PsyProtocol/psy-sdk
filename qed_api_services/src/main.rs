@@ -1,11 +1,12 @@
 use axum::Router;
+use tokio::signal;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{self, EnvFilter};
 
 use qed_api_services::{
     config::Config,
     handlers,
-    services::{create_database_pool, ApiService},
+    services::{create_database_pool, ApiService, RewardService},
 };
 
 #[tokio::main]
@@ -27,7 +28,13 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("config: {:#?}", config);
 
     let pool = create_database_pool(&config).await?;
-    let api_service = ApiService::new(pool);
+    let api_service = ApiService::new(pool.clone());
+
+    // Start background reward processing task
+    tracing::info!("Starting reward processing background task");
+    tokio::spawn(async move {
+        RewardService::start_reward_processing_task(pool).await;
+    });
 
     // Create application router
     let app = Router::new()
@@ -47,7 +54,36 @@ async fn main() -> anyhow::Result<()> {
         config.server.port
     );
 
-    axum::serve(listener, app).await?;
+    // Run server with graceful shutdown
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
 
     Ok(())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("Received shutdown signal, starting graceful shutdown");
 }

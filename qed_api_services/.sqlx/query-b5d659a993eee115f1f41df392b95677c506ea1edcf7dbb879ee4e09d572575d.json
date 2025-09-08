@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COUNT(*) as reward_proofs_24h\n            FROM worker_events\n            WHERE public_key = $1\n                AND topic = $2\n                AND status = 'COMPLETED'\n                AND timestamp >= $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "reward_proofs_24h",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int2",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b5d659a993eee115f1f41df392b95677c506ea1edcf7dbb879ee4e09d572575d"
+}

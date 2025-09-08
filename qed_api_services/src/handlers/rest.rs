@@ -34,6 +34,11 @@ pub fn create_router(api_service: ApiService) -> Router {
             get(worker_stats_handler),
         )
         .route("/rewards/{worker_public_key}", get(worker_rewards_handler))
+        .route(
+            "/rewards_aggregations/{worker_public_key}",
+            get(worker_rewards_aggregations_handler),
+        )
+        .route("/leaderboard/workers", get(worker_leaderboard_handler))
         .with_state(api_service)
 }
 
@@ -269,6 +274,7 @@ async fn worker_events_aggregations_handler(
     tracing::info!("Worker events aggregations query: {:?}", query);
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
+        "2min" => "worker_events_2min",
         "1h" => "worker_events_1h",
         "1d" => "worker_events_1d",
         "1w" => "worker_events_1w",
@@ -303,6 +309,7 @@ async fn user_events_aggregations_handler(
     tracing::info!("User events aggregations query: {:?}", query);
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
+        "2min" => "user_events_2min",
         "1h" => "user_events_1h",
         "1d" => "user_events_1d",
         "1w" => "user_events_1w",
@@ -402,10 +409,27 @@ async fn stats_handler(
         serde_json::Value::String(now.to_rfc3339()),
     );
 
+    // Get block height (maximum checkpoint ID from worker_events)
+    let block_height = match TpsRepository::get_max_checkpoint(&service.pool).await {
+        Ok(height) => {
+            tracing::info!("Block height (max checkpoint): {}", height);
+            height
+        }
+        Err(e) => {
+            tracing::error!("Failed to get max checkpoint: {}", e);
+            0
+        }
+    };
+    stats.insert(
+        "block_height".to_string(),
+        serde_json::Value::Number(block_height.into()),
+    );
+
     tracing::info!(
-        "Stats generated successfully: worker_events_24h={}, user_events_24h={}",
+        "Stats generated successfully: worker_events_24h={}, user_events_24h={}, block_height={}",
         worker_events_count,
-        user_events.len()
+        user_events.len(),
+        block_height
     );
     tracing::debug!("Stats response: {:?}", stats);
 
@@ -481,16 +505,18 @@ async fn worker_rewards_handler(
     Path(worker_public_key): Path<String>,
     Query(query): Query<WorkerRewardsQuery>,
 ) -> Result<Json<WorkerRewards>, StatusCode> {
+    let checkpoint_id = query.checkpoint_id;
+
     tracing::info!(
         "Worker rewards request for worker: {}, checkpoint_id: {}",
         worker_public_key,
-        query.checkpoint_id
+        checkpoint_id
     );
 
     match WorkerRewardsRepository::get_worker_rewards(
         &service.pool,
         &worker_public_key,
-        query.checkpoint_id,
+        checkpoint_id,
     )
     .await
     {
@@ -502,7 +528,95 @@ async fn worker_rewards_handler(
             tracing::error!(
                 "Failed to retrieve worker rewards for worker {} with checkpoint_id {}: {}",
                 worker_public_key,
-                query.checkpoint_id,
+                checkpoint_id,
+                e
+            );
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkerLeaderboardQuery {
+    pub limit: Option<i64>, // Number of top workers to return (default 100, max 100)
+}
+
+async fn worker_leaderboard_handler(
+    State(service): State<ApiService>,
+    Query(query): Query<WorkerLeaderboardQuery>,
+) -> Result<Json<Vec<WorkerLeaderboardEntry>>, StatusCode> {
+    // Validate and set limit (default 100, max 100)
+    let limit = query.limit.unwrap_or(100).min(100).max(1);
+
+    tracing::info!("Worker leaderboard request received, limit: {}", limit);
+
+    match WorkerLeaderboardRepository::get_leaderboard_24h(&service.pool, limit).await {
+        Ok(leaderboard) => {
+            tracing::info!("Retrieved {} leaderboard entries", leaderboard.len());
+            tracing::debug!("Leaderboard entries: {:#?}", leaderboard);
+            Ok(Json(leaderboard))
+        }
+        Err(e) => {
+            tracing::error!("Failed to retrieve worker leaderboard: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkerRewardsAggregationQuery {
+    pub bucket: String, // e.g., "1d", "1w", "1m"
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub limit: Option<i64>, // Number of buckets to return (default 100)
+}
+
+async fn worker_rewards_aggregations_handler(
+    State(service): State<ApiService>,
+    Path(worker_public_key): Path<String>,
+    Query(query): Query<WorkerRewardsAggregationQuery>,
+) -> Result<Json<Vec<WorkerRewardsAggregation>>, StatusCode> {
+    tracing::info!(
+        "Worker rewards aggregations request for worker: {}, bucket: {}",
+        worker_public_key,
+        query.bucket
+    );
+
+    // Determine view name based on bucket interval
+    let view_name = match query.bucket.as_str() {
+        "1d" => "worker_rewards_1d",
+        "1w" => "worker_rewards_1w",
+        "1m" => "worker_rewards_1m",
+        _ => {
+            tracing::warn!("Invalid bucket parameter: {}", query.bucket);
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    };
+
+    let limit = query.limit.unwrap_or(100).min(1000).max(1);
+
+    match WorkerRewardsAggregationRepository::get_aggregations(
+        &service.pool,
+        view_name,
+        &worker_public_key,
+        query.start_time,
+        query.end_time,
+        limit,
+    )
+    .await
+    {
+        Ok(aggregations) => {
+            tracing::info!(
+                "Retrieved {} worker rewards aggregation entries for worker: {}",
+                aggregations.len(),
+                worker_public_key
+            );
+            Ok(Json(aggregations))
+        }
+        Err(e) => {
+            tracing::error!(
+                "Failed to retrieve worker rewards aggregations for worker {}: {}",
+                worker_public_key,
                 e
             );
             Err(StatusCode::INTERNAL_SERVER_ERROR)

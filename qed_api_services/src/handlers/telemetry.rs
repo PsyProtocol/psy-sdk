@@ -1,12 +1,7 @@
 use axum::{extract::State, http::StatusCode, response::Json, routing::post, Router};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    handlers::websocket::{EventType, WebSocketEvent},
-    models::*,
-    repositories::*,
-    services::ApiService,
-};
+use crate::{models::*, repositories::*, services::ApiService};
 
 pub fn create_telemetry_router(api_service: ApiService) -> Router {
     Router::new()
@@ -114,19 +109,16 @@ async fn receive_events_handler(
         }
     }
 
-    // Push events to WebSocket subscribers
     if let Some(ref worker_events) = payload.worker_events {
         tracing::info!(
             "Broadcasting {} worker events to WebSocket subscribers",
             worker_events.len()
         );
         for worker_event in worker_events {
-            let ws_event = WebSocketEvent {
-                event_type: EventType::WorkerEvent,
-                data: serde_json::to_value(worker_event).unwrap_or_default(),
-                timestamp: chrono::Utc::now(),
-            };
-            service.websocket_manager.broadcast_event(&ws_event).await;
+            service
+                .worker_event_manager
+                .broadcast_event(worker_event)
+                .await;
         }
     }
 
@@ -136,12 +128,7 @@ async fn receive_events_handler(
             user_events.len()
         );
         for user_event in user_events {
-            let ws_event = WebSocketEvent {
-                event_type: EventType::UserEvent,
-                data: serde_json::to_value(user_event).unwrap_or_default(),
-                timestamp: chrono::Utc::now(),
-            };
-            service.websocket_manager.broadcast_event(&ws_event).await;
+            service.user_event_manager.broadcast_event(user_event).await;
         }
     }
 

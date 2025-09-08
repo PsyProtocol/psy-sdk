@@ -4,9 +4,9 @@ CREATE TABLE user_event_tx_types (
     tx_type VARCHAR(100) UNIQUE NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-INSERT INTO user_event_tx_types (tx_type) VALUES 
-    ('REGISTER_USER'), 
-    ('DEPLOY_CONTRACT'), 
+INSERT INTO user_event_tx_types (tx_type) VALUES
+    ('REGISTER_USER'),
+    ('DEPLOY_CONTRACT'),
     ('GUTA');
 
 CREATE TABLE user_events (
@@ -29,6 +29,7 @@ CREATE TABLE user_events (
 SELECT create_hypertable('user_events', 'timestamp', chunk_time_interval => INTERVAL '1 day');
 
 CREATE INDEX idx_user_events_tx_type ON user_events(tx_type, timestamp DESC);
+CREATE INDEX idx_user_events_public_key_timestamp ON user_events(public_key, timestamp DESC);
 
 CREATE TRIGGER update_user_events_updated_at
     BEFORE UPDATE ON user_events
