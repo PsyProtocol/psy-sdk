@@ -64,8 +64,7 @@ where
         builder.assert_non_zero_hash(worker_public_key);
 
         let zero_hash = builder.constant_hash(HashOut::ZERO);
-        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
-        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
 
         let transition =
             builder.hash_two_to_one::<C::Hasher>(state_transition_hash, state_transition_hash);

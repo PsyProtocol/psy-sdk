@@ -851,7 +851,6 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn get_checkpoint_stats(&mut self, checkpoint_id: SymFeltRef) -> Vec<SymFeltRef> {
-        // Execute GetCheckpointLeafStats state command
         let cmd = DPNStateCmd::GetCheckpointLeafStats(
             DPNStateCmdGetCheckpointLeafStats {
                 checkpoint_id
@@ -868,17 +867,17 @@ impl DPNContext<SymFeltRef> for QExecContext {
 
     fn get_register_users_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        [stats[10].clone(), stats[11].clone(), stats[12].clone(), stats[13].clone()]
+        [stats[12].clone(), stats[13].clone(), stats[14].clone(), stats[15].clone()]
     }
 
     fn get_gutas_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        [stats[14].clone(), stats[15].clone(), stats[16].clone(), stats[17].clone()]
+        [stats[16].clone(), stats[17].clone(), stats[18].clone(), stats[19].clone()]
     }
 
     fn get_deploy_contracts_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        [stats[18].clone(), stats[19].clone(), stats[20].clone(), stats[21].clone()]
+        [stats[20].clone(), stats[21].clone(), stats[22].clone(), stats[23].clone()]
     }
 
     fn get_fees_collected(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {

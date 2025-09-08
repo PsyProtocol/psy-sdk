@@ -5,54 +5,54 @@ Parameters:
   ProjectName:
     Type: String
     Default: {{ config.nodes.deployment.aws.project_name }}
-  
+
   Environment:
     Type: String
     Default: dev
-  
+
   # ECS Cluster (from main stack)
   MainECSClusterName:
     Type: String
     Description: Main ECS Cluster name from main stack
-  
+
   ECRRepositoryURI:
     Type: String
     Description: ECR Repository URI from main stack
-  
+
   # ALB Target Groups
   ALBTargetGroupCoordinatorArn:
     Type: String
     Description: ALB Target Group ARN for Coordinator
-  
+
   {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}Arn:
     Type: String
     Description: ALB Target Group ARN for Realm {{ realm.id }}
   {% endfor %}
-  
+
   TaskExecutionRoleArn:
     Type: String
     Description: ECS Task Execution Role ARN
-  
+
   TaskRoleArn:
     Type: String
     Description: ECS Task Role ARN
-  
+
   ServiceDiscoveryNamespaceId:
     Type: String
     Description: Service Discovery Namespace ID from main stack
-  
+
   # Redis Endpoints
   RedisCoordinatorEndpoint:
     Type: String
     Description: Redis Coordinator NLB endpoint
-  
+
   {% for realm in config.nodes.realms %}
   RedisRealm{{ realm.id }}Endpoint:
     Type: String
     Description: Redis Realm {{ realm.id }} NLB endpoint
   {% endfor %}
-  
+
   ALBDNSName:
     Type: String
     Description: Application Load Balancer DNS name
@@ -61,7 +61,7 @@ Resources:
   # ============================================================================
   # COORDINATOR ECS SERVICES (Edge & Worker only)
   # ============================================================================
-  
+
   # Coordinator Edge Service
   CoordinatorEdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -140,7 +140,7 @@ Resources:
         - RegistryArn: !GetAtt CoordinatorEdgeServiceDiscovery.Arn
           ContainerName: coordinator-edge
           ContainerPort: 8545
-  
+
   CoordinatorEdgeServiceDiscovery:
     Type: AWS::ServiceDiscovery::Service
     Properties:
@@ -245,7 +245,7 @@ Resources:
   # ============================================================================
   # REALM ECS SERVICES (Edge & Worker only)
   # ============================================================================
-  
+
   {% for realm in config.nodes.realms %}
   # Realm {{ realm.id }} Edge Service
   Realm{{ realm.id }}EdgeTaskDefinition:
@@ -274,8 +274,6 @@ Resources:
             - /data  # Mounted from processor instance
             - --redis-uri
             - !Sub 'redis://${RedisRealm{{ realm.id }}Endpoint}:6379'
-            - --node-id
-            - '{{ realm.node_id }}'
             - --realm-id
             - '{{ realm.id }}'
             - --coordinator-addr
@@ -505,7 +503,7 @@ Resources:
         - RegistryArn: !GetAtt ProverServiceDiscovery.Arn
           ContainerName: prover
           ContainerPort: 8888
-  
+
   ProverServiceDiscovery:
     Type: AWS::ServiceDiscovery::Service
     Properties:
@@ -547,25 +545,25 @@ Outputs:
     Value: !Ref CoordinatorEdgeService
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-edge-service'
-  
+
   CoordinatorWorkerServiceName:
     Value: !Ref CoordinatorWorkerService
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-worker-service'
-  
+
   # Realm Service Outputs
   {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}EdgeServiceName:
     Value: !Ref Realm{{ realm.id }}EdgeService
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge-service'
-  
+
   Realm{{ realm.id }}WorkerServiceName:
     Value: !Ref Realm{{ realm.id }}WorkerService
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker-service'
   {% endfor %}
-  
+
   # Service Discovery
   CoordinatorEdgeServiceDiscoveryArn:
     Value: !GetAtt CoordinatorEdgeServiceDiscovery.Arn

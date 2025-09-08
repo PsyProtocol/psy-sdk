@@ -1063,7 +1063,6 @@ Resources:
                 --database lmdbx \
                 --lmdbx-path /data \
                 --redis-uri redis://$REDIS_ENDPOINT:6379 \
-                --node-id {{ realm.node_id }} \
                 --realm-id {{ realm.id }} \
                 {% if realm.processor.args.queue-biz-key %}\
                 --queue-biz-key {{ realm.processor.args.queue-biz-key }} \

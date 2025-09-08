@@ -1111,21 +1111,36 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                     .await?;
 
                 let state_tree_height = contract_leaf.state_tree_height.to_canonical_u64();
-                let zero_hash = QEDHasher::get_zero_hash(state_tree_height as usize);
 
-                self.notify_clear_entire_tree(current_contract_id.to_canonical_u64(), zero_hash)?;
+                if c.condition == 0 {
+                    let current_state_root = self
+                        .get_contract_state_slot(current_contract_id, GoldilocksField::ZERO).await?
+                        .root;
 
-                let zero_hash_felts: Vec<GoldilocksField> = zero_hash.0.elements.iter()
-                    .map(|x| GoldilocksField::from_noncanonical_u64(x.to_canonical_u64()))
-                    .collect();
-                let mut witness_data = zero_hash_felts.clone();
-                witness_data.push(GoldilocksField::from_noncanonical_u64(state_tree_height as u64));
+                    return Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result: current_state_root.0.elements.iter()
+                        .map(|x| GoldilocksField::from_noncanonical_u64(x.to_canonical_u64()))
+                        .collect(),
+                        witness: DPNStateCmdWitness::ClearEntireTree(DPNClearEntireTreeWitness { state_tree_height, zero_hash: current_state_root }),
+                    });
+                } else {
+                    let zero_hash = QEDHasher::get_zero_hash(state_tree_height as usize);
 
-                Ok(QEDCmdWithInputAndWitness {
-                    state_cmd: state_cmd.clone(),
-                    result: zero_hash_felts,
-                    witness: DPNStateCmdWitness::ClearEntireTree(DPNClearEntireTreeWitness { state_tree_height, zero_hash }),
-                })
+                    self.notify_clear_entire_tree(current_contract_id.to_canonical_u64(), zero_hash)?;
+
+                    let zero_hash_felts: Vec<GoldilocksField> = zero_hash.0.elements.iter()
+                        .map(|x| GoldilocksField::from_noncanonical_u64(x.to_canonical_u64()))
+                        .collect();
+                    let mut witness_data = zero_hash_felts.clone();
+                    witness_data.push(GoldilocksField::from_noncanonical_u64(state_tree_height as u64));
+
+                    Ok(QEDCmdWithInputAndWitness {
+                        state_cmd: state_cmd.clone(),
+                        result: zero_hash_felts,
+                        witness: DPNStateCmdWitness::ClearEntireTree(DPNClearEntireTreeWitness { state_tree_height, zero_hash }),
+                    })
+                }
             }
         }
     }

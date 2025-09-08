@@ -55,7 +55,6 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
 
-        // Ensure worker_public_key is not zero hash
         builder.assert_non_zero_hash(worker_public_key);
 
         let child_commitment = HashOutTarget {
@@ -64,6 +63,14 @@ where
                 verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[1],
                 verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[2],
                 verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[3],
+            ]
+        };
+        let child_worker_public_key = HashOutTarget {
+            elements: [
+                verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[4],
+                verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[5],
+                verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[6],
+                verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[7],
             ]
         };
 
@@ -82,10 +89,10 @@ where
         };
 
         let zero_hash = builder.constant_hash(HashOut::ZERO);
-        let children_commitment = builder.hash_two_to_one::<C::Hasher>(child_commitment, zero_hash);
-        let commitment = builder.hash_two_to_one::<C::Hasher>(children_commitment, worker_public_key);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(child_commitment, child_worker_public_key);
+        let final_commitment = builder.hash_two_to_one::<C::Hasher>(commitment, zero_hash);
 
-        builder.register_public_inputs(&commitment.elements);
+        builder.register_public_inputs(&final_commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&public_inputs_hash.elements);

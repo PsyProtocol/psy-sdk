@@ -13,6 +13,7 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: config_gen_v2
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p qed_precompiles
 	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server --bin qed_api_services
 
 fmt:
@@ -157,15 +158,15 @@ init:
 	@cp qed_compiler/tests/new_token.qed ${PROJECT_DIR}/token/src/main.qed
 	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/rewards
 	@cp qed_compiler/tests/rewards.qed ${PROJECT_DIR}/rewards/src/main.qed
-	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/new_rewards
-	@cp qed_compiler/tests/new_rewards.qed ${PROJECT_DIR}/new_rewards/src/main.qed
+	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/mining_rewards
+	@cp qed_compiler/tests/mining_rewards.qed ${PROJECT_DIR}/mining_rewards/src/main.qed
 	@mkdir -p $(PWD)/db
 	@echo "Starting Redis containers..."
 	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
 	@docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
 	@echo "Starting TimescaleDB container..."
-	@docker start timescaledb || docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
+	@docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
 	@sleep 10
 	# @echo "Starting ScyllaDB containers..."
 	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
@@ -205,7 +206,7 @@ compile:
 	# Compile token contract
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim batch_claim_pm_rewards
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/new_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward claim_guta_proof
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/mining_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward claim_guta_proof
 
 run-api-services:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_api_services
@@ -227,7 +228,6 @@ run-realm-processor1:
       --redis-uri=redis://127.0.0.1:6381 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm1 \
-      --node-id=2 \
       --realm-id=1 \
       --queue-biz-key=rwq1
 
@@ -238,7 +238,6 @@ run-realm-edge1:
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm1 \
       --coordinator-addr=http://127.0.0.1:8545 \
-      --node-id=2 \
       --realm-id=1 \
       --queue-biz-key=rwq1
 
@@ -303,7 +302,6 @@ run-realm-processor1-tikv:
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace realm1 \
-		--node-id=2 \
 		--realm-id=1 \
 		--queue-biz-key=rwq1
 
@@ -315,7 +313,6 @@ run-realm-edge1-tikv:
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace realm1 \
         --coordinator-addr=http://127.0.0.1:8545 \
-		--node-id=2 \
 		--realm-id=1 \
 		--queue-biz-key=rwq1
 
@@ -404,7 +401,7 @@ return-back:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
 claim-rewards:
-	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --contract-id 2 --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type $(SIGN_TYPE)
+	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
 
 get-job-proof:
 	@RUST_LOG=info ./target/${PROFILE}/qed_dev_cli get-job-proof --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1

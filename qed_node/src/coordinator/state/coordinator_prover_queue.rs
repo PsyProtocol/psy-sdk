@@ -39,8 +39,9 @@ impl<
 {
     pub fn push_user_registration_request(
         &self,
-        task_index: u32,
         checkpoint_id: u64,
+        group_id: u32,
+        task_index: u32,
         psb: &mut ProofStoreBuilder,
         update_proofs: Vec<SpidermanUpdateProof<QHashOut<F>>>,
     ) -> anyhow::Result<CircuitInputWithJobId<QCAppendUserRegistrationTreeCircuitInput<F>>> {
@@ -51,8 +52,10 @@ impl<
             spiderman_append_proofs: update_proofs,
         };
         let job_id = QProvingJobDataID::core_op_witness(
-            ProvingJobCircuitType::AppendUserRegistrationTree,
             checkpoint_id,
+            group_id,
+            ProvingJobCircuitType::AppendUserRegistrationTree,
+            0,
             task_index,
         );
         psb.set_bytes_by_id(job_id, &bincode::serialize(&op_result)?)?;
@@ -61,8 +64,9 @@ impl<
     }
     pub fn push_deploy_contracts_request(
         &self,
-        task_index: u32,
         checkpoint_id: u64,
+        group_id: u32,
+        task_index: u32,
         psb: &mut ProofStoreBuilder,
         update_proof: SpidermanUpdateProof<QHashOut<F>>,
         contract_leaves: Vec<QEDContractLeaf<F>>,
@@ -75,8 +79,10 @@ impl<
             contract_leaves,
         };
         let job_id = QProvingJobDataID::core_op_witness(
-            ProvingJobCircuitType::BatchDeployContracts,
             checkpoint_id,
+            group_id,
+            ProvingJobCircuitType::BatchDeployContracts,
+            0,
             task_index,
         );
         psb.set_bytes_by_id(job_id, &bincode::serialize(&op_result)?)?;

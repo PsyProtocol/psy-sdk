@@ -49,7 +49,7 @@ impl CheckpointStateTransitionCoreGadget {
             append_checkpoint_tree_proof.old_root,
             previous_checkpoint_proof.root,
         );
-        
+
         // sanity check: previous.index + 1 == current.index
         let one = builder.one();
         let previous_index_plus_one = builder.add(previous_checkpoint_proof.index, one);

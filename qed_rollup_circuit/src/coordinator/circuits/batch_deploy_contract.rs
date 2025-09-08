@@ -47,7 +47,6 @@ where
 
         builder.assert_non_zero_hash(worker_public_key);
 
-
         let deploy_contract_batch_gadget = BatchDeployContractsGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,
             contract_tree_height,
@@ -60,8 +59,7 @@ where
         );
 
         let zero_hash = builder.constant_hash(HashOut::ZERO);
-        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
-        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
 
         let one = builder.one();
         let pm_jobs_completed = PMJobsCompletedStatsGadget::new_deploy_contracts(&mut builder, one);

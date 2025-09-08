@@ -100,8 +100,7 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
         let zero_hash = builder.constant_hash(HashOut::ZERO);
-        let zero_hash_pair = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
-        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash_pair, worker_public_key);
+        let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
 
         let pm_stats_targets = [
             child_proofs_gadget.state_delta_gadget.new_stats.pm_jobs_completed.deploy_contracts_completed,

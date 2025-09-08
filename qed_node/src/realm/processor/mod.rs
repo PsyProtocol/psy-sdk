@@ -92,7 +92,7 @@ impl RealmProcessor {
         ).await?;
         let store = QEDStore::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
-        let realm_config = RealmConfig::get_standard(config.realm.node_id, config.realm.realm_id);
+        let realm_config = RealmConfig::get_standard(config.realm.realm_id);
         let sync_checkpoint = Arc::new(realm_qps.clone());
         let processor = RealmProcessor {
             realm_config,
@@ -205,13 +205,14 @@ impl RealmProcessor {
                         warn!("Is syncing, continue");
                         continue;
                     }
+
                     // Build block based on slot timing
                     pending_checkpoint_id = None;
                     let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
                     let next_checkpoint_id = local_latest_checkpoint_id + 1;
                     let has_tasks = context.has_pending_tasks(next_checkpoint_id).await?;
                     if !has_tasks {
-                        trace!("No, pending tasks for checkpoint {},slot: {}, skipping block construction", next_checkpoint_id, slot);
+                        trace!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
                         continue;
                     }
                     info!("Start building block checkpoint: {}, slot: {}", next_checkpoint_id, slot);

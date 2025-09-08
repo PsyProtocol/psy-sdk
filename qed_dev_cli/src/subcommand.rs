@@ -1,5 +1,6 @@
 use clap::{command, Parser, Subcommand};
 pub use get_user_id_from_registration_id::GetUserIdFromRegistrationIdArgs;
+pub use job::JobArgs;
 
 pub mod test_full_group_1;
 pub mod test_register_v2;
@@ -16,6 +17,7 @@ pub mod launch;
 pub mod get_job_proof;
 pub mod qhash;
 pub mod stress_test;
+pub mod job;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -75,6 +77,9 @@ pub enum Commands {
 
     #[command(about = "Run stress test by continuously sending transactions")]
     StressTest(StressTestArgs),
+
+    #[command(about = "Job utility commands")]
+    Job(JobArgs),
 }
 
 #[derive(Parser)]

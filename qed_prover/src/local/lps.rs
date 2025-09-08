@@ -1296,10 +1296,10 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         match response.result {
             ResponseResult::Success(leaf) => {
                 info!(
-                    "Successfully fetched user leaf data checkpoint_id: {}, user_id: {}, leaf: {:?}, hash: {}",
+                    "Successfully fetched user leaf data checkpoint_id: {}, user_id: {}, leaf: {}, hash: {}",
                     checkpoint_id,
                     user_id,
-                    leaf,
+                    serde_json::to_string_pretty(&leaf).unwrap(),
                     leaf.qfhash::<QEDHasher>().to_string()
                 );
                 Ok(leaf)
