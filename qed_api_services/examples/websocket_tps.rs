@@ -17,170 +17,11 @@ use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 // Import types from the API service crate instead of redefining them
-use qed_api_services::{handlers::{EventType, WebSocketEvent}, models::TpsData};
+use qed_api_services::handlers::websocket::{EventType, WebSocketEvent};
+use qed_api_services::models::TpsData;
 
 const API_BASE: &str = "http://localhost:3000";
 const TPS_WS_URL: &str = "ws://localhost:3000/ws/tps";
-
-struct TpsTestClient {
-    http_client: Client,
-}
-
-impl TpsTestClient {
-    fn new() -> Self {
-        Self {
-            http_client: Client::new(),
-        }
-    }
-
-    /// Send test user events with varying transaction counts to demonstrate dynamic TPS calculation
-    async fn send_test_user_events(&self, batch_id: u32) -> Result<(), Box<dyn std::error::Error>> {
-        let now = Utc::now();
-
-        // Create diverse user events to showcase different transaction counting scenarios
-        let mut user_events = Vec::new();
-
-        // Standard RegisterUser events (1 transaction each)
-        for i in 0..2 {
-            user_events.push(json!({
-                "user_id": format!("reg_user_{}_{}", batch_id, i),
-                "public_key": format!("reg_key_{}_{}", batch_id, i),
-                "tx_type": "REGISTER_USER",
-                "metadata": {
-                    "batch": batch_id,
-                    "registration_type": "standard",
-                    "user_type": "individual"
-                },
-                "timestamp": (now + chrono::Duration::milliseconds(i * 100)).to_rfc3339(),
-                "created_at": (now + chrono::Duration::milliseconds(i * 100)).to_rfc3339(),
-                "updated_at": (now + chrono::Duration::milliseconds(i * 100)).to_rfc3339()
-            }));
-        }
-
-        // Standard DeployContract events (1 transaction each)
-        for i in 0..1 {
-            user_events.push(json!({
-                "user_id": format!("contract_user_{}_{}", batch_id, i),
-                "public_key": format!("contract_key_{}_{}", batch_id, i),
-                "tx_type": "DEPLOY_CONTRACT",
-                "metadata": {
-                    "batch": batch_id,
-                    "contract_name": format!("MyContract_{}_{}", batch_id, i),
-                    "contract_version": "1.0.0"
-                },
-                "timestamp": (now + chrono::Duration::milliseconds(300 + i * 100)).to_rfc3339(),
-                "created_at": (now + chrono::Duration::milliseconds(300 + i * 100)).to_rfc3339(),
-                "updated_at": (now + chrono::Duration::milliseconds(300 + i * 100)).to_rfc3339()
-            }));
-        }
-
-        // GUTA events with default transaction count (2 transactions - fallback behavior)
-        user_events.push(json!({
-            "user_id": format!("guta_user_default_{}", batch_id),
-            "public_key": format!("guta_key_default_{}", batch_id),
-            "tx_type": "GUTA",
-            "metadata": {
-                "batch": batch_id,
-                "guta_type": "standard_batch",
-                "description": "Standard GUTA without explicit transaction_count (uses default: 2)"
-            },
-            "timestamp": (now + chrono::Duration::milliseconds(500)).to_rfc3339(),
-            "created_at": (now + chrono::Duration::milliseconds(500)).to_rfc3339(),
-            "updated_at": (now + chrono::Duration::milliseconds(500)).to_rfc3339()
-        }));
-
-        // GUTA events with explicit transaction_count (demonstrating dynamic counting)
-        let guta_scenarios = vec![("small_batch", 3), ("medium_batch", 7), ("large_batch", 15)];
-
-        for (idx, (guta_type, tx_count)) in guta_scenarios.into_iter().enumerate() {
-            user_events.push(json!({
-                "user_id": format!("guta_user_{}_{}", guta_type, batch_id),
-                "public_key": format!("guta_key_{}_{}", guta_type, batch_id),
-                "tx_type": "GUTA",
-                "metadata": {
-                    "batch": batch_id,
-                    "guta_type": guta_type,
-                    "transaction_count": tx_count,  // 🎯 This field enables dynamic transaction counting
-                    "description": format!("GUTA with {} transactions", tx_count)
-                },
-                "timestamp": (now + chrono::Duration::milliseconds(700 + idx as i64 * 100)).to_rfc3339(),
-                "created_at": (now + chrono::Duration::milliseconds(700 + idx as i64 * 100)).to_rfc3339(),
-                "updated_at": (now + chrono::Duration::milliseconds(700 + idx as i64 * 100)).to_rfc3339()
-            }));
-        }
-
-        // Additional GUTA with alternative metadata field names (testing flexibility)
-        user_events.push(json!({
-            "user_id": format!("guta_user_flexible_{}", batch_id),
-            "public_key": format!("guta_key_flexible_{}", batch_id),
-            "tx_type": "GUTA",
-            "metadata": {
-                "batch": batch_id,
-                "guta_type": "flexible_naming",
-                "transactions": 5,  // 🎯 Alternative field name: "transactions"
-                "description": "GUTA using 'transactions' field name"
-            },
-            "timestamp": (now + chrono::Duration::seconds(1)).to_rfc3339(),
-            "created_at": (now + chrono::Duration::seconds(1)).to_rfc3339(),
-            "updated_at": (now + chrono::Duration::seconds(1)).to_rfc3339()
-        }));
-
-        user_events.push(json!({
-            "user_id": format!("guta_user_alt_{}", batch_id),
-            "public_key": format!("guta_key_alt_{}", batch_id),
-            "tx_type": "GUTA",
-            "metadata": {
-                "batch": batch_id,
-                "guta_type": "alternative_naming",
-                "tx_count": 12,  // 🎯 Alternative field name: "tx_count"
-                "description": "GUTA using 'tx_count' field name"
-            },
-            "timestamp": (now + chrono::Duration::seconds(1) + chrono::Duration::milliseconds(200)).to_rfc3339(),
-            "created_at": (now + chrono::Duration::seconds(1) + chrono::Duration::milliseconds(200)).to_rfc3339(),
-            "updated_at": (now + chrono::Duration::seconds(1) + chrono::Duration::milliseconds(200)).to_rfc3339()
-        }));
-
-        // Calculate expected transaction count for this batch
-        let expected_transactions = 2 + 1 + 2 + 3 + 7 + 15 + 5 + 12; // 47 total
-        println!(
-            "🧮 Expected transactions in batch {}: {} transactions",
-            batch_id, expected_transactions
-        );
-
-        // Send telemetry payload
-        let telemetry_payload = json!({
-            "user_events": user_events
-        });
-
-        let response = self
-            .http_client
-            .post(&format!("{}/telemetry/events", API_BASE))
-            .json(&telemetry_payload)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            println!("✅ Batch {} user events sent successfully", batch_id);
-            println!("   - 2 RegisterUser events (1 tx each) = 2 transactions");
-            println!("   - 1 DeployContract event (1 tx each) = 1 transaction");
-            println!("   - 1 GUTA with default count = 2 transactions");
-            println!("   - 1 GUTA with transaction_count=3 = 3 transactions");
-            println!("   - 1 GUTA with transaction_count=7 = 7 transactions");
-            println!("   - 1 GUTA with transaction_count=15 = 15 transactions");
-            println!("   - 1 GUTA with transactions=5 = 5 transactions");
-            println!("   - 1 GUTA with tx_count=12 = 12 transactions");
-            println!("   📊 Total: {} transactions", expected_transactions);
-        } else {
-            println!(
-                "❌ Failed to send batch {} user events: {}",
-                batch_id,
-                response.status()
-            );
-        }
-
-        Ok(())
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -378,11 +219,165 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   ✅ 12-second rolling window TPS calculation");
     println!("   ✅ Extensible design for future GUTA transaction types");
 
-    println!("\n🎯 Key Features:");
-    println!("   📊 RegisterUser/DeployContract: Always 1 transaction");
-    println!("   🔄 GUTA: Dynamic count from metadata (default: 2)");
-    println!("   ⏱️  Updates: Every 12 seconds automatically");
-    println!("   🔗 Endpoint: ws://localhost:3000/ws/tps");
-
     Ok(())
+}
+
+struct TpsTestClient {
+    http_client: Client,
+}
+
+impl TpsTestClient {
+    fn new() -> Self {
+        Self {
+            http_client: Client::new(),
+        }
+    }
+
+    /// Send test user events with varying transaction counts to demonstrate dynamic TPS calculation
+    async fn send_test_user_events(&self, batch_id: u32) -> Result<(), Box<dyn std::error::Error>> {
+        let now = Utc::now();
+
+        // Create diverse user events to showcase different transaction counting scenarios
+        let mut user_events = Vec::new();
+
+        // Standard RegisterUser events (1 transaction each)
+        for i in 0..2 {
+            user_events.push(json!({
+                "user_id": format!("reg_user_{}_{}", batch_id, i),
+                "public_key": format!("reg_key_{}_{}", batch_id, i),
+                "tx_type": "REGISTER_USER",
+                "metadata": {
+                    "batch": batch_id,
+                    "registration_type": "standard",
+                    "user_type": "individual"
+                },
+                "timestamp": (now + chrono::Duration::milliseconds(i * 100)).to_rfc3339(),
+                "created_at": (now + chrono::Duration::milliseconds(i * 100)).to_rfc3339(),
+                "updated_at": (now + chrono::Duration::milliseconds(i * 100)).to_rfc3339()
+            }));
+        }
+
+        // Standard DeployContract events (1 transaction each)
+        for i in 0..1 {
+            user_events.push(json!({
+                "user_id": format!("contract_user_{}_{}", batch_id, i),
+                "public_key": format!("contract_key_{}_{}", batch_id, i),
+                "tx_type": "DEPLOY_CONTRACT",
+                "metadata": {
+                    "batch": batch_id,
+                    "contract_name": format!("MyContract_{}_{}", batch_id, i),
+                    "contract_version": "1.0.0"
+                },
+                "timestamp": (now + chrono::Duration::milliseconds(300 + i * 100)).to_rfc3339(),
+                "created_at": (now + chrono::Duration::milliseconds(300 + i * 100)).to_rfc3339(),
+                "updated_at": (now + chrono::Duration::milliseconds(300 + i * 100)).to_rfc3339()
+            }));
+        }
+
+        // GUTA events with default transaction count (2 transactions - fallback behavior)
+        user_events.push(json!({
+            "user_id": format!("guta_user_default_{}", batch_id),
+            "public_key": format!("guta_key_default_{}", batch_id),
+            "tx_type": "GUTA",
+            "metadata": {
+                "batch": batch_id,
+                "guta_type": "standard_batch",
+                "description": "Standard GUTA without explicit transaction_count (uses default: 2)"
+            },
+            "timestamp": (now + chrono::Duration::milliseconds(500)).to_rfc3339(),
+            "created_at": (now + chrono::Duration::milliseconds(500)).to_rfc3339(),
+            "updated_at": (now + chrono::Duration::milliseconds(500)).to_rfc3339()
+        }));
+
+        // GUTA events with explicit transaction_count (demonstrating dynamic counting)
+        let guta_scenarios = vec![("small_batch", 3), ("medium_batch", 7), ("large_batch", 15)];
+
+        for (idx, (guta_type, tx_count)) in guta_scenarios.into_iter().enumerate() {
+            user_events.push(json!({
+                "user_id": format!("guta_user_{}_{}", guta_type, batch_id),
+                "public_key": format!("guta_key_{}_{}", guta_type, batch_id),
+                "tx_type": "GUTA",
+                "metadata": {
+                    "batch": batch_id,
+                    "guta_type": guta_type,
+                    "transaction_count": tx_count,  // 🎯 This field enables dynamic transaction counting
+                    "description": format!("GUTA with {} transactions", tx_count)
+                },
+                "timestamp": (now + chrono::Duration::milliseconds(700 + idx as i64 * 100)).to_rfc3339(),
+                "created_at": (now + chrono::Duration::milliseconds(700 + idx as i64 * 100)).to_rfc3339(),
+                "updated_at": (now + chrono::Duration::milliseconds(700 + idx as i64 * 100)).to_rfc3339()
+            }));
+        }
+
+        // Additional GUTA with alternative metadata field names (testing flexibility)
+        user_events.push(json!({
+            "user_id": format!("guta_user_flexible_{}", batch_id),
+            "public_key": format!("guta_key_flexible_{}", batch_id),
+            "tx_type": "GUTA",
+            "metadata": {
+                "batch": batch_id,
+                "guta_type": "flexible_naming",
+                "transactions": 5,  // 🎯 Alternative field name: "transactions"
+                "description": "GUTA using 'transactions' field name"
+            },
+            "timestamp": (now + chrono::Duration::seconds(1)).to_rfc3339(),
+            "created_at": (now + chrono::Duration::seconds(1)).to_rfc3339(),
+            "updated_at": (now + chrono::Duration::seconds(1)).to_rfc3339()
+        }));
+
+        user_events.push(json!({
+            "user_id": format!("guta_user_alt_{}", batch_id),
+            "public_key": format!("guta_key_alt_{}", batch_id),
+            "tx_type": "GUTA",
+            "metadata": {
+                "batch": batch_id,
+                "guta_type": "alternative_naming",
+                "tx_count": 12,  // 🎯 Alternative field name: "tx_count"
+                "description": "GUTA using 'tx_count' field name"
+            },
+            "timestamp": (now + chrono::Duration::seconds(1) + chrono::Duration::milliseconds(200)).to_rfc3339(),
+            "created_at": (now + chrono::Duration::seconds(1) + chrono::Duration::milliseconds(200)).to_rfc3339(),
+            "updated_at": (now + chrono::Duration::seconds(1) + chrono::Duration::milliseconds(200)).to_rfc3339()
+        }));
+
+        // Calculate expected transaction count for this batch
+        let expected_transactions = 2 + 1 + 2 + 3 + 7 + 15 + 5 + 12; // 47 total
+        println!(
+            "🧮 Expected transactions in batch {}: {} transactions",
+            batch_id, expected_transactions
+        );
+
+        // Send telemetry payload
+        let telemetry_payload = json!({
+            "user_events": user_events
+        });
+
+        let response = self
+            .http_client
+            .post(&format!("{}/telemetry/events", API_BASE))
+            .json(&telemetry_payload)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            println!("✅ Batch {} user events sent successfully", batch_id);
+            println!("   - 2 RegisterUser events (1 tx each) = 2 transactions");
+            println!("   - 1 DeployContract event (1 tx each) = 1 transaction");
+            println!("   - 1 GUTA with default count = 2 transactions");
+            println!("   - 1 GUTA with transaction_count=3 = 3 transactions");
+            println!("   - 1 GUTA with transaction_count=7 = 7 transactions");
+            println!("   - 1 GUTA with transaction_count=15 = 15 transactions");
+            println!("   - 1 GUTA with transactions=5 = 5 transactions");
+            println!("   - 1 GUTA with tx_count=12 = 12 transactions");
+            println!("   📊 Total: {} transactions", expected_transactions);
+        } else {
+            println!(
+                "❌ Failed to send batch {} user events: {}",
+                batch_id,
+                response.status()
+            );
+        }
+
+        Ok(())
+    }
 }
