@@ -723,6 +723,23 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                         *sig = self.rewrite_expr(*sig, ctx)?;
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
+                    CheckedIntrinsicExprNode::SumBits {
+                        bits,
+                        type_id,
+                        location,
+                    } => {
+                        *bits = self.rewrite_expr(*bits, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
+                    CheckedIntrinsicExprNode::SplitBits {
+                        target,
+                        num_bits,
+                        type_id,
+                        location,
+                    } => {
+                        *target = self.rewrite_expr(*target, ctx)?;
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
                     CheckedIntrinsicExprNode::GetCheckpointStats {
                         checkpoint_id,
                         type_id,

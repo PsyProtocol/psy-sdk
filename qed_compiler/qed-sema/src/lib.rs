@@ -127,7 +127,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
         let type_id = checked_expr.ty();
         let ty = &ctx.symbols[type_id];
 
-        let inner_ty = ty.as_array().unwrap().inner_ty;
+        let inner_ty = ty.as_array().ok_or(Error::TypeMismatch {
+            location: index_access_node.location,
+            expected: vec![ARRAY_TYPE],
+            found: type_id,
+        })?.inner_ty;
+
         if !self.unify(checked_index.ty(), FELT_TYPE, ctx) {
             return Err(Error::TypeMismatch {
                 location: checked_index.location(),
@@ -839,6 +844,27 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ));
             }
+            IntrinsicExprNode::SumBits { bits, location } => {
+                let bits = self.visit_expr(bits, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::SumBits {
+                        bits: self.program.exprs.alloc_item(bits),
+                        type_id: FELT_TYPE,
+                        location,
+                    },
+                ));
+            }
+            IntrinsicExprNode::SplitBits { target, num_bits, location } => {
+                let target = self.visit_expr(target, ctx)?;
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::SplitBits {
+                        target: self.program.exprs.alloc_item(target),
+                        num_bits,
+                        type_id: ARRAY_TYPE,
+                        location,
+                    },
+                ));
+            }
         }
     }
 
@@ -999,8 +1025,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
             | BinaryOperator::BitShr
             | BinaryOperator::BitShl
             | BinaryOperator::BitAnd
-            | BinaryOperator::BitOr
-            | BinaryOperator::BitXor => {
+            | BinaryOperator::BitOr => {
                 if self.unify(lhs_ty, FELT_TYPE, ctx) {
                     FELT_TYPE
                 } else if self.unify(lhs_ty, U32_TYPE, ctx) {
@@ -1009,6 +1034,21 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     return Err(Error::TypeMismatch {
                         location: binary_node.location,
                         expected: vec![FELT_TYPE, U32_TYPE],
+                        found: lhs_ty,
+                    });
+                }
+            }
+            BinaryOperator::BitXor => {
+                if self.unify(lhs_ty, FELT_TYPE, ctx) {
+                    FELT_TYPE
+                } else if self.unify(lhs_ty, U32_TYPE, ctx) {
+                    U32_TYPE
+                } else if self.unify(lhs_ty, BOOL_TYPE, ctx) {
+                    BOOL_TYPE
+                } else {
+                    return Err(Error::TypeMismatch {
+                        location: binary_node.location,
+                        expected: vec![FELT_TYPE, U32_TYPE, BOOL_TYPE],
                         found: lhs_ty,
                     });
                 }

@@ -145,6 +145,15 @@ pub enum IntrinsicExprNode {
         sig: ExprId,
         location: Location,
     },
+    SumBits {
+        bits: ExprId,
+        location: Location,
+    },
+    SplitBits {
+        target: ExprId,
+        num_bits: u64,
+        location: Location,
+    },
 }
 
 impl NodeInfo for IntrinsicExprNode {

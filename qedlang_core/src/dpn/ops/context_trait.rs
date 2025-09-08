@@ -302,6 +302,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn op_bool_or(&mut self, a: F, b: F) -> F;
     fn op_bool_or_many(&mut self, values: &[F]) -> F;
     fn op_bool_and_many(&mut self, values: &[F]) -> F;
+    fn op_bool_xor(&mut self, a: F, b: F) -> F;
     fn op_add(&mut self, a: F, b: F) -> F;
     fn op_sub(&mut self, a: F, b: F) -> F;
     fn op_mul(&mut self, a: F, b: F) -> F;
@@ -320,6 +321,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn op_lte(&mut self, a: F, b: F) -> F;
     fn op_gt(&mut self, a: F, b: F) -> F;
     fn op_gte(&mut self, a: F, b: F) -> F;
+    fn op_neg(&mut self, a: F) -> F;
 
     // start u32 ops
     fn op_u32_xor(&mut self, a: F, b: F) -> F;

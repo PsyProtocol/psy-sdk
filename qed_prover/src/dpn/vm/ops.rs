@@ -1,4 +1,4 @@
-use std::{collections::HashMap, marker::PhantomData};
+use std::{collections::HashMap, iter::Sum, marker::PhantomData};
 
 use plonky2::{
     field::{
@@ -254,7 +254,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
 
 
     pub fn process_var_def(&mut self, builder: &mut CircuitBuilder<F, D>, op: &DPNIndexedVarDef) {
-
         match op.op_type {
             //DPNOpType::InputTarget => todo!("this shouldn't ever get called probably"),
             DPNOpType::InputTarget => {
@@ -348,14 +347,18 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 self.bools.push(builder.is_less_than(COMPARISON_BITS, left, right))
             },
             DPNOpType::SplitBits => {
-                let target = self.resolve_target(op.inputs[0]);
-                self.bool_arrays.push(builder.split_le(target, 64))
+                let target = self.resolve_target(op.inputs[1]);
+                let num_bits = op.inputs[0] as usize;
+                self.bool_arrays.push(builder.split_le(target, num_bits))
             },
             DPNOpType::SumBits => {
-                let mut sum = builder.zero();
+                assert!(op.inputs.len() <= 64, "Sumbits: can only sum at most 64 bits");
+                let mut sum: Target = builder.zero();
+                let mut power_of_two = builder.one();
                 op.inputs.iter().for_each(|input|{
                     let bit = self.resolve_bool(builder, *input);
-                    sum = builder.add(sum, bit.target);
+                    sum = builder.mul_add(bit.target, power_of_two, sum);
+                    power_of_two = builder.add(power_of_two, power_of_two);
                 });
                 self.targets.push(sum);
             },
@@ -408,66 +411,38 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             },
             DPNOpType::ExpConstantPower => {
                 let left = self.resolve_target(op.inputs[0]);
-                let (_optype, right) = decode_indexed_op_id(op.inputs[1]);
-                self.targets.push(builder.exp_u64(left, right as u64))
+                let right_value = builder
+                    .target_as_constant(self.resolve_u32(op.inputs[1]).0)
+                    .expect("ExpConstantPower right must be constant").to_canonical_u64();
+
+                self.targets.push(builder.exp_u64(left, right_value as u64))
             },
             DPNOpType::ExpConstantBase => {
-                let (_optype, left) = decode_indexed_op_id(op.inputs[0]);
+                let left_value = builder
+                    .target_as_constant(self.resolve_u32(op.inputs[1]).0)
+                    .expect("ExpConstantBase left must be constant");
                 let right = builder.split_le(self.resolve_target(op.inputs[1]), 64);
-                self.targets.push(builder.exp_from_bits_const_base(F::from_noncanonical_u64(left as u64), right))
+                self.targets.push(builder.exp_from_bits_const_base(left_value, right))
             }
-            DPNOpType::Mod => {
+            DPNOpType::Mod | DPNOpType::ModConstantDivisor | DPNOpType::ModConstantDividend => {
                 let left = self.resolve_target(op.inputs[0]);
                 let right = self.resolve_target(op.inputs[1]);
-                let (left_low, left_high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, left);
-                let (right_low, right_high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, right);
-                let left_biguint = BigUintTarget{
-                    limbs: vec![U32Target(left_high), U32Target(left_low)],
-                };
-                let right_biguint = BigUintTarget{
-                    limbs: vec![U32Target(right_high), U32Target(right_low)],
-                };
-                let (_div_biguint, rem_biguint) = builder.div_rem_biguint(&left_biguint, &right_biguint);
-                assert!(rem_biguint.limbs.len() == 2, "Felt Mod should return two limb");
-                let twopow32 = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::constant_u64(builder, 0x100000000);
-                let res = builder.mul_add(rem_biguint.limbs[0].0, twopow32, rem_biguint.limbs[1].0);
-                self.targets.push(res);
-            }
-            DPNOpType::ModConstantDividend => {
-               let (_optype, left) = decode_indexed_op_id(op.inputs[0]);
-                let right = self.resolve_target(op.inputs[1]);
+                builder.assert_non_zero(right);
 
-                let (left_low, left_high) = (builder.constant(F::from_noncanonical_u64((left as u64) & 0xffffffffu64)), builder.constant(F::from_noncanonical_u64((left as u64) >> 32u64)));
+                let (left_low, left_high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, left);
                 let (right_low, right_high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, right);
                 let left_biguint = BigUintTarget{
-                    limbs: vec![U32Target(left_high), U32Target(left_low)],
+                    limbs: vec![U32Target(left_low), U32Target(left_high)],
                 };
                 let right_biguint = BigUintTarget{
-                    limbs: vec![U32Target(right_high), U32Target(right_low)],
+                    limbs: vec![U32Target(right_low), U32Target(right_high)],
                 };
                 let (_div_biguint, rem_biguint) = builder.div_rem_biguint(&left_biguint, &right_biguint);
                 assert!(rem_biguint.limbs.len() == 2, "Felt Mod should return two limb");
                 let twopow32 = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::constant_u64(builder, 0x100000000);
-                let res = builder.mul_add(rem_biguint.limbs[0].0, twopow32, rem_biguint.limbs[1].0);
+                let res = builder.mul_add(rem_biguint.limbs[1].0, twopow32, rem_biguint.limbs[0].0);
                 self.targets.push(res);
             }
-            DPNOpType::ModConstantDivisor => {
-                let left = self.resolve_target(op.inputs[0]);
-                let (_optype, right) = decode_indexed_op_id(op.inputs[1]);
-                let (left_low, left_high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, left);
-                let (right_low, right_high) = (builder.constant(F::from_noncanonical_u64((right as u64) & 0xffffffffu64)), builder.constant(F::from_noncanonical_u64((right as u64) >> 32u64)));
-                let left_biguint = BigUintTarget{
-                    limbs: vec![U32Target(left_high), U32Target(left_low)],
-                };
-                let right_biguint = BigUintTarget{
-                    limbs: vec![U32Target(right_high), U32Target(right_low)],
-                };
-                let (_div_biguint, rem_biguint) = builder.div_rem_biguint(&left_biguint, &right_biguint);
-                assert!(rem_biguint.limbs.len() == 2, "Felt Mod should return two limb");
-                let twopow32 = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::constant_u64(builder, 0x100000000);
-                let res = builder.mul_add(rem_biguint.limbs[0].0, twopow32, rem_biguint.limbs[1].0);
-                self.targets.push(res);
-            },
             DPNOpType::DivRem4 => {
                 let target = self.resolve_target(op.inputs[0]);
                 let (low, high) = builder.split_low_high(target, 2, 64);
@@ -518,48 +493,105 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let left = self.resolve_u32(op.inputs[0]);
                 let right = self.resolve_u32(op.inputs[1]);
                 let two = builder.two();
-                let power_of_two = U32Target(builder.exp(two, right.0, 32));
-                self.u32s.push(builder.mul_u32(left, power_of_two).0);
+                let thirty_two = builder.constant_u32(32);
+                let power_of_two = builder.exp(two, right.0, 32);
+                let (power_of_two_low, power_of_two_heigh) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
+                self.u32s.push(builder.mul_u32(left, U32Target(power_of_two_low)).0);
             },
             DPNOpType::U32ShiftLeftConstantBitDistance => {
                 let left = self.resolve_u32(op.inputs[0]);
-                let (_op_type, right) = decode_indexed_op_id(op.inputs[1]);
-                self.u32s.push(builder.lsh_u32(left, right as u8));
+                let right_value = builder
+                    .target_as_constant(self.resolve_u32(op.inputs[1]).0)
+                    .expect("U32ShiftLeftConstantBitDistance right must be constant").to_canonical_u64();
+
+                if right_value >= 32 {
+                    self.u32s.push(builder.constant_u32(0));
+                } else {
+                    self.u32s.push(builder.lsh_u32(left, right_value as u8));
+                }
             },
             DPNOpType::U32ShiftLeftConstantValue => {
-                let (_op_type, left) = decode_indexed_op_id(op.inputs[1]);
-                let left = builder.constant_u32(left as u32);
+                let left = self.resolve_u32(op.inputs[0]);
+                let left_value = builder
+                    .target_as_constant(self.resolve_u32(op.inputs[0]).0)
+                    .expect("U32ShiftLeftConstantValue left must be constant").to_canonical_u64();
                 let right = self.resolve_u32(op.inputs[1]);
                 let two = builder.two();
-                let power_of_two = U32Target(builder.exp(two, right.0, 32));
-                self.u32s.push(builder.mul_u32(left, power_of_two).0);
+                let power_of_two = builder.exp(two, right.0, 32);
+                let (power_of_two_low, power_of_two_heigh) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
+                self.u32s.push(builder.mul_u32(left, U32Target(power_of_two_low)).0);
             },
             DPNOpType::U32ShiftRight => {
-                let (_op_type, left) = decode_indexed_op_id(op.inputs[0]);
-                let left = builder.constant_u32(left as u32);
-                let u32_bits_len = builder.constant_u32(32);
-                let u32_zero = builder.constant_u32(0);
-                let (right_exp, right_borrow) = builder.sub_u32(u32_bits_len, self.resolve_u32(op.inputs[1]), u32_zero);
-                builder.assert_zero(right_borrow.0);
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+
+                let thirty_two = builder.constant_u32(32);
+                let zero = builder.constant_u32(0);
                 let two = builder.two();
-                let power_of_two = U32Target(builder.exp(two, right_exp.0, 32));
-                self.u32s.push(builder.mul_u32(left, power_of_two).1);
+                let (right_exp, right_borrow) = builder.sub_u32(thirty_two, right, zero);
+                let is_right_borrow_zero = builder.is_equal(right_borrow.0, zero.0);
+
+                let right_normal = builder.select(is_right_borrow_zero, right.0, thirty_two.0);
+
+                let power_of_two = builder.exp(two, right_normal, 6);
+                let (power_of_two_low, power_of_two_heigh) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
+
+                let left_biguint = BigUintTarget{
+                    limbs: vec![left],
+                };
+                let right_biguint = BigUintTarget{
+                    limbs: vec![U32Target(power_of_two_low), U32Target(power_of_two_heigh)],
+                };
+                let (div_biguint, rem_biguint) = builder.div_rem_biguint(&left_biguint, &right_biguint);
+                // assert!(rem_biguint.limbs.len() == 1);
+                
+                self.u32s.push(div_biguint.limbs[0]);
+
             },
             DPNOpType::U32ShiftRightConstantBitDistance => {
                 let left = self.resolve_u32(op.inputs[0]);
-                let (_op_type, right) = decode_indexed_op_id(op.inputs[1]);
-                self.u32s.push(builder.rsh_u32(left, right as u8));
+                let right_value = builder
+                    .target_as_constant(self.resolve_u32(op.inputs[1]).0)
+                    .expect("U32ShiftRightConstantBitDistance right must be constant").to_canonical_u64();
+                if right_value > 0xffffffffu64 {
+                    panic!("U32ShiftRightConstantBitDistance right must be less than U32_MAX");
+                }
+                if right_value >= 32 {
+                    self.u32s.push(builder.constant_u32(0));
+                } else {
+                    self.u32s.push(builder.rsh_u32(left, right_value as u8));
+                }
             },
             DPNOpType::U32ShiftRightConstantValue => {
-                let (_op_type, left) = decode_indexed_op_id(op.inputs[0]);
-                let left = builder.constant_u32(left as u32);
-                let u32_bits_len = builder.constant_u32(32);
-                let u32_zero = builder.constant_u32(0);
-                let (right_exp, right_borrow) = builder.sub_u32(u32_bits_len, self.resolve_u32(op.inputs[1]), u32_zero);
-                builder.assert_zero(right_borrow.0);
+                let left = self.resolve_u32(op.inputs[0]);
+                let right = self.resolve_u32(op.inputs[1]);
+                let left_value = builder
+                    .target_as_constant(self.resolve_u32(op.inputs[0]).0)
+                    .expect("U32ShiftRightConstantValue left must be constant").to_canonical_u64();
+                if left_value > 0xffffffffu64 {
+                    panic!("U32ShiftRightConstantValue left must be less than U32_MAX");
+                }
+                                let thirty_two = builder.constant_u32(32);
+                let zero = builder.constant_u32(0);
                 let two = builder.two();
-                let power_of_two = U32Target(builder.exp(two, right_exp.0, 32));
-                self.u32s.push(builder.mul_u32(left, power_of_two).1);
+                let (right_exp, right_borrow) = builder.sub_u32(thirty_two, right, zero);
+                let is_right_borrow_zero = builder.is_equal(right_borrow.0, zero.0);
+
+                let right_normal = builder.select(is_right_borrow_zero, right.0, thirty_two.0);
+
+                let power_of_two = builder.exp(two, right_normal, 6);
+                let (power_of_two_low, power_of_two_heigh) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
+
+                let left_biguint = BigUintTarget{
+                    limbs: vec![left],
+                };
+                let right_biguint = BigUintTarget{
+                    limbs: vec![U32Target(power_of_two_low), U32Target(power_of_two_heigh)],
+                };
+                let (div_biguint, rem_biguint) = builder.div_rem_biguint(&left_biguint, &right_biguint);
+                // assert!(rem_biguint.limbs.len() == 1);
+                
+                self.u32s.push(div_biguint.limbs[0]);
             },
             DPNOpType::CalculateMerkleRoot => unimplemented!(),
             DPNOpType::GetUserId => self.targets.push(self.user_id),

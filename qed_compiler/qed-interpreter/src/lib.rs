@@ -777,6 +777,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
         let rhs_borrow = rhs_value.borrow();
 
         Ok(match (&*rhs_borrow, unary_node.operator) {
+            (CheckedValue::Felt(b), UnaryOperator::Neg) => {
+                CheckedValue::Felt(self.context.op_neg(*b))
+            }
             (CheckedValue::Bool(b), UnaryOperator::Neg) => {
                 CheckedValue::Bool(self.context.op_bool_not(*b))
             }
@@ -860,6 +863,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Lte) => self.context.op_lte(*l, *r),
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Gt) => self.context.op_gt(*l, *r),
             (CheckedValue::Bool(l), CheckedValue::Bool(r), Gte) => self.context.op_gte(*l, *r),
+            (CheckedValue::Bool(l), CheckedValue::Bool(r), BitXor) => self.context.op_bool_xor(*l, *r),
 
             _ => unreachable!(),
         };
@@ -1259,6 +1263,34 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
                         return Ok(CheckedValueRef::from_bool(
                             self.context.op_check_secp_sign(public_key, msg, signature),
+                        ));
+                    }
+                    CheckedIntrinsicExprNode::SumBits {
+                        bits,
+                        type_id,
+                        location,
+                    } => {
+                        let bits = self
+                            .interpret_expr(program, bits.clone(), ctx)?
+                            .to_vec();
+
+                        return Ok(CheckedValueRef::from_felt(
+                            self.context.sum_bits(&bits),
+                        ));
+                    }
+                    CheckedIntrinsicExprNode::SplitBits {
+                        target,
+                        num_bits,
+                        type_id,
+                        location,
+                    } => {
+                        let target = self
+                            .interpret_expr(program, target.clone(), ctx)?
+                            .to_felt();
+
+                        return Ok(CheckedValueRef::from_vec(
+                            type_id.clone(),
+                            self.context.split_bits(target, *num_bits),
                         ));
                     }
                     CheckedIntrinsicExprNode::GetCheckpointStats {

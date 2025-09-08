@@ -108,6 +108,10 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         result
     }
 
+    fn op_bool_xor(&mut self, a: F, b: F) -> F {
+        F::cns(((a.get_u64() != 0) ^ (b.get_u64() != 0)) as u64)
+    }
+
     fn op_add(&mut self, a: F, b: F) -> F {
         self.op_std_binary_op(DPNOpType::Add, a, b)
     }
@@ -167,6 +171,10 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         let lt = self.op_std_binary_op(DPNOpType::Lt, b, a);
         let eq = self.op_std_binary_op(DPNOpType::Eq, a, b);
         self.op_bool_or(lt, eq)
+    }
+
+    fn op_neg(&mut self, a: F) -> F {
+        self.op_std_binary_op(DPNOpType::Sub, F::cns(0), a)
     }
 
     // start u32 ops

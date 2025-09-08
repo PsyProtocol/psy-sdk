@@ -347,11 +347,21 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 self.bools.push(left < right);
             },
             DPNOpType::SplitBits => {
-                let target = self.resolve_target(op.inputs[0]);
-                self.bool_arrays.push(split_bits(target.to_canonical_u64(), 64));
+                let target = self.resolve_target(op.inputs[1]);
+                let num_bits = op.inputs[0];
+                assert!(num_bits <= 64, "SplitBits: num_bits must be less than 64");
+                
+                let actual_target_bits = 64 - target.to_canonical_u64().leading_zeros();
+                assert!(actual_target_bits <= num_bits as u32, "SplitBits: target bits must be less than num_bits");
+                
+                self.bool_arrays.push(split_bits(target.to_canonical_u64(), num_bits));
             },
             DPNOpType::SumBits => {
-                let sum = op.inputs.iter().map(|&input| self.resolve_bool(input) as u64).sum::<u64>();
+                assert!(op.inputs.len() <= 64, "Sumbits: can only sum at most 64 bits");
+                let sum = op.inputs.iter().enumerate().map(|(i, &input)| self.resolve_bool(input) as u64 * (1 << i)).sum::<u64>();
+         
+                assert!(sum <= F::ORDER, "SumBits: sum must be less than field order");
+                
                 self.targets.push(F::from_canonical_u64(sum));
             },
             DPNOpType::TargetAt => {
@@ -489,32 +499,56 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             DPNOpType::U32ShiftLeft => {
                 let left = self.resolve_u32(op.inputs[0]);
                 let right = self.resolve_u32(op.inputs[1]);
-                self.u32s.push(left << right);
+                if right >= 32 {
+                    self.u32s.push(0u32);
+                } else {
+                    self.u32s.push(left << right);
+                }
             },
             DPNOpType::U32ShiftLeftConstantBitDistance => {
                 let left = self.resolve_u32(op.inputs[0]);
-                let (_op_type, right) = decode_indexed_op_id(op.inputs[1]);
-                self.u32s.push(left << (right as u32));
+                let right = self.resolve_u32(op.inputs[1]);
+                if right >= 32 {
+                    self.u32s.push(0u32);
+                } else {
+                    self.u32s.push(left << right);
+                }
             },
             DPNOpType::U32ShiftLeftConstantValue => {
-                let (_op_type, left) = decode_indexed_op_id(op.inputs[0]);
+                let left = self.resolve_u32(op.inputs[0]);
                 let right = self.resolve_u32(op.inputs[1]);
-                self.u32s.push((left as u32) << right);
+                if right >= 32 {
+                    self.u32s.push(0u32);
+                } else {
+                    self.u32s.push(left << right);
+                }
             },
             DPNOpType::U32ShiftRight => {
                 let left = self.resolve_u32(op.inputs[0]);
                 let right = self.resolve_u32(op.inputs[1]);
-                self.u32s.push(left >> right);
+                if right >= 32 {
+                    self.u32s.push(0u32);
+                } else {
+                    self.u32s.push(left >> right);
+                }
             },
             DPNOpType::U32ShiftRightConstantBitDistance => {
                 let left = self.resolve_u32(op.inputs[0]);
-                let (_op_type, right) = decode_indexed_op_id(op.inputs[1]);
-                self.u32s.push(left >> (right as u32));
+                let right = self.resolve_u32(op.inputs[1]);
+                if right >= 32 {
+                    self.u32s.push(0u32);
+                } else {
+                    self.u32s.push(left >> right);
+                }
             },
             DPNOpType::U32ShiftRightConstantValue => {
-                let (_op_type, left) = decode_indexed_op_id(op.inputs[0]);
+                let left = self.resolve_u32(op.inputs[0]);
                 let right = self.resolve_u32(op.inputs[1]);
-                self.u32s.push((left as u32) >> right);
+                if right >= 32 {
+                    self.u32s.push(0u32);
+                } else {
+                    self.u32s.push(left >> right);
+                }
             },
             DPNOpType::CalculateMerkleRoot => unimplemented!(),
             DPNOpType::GetUserId => self.targets.push(self.user_id),
