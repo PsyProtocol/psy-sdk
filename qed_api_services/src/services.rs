@@ -3,7 +3,6 @@ use crate::handlers::websocket::{UserEventManager, WorkerEventManager};
 use crate::models::{WorkerEvent, WorkerEventReward};
 use crate::repositories::{
     UserEventRepository, WorkerEventRepository, WorkerEventRewardRepository,
-    WorkerRewardsAggregationRepository,
 };
 use chrono::Utc;
 use sqlx::PgPool;
