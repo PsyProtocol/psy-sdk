@@ -236,8 +236,15 @@ impl Wallet {
                 return Self::from_signer(inner);
             }
         }
-
-        bail!("No wallet found. Use --private-key or --keystore-path")
+        bail!(
+            "❌ No wallet found in default keystore directory: {}.\n\
+             Hints:\n\
+               • Ensure the directory exists and contains a valid keystore JSON file (UTC--...json).\n\
+               • Or specify a private key explicitly with `--private-key <hex>`.\n\
+               • Or specify a keystore file with `--keystore-path <path-to-keystore.json>`.\n\
+             Note: The default keystore directory is typically created by `cast wallet new <DIR>` or other Ethereum wallet tools.",
+            default_keystore_dir.to_string_lossy()
+        );
     }
 
     pub fn new_keystore(dir: &Path, password: &str, name: Option<&str>) -> Result<(Self, String)> {

@@ -157,6 +157,23 @@
             "data_volume_size": 500,
             "commitlog_volume_size": 100
           }
+        },
+        "tikv": {
+          "pd_endpoints": ["127.0.0.1:2379", "127.0.0.1:2381", "127.0.0.1:2383"],
+          "namespace": "qed",
+          "aws": {
+            "cpu": 4096,
+            "memory": 16384,
+            "deployment_type": "ec2",
+            "ec2": {
+              "min_instances": 3,
+              "max_instances": 6,
+              "desired_instances": 3
+            },
+            "data_volume_size": 500,
+            "pd_count": 3,
+            "tikv_count": 3
+          }
         }
       },
       "processor": {
@@ -259,6 +276,21 @@
               },
               "data_volume_size": 500,
               "commitlog_volume_size": 100
+            }
+          },
+          "tikv": {
+            "pd_endpoints": ["127.0.0.1:2379", "127.0.0.1:2381", "127.0.0.1:2383"],
+            "namespace": "qed_realm_0",
+            "aws": {
+              "deployment_type": "ec2",
+              "cpu": 2048,
+              "memory": 8192,
+              "volume_size": 200,
+              "ec2": {
+                "min_instances": 1,
+                "max_instances": 1,
+                "desired_instances": 1
+              }
             }
           }
         },

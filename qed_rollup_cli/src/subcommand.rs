@@ -8,6 +8,7 @@ pub mod coordinator_processor;
 pub mod realm_edge;
 pub mod realm_processor;
 pub mod worker;
+pub mod watcher;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -45,4 +46,6 @@ pub enum Commands {
         #[arg(long = "wallet-password", env = "WALLET_PASSWORD", help = "Wallet password")]
         wallet_password: Option<String>,
     },
+    #[command(about = "Run the watcher service for monitoring and reporting node status")]
+    Watcher(qed_node::watcher::WatcherArgs),
 }

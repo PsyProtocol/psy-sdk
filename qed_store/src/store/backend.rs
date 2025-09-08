@@ -1,6 +1,5 @@
 use clap::{Args, Parser};
 use serde::{Deserialize, Serialize};
-
 use super::scylla::config::ScyllaDBConfig;
 use super::tikv::config::TiKVConfig;
 

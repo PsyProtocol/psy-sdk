@@ -11,7 +11,7 @@ use jsonrpsee::{
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use qed_core::job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
 use qed_store::queue::task_queue::QJob;
-use tracing::{info, trace};
+use tracing::{info, debug, trace};
 use qed_prover::wallet::secp_sign::{SignedRequest, Eip712Signable};
 use alloy_primitives::{keccak256, B256};
 use qed_prover::wallet::secp_wallet::{Wallet};
@@ -59,7 +59,7 @@ impl JobReceiver for JobClient {
             if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client, signed_request).await? {
                 return Ok(job);
             }
-            // info!("No pending job found, sleeping for 1 second");
+            debug!("No pending job found, sleeping for 1 second");
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }

@@ -34,10 +34,12 @@ use jsonrpsee::types::{ErrorCode, ErrorObject};
 
 use tracing::{debug, error, info, warn};
 use qed_prover::wallet::secp_sign::SignedRequest;
-use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob};
+use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob, current_timestamp_millis};
 use crate::coordinator::edge::ProofStore;
 use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
 use crate::common::whitelist::WhiteList;
+use crate::watcher::events::{JobCompletedEvent, WatcherMessage};
+use crate::watcher::watcher_client::WatcherClient;
 
 #[derive(Clone)]
 pub struct RealmEdgeHandler<
@@ -49,6 +51,7 @@ pub struct RealmEdgeHandler<
     job_notify_queue: Arc<ProofStoreRedisAsync>,
     task_store: Arc<QProvingTaskStoreImpl>,
     white_list: Arc<WhiteList>,
+    watcher_client: Arc<WatcherClient>,
     coordinator_client: HttpClient,
 }
 
@@ -63,6 +66,7 @@ where
         job_notify_queue: Arc<ProofStoreRedisAsync>,
         task_store: Arc<QProvingTaskStoreImpl>,
         white_list: Arc<WhiteList>,
+        watcher_client: Arc<WatcherClient>,
         coordinator_addr: &str,
     ) -> Result<Self, anyhow::Error> {
         let coordinator_client = HttpClientBuilder::default()
@@ -72,6 +76,7 @@ where
             job_notify_queue,
             task_store,
             white_list,
+            watcher_client,
             coordinator_client,
         })
     }
@@ -787,12 +792,13 @@ where
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
-    async fn get_pending_job(&self, signed: SignedRequest<qed_data::config::store_config::QEDHash>) -> RpcResult<Option<QJob>> {
+    async fn get_pending_job(&self, signed: SignedRequest<QEDHash>) -> RpcResult<Option<QJob>> {
         self.white_list.verify_request(&signed, &MESSAGE_CLAIM_JOB.to_string(), Some(Duration::from_secs(30))).map_err(|e|
             RpcError::Anyhow(e.into())
         )?;
 
-        let j = match self.task_store.claim_job_from_current_layer().await {
+        let worker_id = signed.address.to_string();
+        let j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
             Ok(job) => job,
             Err(e) => {
                 error!("Error claiming job from current task: {:?}", e);
@@ -912,9 +918,11 @@ where
         }
 
         // remove the job from the current task, no matter if proof is None or Some
-        match self.task_store.acknowledge_job_completion(&job).await {
-            Ok(_) => {
+        let worker_id = signed.address.to_string();
+        let job_status = match self.task_store.acknowledge_job_completion(&job, &worker_id).await {
+            Ok(status) => {
                 info!("Job completed successfully: {:?}", job_id);
+                status
             },
             Err(e) => {
                 error!("Error acknowledging job completion: {:?}", e);
@@ -924,7 +932,26 @@ where
                     None::<()>,
                 ));
             }
+        };
+
+        // Send job completion event to watcher (external to task_store)
+        if let Some(duration_ms) = job_status.duration_ms() {
+            let completed_event = JobCompletedEvent {
+                job_id: job_id.clone(),
+                worker_id: Some(worker_id.clone()),
+                start_time: job_status.start_time,
+                end_time: job_status.end_time.unwrap_or_else(current_timestamp_millis),
+                duration_ms,
+            };
+
+            // Send to watcher but don't fail the job completion if it fails
+            if let Err(e) = self.watcher_client.send_event(WatcherMessage::JobCompleted(completed_event)).await {
+                warn!("Failed to send job completion event to watcher: {}", e);
+            } else {
+                info!("📊 Job completion reported to watcher for job {:?}", job_id);
+            }
         }
+
         if job_id.is_notify_complete() {
             info!("Notifying core goal completed: {:?}", job_id);
             self.job_notify_queue

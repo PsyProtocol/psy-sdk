@@ -55,6 +55,9 @@ pub enum QueueId {
     SyncProof {
         queue_biz_key: String,
     },
+    WatcherEvent {
+        queue_biz_key: String,
+    },
 }
 
 impl QueueId {
@@ -78,6 +81,8 @@ impl QueueId {
                 format!("{}-{}", checkpoint_history_queue_prefix_key, channel_id)
             }
             QueueId::SyncProof { queue_biz_key } => queue_biz_key.clone(),
+            QueueId::WatcherEvent { queue_biz_key } => queue_biz_key.clone(),
+
         }
     }
 }

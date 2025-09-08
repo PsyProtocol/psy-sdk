@@ -9,13 +9,13 @@ pub fn create_telemetry_router(api_service: ApiService) -> Router {
         .with_state(api_service)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TelemetryPayload {
     pub worker_events: Option<Vec<WorkerEvent>>,
     pub user_events: Option<Vec<UserEvent>>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TelemetryResponse {
     pub success: bool,
     pub processed_count: usize,

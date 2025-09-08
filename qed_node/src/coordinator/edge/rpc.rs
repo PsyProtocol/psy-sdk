@@ -44,6 +44,7 @@ pub trait CoordinatorEdgeRpc {
         &self,
         input: SubmitGUTARealmResultAPINoProofInput<F>,
         proof: ProofWithPublicInputs<F, C, D>,
+        realm_id: u64,
     ) -> RpcResult<String>;
 
     #[method(name = "get_latest_checkpoint")]

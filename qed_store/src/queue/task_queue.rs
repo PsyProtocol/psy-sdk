@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH,}
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -21,7 +21,13 @@ use tracing::{debug, error, info, trace, warn};
 use crate::queue::{new_redis_async_pool, QueueId, QueueStats, RsmqQueue};
 
 const TASK_COMMON_PREFIX: &str = "tasks:";
+pub const JOB_STATUS_PREFIX: &str = "job-status:";
+pub const JOB_TIMEOUT_PREFIX: &str = "job-timeout:";
 const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(30);
+
+// it should be the same with VISIBILITY_TIMEOUT
+const JOB_TIMEOUT_SECONDS: u64 =  30;
+
 
 /// Represents a single proving job with task assignment
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -81,6 +87,75 @@ impl std::fmt::Display for QJob {
         write!(f, "Job({:?} layer:{})", self.job_id, self.layer_id)
     }
 }
+/// Job status structure integrated into the task store
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QJobStatus {
+    pub id: QProvingJobDataID,
+    pub status: Status,
+    pub worker_id: Option<String>,
+    pub start_time: u64, // Milliseconds since epoch
+    pub end_time: Option<u64>, // Milliseconds since epoch
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum Status {
+    Processing,
+    Completed,
+}
+
+impl QJobStatus {
+    /// Create a new job status for a claimed job
+    pub fn new_processing(id: QProvingJobDataID, worker_id: &str) -> Self {
+        Self {
+            id,
+            status: Status::Processing,
+            worker_id: Some(worker_id.to_string()),
+            start_time: current_timestamp_millis(),
+            end_time: None,
+        }
+    }
+
+    /// Mark job as completed
+    pub fn mark_completed(&mut self) {
+        self.status = Status::Completed;
+        self.end_time = Some(current_timestamp_millis());
+    }
+
+    /// Reset job status when reclaimed by another worker
+    pub fn reset_for_reclaim(&mut self, new_worker_id: &str) {
+        self.status = Status::Processing;
+        self.worker_id = Some(new_worker_id.to_string());
+        self.start_time = current_timestamp_millis();
+        self.end_time = None;
+    }
+
+    /// Serialize to bytes using bincode
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
+        bincode::serialize(self).context("Failed to serialize QJobStatus")
+    }
+
+    /// Deserialize from bytes using bincode
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        bincode::deserialize(bytes).context("Failed to deserialize QJobStatus")
+    }
+
+    /// Calculate duration in milliseconds (only for completed jobs)
+    pub fn duration_ms(&self) -> Option<u64> {
+        match (self.status.clone(), self.end_time) {
+            (Status::Completed, Some(end)) => Some(end - self.start_time),
+            _ => None,
+        }
+    }
+
+    /// Check if the job has timed out (based on current time and timeout duration)
+    pub fn is_timed_out(&self, timeout_ms: u64) -> bool {
+        if self.status == Status::Completed {
+            return false;
+        }
+        let now = current_timestamp_millis();
+        (now - self.start_time) > timeout_ms
+    }
+}
 
 /// Job task store implementation with Redis backend and layer support
 #[derive(Clone)]
@@ -129,6 +204,202 @@ impl QProvingTaskStoreImpl {
         format!("{}:{}:rsmq", TASK_COMMON_PREFIX, layer_id)
     }
 
+    /// Generate job-status key
+    #[inline]
+    pub fn job_status_key(job_id: &QProvingJobDataID) -> String {
+        format!("{}:{}", JOB_STATUS_PREFIX, job_id.to_key_string())
+    }
+
+    /// Generate job-timeout key
+    #[inline]
+    pub fn job_timeout_key(job_id: &QProvingJobDataID) -> String {
+        format!("{}:{}", JOB_TIMEOUT_PREFIX, job_id.to_key_string())
+    }
+
+    #[inline]
+    pub fn job_timeout_to_status(timeout_key: &str) -> Option<String> {
+        if let Some(rest) = timeout_key.strip_prefix(JOB_TIMEOUT_PREFIX) {
+            Some(format!("{}:{}", JOB_STATUS_PREFIX, rest))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    pub fn job_status_to_timeout(status_key: &str) -> Option<String> {
+        if let Some(rest) = status_key.strip_prefix(JOB_STATUS_PREFIX) {
+            Some(format!("{}:{}", JOB_TIMEOUT_PREFIX, rest))
+        } else {
+            None
+        }
+    }
+
+    /// Set job status in Redis
+    async fn set_job_status(&self, status: &QJobStatus) -> Result<()> {
+        let mut conn = self.redis_pool.get().await?;
+        let key =  Self::job_status_key(&status.id);
+        let value = status.to_bytes()?;
+        debug!("Setting job status in Redis: key={}, status={:?}", key, status);
+        conn.set(key, value).await?;
+        Ok(())
+    }
+
+    /// Get job status from Redis
+    pub async fn get_job_status(&self, job_id: &QProvingJobDataID) -> Result<Option<QJobStatus>> {
+        let mut conn = self.redis_pool.get().await?;
+        let key =  Self::job_status_key(job_id);
+        let value: Option<Vec<u8>> = conn.get(key).await?;
+        match value {
+            Some(bytes) => Ok(Some(QJobStatus::from_bytes(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Delete job status from Redis
+    async fn delete_job_status(&self, job_id: &QProvingJobDataID) -> Result<()> {
+        let mut conn = self.redis_pool.get().await?;
+        let key =  Self::job_status_key(job_id);
+        conn.del(key).await?;
+        Ok(())
+    }
+
+    /// Set job timeout key with expiration
+    async fn set_job_timeout(&self, job_id: &QProvingJobDataID, timeout_seconds: u64) -> Result<()> {
+        let mut conn = self.redis_pool.get().await?;
+        let key =  Self::job_timeout_key(job_id);
+        // Set empty value with expiration
+        conn.set_ex(key, "", timeout_seconds).await?;
+        Ok(())
+    }
+
+    /// Delete job timeout key
+    async fn delete_job_timeout(&self, job_id: &QProvingJobDataID) -> Result<()> {
+        let mut conn = self.redis_pool.get().await?;
+        let key = Self::job_timeout_key(job_id);
+        conn.del(key).await?;
+        Ok(())
+    }
+
+    //todo! maybe use redis ttl mechanism for job status cleanup
+    /// Schedule job status cleanup with TTL
+    async fn schedule_status_cleanup(&self, job_id: &QProvingJobDataID) -> Result<()> {
+        let mut conn = self.redis_pool.get().await?;
+        let key =  Self::job_status_key(job_id);
+
+        // Set TTL to 1 hour (3600 seconds) for cleanup
+        redis::cmd("EXPIRE")
+            .arg(&key)
+            .arg(3600)
+            .query_async(&mut *conn)
+            .await?;
+
+        info!("Scheduled cleanup for job-status: {}", job_id);
+        Ok(())
+    }
+
+    /// Clean up stale job statuses (can be called by watcher or maintenance task)
+    pub async fn cleanup_completed_job_statuses(&self, before_timestamp: u64) -> Result<usize> {
+        let mut conn = self.redis_pool.get().await?;
+
+        // Get all job-status keys
+        let pattern = "job-status:*";
+        let keys: Vec<String> = redis::cmd("KEYS")
+            .arg(pattern)
+            .query_async(&mut *conn)
+            .await?;
+
+        let mut cleaned = 0;
+        for key in keys {
+            // Extract job ID from key (skip "job-status:" prefix)
+            if let Some(job_id_str) = key.strip_prefix("job-status:") {
+                if let Ok(job_id) = QProvingJobDataID::from_key_string(job_id_str) {
+                    if let Ok(Some(status)) = self.get_job_status(&job_id).await {
+                        // Check if job is completed and old enough
+                        if status.status == Status::Completed {
+                            if let Some(end_time) = status.end_time {
+                                if end_time < before_timestamp {
+                                    self.delete_job_status(&job_id).await?;
+                                    cleaned += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(cleaned)
+    }
+
+    /// Get all active jobs (Processing status)
+    pub async fn get_active_jobs(&self) -> Result<Vec<QJobStatus>> {
+        let mut conn = self.redis_pool.get().await?;
+
+        // Get all job-status keys
+        let pattern = "job-status:*";
+        let keys: Vec<String> = redis::cmd("KEYS")
+            .arg(pattern)
+            .query_async(&mut *conn)
+            .await?;
+
+        let mut active_jobs = Vec::new();
+        for key in keys {
+            if let Some(job_id_str) = key.strip_prefix("job-status:") {
+                if let Ok(job_id) = QProvingJobDataID::from_key_string(job_id_str) {
+                    if let Ok(Some(status)) = self.get_job_status(&job_id).await {
+                        if status.status == Status::Processing {
+                            active_jobs.push(status);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(active_jobs)
+    }
+
+    /// Get job statistics
+    pub async fn get_job_statistics(&self) -> Result<JobStatistics> {
+        let mut conn = self.redis_pool.get().await?;
+
+        // Get all job-status keys
+        let pattern = "job-status:*";
+        let keys: Vec<String> = redis::cmd("KEYS")
+            .arg(pattern)
+            .query_async(&mut *conn)
+            .await?;
+
+        let mut stats = JobStatistics::default();
+
+        for key in keys {
+            if let Some(job_id_str) = key.strip_prefix("job-status:") {
+                if let Ok(job_id) = QProvingJobDataID::from_key_string(job_id_str) {
+                    if let Ok(Some(status)) = self.get_job_status(&job_id).await {
+                        match status.status {
+                            Status::Processing => {
+                                stats.processing_count += 1;
+                                let duration = current_timestamp_millis() - status.start_time;
+                                stats.avg_processing_time =
+                                    (stats.avg_processing_time * (stats.processing_count - 1) as u64 + duration)
+                                        / stats.processing_count as u64;
+                            }
+                            Status::Completed => {
+                                stats.completed_count += 1;
+                                if let Some(duration) = status.duration_ms() {
+                                    stats.avg_completion_time =
+                                        (stats.avg_completion_time * (stats.completed_count - 1) as u64 + duration)
+                                            / stats.completed_count as u64;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stats.total_count = stats.processing_count + stats.completed_count;
+        Ok(stats)
+    }
     /// Create QueueId for a layer
     #[inline]
     fn layer_queue_id(&self, layer_id: &LayerId) -> QueueId {
@@ -373,12 +644,22 @@ pub enum JobValidationStatus {
     MessageNotFound,
     MessageNotHidden,
 }
+/// Job statistics for monitoring
+#[derive(Debug, Default, Clone)]
+pub struct JobStatistics {
+    pub total_count: usize,
+    pub processing_count: usize,
+    pub completed_count: usize,
+    pub avg_processing_time: u64,  // milliseconds
+    pub avg_completion_time: u64,  // milliseconds
+}
+
 
 #[async_trait]
 pub trait QProvingTaskStore {
     async fn save_task_topology_with_layers(&self, graph: Vec<QProvingTaskLayer>) -> Result<()>;
-    async fn claim_job_from_current_layer(&self) -> Result<Option<QJob>>;
-    async fn acknowledge_job_completion(&self, job: &QJob) -> Result<()>;
+    async fn claim_job_from_current_layer(&self, worker_id: &str) -> Result<Option<QJob>>;
+    async fn acknowledge_job_completion(&self, job: &QJob, worker_id: &str) -> Result<QJobStatus>;
     async fn get_current_layer_info(&self) -> Result<Option<LayerId>>;
     async fn count_pending_jobs_in_current_layer(&self) -> Result<u64>;
 
@@ -435,7 +716,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         Ok(())
     }
 
-    async fn claim_job_from_current_layer(&self) -> Result<Option<QJob>> {
+    async fn claim_job_from_current_layer(&self, worker_id: &str) -> Result<Option<QJob>> {
         // Peek at the current layer (head of the list)
         let current_layer = match self.peek_current_layer().await? {
             Some(layer) => layer,
@@ -449,17 +730,91 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
         // Try to claim a job from the current layer's merged queue
         match self.rsmq.receive_object_with_id::<QJob>(&queue_id, Some(VISIBILITY_TIMEOUT)).await? {
-            Some((job, msg_id)) => {
-                Ok(Some(job.with_msg_id(msg_id)))
+            Some((mut job, msg_id)) => {
+                job = job.with_msg_id(msg_id);
+
+                // Check if this job was previously claimed (reclaim scenario)
+                let existing_status = self.get_job_status(&job.job_id).await?;
+
+                let job_status = if let Some(mut status) = existing_status {
+                    // Job was previously claimed, reset for reclaim
+                    info!("Reclaiming job {} (was worker: {:?})", job.job_id, status.worker_id);
+                    status.reset_for_reclaim(worker_id);
+                    status
+                } else {
+                    // New job claim
+                    QJobStatus::new_processing(job.job_id.clone(), worker_id)
+                };
+
+                // Set job-status with processing state
+                self.set_job_status(&job_status).await?;
+
+                // Set job-timeout with 30 seconds expiration
+                self.set_job_timeout(&job.job_id, JOB_TIMEOUT_SECONDS).await?;
+
+                info!("Claimed {} from layer {} with status tracking", job, current_layer);
+                Ok(Some(job))
             }
             None => Ok(None),
         }
     }
 
-    async fn acknowledge_job_completion(&self, job: &QJob) -> Result<()> {
+    async fn acknowledge_job_completion(&self, job: &QJob, worker_id: &str) -> Result<QJobStatus> {
         trace!("Acknowledging job completion  {}", job);
 
         let queue_id = self.layer_queue_id(&job.layer_id);
+
+        // Get current job status
+        let mut job_status = self.get_job_status(&job.job_id).await?
+            .ok_or_else(|| anyhow!("Job status not found for {}", job.job_id))?;
+
+        // CRITICAL: Verify that the worker attempting to complete the job is the one who claimed it
+        match &job_status.worker_id {
+            Some(claimed_worker_id) if claimed_worker_id == worker_id => {
+                // Worker ID matches - proceed with completion
+                info!("Worker ID verified for job {}", job.job_id);
+            }
+            Some(claimed_worker_id) => {
+                // Different worker trying to complete the job - this is an error
+                error!(
+                    "Worker {} attempted to complete job {} which was claimed by worker {}",
+                    worker_id, job.job_id, claimed_worker_id
+                );
+                return Err(anyhow!(
+                    "Worker ID mismatch: job {} was claimed by {} but {} attempted to complete it",
+                    job.job_id, claimed_worker_id, worker_id
+                ));
+            }
+            None => {
+                // in fact, this should never happen for a processing job
+                // but let's handle it gracefully
+                // No worker ID in status - this shouldn't happen for a processing job
+                error!("Job {} has no worker ID in status", job.job_id);
+                return Err(anyhow!(
+                    "Job {} has no worker ID - cannot verify completion authority",
+                    job.job_id
+                ));
+            }
+        }
+
+        // Verify job is in Processing state (not already completed)
+        if job_status.status != Status::Processing {
+            warn!(
+                "Attempted to complete job {} with status {:?} by worker {}",
+                job.job_id, job_status.status, worker_id
+            );
+            return Err(anyhow!(
+                "Job {} is not in Processing state (current: {:?})",
+                job.job_id, job_status.status
+            ));
+        }
+
+        // Mark job as completed
+        job_status.mark_completed();
+        self.set_job_status(&job_status).await?;
+
+        // Delete job-timeout key to prevent timeout event
+        self.delete_job_timeout(&job.job_id).await?;
 
         // Delete message from queue,
         // note: it should after the proof has been verified
@@ -470,6 +825,10 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
         if remaining == 0 {
             trace!("Layer {} has no more jobs", job.layer_id);
+
+            // Schedule job-status cleanup
+            //todo! maybe use redis ttl mechanism for job status cleanup
+            self.schedule_status_cleanup(&job.job_id).await?;
 
             // Check if this is the current layer and remove it if complete
             if let Some(current_layer) = self.peek_current_layer().await? {
@@ -526,7 +885,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         }
 
         trace!("Job completion acknowledged successfully");
-        Ok(())
+        Ok(job_status)
     }
 
     async fn get_current_layer_info(&self) -> Result<Option<LayerId>> {
@@ -712,4 +1071,13 @@ impl QProvingTaskStoreImpl {
         info!("=== End Debug Report ===");
         Ok(())
     }
+}
+
+
+/// Get current timestamp in milliseconds
+pub fn current_timestamp_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
 }

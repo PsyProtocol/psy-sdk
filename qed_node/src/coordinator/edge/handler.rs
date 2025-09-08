@@ -59,7 +59,6 @@ use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::rsmq_queue::CEQueueNotification;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::{Backend, QEDStore};
-
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 
 type F = QEDFelt;
@@ -74,6 +73,7 @@ pub struct CoordinatorEdgeHandler {
     store: Arc<StoreReader>,
     task_store: Arc<QProvingTaskStoreImpl>,
     white_list: Arc<WhiteList>,
+    watcher_client: Arc<WatcherClient>,
 }
 
 impl CoordinatorEdgeHandler {
@@ -109,6 +109,13 @@ impl CoordinatorEdgeHandler {
 
         let whitelist = WhiteList::from_file(&args.config_path)?;
 
+        // Initialize watcher
+        info!("📡 Initializing watcher client...");
+        let watcher_client = Arc::new(
+            WatcherClient::new(&args.redis_uri).await?
+        );
+        info!("✅ Watcher client initialized successfully");
+
         Ok(Self {
             history_queue: Arc::clone(&proof_store),
             proof_store: Arc::clone(&proof_store),
@@ -116,6 +123,7 @@ impl CoordinatorEdgeHandler {
             store: store_reader,
             task_store: Arc::new(task_store),
             white_list: Arc::new(whitelist),
+            watcher_client,
         })
     }
 
@@ -138,7 +146,7 @@ impl CoordinatorEdgeHandler {
         }
 
         info!("🆕 User not found. Starting new registration.");
-        tracing::info!(
+        info!(
             "✅ register user: {}",
             serde_json::to_string_pretty(&zk_user_info).unwrap()
         );
@@ -148,6 +156,20 @@ impl CoordinatorEdgeHandler {
             .await
             .map_err(|e| CoordinatorError::QueueError(e.to_string()))?;
         info!("✅ User pushed to checkpoint queue.");
+
+
+        // Convert public key to string representation
+        let public_key_str = format!("{}", public_key_hash.to_string_le());
+
+        // Report to watcher
+        if let Err(e) = self.watcher_client.register_user(&public_key_str).await
+        {
+            // Log the error but don't fail the registration
+            warn!("❌ Failed to report user registration to watcher: {}", e);
+        } else {
+            info!("📊 User registration reported to watcher: {}", public_key_str);
+        }
+
         Ok(())
     }
 
@@ -168,7 +190,13 @@ impl CoordinatorEdgeHandler {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = latest + 1;
 
+        // Store contract details for reporting (before converting to with_root)
+        let deployer_str = format!("{}", contract.deployer.to_string_le());
+        let state_tree_height = contract.code_definition.state_tree_height;
+        let function_count = contract.code_definition.functions.len();
+
         let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
+        let function_whitelist_root_str = format!("{}", with_root.function_whitelist_root.to_string_le());
 
         let cd_for_queue = WithDrainQueueMetadata::new_params(
             self.ctx.coordinator_config.deploy_contract_channel_id,
@@ -178,6 +206,26 @@ impl CoordinatorEdgeHandler {
         );
 
         self.ctx.checkpoint_queue.cdq_push_imm(cd_for_queue).await?;
+
+        // Report contract deployment to watcher
+        let metadata = UserDeployContractMetadata {
+            state_tree_height,
+            function_count,
+            function_whitelist_root: function_whitelist_root_str,
+            node_id: self.watcher_client.get_node_id().await.unwrap_or_default(),
+            node_type: "coordinator".to_string(),
+        };
+
+        if let Err(e) = self.watcher_client
+            .deploy_contract(&deployer_str, metadata)
+            .await
+        {
+            // Log the error but don't fail the contract deployment
+            warn!("❌ Failed to report contract deployment to watcher: {}", e);
+        } else {
+            info!("📊 Contract deployment reported to watcher for deployer: {}", deployer_str);
+        }
+
         Ok(())
     }
 
@@ -185,6 +233,7 @@ impl CoordinatorEdgeHandler {
         &self,
         input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
         proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
+        realm_id: u64,
     ) -> anyhow::Result<()> {
         debug!(
             "submit_guta input: {}",
@@ -246,6 +295,14 @@ impl CoordinatorEdgeHandler {
             // anyhow::bail!("invalid top line proof old value from realm");
             tracing::warn!("invalid top line proof old value from realm");
         }
+        let top_line_proof_data = TopLineProofData {
+            old_root: format!("{}", input.top_line_proof.old_root.to_string_le()),
+            new_root: format!("{}", input.top_line_proof.new_root.to_string_le()),
+            old_value: format!("{}", input.top_line_proof.old_value.to_string_le()),
+            new_value: format!("{}", input.top_line_proof.new_value.to_string_le()),
+        };
+        let realm_proof_public_inputs =  proof.public_inputs.clone();
+        let circuit_type = input.circuit_type;
 
         // build queue item
         let queue_item: SubmitGUTARealmResultAPIQueueItem<GoldilocksField> =
@@ -269,6 +326,27 @@ impl CoordinatorEdgeHandler {
             items.len(),
             metadata
         );
+
+        // Report GUTA submission to watcher with structured metadata
+
+        let metadata = UserGutaSubmissionMetadata {
+            circuit_type,
+            top_line_proof: top_line_proof_data,
+            realm_proof_public_inputs,
+            node_id: self.watcher_client.get_node_id().await.unwrap_or_default(),
+            node_type: "coordinator".to_string(),
+        };
+
+        if let Err(e) = self.watcher_client
+            .submit_guta(realm_id, metadata)
+            .await
+        {
+            // Log the error but don't fail the GUTA submission
+            warn!("❌ Failed to report GUTA submission to watcher: {}", e);
+        } else {
+            info!("📊 GUTA submission reported to watcher for realm_id: {}", realm_id);
+        }
+
 
         Ok(())
     }
@@ -929,12 +1007,15 @@ use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
+use serde::Serialize;
 use qed_prover::local::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
 use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::redis_queue::NotificationQueue;
-use qed_store::queue::task_queue::{
-    JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl,
-};
+use qed_store::queue::task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl};
+use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserDeployContractMetadata, UserGutaSubmissionMetadata, WatcherMessage};
+use crate::watcher::watcher::NodeType;
+use crate::watcher::watcher_client::WatcherClient;
+use crate::watcher::watcher_service::{current_timestamp, current_timestamp_mills, WATCHER_RSMQ};
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
@@ -969,8 +1050,9 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         &self,
         input: SubmitGUTARealmResultAPINoProofInput<F>,
         proof: ProofWithPublicInputs<F, C, D>,
+        realm_id: u64,
     ) -> RpcResult<String> {
-        self.submit_guta(input, proof)
+        self.submit_guta(input, proof, realm_id)
             .await
             .map(|_| "ok".to_string())
             .map_err(RpcError::Anyhow)
@@ -1677,19 +1759,34 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             )
             .map_err(|e| RpcError::Anyhow(e.into()))?;
 
-        let j = match self.task_store.claim_job_from_current_layer().await {
-            Ok(job) => job,
-            Err(e) => {
-                error!("Error claiming job from current task: {:?}", e);
-                return Err(RpcError::Anyhow(e.into()));
-            }
-        };
-        match j {
-            Some(job) => {
+        let worker_id = signed.address.to_string();
+        match self.task_store.claim_job_from_current_layer(&worker_id).await {
+            Ok(Some(job)) => {
+                debug!("Pending job from current task: {:?}", job);
+
+                // Report job started event to watcher
+                let start_event = JobStartedEvent {
+                    job_id: job.job_id,
+                    worker_id,
+                    start_time: current_timestamp_mills(),
+                    layer_id: job.layer_id,
+                };
+
+                // Send to watcher queue
+                let message = WatcherMessage::JobStarted(start_event);
+                if let Err(e) = self.watcher_client.send_event(message).await {
+                    warn!("Failed to report job started to watcher: {}", e);
+                }
+
                 Ok(Some(job))
             }
-            None => {
+            Ok(None) => {
+                debug!("No pending job from current task");
                 Ok(None)
+            }
+            Err(e) => {
+                error!("Error claiming job from current task: {:?}", e);
+                Err(RpcError::Anyhow(e.into()))
             }
         }
     }
@@ -1723,6 +1820,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             .map_err(|e| RpcError::Anyhow(e.into()))?;
 
         let job_id = job.job_id;
+        let worker_id = signed.address.to_string();
 
         // CRITICAL: Validate job ownership before processing proof
         let validation_status = self
@@ -1802,14 +1900,34 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                 .map_err(RpcError::Anyhow)?;
             info!("✅ Proof stored successfully for job {:?}", job_id);
         }
-        // remove the job from the current task, no matter if proof is None or Some
-        match self.task_store.acknowledge_job_completion(&job).await {
-            Ok(_) => {
+
+        // Acknowledge job completion and get the job status
+        let job_status = match self.task_store.acknowledge_job_completion(&job, &worker_id).await {
+            Ok(status) => {
                 info!("Job completed successfully: {:?}", job_id);
+                status
             }
             Err(e) => {
                 error!("Error acknowledging job completion: {:?}", e);
                 return Err(RpcError::Anyhow(e.into()));
+            }
+        };
+
+        // Send job completion event to watcher (external to task_store)
+        if let Some(duration_ms) = job_status.duration_ms() {
+            let completed_event = JobCompletedEvent {
+                job_id: job_id.clone(),
+                worker_id: Some(worker_id.clone()),
+                start_time: job_status.start_time,
+                end_time: job_status.end_time.unwrap_or_else(current_timestamp_millis),
+                duration_ms,
+            };
+
+            // Send to watcher but don't fail the job completion if it fails
+            if let Err(e) = self.watcher_client.send_event(WatcherMessage::JobCompleted(completed_event)).await {
+                warn!("Failed to send job completion event to watcher: {}", e);
+            } else {
+                info!("📊 Job completion reported to watcher for job {:?}", job_id);
             }
         }
 

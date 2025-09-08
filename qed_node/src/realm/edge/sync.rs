@@ -397,7 +397,7 @@ impl RealmProofSender {
     ) -> Result<()> {
         self.retry_with_backoff("submit_guta_proof", || async {
             info!("Sending job to coordinator");
-            let params = rpc_params![input.clone(), proof.clone()];
+            let params = rpc_params![input.clone(), proof.clone(), self.realm_id];
             match self.http_client.request::<String, _>("qed_submit_guta", params).await {
                 Ok(result) => {
                     info!("Successfully submitted job to coordinator, result: {}", result);

@@ -40,7 +40,7 @@ volumes:
   {% endfor -%}
   {% if ns.uses_scylla -%}
   # Coordinator ScyllaDB volumes
-  {% if config.nodes.coordinator.backend and config.nodes.coordinator.backend.type == "scylla" -%}
+  {% if config.nodes.coordinator.backend and config.nodes.coordinator.backend.database == "scylla" -%}
     {% set coordinator_cluster_size = config.nodes.coordinator.backend.scylla.aws.ec2.desired_instances | default(1) -%}
   {% else -%}
     {% set coordinator_cluster_size = 0 -%}
@@ -110,7 +110,7 @@ services:
   # ScyllaDB clusters
 
   # Coordinator ScyllaDB cluster
-  {% if config.nodes.coordinator.backend and config.nodes.coordinator.backend.type == "scylla" -%}
+  {% if config.nodes.coordinator.backend and config.nodes.coordinator..database == "scylla" -%}
     {% set coordinator_cluster_size = config.nodes.coordinator.backend.scylla.aws.ec2.desired_instances | default(1) -%}
   {% else -%}
     {% set coordinator_cluster_size = 0 -%}

@@ -251,7 +251,7 @@ qed-interpreter = { path = "./qed_compiler/qed-interpreter" }
 qed_package = { path = "./qed_compiler/qed_package" }
 dargo = { path = "./qed_compiler/qed-dargo-cli" }
 qed-abi = { path = "./qed_compiler/qed-abi" }
-
+qed_api_services = { path = "./qed_api_services" }
 serial_test = "3.2"
 
 shadow-rs = "0.27.1"
@@ -299,6 +299,7 @@ alloy-primitives = { version = "1.3.1", features = [
     "map-fxhash",
     "map-foldhash",
 ] }
+strum_macros = "0.27"
 
 [profile.release]
 debug = true

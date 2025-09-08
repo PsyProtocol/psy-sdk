@@ -1,13 +1,12 @@
 mod subcommand;
 
 use clap::Parser;
-
 use crate::subcommand::coordinator_edge;
 use crate::subcommand::coordinator_processor;
 use crate::subcommand::realm_edge;
 use crate::subcommand::realm_processor;
 use crate::subcommand::worker;
-
+use crate::subcommand::watcher;
 use crate::subcommand::Cli;
 use crate::subcommand::Commands;
 
@@ -33,6 +32,10 @@ async fn main() -> anyhow::Result<()> {
         Commands::Worker { config, private_key, keystore_path, wallet_password } => {
             worker::run(config, private_key, keystore_path, wallet_password).await?;
         }
+        Commands::Watcher(args) => {
+            watcher::run(args).await?;
+        }
+
     };
     Ok::<_, anyhow::Error>(())
 }

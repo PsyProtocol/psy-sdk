@@ -26,6 +26,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
 use uuid::Uuid;
+use strum_macros::{Display, AsRefStr};
 
 use super::{mode::QWorkerMode, traits::QProofStoreAsyncImm};
 
@@ -154,7 +155,7 @@ impl From<ProvingJobDataType> for u8 {
     }
 }
 
-#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord, Display, AsRefStr)]
 #[repr(u8)]
 pub enum ProvingJobCircuitType {
     AppendUserRegistrationTree = 0,
@@ -804,6 +805,75 @@ impl QProvingJobDataID {
             data_type,
             data_index,
         })
+    }
+
+    pub fn to_key_string(&self) -> String {
+        format!(
+            "topic:{:02X}:goal:{:016X}:circuit:{:02X}:group:{:08X}:subgroup:{:08X}:task:{:08X}:dtype:{:02X}:didx:{:02X}",
+            self.topic.to_u8(),
+            self.goal_id,
+            self.circuit_type.to_u8(),
+            self.group_id,
+            self.sub_group_id,
+            self.task_index,
+            self.data_type.to_u8(),
+            self.data_index,
+        )
+    }
+    pub fn from_key_string(s: &str) -> anyhow::Result<Self> {
+        let parts: Vec<&str> = s.split(':').collect();
+        if parts.len() != 18 {
+            anyhow::bail!("invalid key string: {}", s);
+        }
+
+        // Parts index correspondence:
+        // 0="topic" 1=val 2="goal" 3=val 4="circuit" 5=val
+        // 6="group" 7=val 8="subgroup" 9=val 10="task" 11=val
+        // 12="dtype" 13=val 14="didx" 15=val
+        // (Note that the length after split is 16, not 18; there is no extra ":")
+
+        let topic: QJobTopic = u8::from_str_radix(parts[1], 16)?.try_into()?;
+        let goal_id = u64::from_str_radix(parts[3], 16)?;
+        let circuit_type = ProvingJobCircuitType::try_from(u8::from_str_radix(parts[5], 16)?)?;
+        let group_id = u32::from_str_radix(parts[7], 16)?;
+        let sub_group_id = u32::from_str_radix(parts[9], 16)?;
+        let task_index = u32::from_str_radix(parts[11], 16)?;
+        let data_type = ProvingJobDataType::try_from(u8::from_str_radix(parts[13], 16)?)?;
+        let data_index = u8::from_str_radix(parts[15], 16)?;
+
+        Ok(Self {
+            topic,
+            goal_id,
+            circuit_type,
+            group_id,
+            sub_group_id,
+            task_index,
+            data_type,
+            data_index,
+        })
+    }
+}
+
+
+impl fmt::Display for QProvingJobDataID {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if f.alternate() {
+            return write!(f, "{}", self.to_hex_string());
+        }
+
+        write!(
+            f,
+            "QJob[topic={:?}(0x{:02X}), goal={} (0x{:016X}), circuit={:?}(0x{:02X}, gid=0x{:08X}), \
+group=0x{:08X}, subgroup=0x{:08X}, task=0x{:08X}, dtype={:?}(0x{:02X}), didx=0x{:02X}]",
+            self.topic,                       self.topic.to_u8(),
+            self.goal_id,                     self.goal_id,
+            self.circuit_type,                self.circuit_type.to_u8(), self.circuit_type.to_circuit_group_id(),
+            self.group_id,
+            self.sub_group_id,
+            self.task_index,
+            self.data_type,                   self.data_type.to_u8(),
+            self.data_index
+        )
     }
 }
 impl From<&QProvingJobDataID> for [u8; 24] {

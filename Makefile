@@ -233,6 +233,7 @@ run-realm-processor1:
       --redis-uri=redis://127.0.0.1:6381 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm1 \
+      --node-id=2 \
       --realm-id=1 \
       --queue-biz-key=rwq1
 
@@ -245,6 +246,36 @@ run-realm-edge1:
       --coordinator-addr=http://127.0.0.1:8545 \
       --realm-id=1 \
       --queue-biz-key=rwq1
+
+run-watcher-coordinator:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 0 \
+	--node-type coordinator \
+	--redis-url redis://127.0.0.1:6379 \
+	--api-endpoint "http://localhost:3000" \
+	--database lmdbx \
+	--lmdbx-path ${PWD}/db/coordinator
+
+run-watcher-realm0:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 0 \
+	--node-type realm \
+	--redis-url redis://127.0.0.1:6380 \
+	--api-endpoint "http://localhost:3000" \
+	--database lmdbx \
+    --lmdbx-path ${PWD}/db/realm0
+
+run-watcher-realm1:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 1 \
+	--node-type realm \
+	--redis-url redis://127.0.0.1:6381 \
+	--api-endpoint "http://localhost:3000" \
+	--database lmdbx \
+    --lmdbx-path ${PWD}/db/realm1
+
+run-api-service:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_api_services
 
 run-worker0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
