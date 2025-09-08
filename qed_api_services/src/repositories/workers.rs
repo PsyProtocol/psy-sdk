@@ -2,8 +2,10 @@ use chrono::{DateTime, Utc};
 use qed_core::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
 use sqlx::PgPool;
 
-use crate::models::{job_id_to_json, WorkerEvent, WorkerEventSource, WorkerEventStatus};
-use crate::Result;
+use crate::{
+    models::{job_id_to_json, WorkerEvent, WorkerEventSource, WorkerEventStatus},
+    Result,
+};
 
 pub struct WorkerEventRepository;
 
@@ -114,12 +116,12 @@ impl WorkerEventRepository {
         .fetch_all(pool)
         .await?;
 
-        use crate::models::job_id_from_json;
         use qed_core::job::id::ProvingJobCircuitType;
 
+        use crate::models::job_id_from_json;
+
         // Create a default QProvingJobDataID in case of conversion failure
-        let default_job_id =
-            QProvingJobDataID::new_proof_job_id(0, ProvingJobCircuitType::AddL1Deposit, 0, 0, 0);
+        let default_job_id = QProvingJobDataID::new_proof_job_id(0, 0, ProvingJobCircuitType::AddL1Deposit, 0, 0);
 
         let events = rows
             .into_iter()
