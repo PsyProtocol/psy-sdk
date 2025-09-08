@@ -586,7 +586,10 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
                     verify_result = %merkle_proof.verify::<QEDHasher>(),
                     "After verify"
                 );
-                Ok(merkle_proof)
+                match merkle_proof.verify::<QEDHasher>() {
+                    true => Ok(merkle_proof),
+                    false => Err(anyhow::format_err!("user tree merkle proof verify failed")),
+                }
             }
             ResponseResult::Error(e) => {
                 error!("RPC call failed: {:?}", e);

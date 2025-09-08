@@ -353,7 +353,7 @@ impl<
             fn_id,
             fn_circuit_def,
             inputs
-        )?;
+        ).await?;
         self.prove_burn_fee(circuit_mgr).await?;
         Ok(())
     }

@@ -41,7 +41,7 @@ use qed_core::{
 use qed_crypto::{hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable}, signature::zk::data::ZKPublicKeyInfo};
 use qed_data::{
     config::store_config::QEDHasher,
-    qdata::user_contract_state::UserContractState,
+    qdata::{user_contract_state::UserContractState, checkpoint::QEDL2BlockState},
     qstore::imm::{
         cmd::{
             QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd,
@@ -67,7 +67,7 @@ use serde::{Deserialize, Serialize};
 use crate::local::{
     args::WalletSessionArgs,
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
-    request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
+        request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
 
 pub fn gen_contract_deploy_and_circuits_for_functions<C: GenericConfig<D>, const D: usize>(
@@ -460,7 +460,7 @@ impl WalletSession {
             None,
             vec![],
         )
-        .await
+            .await
     }
 
     pub async fn exec_contract_call_with_sign_type(
@@ -491,8 +491,38 @@ impl WalletSession {
             sig_contract_id,
             sign_inputs,
         )
-        .await?;
+            .await?;
         Ok(())
+    }
+
+    fn check_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
+        let latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
+        let max_retries = 3;
+        let mut retries = 0;
+        loop {
+            let realm_latest_l2_block_state = self.st_provider.get_realm_latest_l2_block_state().await?;
+            if realm_latest_l2_block_state.checkpoint_id < latest_l2_block_state.checkpoint_id {
+                tracing::info!(
+                    "realm latest checkpoint {} is behind coordinator, wait for 1s",
+                    realm_latest_l2_block_state.checkpoint_id
+                );
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            } else {
+                tracing::info!(
+                    "realm latest checkpoint {} is up to coordinator",
+                    realm_latest_l2_block_state.checkpoint_id
+                );
+                break;
+            }
+            retries += 1;
+            if retries >= max_retries {
+                return Err(anyhow::format_err!(
+                    "realm latest checkpoint {} is behind coordinator, max retries reached",
+                    realm_latest_l2_block_state.checkpoint_id
+                ));
+            }
+        }
+        Ok(latest_l2_block_state)
     }
 
     pub async fn start_session(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
@@ -502,7 +532,7 @@ impl WalletSession {
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
-        let latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
+        let latest_l2_block_state = self.check_block_state()?;
 
         match user_session_mgr.user_state {
             UserState::Active => {
@@ -552,12 +582,12 @@ impl WalletSession {
                     .st_provider
                     .get_user_leaf_data(checkpoint_id, user_id).await
                     .map_err(|e| {
-                        anyhow::format_err!(
-                            "can not get user id for user `{}`, please wait for 2 blocks after register: {}",
-                            public_key.to_string(),
-                            e
-                        )
-                    })?;
+                    anyhow::format_err!(
+                        "can not get user id for user `{}`, please wait for 2 blocks after register: {}",
+                        public_key.to_string(),
+                        e
+                    )
+                })?;
                 *user_session_mgr = UserSessionStateManager::new(
                     user_id,
                     user_leaf_data.nonce + F::from_canonical_u64(1),
@@ -627,7 +657,7 @@ impl WalletSession {
             .await
     }
 
-    pub async fn sign_and_submit_with_sign_type(
+     pub async fn sign_and_submit_with_sign_type(
         &self,
         public_key: QHashOut<F>,
         sign_type: SignType,
