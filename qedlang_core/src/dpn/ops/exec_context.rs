@@ -185,37 +185,6 @@ impl QExecContext {
         }
     }
 
-    fn get_set_invoke_current_condition(&self) -> SymFeltRef {
-        if self.condition_stack.is_empty() {
-            SymFeltRef::constant_true()
-        } else {
-            let op_type = self.current_condition.get_op_type();
-            if op_type == DPNOpType::ConstantTrue {
-                SymFeltRef::constant_true()
-            } else if op_type == DPNOpType::ConstantFalse {
-                SymFeltRef::constant_false()
-            } else {
-                self.current_condition
-            }
-        }
-    }
-
-    fn cset_felt(&mut self, old_value: SymFeltRef, new_value: SymFeltRef) -> SymFeltRef {
-        if self.condition_stack.is_empty() {
-            new_value
-        } else {
-            let op_type = self.current_condition.get_op_type();
-            if op_type == DPNOpType::ConstantTrue {
-                new_value
-            } else if op_type == DPNOpType::ConstantFalse {
-                old_value
-            } else {
-                let condition = self.current_condition;
-                self.op_select(condition, new_value, old_value)
-            }
-        }
-    }
-
     fn simplify_add(&mut self, a: SymFeltRef, b: SymFeltRef) -> SymFeltRef {
         let a_type = a.get_op_type();
         let b_type = b.get_op_type();
@@ -700,12 +669,31 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn assert_eq(&mut self, left: SymFeltRef, right: SymFeltRef, message: &'static str) {
-        let cond_left = self.op_select(self.current_condition, left, right);
-        self.assertions.push(SymRefAssertion {
-            left: cond_left,
-            right,
-            message,
-        });
+        if self.condition_stack.is_empty() {
+            self.assertions.push(SymRefAssertion {
+                left,
+                right,
+                message,
+            });
+        } else {
+            let op_type = self.current_condition.get_op_type();
+            if op_type == DPNOpType::ConstantTrue {
+                self.assertions.push(SymRefAssertion {
+                    left,
+                    right,
+                    message,
+                });
+            } else if op_type == DPNOpType::ConstantFalse {
+            } else {
+                let condition = self.current_condition;
+                let cond_left = self.op_select(condition, left, right);
+                self.assertions.push(SymRefAssertion {
+                    left: cond_left,
+                    right,
+                    message,
+                });
+            }
+        }
     }
 
     fn assert_true(&mut self, left: SymFeltRef, message: &'static str) {
@@ -722,23 +710,21 @@ impl DPNContext<SymFeltRef> for QExecContext {
         } else {
             let old_felts = old_value.to_felts();
             let new_felts = new_value.to_felts();
-            let result_felts = old_felts
-                .into_iter()
-                .zip(new_felts.into_iter())
-                .map(|(old, new)| self.cset_felt(old, new))
-                .collect::<Vec<_>>();
+            let op_type = self.current_condition.get_op_type();
+            let result_felts = if op_type == DPNOpType::ConstantTrue {
+                new_felts
+            } else if op_type == DPNOpType::ConstantFalse {
+                old_felts
+            } else {
+                let condition = self.current_condition;
+                old_felts
+                    .into_iter()
+                    .zip(new_felts.into_iter())
+                    .map(|(old, new)| self.op_select(condition, new, old))
+                    .collect::<Vec<_>>()
+            };
             V::from_felts(&result_felts)
         }
-    }
-
-    fn cset_str<V: ToFelts<SymFeltRef>>(
-        &mut self,
-        left: &'static str,
-        old_value: V,
-        new_value: V,
-    ) -> V {
-        println!("cset_str: {}", left);
-        self.cset(old_value, new_value)
     }
 
     fn start_if_block(&mut self, condition: SymFeltRef) {
@@ -782,6 +768,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
             panic!("Cannot end if block without starting an if block first");
         }
         self.condition_stack.pop();
+        self.current_condition = self.resolve_current_condition();
     }
 
     fn resolve_current_condition(&mut self) -> SymFeltRef {
@@ -797,8 +784,19 @@ impl DPNContext<SymFeltRef> for QExecContext {
         }
     }
 
-    fn pop_condition(&mut self) {
-        self.condition_stack.pop();
+    fn get_current_condition(&self) -> SymFeltRef {
+        if self.condition_stack.is_empty() {
+            SymFeltRef::constant_true()
+        } else {
+            let op_type = self.current_condition.get_op_type();
+            if op_type == DPNOpType::ConstantTrue {
+                SymFeltRef::constant_true()
+            } else if op_type == DPNOpType::ConstantFalse {
+                SymFeltRef::constant_false()
+            } else {
+                self.current_condition
+            }
+        }
     }
 
     fn hash(&mut self, values: &[SymFeltRef]) -> [SymFeltRef; 4] {
@@ -843,8 +841,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
         self.store.insert(op)
     }
 
-    // secp256k1 sign
-    fn op_check_secp_sign(&mut self, public_key: [SymFeltRef; 16], msg_hash: [SymFeltRef; 4], signature: [SymFeltRef; 16]) -> SymFeltRef {
+    fn op_secp256k1_verify(&mut self, public_key: [SymFeltRef; 16], msg_hash: [SymFeltRef; 4], signature: [SymFeltRef; 16]) -> SymFeltRef {
         let inputs : Vec<_> = public_key.into_iter()
             .chain(signature.into_iter())
             .chain(msg_hash.into_iter())
@@ -935,12 +932,12 @@ impl DPNContext<SymFeltRef> for QExecContext {
 
     fn get_register_users_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        stats[5].clone() 
+        stats[5].clone()
     }
 
     fn get_gutas_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        stats[6].clone() 
+        stats[6].clone()
     }
 
     fn op_get_state_felt(
@@ -969,7 +966,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
         if core_ref.eq(&value) {
             return value;
         }
-        let condition = self.get_set_invoke_current_condition();
+        let condition = self.get_current_condition();
         if condition.eq(&SymFeltRef::constant_false()) {
             self.op_get_state_felt(
                 self.contract_state_tree_height,
@@ -991,7 +988,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
 
     fn op_set_state_obj<T: ToFelts<SymFeltRef>>(&mut self, index: SymFeltRef, value: T) -> T {
         let felts = value.to_felts();
-        let condition = self.get_set_invoke_current_condition();
+        let condition = self.get_current_condition();
 
         self.create_contract_state_ref(
             self.contract_state_tree_height,
@@ -1005,8 +1002,8 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn clear_entire_tree(&mut self) -> Vec<SymFeltRef> {
-        let condition = self.get_set_invoke_current_condition();
-        
+        let condition = self.get_current_condition();
+
         let cmd = DPNStateCmd::ClearEntireTree(
             DPNStateCmdClearEntireTree {
                 condition,
@@ -1044,7 +1041,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
         input_args: Vec<SymFeltRef>,
         num_outputs: u32,
     ) -> Vec<SymFeltRef> {
-        let condition = self.get_set_invoke_current_condition();
+        let condition = self.get_current_condition();
 
         let b = self.resolve_state_cmd_base(DPNStateCmd::InvokeExternalContractFunctionSync(
             DPNStateCmdInvokeExternalContractFunctionSync {
@@ -1064,7 +1061,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
         method_id: SymFeltRef,
         input_args: Vec<SymFeltRef>,
     ) -> [SymFeltRef; 4] {
-        let condition = self.get_set_invoke_current_condition();
+        let condition = self.get_current_condition();
 
         let b = self.resolve_state_cmd_base(DPNStateCmd::InvokeExternalContractFunctionDeferred(
             DPNStateCmdInvokeExternalContractFunctionDeferred {
@@ -1087,7 +1084,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
         slot_index: SymFeltRef,
         new_value: [SymFeltRef; 4],
     ) -> [SymFeltRef; 4] {
-        let condition = self.get_set_invoke_current_condition();
+        let condition = self.get_current_condition();
 
         self.resolve_state_cmd_base(DPNStateCmd::SetContractStateSlotHash(
             DPNStateCmdSetContractStateSlotHash {
@@ -1219,7 +1216,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
     }
 
     fn cset_state_range_at(&mut self, sub_slot_index: SymFeltRef, values: &[SymFeltRef]) {
-        let condition = self.get_set_invoke_current_condition();
+        let condition = self.get_current_condition();
 
         self.create_contract_state_ref(
             self.contract_state_tree_height,

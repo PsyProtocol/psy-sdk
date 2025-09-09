@@ -567,10 +567,10 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     pub fn set_variable(
         &mut self,
         scope_id: ScopeId,
-        key: IdentId,
+        key: impl Into<IdentId>,
         value: CheckedValueRef<F>,
     ) -> Result<()> {
-        let var_id = self[scope_id].variables.get(&key).unwrap();
+        let var_id = self[scope_id].variables.get(&key.into()).unwrap();
         return self.set_value(var_id.clone(), value);
     }
 
