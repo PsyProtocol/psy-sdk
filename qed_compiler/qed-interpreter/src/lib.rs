@@ -647,16 +647,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         condition,
                         Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
                     );
-
-                    if self.is_constant(condition)
-                        && self.context.get_constant_value(condition) == 0
-                    {
-                        let msg = message.clone().unwrap_or_default();
-                        return Err(Error::AssertionFailure {
-                            message: format!("{}", msg),
-                            location: Some(*location),
-                        });
-                    }
                 }
                 CheckedIntrinsicStmtNode::AssertEq {
                     left,

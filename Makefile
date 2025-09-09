@@ -40,6 +40,8 @@ ci:
 	@$(DARGO_CLI_TEST) qed_compiler/tests/for_if_test.qed
 	@$(DARGO_CLI_TEST) qed_compiler/tests/array_struct_modification_test.qed
 	@$(DARGO_CLI_TEST) qed_compiler/tests/conditional_assert_test.qed
+	@$(DARGO_CLI_TEST) qed_compiler/tests/guta_nullifier_calculation_test.qed
+	@$(DARGO_CLI_TEST) qed_compiler/tests/root_calculation_test.qed
 
 	@$(DARGO_CLI_COMPILE) ctx_test.qed
 	@$(DARGO_CLI_COMPILE) storage_test.qed --contract-name=SimpleContract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
