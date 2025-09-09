@@ -246,8 +246,8 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         F::cns(1)
     }
 
-    fn pop_condition(&mut self) {
-        // no-op
+    fn get_current_condition(&self) -> F {
+        F::cns(1)
     }
 
     fn hash(&mut self, values: &[F]) -> [F; 4] {
@@ -373,11 +373,6 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         new_value
     }
 
-    fn cset_str<V: ToFelts<F>>(&mut self, left: &'static str,  old_value: V, new_value: V) -> V {
-        println!("cset_str: {}", left);
-        self.cset(old_value, new_value)
-    }
-
     fn op_get_state_felt(&mut self, _contract_state_tree_height: u16, _contract_id: F, _user_id: F, _index: F) -> F {
         todo!()
     }
@@ -449,7 +444,7 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         todo!()
     }
 
-    fn op_check_secp_sign(&mut self, public_key: [F; 16], msg_hash: [F; 4], signature: [F; 16]) -> F {
+    fn op_secp256k1_verify(&mut self, public_key: [F; 16], msg_hash: [F; 4], signature: [F; 16]) -> F {
         todo!()
     }
 }
