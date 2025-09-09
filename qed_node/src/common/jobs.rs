@@ -59,7 +59,7 @@ impl JobReceiver for JobClient {
             if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client, signed_request).await? {
                 return Ok(job);
             }
-            debug!("No pending job found, sleeping for 1 second");
+            trace!("No pending job found, sleeping for 1 second");
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }

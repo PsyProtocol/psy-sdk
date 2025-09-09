@@ -1781,7 +1781,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                 Ok(Some(job))
             }
             Ok(None) => {
-                debug!("No pending job from current task");
+                trace!("No pending job from current task");
                 Ok(None)
             }
             Err(e) => {
