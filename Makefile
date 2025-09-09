@@ -178,7 +178,7 @@ init:
 	# @docker run -d --name qed-scylla-realm1 -p 9044:9042 scylladb/scylla:latest
 	@echo "Waiting for databases to be ready..."
 	@echo "Starting TimescaleDB container..."
-	@docker start timescaledb || docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
+	@docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
 	@sleep 5
 	@cd ./qed_api_services && export DATABASE_URL="postgres://postgres:password@localhost/postgres" && cargo sqlx database create && cargo sqlx migrate run
 	@sleep 5
