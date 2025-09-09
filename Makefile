@@ -30,10 +30,15 @@ install:
 clean:
 	@rm -r target
 
-DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) cd qed_compiler/tests && ../../target/${PROFILE}/dargo compile --debug --entry-path
-DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVEL} cd qed_compiler/tests && ../../target/${PROFILE}/dargo execute --debug --entry-path
+DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) ./target/${PROFILE}/dargo compile --program-dir qed_compiler/tests --debug --entry-path
+DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo execute --program-dir qed_compiler/tests --debug --entry-path
+DARGO_CLI_TEST    = RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo test --file
 
 ci:
+	@$(DARGO_CLI_TEST) qed_compiler/tests/in_mod_attr_test.qed
+	# @$(DARGO_CLI_TEST) qed_compiler/tests/should_panic_test.qed
+	@$(DARGO_CLI_TEST) qed_compiler/tests/for_if_test.qed
+	@$(DARGO_CLI_TEST) qed_compiler/tests/array_struct_modification_test.qed
 
 	@$(DARGO_CLI_COMPILE) ctx_test.qed
 	@$(DARGO_CLI_COMPILE) storage_test.qed --contract-name=SimpleContract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
@@ -80,9 +85,6 @@ ci:
 	@$(DARGO_CLI_EXECUTE) two_user_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
 	@$(DARGO_CLI_EXECUTE) check_secp_sign_test.qed
 	@$(DARGO_CLI_EXECUTE) clear_entire_tree_test.qed
-
-	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/in_mod_attr_test.qed
-	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package dargo test --file qed_compiler/tests/should_panic_test.qed
 
 	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
 	       --package qed-ast \

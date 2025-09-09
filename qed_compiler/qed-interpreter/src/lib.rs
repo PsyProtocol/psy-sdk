@@ -563,9 +563,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             }
 
             if self.context.get_constant_value(predicate) == 1 {
-                self.context.start_if_block(predicate);
                 self.interpret_expr(program, node.body, ctx)?;
-                self.context.end_if_block();
             } else {
                 break Ok(());
             }
