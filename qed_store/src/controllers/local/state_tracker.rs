@@ -131,11 +131,6 @@ impl<F: RichField> QEDContractStateTracker<F> {
             inc
         }
     }
-    pub fn notify_clear_entire_tree(&mut self, zero_hash: QHashOut<F>) {
-        self.slots.clear();
-        self.end_state_root = zero_hash;
-        self.total_slots_modified = 0;
-    }
 
     pub fn to_result(&self) -> QEDStateTrackerContractResult<F> {
         QEDStateTrackerContractResult {
@@ -179,19 +174,12 @@ impl<F: RichField> QEDLocalStateTracker<F> {
         self.total_slots_modified = ((self.total_slots_modified as i32)+inc_modified_slots) as u32;
     }
 
-    pub fn notify_clear_entire_tree(&mut self, contract_id: u64, zero_hash: QHashOut<F>) {
-        match self.contracts.get_mut(&contract_id) {
-            Some(c) => c.notify_clear_entire_tree(zero_hash),
-            None => {
-                let mut tracker = QEDContractStateTracker::new(contract_id);
-                tracker.notify_clear_entire_tree(zero_hash);
-                self.contracts.insert(contract_id, tracker);
-            }
-        }
-        self.total_slots_modified += 1;
-    }
 
     pub fn get_results(&self) -> Vec<QEDStateTrackerContractResult<F>> {
         self.contracts.values().map(|x|x.to_result()).collect()
+    }
+
+    pub fn get_contract_result(&self, contract_id: u64) -> Option<QEDStateTrackerContractResult<F>> {
+        self.contracts.get(&contract_id).map(|c| c.to_result())
     }
 }

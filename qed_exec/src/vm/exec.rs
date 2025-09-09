@@ -1125,9 +1125,9 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
                         witness: DPNStateCmdWitness::ClearEntireTree(DPNClearEntireTreeWitness { state_tree_height, zero_hash: current_state_root }),
                     });
                 } else {
-                    let zero_hash = QEDHasher::get_zero_hash(state_tree_height as usize);
+                    let zero_hash: QHashOut<GoldilocksField> = QEDHasher::get_zero_hash(state_tree_height as usize);
 
-                    self.notify_clear_entire_tree(current_contract_id.to_canonical_u64(), zero_hash)?;
+                    self.notify_clear_entire_tree(current_contract_id.to_canonical_u64()).await?;
 
                     let zero_hash_felts: Vec<GoldilocksField> = zero_hash.0.elements.iter()
                         .map(|x| GoldilocksField::from_noncanonical_u64(x.to_canonical_u64()))
