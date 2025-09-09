@@ -68,11 +68,10 @@ impl PsyTokenContractRef {
 
     pub fn simple_claim_pow_rewards(checkpoint_id: Felt) {
         let c = PsyTokenContractRef::new(ContractMetadata::current());
-        let self_user_id: Felt = get_user_id();
 
-        let pow_rewards_persistant_state: Hash = get_other_user_contract_state_hash_at(0, self_user_id, 2, 0);
+        let pow_rewards_persistant_state: Hash = get_other_contract_state_hash_at(32, 2, 0);
 
-        assert(pow_rewards_persistant_state[2] == checkpoint_id, "the checkpoint must be sealed");
+        assert_eq(pow_rewards_persistant_state[2], checkpoint_id, "the checkpoint must be sealed");
         assert(checkpoint_id > c.last_claimed_pow_rewards_checkpoint_id.get(), "this checkpoint's rewards have been claimed");
 
         c.last_claimed_pow_rewards_checkpoint_id.set(checkpoint_id);

@@ -926,9 +926,16 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
         })
     }
 
-    pub fn notify_clear_entire_tree(&mut self, contract_id: u64, zero_hash: QHashOut<GF>) -> anyhow::Result<()> {
-        self.state_tree_store.clear();
-        self.local_state_tracker.notify_clear_entire_tree(contract_id, zero_hash);
+    pub async fn notify_clear_entire_tree(&mut self, contract_id: u64) -> anyhow::Result<()> {
+        if let Some(contract_result) = self.local_state_tracker.get_contract_result(contract_id) {
+            for slot in contract_result.slots.iter() {
+                self.set_contract_state_slot(
+                    GF::from_canonical_u64(contract_id),
+                    GF::from_canonical_u64(slot.index),
+                    QHashOut::ZERO,
+                ).await?;
+            }
+        }
         Ok(())
     }
 }
