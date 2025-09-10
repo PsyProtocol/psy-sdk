@@ -797,7 +797,7 @@ where
             RpcError::Anyhow(e.into())
         )?;
 
-        let worker_id = signed.address.to_string();
+        let worker_id = signed.public_key.to_string();
         let j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
             Ok(job) => job,
             Err(e) => {
@@ -918,7 +918,7 @@ where
         }
 
         // remove the job from the current task, no matter if proof is None or Some
-        let worker_id = signed.address.to_string();
+        let worker_id = signed.public_key.to_string();
         let job_status = match self.task_store.acknowledge_job_completion(&job, &worker_id).await {
             Ok(status) => {
                 info!("Job completed successfully: {:?}", job_id);
