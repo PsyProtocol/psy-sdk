@@ -75,6 +75,8 @@ use qed_store::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
+use qed_store::store::journal::{Journal, JournalStore};
+use qed_store::store::QEDStore;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -137,7 +139,7 @@ impl CoordinatorConfig {
 }
 #[derive(Clone)]
 pub struct CoordinatorProcessorContext<
-    SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
+    SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
     DQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueEmitterAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
@@ -155,7 +157,7 @@ pub struct CoordinatorProcessorContext<
 }
 
 impl<
-        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
+        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
@@ -758,12 +760,6 @@ impl<
         // Finalize and save the task topology
         self.task_store.finalize_and_save_topology().await?;
 
-        self.task_store
-            .save_job_dependency_graph(new_checkpoint_id)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", new_checkpoint_id, e))?;
-        tracing::info!("Saved job dependency graph for checkpoint {}", new_checkpoint_id);
-
         Ok((state_part_1_id, root_state_transition))
     }
 
@@ -1009,6 +1005,20 @@ impl<
             return Ok(true);
         }
         Ok(false)
+    }
+
+    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        self.store.commit(checkpoint_id)?;
+        self.commit_offset().await?;
+        self.task_store
+        .save_job_dependency_graph(checkpoint_id)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", checkpoint_id, e))
+    }
+
+    pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
+        self.store.rollback(checkpoint_id)
     }
 
     // commit redis queue

@@ -494,7 +494,7 @@ impl WalletSession {
         Ok(())
     }
 
-    fn check_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
+    async fn check_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
         let latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
         let max_retries = 3;
         let mut retries = 0;
@@ -531,7 +531,7 @@ impl WalletSession {
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
-        let latest_l2_block_state = self.check_block_state()?;
+        let latest_l2_block_state = self.check_block_state().await?;
 
         match user_session_mgr.user_state {
             UserState::Active => {

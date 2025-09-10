@@ -62,7 +62,9 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use qed_core::data::qhashout::QHashOut;
+use qed_node::coordinator::edge::rpc::CoordinatorEdgeRpcClient;
 use qed_store::store::journal::JournalStore;
+use qed_store::store::QEDStore;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -88,8 +90,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let qps = Arc::new(q.clone());
 
     let realm_qps = Arc::new(realm_q.clone());
-
-    let st = Arc::new(store_reader.clone());
+    let st = store_reader.clone();
 
     timer.lap("initialized store");
 
@@ -120,7 +121,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
-        Arc::clone(&st),
+        Arc::new(JournalStore::new(QEDStore::Lmdbx(store_reader.clone()))),
         qps.clone(),
         qps.clone(),
         qps.clone(),

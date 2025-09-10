@@ -682,6 +682,8 @@ pub trait QProvingTaskStore {
 
     // Legacy operations (kept for compatibility)
     async fn save_job_dependency_graph(&self, checkpoint_id: u64) -> Result<()>;
+
+    async fn clear_job_dependency_graph(&self, checkpoint_id: u64) -> Result<()>;
     async fn load_job_dependency_graph(&self, checkpoint_id: u64) -> Result<QProvingJobGraph>;
 }
 
@@ -906,6 +908,12 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         conn.set(graph_key, serialized).await?;
 
         debug!("Job graph saved");
+        Ok(())
+    }
+
+    async fn clear_job_dependency_graph(&self, checkpoint_id: u64) -> Result<()> {
+        let mut conn = self.redis_pool.get().await?;
+        conn.del(self.graph_key(checkpoint_id)).await?;
         Ok(())
     }
 
