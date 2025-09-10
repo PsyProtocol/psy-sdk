@@ -193,6 +193,8 @@ where
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
 
+        tracing::debug!("GUTAOnlyRegisterUsersInput: {}", serde_json::to_string_pretty(&r)?);
+
 
         let guta_whitelist_root: QHashOut<C::F> =
             library.get_group_inclusion_proof(ProvingJobCircuitType::GUTATwoGUTA, ProvingJobCircuitType::GUTATwoGUTA)?.root;
