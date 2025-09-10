@@ -75,7 +75,7 @@ type F = QEDFelt;
 
 pub struct CoordinatorProcessNode<
     JL: Journal,
-    SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
+    SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
     DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
     WQ: WorkerEventTransmitterAsyncImm,
@@ -95,7 +95,7 @@ pub struct CoordinatorProcessNode<
 
 impl<
         JL: Journal,
-        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
+        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
         WQ: WorkerEventTransmitterAsyncImm,
@@ -281,17 +281,14 @@ impl
 
     pub async fn build_block(&mut self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
         let ctx = self.ctx.clone();
-        let journal_store = self.journal_store.clone();
         self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
             if let Err(e) = ctx.build_block(slot).await {
-                journal_store.rollback(next_checkpoint_id)?;
+                ctx.rollback(next_checkpoint_id).await?;
                 bail!("Failed to build and prove block: {}", e);
             }
             Ok(())
         }).await?;
-
-        self.journal_store.commit(next_checkpoint_id)?;
-        self.ctx.commit_offset().await?;
+        self.ctx.commit(next_checkpoint_id).await?;
 
         info!(
             "✅ Successfully built and committed block {}, slot {}",
@@ -516,7 +513,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
 impl<
     JL: Journal,
-    SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
+    SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
     DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
     WQ: WorkerEventTransmitterAsyncImm,
