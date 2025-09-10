@@ -311,7 +311,7 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
                     e2
                 ),
             };
-            sleep(Duration::from_millis(500)).await;
+            sleep(Duration::from_millis(100)).await;
         }
     }
 
@@ -326,7 +326,7 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
             match self.get_proof_by_id::<C, D>(job_id.get_output_id()).await {
                 Ok(proof) => return Ok(proof),
                 Err(_) => {
-                    sleep(Duration::from_millis(500)).await;
+                    sleep(Duration::from_millis(100)).await;
                 }
             }
         }
