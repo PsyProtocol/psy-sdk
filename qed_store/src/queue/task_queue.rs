@@ -25,6 +25,9 @@ pub const JOB_STATUS_PREFIX: &str = "job-status:";
 pub const JOB_TIMEOUT_PREFIX: &str = "job-timeout:";
 const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(30);
 
+// Job dependency graph LRU cache constants
+const MAX_JOB_GRAPHS: usize = 256;
+
 // it should be the same with VISIBILITY_TIMEOUT
 const JOB_TIMEOUT_SECONDS: u64 =  30;
 
@@ -190,6 +193,12 @@ impl QProvingTaskStoreImpl {
     #[inline]
     fn graph_key(&self, checkpoint_id: u64) -> String {
         format!("{}:{}:graph", TASK_COMMON_PREFIX, checkpoint_id)
+    }
+
+    /// Get the job graph history key for LRU cache management
+    #[inline]
+    fn job_graph_history_key(&self) -> String {
+        format!("{}:job_graph_history", TASK_COMMON_PREFIX)
     }
 
     /// Get the checkpoint-specific layers key
@@ -903,9 +912,26 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         let mut conn = self.redis_pool.get().await?;
         let serialized = bincode::serialize(&*self.job_graph.lock().await)?;
         let graph_key = self.graph_key(checkpoint_id);
+
+        // Store the job graph
         conn.set(graph_key, serialized).await?;
 
-        debug!("Job graph saved");
+        // Add checkpoint_id to the history list (newest first)
+        let history_key = self.job_graph_history_key();
+        conn.lpush(&history_key, checkpoint_id).await?;
+
+        // Check if we need to remove old entries
+        let list_len: usize = conn.llen(&history_key).await?;
+        if list_len > MAX_JOB_GRAPHS {
+            // Remove the oldest checkpoint_id and its corresponding graph
+            if let Some(old_checkpoint_id) = conn.rpop::<_, Option<u64>>(&history_key, None).await? {
+                let old_graph_key = self.graph_key(old_checkpoint_id);
+                conn.del(old_graph_key).await?;
+                debug!("Removed old job graph for checkpoint_id: {}", old_checkpoint_id);
+            }
+        }
+
+        debug!("Job graph saved for checkpoint_id: {}", checkpoint_id);
         Ok(())
     }
 
@@ -913,8 +939,17 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         let mut conn = self.redis_pool.get().await?;
 
         let graph_key = self.graph_key(checkpoint_id);
-        let graph_bytes: Vec<u8> = conn.get(graph_key).await?;
 
+        // Check if the graph exists before trying to load it
+        let exists: bool = conn.exists(&graph_key).await?;
+        if !exists {
+            return Err(anyhow::anyhow!(
+                "Job dependency graph for checkpoint_id {} has been removed from cache",
+                checkpoint_id
+            ));
+        }
+
+        let graph_bytes: Vec<u8> = conn.get(graph_key).await?;
         bincode::deserialize::<QProvingJobGraph>(&graph_bytes).context("Failed to deserialize job graph")
     }
 
