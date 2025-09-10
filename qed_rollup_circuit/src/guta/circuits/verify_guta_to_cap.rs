@@ -183,6 +183,7 @@ where
         let r: CircuitInputWithDependencies<VerifyGUTAToCapCircuitInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
+        tracing::debug!("GUTAVerifyGUTAToCapCircuitInput: {}", serde_json::to_string_pretty(&r)?);
 
         if r.dependencies.len() != 1 {
             anyhow::bail!("invalid dependency count in guta to cap input");

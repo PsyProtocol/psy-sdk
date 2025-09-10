@@ -207,6 +207,8 @@ C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
 
         let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<C::F>> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
+        tracing::debug!("GUTAVerifyTwoEndCapCircuitInput: {}", serde_json::to_string_pretty(&r)?);
+        
         if r.dependencies.len() != 2 {
             anyhow::bail!("invalid dependency count in two end cap input");
         }

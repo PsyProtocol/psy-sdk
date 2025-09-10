@@ -32,6 +32,7 @@ use qed_core::
     data::qhashout::QHashOut
 ;
 use qed_store::queue::new_fred_pool;
+use qed_store::store::journal::JournalStore;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -84,7 +85,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
-        Arc::clone(&st),
+        Arc::new(JournalStore::new(store_reader.clone())),
         qps.clone(),
         qps.clone(),
         qps.clone(),

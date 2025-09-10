@@ -154,7 +154,7 @@ impl<
     }
 
     pub async fn handle_checkpoint_sync(
-        &mut self,
+        &self,
         input: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
         let dmps = input.get_registered_user_merkle_proofs::<QEDHasher>();
@@ -504,7 +504,7 @@ impl<
         BidirectionalGraph<QProvingJobDataID>,
     )> {
         // Use position-based consumption for GUTA queue items
-        let (guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
+        let (mut guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
             self.realm_config.guta_channel_id,
             checkpoint_id,
         ).await?;
@@ -620,6 +620,8 @@ impl<
             ));
         }
 
+        guta_queue_items.sort_by(|a, b| a.input.new_user_leaf.user_id.to_canonical_u64().cmp(&b.input.new_user_leaf.user_id.to_canonical_u64()));
+        tracing::debug!("sorted guta_queue_items: {}", serde_json::to_string_pretty(&guta_queue_items)?);
         let mnu = guta_queue_items
             .iter()
             .map(|x| QMerkleNode {
@@ -818,7 +820,6 @@ impl<
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
 
         self.task_store.finalize_and_save_topology().await?;
-        self.task_store.save_job_dependency_graph(new_checkpoint_id).await?;
         Ok(())
     }
 
@@ -918,10 +919,12 @@ impl<
 
     pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         self.store.commit(checkpoint_id)?;
-        self.commit_offset(checkpoint_id).await
+        self.commit_offset(checkpoint_id).await?;
+        self.task_store.save_job_dependency_graph(checkpoint_id).await
     }
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
         self.store.rollback(checkpoint_id)
     }
 }

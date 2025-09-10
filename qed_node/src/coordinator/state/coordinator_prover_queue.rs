@@ -24,10 +24,11 @@ use qed_store::{
     },
     queue::task_queue::QProvingTaskStore,
 };
+use qed_store::store::journal::Journal;
 
 type F = QEDFelt;
 impl<
-        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>,
+        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>+ Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
 
