@@ -92,14 +92,14 @@ impl UpdateNearestCommonAncestorProofOptGadget {
                 H,
                 F,
                 D,
-            >(builder, max_height-1, Some(height_a));
+            >(builder, max_height, Some(height_a));
 
         let child_b =
         VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<
                 H,
                 F,
                 D,
-            >(builder, max_height-1, Some(height_b));
+            >(builder, max_height, Some(height_b));
 
         let solo_mask = builder.is_not_equal_hash(child_a.new_root, child_b.new_root);
         let level_a_diff_sub_solo = builder.sub(level_a_diff, solo_mask.target);
