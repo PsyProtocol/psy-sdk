@@ -50,12 +50,13 @@ impl JobClient {
 
 #[async_trait]
 impl JobReceiver for JobClient {
-    async fn get_next_job(&self, wallet: Arc<Wallet>) -> anyhow::Result<QJob> {
+    async fn get_next_job(&self, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<QJob> {
         loop {
-            let signed_request = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(
+            let mut signed_request = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(
                 &wallet,
                 &MESSAGE_CLAIM_JOB
             )?;
+            signed_request.worker_public_key = worker_public_key.to_string();
             if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client, signed_request).await? {
                 return Ok(job);
             }
@@ -67,10 +68,12 @@ impl JobReceiver for JobClient {
         &self,
         job: QJob,
         proof: Option<QEDProof>,
-        wallet: Arc<Wallet>
+        wallet: Arc<Wallet>,
+        worker_public_key: &str,
     ) -> anyhow::Result<()> {
         trace!("Submitted job proof for job_id: {:?}", job);
-        let signed = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &proof)?;
+        let mut signed = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &proof)?;
+        signed.worker_public_key = worker_public_key.to_string();
         JobSchedulerRpcClient::set_proof_by_id(&self.rpc_client, job, proof, signed).await?;
         Ok(())
     }
@@ -99,12 +102,13 @@ impl QProofStoreReaderAsync for JobClient {
 
 #[async_trait]
 pub trait JobReceiver {
-    async fn get_next_job(&self, wallet: Arc<Wallet>) -> anyhow::Result<QJob>;
+    async fn get_next_job(&self, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<QJob>;
 
     async fn submit_job_proof(
         &self,
         job: QJob,
         proof: Option<QEDProof>,
-        wallet: Arc<Wallet>
+        wallet: Arc<Wallet>,
+        worker_public_key: &str,
     ) -> anyhow::Result<()>;
 }

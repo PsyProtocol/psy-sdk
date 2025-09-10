@@ -75,13 +75,6 @@ impl WhiteList {
             return Ok(());
         }
 
-        if !request.verify_public_key_matches_address()?{
-            return Err(anyhow::anyhow!(
-                "Public key does not match address: {}",
-                request.address
-            ));
-        }
-
         if !self.is_secp256k1_whitelisted(&request.address) {
             return Err(anyhow::anyhow!(
                 "Address not whitelisted: {}",

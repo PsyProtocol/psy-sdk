@@ -797,7 +797,7 @@ where
             RpcError::Anyhow(e.into())
         )?;
 
-        let worker_id = signed.public_key.to_string();
+        let worker_id = signed.worker_public_key.to_string();
         let j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
             Ok(job) => job,
             Err(e) => {
@@ -847,7 +847,6 @@ where
         self.white_list.verify_request(&signed, &proof, Some(Duration::from_secs(300))).map_err(|e|
             RpcError::Anyhow(e.into())
         )?;
-
 
         let job_id = job.job_id;
         // CRITICAL: Validate job ownership before processing proof
@@ -918,7 +917,7 @@ where
         }
 
         // remove the job from the current task, no matter if proof is None or Some
-        let worker_id = signed.public_key.to_string();
+        let worker_id = signed.worker_public_key.to_string();
         let job_status = match self.task_store.acknowledge_job_completion(&job, &worker_id).await {
             Ok(status) => {
                 info!("Job completed successfully: {:?}", job_id);

@@ -1759,7 +1759,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             )
             .map_err(|e| RpcError::Anyhow(e.into()))?;
 
-        let worker_id = signed.public_key.to_string();
+        let worker_id = signed.worker_public_key.to_string();
         match self.task_store.claim_job_from_current_layer(&worker_id).await {
             Ok(Some(job)) => {
                 debug!("Pending job from current task: {:?}", job);
@@ -1820,7 +1820,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             .map_err(|e| RpcError::Anyhow(e.into()))?;
 
         let job_id = job.job_id;
-        let worker_id = signed.public_key.to_string();
+        let worker_id = signed.worker_public_key.to_string();
 
         // CRITICAL: Validate job ownership before processing proof
         let validation_status = self

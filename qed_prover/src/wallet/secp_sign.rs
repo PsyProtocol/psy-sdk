@@ -78,7 +78,7 @@ impl TimestampProvider for SystemTimeProvider {
 pub struct SignedRequest<T: Eip712Signable> {
     pub data: T,
     pub address: Address,
-    pub public_key: String,
+    pub worker_public_key: String,
     pub signature: String,
     pub timestamp: u64,
     pub chain_id: u64,
@@ -140,8 +140,7 @@ impl<T: Eip712Signable> SignedRequest<T> {
     pub fn new_with_timestamp_and_chain(wallet: &Wallet, data: T, timestamp: u64, chain_id: u64) -> Result<Self> {
         let address = wallet.address_raw();
         let eip712_hash = create_eip712_hash(&data, address, timestamp, chain_id)?;
-        let public_key = hex::encode(wallet.public_key());
-
+        let dummy_worker_public_key = "0x".to_string(); // Placeholder for worker public key
         // Sign the EIP-712 hash
         let signature_bytes = wallet.sign_message(eip712_hash.as_slice()).context("Failed to sign EIP-712 hash")?;
         let signature = hex::encode(&signature_bytes);
@@ -149,7 +148,7 @@ impl<T: Eip712Signable> SignedRequest<T> {
         Ok(Self {
             data,
             address,
-            public_key,
+            worker_public_key: dummy_worker_public_key,
             signature,
             timestamp,
             chain_id,
@@ -174,16 +173,6 @@ impl<T: Eip712Signable> SignedRequest<T> {
         )
     }
 
-    pub fn verify_public_key_matches_address(&self) -> Result<bool> {
-        let public_key_bytes = hex::decode(&self.public_key)
-            .context("Failed to decode public key from hex")?;
-
-        // Derive the address from the public key
-        let derived_address = Wallet::address_from_public_key(&public_key_bytes)
-            .context("Failed to derive address from public key")?;
-
-        Ok(derived_address == self.address)
-    }
     pub fn is_expired(&self) -> bool {
         self.is_expired_with_duration(DEFAULT_SIGNATURE_EXPIRY)
     }
