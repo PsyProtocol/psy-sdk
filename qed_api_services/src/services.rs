@@ -9,6 +9,7 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::info;
 
 #[derive(Clone)]
 pub struct ApiService {
@@ -78,7 +79,7 @@ impl RewardService {
         let max_worker_checkpoint = WorkerEventRepository::get_max_checkpoint(pool)
             .await?
             .unwrap_or(0);
-
+        info!("Max worker checkpoint: {}", max_worker_checkpoint);
         // Process unprocessed GUTA worker events up to max_checkpoint - 1
         // (excluding current block to ensure it's finalized)
         let checkpoint_range = Some((0, max_worker_checkpoint - 1));
