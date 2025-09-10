@@ -253,7 +253,7 @@ impl<'a> StorageProcessor<'a> {
             }));
             field_inits.insert(field_name.clone(), new_call);
 
-            let field_size = self.generate_field_size(attr, &inner_ty, ctx);
+            let field_size = self.generate_field_size(attr, &field.ty, ctx);
             offset = ctx.alloc_expression(ExprNode::Binary(BinaryNode {
                 lhs: offset,
                 operator: BinaryOperator::Add,
@@ -444,7 +444,15 @@ impl<'a> StorageProcessor<'a> {
                 if params.len() != 2 {
                     panic!("StorageRef must have exactly two generic parameters");
                 }
-                params[0].clone()
+                let array_size = match &params[1] {
+                    UncheckedType::Const(ConstValue::U32(size), _) => *size,
+                    _ => panic!("Second generic parameter of StorageRef must be a u32 const"),
+                };
+                if array_size > 1 {
+                    UncheckedType::Array(Box::new(params[0].clone()), array_size, attr.location)
+                } else {
+                    params[0].clone()
+                }
             }
             UncheckedType::Basic(ident) => {
                 let type_name = ctx.ident(ident.id).0.to_string();
