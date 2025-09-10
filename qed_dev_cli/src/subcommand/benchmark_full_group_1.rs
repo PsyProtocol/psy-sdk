@@ -103,7 +103,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
-        st.clone(),
+        Arc::new(JournalStore::new(store_reader.clone())),
         qps.clone(),
         qps.clone(),
         qps.clone(),
