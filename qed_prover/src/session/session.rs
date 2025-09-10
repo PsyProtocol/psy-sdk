@@ -494,7 +494,7 @@ impl WalletSession {
         Ok(())
     }
 
-    fn check_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
+    async fn check_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
         let latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
         let max_retries = 3;
         let mut retries = 0;
@@ -505,7 +505,7 @@ impl WalletSession {
                     "realm latest checkpoint {} is behind coordinator, wait for 1s",
                     realm_latest_l2_block_state.checkpoint_id
                 );
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                crate::session::sleep(std::time::Duration::from_secs(1)).await;
             } else {
                 tracing::info!(
                     "realm latest checkpoint {} is up to coordinator",
@@ -531,7 +531,7 @@ impl WalletSession {
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
-        let latest_l2_block_state = self.check_block_state()?;
+        let latest_l2_block_state = self.check_block_state().await?;
 
         match user_session_mgr.user_state {
             UserState::Active => {
@@ -638,7 +638,8 @@ impl WalletSession {
                 .collect(),
         )
         .await?;
-        user_session_mgr.mgr.prove_burn_fee(&self.wallet.circuit_manager)
+        user_session_mgr.mgr.prove_burn_fee(&self.wallet.circuit_manager).await?;
+        Ok(())
     }
 
     pub async fn prove_contract_calls(
@@ -670,7 +671,7 @@ impl WalletSession {
             )
             .await?;
         }
-        user_session_mgr.mgr.prove_burn_fee(&self.wallet.circuit_manager)?;
+        user_session_mgr.mgr.prove_burn_fee(&self.wallet.circuit_manager).await?;
         Ok(())
     }
 
