@@ -489,18 +489,19 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
     loop {
         let next_checkpoint_id = coordinator_processor.next_checkpoint_id().await?;
         tokio::select! {
-            is = coordinator_processor.wait_for_make_block() => {
-                if !is {
-                    continue;
-                }
-                debug!("✅ make block, checkpoint {}", next_checkpoint_id);
-            }
+            biased;
             slot = slot_timer.wait_for_next_slot() => {
                 trace!("✅ Successfully wait for next slot: {}", slot);
                 if !coordinator_processor.has_pending_tasks(next_checkpoint_id).await? {
                     trace!("⚠️ No pending tasks for checkpoint {}, waiting for next checkpoint", next_checkpoint_id);
                     continue;
                 }
+            }
+            is = coordinator_processor.wait_for_make_block() => {
+                if !is {
+                    continue;
+                }
+                debug!("✅ make block, checkpoint {}", next_checkpoint_id);
             }
         }
 
