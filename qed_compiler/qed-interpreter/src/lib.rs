@@ -563,9 +563,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             }
 
             if self.context.get_constant_value(predicate) == 1 {
-                self.context.start_if_block(predicate);
                 self.interpret_expr(program, node.body, ctx)?;
-                self.context.end_if_block();
             } else {
                 break Ok(());
             }
@@ -591,7 +589,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 
         ctx.symbols.enter_block(node.scope_id);
         ctx.symbols
-            .set_variable(node.scope_id, node.variable.id, start)?;
+            .set_variable(node.scope_id, node.variable, start)?;
 
         loop {
             let var_id = ctx
@@ -604,7 +602,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 let one = self.context.op_const_u32(1);
                 let value = CheckedValueRef::from_u32(self.context.op_u32_add(value_f, one));
                 ctx.symbols
-                    .set_variable(node.scope_id, node.variable.id, value)?;
+                    .set_variable(node.scope_id, node.variable, value)?;
             } else {
                 ctx.symbols.exit_block();
                 break Ok(());
@@ -649,16 +647,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         condition,
                         Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
                     );
-
-                    if self.is_constant(condition)
-                        && self.context.get_constant_value(condition) == 0
-                    {
-                        let msg = message.clone().unwrap_or_default();
-                        return Err(Error::AssertionFailure {
-                            message: format!("{}", msg),
-                            location: Some(*location),
-                        });
-                    }
                 }
                 CheckedIntrinsicStmtNode::AssertEq {
                     left,
@@ -677,23 +665,6 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                         rhs,
                         Box::leak(message.clone().unwrap_or_default().into_boxed_str()),
                     );
-
-                    if self.is_constant(lhs)
-                        && self.is_constant(rhs)
-                        && self.context.get_constant_value(lhs)
-                            != self.context.get_constant_value(rhs)
-                    {
-                        let msg = message.clone().unwrap_or_default();
-                        return Err(Error::AssertionFailure {
-                            message: format!(
-                                "{} (left: {}, right: {})",
-                                msg,
-                                self.context.get_constant_value(lhs),
-                                self.context.get_constant_value(rhs)
-                            ),
-                            location: Some(*location),
-                        });
-                    }
                 }
                 CheckedIntrinsicStmtNode::ClearEntireTree { .. } => {
                     let _result = self.context.clear_entire_tree();
@@ -1262,7 +1233,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                             .to_u32_array();
 
                         return Ok(CheckedValueRef::from_bool(
-                            self.context.op_check_secp_sign(public_key, msg, signature),
+                            self.context.op_secp256k1_verify(public_key, msg, signature),
                         ));
                     }
                     CheckedIntrinsicExprNode::SumBits {

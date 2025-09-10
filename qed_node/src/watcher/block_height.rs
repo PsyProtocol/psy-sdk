@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tracing::debug;
+use tracing::{debug, trace};
 
 use crate::watcher::current_timestamp;
 
@@ -26,10 +26,10 @@ impl BlockHeightManager {
         let current = self.current_height.fetch_max(new_height, Ordering::AcqRel);
 
         if new_height > current {
-            debug!("Block height updated: {} -> {}", current, new_height);
+            trace!("Block height updated: {} -> {}", current, new_height);
             true
         } else {
-            debug!("New height {} not greater than current {}", new_height, current);
+            trace!("New height {} not greater than current {}", new_height, current);
             false
         }
     }

@@ -31,7 +31,7 @@ impl QRuntimeContext {
         RuntimeFelt(op_type.eval_binary_constant(a.0, b.0))
     }
     fn op_std_binary_op_u32(&mut self, op_type: DPNOpType, a: RuntimeFelt, b: RuntimeFelt) -> RuntimeFelt {
-        
+
         RuntimeFelt(op_type.eval_binary_constant(a.0&0xFFFFFFFFu64, b.0&0xFFFFFFFFu64)&0xFFFFFFFFu64)
     }
     /*
@@ -194,10 +194,6 @@ impl DPNContext<RuntimeFelt> for QRuntimeContext {
 
     fn resolve_current_condition(&mut self) -> RuntimeFelt {
         RuntimeFelt(1)
-    }
-
-    fn pop_condition(&mut self) {
-        // no-op
     }
 
     fn hash(&mut self, values: &[RuntimeFelt]) -> [RuntimeFelt; 4] {

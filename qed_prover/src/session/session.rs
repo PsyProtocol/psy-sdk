@@ -148,11 +148,10 @@ pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
 
     let dapen_fc = cfc_code_definition_to_dapen_fc(&contract_code.functions[method_id as usize])?;
 
-    mgr.prove_contract_call(
+    mgr.prove_standard_call(
         circuit_mgr,
         F::from_canonical_u64(contract_id),
         method_id as u32,
-        // &dapen_fc_circuit,
         &dapen_fc,
         inputs,
     )
@@ -638,7 +637,8 @@ impl WalletSession {
                 .map(|x| F::from_noncanonical_u64(*x))
                 .collect(),
         )
-        .await
+        .await?;
+        user_session_mgr.mgr.prove_burn_fee(&self.wallet.circuit_manager)
     }
 
     pub async fn prove_contract_calls(
@@ -646,9 +646,31 @@ impl WalletSession {
         public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> anyhow::Result<()> {
+        let mut user_session_mgr = self
+            .user_session_mgrs
+            .get_mut(&public_key)
+            .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
         for contract_call_arg in contract_call_args {
-            self.prove_contract_call(public_key, contract_call_arg).await?;
+            tracing::info!(
+                "prove contract call at contract {}, method {}",
+                contract_call_arg.contract_id,
+                contract_call_arg.method_name
+            );
+            prove_func(
+                &user_session_mgr.rpc_provider.clone(),
+                &self.wallet.circuit_manager,
+                &mut user_session_mgr.mgr,
+                contract_call_arg.contract_id,
+                &contract_call_arg.method_name,
+                contract_call_arg
+                    .inputs
+                    .iter()
+                    .map(|x| F::from_noncanonical_u64(*x))
+                    .collect(),
+            )
+            .await?;
         }
+        user_session_mgr.mgr.prove_burn_fee(&self.wallet.circuit_manager)?;
         Ok(())
     }
 

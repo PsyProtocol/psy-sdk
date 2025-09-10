@@ -336,7 +336,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn op_false(&mut self) -> F;
 
     // secp256k1 sign
-    fn op_check_secp_sign(&mut self, public_key: [F; 16], msg_hash: [F; 4], signature: [F; 16]) -> F;
+    fn op_secp256k1_verify(&mut self, public_key: [F; 16], msg_hash: [F; 4], signature: [F; 16]) -> F;
 
     fn add_input(&mut self) -> F;
     fn add_u32_input(&mut self) -> F;
@@ -370,13 +370,12 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn get_other_user_contract_state_range_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, sub_slot_index: F, length: F) -> Vec<F>;
 
     fn cset_state<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
-    fn cset_str<V: ToFelts<F>>(&mut self, left: &'static str, old_value: V, new_value: V) -> V;
     fn start_if_block(&mut self, condition: F);
     fn start_else_if_block(&mut self, condition: F);
     fn start_else_block(&mut self);
     fn end_if_block(&mut self);
     fn resolve_current_condition(&mut self) -> F;
-    fn pop_condition(&mut self);
+    fn get_current_condition(&self) -> F;
 
     // std lib
     fn hash(&mut self, values: &[F]) -> [F; 4];
@@ -395,7 +394,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn get_register_users_root(&mut self, checkpoint_id: F) -> [F; 4];
     fn get_gutas_root(&mut self, checkpoint_id: F) -> [F; 4];
     fn get_deploy_contracts_root(&mut self, checkpoint_id: F) -> [F; 4];
-    
+
     // New checkpoint stats intrinsics
     fn get_fees_collected(&mut self, checkpoint_id: F) -> F;
     fn get_user_ops_processed(&mut self, checkpoint_id: F) -> F;
