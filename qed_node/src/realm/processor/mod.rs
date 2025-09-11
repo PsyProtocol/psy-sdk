@@ -308,7 +308,7 @@ impl RealmProcessor {
                             self.initialize_genesis_state().await?;
                         }
 
-                        context.commit(checkpoint_id).await?;
+                        context.store.commit(checkpoint_id)?;
 
                         let pending_users_count = context.sync_queue.get_pending_users_count().await?;
                         trace!("Pending users count after checkpoint sync: {}", pending_users_count);
@@ -325,7 +325,7 @@ impl RealmProcessor {
                     }
                     Err(err) => {
                         error!(?checkpoint_id, ?err, "Error sync checkpoint");
-                        context.rollback(checkpoint_id).await?;
+                        context.store.rollback(checkpoint_id)?;
                         Err(err)
                     }
                 }
