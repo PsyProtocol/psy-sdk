@@ -134,7 +134,7 @@ impl RealmProcessor {
         ).await
     }
 
-    pub async fn start(mut self) -> anyhow::Result<JoinHandle<()>> {
+    pub async fn start(mut self) -> anyhow::Result<()> {
         info!("Realm Processor starting");
         let sync_queue = Arc::new(self.sync_proof.clone());
         // Check for incomplete consumption state on startup
@@ -152,21 +152,19 @@ impl RealmProcessor {
             info!("Found {} pending users in Redis queue during recovery", pending_users_count);
         }
         let context = self.context().await?;
-        loop {
-            tokio::select! {
-                biased;
-                result = self.sync_handle(&context) => {
-                    if let Err(err) = result{
-                        error!("Sync handle error: {:?}", err);
-                    }
-                },
-                result = self.block_handle(&context) => {
-                    if let Err(err) = result{
-                        error!("Block handle error: {:?}, pending_checkpoint_id: {}", err, self.pending_checkpoint_id.load(Ordering::Relaxed));
-                    }
-                },
-            }
-        }
+        tokio::join!(
+            async {loop {
+                if let Err(err) = self.sync_handle(&context).await {
+                    error!("Sync handle error: {:?}", err);
+                }
+            }},
+            async {loop {
+                if let Err(err) =  self.block_handle(&context).await {
+                    error!("Block handle error: {:?}, pending_checkpoint_id: {}", err, self.pending_checkpoint_id.load(Ordering::Relaxed));
+                }
+            }}
+        );
+        Ok(())
     }
 
     async fn sync_handle(&self, context: &ConcreteRealmProcessorContext) -> anyhow::Result<()> {

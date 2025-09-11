@@ -24,6 +24,7 @@ use qed_core::job::{
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
 use tokio::{sync::Mutex, time::sleep};
+use tracing::error;
 // Re-use constants from fred_queue
 use crate::queue::{PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, PS_WORKER_QUEUE_KEY_PREFIX};
 
@@ -346,13 +347,17 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
                             Ok(job) => {
                                 if job.is_notify_complete() {
                                     return Ok(job);
+                                } else {
+                                    error!("job is not notify complete, checkpoint_id = {}", _checkpoint_id);
                                 }
                             }
-                            Err(e1) => eprintln!(
-                                "error deserializing job id in wait_for_block_proving_jobs_imm: {:?}",
-                                e1
+                            Err(e1) => error!(
+                                "error deserializing job id in wait_for_block_proving_jobs_imm: {:?}, checkpoint_id = {}",
+                                e1, _checkpoint_id,
                             ),
                         }
+                    } else {
+                        error!("g.len() != 24, g.len() = {}, checkpoint_id = {}", g.len(), _checkpoint_id);
                     }
                 }
                 None => {}

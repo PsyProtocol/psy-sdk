@@ -971,6 +971,7 @@ impl<
 
         tracing::debug!(l2_sync = %serde_json::to_string_pretty(&l2_sync).unwrap(), "Checkpoint sync info");
         self.store.set_checkpoint_sync_info_imm(l2_sync.clone()).await?;
+        trace!("build block {}, slot {}, cost time: {:?}",new_checkpoint_id, slot, start.elapsed());
         Ok(())
     }
 
