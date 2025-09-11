@@ -281,6 +281,7 @@ impl
 
     pub async fn build_block(&mut self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
         let ctx = self.ctx.clone();
+        let now = Instant::now();
         self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
             if let Err(e) = ctx.build_block(slot).await {
                 ctx.rollback(next_checkpoint_id).await?;
@@ -291,8 +292,8 @@ impl
         self.ctx.commit(next_checkpoint_id).await?;
 
         info!(
-            "✅ Successfully built and committed block {}, slot {}",
-            next_checkpoint_id, slot
+            "✅ Successfully built and committed block {}, slot {}, cost time: {:?}",
+            next_checkpoint_id, slot, now.elapsed()
         );
 
         Ok(next_checkpoint_id)
@@ -506,6 +507,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         }
 
         let slot = slot_timer_other.get_current_slot();
+        let now = Instant::now();
         if let Err(err) = coordinator_processor.build_block(next_checkpoint_id, slot).await {
             error!("❌ Failed to build block: {:?}, slot: {}", err, slot);
         }

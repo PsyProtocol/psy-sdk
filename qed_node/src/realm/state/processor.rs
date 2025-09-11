@@ -822,9 +822,6 @@ impl<
     }
 
     pub async fn build_block(&self) -> anyhow::Result<QProvingJobDataID> {
-        let start = Instant::now();
-        info!("realm STARTED new block");
-
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
@@ -858,8 +855,6 @@ impl<
             .prover_queue
             .wait_for_block_proving_jobs_imm(new_checkpoint_id)
             .await?;
-
-        info!("realm FINISHED new block {} in {}ms",new_checkpoint_id, start.elapsed().as_millis());
         Ok(realm_worker_output_job_id)
     }
 

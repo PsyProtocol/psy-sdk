@@ -224,6 +224,7 @@ impl RealmProcessor {
             trace!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
             return Ok(());
         }
+        let now = Instant::now();
         info!("Start building block checkpoint: {}, slot: {}", next_checkpoint_id, slot);
         let proving_data_job_id: ProvingJobDataId = match self.build_block(context, next_checkpoint_id).await {
             Ok(job_id) => job_id,
@@ -234,7 +235,7 @@ impl RealmProcessor {
         };
         self.sync_proof.chq_push_imm(proving_data_job_id).await?;
         self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
-        info!("build complete checkpoint: {}, slot: {}", next_checkpoint_id, slot);
+        info!("build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
         Ok(())
     }
 
