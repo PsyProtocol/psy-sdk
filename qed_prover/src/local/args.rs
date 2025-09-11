@@ -1,6 +1,8 @@
 use clap::{Args, Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use std::collections::HashMap;
+use qed_core::job::id::QProvingJobDataID;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Parser, TS)]
 #[ts(export)]
@@ -70,4 +72,28 @@ pub struct ProverArgs {
 pub struct ProveProxyArgs {
     #[clap(env = "PROVE_PROXY_LISTEN_ADDR", long, default_value = "0.0.0.0:9999")]
     pub listen_addr: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum JobLocation {
+    Realm(u64),
+    Coordinator,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobInfo {
+    pub job_id: QProvingJobDataID,
+    pub location: JobLocation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RealmJobData {
+    pub id: u32,
+    pub checkpoints: HashMap<u64, Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerJobTracker {
+    pub coordinator: HashMap<u64, Vec<String>>,
+    pub realms: Vec<RealmJobData>,
 }

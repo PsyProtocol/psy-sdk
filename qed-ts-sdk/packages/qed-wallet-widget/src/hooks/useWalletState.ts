@@ -289,6 +289,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     }
                     const privateKeyHex = await signer.getPrivateKeyHex();
                     await state.provider.signerProvider.registerUser(privateKeyHex);
+                    await state.provider.signerProvider.addUser(privateKeyHex);
                 }
 
                 // Refresh wallet list and set new wallet as current
@@ -333,6 +334,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     const privateKeyHex = await signer.getPrivateKeyHex();
                     console.log("Registering user with provider...");
                     await state.provider.signerProvider.registerUser(privateKeyHex);
+                    await state.provider.signerProvider.addUser(privateKeyHex);
                 }
 
                 console.log("Getting all IQ wallets...");

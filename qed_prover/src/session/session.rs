@@ -62,6 +62,7 @@ use qed_store::controllers::local::{
 use qedlang_core::dpn::{
     contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}, vm::def::DPNFunctionCircuitDefinition,
 };
+use qed_core::job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof};
 use serde::{Deserialize, Serialize};
 
 use crate::local::{
@@ -69,6 +70,8 @@ use crate::local::{
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
         request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
+use crate::session::get_job_proof;
+use crate::local::args::JobInfo;
 
 pub fn gen_contract_deploy_and_circuits_for_functions<C: GenericConfig<D>, const D: usize>(
     deployer: QHashOut<C::F>,
@@ -951,6 +954,190 @@ impl WalletSession {
             })
             .await?;
 
+        Ok(())
+    }
+
+    pub async fn get_claim_rewards_call_args(
+        &self,
+        public_key: QHashOut<F>,
+        checkpoint_id: u64,
+        job_infos: Vec<JobInfo>
+    ) -> anyhow::Result<Vec<ContractCallArgs>> {
+        let mut job_proofs = Vec::new();
+
+        for job_info in &job_infos {
+            tracing::info!("Processing job: {:?}", job_info.job_id);
+
+            match job_info.job_id.circuit_type {
+                ProvingJobCircuitType::GUTAOnlyRegisterUsers
+                | ProvingJobCircuitType::GUTARegisterUsers
+                | ProvingJobCircuitType::GUTATwoEndCap
+                | ProvingJobCircuitType::GUTATwoGUTA
+                | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+                | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                | ProvingJobCircuitType::GUTASingleEndCap
+                | ProvingJobCircuitType::GUTAVerifyToCap
+                | ProvingJobCircuitType::GUTANoChange => {}
+
+                _ => {
+                    tracing::info!("Skipping non-GUTA job type: {:?}", job_info.job_id.circuit_type);
+                    continue;
+                }
+            };
+
+            if let Ok(job_proof) = get_job_proof(&self.st_provider, &job_info, checkpoint_id).await {
+                tracing::info!("Found GUTA proof for job {}", job_info.job_id.to_hex_string());
+                job_proofs.push(job_proof);
+            } else {
+                tracing::warn!("Skipping job {}: failed to get proof", job_info.job_id.to_hex_string());
+            }
+        }
+
+        if job_proofs.is_empty() {
+            return Err(anyhow::format_err!("No valid GUTA proofs found"));
+        }
+        let total_rewards_len = job_proofs.len();
+        tracing::info!("Found {} GUTA proofs total for checkpoint {}", total_rewards_len, checkpoint_id);
+
+        if job_proofs.is_empty() {
+            return Err(anyhow::format_err!("No valid GUTA proofs found"));
+        }
+
+        tracing::info!("Found {} GUTA proofs total for checkpoint {}", job_proofs.len(), checkpoint_id);
+
+        let checkpoint_leaf = self.st_provider.get_checkpoint_leaf_data(checkpoint_id).await?;
+        let fees_collected = checkpoint_leaf.stats.fees_collected.to_canonical_u64();
+        let gutas_completed = checkpoint_leaf.stats.pm_jobs_completed.gutas_completed.to_canonical_u64();
+
+        let proposed_reward = if gutas_completed > 0 { fees_collected / gutas_completed } else { 0u64 };
+
+        tracing::info!(
+            "Checkpoint {} stats: fees_collected={}, gutas_completed={}, fee_per_proof={}",
+            checkpoint_id, fees_collected, gutas_completed, proposed_reward
+        );
+
+        let mining_rewards_contract_id = 2;
+
+        let mut contract_call_args = Vec::new();
+
+        contract_call_args.push(ContractCallArgs {
+            contract_id: mining_rewards_contract_id,
+            method_name: "start_session".to_string(),
+            inputs: vec![checkpoint_id],
+        });
+
+        for (chunk_index, chunk) in job_proofs.chunks(8).enumerate() {
+            tracing::info!("Processing chunk {} with {} proofs", chunk_index, chunk.len());
+
+            let mut proof_inputs = Vec::new();
+            for i in 0..8 {
+                if i < chunk.len() {
+                    let proof = &chunk[i];
+                    for j in 0..32 {
+                        if j < proof.top_siblings.len() {
+                            let sibling = &proof.top_siblings[j];
+                            proof_inputs.extend(vec![
+                                sibling.sibling_branch.0.elements[0].0,
+                                sibling.sibling_branch.0.elements[1].0,
+                                sibling.sibling_branch.0.elements[2].0,
+                                sibling.sibling_branch.0.elements[3].0,
+                                sibling.sibling_reward_leaf.0.elements[0].0,
+                                sibling.sibling_reward_leaf.0.elements[1].0,
+                                sibling.sibling_reward_leaf.0.elements[2].0,
+                                sibling.sibling_reward_leaf.0.elements[3].0,
+                            ]);
+                        } else {
+                            proof_inputs.extend(vec![0u64; 8]);
+                        }
+                    }
+                    proof_inputs.extend(vec![
+                        proof.sibling_branch.0.elements[0].0,
+                        proof.sibling_branch.0.elements[1].0,
+                        proof.sibling_branch.0.elements[2].0,
+                        proof.sibling_branch.0.elements[3].0,
+                    ]);
+                    proof_inputs.extend(vec![
+                        proof.reward_leaf.0.elements[0].0,
+                        proof.reward_leaf.0.elements[1].0,
+                        proof.reward_leaf.0.elements[2].0,
+                        proof.reward_leaf.0.elements[3].0,
+                    ]);
+                    proof_inputs.extend(vec![proof.proof_height.0, proof.index.0]);
+                } else {
+                    proof_inputs.extend(vec![0u64; 266]);
+                }
+            }
+
+            let mut batch_inputs = vec![checkpoint_id];
+            batch_inputs.extend(proof_inputs);
+            batch_inputs.push(proposed_reward);
+
+            contract_call_args.push(ContractCallArgs {
+                contract_id: mining_rewards_contract_id,
+                method_name: "batch_claim_guta_rewards".to_string(),
+                inputs: batch_inputs,
+            });
+        }
+
+        contract_call_args.push(ContractCallArgs {
+            contract_id: mining_rewards_contract_id,
+            method_name: "end_session".to_string(),
+            inputs: vec![checkpoint_id],
+        });
+
+        let token_contract_id = 0;
+        contract_call_args.push(ContractCallArgs {
+            contract_id: token_contract_id,
+            method_name: "simple_claim_pow_rewards".to_string(),
+            inputs: vec![checkpoint_id],
+        });
+
+        tracing::info!("Executing {} contract calls in single UPS transaction", contract_call_args.len());
+        Ok(contract_call_args)
+    }
+
+    pub async fn claim_rewards(
+        &self,
+        user_pk_hash: QHashOut<F>,
+        checkpoint_id: u64,
+        job_infos: Vec<JobInfo>,
+    ) -> anyhow::Result<()> {
+        self.claim_rewards_with_sign_type(
+            user_pk_hash,
+            checkpoint_id,
+            job_infos,
+            SignType::SECP256K1Sign,
+            None,
+            None,
+            vec![],
+        ).await?;
+        Ok(())
+    }
+
+    pub async fn claim_rewards_with_sign_type(
+        &self,
+        user_pk_hash: QHashOut<F>,
+        checkpoint_id: u64,
+        job_infos: Vec<JobInfo>,
+        sign_type: SignType,
+        fingerprint: Option<QHashOut<F>>,
+        sig_contract_id: Option<u64>,
+        sign_inputs: Vec<u64>,
+    ) -> anyhow::Result<()> {
+        let contract_call_args = self.get_claim_rewards_call_args(
+            user_pk_hash,
+            checkpoint_id,
+            job_infos,
+        ).await?;
+
+        self.exec_contract_call_with_sign_type(
+            user_pk_hash,
+            contract_call_args,
+            sign_type,
+            fingerprint,
+            sig_contract_id,
+            sign_inputs,
+        ).await?;
         Ok(())
     }
 
