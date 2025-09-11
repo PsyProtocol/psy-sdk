@@ -141,6 +141,39 @@ impl Wallet {
         format!("0x{}", hex::encode(self.private_key()))
     }
 
+    pub fn address_from_public_key(public_key: &[u8]) -> Result<Address> {
+        use alloy_primitives::keccak256;
+        use anyhow::anyhow;
+
+        // Validate public key length
+        if public_key.len() != 64 && public_key.len() != 65 {
+            return Err(anyhow!(
+                "Invalid public key length: expected 64 or 65 bytes, got {}",
+                public_key.len()
+            ));
+        }
+
+        // Handle both compressed and uncompressed formats
+        let key_bytes = if public_key.len() == 65 {
+            if public_key[0] != 0x04 {
+                return Err(anyhow!(
+                    "Invalid uncompressed public key prefix: expected 0x04, got 0x{:02x}",
+                    public_key[0]
+                ));
+            }
+            &public_key[1..] // Skip the 0x04 prefix
+        } else {
+            public_key
+        };
+
+        let hash = keccak256(key_bytes);
+
+        let mut address_bytes = [0u8; 20];
+        address_bytes.copy_from_slice(&hash[12..32]);
+
+        Ok(Address::from(address_bytes))
+    }
+
     pub fn sign_eip712<T: crate::wallet::secp_sign::Eip712Signable>(
         &self,
         data: T,

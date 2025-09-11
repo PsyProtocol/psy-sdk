@@ -296,8 +296,25 @@ impl WorkerStatsRepository {
         let reward_proofs_24h = rewards_24h_row.reward_proofs_24h.unwrap_or(0);
         let total_rewards_24h = reward_proofs_24h * REWARD_PER_PROOF;
 
-        // Currently, the total rewards is 0 (reserved field)
-        let total_rewards = 0i64;
+        // Calculate total rewards based on GUTA completed events
+        // Assuming the job_id contains information about the event type
+        // or you have a specific way to identify GUTA events
+        let total_rewards_row = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as reward_count
+            FROM worker_events
+            WHERE public_key = $1
+                AND topic = $2
+                AND status = 'COMPLETED'
+            "#,
+            worker_public_key,
+            TOPIC_GENERATE_STANDARD_PROOF,
+        )
+        .fetch_one(pool)
+        .await?;
+
+        let total_rewards_proofs = total_rewards_row.reward_count.unwrap_or(0);
+        let total_rewards = total_rewards_proofs * REWARD_PER_PROOF;
 
         // Calculate average proof time from completed tasks
         let avg_proof_time_row = sqlx::query!(

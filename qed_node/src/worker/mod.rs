@@ -39,10 +39,12 @@ pub async fn run_worker(
 
     let store = job_client.clone();
     let job_receiver = job_client;
+    let worker_pk_str = worker_public_key.to_string();
+    info!("⭐ worker pk str = {}", worker_pk_str);
 
     loop {
         tokio::time::sleep(Duration::from_millis(500)).await;
-        let job = match job_receiver.get_next_job(wallet.clone()).await {
+        let job = match job_receiver.get_next_job(wallet.clone(), &worker_pk_str).await {
             Ok(job) => job,
             Err(e) => {
                 warn!("Error getting next ready job: {:?}", e);
@@ -53,7 +55,7 @@ pub async fn run_worker(
         let job_id = job.job_id;
         if !job_id.is_provable() {
             trace!("skipping job proving: {:?}", job_id);
-            job_receiver.submit_job_proof(job, None, wallet.clone()).await?;
+            job_receiver.submit_job_proof(job, None, wallet.clone(), &worker_pk_str).await?;
             continue;
         }
         match prover
@@ -62,13 +64,13 @@ pub async fn run_worker(
         {
             Ok(proof) => {
                 info!("Proved job: job_id={:?}", job_id);
-                match job_receiver.submit_job_proof(job, Some(proof), wallet.clone()).await {
+                match job_receiver.submit_job_proof(job, Some(proof), wallet.clone(), &worker_pk_str).await {
                     Ok(_) => {
                         info!("Successfully submitted proof for job: {:?}", job_id);
                         {
                             let mut tracker = job_tracker.lock().await;
                             tracker.add_completed_job(job_id.get_output_id(), location.clone());
-                            if let Err(e) = tracker.save_to_file(&worker_public_key.to_string()) {
+                            if let Err(e) = tracker.save_to_file(&worker_pk_str) {
                                 error!("Failed to save job tracker: {:?}", e);
                             }
                         }
