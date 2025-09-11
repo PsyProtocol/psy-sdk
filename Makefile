@@ -454,6 +454,22 @@ get-job-proof:
 balance-of:
 	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
 
+reward-of:
+	@echo "Getting rewards of all users ..."
+	@make reward-of-0
+	@make reward-of-1
+	@make reward-of-2
+	@make reward-of-3
+
+reward-of-0:
+	@curl -s -X GET "http://localhost:3000/stats/workers/${USER0_SECP_ZK_PUBLIC_KEY}" | jq .
+reward-of-1:
+	@curl -s -X GET "http://localhost:3000/stats/workers/${USER1_SECP_ZK_PUBLIC_KEY}" | jq .
+reward-of-2:
+	@curl -s -X GET "http://localhost:3000/stats/workers/${USER2_SECP_ZK_PUBLIC_KEY}" | jq .
+reward-of-3:
+	@curl -s -X GET "http://localhost:3000/stats/workers/${USER3_SECP_ZK_PUBLIC_KEY}" | jq .
+
 build-block:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
 
