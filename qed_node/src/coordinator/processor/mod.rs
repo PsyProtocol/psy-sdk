@@ -116,12 +116,11 @@ impl<
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
         task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
-        // Initialize backup client (optional, won't fail if S3 is not configured)
-        let backup_client = S3BackupClient::new().await.ok();
+        let backup_client = S3BackupClient::new_from_env().await.ok();
         if backup_client.is_some() {
             info!("✅ S3 backup client initialized");
         } else {
-            warn!("⚠️ S3 backup client not available (check environment variables)");
+            warn!("⚠️ S3 backup client not available (check AWS configuration)");
         }
 
         Self {
@@ -331,8 +330,8 @@ impl
         pair_to_set: Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>,
         removed_keys: Vec<Vec<u8>>,
     ) {
-        let journal_changes = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
-        try_backup_checkpoint(backup_client, checkpoint_id, journal_changes, removed_keys).await;
+        let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+        try_backup_checkpoint(backup_client, checkpoint_id, pair_to_set, removed_keys).await;
     }
 
     async fn process_genesis_contracts<SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>>(

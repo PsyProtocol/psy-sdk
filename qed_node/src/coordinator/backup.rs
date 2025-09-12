@@ -15,37 +15,29 @@ pub struct CheckpointBackup {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RecoveryInfo {
     pub latest_checkpoint: u64,
-    pub network: String,
-    pub node_type: String,
     pub last_update_timestamp: u64,
     pub checkpoints_available: Vec<u64>,
 }
 
 pub struct S3BackupClient {
     bucket: String,
-    network: String,
-    node_type: String,
     client: aws_sdk_s3::Client,
 }
 
 impl S3BackupClient {
-    pub async fn new() -> Result<Self> {
-        let bucket = std::env::var("QED_BACKUP_BUCKET").context("QED_BACKUP_BUCKET environment variable not set")?;
-        let network = std::env::var("QED_NETWORK").unwrap_or_else(|_| "mainnet".to_string());
-
+    pub async fn new(bucket: String) -> Result<Self> {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = aws_sdk_s3::Client::new(&config);
+        Ok(Self { bucket, client })
+    }
 
-        Ok(Self {
-            bucket,
-            network,
-            node_type: "coordinator-processor".to_string(),
-            client,
-        })
+    pub async fn new_from_env() -> Result<Self> {
+        let bucket = std::env::var("QED_BACKUP_BUCKET").context("QED_BACKUP_BUCKET environment variable not set")?;
+        Self::new(bucket).await
     }
 
     pub async fn backup_checkpoint(&self, backup: &CheckpointBackup) -> Result<()> {
-        let key = self.get_checkpoint_key(backup.checkpoint_id);
+        let key = self.get_changes_key(backup.checkpoint_id);
         let data = serde_json::to_vec(backup).context("Failed to serialize checkpoint backup")?;
 
         match self
@@ -76,7 +68,7 @@ impl S3BackupClient {
     }
 
     pub async fn fetch_checkpoint_backup(&self, checkpoint_id: u64) -> Result<CheckpointBackup> {
-        let key = self.get_checkpoint_key(checkpoint_id);
+        let key = self.get_changes_key(checkpoint_id);
 
         let response = self
             .client
@@ -114,7 +106,7 @@ impl S3BackupClient {
     }
 
     pub async fn list_available_checkpoints(&self) -> Result<Vec<u64>> {
-        let prefix = format!("{}/{}/checkpoints/", self.network, self.node_type);
+        let prefix = self.get_changes_prefix_key();
 
         let response = self
             .client
@@ -145,8 +137,6 @@ impl S3BackupClient {
     async fn update_recovery_info(&self, latest_checkpoint: u64) -> Result<()> {
         let mut recovery_info = self.fetch_recovery_info().await.unwrap_or_else(|_| RecoveryInfo {
             latest_checkpoint: 0,
-            network: self.network.clone(),
-            node_type: self.node_type.clone(),
             last_update_timestamp: 0,
             checkpoints_available: vec![],
         });
@@ -175,12 +165,16 @@ impl S3BackupClient {
         Ok(())
     }
 
-    fn get_checkpoint_key(&self, checkpoint_id: u64) -> String {
-        format!("{}/{}/checkpoints/{}.json", self.network, self.node_type, checkpoint_id)
+    fn get_changes_prefix_key(&self) -> String {
+        format!("coordinator/changes/")
+    }
+
+    fn get_changes_key(&self, checkpoint_id: u64) -> String {
+        format!("coordinator/changes/{}.json", checkpoint_id)
     }
 
     fn get_recovery_info_key(&self) -> String {
-        format!("{}/{}/recovery/recovery_info.json", self.network, self.node_type)
+        format!("coordinator/recovery_info.json")
     }
 }
 

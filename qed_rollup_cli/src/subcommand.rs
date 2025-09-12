@@ -1,14 +1,11 @@
-use clap::command;
-use clap::ArgAction;
-use clap::Parser;
-use clap::Subcommand;
+use clap::{command, Parser, Subcommand};
 
 pub mod coordinator_edge;
 pub mod coordinator_processor;
 pub mod realm_edge;
 pub mod realm_processor;
-pub mod worker;
 pub mod watcher;
+pub mod worker;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -48,4 +45,13 @@ pub enum Commands {
     },
     #[command(about = "Run the watcher service for monitoring and reporting node status")]
     Watcher(qed_node::watcher::WatcherArgs),
+    #[command(about = "Sync coordinator processor from S3 backup")]
+    CoordinatorProcessorSync {
+        #[arg(long = "checkpoint", help = "Target checkpoint to sync to (defaults to latest)")]
+        checkpoint: Option<u64>,
+        #[arg(long = "aws-bucket", help = "AWS S3 bucket for backup storage")]
+        aws_bucket: String,
+        #[command(flatten)]
+        backend_config: qed_store::store::backend::BackendConfig,
+    },
 }

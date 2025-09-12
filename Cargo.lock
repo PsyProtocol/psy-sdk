@@ -6127,6 +6127,7 @@ dependencies = [
  "qed_prover",
  "qed_rollup_circuit",
  "qed_rollup_utils",
+ "qed_store",
  "serde_json",
  "tokio",
  "tracing",

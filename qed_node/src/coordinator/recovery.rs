@@ -1,12 +1,9 @@
 use anyhow::{Context, Result};
 use kvq::traits::{KVQBinaryStore, KVQPair};
-use qed_store::{
-    node::coordinator::QEDCoordinatorStoreReaderAsync,
-    store::{journal::JournalStore, QEDStore},
-};
+use qed_store::store::{journal::JournalStore, QEDStore};
 use tracing::{error, info, warn};
 
-use super::{args::CoordinatorProcessorArgs, backup::S3BackupClient};
+use super::backup::S3BackupClient;
 
 pub struct CoordinatorRecoveryManager {
     store: JournalStore<QEDStore>,
@@ -15,9 +12,9 @@ pub struct CoordinatorRecoveryManager {
 }
 
 impl CoordinatorRecoveryManager {
-    pub async fn new(args: &CoordinatorProcessorArgs) -> Result<Self> {
-        let backup_client = S3BackupClient::new().await?;
-        let qed_store = QEDStore::from_backend(args.backend.to_backend()).await?;
+    pub async fn new(backend: qed_store::store::backend::Backend, bucket: String) -> Result<Self> {
+        let backup_client = S3BackupClient::new(bucket).await?;
+        let qed_store = QEDStore::from_backend(backend).await?;
         let store = JournalStore::new(qed_store);
         let current_checkpoint_id = 0;
         Ok(Self {
@@ -129,27 +126,14 @@ impl CoordinatorRecoveryManager {
 }
 
 // CLI command implementations
-pub async fn run_sync_command(args: CoordinatorProcessorArgs, target_checkpoint: Option<u64>) -> Result<()> {
-    let mut recovery_manager = CoordinatorRecoveryManager::new(&args).await?;
-
+pub async fn run_sync_command(
+    target_checkpoint: Option<u64>,
+    aws_bucket: String,
+    backend_config: qed_store::store::backend::BackendConfig,
+) -> Result<()> {
+    let backend = backend_config.to_backend();
+    let mut recovery_manager = CoordinatorRecoveryManager::new(backend, aws_bucket).await?;
     recovery_manager.sync_from_s3(target_checkpoint).await?;
     recovery_manager.verify_recovery(target_checkpoint).await?;
-
-    Ok(())
-}
-
-pub async fn run_list_backups_command() -> Result<()> {
-    let backup_client = S3BackupClient::new().await?;
-    let checkpoints = backup_client.list_available_checkpoints().await?;
-
-    if checkpoints.is_empty() {
-        info!("No backups found in S3");
-    } else {
-        info!("Available backup checkpoints:");
-        for checkpoint in checkpoints {
-            info!("  - {}", checkpoint);
-        }
-    }
-
     Ok(())
 }
