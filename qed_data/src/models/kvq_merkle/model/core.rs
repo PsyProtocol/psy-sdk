@@ -327,7 +327,7 @@ pub trait KVQMerkleTreeModelCore<
             updates
         )?;
 
-        let new_nearest_common_ancestor_value = if nca.index&1 == 0 {
+        let new_nearest_common_ancestor_value = if dmp_a.index < dmp_b.index {
             Hasher::two_to_one(&dmp_a.new_root, &dmp_b.new_root)
         } else {
             Hasher::two_to_one(&dmp_b.new_root, &dmp_a.new_root)
