@@ -39,6 +39,7 @@ pub fn create_router(api_service: ApiService) -> Router {
             get(worker_rewards_aggregations_handler),
         )
         .route("/leaderboard/workers", get(worker_leaderboard_handler))
+        .route("/admin/refresh_aggregates", post(refresh_aggregates_handler))
         .with_state(api_service)
 }
 
@@ -622,4 +623,65 @@ async fn worker_rewards_aggregations_handler(
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+
+#[derive(Debug, Deserialize)]
+pub struct RefreshAggregatesRequest {
+    pub aggregate_type: Option<String>, // Optional: specific aggregate to refresh, or all if not specified
+}
+
+/// Admin endpoint to manually refresh continuous aggregates
+async fn refresh_aggregates_handler(
+    State(service): State<ApiService>,
+    Json(payload): Json<Option<RefreshAggregatesRequest>>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    tracing::info!("Manual aggregate refresh requested");
+
+    // Determine which aggregates to refresh
+    let aggregates_to_refresh = if let Some(req) = payload {
+        if let Some(specific_type) = req.aggregate_type {
+            match specific_type.as_str() {
+                "1d" => vec!["worker_rewards_1d"],
+                "1w" => vec!["worker_rewards_1w"],
+                "1m" => vec!["worker_rewards_1m"],
+                "all" => vec!["worker_rewards_1d", "worker_rewards_1w", "worker_rewards_1m"],
+                _ => {
+                    tracing::warn!("Invalid aggregate type requested: {}", specific_type);
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+            }
+        } else {
+            vec!["worker_rewards_1d", "worker_rewards_1w", "worker_rewards_1m"]
+        }
+    } else {
+        vec!["worker_rewards_1d", "worker_rewards_1w", "worker_rewards_1m"]
+    };
+
+    let mut results = HashMap::new();
+    let mut success_count = 0;
+    let mut failure_count = 0;
+
+    for aggregate in aggregates_to_refresh {
+        match WorkerRewardsAggregationRepository::refresh_aggregate(&service.pool, aggregate).await {
+            Ok(_) => {
+                tracing::info!("Successfully refreshed {}", aggregate);
+                results.insert(aggregate.to_string(), "success".to_string());
+                success_count += 1;
+            }
+            Err(e) => {
+                tracing::error!("Failed to refresh {}: {}", aggregate, e);
+                results.insert(aggregate.to_string(), format!("failed: {}", e));
+                failure_count += 1;
+            }
+        }
+    }
+
+    Ok(Json(serde_json::json!({
+        "message": "Aggregate refresh completed",
+        "success_count": success_count,
+        "failure_count": failure_count,
+        "results": results,
+        "timestamp": Utc::now().to_rfc3339()
+    })))
 }
