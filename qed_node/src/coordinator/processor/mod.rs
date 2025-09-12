@@ -68,6 +68,7 @@ use crate::common::retry::Retryable;
 use crate::common::slot;
 use crate::common::slot::{LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::realm::RealmProcessor;
+use super::backup::{S3BackupClient, try_backup_checkpoint};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -91,6 +92,7 @@ pub struct CoordinatorProcessNode<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
     pub task_store: Arc<QProvingTaskStoreImpl>,
+    pub backup_client: Option<S3BackupClient>,
 }
 
 impl<
@@ -104,7 +106,7 @@ impl<
         TS: QProvingTaskStore,
     > CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER, TS>
 {
-    pub fn new(
+    pub async fn new(
         ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, TS>,
         journal_store: JL,
         edge_command_queue: Arc<HQ>,
@@ -114,6 +116,14 @@ impl<
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
         task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
+        // Initialize backup client (optional, won't fail if S3 is not configured)
+        let backup_client = S3BackupClient::new().await.ok();
+        if backup_client.is_some() {
+            info!("✅ S3 backup client initialized");
+        } else {
+            warn!("⚠️ S3 backup client not available (check environment variables)");
+        }
+
         Self {
             ctx,
             journal_store,
@@ -123,6 +133,7 @@ impl<
             proof_verifier,
             coordinator_worker_circuits,
             task_store,
+            backup_client,
         }
     }
 
@@ -276,7 +287,7 @@ impl
             proof_verifier,
             coordinator_worker_circuits,
             task_store,
-        ))
+        ).await)
     }
 
     pub async fn build_block(&self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
@@ -289,12 +300,17 @@ impl
             }
             Ok(())
         }).await?;
-        self.ctx.commit(next_checkpoint_id).await?;
+        let (pair_to_set, remove_keys) = self.ctx.commit(next_checkpoint_id).await?;
 
         info!(
             "✅ Successfully built and committed block {}, slot {}, cost time: {:?}",
             next_checkpoint_id, slot, now.elapsed()
         );
+
+        // Auto backup after successful commit
+        if let Some(backup_client) = &self.backup_client {
+            self.backup_checkpoint_with_changes(backup_client, next_checkpoint_id, pair_to_set, remove_keys).await;
+        }
 
         Ok(next_checkpoint_id)
     }
@@ -306,6 +322,17 @@ impl
 
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
         self.ctx.has_pending_tasks(checkpoint_id).await
+    }
+
+    async fn backup_checkpoint_with_changes(
+        &self,
+        backup_client: &S3BackupClient,
+        checkpoint_id: u64,
+        pair_to_set: Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>,
+        removed_keys: Vec<Vec<u8>>,
+    ) {
+        let journal_changes = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+        try_backup_checkpoint(backup_client, checkpoint_id, journal_changes, removed_keys).await;
     }
 
     async fn process_genesis_contracts<SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>>(

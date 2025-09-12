@@ -23,7 +23,7 @@ pub trait KVQBinaryStoreCachedTraitAsync: KVQBinaryStoreAsync {
     async fn flush_changes(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
 
     async fn clear_cache(&self);
-    async fn flush_simple(&self) -> anyhow::Result<()>;
+    async fn flush_simple(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
     async fn is_removed(&self, key: &Vec<u8>) -> bool;
     async fn get_non_removed_keys(&self) -> Vec<Vec<u8>>;
     async fn get_removed_keys(&self) -> Vec<Vec<u8>>;
@@ -33,7 +33,7 @@ pub trait KVQBinaryStoreCachedTraitAsync: KVQBinaryStoreAsync {
 pub trait KVQBinaryStoreCachedTrait: KVQBinaryStore {
     fn flush_changes(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
     fn clear_cache(&self);
-    fn flush_simple(&self) -> anyhow::Result<()>;
+    fn flush_simple(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
     fn is_removed(&self, key: &Vec<u8>) -> bool;
     fn get_non_removed_keys(&self) -> Vec<Vec<u8>>;
     fn get_removed_keys(&self) -> Vec<Vec<u8>>;
