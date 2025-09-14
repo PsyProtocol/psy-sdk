@@ -26,7 +26,7 @@ use qed_store::queue::ProofStoreRedisAsync;
 use crate::common::retry::{RetryConfig, Retryable};
 use crate::realm::state::edge::RealmEdgeContext;
 
-const SYNC_INTERVAL: Duration = Duration::from_millis(500);
+const SYNC_INTERVAL: Duration = Duration::from_millis(200);
 
 pub struct CheckpointSyncManager<SR, IQ>
 where
@@ -297,7 +297,7 @@ pub async fn spawn_realm_job_update_task<
                 Err(err) => {
                     error!("Error getting job_id from history queue: {:?}", err);
                     // Avoid busy waiting on error
-                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    tokio::time::sleep(Duration::from_millis(100)).await;
                 }
             }
         }
