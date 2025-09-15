@@ -180,6 +180,7 @@ const MARK_LEAVES: bool,
         root_level: u8,
         updates: &mut Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
     )-> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+        let root_level = root_level.min(node.level);
         // TODO: optimize to get all nodes at once
         if root_level == node.level {
             let old_value = Self::get_node(store, tree_height, &node).await?;

@@ -614,6 +614,7 @@ pub trait KVQMerkleTreeModelCore<
         root_level: u8,
         updates: &mut Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
     ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+        let root_level = root_level.min(node.level);
         if root_level == node.level {
             let old_value = Self::get_node(store, tree_height, &node)?;
             Self::set_node(store, &node, &new_value)?;
