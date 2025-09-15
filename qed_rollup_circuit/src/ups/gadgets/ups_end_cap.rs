@@ -68,10 +68,10 @@ impl UPSEndCapCoreGadget {
 
 
 
-        // builder.connect(
-        //     real_end_user_leaf.user_id,
-        //     last_header_gadget.session_start_context.start_session_user_leaf.user_id,
-        // );
+        builder.connect(
+            real_end_user_leaf.user_id,
+            last_header_gadget.session_start_context.start_session_user_leaf.user_id,
+        );
 
 
         let start_user_leaf_hash = last_header_gadget.session_start_context.start_session_user_leaf_hash;
@@ -124,11 +124,11 @@ impl UPSEndCapCoreGadget {
             real_end_user_leaf.last_checkpoint_id,
         );
 
-        // builder.ensure_is_greater_than(
-        //     CHECKPOINT_TREE_HEIGHT as usize,
-        //     real_end_user_leaf.last_checkpoint_id,
-        //     last_header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id,
-        // );
+        builder.ensure_is_greater_than(
+            CHECKPOINT_TREE_HEIGHT as usize,
+            real_end_user_leaf.last_checkpoint_id,
+            last_header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id,
+        );
 
 
 
