@@ -36,6 +36,26 @@ async fn main() -> anyhow::Result<()> {
         } => {
             qed_node::coordinator::recovery::run_sync_command(checkpoint, aws_bucket, backend_config).await?;
         }
+        Commands::RealmProcessorSync {
+            realm_id,
+            checkpoint,
+            aws_bucket,
+            redis_uri,
+            queue_biz_key,
+            pool_size,
+            backend_config,
+        } => {
+            qed_node::realm::recovery::run_realm_sync_command(
+                realm_id,
+                checkpoint,
+                aws_bucket,
+                backend_config,
+                redis_uri,
+                queue_biz_key,
+                Some(pool_size),
+            )
+            .await?;
+        }
     };
     Ok::<_, anyhow::Error>(())
 }

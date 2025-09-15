@@ -949,10 +949,11 @@ impl<
         Ok(())
     }
 
-    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
-        self.store.commit(checkpoint_id)?;
+    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
+        let (pair_to_set, remove_keys) = self.store.commit(checkpoint_id)?;
         self.commit_offset(checkpoint_id).await?;
-        self.task_store.save_job_dependency_graph(checkpoint_id).await
+        self.task_store.save_job_dependency_graph(checkpoint_id).await?;
+        Ok((pair_to_set, remove_keys))
     }
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {

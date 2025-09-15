@@ -45,6 +45,7 @@ use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use plonky2::field::types::Field;
 use qed_data::traits::qdatastore::{qtreedata::{QTreeDataStoreWriterSync}, qmetadata::QMetaDataStoreWriterSync};
 use std::{str::FromStr, collections::HashMap};
+use super::backup::{RealmS3BackupClient, try_backup_realm_checkpoint};
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<QEDStore>,
@@ -69,6 +70,7 @@ pub struct RealmProcessor {
     pub is_synced: AtomicBool,
     pub pending_checkpoint_id: AtomicU64,
     pub shutdown_requested: Arc<AtomicBool>,
+    pub backup_client: Option<RealmS3BackupClient>,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig, shutdown_requested: Arc<AtomicBool>) -> anyhow::Result<()> {
@@ -97,6 +99,15 @@ impl RealmProcessor {
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.realm_id);
         let sync_checkpoint = Arc::new(realm_qps.clone());
+
+        // Initialize backup client
+        let backup_client = RealmS3BackupClient::new_from_env(config.realm.realm_id).await.ok();
+        if backup_client.is_some() {
+            info!("✅ Realm {} S3 backup client initialized", config.realm.realm_id);
+        } else {
+            warn!("⚠️ Realm {} S3 backup client not available (check AWS configuration)", config.realm.realm_id);
+        }
+
         let processor = RealmProcessor {
             realm_config,
             max_processed_end_caps_per_block: config.realm.max_processed_end_caps_per_block.clone(),
@@ -111,6 +122,7 @@ impl RealmProcessor {
             is_synced: AtomicBool::new(false),
             pending_checkpoint_id: AtomicU64::new(0),
             shutdown_requested,
+            backup_client,
         };
         Ok(processor)
     }
@@ -206,9 +218,14 @@ impl RealmProcessor {
                 checkpoint, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
 
             if ret.checkpoint_id == checkpoint && realm_root.value == ret.realm_root {
-                context.commit(checkpoint).await?;
+                let (pair_to_set, remove_keys) = context.commit(checkpoint).await?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
                 info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint, ret.latest_checkpoint_id);
+
+                // Auto backup after successful commit
+                if let Some(backup_client) = &self.backup_client {
+                    self.backup_checkpoint(backup_client, checkpoint, pair_to_set, remove_keys).await;
+                }
             } else {
                 warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, checkpoint: {}", ret.latest_checkpoint_id, checkpoint);
                 context.rollback(checkpoint).await?;
@@ -351,6 +368,12 @@ impl RealmProcessor {
                         }
 
                         context.store.commit(checkpoint_id)?;
+
+                        let (pair_to_set, remove_keys) = context.store.commit(checkpoint_id)?;
+                        // Auto backup after successful commit
+                        if let Some(backup_client) = &self.backup_client {
+                            self.backup_checkpoint(backup_client, checkpoint_id, pair_to_set, remove_keys).await;
+                        }
 
                         let pending_users_count = context.sync_queue.get_pending_users_count().await?;
                         trace!("Pending users count after checkpoint sync: {}", pending_users_count);
@@ -518,6 +541,17 @@ impl RealmProcessor {
         }
 
         Ok(())
+    }
+
+    async fn backup_checkpoint(
+        &self,
+        backup_client: &RealmS3BackupClient,
+        checkpoint_id: u64,
+        pair_to_set: Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>,
+        removed_keys: Vec<Vec<u8>>,
+    ) {
+        let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+        try_backup_realm_checkpoint(backup_client, checkpoint_id, pair_to_set, removed_keys).await;
     }
 }
 

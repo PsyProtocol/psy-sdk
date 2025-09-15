@@ -54,4 +54,21 @@ pub enum Commands {
         #[command(flatten)]
         backend_config: qed_store::store::backend::BackendConfig,
     },
+    #[command(about = "Sync realm processor from S3 backup")]
+    RealmProcessorSync {
+        #[arg(long, env = "REALM_REALM_ID", default_value_t = 0)]
+        realm_id: u32,
+        #[arg(long = "checkpoint", help = "Target checkpoint to sync to (defaults to latest)")]
+        checkpoint: Option<u64>,
+        #[arg(long = "aws-bucket", help = "AWS S3 bucket for backup storage")]
+        aws_bucket: String,
+        #[arg(long, env = "REALM_REDIS_URI", default_value = "redis://127.0.0.1:6379")]
+        redis_uri: String,
+        #[arg(long, env = "REALM_REDIS_POOL_SIZE")]
+        pool_size: usize,
+        #[arg(long, env = "REALM_QUEUE_BIZ_KEY", default_value = "rwq0")]
+        queue_biz_key: String,
+        #[command(flatten)]
+        backend_config: qed_store::store::backend::BackendConfig,
+    },
 }
