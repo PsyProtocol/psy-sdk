@@ -406,6 +406,24 @@ pub fn compute_historical_and_current_merkle_roots_core<Hash: PartialEq + Copy, 
 }
 
 
+pub fn compute_historical_and_current_merkle_roots_core_qho<F: RichField, Hasher: MerkleZeroHasher<HashOut<F>>>(
+    proof: &MerkleProofCore<QHashOut<F>>,
+) -> (QHashOut<F>, QHashOut<F>) {
+    let mut current = proof.value.0;
+    let mut historical = Hasher::get_zero_hash(0);
+    for (i, sibling) in proof.siblings.iter().enumerate() {
+        if proof.index & (1 << i) == 0 {
+            current = Hasher::two_to_one(&current, &sibling.0);
+            historical = Hasher::two_to_one(&historical, &Hasher::get_zero_hash(i));
+        } else {
+            current = Hasher::two_to_one(&sibling.0, &current);
+            historical = Hasher::two_to_one(&sibling.0, &historical);
+        }
+    }
+    (QHashOut(historical), QHashOut(current))
+}
+
+
 pub fn verify_delta_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(
     proof: &DeltaMerkleProofCore<Hash>,
 ) -> bool {

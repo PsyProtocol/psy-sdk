@@ -7,3 +7,4 @@ pub mod verify_guta_and_register_users;
 pub mod verify_guta_to_cap;
 pub mod only_register_users;
 pub mod guta_no_change;
+pub mod verify_two_guta_upgrade_checkpoint;

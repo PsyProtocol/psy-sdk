@@ -1,9 +1,9 @@
 
 
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::{HashOut, RichField};
 use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::id::QProvingJobDataID};
-use qed_crypto::hash::{merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
+use qed_crypto::hash::{merkle::{core::{compute_historical_and_current_merkle_roots_core, compute_historical_and_current_merkle_roots_core_qho, DeltaMerkleProofCore, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf};
@@ -82,7 +82,107 @@ impl<F: RichField> VerifyTwoGUTAProofGadgetStandardInput<F> {
 }
 
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<F: RichField> {
+    pub historical_checkpoint_proof_a: MerkleProofCore<QHashOut<F>>,
+    pub historical_checkpoint_proof_b: MerkleProofCore<QHashOut<F>>,
+    pub stats_a: GUTAStats<F>,
+    pub stats_b: GUTAStats<F>,
+    pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
+}
+impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<F> {
+    pub fn get_combined_stats(&self) -> GUTAStats<F> {
+        self.stats_a.combine_with(&self.stats_b)
+    }
+} 
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F: RichField> {
+    pub historical_checkpoint_proof_a: MerkleProofCore<QHashOut<F>>,
+    pub historical_checkpoint_proof_b: MerkleProofCore<QHashOut<F>>,
+    pub stats_a: GUTAStats<F>,
+    pub stats_b: GUTAStats<F>,
+    pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
+
+    pub guta_inclusion_proof_a: MerkleProofCore<QHashOut<F>>,
+    pub guta_inclusion_proof_b: MerkleProofCore<QHashOut<F>>,
+}
+
+impl<F: RichField> KVQSerializable for VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+
+impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
+    pub fn get_guta_header_a<H: MerkleZeroHasher<QHashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_inclusion_proof_a.root,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core::<QHashOut<F>, H>(
+                &self.historical_checkpoint_proof_a
+            ).0,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.nca_proof.child_a.old_value,
+                new_node_value: self.nca_proof.child_a.new_value,
+                node_index: F::from_canonical_u64(self.nca_proof.get_a_node_key().index),
+                node_level: F::from_canonical_u8(self.nca_proof.get_level_a()),
+            },
+            stats: self.stats_a,
+        }
+    }
+    pub fn get_guta_header_b<H: MerkleZeroHasher<QHashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_inclusion_proof_b.root,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core::<QHashOut<F>, H>(
+                &self.historical_checkpoint_proof_b
+            ).0,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.nca_proof.child_b.old_value,
+                new_node_value: self.nca_proof.child_b.new_value,
+                node_index: F::from_canonical_u64(self.nca_proof.get_b_node_key().index),
+                node_level: F::from_canonical_u8(self.nca_proof.get_level_b()),
+            },
+            stats: self.stats_b,
+        }
+    }
+    pub fn get_guta_header_a_ho<H: MerkleZeroHasher<HashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_inclusion_proof_a.root,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_qho::<F, H>(
+                &self.historical_checkpoint_proof_a
+            ).0,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.nca_proof.child_a.old_value,
+                new_node_value: self.nca_proof.child_a.new_value,
+                node_index: F::from_canonical_u64(self.nca_proof.get_a_node_key().index),
+                node_level: F::from_canonical_u8(self.nca_proof.get_level_a()),
+            },
+            stats: self.stats_a,
+        }
+    }
+    pub fn get_guta_header_b_ho<H: MerkleZeroHasher<HashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_inclusion_proof_b.root,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_qho::<F, H>(
+                &self.historical_checkpoint_proof_b
+            ).0,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.nca_proof.child_b.old_value,
+                new_node_value: self.nca_proof.child_b.new_value,
+                node_index: F::from_canonical_u64(self.nca_proof.get_b_node_key().index),
+                node_level: F::from_canonical_u8(self.nca_proof.get_level_b()),
+            },
+            stats: self.stats_b,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
