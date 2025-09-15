@@ -596,6 +596,66 @@ impl<F: RichField> KVQSerializable for VerifyGUTAToCapCircuitInputSimple<F> {
 }
 
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F: RichField> {
+    pub guta_proof_header: GlobalUserTreeAggregatorHeader<F>,
+    pub top_line_siblings: Vec<QHashOut<F>>,
+    pub historical_checkpoint_proof: MerkleProofCore<QHashOut<F>>,
+}
+
+impl<F: RichField> VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F> {
+    pub fn get_new_state_transition<H: FieldQHasher<F>>(&self) -> SubTreeNodeStateTransition<F> {
+
+        if self.top_line_siblings.len() == 0 {
+            self.guta_proof_header.state_transition.clone()
+        }else{
+            
+
+            let new_dmp = DeltaMerkleProofCore::from_params::<H>(
+                self.guta_proof_header.state_transition.node_index.to_canonical_u64(), 
+                self.guta_proof_header.state_transition.old_node_value, 
+                self.guta_proof_header.state_transition.new_node_value,
+                self.top_line_siblings.clone(),
+            );
+
+            SubTreeNodeStateTransition{
+                old_node_value: new_dmp.old_root,
+                new_node_value: new_dmp.new_root,
+                node_index:F::from_canonical_u64 (
+                    self.guta_proof_header.state_transition.node_index.to_canonical_u64()>>(self.top_line_siblings.len() as u64)
+                ),
+                node_level: F::from_canonical_u64 (
+                    self.guta_proof_header.state_transition.node_level.to_canonical_u64()-(self.top_line_siblings.len() as u64)
+                ),
+            }
+        }
+
+    }
+    pub fn get_new_guta_header<H: FieldQHasher<F>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+
+
+        GlobalUserTreeAggregatorHeader{
+            guta_circuit_whitelist: self.guta_proof_header.guta_circuit_whitelist,
+            // upgraded to the new root for the new header
+            checkpoint_tree_root: self.historical_checkpoint_proof.root,
+            state_transition: self.get_new_state_transition::<H>(),
+            stats: self.guta_proof_header.stats,
+        }
+
+    }
+}
+impl<F: RichField> KVQSerializable for VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
