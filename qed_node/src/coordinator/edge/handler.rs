@@ -328,8 +328,9 @@ impl CoordinatorEdgeHandler {
         );
 
         // Report GUTA submission to watcher with structured metadata
-
+        let checkpoint_id = self.get_latest_checkpoint_id().await?;
         let metadata = UserGutaSubmissionMetadata {
+            checkpoint_id,
             circuit_type,
             top_line_proof: top_line_proof_data,
             realm_proof_public_inputs,

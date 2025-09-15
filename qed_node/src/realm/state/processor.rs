@@ -820,6 +820,8 @@ impl<
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
 
         self.task_store.finalize_and_save_topology().await?;
+        self.task_store.save_job_dependency_graph(new_checkpoint_id).await?;
+
         Ok(())
     }
 
@@ -914,12 +916,10 @@ impl<
 
     pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         self.store.commit(checkpoint_id)?;
-        self.commit_offset(checkpoint_id).await?;
-        self.task_store.save_job_dependency_graph(checkpoint_id).await
+        self.commit_offset(checkpoint_id).await
     }
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
-        self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
         self.store.rollback(checkpoint_id)
     }
 }
