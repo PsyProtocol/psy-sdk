@@ -59,6 +59,8 @@ impl WorkerJobTracker {
             ProvingJobCircuitType::GUTASingleEndCap |
             ProvingJobCircuitType::GUTAVerifyToCap |
             ProvingJobCircuitType::GUTANoChange |
+            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade |
+            ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade |
 
             // Contract Deploy jobs (type 2)
             ProvingJobCircuitType::BatchDeployContracts |

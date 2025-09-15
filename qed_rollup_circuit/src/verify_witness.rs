@@ -402,8 +402,59 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 anyhow::bail!("invalid guta header hash");
             }
         }
+
         ProvingJobCircuitType::GUTATwoGUTA => {
             tracing::info!("verify two_guta: {:?}", proof.public_inputs);
+            if proof.public_inputs.len() != 15 {
+                anyhow::bail!("invalid public input length");
+            }
+            let r: CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>> =
+                bincode::deserialize(
+                    &proof_store
+                        .get_bytes_by_id(job_id.get_input_witness_id())
+                        .await?,
+                )
+                .map_err(|e| anyhow::anyhow!(e))?;
+            if r.dependencies.len() != 2 {
+                anyhow::bail!("invalid dependency count in two guta input");
+            }
+
+            let guta_whitelist_root = proof_verifier
+                .library
+                .get_group_inclusion_proof(
+                    ProvingJobCircuitType::GUTATwoGUTA,
+                    ProvingJobCircuitType::GUTATwoGUTA,
+                )?
+                .root;
+
+            let nearest_common_ancestor_level = r.input.nca_proof.nearest_common_ancestor_level;
+            let nearest_common_ancestor_index = r.input.nca_proof.get_nca_index();
+            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<QEDHasher>();
+            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<QEDHasher>();
+
+            let combine_stats = r.input.stats_a.combine_with(&r.input.stats_b);
+            let guta_header_combine = GlobalUserTreeAggregatorHeader {
+                guta_circuit_whitelist: guta_whitelist_root,
+                checkpoint_tree_root: r.input.checkpoint_tree_root,
+                state_transition: SubTreeNodeStateTransition {
+                    old_node_value: old_nca_value,
+                    new_node_value: new_nca_value,
+                    node_index: F::from_canonical_u64(nearest_common_ancestor_index),
+                    node_level: F::from_canonical_u8(nearest_common_ancestor_level),
+                },
+                stats: combine_stats,
+            };
+
+            let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
+
+            tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
+            if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
+                anyhow::bail!("invalid guta header hash");
+            }
+        }
+        // GUTA_CHECKPOINT_UPGRADE-TODO: Add the new circuits here
+        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade => {
+            tracing::info!("verify two_guta_with_checkpoint_update: {:?}", proof.public_inputs);
             if proof.public_inputs.len() != 15 {
                 anyhow::bail!("invalid public input length");
             }

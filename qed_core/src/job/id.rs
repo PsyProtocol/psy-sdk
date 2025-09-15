@@ -204,6 +204,10 @@ pub enum ProvingJobCircuitType {
     DummyProcessL1WithdrawalAggregate = 53,
     DummyBatchDeployContractsAggregate = 54,
 
+    // ADDED NEW - For Historical Upgrades
+    GUTATwoGUTAWithCheckpointUpgrade = 55,
+    GUTAVerifyToCapWithCheckpointUpgrade = 56,
+
     WrappedSignatureProof = 64,
     Secp256K1SignatureProof = 65,
 
@@ -329,6 +333,9 @@ impl TryFrom<u8> for ProvingJobCircuitType {
             52 => Ok(ProvingJobCircuitType::DummyAddL1WithdrawalAggregate),
             53 => Ok(ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate),
             54 => Ok(ProvingJobCircuitType::DummyBatchDeployContractsAggregate),
+            55 => Ok(ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade),
+            56 => Ok(ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade),
+
             64 => Ok(ProvingJobCircuitType::WrappedSignatureProof),
             65 => Ok(ProvingJobCircuitType::Secp256K1SignatureProof),
             192 => Ok(ProvingJobCircuitType::NotifyRealmComplete),
@@ -507,6 +514,8 @@ impl QProvingJobGraph {
             | GUTALeftGUTARightEndCap
             | GUTASingleEndCap
             | GUTAVerifyToCap
+            | GUTATwoGUTAWithCheckpointUpgrade
+            | GUTAVerifyToCapWithCheckpointUpgrade
             | GUTANoChange => Ok(&self.guta_graph),
             _ => anyhow::bail!("Unsupported circuit type: {:?}", job_id.circuit_type),
         }
@@ -956,6 +965,18 @@ impl QProvingJobDataID {
             sub_group_id,
             task_index,
             ProvingJobCircuitType::GUTATwoGUTA,
+            ProvingJobDataType::InputWitness,
+            0,
+        )
+    }
+    pub fn guta_two_agg_witness_with_checkpoint_upgrade(checkpoint_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
+        Self::new(
+            QJobTopic::GenerateStandardProof,
+            checkpoint_id,
+            group_id,
+            sub_group_id,
+            task_index,
+            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade,
             ProvingJobDataType::InputWitness,
             0,
         )

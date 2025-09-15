@@ -662,6 +662,10 @@ where
                         ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange |
                         ProvingJobCircuitType::GUTASingleEndCap | ProvingJobCircuitType::GUTATwoEndCap |
                         ProvingJobCircuitType::GUTALeftEndCapRightGUTA | ProvingJobCircuitType::GUTALeftGUTARightEndCap |
+                        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade  | 
+                        ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade => {
+                            graph.guta_graph.has_node(job_id)
+                        } | 
                         ProvingJobCircuitType::GUTAVerifyToCap => {
                             graph.guta_graph.has_node(job_id)
                         }
@@ -733,6 +737,7 @@ where
                         ProvingJobCircuitType::GUTAOnlyRegisterUsers |
                         ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange | ProvingJobCircuitType::GUTASingleEndCap |
                         ProvingJobCircuitType::GUTATwoEndCap | ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
+                        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade |
                         ProvingJobCircuitType::GUTALeftGUTARightEndCap | ProvingJobCircuitType::GUTAVerifyToCap => {
                             checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
                         }

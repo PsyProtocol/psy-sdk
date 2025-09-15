@@ -1620,7 +1620,10 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                         ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange |
                         ProvingJobCircuitType::GUTASingleEndCap | ProvingJobCircuitType::GUTATwoEndCap |
                         ProvingJobCircuitType::GUTALeftEndCapRightGUTA | ProvingJobCircuitType::GUTALeftGUTARightEndCap |
+                        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade |
                         ProvingJobCircuitType::GUTAVerifyToCap => {
+                            graph.guta_graph.has_node(job_id)
+                        } | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade => {
                             graph.guta_graph.has_node(job_id)
                         }
                         _ => false
@@ -1671,6 +1674,8 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 | ProvingJobCircuitType::GUTATwoEndCap
                 | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
                 | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+                | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
                 | ProvingJobCircuitType::GUTAVerifyToCap => {
                     checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
                 }

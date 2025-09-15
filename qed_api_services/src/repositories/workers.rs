@@ -203,6 +203,8 @@ impl WorkerEventRepository {
             ProvingJobCircuitType::GUTASingleEndCap.to_u8() as i16,
             ProvingJobCircuitType::GUTAVerifyToCap.to_u8() as i16,
             ProvingJobCircuitType::GUTANoChange.to_u8() as i16,
+            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade.to_u8() as i16,
+            ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade.to_u8() as i16,
         ];
 
         let (min_checkpoint, max_checkpoint) = checkpoint_range.unwrap_or((0, i64::MAX));

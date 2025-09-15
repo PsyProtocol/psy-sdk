@@ -41,7 +41,9 @@ Circuits which need to have the same common circuit data as:
         GUTAOnlyRegisterUsers,
         GUTASingleEndCap,
         GUTANoChange,
-        GUTARegisterUsers
+        GUTARegisterUsers,
+        GUTATwoGUTAWithCheckpointUpgrade,
+        GUTAVerifyToCapWithCheckpointUpgrade,
     ]
 </description>
 ======================================
