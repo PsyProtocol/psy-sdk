@@ -737,13 +737,14 @@ impl<
                 debug!("Left GUTA dependency exists");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
+                let last_guta_item = guta_queue_items.last().unwrap();
                 let x = CircuitInputWithDependencies {
                     input: VerifyLeftGUTARightEndCapInputSimple {
                         checkpoint_tree_root: a_checkpoint_tree_root,
                         b_end_cap: VerifyEndCapSimpleStandardInput {
-                            guta_stats: guta_queue_items[0].input.stats,
-                            checkpoint_root: guta_queue_items[0].checkpoint_tree_proof.root,
-                            checkpoint_historical_merkle_proof: guta_queue_items[0]
+                            guta_stats: last_guta_item.input.stats.clone(),
+                            checkpoint_root: last_guta_item.checkpoint_tree_proof.root.clone(),
+                            checkpoint_historical_merkle_proof: last_guta_item
                                 .checkpoint_tree_proof
                                 .clone(),
                         },
@@ -752,7 +753,7 @@ impl<
                     },
                     dependencies: vec![
                         l_proof_id.get_output_id(),
-                        guta_queue_items.last().as_ref().unwrap().proof_id.get_output_id(),
+                        last_guta_item.proof_id.get_output_id(),
                     ],
                 };
                 let w_id = QProvingJobDataID::new(
