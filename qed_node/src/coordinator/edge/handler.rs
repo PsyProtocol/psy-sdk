@@ -304,6 +304,16 @@ impl CoordinatorEdgeHandler {
         let realm_proof_public_inputs =  proof.public_inputs.clone();
         let circuit_type = input.circuit_type;
 
+        // Report GUTA submission to watcher with structured metadata
+        let checkpoint_id = self.get_latest_checkpoint_id().await?;
+        let next_checkpoint_id = checkpoint_id + 1;
+
+        if input.checkpoint_id  != next_checkpoint_id {
+            warn!("❌ Invalid checkpoint id from realm: {}, latest checkpoint id {}", input.checkpoint_id, checkpoint_id);
+            anyhow::bail!("invalid checkpoint id from realm");
+        }
+
+
         // build queue item
         let queue_item: SubmitGUTARealmResultAPIQueueItem<GoldilocksField> =
             input.to_queue_item(config.guta_channel_id, config.realm_root_level as u32);
@@ -327,8 +337,6 @@ impl CoordinatorEdgeHandler {
             metadata
         );
 
-        // Report GUTA submission to watcher with structured metadata
-        let checkpoint_id = self.get_latest_checkpoint_id().await?;
         let metadata = UserGutaSubmissionMetadata {
             checkpoint_id,
             circuit_type,
