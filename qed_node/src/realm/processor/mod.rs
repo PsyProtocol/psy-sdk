@@ -181,7 +181,7 @@ impl RealmProcessor {
             trace!("pending checkpoint id: {}, latest checkpoint id: {}, realm_root: {}, expected realm_root: {}",
                 checkpoint, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
 
-            if ret.latest_checkpoint_id == checkpoint && realm_root.value == ret.realm_root {
+            if ret.checkpoint_id == checkpoint && realm_root.value == ret.realm_root {
                 context.commit(checkpoint).await?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
                 info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint, ret.latest_checkpoint_id);
