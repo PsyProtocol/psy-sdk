@@ -348,7 +348,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             }
 
             use qed_crypto::hash::traits::qhashable::QFieldHashable;
-            let guta_header = r.input.get_guta_header_a();
+            let guta_header = r.input.get_new_guta_header();
 
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();
 

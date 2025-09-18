@@ -285,6 +285,19 @@ impl<F: RichField> VerifySingleEndCapInput<F> {
             stats: self.a_end_cap.guta_stats,
         }
     }
+    pub fn get_new_guta_header(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_circuit_whitelist,
+            checkpoint_tree_root: self.a_end_cap.checkpoint_historical_merkle_proof.root,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.start_user_leaf_hash,
+                new_node_value: self.end_user_leaf_hash,
+                node_index: self.user_id,
+                node_level: F::from_canonical_u8(GLOBAL_USER_TREE_HEIGHT),
+            },
+            stats: self.a_end_cap.guta_stats,
+        }
+    }
     pub fn get_end_result_a(&self) -> UPSEndCapResultCompact<F> {
         UPSEndCapResultCompact {
             start_user_leaf_hash: self.start_user_leaf_hash,

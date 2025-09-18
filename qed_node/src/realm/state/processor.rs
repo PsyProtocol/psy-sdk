@@ -549,7 +549,7 @@ impl<
                     guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
                     a_end_cap: VerifyEndCapSimpleStandardInput {
                         guta_stats: guta_queue_items[0].input.stats,
-                        checkpoint_root: guta_queue_items[0].checkpoint_tree_proof.root,
+                        checkpoint_root: guta_queue_items[0].input.state_transition.checkpoint_tree_root_hash,
                         checkpoint_historical_merkle_proof: guta_queue_items[0]
                             .checkpoint_tree_proof
                             .clone(),
@@ -614,7 +614,7 @@ impl<
                 .await?;
             return Ok((
                 vec![vec![id]],
-                single.input.get_guta_header_a(),
+                single.input.get_new_guta_header(),
                 r.link_proof,
                 graph,
             ));
