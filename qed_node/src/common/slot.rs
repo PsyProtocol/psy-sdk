@@ -12,6 +12,34 @@ pub trait Clock {
     fn get_current_timestamp(&self) -> u64;
 }
 
+#[auto_impl(&, Box, Arc)]
+pub trait Parity {
+    fn is_odd(&self) -> bool;
+    fn is_even(&self) -> bool;
+}
+
+
+macro_rules! impl_parity {
+    ($($type:ty),*) => {
+        $(
+            impl Parity for $type {
+                fn is_odd(&self) -> bool {
+                    self % 2 != 0
+                }
+                fn is_even(&self) -> bool {
+                    self % 2 == 0
+                }
+            }
+        )*
+    };
+}
+
+// Implement Parity for all unsigned integer types
+impl_parity!(u8, u16, u32, u64, u128, usize);
+
+// Implement Parity for all signed integer types
+impl_parity!(i8, i16, i32, i64, i128, isize);
+
 // #[auto_impl(&, Box, Arc)]
 pub trait Slot: Clock {
     /// Convert a timestamp to its corresponding slot number

@@ -66,7 +66,7 @@ use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosi
 use crate::common::clock::SlotTimer;
 use crate::common::retry::Retryable;
 use crate::common::slot;
-use crate::common::slot::{LocalClock, Slot};
+use crate::common::slot::{LocalClock, Parity, Slot};
 use crate::realm::RealmProcessor;
 
 type C = PoseidonGoldilocksConfig;
@@ -492,6 +492,9 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         tokio::select! {
             biased;
             slot = slot_timer.wait_for_next_slot() => {
+                if slot.is_odd() {
+                    continue;
+                }
                 trace!("✅ Successfully wait for next slot: {}", slot);
                 if !coordinator_processor.has_pending_tasks(next_checkpoint_id).await? {
                     trace!("⚠️ No pending tasks for checkpoint {}, waiting for next checkpoint", next_checkpoint_id);

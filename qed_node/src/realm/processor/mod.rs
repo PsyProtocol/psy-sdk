@@ -33,7 +33,7 @@ use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
 use crate::common::clock::SlotTimer;
-use crate::common::slot::{Clock, LocalClock, Slot};
+use crate::common::slot::{Clock, LocalClock, Parity, Slot};
 use crate::common::retry::Retryable;
 use qed_core::config::network_constants::{REALM_USER_TREE_HEIGHT, USERS_PER_REALM};
 use qed_data::config::store_config::QEDHasher;
@@ -196,6 +196,10 @@ impl RealmProcessor {
 
     async fn block_handle(&self, context: &ConcreteRealmProcessorContext) -> anyhow::Result<()> {
         let slot = self.slot_timer.wait_for_next_slot().await;
+        if slot.is_even() {
+            return Ok(());
+        }
+
         trace!("Next slot: {}", slot);
         let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
         if self.pending_checkpoint_id.load(Ordering::Relaxed) > 0 {
