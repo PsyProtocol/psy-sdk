@@ -70,8 +70,8 @@ where
         // now we can modify the computed header to have the new checkpoint root
         computed_header_line.checkpoint_tree_root = upgrade_checkpoint_historical_merkle_proof_gadget.current_root;
         
-
-        let public_inputs_hash = verify_to_line_gadget.get_guta_header_line().to_hash::<C::Hasher, C::F, D>(&mut builder);
+        // let public_inputs_hash = verify_to_line_gadget.get_guta_header_line().to_hash::<C::Hasher, C::F, D>(&mut builder);
+        let public_inputs_hash = computed_header_line.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         let worker_public_key = builder.add_virtual_hash();
 
