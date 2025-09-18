@@ -379,8 +379,9 @@ impl<
             .peek_with_position::<SubmitGUTARealmResultAPIQueueItem<F>>(self.coordinator_config.guta_channel_id, checkpoint_id)
             .await?;
         tracing::debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items).unwrap(), "GUTA queue items");
-        let last_checkpoint_id = if checkpoint_id == 0 { checkpoint_id } else { checkpoint_id - 1 };
+        let last_checkpoint_id = checkpoint_id.saturating_sub(1);
         let last_checkpoint_tree_root = self.store.get_checkpoint_tree_root(last_checkpoint_id).await?;
+        tracing::debug!("last_checkpoint_tree_root: {}", last_checkpoint_tree_root);
 
         if guta_queue_items.len() == 0 {
             tracing::debug!("No GUTA queue items");
@@ -442,7 +443,8 @@ impl<
 
             if guta_queue_items[0].checkpoint_tree_root != last_checkpoint_tree_root {
                 tracing::warn!("Checkpoint tree root in GUTA queue item does not match last checkpoint tree root");
-                let historical_checkpoint_proof = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, guta_queue_items[0].checkpoint_id).await?;
+                let real_guta_checkpoint_id = guta_queue_items[0].checkpoint_id.saturating_sub(1);
+                let historical_checkpoint_proof = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_guta_checkpoint_id).await?;
                 let rw = VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple {
                     historical_checkpoint_proof,
                     guta_proof_header: GlobalUserTreeAggregatorHeader {
@@ -619,8 +621,10 @@ impl<
             if l_dep_ind == -1 && r_dep_ind == -1 {
                 tracing::debug!("Both dependencies are new");
                 if guta_queue_items[i * 2].checkpoint_tree_root != last_checkpoint_tree_root || guta_queue_items[i * 2 + 1].checkpoint_tree_root != last_checkpoint_tree_root {
-                    let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, guta_queue_items[i * 2].checkpoint_id).await?;
-                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, guta_queue_items[i * 2 + 1].checkpoint_id).await?;
+                    let real_left_guta_checkpoint_id = guta_queue_items[i * 2].checkpoint_id.saturating_sub(1);
+                    let real_right_guta_checkpoint_id = guta_queue_items[i * 2 + 1].checkpoint_id.saturating_sub(1);
+                    let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_left_guta_checkpoint_id).await?;
+                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_right_guta_checkpoint_id).await?;
                     let input = VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple {
                         historical_checkpoint_proof_a,
                         historical_checkpoint_proof_b,
@@ -741,8 +745,9 @@ impl<
                 let last_guta_item = guta_queue_items.last().unwrap();
 
                 if last_guta_item.checkpoint_tree_root != last_checkpoint_tree_root {
+                    let real_last_guta_checkpoint_id = last_guta_item.checkpoint_id.saturating_sub(1);
                     let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id).await?;
-                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_guta_item.checkpoint_id).await?;
+                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id).await?;
                     let x = CircuitInputWithDependencies {
                         input: VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple {
                             historical_checkpoint_proof_a,
@@ -839,7 +844,7 @@ impl<
 
         let mut guta = GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.coordinator_config.guta_circuit_whitelist,
-            checkpoint_tree_root: guta_queue_items[0].checkpoint_tree_root,
+            checkpoint_tree_root: last_checkpoint_tree_root,
             state_transition: SubTreeNodeStateTransition {
                 old_node_value: res.nca_proofs[res.root_proof_index].old_nearest_common_ancestor_value,
                 new_node_value: res.nca_proofs[res.root_proof_index].new_nearest_common_ancestor_value,
