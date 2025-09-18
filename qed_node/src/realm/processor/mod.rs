@@ -186,7 +186,7 @@ impl RealmProcessor {
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
                 info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint, ret.latest_checkpoint_id);
             } else {
-                warn!("Invalid checkpoint sync result, rollback, latest_checkpoint_id: {}, checkpoint: {}", ret.latest_checkpoint_id, checkpoint);
+                warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, checkpoint: {}", ret.latest_checkpoint_id, checkpoint);
                 context.rollback(checkpoint).await?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
             }
@@ -235,7 +235,9 @@ impl RealmProcessor {
         };
         let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
         if local_latest_checkpoint_id >= next_checkpoint_id {
-            warn!("Local latest checkpoint id: {}, next checkpoint id: {}, continue", local_latest_checkpoint_id, next_checkpoint_id);
+            warn!("Rollback: local latest checkpoint id: {}, next checkpoint id: {}", local_latest_checkpoint_id, next_checkpoint_id);
+            context.rollback(next_checkpoint_id).await?;
+            self.pending_checkpoint_id.store(0, Ordering::Relaxed);
             return Ok(());
         }
         self.sync_proof.chq_push_imm(proving_data_job_id).await?;
@@ -361,7 +363,7 @@ impl RealmProcessor {
                     // Rollback database changes
                     context.rollback(next_checkpoint_id).await?;
 
-                    error!("Build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
+                    error!("Rollback: build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
                     Err(err)
                 }
             }
