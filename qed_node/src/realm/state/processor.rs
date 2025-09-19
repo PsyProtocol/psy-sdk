@@ -509,9 +509,12 @@ impl<
             checkpoint_id,
         ).await?;
         debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items).unwrap(), "GUTA queue items for aggregation");
+
+        let real_checkpoint_id = checkpoint_id.saturating_sub(1);
+        let checkpoint_tree_root = self.store.get_checkpoint_tree_root(real_checkpoint_id).await?;
         if guta_queue_items.len() == 0 {
             debug!("No GUTA queue items to aggregate");
-            let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
+            // let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
             let last_user_tree_root = self
                 .store
                 .get_user_bottom_tree_merkle_proof(
@@ -621,6 +624,16 @@ impl<
         }
 
         guta_queue_items.sort_by(|a, b| a.input.new_user_leaf.user_id.to_canonical_u64().cmp(&b.input.new_user_leaf.user_id.to_canonical_u64()));
+
+        // updata checkpoint tree merkle proof
+        for guta_queue_item in guta_queue_items.iter_mut() {
+            if guta_queue_item.checkpoint_tree_proof.root != checkpoint_tree_root {
+                tracing::warn!("Checkpoint tree root in GUTA queue item does not match checkpoint tree root in store, checkpoint_id: {}, guta_queue_item checkpoint tree root: {}, store checkpoint tree root: {}", checkpoint_id, guta_queue_item.checkpoint_tree_proof.root, checkpoint_tree_root);
+                let checkpoint_tree_proof = self.store.get_checkpoint_tree_merkle_proof(checkpoint_id, guta_queue_item.checkpoint_id).await?;
+                guta_queue_item.checkpoint_tree_proof = checkpoint_tree_proof;
+            }
+        }
+
         tracing::debug!("sorted guta_queue_items: {}", serde_json::to_string_pretty(&guta_queue_items)?);
         let mnu = guta_queue_items
             .iter()

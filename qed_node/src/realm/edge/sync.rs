@@ -5,6 +5,12 @@ use std::time::Duration;
 use jsonrpsee::rpc_params;
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
+use plonky2::field::types::Field;
+use qed_core::data::qhashout::QHashOut;
+use qed_core::traits::to_qfelts::ToQFelts;
+use qed_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
+use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
+use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use serde::{Serialize, Deserialize};
 use tracing::{info, error, warn, debug, trace};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
@@ -12,14 +18,14 @@ use anyhow::{anyhow, Result};
 use http::{HeaderMap, HeaderValue};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
-use qed_core::config::network_constants::REALM_PROOF_SYNC_CHANNEL;
+use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_PROOF_SYNC_CHANNEL};
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_data::models::checkpoint::sync_info::CheckpointError;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_core::job::history_queue::{CheckpointHistoryQueueEmitterAsyncImm, CheckpointHistoryQueueConsumerAsyncImm};
 use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
 use qed_core::job::traits::QProofStoreAsyncImm;
-use qed_data::config::store_config::QEDFelt;
+use qed_data::config::store_config::{QEDFelt, QEDHasher};
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_rollup_utils::generate_jwt_token;
 use qed_store::queue::ProofStoreRedisAsync;
@@ -290,7 +296,7 @@ pub async fn spawn_realm_job_update_task<
                     last_checkpoint = job_id.checkpoint_id + 1;
 
                     // Use the RealmProofSender instance
-                    if let Err(err) = proof_sender.send_proof(ctx.proof_store.clone(), job_id).await {
+                    if let Err(err) = proof_sender.send_proof(ctx.clone(), job_id).await {
                         error!("Failed to send realm proof: {:?}", err);
                     }
                 }
@@ -335,19 +341,23 @@ impl RealmProofSender {
     }
 
     /// Send realm proof to coordinator with unified retry mechanism
-    pub async fn send_proof<PS: QProofStoreAsyncImm>(
+    pub async fn send_proof<
+        SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+        DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
+        PS: QProofStoreAsyncImm + Sync + Send + 'static,
+    >(
         &self,
-        proof_store: Arc<PS>,
+        ctx: Arc<RealmEdgeContext<SR, DQ, PS>>,
         job_info: ProvingJobDataId,
     ) -> Result<()> {
         info!(?job_info.job_id, "send_realm_proof start");
         // Get bytes with retry
         // let bytes = self.get_bytes_with_retry(proof_store.clone(), job_info.job_id).await?;
-        let bytes = proof_store.get_bytes_by_id(job_info.job_id).await?;
+        let bytes = ctx.proof_store.get_bytes_by_id(job_info.job_id).await?;
         // Deserialize realm result
         let realm_result: GUTARealmCheckpointResult<QEDFelt> = bincode::deserialize(&bytes)?;
         // Get proof with retry
-        let proof =  proof_store.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
+        let proof =  ctx.proof_store.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
         // let proof = self.get_proof_with_retry(proof_store, realm_result.proof_id.get_output_id()).await?;
         let input = SubmitGUTARealmResultAPINoProofInput::<QEDFelt> {
             realm_id: self.realm_id,
@@ -357,6 +367,50 @@ impl RealmProofSender {
             checkpoint_tree_root: realm_result.checkpoint_tree_root,
             circuit_type: realm_result.proof_id.circuit_type,
         };
+        
+        let real_checkpoint_id = input.checkpoint_id.saturating_sub(1);
+        let realm_root_level = COORDINATOR_USER_TREE_HEIGHT;
+        let old_root = ctx.store_reader
+            .get_user_sub_tree_merkle_proof(real_checkpoint_id, realm_root_level, realm_root_level, self.realm_id)
+            .await?.root;
+        if old_root != input.top_line_proof.old_root {
+            error!("invalid top line proof old root, expect: {}, got: {}", input.top_line_proof.old_root, old_root);
+            anyhow::bail!("invalid top line proof old root");
+        }
+        if input.top_line_proof.old_root != input.top_line_proof.old_value
+            || input.top_line_proof.new_root != input.top_line_proof.new_value
+            || !input.top_line_proof.verify::<QEDHasher>()
+        {
+            error!("invalid top line proof, expect: {}", serde_json::to_string_pretty(&input.top_line_proof)?);
+            anyhow::bail!("invalid top line proof");
+        }
+
+        // verify witness
+        let guta_header = GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: ctx.realm_config.guta_circuit_whitelist,
+            checkpoint_tree_root: input.checkpoint_tree_root,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: input.top_line_proof.old_root,
+                new_node_value: input.top_line_proof.new_root,
+                node_index: F::from_noncanonical_u64(input.top_line_proof.index),
+                node_level: F::from_canonical_u64((realm_root_level as usize + input.top_line_proof.siblings.len()) as u64),
+            },
+            stats: input.guta_stats,
+        };
+        let proof_public_inputs_hash = QHashOut::from_qfelts(&proof.public_inputs[11..15]);
+        let expected_proof_public_inputs_hash = guta_header.qfhash::<QEDHasher>();
+        if proof_public_inputs_hash != expected_proof_public_inputs_hash {
+            tracing::error!(
+                "ensure expected_proof_public_inputs_hash: {} == proof.public_inputs[11..15] {}",
+                expected_proof_public_inputs_hash,
+                proof_public_inputs_hash,
+            );
+            anyhow::bail!("invalid realm submit guta proof public inputs hash");
+        }
+
+        // verify proof
+        ctx.proof_verifier.verify_proof_of_type(input.circuit_type, &proof)?;
+
         // Submit with retry
         self.submit_with_retry(input, proof).await
     }

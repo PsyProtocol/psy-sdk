@@ -5,6 +5,9 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail};
 use chrono::Utc;
+use qed_core::traits::to_qfelts::ToQFelts;
+use qed_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
+use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, info, warn, trace};
@@ -239,6 +242,10 @@ impl CoordinatorEdgeHandler {
             "submit_guta input: {}",
             serde_json::to_string_pretty(&input).unwrap()
         );
+        let checkpoint_id = self.get_latest_checkpoint_id().await?;
+        if input.checkpoint_id.saturating_sub(1) < checkpoint_id {
+            warn!("⚠️ got guta at old checkpoint {}, expected {}", input.checkpoint_id.saturating_sub(1), checkpoint_id);
+        }
         let checkpoint_queue = self.ctx.checkpoint_queue.clone();
         let proof_store = self.ctx.proof_store.clone();
         let config = self.ctx.coordinator_config.clone();
@@ -248,52 +255,30 @@ impl CoordinatorEdgeHandler {
             anyhow::bail!("invalid top line proof from realm");
         }
 
-        if input.top_line_proof.new_root != input.top_line_proof.new_value {
+        if input.top_line_proof.old_root != input.top_line_proof.old_value || input.top_line_proof.new_root != input.top_line_proof.new_value {
             anyhow::bail!("top line not currently supported for guta proofs");
         }
-
-        // verify proof
-        verifier.verify_proof_of_type(input.circuit_type, &proof)?;
 
         //if circuit type is GUTANoChange, disable the proof
         if input.circuit_type == ProvingJobCircuitType::GUTANoChange {
             info!("⚠️ GUTANoChange proof, disabling it");
             return Ok(());
         }
-        tracing::info!(
-            "✅ verified guta result proof public input: {:?} ",
-            proof.public_inputs
-        );
+        if input.top_line_proof.new_root == input.top_line_proof.old_root {
+            anyhow::bail!("⚠️ realm root should be different");
+        }
 
         // verify state consistency
-        let old_root = match self
+        let old_root = self
             .store
-            .get_user_latest_top_tree_cap_root(config.realm_root_level, input.realm_id)
-            .await
-        {
-            Ok(root) => root,
-            Err(e) => {
-                error!("❌ Failed to get old root: {:?}", e);
+            .get_user_top_tree_cap_root(checkpoint_id, config.realm_root_level, input.realm_id)
+            .await?;
 
-                let mut source = e.source();
-                while let Some(err) = source {
-                    error!("⛓ Caused by: {}", err);
-                    source = err.source();
-                }
-
-                return Err(anyhow::anyhow!("Failed to get old root"));
-            }
-        };
-
-        info!(
-            "old root from db: {}, hex = {:?}",
-            old_root,
-            hex::encode(old_root.to_bytes()?)
-        );
+        info!("old root from db: {}", old_root);
         info!("old root from realm: {}", input.top_line_proof.old_root);
-        if old_root != input.top_line_proof.old_root && old_root != input.top_line_proof.new_root {
-            // anyhow::bail!("invalid top line proof old value from realm");
-            tracing::warn!("invalid top line proof old value from realm");
+        if old_root != input.top_line_proof.old_root {
+            tracing::error!("invalid top line proof old value {} from realm, expected {}", input.top_line_proof.old_root, old_root);
+            anyhow::bail!("invalid top line proof old value from realm");
         }
         let top_line_proof_data = TopLineProofData {
             old_root: format!("{}", input.top_line_proof.old_root.to_string_le()),
@@ -301,6 +286,38 @@ impl CoordinatorEdgeHandler {
             old_value: format!("{}", input.top_line_proof.old_value.to_string_le()),
             new_value: format!("{}", input.top_line_proof.new_value.to_string_le()),
         };
+
+        tracing::info!(
+            "✅ verified guta result proof public input: {:?} ",
+            proof.public_inputs
+        );
+
+        // verify witness
+        let guta_header = GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: config.guta_circuit_whitelist,
+            checkpoint_tree_root: input.checkpoint_tree_root,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: input.top_line_proof.old_root,
+                new_node_value: input.top_line_proof.new_root,
+                node_index: F::from_noncanonical_u64(input.top_line_proof.index),
+                node_level: F::from_canonical_u64((config.realm_root_level as usize + input.top_line_proof.siblings.len()) as u64),
+            },
+            stats: input.guta_stats,
+        };
+        let proof_public_inputs_hash = QHashOut::from_qfelts(&proof.public_inputs[11..15]);
+        let expected_proof_public_inputs_hash = guta_header.qfhash::<QEDHasher>();
+        if expected_proof_public_inputs_hash != proof_public_inputs_hash {
+            tracing::error!(
+                "ensure expected_proof_public_inputs_hash: {} == proof.public_inputs[11..15] {}",
+                expected_proof_public_inputs_hash,
+                proof_public_inputs_hash,
+            );
+            anyhow::bail!("invalid realm submit guta proof public inputs hash");
+        }
+
+        // verify proof
+        verifier.verify_proof_of_type(input.circuit_type, &proof)?;
+
         let realm_proof_public_inputs =  proof.public_inputs.clone();
         let circuit_type = input.circuit_type;
 
@@ -328,7 +345,6 @@ impl CoordinatorEdgeHandler {
         );
 
         // Report GUTA submission to watcher with structured metadata
-        let checkpoint_id = self.get_latest_checkpoint_id().await?;
         let metadata = UserGutaSubmissionMetadata {
             checkpoint_id,
             circuit_type,

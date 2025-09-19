@@ -3,11 +3,12 @@ use std::sync::Arc;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::PrimeField64}, plonk::proof::ProofWithPublicInputs};
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID}, traits::QProofStoreAsyncImm}};
 use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::{MerkleZeroHasher, PoseidonHasher}, qhashable::QFieldHashable}};
-use qed_data::{config::store_config::QCheckpointSyncInfoCompact, guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}};
+use qed_data::{config::store_config::{QCheckpointSyncInfoCompact, QEDHasher}, guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use tracing::debug;
 use crate::realm::{C, D, F, H};
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
+use qed_crypto::hash::traits::hasher::FieldQHasher;
 
 use super::processor::RealmConfig;
 
@@ -188,6 +189,32 @@ impl<
             proof.public_inputs
         );
         self.verify_proof_of_type(ProvingJobCircuitType::UserEndCap, proof)?;
+
+        // check new leaf hash
+        let computed_new_leaf_hash = input.core.new_user_leaf.qfhash::<H>();
+        if computed_new_leaf_hash != input.core.state_transition.end_user_leaf_hash {
+            tracing::error!(
+                "ensure computed_new_leaf_hash: {} == state_transition.end_user_leaf_hash {}",
+                computed_new_leaf_hash,
+                input.core.state_transition.end_user_leaf_hash,
+            );
+            anyhow::bail!("invalid new user leaf hash");
+        }
+
+        // verify witness
+        let end_cap_result = input.core.state_transition;
+        let guta_stats = input.core.stats;
+        let state_transition_pi_hash = end_cap_result.qfhash::<QEDHasher>();
+        let guta_stats_pi_hash = guta_stats.qfhash::<QEDHasher>();
+        let expected_proof_public_inputs_hash = QEDHasher::q_two_to_one(state_transition_pi_hash, guta_stats_pi_hash);
+        if expected_proof_public_inputs_hash.0.elements != proof.public_inputs[0..4] {
+            tracing::error!(
+                "ensure expected_proof_public_inputs_hash: {} == proof.public_inputs[0..4] {}",
+                expected_proof_public_inputs_hash,
+                proof.public_inputs[0],
+            );
+            anyhow::bail!("invalid user endcap proof public inputs hash");
+        }
 
         // end validation
 
