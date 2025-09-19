@@ -23,7 +23,9 @@ use crate::common::{
 };
 use job_tracker::{JobLocation, WorkerJobTracker};
 use tokio::sync::Mutex;
+use tokio::time::timeout;
 use qed_prover::wallet::secp_wallet::Wallet;
+use crate::common::slot::SLOT_SIZE;
 
 pub async fn run_worker(
     edge_url: String,
@@ -43,7 +45,7 @@ pub async fn run_worker(
     info!("⭐ worker pk str = {}", worker_pk_str);
 
     loop {
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(200)).await;
         let job = match job_receiver.get_next_job(wallet.clone(), &worker_pk_str).await {
             Ok(job) => job,
             Err(e) => {
@@ -58,15 +60,20 @@ pub async fn run_worker(
             job_receiver.submit_job_proof(job, None, wallet.clone(), &worker_pk_str).await?;
             continue;
         }
-        match prover
-            .worker_prove_mut_async(&store, library.as_ref(), job_id)
-            .await
+        let timeout_duration = match location {
+            JobLocation::Coordinator => Duration::from_millis(2 * SLOT_SIZE),
+            JobLocation::Realm(_) => Duration::from_millis(SLOT_SIZE),
+        };
+        match timeout(
+            timeout_duration,
+            prover.worker_prove_mut_async(&store, library.as_ref(), job_id)
+        ).await
         {
-            Ok(proof) => {
+            Ok(Ok(proof)) => {
                 info!("Proved job: job_id={:?}", job_id);
                 match job_receiver.submit_job_proof(job, Some(proof), wallet.clone(), &worker_pk_str).await {
                     Ok(_) => {
-                        info!("Successfully submitted proof for job: {:?}", job_id);
+                        info!("Successfully submitted proof for job: {:?}, node: {:?}", job_id, location);
                         {
                             let mut tracker = job_tracker.lock().await;
                             tracker.add_completed_job(job_id.get_output_id(), location.clone());
@@ -77,14 +84,17 @@ pub async fn run_worker(
                     }
                     Err(e) => {
                         error!(
-                            "Failed to submit job proof: err={:?}, job_id={:?}",
-                            e, job_id
+                            "Failed to submit job proof: err={:?}, job_id={:?}, node: {:?}",
+                            e, job_id, location
                         );
                     }
                 }
             }
-            Err(e) => {
-                error!("Failed to prove job: err={:?}, job_id={:?}", e, job_id);
+            Ok(Err(e)) => {
+                error!("Failed to prove job: err={:?}, job_id={:?}, node: {:?}", e, job_id, location);
+            }
+            Err(_timeout_error) => {
+                error!("Job proving timed out after 1 or 2 slots: job_id={:?}, node: {:?}", job_id, location);
             }
         };
     }

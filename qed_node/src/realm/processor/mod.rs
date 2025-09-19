@@ -33,7 +33,7 @@ use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
 use crate::common::clock::SlotTimer;
-use crate::common::slot::{Clock, LocalClock, Parity, Slot};
+use crate::common::slot::{Clock, LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::common::retry::Retryable;
 use qed_core::config::network_constants::{REALM_USER_TREE_HEIGHT, USERS_PER_REALM};
 use qed_data::config::store_config::QEDHasher;
@@ -226,10 +226,14 @@ impl RealmProcessor {
         }
         let now = Instant::now();
         info!("Start building block checkpoint: {}, slot: {}", next_checkpoint_id, slot);
-        let proving_data_job_id: ProvingJobDataId = match self.build_block(context, next_checkpoint_id).await {
+        let proving_data_job_id: ProvingJobDataId = match tokio::time::timeout(
+            Duration::from_secs(2 * SLOT_SIZE),
+            self.build_block(context, next_checkpoint_id)
+        ).await?{
             Ok(job_id) => job_id,
             Err(err) => {
-                error!("Error building block: {:?}, slot: {}", err, slot);
+                let _ = context.rollback(next_checkpoint_id).await;
+                error!("Timeout waiting: {:?} for produce block, slot: {}", err, slot);
                 return Ok(());
             }
         };

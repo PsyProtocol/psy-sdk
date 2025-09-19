@@ -66,7 +66,7 @@ use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosi
 use crate::common::clock::SlotTimer;
 use crate::common::retry::Retryable;
 use crate::common::slot;
-use crate::common::slot::{LocalClock, Parity, Slot};
+use crate::common::slot::{LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::realm::RealmProcessor;
 
 type C = PoseidonGoldilocksConfig;
@@ -279,7 +279,7 @@ impl
         ))
     }
 
-    pub async fn build_block(&mut self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
+    pub async fn build_block(&self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
         let ctx = self.ctx.clone();
         let now = Instant::now();
         self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
@@ -510,9 +510,18 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         }
 
         let slot = slot_timer_other.get_current_slot();
-        let now = Instant::now();
-        if let Err(err) = coordinator_processor.build_block(next_checkpoint_id, slot).await {
-            error!("❌ Failed to build block: {:?}, slot: {}", err, slot);
+        match tokio::time::timeout(
+            Duration::from_secs(2 * SLOT_SIZE),
+            coordinator_processor.build_block(next_checkpoint_id, slot)
+        ).await {
+            Ok(Err(err)) => {
+                error!("❌ Failed to build block: {:?}, slot: {}", err, slot);
+            }
+            Err(err) => {
+                coordinator_processor.ctx.rollback(next_checkpoint_id).await?;
+                error!("Timeout waiting {:?} for produce block, slot: {}", err, slot);
+            }
+            _ => {}
         }
     }
 }
