@@ -67,16 +67,17 @@ pub struct RealmProcessor {
     pub config_path: String,
     pub is_synced: AtomicBool,
     pub pending_checkpoint_id: AtomicU64,
+    pub shutdown_requested: Arc<AtomicBool>,
 }
 
-pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
-    let mut realm_processor = RealmProcessor::new(config).await?;
+pub async fn run_realm_processor(config: RealmNodeConfig, shutdown_requested: Arc<AtomicBool>) -> anyhow::Result<()> {
+    let mut realm_processor = RealmProcessor::new(config, shutdown_requested).await?;
     let _ = realm_processor.start().await?;
     Ok(())
 }
 
 impl RealmProcessor {
-    pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
+    pub async fn new(config: RealmNodeConfig, shutdown_requested: Arc<AtomicBool>) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
         let pool = new_redis_async_pool(
             config.redis.redis_uri.as_str(),
@@ -107,6 +108,7 @@ impl RealmProcessor {
             config_path: config.config_path.clone(),
             is_synced: AtomicBool::new(false),
             pending_checkpoint_id: AtomicU64::new(0),
+            shutdown_requested,
         };
         Ok(processor)
     }
@@ -154,11 +156,19 @@ impl RealmProcessor {
         let context = self.context().await?;
         tokio::join!(
             async {loop {
+                if self.shutdown_requested.load(Ordering::Relaxed) && self.pending_checkpoint_id.load(Ordering::Relaxed) == 0 {
+                    info!("Shutdown requested, exiting");
+                    break;
+                }
                 if let Err(err) = self.sync_handle(&context).await {
                     error!("Sync handle error: {:?}", err);
                 }
             }},
             async {loop {
+                if self.shutdown_requested.load(Ordering::Relaxed) {
+                    info!("Shutdown requested, exiting");
+                    break;
+                }
                 if let Err(err) =  self.block_handle(&context).await {
                     error!("Block handle error: {:?}, pending_checkpoint_id: {}", err, self.pending_checkpoint_id.load(Ordering::Relaxed));
                 }
