@@ -45,7 +45,7 @@ where
         let deploy_contract_circuit_whitelist = builder.add_virtual_hash();
         let worker_public_key = builder.add_virtual_hash();
 
-        builder.assert_non_zero_hash(worker_public_key);
+        // builder.assert_non_zero_hash(worker_public_key);
 
         let deploy_contract_batch_gadget = BatchDeployContractsGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,

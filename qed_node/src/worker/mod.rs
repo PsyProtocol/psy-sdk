@@ -2,6 +2,7 @@ pub mod job_tracker;
 pub mod simple_async_coord;
 pub mod simple_async_realm;
 pub mod worker_state;
+pub mod client;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
@@ -33,6 +34,7 @@ pub async fn run_worker(
     library: Arc<SimpleCircuitLibrary<F>>,
     wallet: Arc<Wallet>,
     worker_public_key: QHashOut<F>,
+    user_id: u64,
 ) -> anyhow::Result<()> {
     info!("Running worker for edge: {}", edge_url);
     let job_client = JobClient::new(edge_url).await?;
@@ -40,8 +42,7 @@ pub async fn run_worker(
     let store = job_client.clone();
     let job_receiver = job_client;
     let worker_pk_str = worker_public_key.to_string();
-    info!("⭐ worker pk str = {}", worker_pk_str);
-
+    info!("⭐ worker public key = {}, user id = {}", worker_pk_str, user_id);
     loop {
         tokio::time::sleep(Duration::from_millis(500)).await;
         let job = match job_receiver.get_next_job(wallet.clone(), &worker_pk_str).await {

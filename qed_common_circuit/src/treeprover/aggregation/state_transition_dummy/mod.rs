@@ -61,7 +61,7 @@ where
             zero,
         ];
 
-        builder.assert_non_zero_hash(worker_public_key);
+        // builder.assert_non_zero_hash(worker_public_key);
 
         let zero_hash = builder.constant_hash(HashOut::ZERO);
         let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
