@@ -152,14 +152,18 @@ impl RealmProcessor {
             info!("Found {} pending users in Redis queue during recovery", pending_users_count);
         }
         let context = self.context().await?;
-        loop {
-            if let Err(err) = self.sync_handle(&context).await {
-                error!("Sync handle error: {:?}", err);
-            }
-            if let Err(err) = self.block_handle(&context).await {
-                error!("Block handle error: {:?}, pending_checkpoint_id: {}", err, self.pending_checkpoint_id.load(Ordering::Relaxed));
-            }
-        }
+        tokio::join!(
+            async {loop {
+                if let Err(err) = self.sync_handle(&context).await {
+                    error!("Sync handle error: {:?}", err);
+                }
+            }},
+            async {loop {
+                if let Err(err) =  self.block_handle(&context).await {
+                    error!("Block handle error: {:?}, pending_checkpoint_id: {}", err, self.pending_checkpoint_id.load(Ordering::Relaxed));
+                }
+            }}
+        );
         Ok(())
     }
 
