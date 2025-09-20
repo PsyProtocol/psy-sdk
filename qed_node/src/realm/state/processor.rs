@@ -22,7 +22,7 @@ use qed_core::{
 use qed_crypto::{
     common::{cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id},
     hash::{merkle::{
-            core::{DeltaMerkleProofCore, MerkleProofCore},
+            core::{DeltaMerkleProofCore, MerkleProofCore, compute_historical_and_current_merkle_roots_core_gt},
             treeprover::{data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition},
             utils::common::{QMerkleNode, SimpleMerkleNodeKey},
         }, traits::qhashable::QFieldHashable}
@@ -547,6 +547,12 @@ impl<
             ));
         } else if guta_queue_items.len() == 1 {
             debug!("Single GUTA queue item");
+            let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&guta_queue_items[0].checkpoint_tree_proof);
+            assert!(current_root == guta_queue_items[0].checkpoint_tree_proof.root);
+            assert!(current_root == checkpoint_tree_root);
+            assert!(historical_root == guta_queue_items[0].input.state_transition.checkpoint_tree_root_hash);
+
+            assert_eq!(guta_queue_items[0].input.state_transition.checkpoint_tree_root_hash, checkpoint_tree_root);
             let single = CircuitInputWithDependencies::<VerifySingleEndCapInput<F>> {
                 input: VerifySingleEndCapInput {
                     guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
@@ -629,7 +635,12 @@ impl<
         for guta_queue_item in guta_queue_items.iter_mut() {
             if guta_queue_item.checkpoint_tree_proof.root != checkpoint_tree_root {
                 tracing::warn!("Checkpoint tree root in GUTA queue item does not match checkpoint tree root in store, checkpoint_id: {}, guta_queue_item checkpoint tree root: {}, store checkpoint tree root: {}", checkpoint_id, guta_queue_item.checkpoint_tree_proof.root, checkpoint_tree_root);
-                let checkpoint_tree_proof = self.store.get_checkpoint_tree_merkle_proof(checkpoint_id, guta_queue_item.checkpoint_id).await?;
+                let checkpoint_tree_proof = self.store.get_checkpoint_tree_merkle_proof(real_checkpoint_id, guta_queue_item.checkpoint_id).await?;
+
+                let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
+                assert!(current_root == checkpoint_tree_proof.root);
+                assert!(current_root == checkpoint_tree_root);
+                assert!(historical_root == guta_queue_item.input.state_transition.checkpoint_tree_root_hash);
                 guta_queue_item.checkpoint_tree_proof = checkpoint_tree_proof;
             }
         }

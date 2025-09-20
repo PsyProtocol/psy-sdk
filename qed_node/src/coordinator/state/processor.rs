@@ -73,6 +73,7 @@ use qed_store::{
         task_queue::QProvingTaskStore,
     },
 };
+use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
 use qed_store::store::journal::{Journal, JournalStore};
@@ -445,6 +446,11 @@ impl<
                 tracing::warn!("Checkpoint tree root in GUTA queue item does not match last checkpoint tree root");
                 let real_guta_checkpoint_id = guta_queue_items[0].checkpoint_id.saturating_sub(1);
                 let historical_checkpoint_proof = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_guta_checkpoint_id).await?;
+                assert!(historical_checkpoint_proof.root == last_checkpoint_tree_root);
+                let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&historical_checkpoint_proof);
+                assert!(current_root == historical_checkpoint_proof.root);
+                assert!(current_root == last_checkpoint_tree_root);
+                assert!(historical_root == guta_queue_items[0].checkpoint_tree_root);
                 let rw = VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple {
                     historical_checkpoint_proof,
                     guta_proof_header: GlobalUserTreeAggregatorHeader {

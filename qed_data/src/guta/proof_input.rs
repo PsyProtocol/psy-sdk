@@ -3,7 +3,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::{HashOut, RichField};
 use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::id::QProvingJobDataID};
-use qed_crypto::hash::{merkle::{core::{compute_historical_and_current_merkle_roots_core, compute_historical_and_current_merkle_roots_core_qho, DeltaMerkleProofCore, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
+use qed_crypto::hash::{merkle::{core::{compute_historical_and_current_merkle_roots_core_gt, compute_historical_and_current_merkle_roots_core_gt_qho, DeltaMerkleProofCore, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf};
@@ -125,7 +125,7 @@ impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
     pub fn get_guta_header_a<H: MerkleZeroHasher<QHashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_a.root,
-            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core::<QHashOut<F>, H>(
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, H>(
                 &self.historical_checkpoint_proof_a
             ).0,
             state_transition: SubTreeNodeStateTransition {
@@ -140,7 +140,7 @@ impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
     pub fn get_guta_header_b<H: MerkleZeroHasher<QHashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_b.root,
-            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core::<QHashOut<F>, H>(
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, H>(
                 &self.historical_checkpoint_proof_b
             ).0,
             state_transition: SubTreeNodeStateTransition {
@@ -155,7 +155,7 @@ impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
     pub fn get_guta_header_a_ho<H: MerkleZeroHasher<HashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_a.root,
-            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_qho::<F, H>(
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt_qho::<F, H>(
                 &self.historical_checkpoint_proof_a
             ).0,
             state_transition: SubTreeNodeStateTransition {
@@ -170,7 +170,7 @@ impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
     pub fn get_guta_header_b_ho<H: MerkleZeroHasher<HashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_b.root,
-            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_qho::<F, H>(
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt_qho::<F, H>(
                 &self.historical_checkpoint_proof_b
             ).0,
             state_transition: SubTreeNodeStateTransition {

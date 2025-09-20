@@ -9,6 +9,7 @@ use tracing::debug;
 use crate::realm::{C, D, F, H};
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
 use qed_crypto::hash::traits::hasher::FieldQHasher;
+use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
 
 use super::processor::RealmConfig;
 
@@ -124,6 +125,9 @@ impl<
             .store_reader
             .get_checkpoint_tree_merkle_proof(checkpoint_id, end_cap_checkpoint_id)
             .await?;
+        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
+        assert!(current_root == checkpoint_tree_proof.root);
+        assert!(historical_root == input.core.state_transition.checkpoint_tree_root_hash);
 
         if checkpoint_tree_proof.root != input.core.state_transition.checkpoint_tree_root_hash {
             tracing::warn!(
