@@ -293,4 +293,11 @@ pub struct StressTestArgs {
 
     #[arg(long, default_value = "false", help = "Only run user mint")]
     pub only_mint: bool,
+
+    #[arg(long, default_value = "false", help = "Only deploy contract")]
+    pub only_deploy_contract: bool,
+
+    #[arg(long, default_value = "contract.json", help = "Path to contract file")]
+    pub contract_path: String,
+
 }
