@@ -317,13 +317,17 @@ impl Multicast {
         let mint_amount = 250000000000u64;
         let (from_user_id, public_key0) = self.init_user0(mint_amount)?;
         if contract_path.is_empty() {
-            contract_path = "../examples/target/examples.json".to_string();
+            contract_path = "../../../../qed_precompiles/token/target/token.json".to_string();
         }
+        info!("deploying contract from {}", contract_path.clone());
         let defs_array: Vec<DPNFunctionCircuitDefinition> =
             serde_json::from_str(&fs::read_to_string(contract_path)?)?;
-        tracing::info!("deploying contract");
-        self.wallet_session.read().deploy_contract(public_key0, defs_array)?;
-        tracing::info!("contract deployed");
+        for i in 0..count {
+            tracing::info!("deploying contract for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
+            self.wallet_session.read().deploy_contract(public_key0, defs_array.clone())?;
+            tracing::info!("contract deployed for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
+        }
+        info!("user_deploy_contract: end call");
         Ok(())
     }
 
