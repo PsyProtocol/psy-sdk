@@ -14,6 +14,7 @@ mod cache_tests;
 mod test_helpers;
 
 use auto_impl::auto_impl;
+use serde::{Deserialize, Serialize};
 use crate::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 
 #[async_trait::async_trait]
@@ -37,7 +38,7 @@ pub trait KVQBinaryStoreCachedTrait: KVQBinaryStore {
     fn get_non_removed_keys(&self) -> Vec<Vec<u8>>;
     fn get_removed_keys(&self) -> Vec<Vec<u8>>;
 }
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq,Serialize,Deserialize)]
 pub enum CacheValueType {
     Bytes(Vec<u8>),
     Removed,
