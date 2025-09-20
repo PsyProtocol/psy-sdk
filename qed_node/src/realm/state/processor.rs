@@ -693,7 +693,7 @@ impl<
 
                 updates.push(KVQPair {
                     key: w_id,
-                    value: bincode::serialize(&x)?,
+                    value: bincode::serialize(&x).map_err(|e| anyhow::anyhow!("serialize x: {:?}", e))?,
                 });
             } else if r_dep_ind != -1 && l_dep_ind != -1 {
                 debug!("Both GUTA dependencies exist");
@@ -731,7 +731,7 @@ impl<
 
                 updates.push(KVQPair {
                     key: w_id,
-                    value: bincode::serialize(&x)?,
+                    value: bincode::serialize(&x).map_err(|e| anyhow::anyhow!("serialize x: {:?}", e))?,
                 });
             } else if l_dep_ind != -1 {
                 debug!("Left GUTA dependency exists");
@@ -771,14 +771,14 @@ impl<
 
                 updates.push(KVQPair {
                     key: w_id,
-                    value: bincode::serialize(&x)?,
+                    value: bincode::serialize(&x).map_err(|e| anyhow::anyhow!("serialize x: {:?}", e))?,
                 });
             } else {
                 panic!("unsupoorted");
             }
         }
 
-        self.proof_store.set_bytes_by_id_batch(&updates).await?;
+        self.proof_store.set_bytes_by_id_batch(&updates).await.map_err(|e| anyhow::anyhow!("set_bytes_by_id_batch: {:?}", e))?;
 
         let levels = res
             .get_index_levels()
