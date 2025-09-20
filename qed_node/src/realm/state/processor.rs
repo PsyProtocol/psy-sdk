@@ -509,9 +509,12 @@ impl<
             checkpoint_id,
         ).await?;
         debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items).unwrap(), "GUTA queue items for aggregation");
+
+        let real_checkpoint_id = checkpoint_id.saturating_sub(1);
+        let checkpoint_tree_root = self.store.get_checkpoint_tree_root(real_checkpoint_id).await?;
         if guta_queue_items.len() == 0 {
             debug!("No GUTA queue items to aggregate");
-            let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
+            // let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
             let last_user_tree_root = self
                 .store
                 .get_user_bottom_tree_merkle_proof(
@@ -549,7 +552,7 @@ impl<
                     guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
                     a_end_cap: VerifyEndCapSimpleStandardInput {
                         guta_stats: guta_queue_items[0].input.stats,
-                        checkpoint_root: guta_queue_items[0].checkpoint_tree_proof.root,
+                        checkpoint_root: guta_queue_items[0].input.state_transition.checkpoint_tree_root_hash,
                         checkpoint_historical_merkle_proof: guta_queue_items[0]
                             .checkpoint_tree_proof
                             .clone(),
@@ -614,13 +617,23 @@ impl<
                 .await?;
             return Ok((
                 vec![vec![id]],
-                single.input.get_guta_header_a(),
+                single.input.get_new_guta_header(),
                 r.link_proof,
                 graph,
             ));
         }
 
         guta_queue_items.sort_by(|a, b| a.input.new_user_leaf.user_id.to_canonical_u64().cmp(&b.input.new_user_leaf.user_id.to_canonical_u64()));
+
+        // updata checkpoint tree merkle proof
+        for guta_queue_item in guta_queue_items.iter_mut() {
+            if guta_queue_item.checkpoint_tree_proof.root != checkpoint_tree_root {
+                tracing::warn!("Checkpoint tree root in GUTA queue item does not match checkpoint tree root in store, checkpoint_id: {}, guta_queue_item checkpoint tree root: {}, store checkpoint tree root: {}", checkpoint_id, guta_queue_item.checkpoint_tree_proof.root, checkpoint_tree_root);
+                let checkpoint_tree_proof = self.store.get_checkpoint_tree_merkle_proof(checkpoint_id, guta_queue_item.checkpoint_id).await?;
+                guta_queue_item.checkpoint_tree_proof = checkpoint_tree_proof;
+            }
+        }
+
         tracing::debug!("sorted guta_queue_items: {}", serde_json::to_string_pretty(&guta_queue_items)?);
         let mnu = guta_queue_items
             .iter()
@@ -737,13 +750,14 @@ impl<
                 debug!("Left GUTA dependency exists");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
+                let last_guta_item = guta_queue_items.last().unwrap();
                 let x = CircuitInputWithDependencies {
                     input: VerifyLeftGUTARightEndCapInputSimple {
                         checkpoint_tree_root: a_checkpoint_tree_root,
                         b_end_cap: VerifyEndCapSimpleStandardInput {
-                            guta_stats: guta_queue_items[0].input.stats,
-                            checkpoint_root: guta_queue_items[0].checkpoint_tree_proof.root,
-                            checkpoint_historical_merkle_proof: guta_queue_items[0]
+                            guta_stats: last_guta_item.input.stats.clone(),
+                            checkpoint_root: last_guta_item.checkpoint_tree_proof.root.clone(),
+                            checkpoint_historical_merkle_proof: last_guta_item
                                 .checkpoint_tree_proof
                                 .clone(),
                         },
@@ -752,7 +766,7 @@ impl<
                     },
                     dependencies: vec![
                         l_proof_id.get_output_id(),
-                        guta_queue_items.last().as_ref().unwrap().proof_id.get_output_id(),
+                        last_guta_item.proof_id.get_output_id(),
                     ],
                 };
                 let w_id = QProvingJobDataID::new(

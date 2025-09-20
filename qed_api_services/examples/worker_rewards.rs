@@ -280,6 +280,8 @@ fn create_guta_job_id(_job_name: &str, circuit_type_name: &str) -> serde_json::V
         "GUTAVerifyToCap" => ProvingJobCircuitType::GUTAVerifyToCap,
         "GUTAOnlyRegisterUsers" => ProvingJobCircuitType::GUTAOnlyRegisterUsers,
         "GUTANoChange" => ProvingJobCircuitType::GUTANoChange,
+        "GUTATwoGUTAWithCheckpointUpgrade" => ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade,
+        "GUTAVerifyToCapWithCheckpointUpgrade" => ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade,
         _ => ProvingJobCircuitType::GUTATwoEndCap, // Default fallback
     };
 

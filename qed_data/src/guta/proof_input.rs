@@ -1,9 +1,9 @@
 
 
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::{HashOut, RichField};
 use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::id::QProvingJobDataID};
-use qed_crypto::hash::{merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
+use qed_crypto::hash::{merkle::{core::{compute_historical_and_current_merkle_roots_core, compute_historical_and_current_merkle_roots_core_qho, DeltaMerkleProofCore, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf};
@@ -82,7 +82,107 @@ impl<F: RichField> VerifyTwoGUTAProofGadgetStandardInput<F> {
 }
 
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<F: RichField> {
+    pub historical_checkpoint_proof_a: MerkleProofCore<QHashOut<F>>,
+    pub historical_checkpoint_proof_b: MerkleProofCore<QHashOut<F>>,
+    pub stats_a: GUTAStats<F>,
+    pub stats_b: GUTAStats<F>,
+    pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
+}
+impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<F> {
+    pub fn get_combined_stats(&self) -> GUTAStats<F> {
+        self.stats_a.combine_with(&self.stats_b)
+    }
+} 
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F: RichField> {
+    pub historical_checkpoint_proof_a: MerkleProofCore<QHashOut<F>>,
+    pub historical_checkpoint_proof_b: MerkleProofCore<QHashOut<F>>,
+    pub stats_a: GUTAStats<F>,
+    pub stats_b: GUTAStats<F>,
+    pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
+
+    pub guta_inclusion_proof_a: MerkleProofCore<QHashOut<F>>,
+    pub guta_inclusion_proof_b: MerkleProofCore<QHashOut<F>>,
+}
+
+impl<F: RichField> KVQSerializable for VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+
+impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
+    pub fn get_guta_header_a<H: MerkleZeroHasher<QHashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_inclusion_proof_a.root,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core::<QHashOut<F>, H>(
+                &self.historical_checkpoint_proof_a
+            ).0,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.nca_proof.child_a.old_value,
+                new_node_value: self.nca_proof.child_a.new_value,
+                node_index: F::from_canonical_u64(self.nca_proof.get_a_node_key().index),
+                node_level: F::from_canonical_u8(self.nca_proof.get_level_a()),
+            },
+            stats: self.stats_a,
+        }
+    }
+    pub fn get_guta_header_b<H: MerkleZeroHasher<QHashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_inclusion_proof_b.root,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core::<QHashOut<F>, H>(
+                &self.historical_checkpoint_proof_b
+            ).0,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.nca_proof.child_b.old_value,
+                new_node_value: self.nca_proof.child_b.new_value,
+                node_index: F::from_canonical_u64(self.nca_proof.get_b_node_key().index),
+                node_level: F::from_canonical_u8(self.nca_proof.get_level_b()),
+            },
+            stats: self.stats_b,
+        }
+    }
+    pub fn get_guta_header_a_ho<H: MerkleZeroHasher<HashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_inclusion_proof_a.root,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_qho::<F, H>(
+                &self.historical_checkpoint_proof_a
+            ).0,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.nca_proof.child_a.old_value,
+                new_node_value: self.nca_proof.child_a.new_value,
+                node_index: F::from_canonical_u64(self.nca_proof.get_a_node_key().index),
+                node_level: F::from_canonical_u8(self.nca_proof.get_level_a()),
+            },
+            stats: self.stats_a,
+        }
+    }
+    pub fn get_guta_header_b_ho<H: MerkleZeroHasher<HashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_inclusion_proof_b.root,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_qho::<F, H>(
+                &self.historical_checkpoint_proof_b
+            ).0,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.nca_proof.child_b.old_value,
+                new_node_value: self.nca_proof.child_b.new_value,
+                node_index: F::from_canonical_u64(self.nca_proof.get_b_node_key().index),
+                node_level: F::from_canonical_u8(self.nca_proof.get_level_b()),
+            },
+            stats: self.stats_b,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -176,6 +276,19 @@ impl<F: RichField> VerifySingleEndCapInput<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_circuit_whitelist,
             checkpoint_tree_root: self.a_end_cap.checkpoint_root,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.start_user_leaf_hash,
+                new_node_value: self.end_user_leaf_hash,
+                node_index: self.user_id,
+                node_level: F::from_canonical_u8(GLOBAL_USER_TREE_HEIGHT),
+            },
+            stats: self.a_end_cap.guta_stats,
+        }
+    }
+    pub fn get_new_guta_header(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_circuit_whitelist,
+            checkpoint_tree_root: self.a_end_cap.checkpoint_historical_merkle_proof.root,
             state_transition: SubTreeNodeStateTransition {
                 old_node_value: self.start_user_leaf_hash,
                 new_node_value: self.end_user_leaf_hash,
@@ -486,6 +599,66 @@ impl<F: RichField> VerifyGUTAToCapCircuitInputSimple<F> {
     }
 }
 impl<F: RichField> KVQSerializable for VerifyGUTAToCapCircuitInputSimple<F> {
+    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F: RichField> {
+    pub guta_proof_header: GlobalUserTreeAggregatorHeader<F>,
+    pub top_line_siblings: Vec<QHashOut<F>>,
+    pub historical_checkpoint_proof: MerkleProofCore<QHashOut<F>>,
+}
+
+impl<F: RichField> VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F> {
+    pub fn get_new_state_transition<H: FieldQHasher<F>>(&self) -> SubTreeNodeStateTransition<F> {
+
+        if self.top_line_siblings.len() == 0 {
+            self.guta_proof_header.state_transition.clone()
+        }else{
+            
+
+            let new_dmp = DeltaMerkleProofCore::from_params::<H>(
+                self.guta_proof_header.state_transition.node_index.to_canonical_u64(), 
+                self.guta_proof_header.state_transition.old_node_value, 
+                self.guta_proof_header.state_transition.new_node_value,
+                self.top_line_siblings.clone(),
+            );
+
+            SubTreeNodeStateTransition{
+                old_node_value: new_dmp.old_root,
+                new_node_value: new_dmp.new_root,
+                node_index:F::from_canonical_u64 (
+                    self.guta_proof_header.state_transition.node_index.to_canonical_u64()>>(self.top_line_siblings.len() as u64)
+                ),
+                node_level: F::from_canonical_u64 (
+                    self.guta_proof_header.state_transition.node_level.to_canonical_u64()-(self.top_line_siblings.len() as u64)
+                ),
+            }
+        }
+
+    }
+    pub fn get_new_guta_header<H: FieldQHasher<F>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+
+
+        GlobalUserTreeAggregatorHeader{
+            guta_circuit_whitelist: self.guta_proof_header.guta_circuit_whitelist,
+            // upgraded to the new root for the new header
+            checkpoint_tree_root: self.historical_checkpoint_proof.root,
+            state_transition: self.get_new_state_transition::<H>(),
+            stats: self.guta_proof_header.stats,
+        }
+
+    }
+}
+impl<F: RichField> KVQSerializable for VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
