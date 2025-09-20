@@ -246,6 +246,12 @@ impl CoordinatorEdgeHandler {
         if input.checkpoint_id.saturating_sub(1) < checkpoint_id {
             warn!("⚠️ got guta at old checkpoint {}, expected {}", input.checkpoint_id.saturating_sub(1), checkpoint_id);
         }
+
+        let expected_realm_checkpoint_tree_root = QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_root(&self.store, input.checkpoint_id.saturating_sub(1)).await?;
+        if expected_realm_checkpoint_tree_root != input.checkpoint_tree_root {
+            anyhow::bail!("invalid checkpoint tree root {} from realm, expected {}", input.checkpoint_tree_root, expected_realm_checkpoint_tree_root);
+        }
+
         let checkpoint_queue = self.ctx.checkpoint_queue.clone();
         let proof_store = self.ctx.proof_store.clone();
         let config = self.ctx.coordinator_config.clone();
