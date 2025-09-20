@@ -712,8 +712,12 @@ impl<
                 );
                 combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&r_stats)));
 
-                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
-                let b_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[r_dep_ind as usize].value)?.input.checkpoint_tree_root;
+                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)
+                .map_err(|e| anyhow::anyhow!("deserialize updates[l_dep_ind as usize].value: {:?}", e))?
+                .input.checkpoint_tree_root;
+                let b_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[r_dep_ind as usize].value)
+                .map_err(|e| anyhow::anyhow!("deserialize updates[r_dep_ind as usize].value: {:?}", e))?
+                .input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoGUTAProofGadgetStandardInputSimple {
                         checkpoint_tree_root: a_checkpoint_tree_root,
@@ -736,7 +740,9 @@ impl<
             } else if l_dep_ind != -1 {
                 debug!("Left GUTA dependency exists");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
-                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
+                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)
+                .map_err(|e| anyhow::anyhow!("deserialize updates[l_dep_ind as usize].value: {}", e))? //TODO: fix bug  io: error
+                .input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
                     input: VerifyLeftGUTARightEndCapInputSimple {
                         checkpoint_tree_root: a_checkpoint_tree_root,
