@@ -494,35 +494,6 @@ impl WalletSession {
         Ok(())
     }
 
-    async fn check_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
-        let latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
-        let max_retries = 3;
-        let mut retries = 0;
-        loop {
-            let realm_latest_l2_block_state = self.st_provider.get_realm_latest_l2_block_state().await?;
-            if realm_latest_l2_block_state.checkpoint_id < latest_l2_block_state.checkpoint_id {
-                tracing::info!(
-                    "realm latest checkpoint {} is behind coordinator, wait for 1s",
-                    realm_latest_l2_block_state.checkpoint_id
-                );
-                crate::session::sleep(std::time::Duration::from_secs(1)).await;
-            } else {
-                tracing::info!(
-                    "realm latest checkpoint {} is up to coordinator",
-                    realm_latest_l2_block_state.checkpoint_id
-                );
-                break;
-            }
-            retries += 1;
-            if retries >= max_retries {
-                return Err(anyhow::format_err!(
-                    "realm latest checkpoint {} is behind coordinator, max retries reached",
-                    realm_latest_l2_block_state.checkpoint_id
-                ));
-            }
-        }
-        Ok(latest_l2_block_state)
-    }
 
     pub async fn start_session(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
         tracing::info!("start new user proving session");
@@ -531,7 +502,29 @@ impl WalletSession {
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
-        let latest_l2_block_state = self.check_block_state().await?;
+        
+        let latest_l2_block_state = user_session_mgr.rpc_provider.get_realm_latest_l2_block_state().await?;
+        let global_latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
+
+        if latest_l2_block_state.checkpoint_id <= global_latest_l2_block_state.checkpoint_id {
+            tracing::info!(
+                "block state: user_id {}, realm latest checkpoint {}, coordinator checkpoint {}",
+                user_session_mgr.user_id,
+                latest_l2_block_state.checkpoint_id,
+                global_latest_l2_block_state.checkpoint_id
+            );
+        } else {
+            tracing::error!(
+                "realm latest checkpoint {} is ahead coordinator checkpoint {}",
+                latest_l2_block_state.checkpoint_id,
+                global_latest_l2_block_state.checkpoint_id
+            );
+            return Err(anyhow::format_err!(
+                "realm latest checkpoint {} is ahead of coordinator checkpoint {}",
+                latest_l2_block_state.checkpoint_id,
+                global_latest_l2_block_state.checkpoint_id
+            ))
+        };
 
         match user_session_mgr.user_state {
             UserState::Active => {
