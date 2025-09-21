@@ -185,9 +185,8 @@ impl RealmProcessor {
     }
 
     async fn sync_handle(&self, context: &ConcreteRealmProcessorContext) -> anyhow::Result<()> {
-        let ret = self.ensure_checkpoint_sync().await?;
+        let ret = self.ensure_checkpoint_sync(context).await?;
         trace!("Checkpoint sync completed");
-        self.confirm_checkpoint(context,ret).await?;
         Ok(())
     }
 
@@ -268,13 +267,16 @@ impl RealmProcessor {
         }
         self.sync_proof.chq_push_imm(proving_data_job_id).await?;
         self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
+        context.store.save_snapshot(next_checkpoint_id)?;
         info!("build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
         Ok(())
     }
 
     async fn ensure_checkpoint_sync(
         &self,
+        context: &ConcreteRealmProcessorContext
     ) -> anyhow::Result<SyncCheckpointResult> {
+        let sync_ctx = &self.context().await?;
         loop {
             let (expected_checkpoint,local_checkpoint_id) = if let Ok(local_checkpoint_id) = self.get_local_latest_checkpoint_id().await {
                 // Get the next expected checkpoint
@@ -282,10 +284,12 @@ impl RealmProcessor {
             } else {
                 (0, 0)
             };
-            let ctx = &self.context().await?;
-            match self.sync_checkpoint(ctx, expected_checkpoint, local_checkpoint_id).await {
+            match self.sync_checkpoint(sync_ctx, expected_checkpoint, local_checkpoint_id).await {
                 Ok(ret) => {
                     self.is_synced.store(ret.is_synced, atomic::Ordering::Relaxed);
+                    if self.pending_checkpoint_id.load(Ordering::Relaxed) == ret.checkpoint_id {
+                        self.confirm_checkpoint(context,ret.clone()).await?;
+                    }
                     if ret.is_synced {
                         // Sync completed
                         return Ok(ret)
@@ -516,6 +520,7 @@ impl RealmProcessor {
 
 impl Retryable for RealmProcessor {}
 
+#[derive(Debug, Clone)]
 pub struct SyncCheckpointResult {
     pub checkpoint_id: u64,
     pub latest_checkpoint_id: u64,
