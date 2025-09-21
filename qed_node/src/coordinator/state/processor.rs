@@ -644,6 +644,7 @@ impl<
                         input,
                         dependencies: vec![guta_queue_items[i * 2].proof_id, guta_queue_items[i * 2 + 1].proof_id],
                     };
+                    x.input.check_witness()?;
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         checkpoint_id,
@@ -680,6 +681,7 @@ impl<
                         input,
                         dependencies: vec![guta_queue_items[i * 2].proof_id, guta_queue_items[i * 2 + 1].proof_id],
                     };
+                    x.input.check_witness()?;
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         checkpoint_id,
@@ -767,6 +769,7 @@ impl<
                             last_guta_item.proof_id,
                         ],
                     };
+                    x.input.check_witness()?;
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         checkpoint_id,
@@ -803,6 +806,7 @@ impl<
                             last_guta_item.proof_id,
                         ],
                     };
+                    x.input.check_witness()?;
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         checkpoint_id,

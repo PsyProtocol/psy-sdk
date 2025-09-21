@@ -1,12 +1,12 @@
 
 
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::{HashOut, RichField};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::{HashOut, RichField}};
 use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::id::QProvingJobDataID};
 use qed_crypto::hash::{merkle::{core::{compute_historical_and_current_merkle_roots_core_gt, compute_historical_and_current_merkle_roots_core_gt_qho, DeltaMerkleProofCore, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf};
+use crate::{config::store_config::QEDHasher, qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf}};
 
 use super::{header::GlobalUserTreeAggregatorHeader, stats::GUTAStats};
 
@@ -23,6 +23,11 @@ pub struct VerifyTwoGUTAProofGadgetStandardInputSimple<F: RichField> {
 impl<F: RichField> VerifyTwoGUTAProofGadgetStandardInputSimple<F> {
     pub fn get_combined_stats(&self) -> GUTAStats<F> {
         self.stats_a.combine_with(&self.stats_b)
+    }
+
+    pub fn check_witness(&self) -> anyhow::Result<()> {
+        // todo: check nca proof
+        Ok(())
     }
 } 
 
@@ -94,6 +99,23 @@ pub struct VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<F: RichField> 
 impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<F> {
     pub fn get_combined_stats(&self) -> GUTAStats<F> {
         self.stats_a.combine_with(&self.stats_b)
+    }
+}
+
+impl VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<GoldilocksField> {
+    pub fn check_witness(&self) -> anyhow::Result<()> {
+        let (_historical_root_a, current_root_a) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.historical_checkpoint_proof_a);
+        let (_historical_root_b, current_root_b) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.historical_checkpoint_proof_b);
+        if current_root_a != self.historical_checkpoint_proof_a.root {
+            return Err(anyhow::anyhow!("two guta upgrade checkpoint historical_checkpoint_proof_a not match"));
+        }
+        if current_root_b != self.historical_checkpoint_proof_b.root {
+            return Err(anyhow::anyhow!("two guta upgrade checkpoint historical_checkpoint_proof_b not match"));
+        }
+        if current_root_a != current_root_b {
+            return Err(anyhow::anyhow!("two guta upgrade checkpoint current checkpoint root not match"));
+        }
+        Ok(())
     }
 } 
 
@@ -191,6 +213,19 @@ pub struct VerifyEndCapSimpleStandardInput<F: RichField> {
     pub checkpoint_root: QHashOut<F>,
     pub checkpoint_historical_merkle_proof: MerkleProofCore<QHashOut<F>>,
 }
+
+impl VerifyEndCapSimpleStandardInput<GoldilocksField> {
+    pub fn check_witness(&self) -> anyhow::Result<()> {
+        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.checkpoint_historical_merkle_proof);
+        if self.checkpoint_root != historical_root {
+            return Err(anyhow::anyhow!("end result historical root not match"));
+        }
+        if current_root != self.checkpoint_historical_merkle_proof.root {
+            return Err(anyhow::anyhow!("end result current root not match"));
+        }
+        Ok(())
+    }
+}
 impl<F: RichField> KVQSerializable for VerifyEndCapSimpleStandardInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
@@ -242,7 +277,20 @@ impl<F: RichField> VerifyTwoEndCapCircuitInput<F> {
             user_id: F::from_canonical_u64(self.nca_proof.child_b.index),
         }
     }
-    
+
+}
+impl VerifyTwoEndCapCircuitInput<GoldilocksField> {
+    pub fn check_witness(&self) -> anyhow::Result<()> {
+        self.a_end_cap.check_witness()?;
+        self.b_end_cap.check_witness()?;
+
+        if self.a_end_cap.checkpoint_historical_merkle_proof.root != self.b_end_cap.checkpoint_historical_merkle_proof.root {
+            return Err(anyhow::anyhow!("two endcap current checkpoint root not match"));
+        }
+        // todo: check nca proof
+
+        Ok(())
+    }
 }
 impl<F: RichField> KVQSerializable for VerifyTwoEndCapCircuitInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -306,7 +354,28 @@ impl<F: RichField> VerifySingleEndCapInput<F> {
             user_id: self.user_id,
         }
     }
-    
+}
+impl VerifySingleEndCapInput<GoldilocksField> {
+    pub fn check_witness(&self) -> anyhow::Result<()> {
+        self.a_end_cap.check_witness()?;
+        let end_result = self.get_end_result_a();
+        let guta_new_header = self.get_new_guta_header();
+        if end_result.start_user_leaf_hash != guta_new_header.state_transition.old_node_value || 
+            end_result.end_user_leaf_hash != guta_new_header.state_transition.new_node_value ||
+            end_result.user_id != guta_new_header.state_transition.node_index {
+            return Err(anyhow::anyhow!("end result not match"));
+        }
+
+        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.a_end_cap.checkpoint_historical_merkle_proof);
+        if historical_root != end_result.checkpoint_tree_root_hash {
+            return Err(anyhow::anyhow!("historical root not match"));
+        }
+        if current_root != guta_new_header.checkpoint_tree_root {
+            return Err(anyhow::anyhow!("current root not match"));
+        }
+
+        Ok(())
+    }
 }
 impl<F: RichField> KVQSerializable for VerifySingleEndCapInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -331,6 +400,19 @@ pub struct VerifyLeftGUTARightEndCapInputSimple<F: RichField> {
     pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
 }
 
+impl VerifyLeftGUTARightEndCapInputSimple<GoldilocksField> {
+    pub fn check_witness(&self) -> anyhow::Result<()> {
+        self.b_end_cap.check_witness()?;
+        let (_historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.b_end_cap.checkpoint_historical_merkle_proof);
+        if current_root != self.checkpoint_tree_root {
+            return Err(anyhow::anyhow!("left guta right endcap checkpoint tree root not match"));
+        }
+        if current_root != self.b_end_cap.checkpoint_historical_merkle_proof.root {
+            return Err(anyhow::anyhow!("right endcap historical merkel proof not match"));
+        }
+        Ok(())
+    }
+}
 impl<F: RichField> KVQSerializable for VerifyLeftGUTARightEndCapInputSimple<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))

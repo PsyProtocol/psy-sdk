@@ -588,6 +588,7 @@ impl<
                 },
                 dependencies: vec![guta_queue_items[0].proof_id.get_output_id()],
             };
+            single.input.check_witness()?;
             self.store
                 .injest_user_leaves_batch_imm(
                     checkpoint_id,
@@ -676,7 +677,7 @@ impl<
         let mut combo_stats = Vec::with_capacity(res.nca_proofs.len());
         let mut graph = BidirectionalGraph::new();
 
-        let checkpoint_tree_root = guta_queue_items[0].checkpoint_tree_proof.root;
+        // let checkpoint_tree_root = guta_queue_items[0].checkpoint_tree_proof.root;
         for (i, p) in res.nca_proofs.iter().enumerate() {
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind == -1 && r_dep_ind == -1 {
@@ -693,6 +694,7 @@ impl<
                         guta_queue_items[i * 2 + 1].proof_id.get_output_id(),
                     ],
                 };
+                x.input.check_witness()?;
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
@@ -735,18 +737,19 @@ impl<
                 );
                 combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&r_stats)));
 
-                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
-                let b_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[r_dep_ind as usize].value)?.input.checkpoint_tree_root;
+                // let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
+                // let b_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[r_dep_ind as usize].value)?.input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoGUTAProofGadgetStandardInputSimple {
-                        checkpoint_tree_root: a_checkpoint_tree_root,
-                        b_checkpoint_tree_root,
+                        checkpoint_tree_root: checkpoint_tree_root,
+                        b_checkpoint_tree_root: checkpoint_tree_root,
                         stats_a: l_stats,
                         stats_b: r_stats,
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
                     dependencies: vec![l_proof_id.get_output_id(), r_proof_id.get_output_id()],
                 };
+                x.input.check_witness()?;
 
                 for dep in &x.dependencies {
                     graph.add_edge(w_id.get_output_id(), *dep)
@@ -779,6 +782,7 @@ impl<
                         last_guta_item.proof_id.get_output_id(),
                     ],
                 };
+                x.input.check_witness()?;
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
