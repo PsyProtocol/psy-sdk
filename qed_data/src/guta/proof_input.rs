@@ -278,6 +278,20 @@ impl<F: RichField> VerifyTwoEndCapCircuitInput<F> {
         }
     }
 
+    pub fn get_new_guta_header(&self) -> GlobalUserTreeAggregatorHeader<F> {
+        GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: self.guta_circuit_whitelist,
+            checkpoint_tree_root: self.a_end_cap.checkpoint_historical_merkle_proof.root,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: self.nca_proof.compute_old_nca_value::<QEDHasher>(),
+                new_node_value: self.nca_proof.compute_new_nca_value::<QEDHasher>(),
+                node_index: F::from_canonical_u64(self.nca_proof.get_nca_index()),
+                node_level: F::from_canonical_u8(self.nca_proof.nearest_common_ancestor_level),
+            },
+            stats: self.a_end_cap.guta_stats.combine_with(&self.b_end_cap.guta_stats),
+        }
+    }
+
 }
 impl VerifyTwoEndCapCircuitInput<GoldilocksField> {
     pub fn check_witness(&self) -> anyhow::Result<()> {
