@@ -693,7 +693,7 @@ impl<
 
                 updates.push(KVQPair {
                     key: w_id,
-                    value: bincode::serialize(&x)?,
+                    value: bincode::serialize(&x).map_err(|e| anyhow::anyhow!("serialize x: {:?}", e))?,
                 });
             } else if r_dep_ind != -1 && l_dep_ind != -1 {
                 debug!("Both GUTA dependencies exist");
@@ -712,8 +712,12 @@ impl<
                 );
                 combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&r_stats)));
 
-                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
-                let b_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[r_dep_ind as usize].value)?.input.checkpoint_tree_root;
+                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)
+                .map_err(|e| anyhow::anyhow!("deserialize updates[l_dep_ind as usize].value: {:?}", e))?
+                .input.checkpoint_tree_root;
+                let b_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[r_dep_ind as usize].value)
+                .map_err(|e| anyhow::anyhow!("deserialize updates[r_dep_ind as usize].value: {:?}", e))?
+                .input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoGUTAProofGadgetStandardInputSimple {
                         checkpoint_tree_root: a_checkpoint_tree_root,
@@ -731,12 +735,14 @@ impl<
 
                 updates.push(KVQPair {
                     key: w_id,
-                    value: bincode::serialize(&x)?,
+                    value: bincode::serialize(&x).map_err(|e| anyhow::anyhow!("serialize x: {:?}", e))?,
                 });
             } else if l_dep_ind != -1 {
                 debug!("Left GUTA dependency exists");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
-                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
+                let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)
+                .map_err(|e| anyhow::anyhow!("deserialize updates[l_dep_ind as usize].value: {}", e))? //TODO: fix bug  io: error
+                .input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
                     input: VerifyLeftGUTARightEndCapInputSimple {
                         checkpoint_tree_root: a_checkpoint_tree_root,
@@ -771,14 +777,14 @@ impl<
 
                 updates.push(KVQPair {
                     key: w_id,
-                    value: bincode::serialize(&x)?,
+                    value: bincode::serialize(&x).map_err(|e| anyhow::anyhow!("serialize x: {:?}", e))?,
                 });
             } else {
                 panic!("unsupoorted");
             }
         }
 
-        self.proof_store.set_bytes_by_id_batch(&updates).await?;
+        self.proof_store.set_bytes_by_id_batch(&updates).await.map_err(|e| anyhow::anyhow!("set_bytes_by_id_batch: {:?}", e))?;
 
         let levels = res
             .get_index_levels()
@@ -916,10 +922,12 @@ impl<
 
     pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         self.store.commit(checkpoint_id)?;
-        self.commit_offset(checkpoint_id).await
+        self.commit_offset(checkpoint_id).await?;
+        self.task_store.save_job_dependency_graph(checkpoint_id).await
     }
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
         self.store.rollback(checkpoint_id)
     }
 }

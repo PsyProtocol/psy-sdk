@@ -74,7 +74,7 @@ use qed_store::{
     },
 };
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 use qed_store::store::journal::{Journal, JournalStore};
 use qed_store::store::QEDStore;
 
@@ -379,7 +379,7 @@ impl<
             .peek_with_position::<SubmitGUTARealmResultAPIQueueItem<F>>(self.coordinator_config.guta_channel_id, checkpoint_id)
             .await?;
         tracing::debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items).unwrap(), "GUTA queue items");
-
+        let mut guta_queue_items = guta_queue_items.into_iter().filter(|x| x.checkpoint_id == checkpoint_id).collect::<Vec<_>>();
         if guta_queue_items.len() == 0 {
             tracing::debug!("No GUTA queue items");
             let last_checkpoint_id = if checkpoint_id == 0 { checkpoint_id } else { checkpoint_id - 1 };
