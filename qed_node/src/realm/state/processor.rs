@@ -858,6 +858,7 @@ impl<
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, 256).await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
         // Pop up to 32 pending users from Redis queue

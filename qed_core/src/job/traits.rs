@@ -269,6 +269,8 @@ pub trait QProofStoreWriterAsyncImm: Send + Sync {
         }
         Ok(())
     }
+
+    async fn cleanup_old_proofs(&self, current_height: u64, keep_blocks: u64) -> anyhow::Result<()>;
 }
 
 
@@ -337,6 +339,9 @@ impl QProofStoreWriterAsyncImm for QDummyProofStore {
     }
     async fn write_multidimensional_jobs(&self, _jobs_levels: &[Vec<QProvingJobDataID>], _next_jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         anyhow::bail!("Not implemented")
+    }
+    async fn cleanup_old_proofs(&self, _current_height: u64, _keep_blocks: u64) -> anyhow::Result<()> {
+        Ok(())
     }
 }
 
