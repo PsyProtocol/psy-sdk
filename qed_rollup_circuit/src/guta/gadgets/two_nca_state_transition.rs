@@ -23,10 +23,12 @@ impl TwoNCAStateTransitionGadget {
     ) -> Self {
         let update_nca_proof_gadget = UpdateNearestCommonAncestorProofOptGadget::add_virtual_to_full::<H,F,D>(builder, GLOBAL_USER_TREE_HEIGHT as usize);
 
-        // builder.connect_hashes(
-        //     a_header.checkpoint_tree_root,
-        //     b_header.checkpoint_tree_root,
-        // );
+        // TODO: WHY WAS THIS REMOVED, I am adding back!?!!, we need to make sure a and b have the same checkpoint root
+        builder.connect_hashes(
+            a_header.checkpoint_tree_root,
+            b_header.checkpoint_tree_root,
+        );
+
         builder.connect_hashes(
             a_header.guta_circuit_whitelist,
             b_header.guta_circuit_whitelist,
