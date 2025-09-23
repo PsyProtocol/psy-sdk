@@ -2,7 +2,7 @@ export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 export SQLX_OFFLINE=true
 
 PROFILE := release
-LOG_LEVEL := qed_rollup_utils=trace,tikv_client=debug,qed_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,qed_node=trace,qed_common_circuit=trace,qed_rollup_circuit=trace,qed_prover=trace,qed_data=trace,plonky2=error
+LOG_LEVEL := qed_rollup_utils=trace,tikv_client=warn,qed_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,qed_node=trace,qed_common_circuit=trace,qed_rollup_circuit=trace,qed_prover=trace,qed_data=trace,plonky2=error
 
 default: build wallet-build
 
@@ -261,6 +261,16 @@ run-watcher-coordinator:
 	--database lmdbx \
 	--lmdbx-path ${PWD}/db/coordinator
 
+run-watcher-coordinator-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 0 \
+	--node-type coordinator \
+	--redis-url redis://127.0.0.1:6379 \
+	--api-endpoint "http://localhost:3000" \
+    --database tikv \
+    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+    --tikv-namespace watcher-coordinator
+
 run-watcher-realm0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 0 \
@@ -270,6 +280,17 @@ run-watcher-realm0:
 	--database lmdbx \
     --lmdbx-path ${PWD}/db/realm0
 
+run-watcher-realm0-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 0 \
+	--node-type realm \
+	--redis-url redis://127.0.0.1:6380 \
+	--api-endpoint "http://localhost:3000" \
+    --database tikv \
+    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+    --tikv-namespace watcher-realm0
+
+
 run-watcher-realm1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 1 \
@@ -278,6 +299,17 @@ run-watcher-realm1:
 	--api-endpoint "http://localhost:3000" \
 	--database lmdbx \
     --lmdbx-path ${PWD}/db/realm1
+
+
+run-watcher-realm1-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 1 \
+	--node-type realm \
+	--redis-url redis://127.0.0.1:6381 \
+	--api-endpoint "http://localhost:3000" \
+    --database tikv \
+    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+    --tikv-namespace watcher-realm1
 
 run-api-service:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_api_services
@@ -358,6 +390,9 @@ run-realm-edge1-tikv:
 		--queue-biz-key=rwq1
 
 run-all-tikv: shutdown-tikv init-tikv
+	@redis-cli -p 6379 FLUSHALL > /dev/null 2>&1 || true
+	@redis-cli -p 6380 FLUSHALL > /dev/null 2>&1 || true
+	@redis-cli -p 6381 FLUSHALL > /dev/null 2>&1 || true
 	@./scripts/run_all_tikv.sh
 
 run-user-prover:
