@@ -120,8 +120,11 @@ PIDS+=($!)
 
 sleep 1
 run_service "make run-watcher-coordinator" "watcher-coordinator" "$WATCHER_COORDINATOR_LOG" &
+PIDS+=($!)
 run_service "make run-watcher-realm0" "watcher-realm0" "$WATCHER_REALM0_LOG" &
+PIDS+=($!)
 run_service "make run-watcher-realm1" "watcher-realm1" "$WATCHER_REALM1_LOG" &
+PIDS+=($!)
 
 sleep 1
 # run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &
