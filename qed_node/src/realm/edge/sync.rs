@@ -368,18 +368,18 @@ impl RealmProofSender {
             circuit_type: realm_result.proof_id.circuit_type,
         };
         
-        let real_checkpoint_id = input.checkpoint_id.saturating_sub(1);
+        let latest_checkpoint_id = ctx.get_checkpoint_id_async().await?;
         let realm_root_level = COORDINATOR_USER_TREE_HEIGHT;
-        let old_root = ctx.store_reader
-            .get_user_sub_tree_merkle_proof(real_checkpoint_id, realm_root_level, realm_root_level, self.realm_id)
+        let latest_realm_root = ctx.store_reader
+            .get_user_sub_tree_merkle_proof(latest_checkpoint_id, realm_root_level, realm_root_level, self.realm_id)
             .await?.root;
-        if old_root != input.top_line_proof.old_root {
-            error!("invalid top line proof old root, expect: {}, got: {}", input.top_line_proof.old_root, old_root);
+        if latest_realm_root != input.top_line_proof.old_root {
+            error!("invalid top line proof old root, expect: {}, got: {}", input.top_line_proof.old_root, latest_realm_root);
             anyhow::bail!("invalid top line proof old root");
         }
         if input.top_line_proof.old_root != input.top_line_proof.old_value
             || input.top_line_proof.new_root != input.top_line_proof.new_value
-            || !input.top_line_proof.verify::<QEDHasher>()
+            || input.top_line_proof.siblings.len() != 0
         {
             error!("invalid top line proof, expect: {}", serde_json::to_string_pretty(&input.top_line_proof)?);
             anyhow::bail!("invalid top line proof");
@@ -393,7 +393,7 @@ impl RealmProofSender {
                 old_node_value: input.top_line_proof.old_root,
                 new_node_value: input.top_line_proof.new_root,
                 node_index: F::from_noncanonical_u64(input.top_line_proof.index),
-                node_level: F::from_canonical_u64((realm_root_level as usize + input.top_line_proof.siblings.len()) as u64),
+                node_level: F::from_canonical_u8(realm_root_level),
             },
             stats: input.guta_stats,
         };
