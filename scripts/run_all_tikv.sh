@@ -41,9 +41,9 @@ WORKER2_LOG="$LOG_DIR/worker2.log"
 
 API_SERVICES_LOG="$LOG_DIR/api-services.log"
 
-WATCHER_COORDINATOR_LOG="$LOG_DIR/watcher-coordinator.log"
-WATCHER_REALM0_LOG="$LOG_DIR/watcher-realm0.log"
-WATCHER_REALM1_LOG="$LOG_DIR/watcher-realm1.log"
+WATCHER_COORDINATOR_LOG="$LOG_DIR/watcher-coordinator-tikv.log"
+WATCHER_REALM0_LOG="$LOG_DIR/watcher-realm0-tikv.log"
+WATCHER_REALM1_LOG="$LOG_DIR/watcher-realm1-tikv.log"
 
 # LOCAL_USER_PROVER_LOG="$LOG_DIR/local-user-prover.log"
 LOCAL_PROVE_PROXY_LOG="$LOG_DIR/local-prove-proxy.log"
@@ -140,11 +140,11 @@ run_service "make run-api-services" "api-services" "$API_SERVICES_LOG" &
 PIDS+=($!)
 
 sleep 1
-run_service "make run-watcher-coordinator" "watcher-coordinator" "$WATCHER_COORDINATOR_LOG" &
+run_service "make run-watcher-coordinator-tikv" "watcher-coordinator-tikv" "$WATCHER_COORDINATOR_LOG" &
 PIDS+=($!)
-run_service "make run-watcher-realm0" "watcher-realm0" "$WATCHER_REALM0_LOG" &
+run_service "make run-watcher-realm0-tikv" "watcher-realm0-tikv" "$WATCHER_REALM0_LOG" &
 PIDS+=($!)
-run_service "make run-watcher-realm1" "watcher-realm1" "$WATCHER_REALM1_LOG" &
+run_service "make run-watcher-realm1-tikv" "watcher-realm1-tikv" "$WATCHER_REALM1_LOG" &
 PIDS+=($!)
 
 sleep 1
