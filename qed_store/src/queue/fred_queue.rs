@@ -170,6 +170,10 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
         self.write_multidimensional_jobs_core(jobs_levels, next_jobs)
             .await
     }
+
+    async fn cleanup_old_proofs(&self, _current_height: u64, _keep_blocks: u64) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[async_trait]

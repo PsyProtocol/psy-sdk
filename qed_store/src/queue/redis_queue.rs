@@ -129,32 +129,13 @@ impl ProofStoreRedisAsync {
         &self.pool
     }
 
-    async fn manage_checkpoint_limit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+    async fn add_checkpoint(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         let mut con = self.pool.get().await?;
         let checkpoint_list_key = self.checkpoint_list_key();
-
-        // Check if checkpoint already exists in the list
-        let existing_checkpoints: Vec<u64> = con.lrange(&checkpoint_list_key, 0, -1).await?;
-        if !existing_checkpoints.contains(&checkpoint_id) {
-            // Add new checkpoint_id to the right end of list only if it doesn't exist
-            let _: () = con.rpush(&checkpoint_list_key, checkpoint_id).await?;
-
-            // Check list length
-            let list_len: usize = con.llen(&checkpoint_list_key).await?;
-            if list_len > MAX_CHECKPOINT_COUNT {
-                // Remove oldest checkpoint from the left end
-                let old_checkpoint_id: Option<u64> = con.lpop(&checkpoint_list_key, None).await?;
-                if let Some(old_id) = old_checkpoint_id {
-                    // Delete corresponding proof hashmap
-                    let old_checkpoint_proofs_key = self.checkpoint_proofs_key(old_id);
-                    let _: () = con.del(&old_checkpoint_proofs_key).await?;
-                    tracing::debug!("Removed old checkpoint {} and its proofs", old_id);
-                }
-            }
-        }
-
+        let _: () = con.sadd(&checkpoint_list_key, checkpoint_id).await?;
         Ok(())
     }
+
 }
 
 #[async_trait]
@@ -217,8 +198,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         let data = bincode::serialize(&proof)?;
         let checkpoint_id = id.goal_id;
 
-        // Manage checkpoint limit
-        self.manage_checkpoint_limit(checkpoint_id).await?;
+        self.add_checkpoint(checkpoint_id).await?;
 
         // Store proof to corresponding checkpoint's hashmap
         let mut con = self.pool.get().await?;
@@ -254,7 +234,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         let checkpoint_id = id.goal_id;
 
         // Manage checkpoint limit
-        self.manage_checkpoint_limit(checkpoint_id).await?;
+        self.add_checkpoint(checkpoint_id).await?;
 
         // Store data to corresponding checkpoint's hashmap
         let mut con = self.pool.get().await?;
@@ -300,6 +280,30 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         Ok(())
     }
 
+    async fn cleanup_old_proofs(&self, current_height: u64, keep_blocks: u64) -> anyhow::Result<()> {
+        let mut con = self.pool.get().await?;
+        let checkpoint_list_key = self.checkpoint_list_key();
+
+        let threshold = current_height.saturating_sub(keep_blocks);
+        let all_checkpoints: Vec<u64> = con.smembers(&checkpoint_list_key).await?;
+
+        let to_remove: Vec<_> = all_checkpoints
+            .into_iter()
+            .filter(|&id| id < threshold)
+            .collect();
+
+        for checkpoint_id in &to_remove {
+            let key = self.checkpoint_proofs_key(*checkpoint_id);
+            let _: () = con.del(&key).await?;
+        }
+
+        if !to_remove.is_empty() {
+            let _: () = con.srem(&checkpoint_list_key, &to_remove).await?;
+            tracing::info!("Cleaned up {} old checkpoints < {}", to_remove.len(), threshold);
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -795,7 +799,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
         let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!(e))?;
         con.set_ex(&state_key, state_data, 3600).await?; // 1 hour TTL
-        
+
         tracing::debug!("Consumed redis {} items from drain queue {} for checkpoint {}",
               items.len(), channel_id, checkpoint_id);
 
