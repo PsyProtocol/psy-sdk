@@ -1,51 +1,51 @@
-use crate::dpn::circuits::cfc::DapenContractFunctionCircuit;
-use crate::ups::circuit_manager::core::QEDUPSStepCircuitManager;
-use crate::wallet::software_defined_circuit::{
-    QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput,
-    SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureInput,
-    SoftwareDefinedSignatureWitnessInput,
-};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+
 use dashmap::DashMap;
-use jsonrpsee::core::async_trait;
-use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::ErrorObjectOwned;
+use jsonrpsee::{core::async_trait, proc_macros::rpc, types::ErrorObjectOwned};
 use k256::ecdsa::signature::hazmat::PrehashSigner;
-use plonky2::plonk::config::GenericConfig;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use plonky2::plonk::proof::ProofWithPublicInputs;
-use qed_common_circuit::circuits::l1_secp256k1_signature::L1Secp256K1SignatureCircuit;
-use qed_common_circuit::circuits::zk_signature3::core::QEDBasicZKSignatureCircuit;
-use qed_core::config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT;
-use qed_core::data::alt::AltVerifierOnlyCircuitData;
-use qed_core::data::base_types::hash256::Hash256;
-use qed_core::data::qhashout::QHashOut;
-use qed_core::data::secp256k1::CompressedPublicKey;
-use qed_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType;
-use qed_crypto::common::witnesses::qrecursion::proof_data::SimpleQTreeRecursionManagerInclusionProofs;
-use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
-use qed_crypto::signature;
-use qed_crypto::signature::secp256k1;
-use qed_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
-use qed_data::qdata::contract::ContractCodeDefinition;
-
-use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader;
-use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_data::ups::start_step::UPSStartStepInput;
-use qed_data::ups::ups_cfc_standard_step::UPSCFCDeferredTransactionCircuitInput;
-use qed_data::ups::ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput;
-
-use qed_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
+use plonky2::plonk::{
+    config::{GenericConfig, PoseidonGoldilocksConfig},
+    proof::ProofWithPublicInputs,
+};
+use qed_common_circuit::circuits::{
+    l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::QEDBasicZKSignatureCircuit,
+};
+use qed_core::{
+    config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT,
+    data::{alt::AltVerifierOnlyCircuitData, base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey},
+};
+use qed_crypto::{
+    common::witnesses::qrecursion::{
+        header::QRecursionAggStandardHeader,
+        proof_data::{QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},
+    },
+    hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+    signature,
+    signature::{secp256k1, secp256k1::core::QEDCompressedSecp256K1Signature},
+};
+use qed_data::{
+    qdata::contract::ContractCodeDefinition,
+    ups::{
+        start_step::UPSStartStepInput,
+        ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
+        ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
+    },
+};
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
 use qedlang_core::dpn::contract::cfc_code_definition_to_dapen_fc;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use serde::{Deserialize, Deserializer, Serialize};
 
 // use crate::local::provider::LocalCommonCircuitsData;
 use crate::local::provider::QCommonCircuitData;
+use crate::{
+    dpn::circuits::cfc::DapenContractFunctionCircuit,
+    ups::circuit_manager::core::QEDUPSStepCircuitManager,
+    wallet::software_defined_circuit::{
+        QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput, SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget,
+        SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
+    },
+};
 
 type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
@@ -55,34 +55,19 @@ const D: usize = 2;
 pub trait ProveProxyRpc {
     /// local proving proof generate
     #[method(name = "prove_ups_start")]
-    async fn prove_ups_start(
-        &self,
-        input: UPSStartStepInput<F>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+    async fn prove_ups_start(&self, input: UPSStartStepInput<F>) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     #[method(name = "get_circuits_data")]
     async fn get_circuits_data(&self) -> Result<String, ErrorObjectOwned>;
 
     #[method(name = "get_method_id")]
-    async fn get_method_id(
-        &self,
-        contract_id: u64,
-        method_name: String,
-    ) -> Result<u64, ErrorObjectOwned>;
+    async fn get_method_id(&self, contract_id: u64, method_name: String) -> Result<u64, ErrorObjectOwned>;
 
     #[method(name = "get_contract_method_common_data")]
-    async fn get_contract_method_common_data(
-        &self,
-        contract_id: u64,
-        method_id: u32,
-    ) -> Result<QCommonCircuitData<F>, ErrorObjectOwned>;
+    async fn get_contract_method_common_data(&self, contract_id: u64, method_id: u32) -> Result<QCommonCircuitData<F>, ErrorObjectOwned>;
 
     #[method(name = "register_contract_circuits")]
-    async fn register_contract_circuits(
-        &self,
-        contract_id: u64,
-        contract_code: ContractCodeDefinition,
-    ) -> Result<(), ErrorObjectOwned>;
+    async fn register_contract_circuits(&self, contract_id: u64, contract_code: ContractCodeDefinition) -> Result<(), ErrorObjectOwned>;
 
     #[method(name = "prove_contract_call")]
     async fn prove_contract_call(
@@ -105,23 +90,13 @@ pub trait ProveProxyRpc {
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     #[method(name = "prove_zk_sign")]
-    async fn prove_zk_sign(
-        &self,
-        private_key: QHashOut<F>,
-        sig_hash: QHashOut<F>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+    async fn prove_zk_sign(&self, private_key: QHashOut<F>, sig_hash: QHashOut<F>) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     #[method(name = "prove_secp_sign")]
-    async fn prove_secp_sign(
-        &self,
-        signature: QEDCompressedSecp256K1Signature,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     #[method(name = "register_software_defined_circuit")]
-    async fn register_software_defined_circuit(
-        &self,
-        input: QSoftwareDefinedSignatureInput,
-    ) -> Result<QHashOut<F>, ErrorObjectOwned>;
+    async fn register_software_defined_circuit(&self, input: QSoftwareDefinedSignatureInput) -> Result<QHashOut<F>, ErrorObjectOwned>;
 
     #[method(name = "prove_software_defined_sign")]
     async fn prove_software_defined_sign(
@@ -133,7 +108,8 @@ pub trait ProveProxyRpc {
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     // #[method(name = "finalize_tree")]
-    // async fn finalize_tree(&self) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+    // async fn finalize_tree(&self) -> Result<ProofWithPublicInputs<F, C, D>,
+    // ErrorObjectOwned>;
 
     #[method(name = "prove_ups_end_cap")]
     async fn prove_ups_end_cap(
@@ -240,11 +216,11 @@ pub struct LocalCommonCircuitsData {
 #[derive(Debug)]
 pub struct ProveProxyServerProvider {
     pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
-    pub software_defined_circuits:
-        DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
+    pub software_defined_circuits: DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
 
-    pub circuit_manager: QEDUPSStepCircuitManager<C, D>,
-    pub circuit_info: SessionCircuitInfoStore<F>,
+    pub circuit_manager: Arc<QEDUPSStepCircuitManager<C, D>>,
+    pub circuit_info: Arc<SessionCircuitInfoStore<F>>,
+    pub circuits_data: LocalCommonCircuitsData,
 }
 
 impl ProveProxyServerProvider {
@@ -268,35 +244,133 @@ impl ProveProxyServerProvider {
         // );
 
         circuit_manager.register_info(&mut circuit_info);
+
+        let circuits_data = LocalCommonCircuitsData {
+            ups_start: QCommonCircuitData {
+                fingerprint: circuit_manager.ups_start.get_fingerprint(),
+                verifier_config: circuit_manager.ups_start.get_verifier_config_ref().into(),
+            },
+            ups_cfc_standard_tx: QCommonCircuitData {
+                fingerprint: circuit_manager.ups_cfc_standard_tx.get_fingerprint(),
+                verifier_config: circuit_manager.ups_cfc_standard_tx.get_verifier_config_ref().into(),
+            },
+            ups_cfc_deferred_tx: QCommonCircuitData {
+                fingerprint: circuit_manager.ups_cfc_deferred_tx.get_fingerprint(),
+                verifier_config: circuit_manager.ups_cfc_deferred_tx.get_verifier_config_ref().into(),
+            },
+            ups_end_cap: QCommonCircuitData {
+                fingerprint: circuit_manager.ups_end_cap.get_fingerprint(),
+                verifier_config: circuit_manager.ups_end_cap.get_verifier_config_ref().into(),
+            },
+            ups_circuit_whitelist_root: circuit_manager.ups_circuit_whitelist_root.clone(),
+            ups_start_whitelist_proof: circuit_manager.ups_start_whitelist_proof.clone(),
+            ups_cfc_standard_tx_whitelist_proof: circuit_manager.ups_cfc_standard_tx_whitelist_proof.clone(),
+            ups_cfc_deferred_tx_whitelist_proof: circuit_manager.ups_cfc_deferred_tx_whitelist_proof.clone(),
+            single_leaf_circuit: QCommonCircuitData {
+                fingerprint: circuit_manager.proof_tree_agg_circuits.circuit_set.single_leaf_circuit.get_fingerprint(),
+                verifier_config: circuit_manager
+                    .proof_tree_agg_circuits
+                    .circuit_set
+                    .single_leaf_circuit
+                    .get_verifier_config_ref()
+                    .into(),
+            },
+            two_leaf_circuit: QCommonCircuitData {
+                fingerprint: circuit_manager.proof_tree_agg_circuits.circuit_set.two_leaf_circuit.get_fingerprint(),
+                verifier_config: circuit_manager
+                    .proof_tree_agg_circuits
+                    .circuit_set
+                    .two_leaf_circuit
+                    .get_verifier_config_ref()
+                    .into(),
+            },
+            two_agg_circuit: QCommonCircuitData {
+                fingerprint: circuit_manager.proof_tree_agg_circuits.circuit_set.two_agg_circuit.get_fingerprint(),
+                verifier_config: circuit_manager
+                    .proof_tree_agg_circuits
+                    .circuit_set
+                    .two_agg_circuit
+                    .get_verifier_config_ref()
+                    .into(),
+            },
+            left_leaf_right_agg_circuit: QCommonCircuitData {
+                fingerprint: circuit_manager
+                    .proof_tree_agg_circuits
+                    .circuit_set
+                    .left_leaf_right_agg_circuit
+                    .get_fingerprint(),
+                verifier_config: circuit_manager
+                    .proof_tree_agg_circuits
+                    .circuit_set
+                    .left_leaf_right_agg_circuit
+                    .get_verifier_config_ref()
+                    .into(),
+            },
+            left_agg_right_leaf_circuit: QCommonCircuitData {
+                fingerprint: circuit_manager
+                    .proof_tree_agg_circuits
+                    .circuit_set
+                    .left_agg_right_leaf_circuit
+                    .get_fingerprint(),
+                verifier_config: circuit_manager
+                    .proof_tree_agg_circuits
+                    .circuit_set
+                    .left_agg_right_leaf_circuit
+                    .get_verifier_config_ref()
+                    .into(),
+            },
+            leaf_circuit_config_id: circuit_manager.proof_tree_agg_circuits.circuit_set.leaf_circuit_config_id,
+            leaf_verifier_data_cap_height: circuit_manager.proof_tree_agg_circuits.circuit_set.leaf_verifier_data_cap_height,
+            agg_verifier_data_cap_height: circuit_manager.proof_tree_agg_circuits.circuit_set.agg_verifier_data_cap_height,
+            circuit_inclusion_proofs: circuit_manager.proof_tree_agg_circuits.circuit_inclusion_proofs.clone(),
+            zk_circuit: QCommonCircuitData {
+                fingerprint: circuit_manager.zk_circuit.get_fingerprint(),
+                verifier_config: circuit_manager.zk_circuit.get_verifier_config_ref().into(),
+            },
+            secp_circuit: QCommonCircuitData {
+                fingerprint: circuit_manager.secp_circuit.get_fingerprint(),
+                verifier_config: circuit_manager.secp_circuit.get_verifier_config_ref().into(),
+            },
+        };
+
         Self {
             contract_circuits: DashMap::new(),
             software_defined_circuits: DashMap::new(),
-            circuit_manager,
-            circuit_info,
+            circuit_manager: Arc::new(circuit_manager),
+            circuit_info: Arc::new(circuit_info),
+            circuits_data,
         }
     }
 }
 
 #[async_trait]
 impl ProveProxyRpcServer for ProveProxyServerProvider {
-    async fn prove_ups_start(
-        &self,
-        input: UPSStartStepInput<F>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
+    async fn prove_ups_start(&self, input: UPSStartStepInput<F>) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_ups_start input");
-        self.circuit_manager
-            .ups_start
-            .prove_base(&input)
-            .map_err(|err| {
-                ErrorObjectOwned::owned(1, "prove_ups_start proving error", Some(err.to_string()))
-            })
+
+        let circuit_manager = self.circuit_manager.clone();
+        let input = input.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || circuit_manager.ups_start.prove_base(&input));
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_ups_start: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_ups_start proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
     }
 
-    async fn register_contract_circuits(
-        &self,
-        contract_id: u64,
-        contract_code: ContractCodeDefinition,
-    ) -> Result<(), ErrorObjectOwned> {
+    async fn register_contract_circuits(&self, contract_id: u64, contract_code: ContractCodeDefinition) -> Result<(), ErrorObjectOwned> {
         tracing::info!("🔔 register_contract_circuits contract_id: {}", contract_id);
         let mut circuits = Vec::new();
         if self.contract_circuits.get(&contract_id).is_some() {
@@ -304,18 +378,9 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
             return Ok(());
         }
         for func in contract_code.functions.iter() {
-            let dapen_fc = cfc_code_definition_to_dapen_fc(&func).map_err(|err| {
-                ErrorObjectOwned::owned(
-                    1,
-                    "cfc_code_definition_to_dapen_fc error",
-                    Some(err.to_string()),
-                )
-            })?;
-            tracing::info!(
-                "register contract {} function {}",
-                contract_id,
-                dapen_fc.name
-            );
+            let dapen_fc = cfc_code_definition_to_dapen_fc(&func)
+                .map_err(|err| ErrorObjectOwned::owned(1, "cfc_code_definition_to_dapen_fc error", Some(err.to_string())))?;
+            tracing::info!("register contract {} function {}", contract_id, dapen_fc.name);
             circuits.push(DapenContractFunctionCircuit::<C, D>::new(
                 &dapen_fc,
                 contract_code.state_tree_height as usize,
@@ -329,175 +394,12 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
 
     async fn get_circuits_data(&self) -> Result<String, ErrorObjectOwned> {
         tracing::info!("🔔 get_circuits_data");
-        let data = LocalCommonCircuitsData {
-            ups_start: QCommonCircuitData {
-                fingerprint: self.circuit_manager.ups_start.get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .ups_start
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-            ups_cfc_standard_tx: QCommonCircuitData {
-                fingerprint: self.circuit_manager.ups_cfc_standard_tx.get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .ups_cfc_standard_tx
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-            ups_cfc_deferred_tx: QCommonCircuitData {
-                fingerprint: self.circuit_manager.ups_cfc_deferred_tx.get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .ups_cfc_deferred_tx
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-            ups_end_cap: QCommonCircuitData {
-                fingerprint: self.circuit_manager.ups_end_cap.get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .ups_end_cap
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-            ups_circuit_whitelist_root: self.circuit_manager.ups_circuit_whitelist_root.clone(),
-            ups_start_whitelist_proof: self.circuit_manager.ups_start_whitelist_proof.clone(),
-            ups_cfc_standard_tx_whitelist_proof: self
-                .circuit_manager
-                .ups_cfc_standard_tx_whitelist_proof
-                .clone(),
-            ups_cfc_deferred_tx_whitelist_proof: self
-                .circuit_manager
-                .ups_cfc_deferred_tx_whitelist_proof
-                .clone(),
-            single_leaf_circuit: QCommonCircuitData {
-                fingerprint: self
-                    .circuit_manager
-                    .proof_tree_agg_circuits
-                    .circuit_set
-                    .single_leaf_circuit
-                    .get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .proof_tree_agg_circuits
-                    .circuit_set
-                    .single_leaf_circuit
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-            two_leaf_circuit: QCommonCircuitData {
-                fingerprint: self
-                    .circuit_manager
-                    .proof_tree_agg_circuits
-                    .circuit_set
-                    .two_leaf_circuit
-                    .get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .proof_tree_agg_circuits
-                    .circuit_set
-                    .two_leaf_circuit
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-            two_agg_circuit: QCommonCircuitData {
-                fingerprint: self
-                    .circuit_manager
-                    .proof_tree_agg_circuits
-                    .circuit_set
-                    .two_agg_circuit
-                    .get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .proof_tree_agg_circuits
-                    .circuit_set
-                    .two_agg_circuit
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-            left_leaf_right_agg_circuit: QCommonCircuitData {
-                fingerprint: self
-                    .circuit_manager
-                    .proof_tree_agg_circuits
-                    .circuit_set
-                    .left_leaf_right_agg_circuit
-                    .get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .proof_tree_agg_circuits
-                    .circuit_set
-                    .left_leaf_right_agg_circuit
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-            left_agg_right_leaf_circuit: QCommonCircuitData {
-                fingerprint: self
-                    .circuit_manager
-                    .proof_tree_agg_circuits
-                    .circuit_set
-                    .left_agg_right_leaf_circuit
-                    .get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .proof_tree_agg_circuits
-                    .circuit_set
-                    .left_agg_right_leaf_circuit
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-            leaf_circuit_config_id: self
-                .circuit_manager
-                .proof_tree_agg_circuits
-                .circuit_set
-                .leaf_circuit_config_id,
-            leaf_verifier_data_cap_height: self
-                .circuit_manager
-                .proof_tree_agg_circuits
-                .circuit_set
-                .leaf_verifier_data_cap_height,
-            agg_verifier_data_cap_height: self
-                .circuit_manager
-                .proof_tree_agg_circuits
-                .circuit_set
-                .agg_verifier_data_cap_height,
-            circuit_inclusion_proofs: self
-                .circuit_manager
-                .proof_tree_agg_circuits
-                .circuit_inclusion_proofs
-                .clone(),
-            zk_circuit: QCommonCircuitData {
-                fingerprint: self.circuit_manager.zk_circuit.get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .zk_circuit
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-            secp_circuit: QCommonCircuitData {
-                fingerprint: self.circuit_manager.secp_circuit.get_fingerprint(),
-                verifier_config: self
-                    .circuit_manager
-                    .secp_circuit
-                    .get_verifier_config_ref()
-                    .into(),
-            },
-        };
 
-        Ok(serde_json::to_string(&data).unwrap())
+        Ok(serde_json::to_string(&self.circuits_data).unwrap())
     }
 
-    async fn get_method_id(
-        &self,
-        contract_id: u64,
-        method_name: String,
-    ) -> Result<u64, ErrorObjectOwned> {
-        tracing::info!(
-            "🔔 get_method_id contract_id: {}, method_name: {}",
-            contract_id,
-            method_name
-        );
+    async fn get_method_id(&self, contract_id: u64, method_name: String) -> Result<u64, ErrorObjectOwned> {
+        tracing::info!("🔔 get_method_id contract_id: {}, method_name: {}", contract_id, method_name);
         if let Some(circuits) = self.contract_circuits.get(&contract_id) {
             for (id, circuit) in circuits.iter().enumerate() {
                 if circuit.fn_def.name == method_name {
@@ -508,18 +410,11 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         Err(ErrorObjectOwned::owned(
             1,
             "get_method_id error",
-            Some(format!(
-                "contract {} method {} not registed",
-                contract_id, method_name
-            )),
+            Some(format!("contract {} method {} not registed", contract_id, method_name)),
         ))
     }
 
-    async fn get_contract_method_common_data(
-        &self,
-        contract_id: u64,
-        method_id: u32,
-    ) -> Result<QCommonCircuitData<F>, ErrorObjectOwned> {
+    async fn get_contract_method_common_data(&self, contract_id: u64, method_id: u32) -> Result<QCommonCircuitData<F>, ErrorObjectOwned> {
         tracing::info!(
             "🔔 get_contract_method_common_data contract_id: {}, method_id: {}",
             contract_id,
@@ -557,11 +452,7 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         method_id: u32,
         input: DapenContractFunctionCircuitInput<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
-        tracing::info!(
-            "🔔 prove_contract_call contract_id: {}, method_id: {}",
-            contract_id,
-            method_id
-        );
+        tracing::info!("🔔 prove_contract_call contract_id: {}, method_id: {}", contract_id, method_id);
         if let Some(fn_circuits) = &self.contract_circuits.get(&contract_id) {
             let fn_circuit = fn_circuits.get(method_id as usize).ok_or_else(|| {
                 ErrorObjectOwned::owned(
@@ -571,9 +462,22 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
                 )
             })?;
 
-            fn_circuit.prove_base(&input).map_err(|err| {
-                ErrorObjectOwned::owned(1, "fn_circuit proving error", Some(err.to_string()))
+            let input = input.clone();
+            let fn_circuit = fn_circuit.clone();
+
+            tokio::task::spawn_blocking(move || {
+                fn_circuit
+                    .prove_base(&input)
+                    .map_err(|err| ErrorObjectOwned::owned(1, "fn_circuit proving error", Some(err.to_string())))
             })
+            .await
+            .map_err(|join_err| {
+                ErrorObjectOwned::owned(
+                    1,
+                    "prove_software_defined_sign: task schedule failed",
+                    Some(format!("Thread pool task execution failed: {}", join_err)),
+                )
+            })?
         } else {
             Err(ErrorObjectOwned::owned(
                 1,
@@ -588,16 +492,27 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         input: UPSCFCStandardTransactionCircuitInput<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_ups_cfc_standard_tx");
-        self.circuit_manager
-            .ups_cfc_standard_tx
-            .prove_base(&input)
-            .map_err(|err| {
-                ErrorObjectOwned::owned(
-                    1,
-                    "ups_cfc_standard_tx proving error",
-                    Some(err.to_string()),
-                )
-            })
+
+        let circuit_manager = self.circuit_manager.clone();
+        let input = input.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || circuit_manager.ups_cfc_standard_tx.prove_base(&input));
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "ups_cfc_standard_tx: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "ups_cfc_standard_tx proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
     }
 
     async fn prove_ups_cfc_deferred_tx(
@@ -605,62 +520,93 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         input: UPSCFCDeferredTransactionCircuitInput<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_ups_cfc_deferred_tx");
-        self.circuit_manager
-            .ups_cfc_deferred_tx
-            .prove_base(&input)
-            .map_err(|err| {
-                ErrorObjectOwned::owned(
-                    1,
-                    "ups_cfc_standard_tx proving error",
-                    Some(err.to_string()),
-                )
-            })
+
+        let circuit_manager = self.circuit_manager.clone();
+        let input = input.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || circuit_manager.ups_cfc_deferred_tx.prove_base(&input));
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_ups_cfc_deferred_tx: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_ups_cfc_deferred_tx proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
     }
 
-    async fn prove_zk_sign(
-        &self,
-        private_key: QHashOut<F>,
-        sig_hash: QHashOut<F>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
+    async fn prove_zk_sign(&self, private_key: QHashOut<F>, sig_hash: QHashOut<F>) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_zk_sign");
-        self.circuit_manager
-            .zk_circuit
-            .prove_base(private_key, sig_hash)
-            .map_err(|err| {
-                ErrorObjectOwned::owned(1, "signature proving error", Some(err.to_string()))
-            })
+
+        let circuit_manager = self.circuit_manager.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || circuit_manager.zk_circuit.prove_base(private_key, sig_hash));
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_zk_sign: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_zk_sign proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
     }
 
-    async fn prove_secp_sign(
-        &self,
-        signature: QEDCompressedSecp256K1Signature,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
+    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_secp_sign");
 
-        self.circuit_manager
-            .secp_circuit
-            .prove(&signature)
-            .map_err(|err| {
-                ErrorObjectOwned::owned(1, "secp signature proving error", Some(err.to_string()))
-            })
+        let circuit_manager = self.circuit_manager.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || circuit_manager.secp_circuit.prove(&signature));
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_secp_sign: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_secp_sign proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
     }
 
-    async fn register_software_defined_circuit(
-        &self,
-        input: QSoftwareDefinedSignatureInput,
-    ) -> Result<QHashOut<F>, ErrorObjectOwned> {
+    async fn register_software_defined_circuit(&self, input: QSoftwareDefinedSignatureInput) -> Result<QHashOut<F>, ErrorObjectOwned> {
         let input = SoftwareDefinedSignatureInput::QED(input);
-        let sdc = SoftwareDefinedSignatureCircuit::new(&input);
+        let sdc = tokio::task::spawn_blocking(move || SoftwareDefinedSignatureCircuit::new(&input))
+            .await
+            .map_err(|join_err| {
+                ErrorObjectOwned::owned(
+                    1,
+                    "register_software_defined_circuit: task schedule failed",
+                    Some(format!("Thread pool task execution failed: {}", join_err)),
+                )
+            })?;
+
         let fingerprint = sdc.get_fingerprint();
-        tracing::info!(
-            "register software defined circuit: {}",
-            fingerprint.to_string()
-        );
+        tracing::info!("register software defined circuit: {}", fingerprint.to_string());
         if let Some(_) = self.software_defined_circuits.insert(fingerprint, sdc) {
-            tracing::warn!(
-                "software defined circuit `{}` is already registered",
-                fingerprint.to_string()
-            );
+            tracing::warn!("software defined circuit `{}` is already registered", fingerprint.to_string());
         };
         Ok(fingerprint)
     }
@@ -675,21 +621,25 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         tracing::info!("🔔 prove_software_defined_sign");
         let input = SoftwareDefinedSignatureWitnessInput::QED(input);
 
-        if let Some(mut sdc) = self.software_defined_circuits.get_mut(&fingerprint) {
-            sdc.prove(private_key, &input, sig_hash).map_err(|err| {
+        if let Some(sdc) = self.software_defined_circuits.get(&fingerprint) {
+            let mut sdc_clone = sdc.clone();
+            tokio::task::spawn_blocking(move || {
+                sdc_clone
+                    .prove(private_key, &input, sig_hash)
+                    .map_err(|err| ErrorObjectOwned::owned(1, "software defined signature proving error", Some(err.to_string())))
+            })
+            .await
+            .map_err(|join_err| {
                 ErrorObjectOwned::owned(
                     1,
-                    "software defined signature proving error",
-                    Some(err.to_string()),
+                    "prove_software_defined_sign: task schedule failed",
+                    Some(format!("Thread pool task execution failed: {}", join_err)),
                 )
-            })
+            })?
         } else {
             Err(ErrorObjectOwned::owned(
                 1,
-                format!(
-                    "software defined circuit {} is not found",
-                    fingerprint.to_string()
-                ),
+                format!("software defined circuit {} is not found", fingerprint.to_string()),
                 Some(format!("fingerprint: {}", fingerprint.to_string())),
             ))
         }
@@ -704,36 +654,40 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         proof: ProofWithPublicInputs<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_ups_end_cap");
-        let agg_whitelist_merkle_proof = self
-            .circuit_manager
-            .proof_tree_agg_circuits
-            .circuit_inclusion_proofs
-            .get_inclusion_proof_for_type(circuit_type);
-        let agg_root_verifier_data = self
-            .circuit_info
-            .get_circuit_info_by_fingerprint(fingerprint)
-            .map_err(|err| {
-                ErrorObjectOwned::owned(
-                    1,
-                    "get_circuit_info_by_fingerprint error",
-                    Some(err.to_string()),
-                )
-            })?
-            .verifier_data
-            .to_verifier_data::<C, D>();
 
-        self.circuit_manager
-            .ups_end_cap
-            .prove_base(
+        let circuit_manager = self.circuit_manager.clone();
+        let circuit_info = self.circuit_info.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || {
+            let agg_whitelist_merkle_proof = circuit_manager
+                .proof_tree_agg_circuits
+                .circuit_inclusion_proofs
+                .get_inclusion_proof_for_type(circuit_type);
+            let agg_root_verifier_data = circuit_info
+                .get_circuit_info_by_fingerprint(fingerprint)
+                .map_err(|err| ErrorObjectOwned::owned(1, "get_circuit_info_by_fingerprint error", Some(err.to_string())))?
+                .verifier_data
+                .to_verifier_data::<C, D>();
+
+            circuit_manager.ups_end_cap.prove_base(
                 &end_cap_from_proof_tree_input,
                 &agg_whitelist_merkle_proof,
                 &agg_header,
                 &proof,
                 &agg_root_verifier_data,
             )
-            .map_err(|err| {
-                ErrorObjectOwned::owned(1, "ups_end_cap proving error", Some(err.to_string()))
-            })
+        });
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "ups_end_cap: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result
+            .map_err(|prove_err| ErrorObjectOwned::owned(1, "ups_end_cap proving error", Some(format!("ZK proof generation failed: {}", prove_err))))
     }
 
     async fn prove_single_leaf_circuit(
@@ -744,23 +698,33 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         single_verifier_data: AltVerifierOnlyCircuitData<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_single_leaf_circuit");
-        self.circuit_manager
-            .proof_tree_agg_circuits
-            .circuit_set
-            .single_leaf_circuit
-            .prove_base(
+
+        let circuit_manager = self.circuit_manager.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || {
+            circuit_manager.proof_tree_agg_circuits.circuit_set.single_leaf_circuit.prove_base(
                 agg_circuit_whitelist_root,
                 &single_insert_leaf_proof,
                 &single_proof,
                 &single_verifier_data.to_verifier_data(),
             )
-            .map_err(|err| {
-                ErrorObjectOwned::owned(
-                    1,
-                    "single_leaf_circuit proving error",
-                    Some(err.to_string()),
-                )
-            })
+        });
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "single_leaf_circuit: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "single_leaf_circuit proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
     }
 
     async fn prove_two_leaf_circuit(
@@ -774,11 +738,11 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         right_verifier_data: AltVerifierOnlyCircuitData<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_two_leaf_circuit");
-        self.circuit_manager
-            .proof_tree_agg_circuits
-            .circuit_set
-            .two_leaf_circuit
-            .prove_base(
+
+        let circuit_manager = self.circuit_manager.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || {
+            circuit_manager.proof_tree_agg_circuits.circuit_set.two_leaf_circuit.prove_base(
                 agg_circuit_whitelist_root,
                 &left_insert_leaf_proof,
                 &left_proof,
@@ -787,9 +751,23 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
                 &right_proof,
                 &right_verifier_data.to_verifier_data(),
             )
-            .map_err(|err| {
-                ErrorObjectOwned::owned(1, "two_leaf_circuit proving error", Some(err.to_string()))
-            })
+        });
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "two_leaf_circuit: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "two_leaf_circuit proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
     }
 
     async fn prove_two_agg_circuit(
@@ -804,11 +782,11 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         right_verifier_data: AltVerifierOnlyCircuitData<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_two_agg_circuit");
-        self.circuit_manager
-            .proof_tree_agg_circuits
-            .circuit_set
-            .two_agg_circuit
-            .prove_base(
+
+        let circuit_manager = self.circuit_manager.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || {
+            circuit_manager.proof_tree_agg_circuits.circuit_set.two_agg_circuit.prove_base(
                 &left_agg_whitelist_merkle_proof,
                 &left_agg_proof_header,
                 &left_proof,
@@ -818,9 +796,23 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
                 &right_proof,
                 &right_verifier_data.to_verifier_data(),
             )
-            .map_err(|err| {
-                ErrorObjectOwned::owned(1, "two_agg_circuit proving error", Some(err.to_string()))
-            })
+        });
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "two_agg_circuit: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "two_agg_circuit proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
     }
 
     async fn prove_left_leaf_right_agg_circuit(
@@ -834,26 +826,40 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         right_verifier_data: AltVerifierOnlyCircuitData<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_left_leaf_right_agg_circuit");
-        self.circuit_manager
-            .proof_tree_agg_circuits
-            .circuit_set
-            .left_leaf_right_agg_circuit
-            .prove_base(
-                &left_insert_leaf_proof,
-                &left_proof,
-                &left_verifier_data.to_verifier_data(),
-                &right_agg_whitelist_merkle_proof,
-                &right_agg_proof_header,
-                &right_proof,
-                &right_verifier_data.to_verifier_data(),
-            )
-            .map_err(|err| {
-                ErrorObjectOwned::owned(
-                    1,
-                    "left_leaf_right_agg_circuit proving error",
-                    Some(err.to_string()),
+
+        let circuit_manager = self.circuit_manager.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || {
+            circuit_manager
+                .proof_tree_agg_circuits
+                .circuit_set
+                .left_leaf_right_agg_circuit
+                .prove_base(
+                    &left_insert_leaf_proof,
+                    &left_proof,
+                    &left_verifier_data.to_verifier_data(),
+                    &right_agg_whitelist_merkle_proof,
+                    &right_agg_proof_header,
+                    &right_proof,
+                    &right_verifier_data.to_verifier_data(),
                 )
-            })
+        });
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "left_leaf_right_agg_circuit: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "left_leaf_right_agg_circuit proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
     }
 
     async fn prove_left_agg_right_leaf_circuit(
@@ -867,25 +873,39 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         right_verifier_data: AltVerifierOnlyCircuitData<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_left_agg_right_leaf_circuit");
-        self.circuit_manager
-            .proof_tree_agg_circuits
-            .circuit_set
-            .left_agg_right_leaf_circuit
-            .prove_base(
-                &left_agg_whitelist_merkle_proof,
-                &left_agg_proof_header,
-                &left_proof,
-                &left_verifier_data.to_verifier_data(),
-                &right_insert_leaf_proof,
-                &right_proof,
-                &right_verifier_data.to_verifier_data(),
-            )
-            .map_err(|err| {
-                ErrorObjectOwned::owned(
-                    1,
-                    "left_agg_right_leaf_circuit proving error",
-                    Some(err.to_string()),
+
+        let circuit_manager = self.circuit_manager.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || {
+            circuit_manager
+                .proof_tree_agg_circuits
+                .circuit_set
+                .left_agg_right_leaf_circuit
+                .prove_base(
+                    &left_agg_whitelist_merkle_proof,
+                    &left_agg_proof_header,
+                    &left_proof,
+                    &left_verifier_data.to_verifier_data(),
+                    &right_insert_leaf_proof,
+                    &right_proof,
+                    &right_verifier_data.to_verifier_data(),
                 )
-            })
+        });
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "left_agg_right_leaf_circuit: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "left_agg_right_leaf_circuit proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
     }
 }

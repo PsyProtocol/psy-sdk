@@ -43,6 +43,8 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
             ProvingJobCircuitType::GUTANoChange |
             ProvingJobCircuitType::GUTASingleEndCap |
             ProvingJobCircuitType::GUTAOnlyRegisterUsers |
+            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade |
+            ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade |
             ProvingJobCircuitType::GUTARegisterUsers => {
                 info!("{} - GUTA job - data_hash is guta_hash", prefix);
             }

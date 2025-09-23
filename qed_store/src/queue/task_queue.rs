@@ -993,6 +993,8 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             | ProvingJobCircuitType::GUTALeftGUTARightEndCap
             | ProvingJobCircuitType::GUTASingleEndCap
             | ProvingJobCircuitType::GUTAVerifyToCap
+            | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+            | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
             | ProvingJobCircuitType::GUTANoChange => Ok(self.job_graph.lock().await.guta_graph.clone()),
 
             _ => Err(anyhow!("Job ID {:?} does not belong to any known graph", job_id)),

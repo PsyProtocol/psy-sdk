@@ -62,6 +62,8 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
             | ProvingJobCircuitType::GUTALeftGUTARightEndCap
             | ProvingJobCircuitType::GUTASingleEndCap
             | ProvingJobCircuitType::GUTAVerifyToCap
+            | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+            | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
             | ProvingJobCircuitType::GUTANoChange => {}
 
             _ => {

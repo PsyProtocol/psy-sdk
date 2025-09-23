@@ -3,11 +3,13 @@ use std::sync::Arc;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::PrimeField64}, plonk::proof::ProofWithPublicInputs};
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID}, traits::QProofStoreAsyncImm}};
 use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::{MerkleZeroHasher, PoseidonHasher}, qhashable::QFieldHashable}};
-use qed_data::{config::store_config::QCheckpointSyncInfoCompact, guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}};
+use qed_data::{config::store_config::{QCheckpointSyncInfoCompact, QEDHasher}, guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use tracing::debug;
 use crate::realm::{C, D, F, H};
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
+use qed_crypto::hash::traits::hasher::FieldQHasher;
+use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
 
 use super::processor::RealmConfig;
 
@@ -121,16 +123,19 @@ impl<
         tracing::info!("get_checkpoint_tree_merkle_proof, checkpoint_id={}, end_cap_checkpoint_id={}", checkpoint_id, end_cap_checkpoint_id);
         let checkpoint_tree_proof = self
             .store_reader
-            .get_checkpoint_tree_merkle_proof(end_cap_checkpoint_id, end_cap_checkpoint_id)
+            .get_checkpoint_tree_merkle_proof(checkpoint_id, end_cap_checkpoint_id)
             .await?;
+        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
+        assert!(current_root == checkpoint_tree_proof.root);
+        assert!(historical_root == input.core.state_transition.checkpoint_tree_root_hash);
 
         if checkpoint_tree_proof.root != input.core.state_transition.checkpoint_tree_root_hash {
-            tracing::error!(
+            tracing::warn!(
                 "ensure checkpoint_tree_proof: {:?} == input.core.state_transition.checkpoint_tree_root_hash {:?}",
                 checkpoint_tree_proof.root,
                 input.core.state_transition.checkpoint_tree_root_hash,
             );
-            anyhow::bail!("invalid checkpoint_root_hash");
+            // anyhow::bail!("invalid checkpoint_root_hash");
         }
 
         tracing::info!(
@@ -140,7 +145,7 @@ impl<
         );
         let user_leaf = self
             .store_reader
-            .get_user_leaf_data(end_cap_checkpoint_id, user_id_u64)
+            .get_user_leaf_data(checkpoint_id, user_id_u64)
             .await?;
         let expected_start_user_leaf_hash = user_leaf.qfhash::<H>();
         if expected_start_user_leaf_hash != input.core.state_transition.start_user_leaf_hash {
@@ -188,6 +193,32 @@ impl<
             proof.public_inputs
         );
         self.verify_proof_of_type(ProvingJobCircuitType::UserEndCap, proof)?;
+
+        // check new leaf hash
+        let computed_new_leaf_hash = input.core.new_user_leaf.qfhash::<H>();
+        if computed_new_leaf_hash != input.core.state_transition.end_user_leaf_hash {
+            tracing::error!(
+                "ensure computed_new_leaf_hash: {} == state_transition.end_user_leaf_hash {}",
+                computed_new_leaf_hash,
+                input.core.state_transition.end_user_leaf_hash,
+            );
+            anyhow::bail!("invalid new user leaf hash");
+        }
+
+        // verify witness
+        let end_cap_result = input.core.state_transition;
+        let guta_stats = input.core.stats;
+        let state_transition_pi_hash = end_cap_result.qfhash::<QEDHasher>();
+        let guta_stats_pi_hash = guta_stats.qfhash::<QEDHasher>();
+        let expected_proof_public_inputs_hash = QEDHasher::q_two_to_one(state_transition_pi_hash, guta_stats_pi_hash);
+        if expected_proof_public_inputs_hash.0.elements != proof.public_inputs[0..4] {
+            tracing::error!(
+                "ensure expected_proof_public_inputs_hash: {} == proof.public_inputs[0..4] {}",
+                expected_proof_public_inputs_hash,
+                proof.public_inputs[0],
+            );
+            anyhow::bail!("invalid user endcap proof public inputs hash");
+        }
 
         // end validation
 

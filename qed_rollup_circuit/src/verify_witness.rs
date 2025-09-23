@@ -20,11 +20,13 @@ use qed_data::guta::proof_input::GUTANoChangeFullInput;
 use qed_data::guta::proof_input::GUTAOnlyRegisterUsersInput;
 use qed_data::guta::proof_input::VerifyGUTARegisterUsersCircuitInputSimple;
 use qed_data::guta::proof_input::VerifyGUTAToCapCircuitInputSimple;
+use qed_data::guta::proof_input::VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple;
 use qed_data::guta::proof_input::VerifyLeftEndCapRightGUTAInputSimple;
 use qed_data::guta::proof_input::VerifyLeftGUTARightEndCapInputSimple;
 use qed_data::guta::proof_input::VerifySingleEndCapInput;
 use qed_data::guta::proof_input::VerifyTwoEndCapCircuitInput;
 use qed_data::guta::proof_input::VerifyTwoGUTAProofGadgetStandardInputSimple;
+use qed_data::guta::proof_input::VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple;
 use qed_data::guta::stats::GUTAStats;
 use qed_data::protocol::circuit_inputs::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput;
 use qed_data::protocol::circuit_inputs::checkpoint_transition::QCQEDCheckpointStateTransitionInput;
@@ -348,7 +350,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             }
 
             use qed_crypto::hash::traits::qhashable::QFieldHashable;
-            let guta_header = r.input.get_guta_header_a();
+            let guta_header = r.input.get_new_guta_header();
 
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();
 
@@ -373,28 +375,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 anyhow::bail!("invalid dependency count in two end cap input");
             }
 
-            let nearest_common_ancestor_level = r.input.nca_proof.nearest_common_ancestor_level;
-            let nearest_common_ancestor_index = r.input.nca_proof.get_nca_index();
-            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<QEDHasher>();
-            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<QEDHasher>();
-
-            let combine_stats = r
-                .input
-                .a_end_cap
-                .guta_stats
-                .combine_with(&r.input.b_end_cap.guta_stats);
-            let guta_header_combine = GlobalUserTreeAggregatorHeader {
-                guta_circuit_whitelist: r.input.guta_circuit_whitelist,
-                checkpoint_tree_root: r.input.a_end_cap.checkpoint_root,
-                state_transition: SubTreeNodeStateTransition {
-                    old_node_value: old_nca_value,
-                    new_node_value: new_nca_value,
-                    node_index: F::from_canonical_u64(nearest_common_ancestor_index),
-                    node_level: F::from_canonical_u8(nearest_common_ancestor_level),
-                },
-                stats: combine_stats,
-            };
-
+            let guta_header_combine = r.input.get_new_guta_header();
             let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
@@ -402,6 +383,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 anyhow::bail!("invalid guta header hash");
             }
         }
+
         ProvingJobCircuitType::GUTATwoGUTA => {
             tracing::info!("verify two_guta: {:?}", proof.public_inputs);
             if proof.public_inputs.len() != 15 {
@@ -451,6 +433,86 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 anyhow::bail!("invalid guta header hash");
             }
         }
+        // GUTA_CHECKPOINT_UPGRADE-TODO: Add the new circuits here
+        ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade => {
+            tracing::info!("verify two_guta_with_checkpoint_update: {:?}", proof.public_inputs);
+            if proof.public_inputs.len() != 15 {
+                anyhow::bail!("invalid public input length");
+            }
+            let r: CircuitInputWithDependencies<VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F>> =
+                bincode::deserialize(
+                    &proof_store
+                        .get_bytes_by_id(job_id.get_input_witness_id())
+                        .await?,
+                )
+                .map_err(|e| anyhow::anyhow!(e))?;
+            if r.dependencies.len() != 1 {
+                anyhow::bail!("invalid dependency count in guta to cap input");
+            }
+
+            let guta_header_combine = r.input.get_new_guta_header::<QEDHasher>();
+
+            let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
+
+            tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
+            if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
+                anyhow::bail!("invalid guta header hash");
+            }
+        }
+        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade => {
+            tracing::info!("verify two_guta_with_checkpoint_update: {:?}", proof.public_inputs);
+            if proof.public_inputs.len() != 15 {
+                anyhow::bail!("invalid public input length");
+            }
+            let r: CircuitInputWithDependencies<VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<F>> =
+                bincode::deserialize(
+                    &proof_store
+                        .get_bytes_by_id(job_id.get_input_witness_id())
+                        .await?,
+                )
+                .map_err(|e| anyhow::anyhow!(e))?;
+            if r.dependencies.len() != 2 {
+                anyhow::bail!("invalid dependency count in two guta input");
+            }
+
+            let guta_whitelist_root = proof_verifier
+                .library
+                .get_group_inclusion_proof(
+                    ProvingJobCircuitType::GUTATwoGUTA,
+                    ProvingJobCircuitType::GUTATwoGUTA,
+                )?
+                .root;
+
+            let nearest_common_ancestor_level = r.input.nca_proof.nearest_common_ancestor_level;
+            let nearest_common_ancestor_index = r.input.nca_proof.get_nca_index();
+            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<QEDHasher>();
+            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<QEDHasher>();
+
+            anyhow::ensure!(
+                r.input.historical_checkpoint_proof_a.root == r.input.historical_checkpoint_proof_b.root,
+                "historical checkpoint proof root is zero"
+            );
+
+            let combine_stats = r.input.stats_a.combine_with(&r.input.stats_b);
+            let guta_header_combine = GlobalUserTreeAggregatorHeader {
+                guta_circuit_whitelist: guta_whitelist_root,
+                checkpoint_tree_root: r.input.historical_checkpoint_proof_a.root,
+                state_transition: SubTreeNodeStateTransition {
+                    old_node_value: old_nca_value,
+                    new_node_value: new_nca_value,
+                    node_index: F::from_canonical_u64(nearest_common_ancestor_index),
+                    node_level: F::from_canonical_u8(nearest_common_ancestor_level),
+                },
+                stats: combine_stats,
+            };
+
+            let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
+
+            tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
+            if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
+                anyhow::bail!("invalid guta header hash");
+            }
+        }
         ProvingJobCircuitType::GUTALeftGUTARightEndCap => {
             tracing::info!("verify left guta right end cap: {:?}", proof.public_inputs);
             if proof.public_inputs.len() != 15 {
@@ -480,10 +542,15 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let old_nca_value = r.input.nca_proof.compute_old_nca_value::<QEDHasher>();
             let new_nca_value = r.input.nca_proof.compute_new_nca_value::<QEDHasher>();
 
+            anyhow::ensure!(
+                r.input.b_end_cap.checkpoint_historical_merkle_proof.root == r.input.checkpoint_tree_root,
+                "right endcap historical merkle proof root not equal to left guta checkpoint tree root"
+            );
+
             let combine_stats = r.input.stats_a.combine_with(&r.input.b_end_cap.guta_stats);
             let guta_header_combine = GlobalUserTreeAggregatorHeader {
                 guta_circuit_whitelist: guta_whitelist_root,
-                checkpoint_tree_root: r.input.checkpoint_tree_root,
+                checkpoint_tree_root: r.input.b_end_cap.checkpoint_historical_merkle_proof.root,
                 state_transition: SubTreeNodeStateTransition {
                     old_node_value: old_nca_value,
                     new_node_value: new_nca_value,
@@ -530,9 +597,14 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let new_nca_value = r.input.nca_proof.compute_new_nca_value::<QEDHasher>();
 
             let combine_stats = r.input.a_end_cap.guta_stats.combine_with(&r.input.stats_b);
+
+            anyhow::ensure!(
+                r.input.a_end_cap.checkpoint_historical_merkle_proof.root == r.input.checkpoint_tree_root,
+                "left endcap historical merkle proof root not equal to right guta checkpoint tree root"
+            );
             let guta_header_combine = GlobalUserTreeAggregatorHeader {
                 guta_circuit_whitelist: guta_whitelist_root,
-                checkpoint_tree_root: r.input.a_end_cap.checkpoint_root,
+                checkpoint_tree_root: r.input.a_end_cap.checkpoint_historical_merkle_proof.root,
                 state_transition: SubTreeNodeStateTransition {
                     old_node_value: old_nca_value,
                     new_node_value: new_nca_value,
