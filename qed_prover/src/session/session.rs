@@ -241,6 +241,17 @@ impl UserSessionStateManager {
             current_checkpoint_id: 0,
         })
     }
+
+    pub async fn check_user_state(&self) -> anyhow::Result<()> {
+        let latest_checkpoint_id = self.rpc_provider.get_latest_l2_block_state().await?.checkpoint_id;
+        let user_leaf = self.rpc_provider.get_user_leaf_data(latest_checkpoint_id, self.user_id).await?;
+        if user_leaf.nonce + F::ONE != self.nonce {
+            tracing::error!("user nonce {} must be equal to onchain nonce {} + 1", self.nonce, user_leaf.nonce);
+            anyhow::bail!("user lps nonce {} must be equal to onchain nonce {} + 1", self.nonce, user_leaf.nonce);
+        }
+
+        Ok(())
+    }
 }
 
 pub struct WalletSession {
@@ -613,6 +624,8 @@ impl WalletSession {
             .prove_ups_start(&self.wallet.random_circuit_manager())
             .await?;
 
+        user_session_mgr.check_user_state().await?;
+
         Ok(())
     }
 
@@ -677,6 +690,8 @@ impl WalletSession {
             .await?;
         }
         user_session_mgr.mgr.prove_burn_fee(&self.wallet.random_circuit_manager()).await?;
+        user_session_mgr.check_user_state().await?;
+        
         Ok(())
     }
 
@@ -922,8 +937,9 @@ impl WalletSession {
             .submit_end_cap_proof::<F>(req)
             .await?;
 
+        user_session_mgr.check_user_state().await?;
         // update nonce
-        user_session_mgr.nonce = nonce + F::from_noncanonical_u64(1);
+        // user_session_mgr.nonce = nonce + F::from_noncanonical_u64(1);
 
         Ok(())
     }
