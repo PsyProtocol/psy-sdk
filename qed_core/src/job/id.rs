@@ -39,25 +39,25 @@ pub trait QJobRewardDataProvider {
 #[async_trait::async_trait]
 impl<T: QProofStoreAsyncImm> QJobRewardDataProvider for T {
     async fn get_job_commitment(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>> {
-        let proof = self.get_proof_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
+        let public_inputs = self.get_public_input_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
         Ok(QHashOut(HashOut {
             elements: [
-                proof.public_inputs[0],
-                proof.public_inputs[1],
-                proof.public_inputs[2],
-                proof.public_inputs[3],
+                public_inputs[0],
+                public_inputs[1],
+                public_inputs[2],
+                public_inputs[3],
             ],
         }))
     }
 
     async fn get_job_worker_public_key(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>> {
-        let proof = self.get_proof_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
+        let public_inputs = self.get_public_input_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
         Ok(QHashOut(HashOut {
             elements: [
-                proof.public_inputs[4],
-                proof.public_inputs[5],
-                proof.public_inputs[6],
-                proof.public_inputs[7],
+                public_inputs[4],
+                public_inputs[5],
+                public_inputs[6],
+                public_inputs[7],
             ],
         }))
     }

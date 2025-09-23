@@ -54,6 +54,9 @@ pub trait QueuePrefixKey {
     // checkpoint management keys
     fn checkpoint_list_key(&self) -> String;
     fn checkpoint_proofs_key(&self, checkpoint_id: u64) -> String;
+
+    // public inputs key
+    fn public_inputs_key(&self) -> String;
 }
 
 // fixed prefix + biz key
@@ -93,6 +96,10 @@ impl<T: BizKey> QueuePrefixKey for T {
 
     fn checkpoint_proofs_key(&self, checkpoint_id: u64) -> String {
         format!("checkpoint_proofs:{}-{}", checkpoint_id, self.biz_key())
+    }
+
+    fn public_inputs_key(&self) -> String {
+        format!("public_inputs-{}", self.biz_key())
     }
 }
 
@@ -186,6 +193,18 @@ impl QProofStoreReaderAsync for ProofStoreRedisAsync {
             .await?;
         Ok(data)
     }
+
+    async fn get_public_input_by_id<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+    ) -> anyhow::Result<Vec<C::F>> {
+        let mut con = self.pool.get().await?;
+        let public_inputs_key = self.public_inputs_key();
+        let data: Vec<u8> = con
+            .hget(&public_inputs_key, id.to_fixed_bytes().as_slice())
+            .await?;
+        Ok(bincode::deserialize(&data)?)
+    }
 }
 
 #[async_trait]
@@ -211,6 +230,18 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
                 data.as_slice(),
             )
             .await?;
+
+        // Store public_inputs separately to a permanent queue
+        let public_inputs_data = bincode::serialize(&proof.public_inputs)?;
+        let public_inputs_key = self.public_inputs_key();
+        let _: bool = con
+            .hset_nx(
+                &public_inputs_key,
+                id.to_fixed_bytes().as_slice(),
+                public_inputs_data.as_slice(),
+            )
+            .await?;
+
         Ok(())
     }
     async fn set_bytes_by_id_batch(

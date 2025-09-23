@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use kvq::traits::KVQPair;
-use plonky2::plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::GenericConfig, proof::ProofWithPublicInputs};
+use plonky2::{hash::hash_types::RichField, plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::GenericConfig, proof::ProofWithPublicInputs}};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{data::qhashout::QHashOut, job::id::QProvingTask};
@@ -184,6 +184,14 @@ pub trait QProofStoreReaderAsync {
         let next_jobs_id = counter_id.get_sub_group_counter_goal_next_jobs_id();
         let next_jobs = self.get_bytes_by_id(next_jobs_id).await?;
         Ok(bincode::deserialize(&next_jobs)?)
+    }
+
+    async fn get_public_input_by_id<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+    ) -> anyhow::Result<Vec<C::F>> {
+        let proof = self.get_proof_by_id::<C, D>(id).await?;
+        Ok(proof.public_inputs)
     }
 
 }
