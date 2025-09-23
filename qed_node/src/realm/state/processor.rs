@@ -644,6 +644,7 @@ impl<
         }
 
         guta_queue_items.sort_by(|a, b| a.input.new_user_leaf.user_id.to_canonical_u64().cmp(&b.input.new_user_leaf.user_id.to_canonical_u64()));
+        guta_queue_items.dedup_by_key(|item| item.input.new_user_leaf.user_id.to_canonical_u64());
 
         tracing::debug!("sorted guta_queue_items: {}", serde_json::to_string_pretty(&guta_queue_items)?);
         let mnu = guta_queue_items
