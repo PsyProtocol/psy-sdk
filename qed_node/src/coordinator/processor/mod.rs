@@ -510,18 +510,23 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         }
 
         let slot = slot_timer_other.get_current_slot();
-        match tokio::time::timeout(
-            Duration::from_secs(2 * SLOT_SIZE),
-            coordinator_processor.build_block(next_checkpoint_id, slot)
-        ).await {
-            Ok(Err(err)) => {
-                error!("❌ Failed to build block: {:?}, slot: {}", err, slot);
+        tokio::select! {
+            result = coordinator_processor.build_block(next_checkpoint_id, slot) => {
+                match result {
+                    Ok(checkpoint_id) => {
+                        info!("✅ Successfully built block for checkpoint {}, slot {}", checkpoint_id, slot);
+                    }
+                    Err(err) => {
+                        error!("❌ Failed to build block: {:?}, slot: {}", err, slot);
+                    }
+                }
             }
-            Err(err) => {
-                coordinator_processor.ctx.rollback(next_checkpoint_id).await?;
-                error!("Timeout waiting {:?} for produce block, slot: {}", err, slot);
+            _ = tokio::time::sleep(Duration::from_secs(2 * SLOT_SIZE)) => {
+                if let Err(err) = coordinator_processor.ctx.rollback(next_checkpoint_id).await {
+                    error!("❌ Failed to rollback checkpoint {}: {:?}", next_checkpoint_id, err);
+                }
+                error!("⏰ Timeout waiting for build block to complete, slot: {}", slot);
             }
-            _ => {}
         }
     }
 }

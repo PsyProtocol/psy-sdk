@@ -1,9 +1,10 @@
+use std::collections::BTreeMap;
 use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
 use std::sync::Arc;
 use ambassador::Delegate;
 use async_trait::async_trait;
 use auto_impl::auto_impl;
-use kvq::cache::{KVQBinaryStoreCached, KVQBinaryStoreCachedAsync, KVQBinaryStoreCachedTrait, KVQBinaryStoreCachedTraitAsync};
+use kvq::cache::{CacheValueType, KVQBinaryStoreCached, KVQBinaryStoreCachedAsync, KVQBinaryStoreCachedTrait, KVQBinaryStoreCachedTraitAsync};
 use kvq::traits::KVQBinaryStore;
 use kvq::traits::ambassador_impl_KVQBinaryStore;
 
@@ -11,6 +12,10 @@ use kvq::traits::ambassador_impl_KVQBinaryStore;
 pub trait Journal: KVQBinaryStore {
     fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
     fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
+    fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
+    fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()>{ Ok(()) }
+    fn cleanup_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
+    fn get_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<Option<Vec<u8>>>{ Ok(Option::None) }
     fn get_base_store(&self) -> &dyn KVQBinaryStore;
 }
 
@@ -28,6 +33,18 @@ impl<S: KVQBinaryStore> JournalStore<S> {
             inner: KVQBinaryStoreCached::new(Arc::new(store))
         }
     }
+    fn snapshot_key(&self, checkpoint_id: u64) -> Vec<u8> {
+        format!("CACHE_SNAPSHOT:{}", checkpoint_id).into_bytes()
+    }
+
+    pub fn get_cache_snapshot(&self) -> BTreeMap<Vec<u8>, CacheValueType> {
+        self.inner.map.read().clone()
+    }
+
+    pub fn restore_from_snapshot(&self, snapshot: BTreeMap<Vec<u8>, CacheValueType>) {
+        let mut map = self.inner.map.write();
+        *map = snapshot;
+    }
 }
 
 impl<S: KVQBinaryStore> Journal for JournalStore<S> {
@@ -39,7 +56,23 @@ impl<S: KVQBinaryStore> Journal for JournalStore<S> {
         self.inner.clear_cache();
         Ok(())
     }
-    
+    fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        let snapshot = self.get_cache_snapshot();
+        let snapshot_value = bincode::serialize(&snapshot)?;
+        self.get_base_store().set(self.snapshot_key(checkpoint_id), snapshot_value)
+    }
+    fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()> {
+        let snapshot_value = bincode::deserialize(&snapshot)?;
+        self.restore_from_snapshot(snapshot_value);
+        Ok(())
+    }
+    fn cleanup_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        self.get_base_store().delete(&self.snapshot_key(checkpoint_id))?;
+        Ok(())
+    }
+    fn get_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<Option<Vec<u8>>> {
+        self.get_base_store().get_exact_if_exists(&self.snapshot_key(checkpoint_id))
+    }
     fn get_base_store(&self) -> &dyn KVQBinaryStore {
         self.inner.store.as_ref()
     }
@@ -50,6 +83,10 @@ impl<S: KVQBinaryStore> Journal for JournalStore<S> {
 pub trait JournalAsync: KVQBinaryStoreAsync {
     async fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
     async fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
+    async fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
+    async fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()>{ Ok(()) }
+    async fn cleanup_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
+    async fn get_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<Option<Vec<u8>>>{ Ok(Option::None) }
     async fn get_base_store(&self) -> &dyn KVQBinaryStoreAsync;
 }
 
@@ -63,6 +100,19 @@ impl<S: KVQBinaryStoreAsync+ Send + Sync> JournalStoreAsync<S> {
         Self {
             inner: KVQBinaryStoreCachedAsync::new(Arc::new(store))
         }
+    }
+
+    fn snapshot_key(&self, checkpoint_id: u64) -> Vec<u8> {
+        format!("CACHE_SNAPSHOT:{}", checkpoint_id).into_bytes()
+    }
+
+    pub async fn get_cache_snapshot(&self) -> BTreeMap<Vec<u8>, CacheValueType> {
+        self.inner.map.read().await.clone()
+    }
+
+    pub async fn restore_from_snapshot(&self, snapshot: BTreeMap<Vec<u8>, CacheValueType>) {
+        let mut map = self.inner.map.write().await;
+        *map = snapshot;
     }
 }
 
@@ -138,6 +188,24 @@ impl<S: KVQBinaryStoreAsync+ Send + Sync> JournalAsync for JournalStoreAsync<S> 
     async fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
         self.inner.clear_cache().await;
         Ok(())
+    }
+
+    async fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        let snapshot = self.get_cache_snapshot().await;
+        let snapshot_value = bincode::serialize(&snapshot)?;
+        self.get_base_store().await.set(self.snapshot_key(checkpoint_id), snapshot_value).await
+    }
+    async fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()> {
+        let snapshot_value = bincode::deserialize(&snapshot)?;
+        self.restore_from_snapshot(snapshot_value).await;
+        Ok(())
+    }
+    async fn cleanup_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        self.get_base_store().await.delete(&self.snapshot_key(checkpoint_id)).await?;
+        Ok(())
+    }
+    async fn get_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<Option<Vec<u8>>> {
+        self.get_base_store().await.get_exact_if_exists(&self.snapshot_key(checkpoint_id)).await
     }
     
     async fn get_base_store(&self) -> &dyn KVQBinaryStoreAsync {

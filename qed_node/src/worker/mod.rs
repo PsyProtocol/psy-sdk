@@ -64,38 +64,41 @@ pub async fn run_worker(
             JobLocation::Coordinator => Duration::from_millis(2 * SLOT_SIZE),
             JobLocation::Realm(_) => Duration::from_millis(SLOT_SIZE),
         };
-        match timeout(
-            timeout_duration,
-            prover.worker_prove_mut_async(&store, library.as_ref(), job_id)
-        ).await
-        {
-            Ok(Ok(proof)) => {
-                info!("Proved job: job_id={:?}", job_id);
-                match job_receiver.submit_job_proof(job, Some(proof), wallet.clone(), &worker_pk_str).await {
-                    Ok(_) => {
-                        info!("Successfully submitted proof for job: {:?}, node: {:?}", job_id, location);
-                        {
-                            let mut tracker = job_tracker.lock().await;
-                            tracker.add_completed_job(job_id.get_output_id(), location.clone());
-                            if let Err(e) = tracker.save_to_file(&worker_pk_str) {
-                                error!("Failed to save job tracker: {:?}", e);
+        tokio::select! {
+            result = prover.worker_prove_mut_async(&store, library.as_ref(), job_id) => {
+                match result {
+                    Ok(proof) => {
+                        info!("Proved job: job_id={:?}", job_id);
+                        match job_receiver.submit_job_proof(job, Some(proof), wallet.clone(), &worker_pk_str).await {
+                            Ok(_) => {
+                                info!("Successfully submitted proof for job: {:?}, node: {:?}", job_id, location);
+                                {
+                                    let mut tracker = job_tracker.lock().await;
+                                    tracker.add_completed_job(job_id.get_output_id(), location.clone());
+                                    if let Err(e) = tracker.save_to_file(&worker_pk_str) {
+                                        error!("Failed to save job tracker: {:?}", e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Failed to submit job proof: err={:?}, job_id={:?}, node: {:?}",
+                                    e, job_id, location
+                                );
                             }
                         }
                     }
                     Err(e) => {
-                        error!(
-                            "Failed to submit job proof: err={:?}, job_id={:?}, node: {:?}",
-                            e, job_id, location
-                        );
+                        error!("Failed to prove job: err={:?}, job_id={:?}, node: {:?}", e, job_id, location);
                     }
                 }
             }
-            Ok(Err(e)) => {
-                error!("Failed to prove job: err={:?}, job_id={:?}, node: {:?}", e, job_id, location);
+            _ = tokio::time::sleep(timeout_duration) => {
+                error!("Job proving timed out after {:?}: job_id={:?}, node: {:?}", timeout_duration, job_id, location);
+                if let Err(e) = job_receiver.submit_job_proof(job, None, wallet.clone(), &worker_pk_str).await {
+                    error!("Failed to submit timeout job proof: err={:?}, job_id={:?}", e, job_id);
+                }
             }
-            Err(_timeout_error) => {
-                error!("Job proving timed out after 1 or 2 slots: job_id={:?}, node: {:?}", job_id, location);
-            }
-        };
+        }
     }
 }

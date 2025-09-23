@@ -512,7 +512,7 @@ impl<
 
         let real_checkpoint_id = checkpoint_id.saturating_sub(1);
         let checkpoint_tree_root = self.store.get_checkpoint_tree_root(real_checkpoint_id).await?;
-        
+
         // updata checkpoint tree merkle proof
         for guta_queue_item in guta_queue_items.iter_mut() {
             if guta_queue_item.checkpoint_tree_proof.root != checkpoint_tree_root {
@@ -795,14 +795,14 @@ impl<
 
                 updates.push(KVQPair {
                     key: w_id,
-                    value: bincode::serialize(&x)?,
+                    value: bincode::serialize(&x).map_err(|e| anyhow::anyhow!("serialize x: {:?}", e))?,
                 });
             } else {
                 panic!("unsupoorted");
             }
         }
 
-        self.proof_store.set_bytes_by_id_batch(&updates).await?;
+        self.proof_store.set_bytes_by_id_batch(&updates).await.map_err(|e| anyhow::anyhow!("set_bytes_by_id_batch: {:?}", e))?;
 
         let levels = res
             .get_index_levels()

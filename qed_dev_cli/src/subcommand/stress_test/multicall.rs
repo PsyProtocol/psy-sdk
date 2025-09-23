@@ -1,3 +1,6 @@
+use std::fs;
+use std::path::Path;
+use std::str::FromStr;
 use crate::subcommand::{
     stress_test::{load_rpc_config, wait_for_new_block, RpcConfig},
     StressTestArgs,
@@ -10,11 +13,18 @@ use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_data::config::store_config::QEDHasher;
 use qed_prover::local::args::ContractCallArgs;
-use qed_prover::session::WalletSession;
+use qed_prover::session::{gen_contract_deploy_and_circuits_for_functions, WalletSession};
 use scheduled_thread_pool::ScheduledThreadPool;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::log::{error, info};
+use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use qed_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
+use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+use qed_prover::local::provider::{QUserRpcProvider, RpcProvider};
+use qed_prover::local::request::QDeployContractRPCRequest;
+use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use qed_data::config::store_config::{C, D};
 
 const USER0_PRIVATE_KEY: &str = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a";
 const USER0_PUBLIC_KEY: &str = "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5";
@@ -48,6 +58,9 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
             if args.only_mint {
                 multicall.multi_user_mint(args.concurrent_tasks as u64).unwrap();
             }
+            if args.only_deploy_contract {
+                multicall.deploy_contract(args.concurrent_tasks as u64, args.contract_path.clone()).unwrap();
+            }
         }
     });
 
@@ -66,6 +79,7 @@ struct UserInfo {
 pub struct Multicast {
     wallet_session: Arc<RwLock<WalletSession>>,
     pool: ScheduledThreadPool,
+    rpc_config: RpcConfig,
 }
 
 impl Multicast {
@@ -75,6 +89,7 @@ impl Multicast {
         Ok(Self {
             wallet_session,
             pool,
+            rpc_config,
         })
     }
 
@@ -295,6 +310,24 @@ impl Multicast {
             return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
         }
         info!("multi_user_mint: end call");
+        Ok(())
+    }
+
+    pub fn deploy_contract(&self, count: u64, mut contract_path: String) -> Result<()> {
+        let mint_amount = 250000000000u64;
+        let (from_user_id, public_key0) = self.init_user0(mint_amount)?;
+        if contract_path.is_empty() {
+            contract_path = "../../../../qed_precompiles/token/target/token.json".to_string();
+        }
+        info!("deploying contract from {}", contract_path.clone());
+        let defs_array: Vec<DPNFunctionCircuitDefinition> =
+            serde_json::from_str(&fs::read_to_string(contract_path)?)?;
+        for i in 0..count {
+            tracing::info!("deploying contract for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
+            self.wallet_session.read().deploy_contract(public_key0, defs_array.clone())?;
+            tracing::info!("contract deployed for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
+        }
+        info!("user_deploy_contract: end call");
         Ok(())
     }
 
