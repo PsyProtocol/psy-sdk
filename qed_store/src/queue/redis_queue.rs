@@ -370,6 +370,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
 pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueueConsumerAsyncImm {
     async fn peek_with_position<T: DQSerializable>(
         &self,
+        count: Option<isize>,
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueOffsetState)>;
@@ -766,6 +767,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
     async fn peek_with_position<T: DQSerializable>(
         &self,
+        count: Option<isize>,
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueOffsetState)> {
@@ -777,7 +779,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         );
 
         let mut con = self.pool.get().await?;
-        let members: Vec<Vec<u8>> = con.lrange(key.clone(), 0, -1).await?;
+        let members: Vec<Vec<u8>> = con.lrange(key.clone(), 0, (count.unwrap_or_default() - 1) as isize).await?;
         // Deserialize items
         let items: Vec<T> = members
             .into_iter()

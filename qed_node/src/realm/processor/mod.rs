@@ -57,6 +57,7 @@ type ConcreteRealmProcessorContext = RealmProcessorContext<
 
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
+    pub max_processed_end_caps_per_block: Option<isize>,
     pub sync_proof: ProofStoreRedisAsync,
     pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
     pub store: QEDStore,
@@ -98,6 +99,7 @@ impl RealmProcessor {
         let sync_checkpoint = Arc::new(realm_qps.clone());
         let processor = RealmProcessor {
             realm_config,
+            max_processed_end_caps_per_block: config.realm.max_processed_end_caps_per_block.clone(),
             sync_proof: realm_qps,
             sync_checkpoint,
             store,
@@ -126,6 +128,7 @@ impl RealmProcessor {
             QProvingTaskStoreImpl,
         >::new(
             self.realm_config,
+            self.max_processed_end_caps_per_block,
             JournalStore::new(self.store.clone()),
             realm_qps.clone(),
             realm_qps.clone(),
