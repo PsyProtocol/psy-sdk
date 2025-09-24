@@ -110,7 +110,7 @@ services:
   # ScyllaDB clusters
 
   # Coordinator ScyllaDB cluster
-  {% if config.nodes.coordinator.backend and config.nodes.coordinator..database == "scylla" -%}
+  {% if config.nodes.coordinator.backend and config.nodes.coordinator.database == "scylla" -%}
     {% set coordinator_cluster_size = config.nodes.coordinator.backend.scylla.aws.ec2.desired_instances | default(1) -%}
   {% else -%}
     {% set coordinator_cluster_size = 0 -%}
