@@ -22,6 +22,9 @@ fn main() {
     let users_per_realm = network["users_per_realm"]
         .as_u64()
         .expect("users_per_realm must be a number");
+    let group_realm_height = network["group_realm_height"]
+        .as_u64()
+        .expect("group_realm_height must be a number") as u8;
 
     if global_user_tree_height < realm_user_tree_height {
         panic!("global_user_tree_height ({}) must be >= realm_user_tree_height ({})",
@@ -71,6 +74,7 @@ fn main() {
 pub const GLOBAL_USER_TREE_HEIGHT: u8 = {};
 pub const COORDINATOR_USER_TREE_HEIGHT: u8 = {};
 pub const REALM_USER_TREE_HEIGHT: u8 = {};
+pub const GROUP_REALM_HEIGHT: u8 = {};
 pub const USERS_PER_REALM: u64 = {};
 
 // Native currency configuration
@@ -86,6 +90,7 @@ pub const GUTA_FEE: u64 = {};
         global_user_tree_height,
         coordinator_user_tree_height,
         realm_user_tree_height,
+        group_realm_height,
         users_per_realm,
         native_currency_decimal,
         native_currency,

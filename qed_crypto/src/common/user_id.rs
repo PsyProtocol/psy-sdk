@@ -1,5 +1,5 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::RichField, iop::target::{BoolTarget, Target}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
+use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT, REALM_USER_TREE_HEIGHT};
 
 fn reverse_bits_in_limit(x: u64, num_bits: u8) -> u64 {
     let dif = 64 - num_bits as u64;
@@ -108,6 +108,43 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy3 {
         (registration_id & ((1u64<<10)-1u64))
     }
 }
+
+struct UserIdBitsStrategy4;
+
+impl UserIdGeneratorStrategy for UserIdBitsStrategy4 {
+    fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        _user_registration_tree_leaf_index: Target,
+        user_registration_tree_leaf_index_bits: &[BoolTarget],
+        _global_user_tree_height: usize,
+    )-> Target {
+        let mut realm_index_bit = user_registration_tree_leaf_index_bits[0..(GROUP_REALM_HEIGHT as usize)].to_vec();
+        realm_index_bit.reverse();
+
+        let user_index_bits = user_registration_tree_leaf_index_bits[(GROUP_REALM_HEIGHT as usize)..((GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT) as usize)].to_vec();
+        let group_id_bits = user_registration_tree_leaf_index_bits[((GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT) as usize)..].to_vec();
+
+        let new_bits = [
+            user_index_bits,
+            realm_index_bit,
+            group_id_bits,
+        ].concat();
+        let user_id = builder.le_sum(new_bits.iter());
+
+        user_id
+    }
+
+    fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
+        let realm_index = registration_id & ((1u64 << GROUP_REALM_HEIGHT) - 1);
+        let user_index = (registration_id >> GROUP_REALM_HEIGHT) & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+        let group_id = (registration_id >> (GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT)) & ((1u64 << (COORDINATOR_USER_TREE_HEIGHT - GROUP_REALM_HEIGHT)) - 1);
+
+        let reversed_realm_index = reverse_bits_in_limit(realm_index, GROUP_REALM_HEIGHT);
+        let realm_id = (group_id << GROUP_REALM_HEIGHT) | reversed_realm_index;
+
+        (realm_id << REALM_USER_TREE_HEIGHT) | user_index
+    }
+}
 /*
 // reverse bits gives a very even distribution
 pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
@@ -131,7 +168,7 @@ pub fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F
 }
 */
 
-type UserIdBitsStrategy = UserIdBitsStrategy2;
+type UserIdBitsStrategy = UserIdBitsStrategy4;
 
 pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
     UserIdBitsStrategy::get_user_id_from_registration_id(registration_id)
@@ -156,7 +193,7 @@ mod tests {
     use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
     use rand::{thread_rng, RngCore};
 
-    use super::{UserIdBitsStrategy1, UserIdBitsStrategy2, UserIdBitsStrategy3, UserIdGeneratorStrategy};
+    use super::{UserIdBitsStrategy1, UserIdBitsStrategy2, UserIdBitsStrategy3, UserIdBitsStrategy4, UserIdGeneratorStrategy};
 
     struct SimpleBitsTester<C: GenericConfig<D>, const D: usize> {
         pub registration_ids: Vec<Target>,
@@ -254,6 +291,10 @@ mod tests {
     #[test]
     fn check_strategy_3() {
         SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy3>(1024, 64*1024, 64*1024).unwrap();
+    }
+    #[test]
+    fn check_strategy_4() {
+        SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy4>(1024, 64*1024, 64*1024).unwrap();
     }
     /*
     #[test]

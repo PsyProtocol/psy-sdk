@@ -694,10 +694,6 @@ impl<
                         0,
                     );
 
-                    for dep in &x.dependencies {
-                        graph.add_edge(w_id.get_output_id(), *dep);
-                    }
-
                     combo_stats.push((w_id.get_output_id(), x.input.get_combined_stats()));
 
                     for dep in &x.dependencies {
