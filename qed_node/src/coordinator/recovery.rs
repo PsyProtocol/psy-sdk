@@ -39,7 +39,7 @@ impl CoordinatorRecoveryManager {
     }
 
     pub async fn sync_from_s3(&mut self, target_checkpoint: Option<u64>) -> Result<()> {
-        info!("🔄 Starting recovery from S3...");
+        info!("🔄 Starting coordinator recovery from S3...");
         let genesis_config = GenesisConfig::<GoldilocksField>::from_path(&self.config_path)?;
 
         // Get recovery info from S3

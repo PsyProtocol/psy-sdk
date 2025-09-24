@@ -43,8 +43,8 @@ async fn main() -> anyhow::Result<()> {
             aws_bucket,
             redis_uri,
             queue_biz_key,
-            pool_size,
             backend_config,
+            config_path,
         } => {
             qed_node::realm::recovery::run_realm_sync_command(
                 realm_id,
@@ -53,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
                 backend_config,
                 redis_uri,
                 queue_biz_key,
-                Some(pool_size),
+                config_path,
             )
             .await?;
         }

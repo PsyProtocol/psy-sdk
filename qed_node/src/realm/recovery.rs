@@ -3,16 +3,24 @@ use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use qed_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, QCheckpointSyncInfoCompact},
+    config::{
+        genesis_config::GenesisConfig,
+        store_config::{CheckpointSyncInfoTableStore, QCheckpointSyncInfoCompact},
+    },
     models::checkpoint::sync_info::QEDCheckpointSyncInfoModelReaderCore,
 };
 use qed_store::{
+    node::realm::QEDRealmStoreReaderAsync,
     queue::{new_redis_async_pool, ProofStoreRedisAsync, QPendingUserStoreAsyncImm},
-    store::{journal::JournalStore, QEDStore},
+    store::{
+        journal::{Journal, JournalStore},
+        QEDStore,
+    },
 };
 use tracing::{error, info, warn};
 
 use super::backup::RealmS3BackupClient;
+use crate::realm::RealmProcessor;
 
 pub struct RealmRecoveryManager {
     realm_id: u32,
@@ -20,7 +28,7 @@ pub struct RealmRecoveryManager {
     store: JournalStore<QEDStore>,
     backup_client: RealmS3BackupClient,
     sync_queue: std::sync::Arc<ProofStoreRedisAsync>,
-    current_checkpoint_id: u64,
+    config_path: String,
 }
 
 impl RealmRecoveryManager {
@@ -30,14 +38,14 @@ impl RealmRecoveryManager {
         bucket: String,
         redis_uri: String,
         queue_biz_key: String,
-        redis_pool_size: Option<usize>,
+        config_path: String,
     ) -> Result<Self> {
         let backup_client = RealmS3BackupClient::new(realm_id, bucket).await?;
         let qed_store = QEDStore::from_backend(backend).await?;
         let store = JournalStore::new(qed_store.clone());
 
         // Initialize sync_queue using redis configuration
-        let pool = new_redis_async_pool(&redis_uri, redis_pool_size.unwrap_or(10)).await?;
+        let pool = new_redis_async_pool(&redis_uri, 10).await?;
         let sync_queue = std::sync::Arc::new(ProofStoreRedisAsync::new(pool, queue_biz_key).await?);
 
         Ok(Self {
@@ -46,7 +54,7 @@ impl RealmRecoveryManager {
             store,
             backup_client,
             sync_queue,
-            current_checkpoint_id: 0,
+            config_path
         })
     }
 
@@ -62,13 +70,14 @@ impl RealmRecoveryManager {
 
         // Determine which checkpoint to recover to
         let target = target_checkpoint.unwrap_or(recovery_info.latest_checkpoint);
-        let start_checkpoint = self.current_checkpoint_id + 1;
 
-        info!("📊 Current local checkpoint: {}", self.current_checkpoint_id);
-        info!("⚡ Recovering realm {} from checkpoint {} to {}", self.realm_id, start_checkpoint, target);
+        let genesis_config = GenesisConfig::<GoldilocksField>::from_path(&self.config_path)?;
+        RealmProcessor::initialize_store(&self.qed_store, genesis_config, self.realm_id).await?;
+
+        info!("⚡ Recovering realm {} from checkpoint 0 to {}", self.realm_id, target);
 
         // Recover checkpoints incrementally
-        for checkpoint_id in start_checkpoint..=target {
+        for checkpoint_id in 0..=target {
             if !recovery_info.checkpoints_available.contains(&checkpoint_id) {
                 warn!(
                     "⚠️ Checkpoint {} not available in S3 for realm {}, skipping",
@@ -80,7 +89,7 @@ impl RealmRecoveryManager {
             match self.recover_checkpoint(checkpoint_id).await {
                 Ok(()) => {
                     info!("✅ Successfully recovered realm {} checkpoint {}", self.realm_id, checkpoint_id);
-                    self.current_checkpoint_id = checkpoint_id; // Update current checkpoint
+                    self.store.commit(checkpoint_id)?; // Commit journal store
                 }
                 Err(e) => {
                     error!("❌ Failed to recover realm {} checkpoint {}: {}", self.realm_id, checkpoint_id, e);
@@ -207,21 +216,17 @@ impl RealmRecoveryManager {
     }
 
     pub async fn verify_recovery(&self, expected_checkpoint: Option<u64>) -> Result<()> {
-        if let Some(expected) = expected_checkpoint {
-            if self.current_checkpoint_id != expected {
-                return Err(anyhow::anyhow!(
-                    "Realm {} recovery verification failed: expected checkpoint {}, got {}",
-                    self.realm_id,
-                    expected,
-                    self.current_checkpoint_id
-                ));
+        if let Some(expected_checkpoint) = expected_checkpoint {
+            let latest_state = self.store.get_latest_l2_block_state().await?;
+            if latest_state.checkpoint_id == expected_checkpoint {
+                info!("✅ Successfully recovered to checkpoint {}", latest_state.checkpoint_id);
+            } else {
+                error!(
+                    "❌ Recovery verification failed: expected checkpoint {}, latest checkpoint: {}",
+                    expected_checkpoint, latest_state.checkpoint_id
+                );
             }
         }
-
-        info!(
-            "✅ Realm {} recovery verification passed: checkpoint {}",
-            self.realm_id, self.current_checkpoint_id
-        );
         Ok(())
     }
 
@@ -238,10 +243,10 @@ pub async fn run_realm_sync_command(
     backend_config: qed_store::store::backend::BackendConfig,
     redis_uri: String,
     queue_biz_key: String,
-    redis_pool_size: Option<usize>,
+    config_path: String,
 ) -> Result<()> {
     let backend = backend_config.to_backend();
-    let mut recovery_manager = RealmRecoveryManager::new(realm_id, backend, aws_bucket, redis_uri, queue_biz_key, redis_pool_size).await?;
+    let mut recovery_manager = RealmRecoveryManager::new(realm_id, backend, aws_bucket, redis_uri, queue_biz_key, config_path).await?;
     recovery_manager.sync_from_s3(target_checkpoint).await?;
     recovery_manager.verify_recovery(target_checkpoint).await?;
     Ok(())
