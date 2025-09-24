@@ -1031,7 +1031,7 @@ mod tests {
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
-        let user1 = wallet_session.register_user(private_key1048576)?;
+        let user1 = wallet_session.register_user(private_key0)?;
 
         // wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(20));
@@ -1141,7 +1141,7 @@ mod tests {
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
-        let user1 = wallet_session.register_user(private_key1048576)?;
+        let user1 = wallet_session.register_user(private_key0)?;
 
         // wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(20));
