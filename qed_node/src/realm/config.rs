@@ -38,7 +38,7 @@ pub struct RealmConfig {
     pub realm_id: u32,
 
     #[arg(long, env = "PROCESSED_END_CAP_MAX_SIZE")]
-    pub max_processed_end_caps_per_block: Option<usize>,
+    pub max_processed_end_caps_per_block: Option<isize>,
 }
 
 impl Default for RealmConfig {

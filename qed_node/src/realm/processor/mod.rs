@@ -57,7 +57,7 @@ type ConcreteRealmProcessorContext = RealmProcessorContext<
 
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
-    pub max_processed_end_caps_per_block: Option<usize>,
+    pub max_processed_end_caps_per_block: Option<isize>,
     pub sync_proof: ProofStoreRedisAsync,
     pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
     pub store: QEDStore,

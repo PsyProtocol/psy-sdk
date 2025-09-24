@@ -111,7 +111,7 @@ pub struct RealmProcessorContext<
     pub task_store: Arc<TS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
-    pub max_processed_end_caps_per_block: Option<usize>,
+    pub max_processed_end_caps_per_block: Option<isize>,
 }
 
 impl<
@@ -125,7 +125,7 @@ impl<
 {
     pub async fn new(
         realm_config: RealmConfig,
-        max_processed_end_caps_per_block: Option<usize>,
+        max_processed_end_caps_per_block: Option<isize>,
         store: SR,
         checkpoint_queue: Arc<DQ>,
         sync_queue: Arc<HQ>,
