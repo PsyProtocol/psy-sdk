@@ -950,7 +950,7 @@ impl<
     }
 
     pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
-        self.store.commit(checkpoint_id)?;
+        self.store.commit(Some(checkpoint_id))?;
         self.commit_offset(checkpoint_id).await?;
         self.task_store.save_job_dependency_graph(checkpoint_id).await
     }

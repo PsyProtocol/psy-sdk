@@ -350,7 +350,7 @@ impl RealmProcessor {
                             self.initialize_genesis_state().await?;
                         }
 
-                        context.store.commit(checkpoint_id)?;
+                        context.store.commit(None)?;
 
                         let pending_users_count = context.sync_queue.get_pending_users_count().await?;
                         trace!("Pending users count after checkpoint sync: {}", pending_users_count);

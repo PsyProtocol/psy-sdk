@@ -235,7 +235,7 @@ impl
 
         match qed_store.initialize_store(genesis_store_config).await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
-                qed_store.commit(0)?;
+                qed_store.commit(Some(0))?;
             }
             Ok(_) => {}
             Err(_) => {

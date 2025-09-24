@@ -132,7 +132,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
         self.map.write().clear();
     }
 
-    fn flush_simple(&self) -> anyhow::Result<()> {
+    fn flush_simple(&self, checkpoint_id: Option<u64>) -> anyhow::Result<()> {
         let (keys_to_set, removed_keys) = {
             let mut map = self.map.write();
             let keys_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>> = map.iter().filter(|(_, vt)|{
@@ -141,9 +141,14 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
                     CacheValueType::Removed => false,
                 }
             }).map(|(k, vt)|{
+                let mut k = k.clone();
+                if let Some(checkpoint_id) = checkpoint_id {
+                    let len = k.len();
+                    k[len-8..].copy_from_slice(&checkpoint_id.to_be_bytes())
+                }
                 match vt {
                     CacheValueType::Bytes(b) => Ok(KVQPair{
-                        key: k.clone(),
+                        key: k,
                         value: b.clone(),
                     }),
                     CacheValueType::Removed => Err(anyhow::anyhow!("Cannot flush changes with removed keys")),
@@ -156,7 +161,14 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
                     CacheValueType::Bytes(_) => false,
                     CacheValueType::Removed => true,
                 })
-                .map(|x| x.0.to_owned())
+                .map(|x| {
+                    let mut k = x.0.to_owned();
+                    if let Some(checkpoint_id) = checkpoint_id {
+                        let len = k.len();
+                        k[len-8..].copy_from_slice(&checkpoint_id.to_be_bytes())
+                    }
+                    k
+                })
                 .collect::<Vec<_>>();
 
             (keys_to_set, removed_keys)

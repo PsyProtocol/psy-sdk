@@ -10,7 +10,7 @@ use kvq::traits::ambassador_impl_KVQBinaryStore;
 
 #[auto_impl(&, Box, Arc)]
 pub trait Journal: KVQBinaryStore {
-    fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
+    fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<()>;
     fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
     fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
     fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()>{ Ok(()) }
@@ -48,8 +48,8 @@ impl<S: KVQBinaryStore> JournalStore<S> {
 }
 
 impl<S: KVQBinaryStore> Journal for JournalStore<S> {
-    fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
-        self.inner.flush_simple()
+    fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<()> {
+        self.inner.flush_simple(_checkpoint_id)
     }
 
     fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
@@ -81,7 +81,7 @@ impl<S: KVQBinaryStore> Journal for JournalStore<S> {
 #[async_trait]
 #[auto_impl(&, Box, Arc)]
 pub trait JournalAsync: KVQBinaryStoreAsync {
-    async fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
+    async fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<()>;
     async fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
     async fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
     async fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()>{ Ok(()) }
@@ -181,8 +181,8 @@ impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStoreAsync for JournalStoreA
 
 #[async_trait]
 impl<S: KVQBinaryStoreAsync+ Send + Sync> JournalAsync for JournalStoreAsync<S> {
-    async fn commit(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
-        self.inner.flush_simple().await
+    async fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<()> {
+        self.inner.flush_simple(_checkpoint_id).await
     }
 
     async fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()> {
