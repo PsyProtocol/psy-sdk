@@ -31,11 +31,18 @@ impl RealmS3BackupClient {
     pub async fn new(realm_id: u32, bucket: String) -> Result<Self> {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = aws_sdk_s3::Client::new(&config);
-        Ok(Self {
-            realm_id,
-            bucket,
-            client,
-        })
+        info!("Testing S3 connection...");
+        let result = client.head_bucket().bucket(&bucket).send().await;
+        match result {
+            Ok(_) => {
+                info!("✅ S3 connection successful, bucket '{}' is accessible", bucket);
+            }
+            Err(e) => {
+                error!("❌ S3 connection failed: {}", e);
+                return Err(e.into());
+            }
+        }
+        Ok(Self { realm_id, bucket, client })
     }
 
     pub async fn new_from_env(realm_id: u32) -> Result<Self> {
@@ -68,7 +75,10 @@ impl RealmS3BackupClient {
                 Ok(())
             }
             Err(e) => {
-                error!("❌ Failed to backup realm {} checkpoint {} to S3: {}", self.realm_id, backup.checkpoint_id, e);
+                error!(
+                    "❌ Failed to backup realm {} checkpoint {} to S3: {:?}",
+                    self.realm_id, backup.checkpoint_id, e
+                );
                 Err(e.into())
             }
         }

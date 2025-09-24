@@ -45,6 +45,7 @@ use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use plonky2::field::types::Field;
 use qed_data::traits::qdatastore::{qtreedata::{QTreeDataStoreWriterSync}, qmetadata::QMetaDataStoreWriterSync};
 use std::{str::FromStr, collections::HashMap};
+use crate::coordinator::backup::S3BackupClient;
 use super::backup::{RealmS3BackupClient, try_backup_realm_checkpoint};
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
@@ -101,12 +102,16 @@ impl RealmProcessor {
         let sync_checkpoint = Arc::new(realm_qps.clone());
 
         // Initialize backup client
-        let backup_client = RealmS3BackupClient::new_from_env(config.realm.realm_id).await.ok();
-        if backup_client.is_some() {
-            info!("✅ Realm {} S3 backup client initialized", config.realm.realm_id);
-        } else {
-            warn!("⚠️ Realm {} S3 backup client not available (check AWS configuration)", config.realm.realm_id);
-        }
+        let backup_client = match RealmS3BackupClient::new_from_env(config.realm.realm_id).await {
+            Ok(client) => {
+                info!("✅ S3 backup client initialized");
+                Some(client)
+            },
+            Err(e) => {
+                warn!("⚠️ S3 backup client initialization failed: {}", e);
+                None
+            }
+        };
 
         let processor = RealmProcessor {
             realm_config,

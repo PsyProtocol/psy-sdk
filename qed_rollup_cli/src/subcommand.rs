@@ -53,6 +53,8 @@ pub enum Commands {
         aws_bucket: String,
         #[command(flatten)]
         backend_config: qed_store::store::backend::BackendConfig,
+        #[arg(long, help = "Path to configuration file", default_value = "config.json")]
+        config_path: String,
     },
     #[command(about = "Sync realm processor from S3 backup")]
     RealmProcessorSync {

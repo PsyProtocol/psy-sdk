@@ -28,6 +28,17 @@ impl S3BackupClient {
     pub async fn new(bucket: String) -> Result<Self> {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = aws_sdk_s3::Client::new(&config);
+        info!("Testing S3 connection...");
+        let result = client.head_bucket().bucket(&bucket).send().await;
+        match result {
+            Ok(_) => {
+                info!("✅ S3 connection successful, bucket '{}' is accessible", bucket);
+            }
+            Err(e) => {
+                error!("❌ S3 connection failed: {}", e);
+                return Err(e.into());
+            }
+        }
         Ok(Self { bucket, client })
     }
 
@@ -61,7 +72,7 @@ impl S3BackupClient {
                 Ok(())
             }
             Err(e) => {
-                error!("❌ Failed to backup checkpoint {} to S3: {}", backup.checkpoint_id, e);
+                error!("❌ Failed to backup checkpoint {} to S3: {:?}", backup.checkpoint_id, e);
                 Err(e.into())
             }
         }
