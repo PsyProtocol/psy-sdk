@@ -34,8 +34,8 @@ struct UserNullifier {
 #[derive(Storage, StorageRef)]
 struct Contract {
     pub balance: Felt,
-    pub other_user_info: [OtherUserInfo; 1073741824],
-    pub user_nullifiers: [UserNullifier; 1073741824],
+    pub other_user_info: [OtherUserInfo; 16777216],
+    pub user_nullifiers: [UserNullifier; 16777216],
 }
 
 impl ContractRef {
