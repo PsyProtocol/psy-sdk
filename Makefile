@@ -146,7 +146,7 @@ SLOT_ID                  := 0
 CONTRACT_STATE_HEIGHT    := 32
 REALM_ID                 := 0
 REGISTRATION_ID          := 1
-STRATEGY                 := 2
+STRATEGY                 := 4
 SIGN_TYPE                := zk
 
 COORDINATOR_RPC_URL      := $(shell jq -r '.network.coordinator_configs[].rpc_url[]' config.json)
@@ -463,7 +463,7 @@ mint:
 
 transfer:
 	@echo "USER0 transferring 250 to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER1 transferring 250 to USER0..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
@@ -471,13 +471,13 @@ claim:
 	@echo "USER1 claiming transfer..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0 --sign-type $(SIGN_TYPE)
 	@echo "USER0 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 8388608 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 1048576 --sign-type $(SIGN_TYPE)
 
 return-back:
 	@echo "USER1 transferring back to USER0..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER0 transferring back to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
 claim-rewards:
 	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1

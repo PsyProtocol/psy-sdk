@@ -1,8 +1,9 @@
 {
   "network": {
-    "users_per_realm": 8388608,
+    "users_per_realm": 1048576,
     "global_user_tree_height": 24,
-    "realm_user_tree_height": 23,
+    "realm_user_tree_height": 20,
+    "group_realm_height": 1,
     "realm_configs": [
       {
         "id": 0,
