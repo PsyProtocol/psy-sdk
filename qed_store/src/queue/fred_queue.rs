@@ -516,6 +516,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
 impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreFred {
     async fn peek_with_position<T: DQSerializable>(
         &self,
+        _count: Option<usize>,
         _channel_id: u64,
         _checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueOffsetState)> {
