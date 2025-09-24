@@ -405,7 +405,25 @@ run-web-wallet:
 	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
 
 run-benchmark:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --repeat 100
+	@./scripts/run_benchmark.sh
+
+run-benchmark-user:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-user --max-task 10
+
+run-benchmark-deploy:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-deploy-contract --contract-path qed_precompiles/token/target/token.json --max-task 5
+
+run-benchmark-mint:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100 --max-task 50
+
+run-benchmark-transfer:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-multi-user-transfer --concurrent-tasks 100 --max-task 50
+
+run-benchmark-flow:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --concurrent-tasks 100 --max-task 50
+
+run-benchmark-multi-transfer:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-multi-transfer --max-task 10
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token
