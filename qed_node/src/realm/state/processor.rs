@@ -111,7 +111,7 @@ pub struct RealmProcessorContext<
     pub task_store: Arc<TS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
-    pub processed_end_cap_max_size: Option<usize>,
+    pub max_processed_end_caps_per_block: Option<isize>,
 }
 
 impl<
@@ -125,7 +125,7 @@ impl<
 {
     pub async fn new(
         realm_config: RealmConfig,
-        processed_end_cap_max_size: Option<usize>,
+        max_processed_end_caps_per_block: Option<isize>,
         store: SR,
         checkpoint_queue: Arc<DQ>,
         sync_queue: Arc<HQ>,
@@ -136,7 +136,7 @@ impl<
     ) -> anyhow::Result<Self> {
         Ok(Self {
             realm_config,
-            processed_end_cap_max_size,
+            max_processed_end_caps_per_block,
             store,
             checkpoint_queue,
             sync_queue,
@@ -189,7 +189,7 @@ impl<
         let (updates, consumption_state) = self
             .checkpoint_queue
             .peek_with_position::<CSTUserUpdate<QHashOut<F>>>(
-                self.processed_end_cap_max_size,
+                self.max_processed_end_caps_per_block,
                 CST_USER_UPDATE_CHANNEL_ID,
                 checkpoint_id,
         ).await?;
@@ -509,7 +509,7 @@ impl<
     )> {
         // Use position-based consumption for GUTA queue items
         let (mut guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
-            self.processed_end_cap_max_size,
+            self.max_processed_end_caps_per_block,
             self.realm_config.guta_channel_id,
             checkpoint_id,
         ).await?;

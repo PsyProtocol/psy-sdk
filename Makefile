@@ -146,7 +146,7 @@ SLOT_ID                  := 0
 CONTRACT_STATE_HEIGHT    := 32
 REALM_ID                 := 0
 REGISTRATION_ID          := 1
-STRATEGY                 := 2
+STRATEGY                 := 4
 SIGN_TYPE                := zk
 
 COORDINATOR_RPC_URL      := $(shell jq -r '.network.coordinator_configs[].rpc_url[]' config.json)
@@ -405,7 +405,25 @@ run-web-wallet:
 	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
 
 run-benchmark:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --repeat 100
+	@./scripts/run_benchmark.sh
+
+run-benchmark-user:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-user --max-task 10
+
+run-benchmark-deploy:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-deploy-contract --contract-path qed_precompiles/token/target/token.json --max-task 5
+
+run-benchmark-mint:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100 --max-task 50
+
+run-benchmark-transfer:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-multi-user-transfer --concurrent-tasks 100 --max-task 50
+
+run-benchmark-flow:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --concurrent-tasks 100 --max-task 50
+
+run-benchmark-multi-transfer:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-multi-transfer --max-task 10
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token
@@ -463,7 +481,7 @@ mint:
 
 transfer:
 	@echo "USER0 transferring 250 to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER1 transferring 250 to USER0..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
@@ -471,13 +489,13 @@ claim:
 	@echo "USER1 claiming transfer..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0 --sign-type $(SIGN_TYPE)
 	@echo "USER0 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 8388608 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 1048576 --sign-type $(SIGN_TYPE)
 
 return-back:
 	@echo "USER1 transferring back to USER0..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER0 transferring back to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
 claim-rewards:
 	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1

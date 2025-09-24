@@ -22,7 +22,7 @@ struct PersistentState {
 #[derive(Storage, StorageRef)]
 pub struct PsyPOWMiningRewardsClaimContract {
     pub persistent_state: PersistentState,
-    pub claimed_guta_nullifiers: [Felt; 1073741824],
+    pub claimed_guta_nullifiers: [Felt; 16777216],
     pub claimed_contract_deployment_nullifiers: [Felt; 1048576],
     pub claimed_user_registration_nullifiers: [Felt; 1048576]
 }

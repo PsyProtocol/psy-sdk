@@ -93,7 +93,7 @@ impl ScheduledTaskManager {
         let target_height = current_height + blocks_to_wait;
 
         let task = ScheduledTask {
-            task_id: format!("cleanup_job_status_{}", job_id.to_key_string()),
+            task_id: format!("cleanup_job_status_{}", job_id.to_hex_string()),
             task_type: TaskType::CleanupJobStatus,
             execute_at: ExecutionTrigger::AfterBlocks { target_height },
             payload: serde_json::json!({

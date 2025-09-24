@@ -75,7 +75,7 @@ pub struct CoordinatorEdgeHandler {
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
     task_store: Arc<QProvingTaskStoreImpl>,
-    white_list: Arc<WhiteList>,
+    whitelist_cache: WhiteListCache,
     watcher_client: Arc<WatcherClient>,
 }
 
@@ -110,7 +110,7 @@ impl CoordinatorEdgeHandler {
         )
         .await?;
 
-        let whitelist = WhiteList::from_file(&args.config_path)?;
+        let whitelist_cache = WhiteListCache::new(&args.config_path)?;
 
         // Initialize watcher
         info!("📡 Initializing watcher client...");
@@ -125,7 +125,7 @@ impl CoordinatorEdgeHandler {
             ctx,
             store: store_reader,
             task_store: Arc::new(task_store),
-            white_list: Arc::new(whitelist),
+            whitelist_cache,
             watcher_client,
         })
     }
@@ -1034,7 +1034,7 @@ impl CoordinatorEdgeHandler {
 use super::error::RpcError;
 use super::rpc::CoordinatorEdgeRpcServer;
 use super::types::LatestCheckpointResponse;
-use crate::common::whitelist::WhiteList;
+use crate::common::whitelist::{WhiteList, WhiteListCache};
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -1788,7 +1788,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     async fn get_pending_job(&self, signed: SignedRequest<QEDHash>) -> RpcResult<Option<QJob>> {
-        self.white_list
+        self.whitelist_cache
             .verify_request(
                 &signed,
                 &MESSAGE_CLAIM_JOB.to_string(),
@@ -1852,7 +1852,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         signed: SignedRequest<QEDHash>,
     ) -> RpcResult<()> {
         // Verify signature and whitelist
-        self.white_list
+        self.whitelist_cache
             .verify_request(&signed, &proof, Some(Duration::from_secs(300)))
             .map_err(|e| RpcError::Anyhow(e.into()))?;
 

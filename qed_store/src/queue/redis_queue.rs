@@ -370,7 +370,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
 pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueueConsumerAsyncImm {
     async fn peek_with_position<T: DQSerializable>(
         &self,
-        count: Option<usize>,
+        count: Option<isize>,
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueOffsetState)>;
@@ -767,7 +767,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
     async fn peek_with_position<T: DQSerializable>(
         &self,
-        count: Option<usize>,
+        count: Option<isize>,
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueOffsetState)> {
