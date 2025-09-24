@@ -384,7 +384,7 @@ impl<
         let last_checkpoint_id = checkpoint_id.saturating_sub(1);
         let last_checkpoint_tree_root = self.store.get_checkpoint_tree_root(last_checkpoint_id).await?;
         tracing::debug!("last_checkpoint_tree_root: {}", last_checkpoint_tree_root);
-        let mut guta_queue_items = guta_queue_items.into_iter().filter(|x| x.checkpoint_id == checkpoint_id).collect::<Vec<_>>();
+        // let mut guta_queue_items = guta_queue_items.into_iter().filter(|x| x.checkpoint_id == checkpoint_id).collect::<Vec<_>>();
 
         if guta_queue_items.len() == 0 {
             tracing::debug!("No GUTA queue items");

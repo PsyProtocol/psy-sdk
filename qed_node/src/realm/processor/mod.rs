@@ -261,13 +261,13 @@ impl RealmProcessor {
                 return Ok(());
             }
         };
-        let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
-        if local_latest_checkpoint_id >= next_checkpoint_id {
-            warn!("Rollback: local latest checkpoint id: {}, next checkpoint id: {}", local_latest_checkpoint_id, next_checkpoint_id);
-            context.rollback(next_checkpoint_id).await?;
-            self.pending_checkpoint_id.store(0, Ordering::Relaxed);
-            return Ok(());
-        }
+        // let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
+        // if local_latest_checkpoint_id >= next_checkpoint_id {
+        //     warn!("Rollback: local latest checkpoint id: {}, next checkpoint id: {}", local_latest_checkpoint_id, next_checkpoint_id);
+        //     context.rollback(next_checkpoint_id).await?;
+        //     self.pending_checkpoint_id.store(0, Ordering::Relaxed);
+        //     return Ok(());
+        // }
         self.sync_proof.chq_push_imm(proving_data_job_id).await?;
         self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
         context.store.save_snapshot(next_checkpoint_id)?;

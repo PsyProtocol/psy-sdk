@@ -329,12 +329,11 @@ impl CoordinatorEdgeHandler {
 
         // Report GUTA submission to watcher with structured metadata
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
-        let next_checkpoint_id = checkpoint_id + 1;
-
-        if input.checkpoint_id  != next_checkpoint_id {
-            warn!("❌ Invalid checkpoint id from realm: {}, latest checkpoint id {}", input.checkpoint_id, checkpoint_id);
-            anyhow::bail!("invalid checkpoint id from realm");
-        }
+        // let next_checkpoint_id = checkpoint_id + 1;
+        // if input.checkpoint_id  != next_checkpoint_id {
+        //     warn!("❌ Invalid checkpoint id from realm: {}, latest checkpoint id {}", input.checkpoint_id, checkpoint_id);
+        //     anyhow::bail!("invalid checkpoint id from realm");
+        // }
 
 
         // build queue item
