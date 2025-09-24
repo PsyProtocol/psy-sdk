@@ -441,7 +441,7 @@ services:
         PROFILE: release
     container_name: qed-realm{{ realm.id }}-edge
     ports:
-      - "{{ (realm.edge.args.listen_addr | default('0.0.0.0:' ~ (8546 + realm.id))) | split(':') | last }}:{{ 8546 + realm.id }}"
+      - "{{ (realm.edge.args['listen-addr'] | default('0.0.0.0:' ~ (8546 + realm.id))) | split(':') | last }}:{{ 8546 + realm.id }}"
     command: >
       realm-edge
       {% if realm.backend -%}

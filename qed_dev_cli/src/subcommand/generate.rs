@@ -21,24 +21,50 @@ use super::{GenerateArgs, GenerateCommands, RunArgs, GenerateDockerComposeArgs, 
 pub struct Config {
     pub network: NetworkConfig,
     pub nodes: NodesConfig,
+    pub global_api_services: Option<GlobalApiServices>, // Add this
+
 }
 
 pub use qed_prover::local::provider::{NetworkConfig, RealmConfig, CoordinatorConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodesConfig {
-    pub coordinator: NodeGroup,
+    pub coordinator: CoordinatorNode,
     pub realms: Vec<RealmNode>,
     pub prover: Option<ServiceConfig>,
     pub deployment: DeploymentConfig,
+    pub workers: Option<IndependentWorkers>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndependentWorkers {
+    pub enabled: bool,
+    pub worker_pools: Vec<WorkerPool>,
+    pub global_config: WorkerGlobalConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerPool {
+    pub id: String,
+    pub instances: u32,
+    pub target_nodes: Vec<String>, // URLs of nodes to receive tasks from
+    pub args: HashMap<String, Value>,
+    pub env: HashMap<String, String>,
+    pub aws: Option<AwsServiceConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerGlobalConfig {
+    pub task_discovery_interval: u32,
+    pub max_concurrent_tasks: u32,
+}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BackendConfig {
     #[serde(rename = "type")]
     pub database: String,
     pub lmdbx: Option<LmdbxConfig>,
     pub scylla: Option<ScyllaConfig>,
+    pub tikv: Option<TikvConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -71,10 +97,32 @@ pub struct ScyllaAwsConfig {
     pub deployment_type: Option<DeploymentType>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ec2: Option<Ec2Config>,
+    #[serde(default = "default_data_volume_size")]
     pub data_volume_size: u32,
+    #[serde(default = "default_commitlog_volume_size")]
     pub commitlog_volume_size: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TikvConfig {
+    pub pd_endpoints: Vec<String>,
+    pub namespace: String,
+    pub aws: Option<TikvAwsConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TikvAwsConfig {
+    pub cpu: u32,
+    pub memory: u32,
+    pub deployment_type: Option<DeploymentType>,
+    pub ec2: Option<Ec2ServiceConfig>,
+    #[serde(default = "default_data_volume_size")]
+    pub data_volume_size: u32,
+    #[serde(default = "default_pd_count")]
+    pub pd_count: u32,
+    #[serde(default = "default_tikv_count")]
+    pub tikv_count: u32,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RedisConfig {
     pub coordinator: RedisInstance,
@@ -135,13 +183,13 @@ pub struct RedisRealm {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodeGroup {
+pub struct CoordinatorNode {
     pub id: u64,
     pub redis: Option<RedisInstance>,
     pub backend: Option<BackendConfig>,
     pub processor: ServiceConfig,
     pub edge: ServiceConfig,
-    pub worker: ServiceConfig,
+    pub watcher: Option<ServiceConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,8 +199,29 @@ pub struct RealmNode {
     pub backend: Option<BackendConfig>,
     pub processor: ServiceConfig,
     pub edge: ServiceConfig,
-    pub worker: ServiceConfig,
+    pub watcher: Option<ServiceConfig>,
 }
+// Add new top-level service configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalApiServices {
+    pub api_service: Option<ServiceConfig>,
+    pub timescaledb: Option<TimescaleDbConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimescaleDbConfig {
+    pub enabled: bool,
+    pub connection_string: String,
+    pub aws: Option<RdsConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RdsConfig {
+    pub instance_class: String,
+    pub allocated_storage: u32,
+    pub multi_az: bool,
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceConfig {
@@ -351,13 +420,38 @@ async fn run_deployment_impl(config: &Config, args: RunArgs) -> Result<()> {
         start_scylladb(config)?;
     }
 
+    if database == "tikv" {
+        todo!()
+    }
+
+
     // Start coordinator services
     start_coordinator_services(config, database, &args)?;
 
     // Start realm services
     start_realm_services(config, database, &args)?;
 
+    start_independent_workers(config, &args)?;
     info!("QED network deployment started successfully!");
+
+    if let Some(global_services) = &config.global_api_services {
+        if let Some(timescale_config) = &global_services.timescaledb {
+            if timescale_config.enabled {
+                start_timescaledb(&timescale_config.connection_string)?;
+            }
+        }
+
+        // Start API Service
+        if let Some(api_config) = &global_services.api_service {
+            if api_config.enabled {
+                start_service(
+                    "qed-api-service",
+                    build_api_service_command(api_config)?,
+                    &api_config.env,
+                )?;
+            }
+        }
+    }
 
     if !args.detach {
         info!("Press Ctrl+C to stop the deployment...");
@@ -368,6 +462,24 @@ async fn run_deployment_impl(config: &Config, args: RunArgs) -> Result<()> {
     Ok(())
 }
 
+fn build_api_service_command(service_config: &ServiceConfig) -> Result<Vec<String>> {
+    let mut cmd = vec![
+        "./target/release/qed_api_services".to_string(),
+    ];
+
+    // Add service-specific args if any
+    for (key, value) in &service_config.args {
+        cmd.push(format!("--{}", key.replace('_', "-")));
+        match value {
+            Value::String(s) => cmd.push(s.clone()),
+            Value::Number(n) => cmd.push(n.to_string()),
+            Value::Bool(b) => if *b { cmd.push("true".to_string()); } else { cmd.push("false".to_string()); },
+            _ => {}
+        }
+    }
+
+    Ok(cmd)
+}
 fn start_redis_instances(config: &Config) -> Result<()> {
     info!("Starting Redis instances...");
 
@@ -524,34 +636,43 @@ fn start_coordinator_services(config: &Config, database: &str, args: &RunArgs) -
         )?;
     }
 
-    // Start workers
-    if node.worker.enabled {
-        let instances = node.worker.aws.as_ref()
-            .and_then(|aws| match &aws.deployment_type {
-                Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances),
-                _ => aws.ecs.as_ref().and_then(|e| e.instances.or(Some(e.task_count)))
-            })
-            .or(node.worker.instances)
-            .unwrap_or(1);
-        for i in 0..instances {
+    if let Some(watcher_config) = &node.watcher {
+        if watcher_config.enabled {
             start_service(
-                &format!("coordinator-worker-{}", i),
-                build_service_command(
-                    "coordinator-worker",
-                    node_database,
-                    redis_uri,
-                    None,
-                    &node.worker,
-                    config,
-                        Some(backend_config),
-                )?,
-                &node.worker.env,
+                "coordinator-watcher",
+                build_watcher_command("coordinator", node_database, redis_uri, watcher_config, config, Some(backend_config))?,
+                &watcher_config.env,
             )?;
         }
     }
+    // // Start workers
+    // if node.worker.enabled {
+    //     let instances = node.worker.aws.as_ref()
+    //         .and_then(|aws| match &aws.deployment_type {
+    //             Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances),
+    //             _ => aws.ecs.as_ref().and_then(|e| e.instances.or(Some(e.task_count)))
+    //         })
+    //         .or(node.worker.instances)
+    //         .unwrap_or(1);
+    //     for i in 0..instances {
+    //         start_service(
+    //             &format!("coordinator-worker-{}", i),
+    //             build_service_command(
+    //                 "coordinator-worker",
+    //                 node_database,
+    //                 redis_uri,
+    //                 None,
+    //                 &node.worker,
+    //                 config,
+    //                     Some(backend_config),
+    //             )?,
+    //             &node.worker.env,
+    //         )?;
+    //     }
+    // }
 
     // Wait a bit before starting edge
-    std::thread::sleep(std::time::Duration::from_secs(2));
+    // std::thread::sleep(std::time::Duration::from_secs(2));
 
     // Start edge
     if node.edge.enabled {
@@ -606,32 +727,6 @@ fn start_realm_services(config: &Config, database: &str, args: &RunArgs) -> Resu
             )?;
         }
 
-        // Start workers
-        if realm_node.worker.enabled {
-            let instances = realm_node.worker.aws.as_ref()
-                .and_then(|aws| match &aws.deployment_type {
-                    Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances),
-                    _ => aws.ecs.as_ref().and_then(|e| e.instances.or(Some(e.task_count)))
-                })
-                .or(realm_node.worker.instances)
-                .unwrap_or(1);
-            for i in 0..instances {
-                start_service(
-                    &format!("realm-{}-worker-{}", realm_node.id, i),
-                    build_service_command(
-                        "realm-worker",
-                        realm_database,
-                        redis_uri,
-                        Some(realm_node),
-                        &realm_node.worker,
-                        config,
-                                Some(backend_config),
-                    )?,
-                    &realm_node.worker.env,
-                )?;
-            }
-        }
-
         // Wait a bit before starting edge
         std::thread::sleep(std::time::Duration::from_secs(2));
 
@@ -651,11 +746,89 @@ fn start_realm_services(config: &Config, database: &str, args: &RunArgs) -> Resu
                 &realm_node.edge.env,
             )?;
         }
+
+        if let Some(watcher_config) = &realm_node.watcher {
+            if watcher_config.enabled {
+                start_service(
+                    &format!("realm-{}-watcher", realm_node.id),
+                    build_watcher_command("realm", realm_database, redis_uri, watcher_config, config, Some(backend_config))?,
+                    &watcher_config.env,
+                )?;
+            }
+        }
     }
 
     Ok(())
 }
+fn start_independent_workers(config: &Config, _args: &RunArgs) -> Result<()> {
+    if let Some(workers) = &config.nodes.workers {
+        if workers.enabled {
+            for pool in &workers.worker_pools {
+                for i in 0..pool.instances {
+                    let service_name = format!("worker-{}-{}", pool.id, i);
+                    let command = build_worker_command(pool, &workers.global_config)?;
+                    start_service(&service_name, command, &pool.env)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+fn build_worker_command(pool: &WorkerPool, global_config: &WorkerGlobalConfig) -> Result<Vec<String>> {
+    let mut cmd = vec![
+        "./target/release/qed_rollup_cli".to_string(),
+        "worker".to_string(),
+    ];
 
+    // Add target node URLs
+    for node_url in &pool.target_nodes {
+        cmd.push("--target-node".to_string());
+        cmd.push(node_url.clone());
+    }
+
+    // Add global worker configuration
+    cmd.push("--task-discovery-interval".to_string());
+    cmd.push(global_config.task_discovery_interval.to_string());
+
+    // Add pool-specific args
+    for (key, value) in &pool.args {
+        cmd.push(format!("--{}", key.replace('_', "-")));
+        cmd.push(value.to_string());
+    }
+
+    Ok(cmd)
+}
+
+fn build_watcher_command(
+    node_type: &str,
+    database: &str,
+    redis_uri: &str,
+    service_config: &ServiceConfig,
+    config: &Config,
+    backend_config: Option<&BackendConfig>,
+) -> Result<Vec<String>> {
+    let mut cmd = vec![
+        "./target/release/qed_rollup_cli".to_string(),
+        "watcher".to_string(),
+    ];
+
+    // Add node type
+    cmd.push("--node-type".to_string());
+    cmd.push(node_type.to_string());
+
+    // Add database config (TiKV)
+    add_database_config(&mut cmd, database, backend_config, None)?;
+
+    // Add Redis URI
+    cmd.push("--redis-url".to_string());
+    cmd.push(redis_uri.to_string());
+
+    // Add API endpoint
+    cmd.push("--api-endpoint".to_string());
+    cmd.push("http://localhost:3000".to_string()); // Default API service endpoint
+
+    Ok(cmd)
+}
 fn build_service_command(
     service_type: &str,
     database: &str,
@@ -705,6 +878,23 @@ fn build_service_command(
                 cmd.push(keyspace);
             }
         }
+        "tikv" => {
+            cmd.push("--database".to_string());
+            cmd.push("tikv".to_string());
+
+            if let Some(tikv_config) = &backend.tikv {
+                cmd.push("--tikv-pd-endpoints".to_string());
+                cmd.push(tikv_config.pd_endpoints.join(","));
+
+                let namespace = if let Some(realm) = realm_node {
+                    format!("{}-realm{}", tikv_config.namespace, realm.id)
+                } else {
+                    format!("{}-coordinator", tikv_config.namespace)
+                };
+                cmd.push("--tikv-namespace".to_string());
+                cmd.push(namespace);
+            }
+        }
         _ => return Err(anyhow::anyhow!("Unknown backend type: {}", database)),
     }
 
@@ -733,6 +923,103 @@ fn build_service_command(
     Ok(cmd)
 }
 
+fn add_database_config(
+    cmd: &mut Vec<String>,
+    database: &str,
+    backend_config: Option<&BackendConfig>,
+    realm_node: Option<&RealmNode>,
+) -> Result<()> {
+    let backend = backend_config.ok_or_else(|| anyhow::anyhow!("Backend configuration is required"))?;
+
+    match database {
+        "lmdbx" => {
+            cmd.push("--database".to_string());
+            cmd.push("lmdbx".to_string());
+
+            if let Some(lmdbx_config) = &backend.lmdbx {
+                let path = if let Some(realm) = realm_node {
+                    format!("{}/realm{}", lmdbx_config.path, realm.id)
+                } else {
+                    format!("{}/coordinator", lmdbx_config.path)
+                };
+                cmd.push("--lmdbx-path".to_string());
+                cmd.push(path);
+            }
+        }
+        "scylla" => {
+            cmd.push("--database".to_string());
+            cmd.push("scylla".to_string());
+
+            if let Some(scylla_config) = &backend.scylla {
+                cmd.push("--scylla-uri".to_string());
+                cmd.push(scylla_config.endpoints[0].clone());
+
+                let keyspace = if let Some(realm) = realm_node {
+                    format!("qed_realm_{}", realm.id)
+                } else {
+                    "qed_coordinator".to_string()
+                };
+                cmd.push("--scylla-keyspace".to_string());
+                cmd.push(keyspace);
+            }
+        }
+        "tikv" => {
+            cmd.push("--database".to_string());
+            cmd.push("tikv".to_string());
+
+            if let Some(tikv_config) = &backend.tikv {
+                cmd.push("--tikv-pd-endpoints".to_string());
+                cmd.push(tikv_config.pd_endpoints.join(","));
+
+                let namespace = if let Some(realm) = realm_node {
+                    format!("{}-realm{}", tikv_config.namespace, realm.id)
+                } else {
+                    format!("{}-coordinator", tikv_config.namespace)
+                };
+                cmd.push("--tikv-namespace".to_string());
+                cmd.push(namespace);
+            }
+        }
+        _ => return Err(anyhow::anyhow!("Unknown backend type: {}", database)),
+    }
+
+    Ok(())
+}
+fn start_timescaledb(connection_string: &str) -> Result<()> {
+    info!("Starting TimescaleDB...");
+    let output = Command::new("docker")
+        .args(&[
+            "run", "-d", "--name", "qed-timescaledb",
+            "-p", "5432:5432",
+            "-e", "POSTGRES_PASSWORD=password",
+            "timescale/timescaledb:latest-pg17"
+        ])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(anyhow::anyhow!("Failed to start TimescaleDB"));
+    }
+
+    // Wait for database to be ready and run migrations
+    std::thread::sleep(std::time::Duration::from_secs(10));
+    run_database_migrations()?;
+
+    Ok(())
+}
+fn run_database_migrations() -> Result<()> {
+    info!("Running database migrations...");
+    let output = Command::new("cargo")
+        .args(&["run", "--bin", "qed_api_services", "--", "migrate"])
+        .current_dir("./qed_api_services")
+        .env("DATABASE_URL", "postgres://postgres:password@localhost/postgres")
+        .output()?;
+
+    if !output.status.success() {
+        warn!("Migration may have failed: {}", String::from_utf8_lossy(&output.stderr));
+    }
+
+    Ok(())
+}
 fn start_service(name: &str, command: Vec<String>, env: &HashMap<String, String>) -> Result<()> {
     info!("Starting service: {}", name);
 
@@ -879,18 +1166,18 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
         }
     }
 
-    if config.nodes.coordinator.worker.enabled {
-        if let Some(aws) = &config.nodes.coordinator.worker.aws {
-            let task_count = match &aws.deployment_type {
-                Some(DeploymentType::ECS) => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1),
-                Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
-                _ => 1
-            };
-            coord_services.push(format!("Worker({})", task_count));
-            coord_total_cpu += aws.cpu * task_count;
-            coord_total_memory += aws.memory * task_count;
-        }
-    }
+    // if config.nodes.coordinator.worker.enabled {
+    //     if let Some(aws) = &config.nodes.coordinator.worker.aws {
+    //         let task_count = match &aws.deployment_type {
+    //             Some(DeploymentType::ECS) => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1),
+    //             Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
+    //             _ => 1
+    //         };
+    //         coord_services.push(format!("Worker({})", task_count));
+    //         coord_total_cpu += aws.cpu * task_count;
+    //         coord_total_memory += aws.memory * task_count;
+    //     }
+    // }
 
     let coord_config_info = format!("Redis :6379, Edge :8545");
 
@@ -904,10 +1191,10 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
         let rec = get_service_instance_recommendation(&config.nodes.coordinator.edge, "edge");
         coord_instance_details.push(format!("Edge: {}", rec));
     }
-    if config.nodes.coordinator.worker.enabled {
-        let rec = get_service_instance_recommendation(&config.nodes.coordinator.worker, "worker");
-        coord_instance_details.push(format!("Worker: {}", rec));
-    }
+    // if config.nodes.coordinator.worker.enabled {
+    //     let rec = get_service_instance_recommendation(&config.nodes.coordinator.worker, "worker");
+    //     coord_instance_details.push(format!("Worker: {}", rec));
+    // }
 
     if !coord_services.is_empty() {
         // Build short instance summary for the main row
@@ -935,14 +1222,14 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                 };
             }
         }
-        if config.nodes.coordinator.worker.enabled {
-            if let Some(aws) = &config.nodes.coordinator.worker.aws {
-                total_instances += match &aws.deployment_type {
-                    Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
-                    _ => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1)
-                };
-            }
-        }
+        // if config.nodes.coordinator.worker.enabled {
+        //     if let Some(aws) = &config.nodes.coordinator.worker.aws {
+        //         total_instances += match &aws.deployment_type {
+        //             Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
+        //             _ => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1)
+        //         };
+        //     }
+        // }
 
         info!("│ {:<15} │ {:<32} │ {:<8} │ {:<12} │ {:<21} │                          │",
             "Coordinator",
@@ -1002,18 +1289,18 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             }
         }
 
-        if realm.worker.enabled {
-            if let Some(aws) = &realm.worker.aws {
-                let task_count = match &aws.deployment_type {
-                    Some(DeploymentType::ECS) => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1),
-                    Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
-                    _ => 1
-                };
-                realm_services.push(format!("Worker({})", task_count));
-                realm_total_cpu += aws.cpu * task_count;
-                realm_total_memory += aws.memory * task_count;
-            }
-        }
+        // if realm.worker.enabled {
+        //     if let Some(aws) = &realm.worker.aws {
+        //         let task_count = match &aws.deployment_type {
+        //             Some(DeploymentType::ECS) => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1),
+        //             Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
+        //             _ => 1
+        //         };
+        //         realm_services.push(format!("Worker({})", task_count));
+        //         realm_total_cpu += aws.cpu * task_count;
+        //         realm_total_memory += aws.memory * task_count;
+        //     }
+        // }
 
         let realm_config_info = format!("Redis :{}, Edge :{}", 6380 + realm.id, 8546 + realm.id);
 
@@ -1027,10 +1314,10 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             let rec = get_service_instance_recommendation(&realm.edge, "edge");
             realm_instance_details.push(format!("Edge: {}", rec));
         }
-        if realm.worker.enabled {
-            let rec = get_service_instance_recommendation(&realm.worker, "worker");
-            realm_instance_details.push(format!("Worker: {}", rec));
-        }
+        // if realm.worker.enabled {
+        //     let rec = get_service_instance_recommendation(&realm.worker, "worker");
+        //     realm_instance_details.push(format!("Worker: {}", rec));
+        // }
 
         if !realm_services.is_empty() {
             // Count total EC2 instances for this realm
@@ -1051,14 +1338,14 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                     };
                 }
             }
-            if realm.worker.enabled {
-                if let Some(aws) = &realm.worker.aws {
-                    realm_total_instances += match &aws.deployment_type {
-                        Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
-                        _ => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1)
-                    };
-                }
-            }
+            // if realm.worker.enabled {
+            //     if let Some(aws) = &realm.worker.aws {
+            //         realm_total_instances += match &aws.deployment_type {
+            //             Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
+            //             _ => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1)
+            //         };
+            //     }
+            // }
 
             info!("│ {:<15} │ {:<32} │ {:<8} │ {:<12} │ {:<21} │                          │",
                 format!("Realm {}", realm.id),
@@ -1162,16 +1449,16 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             total_ec2_vcpus += instances * vcpus;
         }
     }
-    if config.nodes.coordinator.worker.enabled {
-        if let Some(aws) = &config.nodes.coordinator.worker.aws {
-            let instances = match &aws.deployment_type {
-                Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
-                _ => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1)
-            };
-            let vcpus = get_instance_vcpus(aws.cpu);
-            total_ec2_vcpus += instances * vcpus;
-        }
-    }
+    // if config.nodes.coordinator.worker.enabled {
+    //     if let Some(aws) = &config.nodes.coordinator.worker.aws {
+    //         let instances = match &aws.deployment_type {
+    //             Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
+    //             _ => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1)
+    //         };
+    //         let vcpus = get_instance_vcpus(aws.cpu);
+    //         total_ec2_vcpus += instances * vcpus;
+    //     }
+    // }
 
     // Realm services
     for realm in &config.nodes.realms {
@@ -1195,18 +1482,60 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                 total_ec2_vcpus += instances * vcpus;
             }
         }
-        if realm.worker.enabled {
-            if let Some(aws) = &realm.worker.aws {
-                let instances = match &aws.deployment_type {
-                    Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
-                    _ => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1)
-                };
-                let vcpus = get_instance_vcpus(aws.cpu);
-                total_ec2_vcpus += instances * vcpus;
+        // if realm.worker.enabled {
+        //     if let Some(aws) = &realm.worker.aws {
+        //         let instances = match &aws.deployment_type {
+        //             Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances).unwrap_or(1),
+        //             _ => aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1)
+        //         };
+        //         let vcpus = get_instance_vcpus(aws.cpu);
+        //         total_ec2_vcpus += instances * vcpus;
+        //     }
+        // }
+    }
+
+    // Add this section for independent workers:
+    if let Some(workers) = &config.nodes.workers {
+        if workers.enabled {
+            let mut total_worker_instances = 0;
+            let mut total_worker_cpu = 0;
+            let mut total_worker_memory = 0;
+
+            for pool in &workers.worker_pools {
+                total_worker_instances += pool.instances;
+                if let Some(aws) = &pool.aws {
+                    total_worker_cpu += aws.cpu * pool.instances;
+                    total_worker_memory += aws.memory * pool.instances;
+                }
+            }
+
+            if total_worker_instances > 0 {
+                info!("├─────────────────┼──────────────────────────────────┼──────────┼──────────────┼───────────────────────┼──────────────────────────┤");
+                info!("│ {:<15} │ {:<32} │ {:<8} │ {:<12} │ {:<21} │                          │",
+                "Workers",
+                format!("Independent({} pools)", workers.worker_pools.len()),
+                format!("{:.1}", total_worker_cpu as f32 / 1024.0),
+                format!("{:.0}GB", total_worker_memory as f32 / 1024.0),
+                format!("{} total", total_worker_instances)
+            );
+
+                for (i, pool) in workers.worker_pools.iter().enumerate() {
+                    let rec = if let Some(aws) = &pool.aws {
+                        get_service_instance_recommendation(&ServiceConfig {
+                            enabled: true,
+                            instances: Some(pool.instances),
+                            args: HashMap::new(),
+                            env: HashMap::new(),
+                            aws: Some(aws.clone()),
+                        }, "worker")
+                    } else {
+                        "Local".to_string()
+                    };
+                    info!("│                 │                                  │          │              │                       │ Pool {}: {:<17} │", i+1, rec);
+                }
             }
         }
     }
-
     // Prover service
     if let Some(prover) = &config.nodes.prover {
         if prover.enabled {
@@ -1220,6 +1549,8 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             }
         }
     }
+
+
 
     // Count storage instances only if any node is using ScyllaDB
     let has_scylla = config.nodes.coordinator.backend.as_ref()
@@ -1297,180 +1628,249 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
         info!("   Estimated cost: ${:.2}/hour, ${:.0}/month", total_hourly, total_monthly);
     }
 
-    Ok(())
-}
-
-// AWS deployment file generation function
-async fn generate_aws_templates(config: &Config, args: GenerateAwsArgs) -> Result<()> {
-    info!("Generating AWS deployment files...");
-
-    // Create output directory
-    fs::create_dir_all(&args.output_dir)
-        .with_context(|| format!("Failed to create directory: {}", args.output_dir))?;
-
-    // Create subdirectories
-    let cf_dir = Path::new(&args.output_dir).join("cloudformation");
-    fs::create_dir_all(&cf_dir)?;
-
-    // Use simplified instance selector
-    let selector = SimpleInstanceSelector::new();
-
-    // Build service requirements from config
-    let service_requirements = SimpleInstanceSelector::build_service_requirements_from_config(config);
-
-    if service_requirements.is_empty() {
-        warn!("No services requiring instance calculation found");
-        return Ok(());
-    }
-
-    // Calculate instance recommendations (for ECS instance type selection)
-    let recommendations = selector.calculate_multiple_recommendations(service_requirements)?;
-
-    // Template file generation
-    let templates = vec![
-        ("cloudformation/main.yaml", include_str!("../../../.github/templates/aws/cloudformation/main.yaml.j2")),
-        ("cloudformation/ecs-services.yaml", include_str!("../../../.github/templates/aws/cloudformation/ecs-services.yaml.j2")),
-        ("deploy.sh", include_str!("../../../.github/templates/aws/deploy.sh.j2")),
-    ];
-
-    let mut env = Environment::new();
-
-    // Generate template files
-    for (filename, template_content) in templates {
-        let output_path = Path::new(&args.output_dir).join(filename);
-        if output_path.exists() && !args.force {
-            warn!("File {} already exists, skipping (use --force to overwrite)", output_path.display());
-            continue;
-        }
-
-        env.add_template(filename, template_content)?;
-        let tmpl = env.get_template(filename)?;
-        // Calculate required ECS instance type based on total task requirements
-        let mut max_task_cpu = 0u32;
-        let mut max_task_memory = 0u32;
-        let mut total_task_cpu = 0u32;
-        let mut total_task_memory = 0u32;
-        let mut total_task_count = 0u32;
-
-        // Check coordinator services
-        if let Some(aws) = &config.nodes.coordinator.processor.aws {
-            if let Some(DeploymentType::ECS) = &aws.deployment_type {
-                let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
-                max_task_cpu = max_task_cpu.max(aws.cpu);
-                max_task_memory = max_task_memory.max(aws.memory);
-                total_task_cpu += aws.cpu * task_count;
-                total_task_memory += aws.memory * task_count;
-                total_task_count += task_count;
-            }
-        }
-        if let Some(aws) = &config.nodes.coordinator.edge.aws {
-            if let Some(DeploymentType::ECS) = &aws.deployment_type {
-                let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
-                max_task_cpu = max_task_cpu.max(aws.cpu);
-                max_task_memory = max_task_memory.max(aws.memory);
-                total_task_cpu += aws.cpu * task_count;
-                total_task_memory += aws.memory * task_count;
-                total_task_count += task_count;
-            }
-        }
-        if let Some(aws) = &config.nodes.coordinator.worker.aws {
-            if let Some(DeploymentType::ECS) = &aws.deployment_type {
-                let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
-                max_task_cpu = max_task_cpu.max(aws.cpu);
-                max_task_memory = max_task_memory.max(aws.memory);
-                total_task_cpu += aws.cpu * task_count;
-                total_task_memory += aws.memory * task_count;
-                total_task_count += task_count;
-            }
-        }
-
-        // Check realm services
-        for realm in &config.nodes.realms {
-            if let Some(aws) = &realm.processor.aws {
-                if let Some(DeploymentType::ECS) = &aws.deployment_type {
-                    let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
-                    max_task_cpu = max_task_cpu.max(aws.cpu);
-                    max_task_memory = max_task_memory.max(aws.memory);
-                    total_task_cpu += aws.cpu * task_count;
-                    total_task_memory += aws.memory * task_count;
-                    total_task_count += task_count;
-                }
-            }
-            if let Some(aws) = &realm.edge.aws {
-                if let Some(DeploymentType::ECS) = &aws.deployment_type {
-                    let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
-                    max_task_cpu = max_task_cpu.max(aws.cpu);
-                    max_task_memory = max_task_memory.max(aws.memory);
-                    total_task_cpu += aws.cpu * task_count;
-                    total_task_memory += aws.memory * task_count;
-                    total_task_count += task_count;
-                }
-            }
-            if let Some(aws) = &realm.worker.aws {
-                if let Some(DeploymentType::ECS) = &aws.deployment_type {
-                    let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
-                    max_task_cpu = max_task_cpu.max(aws.cpu);
-                    max_task_memory = max_task_memory.max(aws.memory);
-                    total_task_cpu += aws.cpu * task_count;
-                    total_task_memory += aws.memory * task_count;
-                    total_task_count += task_count;
-                }
-            }
-        }
-
-        // Calculate minimum instance type needed for ECS cluster
-        // Note: This differs from the table display logic which shows optimal instance types
-        // for each service individually. For ECS, we need ONE instance type that can handle
-        // ANY task since tasks can be scheduled on any instance in the cluster.
-        //
-        // ECS container instances need to accommodate the largest single task
-        let largest_task_cpu = max_task_cpu;
-        let largest_task_memory = max_task_memory;
-
-        debug!("ECS instance selection: largest_task_cpu={}, largest_task_memory={}",
-            largest_task_cpu, largest_task_memory);
-
-        // Select compute-optimized instance that can run the largest task
-        let ecs_instance_type = match (largest_task_cpu, largest_task_memory) {
-            (cpu, mem) if cpu <= 2048 && mem <= 4096 => "c6i.large",    // 2 vCPUs, 4GB
-            (cpu, mem) if cpu <= 4096 && mem <= 8192 => "c6i.xlarge",   // 4 vCPUs, 8GB
-            (cpu, mem) if cpu <= 8192 && mem <= 16384 => "c6i.2xlarge", // 8 vCPUs, 16GB
-            (cpu, mem) if cpu <= 16384 && mem <= 32768 => "c6i.4xlarge", // 16 vCPUs, 32GB
-            _ => "c6i.8xlarge", // 32 vCPUs, 64GB (fallback for larger tasks)
-        };
-
-        let output = tmpl.render(context! {
-            config => config,
-            recommendations => &recommendations,
-            ecs_instance_type => ecs_instance_type,
-        })?;
-
-        fs::write(&output_path, output)
-            .with_context(|| format!("Failed to write file {}", output_path.display()))?;
-
-        // Make deploy.sh executable
-        if filename == "deploy.sh" {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let mut perms = fs::metadata(&output_path)?.permissions();
-                perms.set_mode(0o755);
-                fs::set_permissions(&output_path, perms)?;
-            }
-        }
-
-        info!("Generated {}", output_path.display());
-    }
-
-    info!("AWS deployment files generated to {}", args.output_dir);
-    info!("Note: Use the Dockerfile in the project root to build the image");
-
-    // Print deployment summary
-    print_deployment_summary(config, &recommendations)?;
-
 
     Ok(())
 }
+
+    // AWS deployment file generation function
+    async fn generate_aws_templates(config: &Config, args: GenerateAwsArgs) -> Result<()> {
+        info!("Generating AWS deployment files...");
+
+        // Create output directory
+        fs::create_dir_all(&args.output_dir)
+            .with_context(|| format!("Failed to create directory: {}", args.output_dir))?;
+
+        // Create subdirectories
+        let cf_dir = Path::new(&args.output_dir).join("cloudformation");
+        fs::create_dir_all(&cf_dir)?;
+
+        // Use simplified instance selector
+        let selector = SimpleInstanceSelector::new();
+
+        // Build service requirements from config
+        let service_requirements = SimpleInstanceSelector::build_service_requirements_from_config(config);
+
+        if service_requirements.is_empty() {
+            warn!("No services requiring instance calculation found");
+            return Ok(());
+        }
+
+        // Calculate instance recommendations (for ECS instance type selection)
+        let recommendations = selector.calculate_multiple_recommendations(service_requirements)?;
+
+        // Template file generation
+        let templates = vec![
+            ("cloudformation/main.yaml", include_str!("../../../.github/templates/aws/cloudformation/main.yaml.j2")),
+            ("cloudformation/ecs-services.yaml", include_str!("../../../.github/templates/aws/cloudformation/ecs-services.yaml.j2")),
+            ("deploy.sh", include_str!("../../../.github/templates/aws/deploy.sh.j2")),
+        ];
+
+        let mut env = Environment::new();
+
+        // Generate template files
+        for (filename, template_content) in templates {
+            let output_path = Path::new(&args.output_dir).join(filename);
+            if output_path.exists() && !args.force {
+                warn!("File {} already exists, skipping (use --force to overwrite)", output_path.display());
+                continue;
+            }
+
+            env.add_template(filename, template_content)?;
+            let tmpl = env.get_template(filename)?;
+            // Calculate required ECS instance type based on total task requirements
+            let mut max_task_cpu = 0u32;
+            let mut max_task_memory = 0u32;
+            let mut total_task_cpu = 0u32;
+            let mut total_task_memory = 0u32;
+            let mut total_task_count = 0u32;
+
+            // Check coordinator services
+            if let Some(aws) = &config.nodes.coordinator.processor.aws {
+                if let Some(DeploymentType::ECS) = &aws.deployment_type {
+                    let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
+                    max_task_cpu = max_task_cpu.max(aws.cpu);
+                    max_task_memory = max_task_memory.max(aws.memory);
+                    total_task_cpu += aws.cpu * task_count;
+                    total_task_memory += aws.memory * task_count;
+                    total_task_count += task_count;
+                }
+            }
+            if let Some(aws) = &config.nodes.coordinator.edge.aws {
+                if let Some(DeploymentType::ECS) = &aws.deployment_type {
+                    let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
+                    max_task_cpu = max_task_cpu.max(aws.cpu);
+                    max_task_memory = max_task_memory.max(aws.memory);
+                    total_task_cpu += aws.cpu * task_count;
+                    total_task_memory += aws.memory * task_count;
+                    total_task_count += task_count;
+                }
+            }
+            // if let Some(aws) = &config.nodes.coordinator.worker.aws {
+            //     if let Some(DeploymentType::ECS) = &aws.deployment_type {
+            //         let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
+            //         max_task_cpu = max_task_cpu.max(aws.cpu);
+            //         max_task_memory = max_task_memory.max(aws.memory);
+            //         total_task_cpu += aws.cpu * task_count;
+            //         total_task_memory += aws.memory * task_count;
+            //         total_task_count += task_count;
+            //     }
+            // }
+
+            // Check realm services
+            for realm in &config.nodes.realms {
+                if let Some(aws) = &realm.processor.aws {
+                    if let Some(DeploymentType::ECS) = &aws.deployment_type {
+                        let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
+                        max_task_cpu = max_task_cpu.max(aws.cpu);
+                        max_task_memory = max_task_memory.max(aws.memory);
+                        total_task_cpu += aws.cpu * task_count;
+                        total_task_memory += aws.memory * task_count;
+                        total_task_count += task_count;
+                    }
+                }
+                if let Some(aws) = &realm.edge.aws {
+                    if let Some(DeploymentType::ECS) = &aws.deployment_type {
+                        let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
+                        max_task_cpu = max_task_cpu.max(aws.cpu);
+                        max_task_memory = max_task_memory.max(aws.memory);
+                        total_task_cpu += aws.cpu * task_count;
+                        total_task_memory += aws.memory * task_count;
+                        total_task_count += task_count;
+                    }
+                }
+                // if let Some(aws) = &realm.worker.aws {
+                //     if let Some(DeploymentType::ECS) = &aws.deployment_type {
+                //         let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
+                //         max_task_cpu = max_task_cpu.max(aws.cpu);
+                //         max_task_memory = max_task_memory.max(aws.memory);
+                //         total_task_cpu += aws.cpu * task_count;
+                //         total_task_memory += aws.memory * task_count;
+                //         total_task_count += task_count;
+                //     }
+                // }
+            }
+
+            // Check independent workers
+            if let Some(workers) = &config.nodes.workers {
+                if workers.enabled {
+                    for pool in &workers.worker_pools {
+                        if let Some(aws) = &pool.aws {
+                            if let Some(DeploymentType::ECS) = &aws.deployment_type {
+                                let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(pool.instances);
+                                max_task_cpu = max_task_cpu.max(aws.cpu);
+                                max_task_memory = max_task_memory.max(aws.memory);
+                                total_task_cpu += aws.cpu * task_count;
+                                total_task_memory += aws.memory * task_count;
+                                total_task_count += task_count;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check global API service
+            if let Some(global_services) = &config.global_api_services {
+                if let Some(api_service) = &global_services.api_service {
+                    if api_service.enabled {
+                        if let Some(aws) = &api_service.aws {
+                            if let Some(DeploymentType::ECS) = &aws.deployment_type {
+                                let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
+                                max_task_cpu = max_task_cpu.max(aws.cpu);
+                                max_task_memory = max_task_memory.max(aws.memory);
+                                total_task_cpu += aws.cpu * task_count;
+                                total_task_memory += aws.memory * task_count;
+                                total_task_count += task_count;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check watcher services
+            if let Some(watcher_config) = &config.nodes.coordinator.watcher {
+                if watcher_config.enabled {
+                    if let Some(aws) = &watcher_config.aws {
+                        if let Some(DeploymentType::ECS) = &aws.deployment_type {
+                            let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
+                            max_task_cpu = max_task_cpu.max(aws.cpu);
+                            max_task_memory = max_task_memory.max(aws.memory);
+                            total_task_cpu += aws.cpu * task_count;
+                            total_task_memory += aws.memory * task_count;
+                            total_task_count += task_count;
+                        }
+                    }
+                }
+            }
+            for realm in &config.nodes.realms {
+                if let Some(watcher_config) = &realm.watcher {
+                    if watcher_config.enabled {
+                        if let Some(aws) = &watcher_config.aws {
+                            if let Some(DeploymentType::ECS) = &aws.deployment_type {
+                                let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(1);
+                                max_task_cpu = max_task_cpu.max(aws.cpu);
+                                max_task_memory = max_task_memory.max(aws.memory);
+                                total_task_cpu += aws.cpu * task_count;
+                                total_task_memory += aws.memory * task_count;
+                                total_task_count += task_count;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Calculate minimum instance type needed for ECS cluster
+            // Note: This differs from the table display logic which shows optimal instance types
+            // for each service individually. For ECS, we need ONE instance type that can handle
+            // ANY task since tasks can be scheduled on any instance in the cluster.
+            //
+            // ECS container instances need to accommodate the largest single task
+            let largest_task_cpu = max_task_cpu;
+            let largest_task_memory = max_task_memory;
+
+            debug!("ECS instance selection: largest_task_cpu={}, largest_task_memory={}",
+                largest_task_cpu, largest_task_memory);
+
+            // Select compute-optimized instance that can run the largest task
+            let ecs_instance_type = match (largest_task_cpu, largest_task_memory) {
+                (cpu, mem) if cpu <= 2048 && mem <= 4096 => "c6i.large",    // 2 vCPUs, 4GB
+                (cpu, mem) if cpu <= 4096 && mem <= 8192 => "c6i.xlarge",   // 4 vCPUs, 8GB
+                (cpu, mem) if cpu <= 8192 && mem <= 16384 => "c6i.2xlarge", // 8 vCPUs, 16GB
+                (cpu, mem) if cpu <= 16384 && mem <= 32768 => "c6i.4xlarge", // 16 vCPUs, 32GB
+                _ => "c6i.8xlarge", // 32 vCPUs, 64GB (fallback for larger tasks)
+            };
+
+            let output = tmpl.render(context! {
+                config => config,
+                recommendations => &recommendations,
+                ecs_instance_type => ecs_instance_type,
+            })?;
+
+            fs::write(&output_path, output)
+                .with_context(|| format!("Failed to write file {}", output_path.display()))?;
+
+            // Make deploy.sh executable
+            if filename == "deploy.sh" {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let mut perms = fs::metadata(&output_path)?.permissions();
+                    perms.set_mode(0o755);
+                    fs::set_permissions(&output_path, perms)?;
+                }
+            }
+
+            info!("Generated {}", output_path.display());
+        }
+
+        info!("AWS deployment files generated to {}", args.output_dir);
+        info!("Note: Use the Dockerfile in the project root to build the image");
+
+        // Print deployment summary
+        print_deployment_summary(config, &recommendations)?;
+
+
+        Ok(())
+    }
 
 
 
@@ -1677,15 +2077,12 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
     if config.nodes.coordinator.edge.enabled {
         total_containers += 1;
     }
-    if config.nodes.coordinator.worker.enabled {
-        let instances = config.nodes.coordinator.worker.aws.as_ref()
-            .and_then(|aws| match &aws.deployment_type {
-                Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances),
-                _ => aws.ecs.as_ref().and_then(|e| e.instances.or(Some(e.task_count)))
-            })
-            .or(config.nodes.coordinator.worker.instances)
-            .unwrap_or(1);
-        total_containers += instances;
+
+    // Add coordinator watcher
+    if let Some(watcher) = &config.nodes.coordinator.watcher {
+        if watcher.enabled {
+            total_containers += 1;
+        }
     }
 
     for realm in &config.nodes.realms {
@@ -1695,15 +2092,37 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
         if realm.edge.enabled {
             total_containers += 1;
         }
-        if realm.worker.enabled {
-            let instances = realm.worker.aws.as_ref()
-                .and_then(|aws| match &aws.deployment_type {
-                    Some(DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances),
-                    _ => aws.ecs.as_ref().and_then(|e| e.instances.or(Some(e.task_count)))
-                })
-                .or(realm.worker.instances)
-                .unwrap_or(1);
-            total_containers += instances;
+
+        // Add realm watcher
+        if let Some(watcher) = &realm.watcher {
+            if watcher.enabled {
+                total_containers += 1;
+            }
+        }
+    }
+
+    // Add independent workers
+    if let Some(workers) = &config.nodes.workers {
+        if workers.enabled {
+            for pool in &workers.worker_pools {
+                total_containers += pool.instances;
+            }
+        }
+    }
+
+    // Add global API service
+    if let Some(global_services) = &config.global_api_services {
+        if let Some(api_service) = &global_services.api_service {
+            if api_service.enabled {
+                total_containers += 1;
+            }
+        }
+
+        // Add TimescaleDB container (if using Docker deployment)
+        if let Some(timescale_config) = &global_services.timescaledb {
+            if timescale_config.enabled {
+                total_containers += 1;
+            }
         }
     }
 
@@ -1748,6 +2167,24 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
         }
     }
 
+    // API Service endpoint
+    if let Some(global_services) = &config.global_api_services {
+        if let Some(api_service) = &global_services.api_service {
+            if api_service.enabled {
+                if let Some(listen_addr) = api_service.args.get("listen_addr") {
+                    if let Value::String(addr) = listen_addr {
+                        let port = addr.split(':').last().unwrap_or("3000");
+                        info!("  • API Service: http://localhost:{}", port);
+                    } else {
+                        info!("  • API Service: http://localhost:3000");
+                    }
+                } else {
+                    info!("  • API Service: http://localhost:3000");
+                }
+            }
+        }
+    }
+
     // Prover endpoint
     if let Some(prover) = &config.nodes.prover {
         if prover.enabled {
@@ -1764,6 +2201,20 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
         }
     }
 
+    // Worker pools summary
+    if let Some(workers) = &config.nodes.workers {
+        if workers.enabled {
+            info!("\n👷 Worker Pools:");
+            for (i, pool) in workers.worker_pools.iter().enumerate() {
+                info!("  • Pool {}: {} instances targeting {} nodes",
+                    i + 1,
+                    pool.instances,
+                    pool.target_nodes.len()
+                );
+            }
+        }
+    }
+
     info!("\n💡 Quick Start:");
     info!("   docker-compose up -d");
     info!("   docker-compose logs -f");
@@ -1771,3 +2222,18 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
     Ok(())
 }
 
+
+fn default_data_volume_size() -> u32 {
+    500
+}
+
+fn default_commitlog_volume_size() -> u32 {
+    100
+}
+fn default_pd_count() -> u32 {
+    3
+}
+
+fn default_tikv_count() -> u32 {
+    3
+}
