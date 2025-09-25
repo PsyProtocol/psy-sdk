@@ -408,22 +408,25 @@ run-benchmark:
 	@./scripts/run_benchmark.sh
 
 run-benchmark-user:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-user --max-task 10
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-user
 
-run-benchmark-deploy:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-deploy-contract --contract-path qed_precompiles/token/target/token.json --max-task 5
+run-benchmark-register:
+	@RUST_LOG=${LOG_LEVEL} cargo run --example register_user
 
 run-benchmark-mint:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100 --max-task 50
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100
 
 run-benchmark-transfer:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-multi-user-transfer --concurrent-tasks 100 --max-task 50
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-multi-user-transfer --concurrent-tasks 20
 
 run-benchmark-flow:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --concurrent-tasks 100 --max-task 50
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --concurrent-tasks 100
 
-run-benchmark-multi-transfer:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-multi-transfer --max-task 10
+run-benchmark-flow-repeat:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --repeat 100
+
+run-benchmark-deploy:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path token/target/token.json
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token

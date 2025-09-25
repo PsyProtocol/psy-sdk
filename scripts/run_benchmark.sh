@@ -79,12 +79,16 @@ echo "Starting QED Benchmark Suite..."
 echo "================================="
 
 # Start all benchmarks in parallel
-run_benchmark "user-registration" "make run-benchmark-user"
-run_benchmark "deploy-contract-token" "make run-benchmark-deploy"
-run_benchmark "mint-concurrent-100" "make run-benchmark-mint"
-run_benchmark "multi-user-transfer-concurrent-100" "make run-benchmark-transfer"
-run_benchmark "flow-concurrent-100" "make run-benchmark-flow"
-run_benchmark "multi-transfer" "make run-benchmark-multi-transfer"
+run_benchmark "user-registration" "make run-benchmark-register"
+run_benchmark "mint-1" "make run-benchmark-mint"
+run_benchmark "mint-2" "make run-benchmark-mint"
+run_benchmark "mint-3" "make run-benchmark-mint"
+run_benchmark "mint-4" "make run-benchmark-mint"
+run_benchmark "multi-transfer-1" "make run-benchmark-transfer"
+run_benchmark "multi-transfer-2" "make run-benchmark-transfer"
+run_benchmark "flow-1" "make run-benchmark-flow"
+run_benchmark "flow-2" "make run-benchmark-flow"
+run_benchmark "deploy" "make run-benchmark-deploy"
 
 echo "All benchmarks started. Waiting for completion..."
 
