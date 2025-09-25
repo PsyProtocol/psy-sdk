@@ -21,11 +21,11 @@ use super::{GenerateArgs, GenerateCommands, RunArgs, GenerateDockerComposeArgs, 
 pub struct Config {
     pub network: NetworkConfig,
     pub nodes: NodesConfig,
-    pub global_api_services: Option<GlobalApiServices>, // Add this
-
+    pub global_api_services: Option<GlobalApiServices>
 }
 
 pub use qed_prover::local::provider::{NetworkConfig, RealmConfig, CoordinatorConfig};
+use crate::subcommand::launch::ensure_worker_config_file;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodesConfig {
@@ -40,14 +40,12 @@ pub struct NodesConfig {
 pub struct IndependentWorkers {
     pub enabled: bool,
     pub worker_pools: Vec<WorkerPool>,
-    pub global_config: WorkerGlobalConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerPool {
     pub id: String,
     pub instances: u32,
-    pub target_nodes: Vec<String>, // URLs of nodes to receive tasks from
     pub args: HashMap<String, Value>,
     pub env: HashMap<String, String>,
     pub aws: Option<AwsServiceConfig>,
@@ -393,35 +391,74 @@ async fn run_deployment_impl(config: &Config, args: RunArgs) -> Result<()> {
                 .unwrap_or("lmdbx")
         });
 
-    // Create necessary directories
-    if database == "lmdbx" {
-        // Create directories based on node-specific configs
-        if let Some(coord_backend) = &config.nodes.coordinator.backend {
-            if let Some(lmdbx_config) = &coord_backend.lmdbx {
-                fs::create_dir_all(&lmdbx_config.path)
-                    .with_context(|| format!("Failed to create directory: {}", lmdbx_config.path))?;
-            }
-        }
-        for realm in &config.nodes.realms {
-            if let Some(realm_backend) = &realm.backend {
-                if let Some(lmdbx_config) = &realm_backend.lmdbx {
+    // Create necessary directories based on backend type
+    match database {
+        "lmdbx" => {
+            // Create directories for LMDBX
+            if let Some(coord_backend) = &config.nodes.coordinator.backend {
+                if let Some(lmdbx_config) = &coord_backend.lmdbx {
                     fs::create_dir_all(&lmdbx_config.path)
                         .with_context(|| format!("Failed to create directory: {}", lmdbx_config.path))?;
                 }
             }
+            for realm in &config.nodes.realms {
+                if let Some(realm_backend) = &realm.backend {
+                    if let Some(lmdbx_config) = &realm_backend.lmdbx {
+                        fs::create_dir_all(&lmdbx_config.path)
+                            .with_context(|| format!("Failed to create directory: {}", lmdbx_config.path))?;
+                    }
+                }
+            }
+        },
+        "scylla" => {
+            // Start ScyllaDB
+            start_scylladb(config)?;
+            // Wait for ScyllaDB to be ready
+            std::thread::sleep(std::time::Duration::from_secs(30));
+        },
+        "tikv" => {
+            // Start TiKV cluster
+            start_tikv_cluster(config)?;
+            // Wait for TiKV to be ready
+            std::thread::sleep(std::time::Duration::from_secs(15));
+        },
+        _ => {
+            return Err(anyhow::anyhow!("Unsupported database backend: {}", database));
         }
     }
 
     // Start Redis instances
     start_redis_instances(config)?;
 
-    // Start ScyllaDB if using scylla backend
-    if database == "scylla" {
-        start_scylladb(config)?;
-    }
+    // Start TimescaleDB if configured
+    if let Some(global_services) = &config.global_api_services {
+        // Start TimescaleDB first if enabled
+        if let Some(timescale_config) = &global_services.timescaledb {
+            if timescale_config.enabled {
+                info!("Starting TimescaleDB for API service...");
+                start_timescaledb()?;
+                // Wait for DB to be ready
+                sleep(std::time::Duration::from_secs(10)).await;
+                // Run migrations
 
-    if database == "tikv" {
-        todo!()
+                run_database_migrations()?;
+            }
+        }
+
+        // Start API Service
+        if let Some(api_config) = &global_services.api_service {
+            if api_config.enabled {
+                info!("Starting API service on port 3000...");
+                start_service(
+                    "qed-api-service",
+                    build_api_service_command(api_config)?,
+                    &api_config.env,
+                )?;
+
+                // Wait for API service to be ready
+                std::thread::sleep(std::time::Duration::from_secs(5));
+            }
+        }
     }
 
 
@@ -432,26 +469,11 @@ async fn run_deployment_impl(config: &Config, args: RunArgs) -> Result<()> {
     start_realm_services(config, database, &args)?;
 
     start_independent_workers(config, &args)?;
-    info!("QED network deployment started successfully!");
+    info!("✅ QED network deployment started successfully!");
 
-    if let Some(global_services) = &config.global_api_services {
-        if let Some(timescale_config) = &global_services.timescaledb {
-            if timescale_config.enabled {
-                start_timescaledb(&timescale_config.connection_string)?;
-            }
-        }
+    // Print deployment summary
+    print_deployment_summary2(config, database);
 
-        // Start API Service
-        if let Some(api_config) = &global_services.api_service {
-            if api_config.enabled {
-                start_service(
-                    "qed-api-service",
-                    build_api_service_command(api_config)?,
-                    &api_config.env,
-                )?;
-            }
-        }
-    }
 
     if !args.detach {
         info!("Press Ctrl+C to stop the deployment...");
@@ -640,7 +662,7 @@ fn start_coordinator_services(config: &Config, database: &str, args: &RunArgs) -
         if watcher_config.enabled {
             start_service(
                 "coordinator-watcher",
-                build_watcher_command("coordinator", node_database, redis_uri, watcher_config, config, Some(backend_config))?,
+                build_watcher_command("coordinator", 0, redis_uri, watcher_config, config, Some(backend_config))?,
                 &watcher_config.env,
             )?;
         }
@@ -751,7 +773,7 @@ fn start_realm_services(config: &Config, database: &str, args: &RunArgs) -> Resu
             if watcher_config.enabled {
                 start_service(
                     &format!("realm-{}-watcher", realm_node.id),
-                    build_watcher_command("realm", realm_database, redis_uri, watcher_config, config, Some(backend_config))?,
+                    build_watcher_command("realm", realm_node.id as u32, redis_uri, watcher_config, config, Some(backend_config))?,
                     &watcher_config.env,
                 )?;
             }
@@ -763,37 +785,51 @@ fn start_realm_services(config: &Config, database: &str, args: &RunArgs) -> Resu
 fn start_independent_workers(config: &Config, _args: &RunArgs) -> Result<()> {
     if let Some(workers) = &config.nodes.workers {
         if workers.enabled {
+            info!("Starting independent worker pools...");
+            // Ensure config.json exists with correct RPC URLs for workers
+            // ensure_worker_config_file(config)?;
+
             for pool in &workers.worker_pools {
+                info!("Starting worker pool '{}' with {} instances", pool.id, pool.instances);
                 for i in 0..pool.instances {
                     let service_name = format!("worker-{}-{}", pool.id, i);
-                    let command = build_worker_command(pool, &workers.global_config)?;
-                    start_service(&service_name, command, &pool.env)?;
-                }
+                    let command = build_worker_command(pool)?;
+                    // Add API service URL to environment
+                    let mut env = pool.env.clone();
+                    env.insert("API_SERVICE_URL".to_string(), "http://localhost:3000".to_string());
+
+                    start_service(&service_name, command, &env)?;                }
             }
         }
     }
     Ok(())
 }
-fn build_worker_command(pool: &WorkerPool, global_config: &WorkerGlobalConfig) -> Result<Vec<String>> {
+fn build_worker_command(pool: &WorkerPool) -> Result<Vec<String>> {
     let mut cmd = vec![
         "./target/release/qed_rollup_cli".to_string(),
         "worker".to_string(),
     ];
-
-    // Add target node URLs
-    for node_url in &pool.target_nodes {
-        cmd.push("--target-node".to_string());
-        cmd.push(node_url.clone());
-    }
-
-    // Add global worker configuration
-    cmd.push("--task-discovery-interval".to_string());
-    cmd.push(global_config.task_discovery_interval.to_string());
-
-    // Add pool-specific args
+    // Add pool-specific args (private-key, keystore-path, wallet-password)
     for (key, value) in &pool.args {
+        // Skip config if it's in args since we already added it
+        if key == "config" {
+            continue;
+        }
+
         cmd.push(format!("--{}", key.replace('_', "-")));
-        cmd.push(value.to_string());
+
+        match value {
+            Value::String(s) => cmd.push(s.clone()),
+            Value::Number(n) => cmd.push(n.to_string()),
+            Value::Bool(b) => {
+                if *b {
+                    cmd.push("true".to_string());
+                } else {
+                    cmd.push("false".to_string());
+                }
+            },
+            _ => {}
+        }
     }
 
     Ok(cmd)
@@ -801,7 +837,7 @@ fn build_worker_command(pool: &WorkerPool, global_config: &WorkerGlobalConfig) -
 
 fn build_watcher_command(
     node_type: &str,
-    database: &str,
+    node_id: u32,
     redis_uri: &str,
     service_config: &ServiceConfig,
     config: &Config,
@@ -816,9 +852,22 @@ fn build_watcher_command(
     cmd.push("--node-type".to_string());
     cmd.push(node_type.to_string());
 
-    // Add database config (TiKV)
-    add_database_config(&mut cmd, database, backend_config, None)?;
+    cmd.push("--node-id".to_string());
+    cmd.push(node_id.to_string());
 
+    // Add database config (TiKV)
+    if let Some(backend) = backend_config {
+        if let Some(tikv_config) = &backend.tikv {
+            cmd.push("--database".to_string());
+            cmd.push("tikv".to_string());
+
+            cmd.push("--tikv-pd-endpoints".to_string());
+            cmd.push(tikv_config.pd_endpoints.join(","));
+
+            cmd.push("--tikv-namespace".to_string());
+            cmd.push(format!("watcher-{}", node_type));
+        }
+    }
     // Add Redis URI
     cmd.push("--redis-url".to_string());
     cmd.push(redis_uri.to_string());
@@ -845,6 +894,10 @@ fn build_service_command(
 
     // Add backend-specific args
     let backend = backend_config.ok_or_else(|| anyhow::anyhow!("Backend configuration is required"))?;
+
+    if backend.database != "tikv" {
+        return Err(anyhow::anyhow!("Only TiKV backend is supported now"));
+    }
 
     match database {
         "lmdbx" => {
@@ -985,37 +1038,127 @@ fn add_database_config(
 
     Ok(())
 }
-fn start_timescaledb(connection_string: &str) -> Result<()> {
+// TiKV cluster startup function
+fn start_tikv_cluster(config: &Config) -> Result<()> {
+    info!("Starting TiKV cluster...");
+
+    // Check if docker-compose file exists
+    let tikv_compose_file = "./scripts/docker-compose.tikv.yml";
+    if !Path::new(tikv_compose_file).exists() {
+        return Err(anyhow::anyhow!(
+            "TiKV docker-compose file not found at {}. Please ensure the file exists.",
+            tikv_compose_file
+        ));
+    }
+
+    // Start TiKV using docker-compose
+    let output = Command::new("docker-compose")
+        .args(&["-f", tikv_compose_file, "up", "-d"])
+        .output()
+        .context("Failed to start TiKV cluster")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("already exists") || stderr.contains("already in use") {
+            warn!("TiKV cluster may already be running, continuing...");
+        } else {
+            return Err(anyhow::anyhow!("Failed to start TiKV cluster: {}", stderr));
+        }
+    }
+
+    info!("Waiting for TiKV cluster to be ready...");
+
+    // Wait and verify TiKV is ready by checking PD health
+    for i in 1..=30 {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+
+        // Try to connect to PD (Placement Driver)
+        let pd_client_check = Command::new("curl")
+            .args(&["-s", "http://localhost:2379/health"])
+            .output();
+
+        if let Ok(output) = pd_client_check {
+            if output.status.success() {
+                info!("TiKV PD cluster is ready!");
+                return Ok(());
+            }
+        }
+
+        if i % 5 == 0 {
+            info!("Still waiting for TiKV cluster... ({}/30)", i);
+        }
+    }
+
+    Err(anyhow::anyhow!("TiKV cluster failed to start within timeout"))
+}
+fn start_timescaledb() -> Result<()> {
     info!("Starting TimescaleDB...");
     let output = Command::new("docker")
         .args(&[
             "run", "-d", "--name", "qed-timescaledb",
             "-p", "5432:5432",
             "-e", "POSTGRES_PASSWORD=password",
+            "-e", "POSTGRES_DB=qed",
             "timescale/timescaledb:latest-pg17"
         ])
-        .output()?;
+        .output()
+        .context("Failed to start TimescaleDB")?;
 
     if !output.status.success() {
-        return Err(anyhow::anyhow!("Failed to start TimescaleDB"));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("already in use") {
+            warn!("TimescaleDB container already exists, checking if it's running...");
+
+            // Check if container is running
+            let check = Command::new("docker")
+                .args(&["ps", "-q", "-f", "name=qed-timescaledb"])
+                .output()?;
+
+            if check.stdout.is_empty() {
+                // Container exists but not running, start it
+                Command::new("docker")
+                    .args(&["start", "qed-timescaledb"])
+                    .output()?;
+            }
+        } else {
+            return Err(anyhow::anyhow!("Failed to start TimescaleDB: {}", stderr));
+        }
     }
 
     // Wait for database to be ready and run migrations
     std::thread::sleep(std::time::Duration::from_secs(10));
     run_database_migrations()?;
+    info!("TimescaleDB started successfully");
 
     Ok(())
 }
+// Database migration function
 fn run_database_migrations() -> Result<()> {
     info!("Running database migrations...");
+
+    // First check if qed_api_services directory exists
+    if !Path::new("./qed_api_services").exists() {
+        warn!("qed_api_services directory not found, skipping migrations");
+        return Ok(());
+    }
+
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "qed_api_services", "--", "migrate"])
+        .args(&["sqlx", "migrate", "run"])
         .current_dir("./qed_api_services")
-        .env("DATABASE_URL", "postgres://postgres:password@localhost/postgres")
-        .output()?;
+        .env("DATABASE_URL", "postgres://postgres:password@localhost:5432/qed")
+        .output()
+        .context("Failed to run database migrations")?;
 
     if !output.status.success() {
-        warn!("Migration may have failed: {}", String::from_utf8_lossy(&output.stderr));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // Check if it's just "no migrations to run"
+        if stderr.contains("No migrations") || stderr.contains("up to date") {
+            info!("Database is already up to date");
+        } else {
+            warn!("Migration output: {}", stderr);
+        }
+    } else {
+        info!("Database migrations completed successfully");
     }
 
     Ok(())
@@ -1871,7 +2014,65 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
 
         Ok(())
     }
+// Print deployment summary
+fn print_deployment_summary2(config: &Config, database: &str) {
+    info!("\n🚀 Deployment Summary");
+    info!("=====================");
+    info!("Backend: {}", database);
 
+    // Coordinator
+    info!("\n📍 Coordinator:");
+    info!("  - Processor: {}", if config.nodes.coordinator.processor.enabled { "✅" } else { "❌" });
+    info!("  - Edge: {}", if config.nodes.coordinator.edge.enabled { "✅" } else { "❌" });
+    if let Some(watcher) = &config.nodes.coordinator.watcher {
+        info!("  - Watcher: {}", if watcher.enabled { "✅" } else { "❌" });
+    }
+
+    // Realms
+    info!("\n🌍 Realms:");
+    for realm in &config.nodes.realms {
+        info!("  Realm {}:", realm.id);
+        info!("    - Processor: {}", if realm.processor.enabled { "✅" } else { "❌" });
+        info!("    - Edge: {}", if realm.edge.enabled { "✅" } else { "❌" });
+        if let Some(watcher) = &realm.watcher {
+            info!("    - Watcher: {}", if watcher.enabled { "✅" } else { "❌" });
+        }
+    }
+
+    // Workers
+    if let Some(workers) = &config.nodes.workers {
+        if workers.enabled {
+            info!("\n👷 Workers:");
+            for pool in &workers.worker_pools {
+                info!("  - Pool '{}': {} instances", pool.id, pool.instances);
+            }
+        }
+    }
+
+    // Global Services
+    if let Some(global_services) = &config.global_api_services {
+        info!("\n🌐 Global Services:");
+        if let Some(api) = &global_services.api_service {
+            info!("  - API Service: {} (port 3000)", if api.enabled { "✅" } else { "❌" });
+        }
+        if let Some(timescale) = &global_services.timescaledb {
+            info!("  - TimescaleDB: {}", if timescale.enabled { "✅" } else { "❌" });
+        }
+    }
+
+    info!("\n📡 Endpoints:");
+    info!("  - Coordinator: http://localhost:8545");
+    for realm in &config.nodes.realms {
+        info!("  - Realm {}: http://localhost:{}", realm.id, 8546 + realm.id);
+    }
+    if let Some(global_services) = &config.global_api_services {
+        if let Some(api) = &global_services.api_service {
+            if api.enabled {
+                info!("  - API Service: http://localhost:3000");
+            }
+        }
+    }
+}
 
 
 /// Get instance recommendation for a specific service
@@ -2205,13 +2406,32 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
     if let Some(workers) = &config.nodes.workers {
         if workers.enabled {
             info!("\n👷 Worker Pools:");
-            for (i, pool) in workers.worker_pools.iter().enumerate() {
-                info!("  • Pool {}: {} instances targeting {} nodes",
-                    i + 1,
-                    pool.instances,
-                    pool.target_nodes.len()
+            for pool in &workers.worker_pools {
+                let total_instances = pool.instances;
+
+                info!("  • Pool '{}': {} instances",
+                    pool.id,
+                    total_instances
                 );
+
+                // Show worker configuration details
+                if let Some(aws) = &pool.aws {
+                    info!("    Resources: {} CPU units, {} MB memory",
+                        aws.cpu,
+                        aws.memory
+                    );
+                }
+
+                // Workers will auto-discover nodes from config
+                info!("    Node discovery: via config.json RPC endpoints");
+                info!("    API reporting: port 3000");
             }
+
+            // Show total worker count
+            let total_workers: u32 = workers.worker_pools.iter()
+                .map(|p| p.instances)
+                .sum();
+            info!("  Total workers: {}", total_workers);
         }
     }
 

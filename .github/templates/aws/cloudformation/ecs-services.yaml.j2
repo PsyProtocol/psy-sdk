@@ -442,50 +442,87 @@ Resources:
 
   # ============================================================================
   # INDEPENDENT WORKER SERVICES
-  # ============================================================================
-  {% if config.nodes.workers and config.nodes.workers.enabled %}
-  {% for pool in config.nodes.workers.worker_pools %}
-  # Independent Worker Pool {{ loop.index }}
+  # Worker Pool Task Definition in ecs-services.yaml.j2
+ {% for pool in config.nodes.workers.worker_pools %}
   WorkerPool{{ loop.index }}TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}'
+      Family: !Sub '${ProjectName}-${Environment}-worker-{{ pool.id }}'
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
-      {% if pool.aws %}
+     {% if pool.aws %}
       Cpu: '{{ pool.aws.cpu }}'
       Memory: '{{ pool.aws.memory }}'
-      {% endif %}
+     {% endif %}
       ExecutionRoleArn: !Ref TaskExecutionRoleArn
       TaskRoleArn: !Ref TaskRoleArn
+      Volumes:
+        - Name: config
+          Host:
+            SourcePath: /etc/qed
       ContainerDefinitions:
-        - Name: worker-pool-{{ loop.index }}
+        - Name: worker-{{ pool.id }}
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
             - worker
-            {% for node_url in pool.target_nodes %}
-            - --target-node
-            - '{{ node_url }}'
-            {% endfor %}
-            - --task-discovery-interval
-            - '{{ config.nodes.workers.global_config.task_discovery_interval }}'
-            - --max-concurrent-tasks
-            - '{{ config.nodes.workers.global_config.max_concurrent_tasks }}'
-            {% for key, value in (pool.args | default({}) | dictsort) %}
-            - --{{ key | replace('_', '-') }}
-            - '{{ value }}'
-            {% endfor %}
+            - --config
+            - /app/config.json
+            {% if 'private-key' in pool.args %}
+            - --private-key
+            - '{{ pool.args["private-key"] }}'
+            {% endif %}
+            {% if 'keystore-path' in pool.args %}
+              - --keystore-path
+              - '{{ pool.args["keystore-path"] }}'
+            {% endif %}
+            {% if 'wallet-password' in pool.args %}
+              - --wallet-password
+              - '{{ pool.args["wallet-password"] }}'
+            {% endif %}
           Environment:
-            {% for key, value in (pool.env | default({}) | dictsort) %}
+           {% for key, value in (pool.env | default({}) | dictsort) %}
             - Name: {{ key }}
               Value: '{{ value | string }}'
-            {% endfor %}
-          {% if pool.aws %}
+           {% endfor %}
+            # Add API service endpoint for worker reporting
+            - Name: API_SERVICE_URL
+              Value: 'http://api-service.qed.local:3000'
+          MountPoints:
+            - SourceVolume: config
+              ContainerPath: /app
+              ReadOnly: true
+          # Generate config.json dynamically with service discovery URLs
+          EntryPoint:
+            - /bin/sh
+            - -c
+            - |
+              cat > /app/config.json << 'EOF'
+              {
+                "network": {
+                  "coordinator_configs": [
+                    {
+                      "id": 0,
+                      "rpc_url": ["http://coordinator-edge.qed.local:8545"]
+                    }
+                  ],
+                  "realm_configs": [
+                   {% for realm in config.nodes.realms %}
+                    {
+                      "id": {{ realm.id }},
+                      "rpc_url": ["http://realm-{{ realm.id }}-edge.qed.local:{{ 8546 + realm.id }}"]
+                    }{% if not loop.last %},{% endif %}
+                   {% endfor %}
+                  ]
+                }
+              }
+              EOF
+              exec qed_rollup_cli "$@"
+         {% if pool.aws %}
           Memory: {{ pool.aws.memory }}
           MemoryReservation: {{ (pool.aws.memory * 0.75) | int }}
           Cpu: {{ pool.aws.cpu }}
-          {% endif %}
+         {% endif %}
           LinuxParameters:
             InitProcessEnabled: true
           LogConfiguration:
@@ -493,53 +530,23 @@ Resources:
             Options:
               awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
               awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: worker-pool-{{ loop.index }}
+              awslogs-stream-prefix: worker-{{ pool.id }}
           Essential: true
 
   WorkerPool{{ loop.index }}Service:
     Type: AWS::ECS::Service
     Properties:
-      ServiceName: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}'
+      ServiceName: !Sub '${ProjectName}-${Environment}-worker-{{ pool.id }}'
       Cluster: !Ref MainECSClusterName
       TaskDefinition: !Ref WorkerPool{{ loop.index }}TaskDefinition
-      {% if pool.aws and pool.aws.ecs %}
+     {% if pool.aws and pool.aws.ecs %}
       DesiredCount: {{ pool.aws.ecs.task_count | default(pool.instances) }}
-      {% else %}
+     {% else %}
       DesiredCount: {{ pool.instances }}
-      {% endif %}
+     {% endif %}
       LaunchType: EC2
-      PlacementConstraints:
-        - Type: memberOf
-          Expression: 'attribute:service == worker-pool'
-
-  # Auto Scaling for Worker Pool {{ loop.index }}
-  WorkerPool{{ loop.index }}ScalableTarget:
-    Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Properties:
-      MaxCapacity: 20
-      {% if pool.aws and pool.aws.ecs %}
-      MinCapacity: {{ pool.aws.ecs.task_count | default(pool.instances) }}
-      {% else %}
-      MinCapacity: {{ pool.instances }}
-      {% endif %}
-      ResourceId: !Sub 'service/${MainECSClusterName}/${WorkerPool{{ loop.index }}Service.Name}'
-      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
-      ScalableDimension: ecs:service:DesiredCount
-      ServiceNamespace: ecs
-
-  WorkerPool{{ loop.index }}ScalingPolicy:
-    Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Properties:
-      PolicyName: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}-scaling'
-      PolicyType: TargetTrackingScaling
-      ScalingTargetId: !Ref WorkerPool{{ loop.index }}ScalableTarget
-      TargetTrackingScalingPolicyConfiguration:
-        PredefinedMetricSpecification:
-          PredefinedMetricType: ECSServiceAverageCPUUtilization
-        TargetValue: 70.0
-  {% endfor %}
-  {% endif %}
-
+      # Workers don't need placement constraints, they can run on any instance
+ {% endfor %}
   # ============================================================================
   # GLOBAL API SERVICE
   # ============================================================================
@@ -702,7 +709,7 @@ Resources:
               }
               EOF
               # Start the prover service
-              cd /qed-rollup && ./qed_user_cli local-prover {% for key, value in config.nodes.prover.args.items() %}--{{ key | replace('_', '-') }} '{{ value }}' {% endfor %}
+              cd /qed-rollup && ./qed_user_cli local-prover {% for key, value in config.nodes.prover.args | dictsort %}--{{ key | replace('_', '-') }} '{{ value }}' {% endfor %}
           Environment:
             {% for key, value in (config.nodes.prover.env | default({}) | dictsort) %}
             - Name: {{ key }}

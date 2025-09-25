@@ -19,7 +19,7 @@
         "rpc_url": ["http://127.0.0.1:8545"]
       }
     ],
-    "prove_proxy_url": "http:/127.0.0.1:9999",
+    "prove_proxy_url": "http://127.0.0.1:9999",
     "native_currency": "0",
     "native_currency_decimal": 9,
     "native_currency_name": "PSY",
@@ -121,14 +121,10 @@
         "uri": "redis://127.0.0.1:6379",
         "pool_size": 10,
         "aws": {
-          "deployment_type": "ec2",
-          "cpu": 2048,
-          "memory": 8192,
-          "volume_size": 200,
-          "ec2": {
-            "min_instances": 1,
-            "max_instances": 1,
-            "desired_instances": 1
+          "deployment_type": "elasticache",
+          "elasticache": {
+            "node_type": "cache.t3.micro",
+            "num_cache_nodes": 1
           }
         }
       },
@@ -178,10 +174,9 @@
       },
       "processor": {
         "enabled": true,
-        "args": {
-        },
+        "args": {},
         "env": {
-          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+          "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
         },
         "aws": {
           "cpu": 4096,
@@ -201,7 +196,7 @@
           "listen_addr": "0.0.0.0:8545"
         },
         "env": {
-          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+          "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
         },
         "aws": {
           "cpu": 4096,
@@ -221,14 +216,14 @@
         "enabled": true,
         "instances": 1,
         "args": {
-          "listen_addr": "x.0.0.0:8545"
+          "redis-url": "redis://127.0.0.1:6379"
         },
         "env": {
-          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+          "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
         },
         "aws": {
-          "cpu": 4096,
-          "memory": 8192,
+          "cpu": 2048,
+          "memory": 4096,
           "deployment_type": "ecs",
           "ecs": {
             "instances": 1,
@@ -244,14 +239,10 @@
           "uri": "redis://127.0.0.1:6380",
           "pool_size": 10,
           "aws": {
-            "deployment_type": "ec2",
-            "cpu": 2048,
-            "memory": 8192,
-            "volume_size": 200,
-            "ec2": {
-              "min_instances": 1,
-              "max_instances": 1,
-              "desired_instances": 1
+            "deployment_type": "elasticache",
+            "elasticache": {
+              "node_type": "cache.t3.micro",
+              "num_cache_nodes": 1
             }
           }
         },
@@ -303,7 +294,7 @@
             "queue_biz_key": "rwq0"
           },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+            "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
           },
           "aws": {
             "cpu": 4096,
@@ -325,7 +316,7 @@
             "queue_biz_key": "rwq0"
           },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+            "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
           },
           "aws": {
             "cpu": 4096,
@@ -344,14 +335,14 @@
           "enabled": true,
           "instances": 1,
           "args": {
-            "listen_addr": "x.0.0.0:8545"
+            "redis-url": "redis://127.0.0.1:6380"
           },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+            "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
           },
           "aws": {
-            "cpu": 4096,
-            "memory": 8192,
+            "cpu": 2048,
+            "memory": 4096,
             "deployment_type": "ecs",
             "ecs": {
               "instances": 1,
@@ -366,13 +357,10 @@
           "uri": "redis://127.0.0.1:6381",
           "pool_size": 10,
           "aws": {
-            "cpu": 2048,
-            "memory": 8192,
-            "deployment_type": "ec2",
-            "ec2": {
-              "min_instances": 1,
-              "max_instances": 1,
-              "desired_instances": 1
+            "deployment_type": "elasticache",
+            "elasticache": {
+              "node_type": "cache.t3.micro",
+              "num_cache_nodes": 1
             }
           }
         },
@@ -404,7 +392,7 @@
           },
           "tikv": {
             "pd_endpoints": ["127.0.0.1:2379", "127.0.0.1:2381", "127.0.0.1:2383"],
-            "namespace": "qed_realm_0",
+            "namespace": "qed_realm_1",
             "aws": {
               "deployment_type": "ec2",
               "cpu": 2048,
@@ -424,7 +412,7 @@
             "queue_biz_key": "rwq1"
           },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+            "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
           },
           "aws": {
             "cpu": 4096,
@@ -446,7 +434,7 @@
             "queue_biz_key": "rwq1"
           },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+            "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
           },
           "aws": {
             "cpu": 4096,
@@ -465,14 +453,14 @@
           "enabled": true,
           "instances": 1,
           "args": {
-            "listen_addr": "x.0.0.0:8545"
+            "redis-url": "redis://127.0.0.1:6381"
           },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+            "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
           },
           "aws": {
-            "cpu": 4096,
-            "memory": 8192,
+            "cpu": 2048,
+            "memory": 4096,
             "deployment_type": "ecs",
             "ecs": {
               "instances": 1,
@@ -482,31 +470,58 @@
         }
       }
     ],
-    "worker": {
+    "workers": {
       "enabled": true,
-      "instances": 6,
-      "args": {
-        "queue_biz_key": "rwq1"
-      },
-      "env": {
-        "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
-      },
-      "aws": {
-        "cpu": 8192,
-        "memory": 16384,
-        "deployment_type": "ecs",
-        "ecs": {
-          "task_count": 2
+      "worker_pools": [
+        {
+          "id": "pool-1",
+          "instances": 3,
+          "args": {
+            "config": "/app/config.json",
+            "private-key": "${USER0_PRIVATE_KEY}"
+          },
+          "env": {
+            "RUST_LOG": "qed_worker=info",
+            "PRIVATE_KEY": "${USER0_PRIVATE_KEY}"
+          },
+          "aws": {
+            "cpu": 8192,
+            "memory": 16384,
+            "deployment_type": "ecs",
+            "ecs": {
+              "task_count": 3
+            }
+          }
+        },
+        {
+          "id": "pool-2",
+          "instances": 3,
+          "args": {
+            "config": "/app/config.json",
+            "private-key": "${USER1_PRIVATE_KEY}"
+          },
+          "env": {
+            "RUST_LOG": "qed_worker=info",
+            "PRIVATE_KEY": "${USER1_PRIVATE_KEY}"
+          },
+          "aws": {
+            "cpu": 8192,
+            "memory": 16384,
+            "deployment_type": "ecs",
+            "ecs": {
+              "task_count": 3
+            }
+          }
         }
-      }
+      ]
     },
-    "prove-proxy": {
+    "prover": {
       "enabled": true,
       "args": {
         "listen_addr": "0.0.0.0:9999"
       },
       "env": {
-        "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+        "RUST_LOG": "qed_prover=debug,plonky2=error"
       },
       "aws": {
         "cpu": 8192,
@@ -543,6 +558,40 @@
       "docker": {
         "network_name": "qed-network",
         "network_subnet": "172.28.0.0/16"
+      }
+    }
+  },
+  "global_api_services": {
+    "api_service": {
+      "enabled": true,
+      "instances": 2,
+      "args": {
+        "listen_addr": "0.0.0.0:3000"
+      },
+      "env": {
+        "RUST_LOG": "qed_api_services=info",
+        "DATABASE_URL": "${TIMESCALE_DATABASE_URL}"
+      },
+      "aws": {
+        "cpu": 4096,
+        "memory": 8192,
+        "deployment_type": "ecs",
+        "ecs": {
+          "task_count": 2
+        },
+        "load_balancer": {
+          "port": 3000,
+          "health_check_path": "/health"
+        }
+      }
+    },
+    "timescaledb": {
+      "enabled": true,
+      "connection_string": "postgres://postgres:password@timescaledb:5432/qed",
+      "aws": {
+        "instance_class": "db.t3.medium",
+        "allocated_storage": 100,
+        "multi_az": true
       }
     }
   },

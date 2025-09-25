@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -600,43 +600,96 @@ async fn start_independent_workers(
 
             info!("👷 Starting independent workers...");
 
+            // First, ensure config.json exists with correct RPC URLs
+            ensure_worker_config_file(config, work_dir)?;
+
             for (pool_idx, pool) in workers.worker_pools.iter().enumerate() {
-                info!("Starting worker pool {} with {} instances", pool_idx + 1, pool.instances);
+                info!("Starting worker pool {} ({}) with {} instances",
+                    pool_idx + 1,
+                    pool.id,
+                    pool.instances
+                );
 
                 for instance_idx in 0..pool.instances {
                     let mut cmd = Command::new(&binary);
                     cmd.arg("worker");
 
-                    // Add target node URLs
-                    for node_url in &pool.target_nodes {
-                        cmd.arg("--target-node").arg(node_url);
+                    // Workers use config.json to discover nodes
+                    cmd.arg("--config").arg(work_dir.join("config.json"));
+
+                    // Add pool-specific args (private-key, keystore-path, wallet-password)
+                    for (key, value) in &pool.args {
+                        // Skip config since we already set it above
+                        if key == "config" {
+                            continue;
+                        }
+
+                        cmd.arg(format!("--{}", key.replace('_', "-")));
+
+                        match value {
+                            Value::String(s) => {
+                                cmd.arg(s);
+                            },
+                            Value::Number(n) => {
+                                cmd.arg(n.to_string());
+                            },
+                            Value::Bool(b) => {
+                                cmd.arg(b.to_string());
+                            },
+                            _ => {}
+                        }
                     }
-
-                    // Add global worker configuration
-                    cmd.arg("--task-discovery-interval")
-                        .arg(workers.global_config.task_discovery_interval.to_string());
-                    cmd.arg("--max-concurrent-tasks")
-                        .arg(workers.global_config.max_concurrent_tasks.to_string());
-
-                    // Add pool-specific args
-                    add_service_args(&mut cmd, &ServiceConfig {
-                        enabled: true,
-                        instances: Some(pool.instances),
-                        args: pool.args.clone(),
-                        env: pool.env.clone(),
-                        aws: pool.aws.clone(),
-                    })?;
 
                     // Set environment variables
                     for (key, value) in &pool.env {
                         cmd.env(key, value);
                     }
 
-                    let service_name = format!("worker-pool-{}-instance-{}", pool_idx + 1, instance_idx + 1);
+                    // Add API service URL to environment for worker reporting
+                    cmd.env("API_SERVICE_URL", "http://localhost:3000");
+
+                    let service_name = format!("worker-{}-{}", pool.id, instance_idx);
                     manager.spawn(service_name, cmd, log_dir)?;
                 }
             }
         }
+    }
+
+    Ok(())
+}
+
+// Helper function to ensure config.json has correct RPC URLs for workers
+pub fn ensure_worker_config_file(config: &Config, work_dir: &Path) -> Result<()> {
+    info!("Creating config.json for workers with RPC endpoints...");
+
+    // Build the network configuration that workers need
+    let worker_config = json!({
+        "network": {
+            "coordinator_configs": config.network.coordinator_configs.iter().map(|c| {
+                json!({
+                    "id": c.id,
+                    "rpc_url": c.rpc_url
+                })
+            }).collect::<Vec<_>>(),
+            "realm_configs": config.network.realm_configs.iter().map(|r| {
+                json!({
+                    "id": r.id,
+                    "rpc_url": r.rpc_url
+                })
+            }).collect::<Vec<_>>(),
+            "prove_proxy_url": config.network.prove_proxy_url,
+            "native_currency": config.network.native_currency,
+        }
+    });
+
+    let config_path = work_dir.join("config.json");
+    fs::write(&config_path, serde_json::to_string_pretty(&worker_config)?)
+        .with_context(|| format!("Failed to write worker config to {}", config_path.display()))?;
+
+    info!("Worker config written to: {}", config_path.display());
+    info!("  Coordinator RPC: {:?}", config.network.coordinator_configs[0].rpc_url);
+    for realm in &config.network.realm_configs {
+        info!("  Realm {} RPC: {:?}", realm.id, realm.rpc_url);
     }
 
     Ok(())
