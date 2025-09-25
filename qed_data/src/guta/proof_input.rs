@@ -29,7 +29,7 @@ impl<F: RichField> VerifyTwoGUTAProofGadgetStandardInputSimple<F> {
         // todo: check nca proof
         Ok(())
     }
-} 
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -83,7 +83,7 @@ impl<F: RichField> VerifyTwoGUTAProofGadgetStandardInput<F> {
             stats: self.stats_b,
         }
     }
-    
+
 }
 
 
@@ -117,7 +117,7 @@ impl VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<GoldilocksField> {
         }
         Ok(())
     }
-} 
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -256,7 +256,7 @@ pub struct VerifyTwoEndCapCircuitInput<F: RichField> {
 
     pub b_end_cap: VerifyEndCapSimpleStandardInput<F>,
 
-    pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,  
+    pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
 }
 
 impl<F: RichField> VerifyTwoEndCapCircuitInput<F> {
@@ -374,7 +374,7 @@ impl VerifySingleEndCapInput<GoldilocksField> {
         self.a_end_cap.check_witness()?;
         let end_result = self.get_end_result_a();
         let guta_new_header = self.get_new_guta_header();
-        if end_result.start_user_leaf_hash != guta_new_header.state_transition.old_node_value || 
+        if end_result.start_user_leaf_hash != guta_new_header.state_transition.old_node_value ||
             end_result.end_user_leaf_hash != guta_new_header.state_transition.new_node_value ||
             end_result.user_id != guta_new_header.state_transition.node_index {
             return Err(anyhow::anyhow!("end result not match"));
@@ -483,7 +483,7 @@ impl<F: RichField> VerifyLeftGUTARightEndCapInput<F> {
             user_id: F::from_canonical_u64(self.nca_proof.child_b.index),
         }
     }
-    
+
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -554,7 +554,7 @@ impl<F: RichField> VerifyLeftEndCapRightGUTAInput<F> {
             user_id: F::from_canonical_u64(self.nca_proof.child_a.index),
         }
     }
-    
+
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -660,11 +660,11 @@ impl<F: RichField> VerifyGUTAToCapCircuitInputSimple<F> {
         if self.top_line_siblings.len() == 0 {
             self.guta_proof_header.state_transition.clone()
         }else{
-            
+
 
             let new_dmp = DeltaMerkleProofCore::from_params::<H>(
-                self.guta_proof_header.state_transition.node_index.to_canonical_u64(), 
-                self.guta_proof_header.state_transition.old_node_value, 
+                self.guta_proof_header.state_transition.node_index.to_canonical_u64(),
+                self.guta_proof_header.state_transition.old_node_value,
                 self.guta_proof_header.state_transition.new_node_value,
                 self.top_line_siblings.clone(),
             );
@@ -719,11 +719,11 @@ impl<F: RichField> VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F> {
         if self.top_line_siblings.len() == 0 {
             self.guta_proof_header.state_transition.clone()
         }else{
-            
+
 
             let new_dmp = DeltaMerkleProofCore::from_params::<H>(
-                self.guta_proof_header.state_transition.node_index.to_canonical_u64(), 
-                self.guta_proof_header.state_transition.old_node_value, 
+                self.guta_proof_header.state_transition.node_index.to_canonical_u64(),
+                self.guta_proof_header.state_transition.old_node_value,
                 self.guta_proof_header.state_transition.new_node_value,
                 self.top_line_siblings.clone(),
             );
