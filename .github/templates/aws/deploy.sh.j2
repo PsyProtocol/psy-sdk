@@ -549,34 +549,42 @@ build_and_push_image() {
     push_with_retry
 }
 
-
-# Upload template to S3 (always use S3 for consistency)
+# Upload template to S3 with proper URL format
 upload_template_to_s3() {
     local template_file="$1"
     local template_size=$(wc -c < "$template_file")
-    
+
     log_info "Template size: $template_size bytes. Uploading to S3..." >&2
-    
+
     # Create S3 bucket for templates if it doesn't exist
-    local bucket_name="${PROJECT_NAME}-cf-templates-${AWS_ACCOUNT_ID}"
+    local bucket_name="${PROJECT_NAME}-cf-templates-${AWS_ACCOUNT_ID}-${REGION}"
+
+    # Check if bucket exists, create if not
     if ! aws s3api head-bucket --bucket "$bucket_name" --region "${REGION}" 2>/dev/null; then
         log_info "Creating S3 bucket for templates: $bucket_name" >&2
+
+        # Create bucket with proper location constraint
         if [ "${REGION}" = "us-east-1" ]; then
-            aws s3api create-bucket --bucket "$bucket_name" --region "${REGION}"
+            aws s3api create-bucket \
+                --bucket "$bucket_name" \
+                --region "${REGION}" >/dev/null
         else
             aws s3api create-bucket \
                 --bucket "$bucket_name" \
                 --region "${REGION}" \
-                --create-bucket-configuration LocationConstraint="${REGION}"
+                --create-bucket-configuration LocationConstraint="${REGION}" >/dev/null
         fi
-        
+
+        # Wait for bucket to be available
+        aws s3api wait bucket-exists --bucket "$bucket_name" --region "${REGION}"
+
         # Enable versioning
         aws s3api put-bucket-versioning \
             --bucket "$bucket_name" \
             --versioning-configuration Status=Enabled \
-            --region "${REGION}"
-        
-        # Add bucket policy to allow CloudFormation to read templates
+            --region "${REGION}" >/dev/null
+
+        # Set bucket policy to allow CloudFormation access
         aws s3api put-bucket-policy \
             --bucket "$bucket_name" \
             --policy "{
@@ -593,172 +601,386 @@ upload_template_to_s3() {
                     }
                 ]
             }" \
-            --region "${REGION}"
+            --region "${REGION}" >/dev/null 2>&1 || {
+                # If policy fails, try with public read access
+                log_warning "Failed to set CloudFormation service policy, trying public read access..." >&2
+                aws s3api put-bucket-policy \
+                    --bucket "$bucket_name" \
+                    --policy "{
+                        \"Version\": \"2012-10-17\",
+                        \"Statement\": [
+                            {
+                                \"Sid\": \"PublicReadGetObject\",
+                                \"Effect\": \"Allow\",
+                                \"Principal\": \"*\",
+                                \"Action\": \"s3:GetObject\",
+                                \"Resource\": \"arn:aws:s3:::${bucket_name}/*\"
+                            }
+                        ]
+                    }" \
+                    --region "${REGION}" >/dev/null
+            }
     fi
-    
+
+    # Generate unique template key
+    local timestamp=$(date +%s)
+    local template_basename=$(basename "$template_file" .yaml)
+    local template_key="${template_basename}-${timestamp}.yaml"
+
     # Upload template to S3
-    local template_key="$(basename "$template_file")-$(date +%s)"
-    local s3_url="s3://${bucket_name}/${template_key}"
-    aws s3 cp "$template_file" "$s3_url" --region "${REGION}" >&2
-    
-    # Return HTTPS URL for CloudFormation
-    echo "https://s3.${REGION}.amazonaws.com/${bucket_name}/${template_key}"
+    log_info "Uploading template to s3://${bucket_name}/${template_key}..." >&2
+    if ! aws s3 cp "$template_file" "s3://${bucket_name}/${template_key}" \
+        --region "${REGION}" \
+        --content-type "text/yaml" >/dev/null; then
+        log_error "Failed to upload template to S3" >&2
+        return 1
+    fi
+
+    # Verify upload was successful
+    if ! aws s3api head-object \
+        --bucket "$bucket_name" \
+        --key "$template_key" \
+        --region "${REGION}" >/dev/null 2>&1; then
+        log_error "Template upload verification failed" >&2
+        return 1
+    fi
+
+    # Return the correct CloudFormation-compatible S3 URL
+    echo "https://s3.amazonaws.com/${bucket_name}/${template_key}"
+}
+# Alternative function that checks template size first
+deploy_with_template() {
+    local template_file="$1"
+    local stack_name="$2"
+    local parameters=("${@:3}")
+
+    local template_size=$(wc -c < "$template_file")
+    local max_local_size=51200  # 50KB limit for direct template body
+
+    if [ "$template_size" -gt "$max_local_size" ]; then
+        log_info "Template size ($template_size bytes) exceeds limit. Using S3..."
+        local template_url=$(upload_template_to_s3 "$template_file")
+        local template_param="--template-url"
+        local template_value="$template_url"
+    else
+        log_info "Template size ($template_size bytes) is within limit. Using direct upload..."
+        local template_param="--template-body"
+        local template_value="file://$template_file"
+    fi
+
+    # Return the parameters for use in CloudFormation commands
+    echo "$template_param"
+    echo "$template_value"
 }
 
-# Deploy CloudFormation stacks
+# Updated deploy_infrastructure function
 deploy_infrastructure() {
     log_info "Deploying infrastructure stack..."
-    
+
     local template_file="cloudformation/main.yaml"
     if [ ! -f "$template_file" ]; then
         log_error "CloudFormation template not found: $template_file"
         return 1
     fi
-    
-    # Check if template needs S3 upload
-    local template_url=$(upload_template_to_s3 "$template_file")
-    local template_param="--template-url"
-    local template_value="$template_url"
-    log_info "Using S3 template URL: $template_url"
-    
+
+    # Validate template first
+    log_info "Validating CloudFormation template..."
+    if ! aws cloudformation validate-template \
+        --template-body "file://$template_file" \
+        --region "${REGION}" >/dev/null; then
+        log_error "Template validation failed"
+        return 1
+    fi
+
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY RUN] Would deploy stack: ${PROJECT_NAME}-main"
-        aws cloudformation validate-template \
-            --template-url "$template_url" \
-            --region "${REGION}" &> /dev/null && \
-            log_info "Template validation passed"
-    else
-        # Check if stack exists
-        local stack_name="${PROJECT_NAME}-main"
-        if check_stack_exists "$stack_name"; then
-            log_info "Stack exists, updating..."
-            aws cloudformation update-stack \
-                "$template_param" "$template_value" \
-                --stack-name "$stack_name" \
-                --parameters \
-                    ParameterKey=ProjectName,ParameterValue="${PROJECT_NAME}" \
-                    ParameterKey=Environment,ParameterValue="${ENVIRONMENT:-dev}" \
-                --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-                --region "${REGION}" 2>/dev/null || {
-                    # Check if no updates are needed
-                    local update_status=$?
-                    if [ $update_status -eq 254 ]; then
-                        log_info "No changes detected for infrastructure stack"
-                        return 0
-                    else
-                        return $update_status
-                    fi
-                }
-        else
-            log_info "Creating new stack..."
-            aws cloudformation create-stack \
-                "$template_param" "$template_value" \
-                --stack-name "$stack_name" \
-                --parameters \
-                    ParameterKey=ProjectName,ParameterValue="${PROJECT_NAME}" \
-                    ParameterKey=Environment,ParameterValue="${ENVIRONMENT:-dev}" \
-                --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-                --region "${REGION}"
-        fi
-        
-        # Monitor progress
-        monitor_stack_progress "$stack_name" "Infrastructure deployment"
+        return 0
     fi
-}
 
+    # Check template size to determine deployment method
+    local template_size=$(wc -c < "$template_file")
+    local max_local_size=51200  # 50KB limit for direct template body
+
+    local template_param=""
+    local template_value=""
+
+    if [ "$template_size" -gt "$max_local_size" ]; then
+        log_info "Template size ($template_size bytes) exceeds limit. Uploading to S3..."
+        template_value=$(upload_template_to_s3 "$template_file")
+        if [ $? -ne 0 ] || [ -z "$template_value" ]; then
+            log_error "Failed to upload template to S3"
+            return 1
+        fi
+        template_param="--template-url"
+        log_info "Using S3 template URL: $template_value"
+    else
+        log_info "Template size ($template_size bytes) is within limit. Using direct upload..."
+        template_param="--template-body"
+        template_value="file://$template_file"
+    fi
+
+    # Prepare parameters
+    local params=(
+        "ParameterKey=ProjectName,ParameterValue=${PROJECT_NAME}"
+        "ParameterKey=Environment,ParameterValue=${ENVIRONMENT:-dev}"
+    )
+
+    # Check if stack exists
+    local stack_name="${PROJECT_NAME}-main"
+    local stack_exists=false
+    if check_stack_exists "$stack_name"; then
+        stack_exists=true
+        log_info "Stack exists, updating..."
+    else
+        log_info "Creating new stack..."
+    fi
+
+    # Execute stack operation with proper command structure
+    if [ "$stack_exists" = true ]; then
+        log_info "Executing: aws cloudformation update-stack $template_param \"$template_value\" --stack-name \"$stack_name\" ..."
+        if ! aws cloudformation update-stack \
+            $template_param "$template_value" \
+            --stack-name "$stack_name" \
+            --parameters "${params[@]}" \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --region "${REGION}"; then
+
+            local update_status=$?
+            if [ $update_status -eq 254 ]; then
+                log_info "No changes detected for infrastructure stack"
+                return 0
+            else
+                log_error "Failed to update stack (exit code: $update_status)"
+                return $update_status
+            fi
+        fi
+    else
+        log_info "Executing: aws cloudformation create-stack $template_param \"$template_value\" --stack-name \"$stack_name\" ..."
+        if ! aws cloudformation create-stack \
+            $template_param "$template_value" \
+            --stack-name "$stack_name" \
+            --parameters "${params[@]}" \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --region "${REGION}"; then
+            log_error "Failed to create stack"
+            return 1
+        fi
+    fi
+
+    # Monitor progress
+    monitor_stack_progress "$stack_name" "Infrastructure deployment"
+    local monitor_result=$?
+
+    if [ $monitor_result -ne 0 ]; then
+        log_error "Infrastructure deployment failed"
+        return 1
+    fi
+
+    log_info "Infrastructure deployment completed successfully"
+    return 0
+}
 deploy_ecs_services() {
     log_info "Deploying ECS services stack..."
-    
+
     local template_file="cloudformation/ecs-services.yaml"
     if [ ! -f "$template_file" ]; then
         log_error "ECS services template not found: $template_file"
         return 1
     fi
-    
-    # Check if template needs S3 upload
-    local template_url=$(upload_template_to_s3 "$template_file")
-    local template_param
-    local template_value
-    if [[ "$template_url" == "https://"* ]]; then
-        template_param="--template-url"
-        template_value="$template_url"
-        log_info "Using S3 template URL for services: $template_url"
-    else
-        template_param="--template-body"
-        template_value="file://$template_file"
-        log_info "Using local template file for services"
+
+    # CRITICAL: Wait for main stack to be completely ready
+    local main_stack_name="${PROJECT_NAME}-main"
+    log_info "Waiting for main stack to be ready..."
+
+    # Wait for main stack to be in a completed state
+    local max_wait_attempts=60  # 10 minutes max wait
+    local wait_attempt=0
+    while [ $wait_attempt -lt $max_wait_attempts ]; do
+        local main_status=$(get_stack_status "$main_stack_name")
+        case "$main_status" in
+            "CREATE_COMPLETE"|"UPDATE_COMPLETE")
+                log_info "Main stack is ready: $main_status"
+                break
+                ;;
+            "CREATE_IN_PROGRESS"|"UPDATE_IN_PROGRESS")
+                log_info "Waiting for main stack... (attempt $((wait_attempt + 1))/$max_wait_attempts) Status: $main_status"
+                sleep 10
+                wait_attempt=$((wait_attempt + 1))
+                ;;
+            "CREATE_FAILED"|"UPDATE_FAILED"|"ROLLBACK_COMPLETE"|"UPDATE_ROLLBACK_COMPLETE")
+                log_error "Main stack is in failed state: $main_status. Cannot deploy services."
+                return 1
+                ;;
+            "DOES_NOT_EXIST")
+                log_error "Main stack does not exist. Deploy infrastructure first."
+                return 1
+                ;;
+            *)
+                log_error "Main stack is in unexpected state: $main_status"
+                return 1
+                ;;
+        esac
+    done
+
+    if [ $wait_attempt -ge $max_wait_attempts ]; then
+        log_error "Timed out waiting for main stack to complete"
+        return 1
     fi
-    
-    # No need to wait for SSM parameters - using internal NLB endpoints
-    
-    # Get outputs from main stack
+
+    # Always upload template to S3 (services template is large)
+    local template_url=$(upload_template_to_s3 "$template_file")
+    log_info "Using S3 template URL: $template_url"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY RUN] Would deploy services stack"
+        # Validate template
+        aws cloudformation validate-template \
+            --template-url "$template_url" \
+            --region "${REGION}" >/dev/null 2>&1 && \
+            log_info "Services template validation passed"
+        return 0
+    fi
+
+    # Get outputs from main stack with retry
     log_info "Getting outputs from main stack..."
-    local outputs=$(aws cloudformation describe-stacks \
-        --stack-name "${PROJECT_NAME}-main" \
-        --query "Stacks[0].Outputs" \
-        --output json \
-        --region "${REGION}")
-    
-    # Build parameters array for create-stack/update-stack
-    local params_array=()
-    for param in MainECSClusterName ECRRepositoryURI ALBDNSName \
-                 TaskExecutionRoleArn TaskRoleArn \
-                 ServiceDiscoveryNamespaceId \
-                 ALBTargetGroupCoordinatorArn \
-                 {% for realm in config.nodes.realms %}ALBTargetGroupRealm{{ realm.id }}Arn {% endfor %}\
-                 RedisCoordinatorEndpoint \
-                 {% for realm in config.nodes.realms %}RedisRealm{{ realm.id }}Endpoint {% endfor %}; do
-        local value=$(echo "$outputs" | jq -r ".[] | select(.OutputKey==\"$param\") | .OutputValue // \"\"")
-        if [ -n "$value" ]; then
-            # Handle comma-separated list parameters (like PublicSubnetIds)
-            if [[ "$param" == *"SubnetIds"* ]] || [[ "$param" == *"SecurityGroupIds"* ]]; then
-                # Convert JSON array to comma-separated string if needed
-                local formatted_value=$(echo "$value" | jq -r 'if type == "array" then join(",") else . end')
-                params_array+=("ParameterKey=$param,ParameterValue=$formatted_value")
-            else
-                params_array+=("ParameterKey=$param,ParameterValue=$value")
-            fi
+    local outputs
+    local get_outputs_attempts=0
+    while [ $get_outputs_attempts -lt 5 ]; do
+        if outputs=$(aws cloudformation describe-stacks \
+            --stack-name "$main_stack_name" \
+            --query "Stacks[0].Outputs" \
+            --output json \
+            --region "${REGION}" 2>/dev/null); then
+            break
+        else
+            log_warning "Failed to get outputs, retrying... (attempt $((get_outputs_attempts + 1))/5)"
+            sleep 5
+            get_outputs_attempts=$((get_outputs_attempts + 1))
         fi
     done
-    
-    if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY RUN] Would deploy services stack with parameters"
-    else
-        local stack_name="${PROJECT_NAME}-services"
-        
-        # Check if stack exists
-        if check_stack_exists "$stack_name"; then
-            log_info "Services stack exists, updating..."
-            aws cloudformation update-stack \
-                "$template_param" "$template_value" \
-                --stack-name "$stack_name" \
-                --parameters "${params_array[@]}" \
-                --capabilities CAPABILITY_IAM \
-                --region "${REGION}" 2>/dev/null || {
-                    # Check if no updates are needed
-                    local update_status=$?
-                    if [ $update_status -eq 254 ]; then
-                        log_info "No changes detected for services stack"
-                        return 0
-                    else
-                        return $update_status
-                    fi
-                }
-        else
-            log_info "Creating new services stack..."
-            aws cloudformation create-stack \
-                "$template_param" "$template_value" \
-                --stack-name "$stack_name" \
-                --parameters "${params_array[@]}" \
-                --capabilities CAPABILITY_IAM \
-                --region "${REGION}"
-        fi
-        
-        # Monitor progress
-        monitor_stack_progress "$stack_name" "Services deployment"
-    fi
-}
 
+    if [ $get_outputs_attempts -ge 5 ]; then
+        log_error "Failed to get outputs from main stack after multiple attempts"
+        return 1
+    fi
+
+    # Build the required outputs list dynamically based on your config
+    # This should match exactly what your main.yaml template exports
+    local required_outputs=(
+        "MainECSClusterName"
+        "ECRRepositoryURI"
+        "ALBDNSName"
+        "TaskExecutionRoleArn"
+        "TaskRoleArn"
+        "ServiceDiscoveryNamespaceId"
+        "ALBTargetGroupCoordinatorArn"
+    )
+
+    # Add realm-specific outputs dynamically
+    # Extract realm IDs from config or hardcode based on your setup
+    local realm_ids=("0" "1")  # Adjust this to match your config
+    for realm_id in "${realm_ids[@]}"; do
+        required_outputs+=("ALBTargetGroupRealm${realm_id}Arn")
+        required_outputs+=("RedisRealm${realm_id}Endpoint")
+    done
+
+    # Add Redis coordinator endpoint
+    required_outputs+=("RedisCoordinatorEndpoint")
+
+    # Build parameters array with validation
+    local params_array=()
+    local missing_params=()
+
+    log_info "Building parameters from main stack outputs..."
+    for param in "${required_outputs[@]}"; do
+        local value=$(echo "$outputs" | jq -r ".[] | select(.OutputKey==\"$param\") | .OutputValue // \"\"")
+        if [ -n "$value" ] && [ "$value" != "null" ] && [ "$value" != "" ]; then
+            params_array+=("ParameterKey=$param,ParameterValue=$value")
+            log_debug "Found parameter: $param = $value"
+        else
+            missing_params+=("$param")
+            log_warning "Missing parameter: $param"
+        fi
+    done
+
+    # Check for missing required parameters
+    local missing_count=$(printf '%s\n' "${missing_params[@]}" 2>/dev/null | wc -l)
+    if [ "${missing_count:-0}" -gt 0 ]; then
+        log_error "Missing required parameters from main stack outputs:"
+        printf '%s\n' "${missing_params[@]}"
+        log_info "Available outputs from main stack:"
+        echo "$outputs" | jq -r '.[] | "\(.OutputKey) = \(.OutputValue)"'
+        return 1
+    fi
+
+    local param_count=$(printf '%s\n' "${params_array[@]}" 2>/dev/null | wc -l)
+    log_info "Successfully found all ${param_count:-0} required parameters"
+
+    # Deploy services stack
+    local stack_name="${PROJECT_NAME}-services"
+    local stack_exists=false
+    if check_stack_exists "$stack_name"; then
+        stack_exists=true
+        log_info "Services stack exists, updating..."
+    else
+        log_info "Creating new services stack..."
+    fi
+
+    # Execute stack operation with proper error handling
+    if [ "$stack_exists" = true ]; then
+        log_info "Updating services stack with $(printf '%s\n' "${params_array[@]}" | wc -l) parameters..."
+        if ! aws cloudformation update-stack \
+            --template-url "$template_url" \
+            --stack-name "$stack_name" \
+            --parameters "${params_array[@]}" \
+            --capabilities CAPABILITY_IAM \
+            --region "${REGION}"; then
+
+            local update_status=$?
+            # AWS CLI returns 254 when no changes are needed
+            if [ $update_status -eq 254 ]; then
+                log_info "No changes detected for services stack"
+                return 0
+            else
+                log_error "Failed to update services stack (AWS CLI exit code: $update_status)"
+                return $update_status
+            fi
+        fi
+    else
+        log_info "Creating new services stack with $(printf '%s\n' "${params_array[@]}" | wc -l) parameters..."
+        if ! aws cloudformation create-stack \
+            --template-url "$template_url" \
+            --stack-name "$stack_name" \
+            --parameters "${params_array[@]}" \
+            --capabilities CAPABILITY_IAM \
+            --region "${REGION}"; then
+            log_error "Failed to create services stack"
+            return 1
+        fi
+    fi
+
+    # Monitor progress
+    log_info "Monitoring services stack deployment..."
+    monitor_stack_progress "$stack_name" "Services deployment"
+    local monitor_result=$?
+
+    if [ $monitor_result -ne 0 ]; then
+        log_error "Services deployment failed"
+
+        # Show recent stack events for debugging
+        log_error "Recent stack events:"
+        aws cloudformation describe-stack-events \
+            --stack-name "$stack_name" \
+            --query "StackEvents[0:10].{Time:Timestamp,Status:ResourceStatus,Reason:ResourceStatusReason,Resource:LogicalResourceId}" \
+            --output table \
+            --region "${REGION}" || true
+
+        return 1
+    fi
+
+    log_info "Services deployment completed successfully"
+    return 0
+}
 # Show deployment status
 show_status() {
     log_info "Deployment Status for ${PROJECT_NAME}"
@@ -849,19 +1071,25 @@ deploy() {
         log_info "Skipping Docker build as requested"
     fi
     
-    # Deploy infrastructure
+    # Deploy infrastructure first
+    log_info "=== Phase 1: Infrastructure Deployment ==="
     if ! deploy_infrastructure; then
         log_error "Infrastructure deployment failed"
         return 1
     fi
-    
+
+    # Wait a moment for resources to stabilize
+    log_info "Waiting for infrastructure to stabilize..."
+    sleep 10
+
     # Deploy ECS services
+    log_info "=== Phase 2: Services Deployment ==="
     if ! deploy_ecs_services; then
         log_error "Services deployment failed"
         return 1
     fi
-    
-    log_info "Deployment completed successfully!"
+
+    log_info "=== Deployment Completed Successfully! ==="
     show_status
     
     # Print ALB URLs and helpful commands

@@ -77,7 +77,8 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !Select [{{ loop.index }}, !Cidr [!GetAtt VPC.CidrBlock, 8, 8]]
-      AvailabilityZone: !Select [{{ loop.index0 % config.nodes.deployment.aws.vpc.availability_zones }}, !GetAZs '']
+
+      AvailabilityZone: !Select [{{ (loop.index) % config.nodes.deployment.aws.vpc.availability_zones }}, !GetAZs '']
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
@@ -215,6 +216,7 @@ Resources:
       SecurityGroups:
         - !Ref ALBSecurityGroup
       Subnets:
+        - !Ref CoordinatorSubnet
         {% for realm in config.nodes.realms %}
         - !Ref Realm{{ realm.id }}Subnet
         {% endfor %}
@@ -630,7 +632,7 @@ Resources:
           PropagateAtLaunch: true
   {% endif %}
 
-  # Redis Configuration (simplified - keeping existing Redis for caching)
+      # Redis Configuration (simplified - keeping existing Redis for caching)
   {% if config.nodes.coordinator.redis and config.nodes.coordinator.redis.aws %}
   {% set coord_redis_type = config.nodes.coordinator.redis.aws.deployment_type | default('elasticache') %}
   {% else %}
@@ -793,7 +795,7 @@ Resources:
                   - !GetAtt ArtifactsBucket.Arn
 
   # ============================================================================
-  # PROCESSOR SERVICES (EC2 DEPLOYMENT) - 3 ASGs
+  # PROCESSOR SERVICES (EC2 DEPLOYMENT) - ASGs for Processors only
   # ============================================================================
 
   # Service-specific Security Groups
@@ -934,7 +936,7 @@ Resources:
               exit 1
             fi
 
-            # Get Redis endpoint - FIXED: Should be RedisCoordinator, not RedisRealm
+            # Get Redis endpoint
             REDIS_ENDPOINT="${RedisCoordinator.RedisEndpoint.Address}"
 
             # Run coordinator processor
@@ -970,8 +972,131 @@ Resources:
           Value: coordinator-processor
           PropagateAtLaunch: true
 
+  # Realm Processor ASGs
+  {% for realm in config.nodes.realms %}
+  Realm{{ realm.id }}ProcessorLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor-lt'
+      LaunchTemplateData:
+        {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
+        {% endraw %}
+        InstanceType: c6i.xlarge
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        SecurityGroupIds:
+          - !Ref Realm{{ realm.id }}SecurityGroup
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
+              - Key: Service
+                Value: realm-{{ realm.id }}-processor
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            exec > /var/log/user-data.log 2>&1
+
+            # Update system and install Docker
+            apt-get update -y
+            apt-get install -y docker.io awscli jq
+            systemctl enable docker
+            systemctl start docker
+            usermod -aG docker ubuntu
+
+            # Login to ECR
+            aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
+
+            # Get TiKV PD endpoints
+            MAX_RETRIES=10
+            RETRY_COUNT=0
+
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              PD_INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+                --auto-scaling-group-names "${ProjectName}-${Environment}-tikv-pd-asg" \
+                --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
+                --output text \
+                --region ${AWS::Region} 2>/dev/null || echo "")
+
+              if [ -n "$PD_INSTANCE_IDS" ]; then
+                PD_ENDPOINTS=""
+                for id in $PD_INSTANCE_IDS; do
+                  IP=$(aws ec2 describe-instances \
+                    --instance-ids $id \
+                    --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                    --output text \
+                    --region ${AWS::Region})
+                  if [ -n "$IP" ]; then
+                    if [ -z "$PD_ENDPOINTS" ]; then
+                      PD_ENDPOINTS="$IP:2379"
+                    else
+                      PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
+                    fi
+                  fi
+                done
+
+                if [ -n "$PD_ENDPOINTS" ]; then
+                  echo "Got TiKV PD endpoints: $PD_ENDPOINTS"
+                  break
+                fi
+              fi
+
+              echo "Waiting for TiKV PD cluster... attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              sleep 30
+            done
+
+            if [ -z "$PD_ENDPOINTS" ]; then
+              echo "ERROR: Failed to get TiKV PD endpoints"
+              exit 1
+            fi
+
+            # Get Redis endpoint
+            REDIS_ENDPOINT="${RedisRealm{{ realm.id }}.RedisEndpoint.Address}"
+
+            # Run realm processor
+            docker run -d --name realm-{{ realm.id }}-processor \
+              --restart=unless-stopped \
+              -e RUST_LOG='{{ realm.processor.env.RUST_LOG }}' \
+              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
+              realm-processor \
+              --database tikv \
+              --tikv-pd-endpoints $PD_ENDPOINTS \
+              --tikv-namespace realm{{ realm.id }} \
+              --redis-uri redis://$REDIS_ENDPOINT:6379 \
+              --realm-id {{ realm.id }} \
+              {% if realm.processor.args['queue-biz-key'] %}
+              --queue-biz-key {{ realm.processor.args['queue-biz-key'] }}
+              {% endif %}
+
+  Realm{{ realm.id }}ProcessorASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref Realm{{ realm.id }}ProcessorLaunchTemplate
+        Version: !GetAtt Realm{{ realm.id }}ProcessorLaunchTemplate.LatestVersionNumber
+      MinSize: {{ realm.processor.aws.ec2.min_instances | default(1) }}
+      MaxSize: {{ realm.processor.aws.ec2.max_instances | default(3) }}
+      DesiredCapacity: {{ realm.processor.aws.ec2.desired_instances | default(1) }}
+      VPCZoneIdentifier:
+        - !Ref Realm{{ realm.id }}Subnet
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
+          PropagateAtLaunch: true
+        - Key: Service
+          Value: realm-{{ realm.id }}-processor
+          PropagateAtLaunch: true
+  {% endfor %}
+
   # ============================================================================
-  # EDGE SERVICES (ECS DEPLOYMENT) - 3 ASGs for ECS instances
+  # EDGE SERVICES (ECS DEPLOYMENT) - ASGs for ECS instances only
   # ============================================================================
 
   # Coordinator Edge ASG (for ECS instances)
@@ -1045,7 +1170,7 @@ Resources:
           Value: coordinator-edge
           PropagateAtLaunch: true
 
-  # Realm Edge ASGs
+  # Realm Edge ASGs (for ECS instances)
   {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}EdgeLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -1118,456 +1243,11 @@ Resources:
           PropagateAtLaunch: true
   {% endfor %}
 
-  # ============================================================================
-  # ECS TASK DEFINITIONS AND SERVICES
-  # ============================================================================
-
-  # Coordinator Edge Task Definition
-  CoordinatorEdgeTaskDefinition:
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: !Sub '${ProjectName}-${Environment}-coordinator-edge'
-      NetworkMode: bridge
-      RequiresCompatibilities:
-        - EC2
-      ExecutionRoleArn: !Ref ECSTaskExecutionRole
-      TaskRoleArn: !Ref ECSTaskRole
-      ContainerDefinitions:
-        - Name: coordinator-edge
-          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest'
-          Command:
-            - coordinator-edge
-            - --database
-            - tikv
-            - --tikv-pd-endpoints
-            - !Sub "${TiKVPDEndpoints}"
-            - --tikv-namespace
-            - coordinator
-            - --redis-uri
-            - !Sub "redis://${RedisCoordinator.RedisEndpoint.Address}:6379"
-          Environment:
-            - Name: RUST_LOG
-              Value: '{{ config.nodes.coordinator.edge.env.RUST_LOG }}'
-          PortMappings:
-            - ContainerPort: 8545
-              HostPort: 8545
-              Protocol: tcp
-          HealthCheck:
-            Command:
-              - CMD-SHELL
-              - 'curl -f http://localhost:8545/health || exit 1'
-            Interval: 30
-            Timeout: 5
-            Retries: 3
-            StartPeriod: 60
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
-              awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: coordinator-edge
-
-  CoordinatorEdgeService:
-    Type: AWS::ECS::Service
-    Properties:
-      ServiceName: !Sub '${ProjectName}-${Environment}-coordinator-edge'
-      Cluster: !Ref MainECSCluster
-      TaskDefinition: !Ref CoordinatorEdgeTaskDefinition
-      DesiredCount: 2
-      PlacementConstraints:
-        - Type: memberOf
-          Expression: 'attribute:service == coordinator-edge'
-      ServiceRegistries:
-        - RegistryArn: !GetAtt CoordinatorEdgeServiceDiscovery.Arn
-
-  CoordinatorEdgeServiceDiscovery:
-    Type: AWS::ServiceDiscovery::Service
-    Properties:
-      Name: coordinator-edge
-      DnsConfig:
-        DnsRecords:
-          - Type: A
-            TTL: 10
-        NamespaceId: !Ref ServiceDiscoveryNamespace
-      HealthCheckCustomConfig:
-        FailureThreshold: 1
-
-  # Realm Edge Task Definitions and Services
-  {% for realm in config.nodes.realms %}
-  Realm{{ realm.id }}EdgeTaskDefinition:
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge'
-      NetworkMode: bridge
-      RequiresCompatibilities:
-        - EC2
-      ExecutionRoleArn: !Ref ECSTaskExecutionRole
-      TaskRoleArn: !Ref ECSTaskRole
-      ContainerDefinitions:
-        - Name: realm-{{ realm.id }}-edge
-          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest'
-          Command:
-            - realm-edge
-            - --database
-            - tikv
-            - --tikv-pd-endpoints
-            - !Sub "${TiKVPDEndpoints}"
-            - --tikv-namespace
-            - realm{{ realm.id }}
-            - --redis-uri
-            - !Sub "redis://${RedisRealm{{ realm.id }}.RedisEndpoint.Address}:6379"
-            - --realm-id
-            - "{{ realm.id }}"
-            - --coordinator-addr
-            - "http://coordinator-edge.qed.local:8545"
-            {% if realm.edge.args['queue-biz-key'] %}
-            - --queue-biz-key
-            - "{{ realm.edge.args['queue-biz-key'] }}"
-            {% endif %}
-          Environment:
-            - Name: RUST_LOG
-              Value: '{{ realm.edge.env.RUST_LOG }}'
-          PortMappings:
-            - ContainerPort: {{ 8546 + loop.index0 }}
-              HostPort: {{ 8546 + loop.index0 }}
-              Protocol: tcp
-          HealthCheck:
-            Command:
-              - CMD-SHELL
-              - 'curl -f http://localhost:{{ 8546 + loop.index0 }}/health || exit 1'
-            Interval: 30
-            Timeout: 5
-            Retries: 3
-            StartPeriod: 60
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
-              awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: realm-{{ realm.id }}-edge
-
-  Realm{{ realm.id }}EdgeService:
-    Type: AWS::ECS::Service
-    Properties:
-      ServiceName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge'
-      Cluster: !Ref MainECSCluster
-      TaskDefinition: !Ref Realm{{ realm.id }}EdgeTaskDefinition
-      DesiredCount: 2
-      PlacementConstraints:
-        - Type: memberOf
-          Expression: 'attribute:service == realm-{{ realm.id }}-edge'
-      ServiceRegistries:
-        - RegistryArn: !GetAtt Realm{{ realm.id }}EdgeServiceDiscovery.Arn
-
-  Realm{{ realm.id }}EdgeServiceDiscovery:
-    Type: AWS::ServiceDiscovery::Service
-    Properties:
-      Name: realm{{ realm.id }}-edge
-      DnsConfig:
-        DnsRecords:
-          - Type: A
-            TTL: 10
-        NamespaceId: !Ref ServiceDiscoveryNamespace
-      HealthCheckCustomConfig:
-        FailureThreshold: 1
-  {% endfor %}
-
-  # ============================================================================
-  # WATCHER SERVICES (EC2 DEPLOYMENT) - 3 ASGs
-  # ============================================================================
-
-  {% if has_global_watchers %}
-  # Coordinator Watcher
-  {% for watcher in config.global_services.watchers %}
-  {% if watcher.node_type == 'coordinator' %}
-  CoordinatorWatcherLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-coordinator-watcher-lt'
-      LaunchTemplateData:
-        {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
-        {% endraw %}
-        InstanceType: {{ watcher.aws.instance_type | default('t3.small') }}
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        SecurityGroupIds:
-          - !Ref CoordinatorSecurityGroup
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-coordinator-watcher'
-              - Key: Service
-                Value: coordinator-watcher
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            exec > /var/log/user-data.log 2>&1
-
-            # Update system and install Docker
-            apt-get update -y
-            apt-get install -y docker.io awscli jq
-            systemctl enable docker
-            systemctl start docker
-
-            # Login to ECR
-            aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
-
-            # Get TiKV PD endpoints
-            MAX_RETRIES=10
-            RETRY_COUNT=0
-
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              PD_INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
-                --auto-scaling-group-names "${ProjectName}-${Environment}-tikv-pd-asg" \
-                --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
-                --output text \
-                --region ${AWS::Region} 2>/dev/null || echo "")
-
-              if [ -n "$PD_INSTANCE_IDS" ]; then
-                PD_ENDPOINTS=""
-                for id in $PD_INSTANCE_IDS; do
-                  IP=$(aws ec2 describe-instances \
-                    --instance-ids $id \
-                    --query 'Reservations[0].Instances[0].PrivateIpAddress' \
-                    --output text \
-                    --region ${AWS::Region})
-                  if [ -n "$IP" ]; then
-                    if [ -z "$PD_ENDPOINTS" ]; then
-                      PD_ENDPOINTS="$IP:2379"
-                    else
-                      PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
-                    fi
-                  fi
-                done
-
-                if [ -n "$PD_ENDPOINTS" ]; then
-                  echo "Got TiKV PD endpoints: $PD_ENDPOINTS"
-                  break
-                fi
-              fi
-
-              echo "Waiting for TiKV PD cluster... attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              sleep 30
-            done
-
-            # Run coordinator watcher
-            docker run -d --name coordinator-watcher \
-              --restart=unless-stopped \
-              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
-              watcher \
-              --node-id {{ watcher.node_id }} \
-              --node-type coordinator \
-              --redis-url redis://${RedisCoordinator.RedisEndpoint.Address}:6379 \
-              --api-endpoint http://api-service.qed.local:{{ config.global_services.api_service.port | default(3000) }} \
-              --database tikv \
-              --tikv-pd-endpoints $PD_ENDPOINTS \
-              --tikv-namespace watcher-coordinator
-
-  CoordinatorWatcherASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-coordinator-watcher-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref CoordinatorWatcherLaunchTemplate
-        Version: !GetAtt CoordinatorWatcherLaunchTemplate.LatestVersionNumber
-      MinSize: {{ watcher.aws.ec2.min_instances | default(1) }}
-      MaxSize: {{ watcher.aws.ec2.max_instances | default(1) }}
-      DesiredCapacity: {{ watcher.aws.ec2.desired_instances | default(1) }}
-      VPCZoneIdentifier:
-        - !Ref CoordinatorSubnet
-      HealthCheckType: EC2
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-coordinator-watcher'
-          PropagateAtLaunch: true
-        - Key: Service
-          Value: coordinator-watcher
-          PropagateAtLaunch: true
-  {% endif %}
-
-  # Realm Watchers
-  {% if watcher.node_type == 'realm' %}
-  Realm{{ watcher.realm_id }}WatcherLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-realm-{{ watcher.realm_id }}-watcher-lt'
-      LaunchTemplateData:
-        {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
-        {% endraw %}
-        InstanceType: {{ watcher.aws.instance_type | default('t3.small') }}
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        SecurityGroupIds:
-          - !Ref Realm{{ watcher.realm_id }}SecurityGroup
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-realm-{{ watcher.realm_id }}-watcher'
-              - Key: Service
-                Value: realm-{{ watcher.realm_id }}-watcher
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            exec > /var/log/user-data.log 2>&1
-
-            # Update system and install Docker
-            apt-get update -y
-            apt-get install -y docker.io awscli jq
-            systemctl enable docker
-            systemctl start docker
-
-            # Login to ECR
-            aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
-
-            # Get TiKV PD endpoints
-            MAX_RETRIES=10
-            RETRY_COUNT=0
-
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              PD_INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
-                --auto-scaling-group-names "${ProjectName}-${Environment}-tikv-pd-asg" \
-                --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
-                --output text \
-                --region ${AWS::Region} 2>/dev/null || echo "")
-
-              if [ -n "$PD_INSTANCE_IDS" ]; then
-                PD_ENDPOINTS=""
-                for id in $PD_INSTANCE_IDS; do
-                  IP=$(aws ec2 describe-instances \
-                    --instance-ids $id \
-                    --query 'Reservations[0].Instances[0].PrivateIpAddress' \
-                    --output text \
-                    --region ${AWS::Region})
-                  if [ -n "$IP" ]; then
-                    if [ -z "$PD_ENDPOINTS" ]; then
-                      PD_ENDPOINTS="$IP:2379"
-                    else
-                      PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
-                    fi
-                  fi
-                done
-
-                if [ -n "$PD_ENDPOINTS" ]; then
-                  echo "Got TiKV PD endpoints: $PD_ENDPOINTS"
-                  break
-                fi
-              fi
-
-              echo "Waiting for TiKV PD cluster... attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              sleep 30
-            done
-
-            # Run realm watcher
-            docker run -d --name realm{{ watcher.realm_id }}-watcher \
-              --restart=unless-stopped \
-              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
-              watcher \
-              --node-id {{ watcher.node_id }} \
-              --node-type realm \
-              --realm-id {{ watcher.realm_id }} \
-              --redis-url redis://${RedisRealm{{ watcher.realm_id }}.RedisEndpoint.Address}:6379 \
-              --api-endpoint http://api-service.qed.local:{{ config.global_services.api_service.port | default(3000) }} \
-              --database tikv \
-              --tikv-pd-endpoints $PD_ENDPOINTS \
-              --tikv-namespace watcher-realm{{ watcher.realm_id }}
-
-  Realm{{ watcher.realm_id }}WatcherASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-realm-{{ watcher.realm_id }}-watcher-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref Realm{{ watcher.realm_id }}WatcherLaunchTemplate
-        Version: !GetAtt Realm{{ watcher.realm_id }}WatcherLaunchTemplate.LatestVersionNumber
-      MinSize: {{ watcher.aws.ec2.min_instances | default(1) }}
-      MaxSize: {{ watcher.aws.ec2.max_instances | default(1) }}
-      DesiredCapacity: {{ watcher.aws.ec2.desired_instances | default(1) }}
-      VPCZoneIdentifier:
-        - !Ref Realm{{ watcher.realm_id }}Subnet
-      HealthCheckType: EC2
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-realm-{{ watcher.realm_id }}-watcher'
-          PropagateAtLaunch: true
-        - Key: Service
-          Value: realm-{{ watcher.realm_id }}-watcher
-          PropagateAtLaunch: true
-  {% endif %}
-  {% endfor %}
-  {% endif %}
-
-  # ============================================================================
-  # GLOBAL WORKER SERVICE (ECS DEPLOYMENT)
-  # ============================================================================
-
-  {% if has_global_workers %}
-  GlobalWorkerTaskDefinition:
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: !Sub '${ProjectName}-${Environment}-global-worker'
-      NetworkMode: awsvpc
-      RequiresCompatibilities:
-        - FARGATE
-      Cpu: '{{ config.global_services.workers.aws.cpu | default(2048) }}'
-      Memory: '{{ config.global_services.workers.aws.memory | default(4096) }}'
-      ExecutionRoleArn: !Ref ECSTaskExecutionRole
-      TaskRoleArn: !Ref ECSTaskRole
-      ContainerDefinitions:
-        - Name: global-worker
-          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest'
-          Command:
-            - worker
-            - --task-sources
-            - >-
-              coordinator:http://coordinator-edge.qed.local:8545{% for realm in config.nodes.realms %},realm{{ realm.id }}:http://realm{{ realm.id }}-edge.qed.local:{{ 8546 + loop.index0 }}{% endfor %}
-            - --poll-interval
-            - "{{ config.global_services.workers.poll_interval | default(1000) }}"
-            - --max-concurrent-tasks
-            - "{{ config.global_services.workers.max_concurrent_tasks | default(5) }}"
-          Environment:
-            - Name: RUST_LOG
-              Value: 'qed_worker=info'
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
-              awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: global-worker
-
-  GlobalWorkerService:
-    Type: AWS::ECS::Service
-    Properties:
-      ServiceName: !Sub '${ProjectName}-${Environment}-global-worker'
-      Cluster: !Ref MainECSCluster
-      TaskDefinition: !Ref GlobalWorkerTaskDefinition
-      DesiredCount: {{ config.global_services.workers.aws.ecs.task_count | default(5) }}
-      LaunchType: FARGATE
-      NetworkConfiguration:
-        AwsvpcConfiguration:
-          AssignPublicIp: ENABLED
-          SecurityGroups:
-            - !Ref ECSSecurityGroup
-          Subnets:
-            - !Ref CoordinatorSubnet
-            {% for realm in config.nodes.realms %}
-            - !Ref Realm{{ realm.id }}Subnet
-            {% endfor %}
-  {% endif %}
-
-  # ============================================================================
-  # API SERVICE AND TIMESCALEDB
-  # ============================================================================
-
   {% if has_timescaledb %}
+  # ============================================================================
+  # TIMESCALEDB
+  # ============================================================================
+
   # Database Security Group for TimescaleDB
   DatabaseSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -1636,93 +1316,6 @@ Resources:
           Value: !Sub '${ProjectName}-${Environment}-timescaledb'
   {% endif %}
 
-  {% if has_api_service %}
-  # API Service Task Definition
-  APIServiceTaskDefinition:
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: !Sub '${ProjectName}-${Environment}-api-service'
-      NetworkMode: awsvpc
-      RequiresCompatibilities:
-        - FARGATE
-      Cpu: '{{ config.global_services.api_service.aws.cpu | default(2048) }}'
-      Memory: '{{ config.global_services.api_service.aws.memory | default(4096) }}'
-      ExecutionRoleArn: !Ref ECSTaskExecutionRole
-      TaskRoleArn: !Ref ECSTaskRole
-      ContainerDefinitions:
-        - Name: api-service
-          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest'
-          Command:
-            - qed_api_services
-          Environment:
-            {% if has_timescaledb %}
-            - Name: DATABASE_URL
-              {% raw %}
-              Value: !Sub 'postgres://postgres:{{resolve:secretsmanager:${DBPasswordSecret}:SecretString:password}}@${TimescaleDB.Endpoint.Address}:5432/qed'
-              {% endraw %}
-            {% else %}
-            - Name: DATABASE_URL
-              Value: "{{ config.global_services.api_service.database_url }}"
-            {% endif %}
-            - Name: RUST_LOG
-              Value: 'qed_api_services=info'
-          PortMappings:
-            - ContainerPort: {{ config.global_services.api_service.port | default(3000) }}
-              Protocol: tcp
-          HealthCheck:
-            Command:
-              - CMD-SHELL
-              - 'curl -f http://localhost:{{ config.global_services.api_service.port | default(3000) }}/health || exit 1'
-            Interval: 30
-            Timeout: 5
-            Retries: 3
-            StartPeriod: 60
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
-              awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: api-service
-
-  APIService:
-    Type: AWS::ECS::Service
-    Properties:
-      ServiceName: !Sub '${ProjectName}-${Environment}-api-service'
-      Cluster: !Ref MainECSCluster
-      TaskDefinition: !Ref APIServiceTaskDefinition
-      DesiredCount: {{ config.global_services.api_service.aws.ecs.task_count | default(2) }}
-      LaunchType: FARGATE
-      NetworkConfiguration:
-        AwsvpcConfiguration:
-          AssignPublicIp: ENABLED
-          SecurityGroups:
-            - !Ref ECSSecurityGroup
-          Subnets:
-            - !Ref CoordinatorSubnet
-            {% for realm in config.nodes.realms %}
-            - !Ref Realm{{ realm.id }}Subnet
-            {% endfor %}
-      LoadBalancers:
-        - ContainerName: api-service
-          ContainerPort: {{ config.global_services.api_service.port | default(3000) }}
-          TargetGroupArn: !Ref ALBTargetGroupAPI
-      HealthCheckGracePeriodSeconds: 120
-      ServiceRegistries:
-        - RegistryArn: !GetAtt APIServiceDiscovery.Arn
-
-  APIServiceDiscovery:
-    Type: AWS::ServiceDiscovery::Service
-    Properties:
-      Name: api-service
-      DnsConfig:
-        DnsRecords:
-          - Type: A
-            TTL: 10
-        NamespaceId: !Ref ServiceDiscoveryNamespace
-      HealthCheckCustomConfig:
-        FailureThreshold: 1
-  {% endif %}
-# ============================================================================
 Outputs:
   VPCId:
     Value: !Ref VPC
@@ -1773,23 +1366,18 @@ Outputs:
       Name: !Sub '${ProjectName}-${Environment}-alb-tg-realm-{{ realm.id }}'
   {% endfor %}
 
-  {% if has_api_service %}
-  ALBTargetGroupAPIArn:
-    Value: !Ref ALBTargetGroupAPI
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-alb-tg-api'
-  {% endif %}
-
   {% if uses_tikv_global %}
-  TiKVPDEndpoints:
-    Description: TiKV PD cluster endpoints (comma-separated)
-    Value: !Join
-      - ','
-      - - !Sub '${TiKVPDAutoScalingGroup}-pd-0:2379'
-        - !Sub '${TiKVPDAutoScalingGroup}-pd-1:2379'
-        - !Sub '${TiKVPDAutoScalingGroup}-pd-2:2379'
+  TiKVPDAutoScalingGroupName:
+    Description: TiKV PD Auto Scaling Group name (use this to query endpoints dynamically)
+    Value: !Ref TiKVPDAutoScalingGroup
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-tikv-pd-endpoints'
+      Name: !Sub '${ProjectName}-${Environment}-tikv-pd-asg-name'
+
+  TiKVNodeAutoScalingGroupName:
+    Description: TiKV Node Auto Scaling Group name
+    Value: !Ref TiKVNodeAutoScalingGroup
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-tikv-node-asg-name'
   {% endif %}
 
   # Redis Endpoints
@@ -1835,8 +1423,8 @@ Outputs:
   {% endif %}
 
   {% if has_api_service %}
-  APIServiceEndpoint:
-    Description: API Service endpoint URL
+  APIServiceLoadBalancerEndpoint:
+    Description: API Service endpoint URL via ALB
     Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}:{{ config.global_services.api_service.port | default(3000) }}'
     Export:
       Name: !Sub '${ProjectName}-${Environment}-api-service-endpoint'
