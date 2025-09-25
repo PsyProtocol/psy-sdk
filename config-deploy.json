@@ -1,0 +1,580 @@
+{
+  "network": {
+    "users_per_realm": 8388608,
+    "global_user_tree_height": 24,
+    "realm_user_tree_height": 23,
+    "realm_configs": [
+      {
+        "id": 0,
+        "rpc_url": ["http://127.0.0.1:8546"]
+      },
+      {
+        "id": 1,
+        "rpc_url": ["http://127.0.0.1:8547"]
+      }
+    ],
+    "coordinator_configs": [
+      {
+        "id": 0,
+        "rpc_url": ["http://127.0.0.1:8545"]
+      }
+    ],
+    "prove_proxy_url": "http:/127.0.0.1:9999",
+    "native_currency": "0",
+    "native_currency_decimal": 9,
+    "native_currency_name": "PSY",
+    "fees": {
+      "register_user_fee": 0,
+      "deploy_contract_fee": 0,
+      "guta_fee": 5000000000
+    }
+  },
+  "genesis": {
+    "precompiles": [
+      {
+        "name": "token",
+        "path": "qed_precompiles/token",
+        "contract_name": "PsyTokenContractRef",
+        "method_names": ["simple_mint", "simple_burn", "simple_transfer", "simple_claim", "simple_claim_pow_rewards"],
+        "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
+      },
+      {
+        "name": "rewards",
+        "path": "qed_precompiles/rewards",
+        "contract_name": "ContractRef",
+        "method_names": ["simple_mint", "simple_burn", "simple_transfer", "simple_claim", "batch_claim_pm_rewards"],
+        "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
+      },
+      {
+        "name": "mining_rewards",
+        "path": "qed_precompiles/mining_rewards",
+        "contract_name": "PsyPOWMiningRewardsClaimContractRef",
+        "method_names": ["start_session", "end_session", "batch_claim_guta_rewards"],
+        "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
+      }
+    ],
+    "users": [
+      {
+        "public_key_param": "352637524d9b8482d65b9c8bc78d0d4849a063bc53558158f84ee3863081ab4b",
+        "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0"
+      },
+      {
+        "public_key_param": "cad421940097e1a1257a0d85faf9441d6e52d17f2dcda0da6da5c3a4ea80fe15",
+        "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0"
+      },
+      {
+        "public_key_param": "948eecedbc5579156b0ba347124538e2f1beb430f86615d656cea54bfc20a4b3",
+        "fingerprint": "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0"
+      },
+      {
+        "public_key_param": "dbd2e2a55edadf05a6e5a812ab25af092b56c64f491e321d2f2edf397e724afa",
+        "fingerprint": "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c"
+      },
+      {
+        "public_key_param": "bcc12b70cae01e5ad93935a55ae3b23926686602d46e30fd5d5b94d05b063eeb",
+        "fingerprint": "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c"
+      },
+      {
+        "public_key_param": "3807dfb9dc2d5f9236f08931e2eb0e26762a1fb0d752a875b0a97e8960270dec",
+        "fingerprint": "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c"
+      }
+    ],
+    "contracts": {
+      "0": {
+        "0": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        },
+        "1": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        },
+        "2": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        },
+        "3": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        },
+        "4": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        },
+        "5": {
+          "slots": {
+            "0": "000000000000000000000000000000000000000000000000000000e8d4a51000"
+          }
+        }
+      }
+    }
+  },
+  "nodes": {
+    "coordinator": {
+      "id": 0,
+      "redis": {
+        "uri": "redis://127.0.0.1:6379",
+        "pool_size": 10,
+        "aws": {
+          "deployment_type": "ec2",
+          "cpu": 2048,
+          "memory": 8192,
+          "volume_size": 200,
+          "ec2": {
+            "min_instances": 1,
+            "max_instances": 1,
+            "desired_instances": 1
+          }
+        }
+      },
+      "backend": {
+        "type": "tikv",
+        "lmdbx": {
+          "path": "./db/coordinator",
+          "mmap_size_gb": 100,
+          "aws": {
+            "volume_size": 200
+          }
+        },
+        "scylla": {
+          "endpoints": ["127.0.0.1:9042"],
+          "replication_factor": 3,
+          "consistency_level": "LOCAL_QUORUM",
+          "aws": {
+            "cpu": 2048,
+            "memory": 8192,
+            "deployment_type": "ec2",
+            "ec2": {
+              "min_instances": 1,
+              "max_instances": 1,
+              "desired_instances": 1
+            },
+            "data_volume_size": 500,
+            "commitlog_volume_size": 100
+          }
+        },
+        "tikv": {
+          "pd_endpoints": ["127.0.0.1:2379", "127.0.0.1:2381", "127.0.0.1:2383"],
+          "namespace": "qed",
+          "aws": {
+            "cpu": 4096,
+            "memory": 16384,
+            "deployment_type": "ec2",
+            "ec2": {
+              "min_instances": 3,
+              "max_instances": 6,
+              "desired_instances": 3
+            },
+            "data_volume_size": 500,
+            "pd_count": 3,
+            "tikv_count": 3
+          }
+        }
+      },
+      "processor": {
+        "enabled": true,
+        "args": {
+        },
+        "env": {
+          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+        },
+        "aws": {
+          "cpu": 4096,
+          "memory": 8192,
+          "deployment_type": "ec2",
+          "ec2": {
+            "min_instances": 1,
+            "max_instances": 1,
+            "desired_instances": 1
+          }
+        }
+      },
+      "edge": {
+        "enabled": true,
+        "instances": 2,
+        "args": {
+          "listen_addr": "0.0.0.0:8545"
+        },
+        "env": {
+          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+        },
+        "aws": {
+          "cpu": 4096,
+          "memory": 8192,
+          "deployment_type": "ecs",
+          "ecs": {
+            "instances": 2,
+            "task_count": 2
+          },
+          "load_balancer": {
+            "port": 8545,
+            "health_check_path": "/health"
+          }
+        }
+      },
+      "watcher": {
+        "enabled": true,
+        "instances": 1,
+        "args": {
+          "listen_addr": "x.0.0.0:8545"
+        },
+        "env": {
+          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+        },
+        "aws": {
+          "cpu": 4096,
+          "memory": 8192,
+          "deployment_type": "ecs",
+          "ecs": {
+            "instances": 1,
+            "task_count": 1
+          }
+        }
+      }
+    },
+    "realms": [
+      {
+        "id": 0,
+        "redis": {
+          "uri": "redis://127.0.0.1:6380",
+          "pool_size": 10,
+          "aws": {
+            "deployment_type": "ec2",
+            "cpu": 2048,
+            "memory": 8192,
+            "volume_size": 200,
+            "ec2": {
+              "min_instances": 1,
+              "max_instances": 1,
+              "desired_instances": 1
+            }
+          }
+        },
+        "backend": {
+          "type": "tikv",
+          "lmdbx": {
+            "path": "./db/realm0",
+            "mmap_size_gb": 100,
+            "aws": {
+              "volume_size": 200
+            }
+          },
+          "scylla": {
+            "endpoints": ["127.0.0.1:9042"],
+            "replication_factor": 3,
+            "consistency_level": "LOCAL_QUORUM",
+            "aws": {
+              "cpu": 2048,
+              "memory": 8192,
+              "deployment_type": "ec2",
+              "ec2": {
+                "min_instances": 3,
+                "max_instances": 3,
+                "desired_instances": 3
+              },
+              "data_volume_size": 500,
+              "commitlog_volume_size": 100
+            }
+          },
+          "tikv": {
+            "pd_endpoints": ["127.0.0.1:2379", "127.0.0.1:2381", "127.0.0.1:2383"],
+            "namespace": "qed_realm_0",
+            "aws": {
+              "deployment_type": "ec2",
+              "cpu": 2048,
+              "memory": 8192,
+              "volume_size": 200,
+              "ec2": {
+                "min_instances": 3,
+                "max_instances": 6,
+                "desired_instances": 3
+              }
+            }
+          }
+        },
+        "processor": {
+          "enabled": true,
+          "args": {
+            "queue_biz_key": "rwq0"
+          },
+          "env": {
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+          },
+          "aws": {
+            "cpu": 4096,
+            "memory": 8192,
+            "deployment_type": "ec2",
+            "ec2": {
+              "min_instances": 1,
+              "max_instances": 3,
+              "desired_instances": 1
+            }
+          }
+        },
+        "edge": {
+          "enabled": true,
+          "instances": 2,
+          "args": {
+            "listen_addr": "0.0.0.0:8546",
+            "coordinator_addr": "http://coordinator-edge:8545",
+            "queue_biz_key": "rwq0"
+          },
+          "env": {
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+          },
+          "aws": {
+            "cpu": 4096,
+            "memory": 8192,
+            "deployment_type": "ecs",
+            "ecs": {
+              "task_count": 2
+            },
+            "load_balancer": {
+              "port": 8546,
+              "health_check_path": "/health"
+            }
+          }
+        },
+        "watcher": {
+          "enabled": true,
+          "instances": 1,
+          "args": {
+            "listen_addr": "x.0.0.0:8545"
+          },
+          "env": {
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+          },
+          "aws": {
+            "cpu": 4096,
+            "memory": 8192,
+            "deployment_type": "ecs",
+            "ecs": {
+              "instances": 1,
+              "task_count": 1
+            }
+          }
+        }
+      },
+      {
+        "id": 1,
+        "redis": {
+          "uri": "redis://127.0.0.1:6381",
+          "pool_size": 10,
+          "aws": {
+            "cpu": 2048,
+            "memory": 8192,
+            "deployment_type": "ec2",
+            "ec2": {
+              "min_instances": 1,
+              "max_instances": 1,
+              "desired_instances": 1
+            }
+          }
+        },
+        "backend": {
+          "type": "tikv",
+          "lmdbx": {
+            "path": "./db/realm1",
+            "mmap_size_gb": 100,
+            "aws": {
+              "volume_size": 200
+            }
+          },
+          "scylla": {
+            "endpoints": ["127.0.0.1:9042"],
+            "replication_factor": 3,
+            "consistency_level": "LOCAL_QUORUM",
+            "aws": {
+              "cpu": 2048,
+              "memory": 8192,
+              "deployment_type": "ec2",
+              "ec2": {
+                "min_instances": 3,
+                "max_instances": 3,
+                "desired_instances": 3
+              },
+              "data_volume_size": 500,
+              "commitlog_volume_size": 100
+            }
+          },
+          "tikv": {
+            "pd_endpoints": ["127.0.0.1:2379", "127.0.0.1:2381", "127.0.0.1:2383"],
+            "namespace": "qed_realm_0",
+            "aws": {
+              "deployment_type": "ec2",
+              "cpu": 2048,
+              "memory": 8192,
+              "volume_size": 200,
+              "ec2": {
+                "min_instances": 3,
+                "max_instances": 6,
+                "desired_instances": 3
+              }
+            }
+          }
+        },
+        "processor": {
+          "enabled": true,
+          "args": {
+            "queue_biz_key": "rwq1"
+          },
+          "env": {
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+          },
+          "aws": {
+            "cpu": 4096,
+            "memory": 8192,
+            "deployment_type": "ec2",
+            "ec2": {
+              "min_instances": 1,
+              "max_instances": 3,
+              "desired_instances": 1
+            }
+          }
+        },
+        "edge": {
+          "enabled": true,
+          "instances": 2,
+          "args": {
+            "listen_addr": "0.0.0.0:8547",
+            "coordinator_addr": "http://coordinator-edge:8545",
+            "queue_biz_key": "rwq1"
+          },
+          "env": {
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+          },
+          "aws": {
+            "cpu": 4096,
+            "memory": 8192,
+            "deployment_type": "ecs",
+            "ecs": {
+              "task_count": 2
+            },
+            "load_balancer": {
+              "port": 8547,
+              "health_check_path": "/health"
+            }
+          }
+        },
+        "watcher": {
+          "enabled": true,
+          "instances": 1,
+          "args": {
+            "listen_addr": "x.0.0.0:8545"
+          },
+          "env": {
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+          },
+          "aws": {
+            "cpu": 4096,
+            "memory": 8192,
+            "deployment_type": "ecs",
+            "ecs": {
+              "instances": 1,
+              "task_count": 1
+            }
+          }
+        }
+      }
+    ],
+    "worker": {
+      "enabled": true,
+      "instances": 6,
+      "args": {
+        "queue_biz_key": "rwq1"
+      },
+      "env": {
+        "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+      },
+      "aws": {
+        "cpu": 8192,
+        "memory": 16384,
+        "deployment_type": "ecs",
+        "ecs": {
+          "task_count": 2
+        }
+      }
+    },
+    "prove-proxy": {
+      "enabled": true,
+      "args": {
+        "listen_addr": "0.0.0.0:9999"
+      },
+      "env": {
+        "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+      },
+      "aws": {
+        "cpu": 8192,
+        "memory": 16384,
+        "deployment_type": "ecs",
+        "ecs": {
+          "task_count": 2
+        },
+        "load_balancer": {
+          "port": 9999,
+          "health_check_path": "/health"
+        }
+      }
+    },
+    "deployment": {
+      "aws": {
+        "region": "ap-northeast-1",
+        "project_name": "qed-protocol",
+        "vpc": {
+          "cidr": "10.0.0.0/16",
+          "availability_zones": 2
+        },
+        "ecs": {
+          "cluster_name": "qed-cluster",
+          "log_group": "/ecs/qed-protocol"
+        },
+        "ecr": {
+          "repository_name": "qed-protocol"
+        },
+        "s3": {
+          "bucket_prefix": "qed-protocol"
+        }
+      },
+      "docker": {
+        "network_name": "qed-network",
+        "network_subnet": "172.28.0.0/16"
+      }
+    }
+  },
+  "wallet": {
+    "default_wallet_name": "0",
+    "enable_auto_refresh": true,
+    "refresh_interval": 30000,
+    "theme": {
+      "colors": {
+        "background": "#ffffff",
+        "text": "#73e7ff",
+        "primary": "#73e7ff",
+        "primary_text": "#ffffff",
+        "border": "#73e7ff",
+        "accent": "#73e7ff",
+        "success": "#00C851",
+        "error": "#ff6b6b",
+        "text_secondary": "#666666"
+      }
+    },
+    "extension": {
+      "width": 375,
+      "height": 600,
+      "title": "Psy: The Internet Unchained"
+    }
+  },
+  "whitelist": {
+    "enabled": true,
+    "secp256k1": [
+      "0x48f060a5c6142c3443ee300d62fc7009B4A4d3A0",
+      "0x640e10C82fc06f896D5B818157d6426F578C4a92",
+      "0xC209b356df092D57527E65b7bF7c23f60e93e65D"
+    ]
+  }
+}
