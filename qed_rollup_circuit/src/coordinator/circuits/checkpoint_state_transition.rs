@@ -80,6 +80,9 @@ where
         let expected_new_leaf_hash = child_proofs_gadget.state_delta_gadget.new_checkpoint_leaf.to_hash::<C::Hasher, C::F, D>(&mut builder);
         let expected_old_checkpoint_root = child_proofs_gadget.state_delta_gadget.part_1_header.global_user_tree_delta.checkpoint_tree_root;
 
+        tracing::debug!("🏛️ Checkpoint State Transition - expected_old_leaf_hash: {:?}, expected_new_leaf_hash: {:?}, expected_old_checkpoint_root: {:?}, core_checkpoint_gadget: {:?}",
+            expected_old_leaf_hash, expected_new_leaf_hash, expected_old_checkpoint_root, core_checkpoint_gadget);
+
 
         builder.connect_hashes(
             expected_old_leaf_hash,
@@ -90,12 +93,14 @@ where
             core_checkpoint_gadget.new_checkpoint_leaf_hash,
         );
 
-        // builder.connect_hashes(
-        //     expected_old_checkpoint_root,
-        //     core_checkpoint_gadget.old_checkpoint_tree_root,
-        // );
+        builder.connect_hashes(
+            expected_old_checkpoint_root,
+            core_checkpoint_gadget.old_checkpoint_tree_root,
+        );
 
         let new_checkpoint_root = core_checkpoint_gadget.new_checkpoint_tree_root;
+
+        tracing::debug!("🏛️ Checkpoint State Transition - new_checkpoint_root: {:?}", new_checkpoint_root);
         //let combo_hash = builder.hash_two_to_one::<C::Hasher>(expected_old_checkpoint_root, new_checkpoint_root);
 
         let worker_public_key = builder.add_virtual_hash();
@@ -137,6 +142,8 @@ where
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
+        tracing::debug!("🏛️ Checkpoint State Transition prove_base - worker_public_key: {:?}, append_checkpoint_tree_proof: {:?}, previous_checkpoint_proof: {:?}",
+            worker_public_key, input.append_checkpoint_tree_proof, input.previous_checkpoint_proof);
 
         self.child_proofs_gadget.set_witness_params(
             &mut pw,

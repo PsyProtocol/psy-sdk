@@ -62,6 +62,8 @@ where
             guta_circuit_whitelist_root_hash,
         );
 
+        tracing::debug!("📊 a_end_cap_guta_header: {:?}", a_end_cap_guta_header);
+
         let worker_public_key = builder.add_virtual_hash();
 
         // builder.assert_non_zero_hash(worker_public_key);
@@ -165,7 +167,7 @@ where
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
         tracing::debug!("GUTAVerifySingleEndCapCircuitInput: {}", serde_json::to_string_pretty(&r)?);
-        
+
         if r.dependencies.len() != 1 {
             anyhow::bail!("invalid dependency count in two end guta input");
         }

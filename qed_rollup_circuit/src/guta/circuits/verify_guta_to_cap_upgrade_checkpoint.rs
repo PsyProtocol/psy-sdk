@@ -51,6 +51,8 @@ where
             GLOBAL_USER_TREE_HEIGHT as usize,
             GLOBAL_USER_TREE_HEIGHT as usize,
         );
+
+        tracing::debug!("📈 GUTA To Cap Upgrade Checkpoint - verify_to_line_gadget: {:?}", verify_to_line_gadget);
         let upgrade_checkpoint_historical_merkle_proof_gadget = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<C::Hasher, C::F, D>(
             &mut builder,
             CHECKPOINT_TREE_HEIGHT as usize
@@ -148,6 +150,9 @@ where
 
         let mut pw = PartialWitness::<C::F>::new();
 
+        tracing::debug!("📈 GUTA To Cap Upgrade Checkpoint set_witness - guta_proof_header: {:?}, checkpoint_historical_proof: {:?}",
+            guta_proof_header, checkpoint_historical_merkle_proof);
+        
         self.verify_to_line_gadget.set_witness(
             &mut pw,
             guta_whitelist_merkle_proof,

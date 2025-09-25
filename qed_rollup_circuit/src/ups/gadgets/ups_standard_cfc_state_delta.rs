@@ -52,6 +52,8 @@ impl UPSCFCStandardStateDeltaGadget {
         corrections: &CorrectUPSHeaderHashesGadget,
         contract_state_tree_height: Target,
     ) -> (Self, UserProvingSessionHeaderGadget) {
+        tracing::debug!("📊 UPS CFC Standard State Delta - start context: {:?}, contract_state_tree_height: {:?}",
+            previous_step_header_gadget.session_start_context, contract_state_tree_height);
         let proving_session_start_ctx_hash = previous_step_header_gadget.session_start_context_hash;
 
 
@@ -331,6 +333,11 @@ impl UPSCFCStandardStateDeltaGadget {
         witness: &mut impl Witness<F>,
         input: &UPSCFCStandardStateDeltaInput<F>,
     ) -> anyhow::Result<()> {
+        tracing::debug!("📊 UPS CFC Standard State Delta set_witness - contract_id: {:?}, start_contract_root: {:?}, end_contract_root: {:?}",
+            input.cfc_transaction_input_context.transaction_call_start_ctx.call_data.contract_id,
+            input.cfc_transaction_input_context.transaction_call_start_ctx.start_contract_state_tree_root,
+            input.cfc_transaction_input_context.transaction_end_ctx.end_contract_state_tree_root);
+        
         self.cfc_transaction_input_context.set_witness_params(
             witness,
             &input.cfc_transaction_input_context.transaction_call_start_ctx,

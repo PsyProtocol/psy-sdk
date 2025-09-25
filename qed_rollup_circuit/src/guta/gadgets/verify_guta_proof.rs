@@ -97,6 +97,8 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
         verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
+        tracing::debug!("🎯 Verify GUTA Proof set_witness - guta_proof_header: {:?}, public_inputs: {:?}",
+            guta_proof_header, proof.public_inputs);
         self.guta_whitelist_merkle_proof.set_witness_generic(
             witness,
             F::from_noncanonical_u64(guta_whitelist_merkle_proof.index),

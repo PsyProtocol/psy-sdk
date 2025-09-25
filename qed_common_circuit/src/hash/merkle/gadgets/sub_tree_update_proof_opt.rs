@@ -104,6 +104,10 @@ impl UpdateNearestCommonAncestorProofOptGadget {
         let solo_mask = builder.is_not_equal_hash(child_a.new_root, child_b.new_root);
         let level_a_diff_sub_solo = builder.sub(level_a_diff, solo_mask.target);
         let level_b_diff_sub_solo = builder.sub(level_b_diff, solo_mask.target);
+
+        tracing::debug!("📏 level_a_diff_sub_solo: {:?}, height_a: {:?}, level_b_diff_sub_solo: {:?}, height_b: {:?}",
+            level_a_diff_sub_solo, height_a, level_b_diff_sub_solo, height_b);
+
         builder.connect(level_a_diff_sub_solo, height_a);
         builder.connect(level_b_diff_sub_solo, height_b);
 
@@ -111,6 +115,9 @@ impl UpdateNearestCommonAncestorProofOptGadget {
         let computed_root_index_a = builder.div_rem(computed_child_index_a, 1).0;
         let computed_child_index_b = child_b.bit_info.get_root_parent_index(builder);
         let computed_root_index_b = builder.div_rem(computed_child_index_b, 1).0;
+
+        tracing::debug!("🔢 computed_root_index_a: {:?}, computed_root_index_b: {:?}",
+            computed_root_index_a, computed_root_index_b);
 
         builder.connect(computed_root_index_a, computed_root_index_b);
 
@@ -134,6 +141,9 @@ impl UpdateNearestCommonAncestorProofOptGadget {
             child_b.new_root,
             variable_dmp_gadget_a_is_right,
         );
+
+        tracing::debug!("🌳 computed_old_root: {:?}, computed_new_root: {:?}",
+            computed_old_root, computed_new_root);
 
         Self {
             child_a,

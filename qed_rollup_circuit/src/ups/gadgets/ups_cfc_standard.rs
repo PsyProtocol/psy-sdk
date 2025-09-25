@@ -51,6 +51,8 @@ impl UPSVerifyCFCStandardStepGadget {
         current_proof_tree_root: HashOutTarget,
         ups_session_proof_tree_height: usize,
     ) -> Self {
+        tracing::debug!("⚙️ UPS CFC Standard - current_proof_tree_root: {:?}, user_leaf: {:?}",
+            current_proof_tree_root, previous_step_header_gadget.current_state.user_leaf);
         // start require witness
         let verify_cfc_exists_and_valid_gadget: UPSVerifyCFCProofExistsAndValidGadget = UPSVerifyCFCProofExistsAndValidGadget::add_virtual_to::<H,F,D>(
             builder,
@@ -124,6 +126,9 @@ impl UPSVerifyCFCStandardStepGadget {
         witness: &mut impl Witness<F>,
         target: &UPSVerifyCFCStandardStepInput<F>,
     )  -> anyhow::Result<()> {
+        tracing::debug!("⚙️ UPS CFC Standard set_witness - checkpoint_state: {:?}, cfc_inclusion_proof: {:?}",
+            target.checkpoint_state, target.cfc_inclusion_proof.contract_inclusion_proof.contract_leaf);
+        
         self.verify_cfc_exists_and_valid_gadget.set_witness_params(
             witness,
             &target.checkpoint_state,
