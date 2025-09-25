@@ -150,7 +150,7 @@ impl<
         let expected_start_user_leaf_hash = user_leaf.qfhash::<H>();
         if expected_start_user_leaf_hash != input.core.state_transition.start_user_leaf_hash {
             tracing::error!(
-                "ensure expected_start_user_leaf_hash: {:?} == input.core.state_transition.start_user_leaf_hash {:?}",
+                "ensure expected_start_user_leaf_hash: {} == input.core.state_transition.start_user_leaf_hash {}",
                 expected_start_user_leaf_hash,
                 input.core.state_transition.start_user_leaf_hash,
             );
