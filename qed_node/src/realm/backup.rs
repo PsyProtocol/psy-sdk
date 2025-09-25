@@ -188,11 +188,11 @@ impl RealmS3BackupClient {
     }
 
     fn get_changes_key(&self, checkpoint_id: u64) -> String {
-        format!("realm/{}/changes/{}.json", self.realm_id, checkpoint_id)
+        format!("realm{}/changes/{}.json", self.realm_id, checkpoint_id)
     }
 
     fn get_recovery_info_key(&self) -> String {
-        format!("realm/{}/recovery_info.json", self.realm_id)
+        format!("realm{}/recovery_info.json", self.realm_id)
     }
 }
 
