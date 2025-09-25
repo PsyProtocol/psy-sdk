@@ -269,7 +269,7 @@ run-watcher-coordinator-tikv:
 	--api-endpoint "http://localhost:3000" \
     --database tikv \
     --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-    --tikv-namespace watcher-coordinator
+    --tikv-namespace coordinator
 
 run-watcher-realm0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
@@ -288,7 +288,7 @@ run-watcher-realm0-tikv:
 	--api-endpoint "http://localhost:3000" \
     --database tikv \
     --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-    --tikv-namespace watcher-realm0
+    --tikv-namespace realm0
 
 
 run-watcher-realm1:
@@ -309,7 +309,7 @@ run-watcher-realm1-tikv:
 	--api-endpoint "http://localhost:3000" \
     --database tikv \
     --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-    --tikv-namespace watcher-realm1
+    --tikv-namespace realm1
 
 run-api-service:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_api_services
