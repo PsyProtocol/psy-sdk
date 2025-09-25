@@ -97,8 +97,9 @@ impl UPSVerifyPopDeferredTxStepGadget {
         witness: &mut impl Witness<F>,
         target: &UPSVerifyPopDeferredTxStepInput<F>,
     )  -> anyhow::Result<()> {
-        tracing::debug!("🔄 UPS Pop Deferred TX set_witness - deferred_tx_proof old_root: {:?}, new_root: {:?}",
-            target.ups_pop_deferred_tx_proof.old_root, target.ups_pop_deferred_tx_proof.new_root);
+        tracing::debug!("🔄 UPS Pop Deferred TX set_witness - deferred_tx_proof old_root: {}, new_root: {}",
+            serde_json::to_string_pretty(&target.ups_pop_deferred_tx_proof.old_root).unwrap(),
+            serde_json::to_string_pretty(&target.ups_pop_deferred_tx_proof.new_root).unwrap());
         
         self.standard_cfc_verify_gadget.set_witness(
             witness,

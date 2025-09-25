@@ -126,8 +126,9 @@ impl UPSVerifyCFCStandardStepGadget {
         witness: &mut impl Witness<F>,
         target: &UPSVerifyCFCStandardStepInput<F>,
     )  -> anyhow::Result<()> {
-        tracing::debug!("⚙️ UPS CFC Standard set_witness - checkpoint_state: {:?}, cfc_inclusion_proof: {:?}",
-            target.checkpoint_state, target.cfc_inclusion_proof.contract_inclusion_proof.contract_leaf);
+        tracing::debug!("⚙️ UPS CFC Standard set_witness - checkpoint_state: {}, cfc_inclusion_proof: {}",
+            serde_json::to_string_pretty(&target.checkpoint_state).unwrap(),
+            serde_json::to_string_pretty(&target.cfc_inclusion_proof.contract_inclusion_proof.contract_leaf).unwrap());
         
         self.verify_cfc_exists_and_valid_gadget.set_witness_params(
             witness,

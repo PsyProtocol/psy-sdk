@@ -122,8 +122,10 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
         verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<()> where
     <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
-        tracing::debug!("🔒 Verify End Cap set_witness - end_cap_result: {:?}, user_id: {:?}, checkpoint_tree_root: {:?}",
-            end_cap_result, end_cap_result.user_id, end_cap_result.checkpoint_tree_root_hash);
+        tracing::debug!("🔒 Verify End Cap set_witness - end_cap_result: {}, user_id: {}, checkpoint_tree_root: {}",
+            serde_json::to_string_pretty(end_cap_result).unwrap(),
+            serde_json::to_string_pretty(&end_cap_result.user_id).unwrap(),
+            serde_json::to_string_pretty(&end_cap_result.checkpoint_tree_root_hash).unwrap());
         self.end_cap_result_gadget.set_witness(
             witness,
             end_cap_result,

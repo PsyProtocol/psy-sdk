@@ -333,10 +333,10 @@ impl UPSCFCStandardStateDeltaGadget {
         witness: &mut impl Witness<F>,
         input: &UPSCFCStandardStateDeltaInput<F>,
     ) -> anyhow::Result<()> {
-        tracing::debug!("📊 UPS CFC Standard State Delta set_witness - contract_id: {:?}, start_contract_root: {:?}, end_contract_root: {:?}",
-            input.cfc_transaction_input_context.transaction_call_start_ctx.call_data.contract_id,
-            input.cfc_transaction_input_context.transaction_call_start_ctx.start_contract_state_tree_root,
-            input.cfc_transaction_input_context.transaction_end_ctx.end_contract_state_tree_root);
+        tracing::debug!("📊 UPS CFC Standard State Delta set_witness - contract_id: {}, start_contract_root: {}, end_contract_root: {}",
+            serde_json::to_string_pretty(&input.cfc_transaction_input_context.transaction_call_start_ctx.call_data.contract_id).unwrap(),
+            serde_json::to_string_pretty(&input.cfc_transaction_input_context.transaction_call_start_ctx.start_contract_state_tree_root).unwrap(),
+            serde_json::to_string_pretty(&input.cfc_transaction_input_context.transaction_end_ctx.end_contract_state_tree_root).unwrap());
         
         self.cfc_transaction_input_context.set_witness_params(
             witness,

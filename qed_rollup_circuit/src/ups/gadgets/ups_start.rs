@@ -236,8 +236,10 @@ impl UPSStartStepGadget {
         witness: &mut impl Witness<F>,
         target: &UPSStartStepInput<F>,
     ) -> anyhow::Result<()> {
-        tracing::debug!("🏁 UPS Start set_witness - user_leaf: {:?}, checkpoint_leaf: {:?}, checkpoint_tree_root: {:?}",
-            target.ups_header.current_state.user_leaf, target.checkpoint_leaf, target.ups_header.session_start_context.checkpoint_tree_root);
+        tracing::debug!("🏁 UPS Start set_witness - user_leaf: {}, checkpoint_leaf: {}, checkpoint_tree_root: {}",
+            serde_json::to_string_pretty(&target.ups_header.current_state.user_leaf).unwrap(),
+            serde_json::to_string_pretty(&target.checkpoint_leaf).unwrap(),
+            serde_json::to_string_pretty(&target.ups_header.session_start_context.checkpoint_tree_root).unwrap());
         
         self.header_gadget.set_witness(witness, &target.ups_header)?;
         self.checkpoint_leaf_gadget.set_witness(witness, &target.checkpoint_leaf)?;

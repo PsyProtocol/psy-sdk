@@ -142,8 +142,10 @@ where
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
-        tracing::debug!("🏛️ Checkpoint State Transition prove_base - worker_public_key: {:?}, append_checkpoint_tree_proof: {:?}, previous_checkpoint_proof: {:?}",
-            worker_public_key, input.append_checkpoint_tree_proof, input.previous_checkpoint_proof);
+        tracing::debug!("🏛️ Checkpoint State Transition prove_base - worker_public_key: {:?}, append_checkpoint_proof (index: {}, siblings_len: {}), previous_checkpoint_proof (index: {}, siblings_len: {})",
+            worker_public_key, 
+            input.append_checkpoint_tree_proof.index, input.append_checkpoint_tree_proof.siblings.len(),
+            input.previous_checkpoint_proof.index, input.previous_checkpoint_proof.siblings.len());
 
         self.child_proofs_gadget.set_witness_params(
             &mut pw,

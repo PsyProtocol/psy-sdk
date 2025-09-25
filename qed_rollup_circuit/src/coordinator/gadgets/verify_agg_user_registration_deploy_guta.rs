@@ -188,11 +188,13 @@ impl<const D: usize> VerifyAggUserRegistartionDeployContractsGUTAGadget<D> {
     where
         C::Hasher: AlgebraicHasher<F> {
 
-        tracing::debug!("🏭 Agg User Registration Deploy Contracts GUTA set_witness - register_users public_inputs: {:?}, deploy_contracts public_inputs: {:?}, guta_proof public_inputs: {:?}",
-            register_users_proof.public_inputs, deploy_contracts_proof.public_inputs, guta_proof.public_inputs);
+        tracing::debug!("🏭 Agg User Registration Deploy Contracts GUTA set_witness - register_users public_inputs: {}, deploy_contracts public_inputs: {}, guta_proof public_inputs: {}",
+            serde_json::to_string_pretty(&register_users_proof.public_inputs).unwrap(),
+            serde_json::to_string_pretty(&deploy_contracts_proof.public_inputs).unwrap(),
+            serde_json::to_string_pretty(&guta_proof.public_inputs).unwrap());
         
-        tracing::debug!("🏭 Agg User Registration Deploy Contracts GUTA set_witness - guta_proof_header: {:?}",
-            guta_proof_header);
+        tracing::debug!("🏭 Agg User Registration Deploy Contracts GUTA set_witness - guta_proof_header: {}",
+            serde_json::to_string_pretty(guta_proof_header).unwrap());
 
         self.verify_register_users_gadget.set_witness::<F,C>(
             witness,

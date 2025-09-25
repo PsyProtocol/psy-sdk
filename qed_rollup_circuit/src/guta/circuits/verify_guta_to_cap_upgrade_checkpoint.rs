@@ -150,8 +150,9 @@ where
 
         let mut pw = PartialWitness::<C::F>::new();
 
-        tracing::debug!("📈 GUTA To Cap Upgrade Checkpoint set_witness - guta_proof_header: {:?}, checkpoint_historical_proof: {:?}",
-            guta_proof_header, checkpoint_historical_merkle_proof);
+        tracing::debug!("📈 GUTA To Cap Upgrade Checkpoint set_witness - guta_proof_header: {}, checkpoint_historical_proof: {}",
+            serde_json::to_string_pretty(guta_proof_header).unwrap(),
+            serde_json::to_string_pretty(checkpoint_historical_merkle_proof).unwrap());
         
         self.verify_to_line_gadget.set_witness(
             &mut pw,
