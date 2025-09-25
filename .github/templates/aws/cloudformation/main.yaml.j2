@@ -705,6 +705,7 @@ Resources:
   EC2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub '${ProjectName}-${Environment}-ec2-instance-role'  
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -716,7 +717,7 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
       Policies:
-        - PolicyName: ECSInstancePolicy
+        - PolicyName: !Sub '${ProjectName}-${Environment}-ec2-instance-policy'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -738,16 +739,22 @@ Resources:
                   - autoscaling:DescribeAutoScalingGroups
                   - ec2:DescribeInstances
                 Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-ec2-instance-role'
 
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
+    DependsOn: EC2InstanceRole  
     Properties:
+      InstanceProfileName: !Sub '${ProjectName}-${Environment}-ec2-instance-profile'  # Add unique naming
       Roles:
         - !Ref EC2InstanceRole
 
   ECSTaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub '${ProjectName}-${Environment}-ecs-task-execution-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -758,7 +765,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       Policies:
-        - PolicyName: ECRAccess
+        - PolicyName: !Sub '${ProjectName}-${Environment}-ecr-access-policy'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -769,10 +776,14 @@ Resources:
                   - ecr:GetDownloadUrlForLayer
                   - ecr:BatchGetImage
                 Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-ecs-task-execution-role'
 
   ECSTaskRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub '${ProjectName}-${Environment}-ecs-task-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -781,7 +792,7 @@ Resources:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: S3Access
+        - PolicyName: !Sub '${ProjectName}-${Environment}-s3-access-policy'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -793,7 +804,9 @@ Resources:
                 Resource:
                   - !Sub '${ArtifactsBucket.Arn}/*'
                   - !GetAtt ArtifactsBucket.Arn
-
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-ecs-task-role'
   # ============================================================================
   # PROCESSOR SERVICES (EC2 DEPLOYMENT) - ASGs for Processors only
   # ============================================================================
