@@ -206,7 +206,7 @@ where
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(
             builder.config.num_constants,
         )));
-        pad_circuit_degree(&mut builder, 12);
+        pad_circuit_degree(&mut builder, 13);
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));

@@ -85,6 +85,7 @@ where
         builder.register_public_inputs(&public_inputs_hash.elements);
         builder.add_qed_type_c_common_gates();
         //builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
+        pad_circuit_degree::<C::F, D>(&mut builder, 13);
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(
