@@ -177,11 +177,11 @@
         "enabled": true,
         "args": {},
         "env": {
-          "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
+          "RUST_LOG": "qed_rollup_utils=trace,tikv_client=warn,qed_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,qed_node=trace,qed_common_circuit=trace,qed_rollup_circuit=trace,qed_prover=trace,qed_data=trace,plonky2=error"
         },
         "aws": {
           "cpu": 8192,
-          "memory": 8192,
+          "memory": 16384,
           "deployment_type": "ec2",
           "ec2": {
             "min_instances": 1,

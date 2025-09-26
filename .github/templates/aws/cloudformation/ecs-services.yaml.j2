@@ -20,16 +20,16 @@ Parameters:
     Type: String
     Description: ECR Repository URI from main stack
 
-  # ALB Target Groups
+  {# # ALB Target Groups
   ALBTargetGroupCoordinatorArn:
     Type: String
-    Description: ALB Target Group ARN for Coordinator
+    Description: ALB Target Group ARN for Coordinator #}
 
-  {% for realm in config.nodes.realms %}
+  {# {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}Arn:
     Type: String
     Description: ALB Target Group ARN for Realm {{ realm.id }}
-  {% endfor %}
+  {% endfor %} #}
 
   TaskExecutionRoleArn:
     Type: String
@@ -48,34 +48,34 @@ Parameters:
     Type: String
     Description: Redis Coordinator endpoint
 
-  {% for realm in config.nodes.realms %}
+  {# {% for realm in config.nodes.realms %}
   RedisRealm{{ realm.id }}Endpoint:
     Type: String
     Description: Redis Realm {{ realm.id }} endpoint
-  {% endfor %}
+  {% endfor %} #}
 
-  ALBDNSName:
+  {# ALBDNSName:
     Type: String
-    Description: Application Load Balancer DNS name
+    Description: Application Load Balancer DNS name #}
 
-  # TimescaleDB Endpoint (if enabled)
+  {# # TimescaleDB Endpoint (if enabled)
   {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}
   TimescaleDBEndpoint:
     Type: String
     Description: TimescaleDB RDS endpoint
-  {% endif %}
+  {% endif %} #}
 
   TiKVPDEndpoints:
     Type: String
     Description: Comma-separated list of TiKV PD endpoints
     Default: "127.0.0.1:2379"
 
-Resources:
+{# Resources: #}
   # ============================================================================
   # COORDINATOR ECS SERVICES (Edge & Watcher)
   # ============================================================================
 
-  # Coordinator Edge Service
+  {# # Coordinator Edge Service
   CoordinatorEdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -273,12 +273,12 @@ Resources:
       PlacementConstraints:
         - Type: memberOf
           Expression: 'attribute:workload == general'
-  {% endif %}
+  {% endif %} #}
 
   # ============================================================================
   # REALM ECS SERVICES (Edge & Watcher)
   # ============================================================================
-
+{# 
   {% for realm in config.nodes.realms %}
   # Realm {{ realm.id }} Edge Service
   Realm{{ realm.id }}EdgeTaskDefinition:
@@ -454,12 +454,12 @@ Resources:
         - Type: memberOf
           Expression: 'attribute:service == realm-{{ realm.id }}-processor'
   {% endif %}
-  {% endfor %}
+  {% endfor %} #}
 
   # ============================================================================
   # INDEPENDENT WORKER SERVICES
   # ============================================================================
-  {% if config.nodes.workers and config.nodes.workers.enabled %}
+  {# {% if config.nodes.workers and config.nodes.workers.enabled %}
   {% for pool in config.nodes.workers.worker_pools %}
   # Independent Worker Pool {{ loop.index }}
   WorkerPool{{ loop.index }}TaskDefinition:
@@ -585,13 +585,13 @@ Resources:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
         TargetValue: 70.0
   {% endfor %}
-  {% endif %}
+  {% endif %} #}
 
 
   # ============================================================================
   # GLOBAL API SERVICE
   # ============================================================================
-  {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
+  {# {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
   ApiServiceTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -827,10 +827,10 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
         TargetValue: 70.0
-  {% endif %}
+  {% endif %} #}
 
 Outputs:
-  # Coordinator Service Outputs
+  {# # Coordinator Service Outputs
   CoordinatorEdgeServiceName:
     Value: !Ref CoordinatorEdgeService
     Export:
@@ -898,4 +898,4 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-prover-sd'
   {% endif %}
-  
+   #}

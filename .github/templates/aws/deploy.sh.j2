@@ -854,16 +854,16 @@ deploy_ecs_services() {
     local expected_params=(
         "MainECSClusterName"
         "ECRRepositoryURI"
-        "ALBDNSName"
+        {# "ALBDNSName" #}
         "TaskExecutionRoleArn"
         "TaskRoleArn"
         "ServiceDiscoveryNamespaceId"
-        "ALBTargetGroupCoordinatorArn"
-        {% for realm in config.nodes.realms %}"ALBTargetGroupRealm{{ realm.id }}Arn" {% endfor %}
+        {# "ALBTargetGroupCoordinatorArn" #}
+        {# {% for realm in config.nodes.realms %}"ALBTargetGroupRealm{{ realm.id }}Arn" {% endfor %} #}
         "RedisCoordinatorEndpoint"
-        {% for realm in config.nodes.realms %}"RedisRealm{{ realm.id }}Endpoint" {% endfor %}
-        {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"TimescaleDBEndpoint"{% endif %}
-        {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"DBPasswordSecretArn"{% endif %}
+        {# {% for realm in config.nodes.realms %}"RedisRealm{{ realm.id }}Endpoint" {% endfor %} #}
+        {# {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"TimescaleDBEndpoint"{% endif %} #}
+        {# {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"DBPasswordSecretArn"{% endif %} #}
     )
     
     # Extract only the expected parameters

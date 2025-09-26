@@ -110,13 +110,13 @@ Resources:
       SubnetId: !Ref CoordinatorSubnet
       RouteTableId: !Ref PublicRouteTable
 
-  {% for realm in config.nodes.realms %}
+  {# {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref Realm{{ realm.id }}Subnet
       RouteTableId: !Ref PublicRouteTable
-  {% endfor %}
+  {% endfor %} #}
 
   # Main ECS Cluster
   MainECSCluster:
@@ -160,7 +160,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  # Security Groups
+  {# # Security Groups
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -179,16 +179,16 @@ Resources:
           ToPort: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
           CidrIp: 0.0.0.0/0
           Description: Coordinator Edge RPC
-        {% if has_api_service %}
+        {# {% if has_api_service %}
         - IpProtocol: tcp
           FromPort: {{ config.global_services.api_service.port | default(3000) }}
           ToPort: {{ config.global_services.api_service.port | default(3000) }}
           CidrIp: 0.0.0.0/0
           Description: API Service
-        {% endif %}
+        {% endif %} #}
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-alb-sg'
+          Value: !Sub '${ProjectName}-${Environment}-alb-sg' #}
 
   ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -196,11 +196,11 @@ Resources:
       GroupDescription: Security group for ECS tasks
       VpcId: !Ref VPC
       SecurityGroupIngress:
-        - IpProtocol: tcp
+        {# - IpProtocol: tcp
           FromPort: 0
           ToPort: 65535
           SourceSecurityGroupId: !Ref ALBSecurityGroup
-          Description: Allow traffic from ALB
+          Description: Allow traffic from ALB #}
         - IpProtocol: tcp
           FromPort: 6379
           ToPort: 6379
@@ -210,7 +210,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-ecs-sg'
 
-  # Application Load Balancer
+  {# # Application Load Balancer
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -226,10 +226,10 @@ Resources:
         {% endfor %}
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-alb'
+          Value: !Sub '${ProjectName}-${Environment}-alb' #}
 
   # ALB Target Groups
-  ALBTargetGroupCoordinator:
+  {# ALBTargetGroupCoordinator:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: !Sub '${ProjectName}-${Environment}-coord-tg'
@@ -245,9 +245,9 @@ Resources:
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 3
       Matcher:
-        HttpCode: "200,404"
+        HttpCode: "200,404" #}
 
-  {% for realm in config.nodes.realms %}
+  {# {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -265,9 +265,9 @@ Resources:
       UnhealthyThresholdCount: 3
       Matcher:
         HttpCode: "200,404"
-  {% endfor %}
+  {% endfor %} #}
 
-  {% if has_api_service %}
+  {# {% if has_api_service %}
   ALBTargetGroupAPI:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -285,9 +285,9 @@ Resources:
       UnhealthyThresholdCount: 3
       Matcher:
         HttpCode: "200"
-  {% endif %}
+  {% endif %} #}
 
-  # ALB Listeners
+  {# # ALB Listeners
   ALBListenerCoordinator:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -296,9 +296,9 @@ Resources:
           TargetGroupArn: !Ref ALBTargetGroupCoordinator
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
-      Protocol: HTTP
+      Protocol: HTTP #}
 
-  {% for realm in config.nodes.realms %}
+  {# {% for realm in config.nodes.realms %}
   ALBListenerRealm{{ realm.id }}:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -308,9 +308,9 @@ Resources:
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: {{ realm.edge.aws.load_balancer.port }}
       Protocol: HTTP
-  {% endfor %}
+  {% endfor %} #}
 
-  {% if has_api_service %}
+  {# {% if has_api_service %}
   ALBListenerAPI:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -320,7 +320,7 @@ Resources:
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: {{ config.global_services.api_service.port | default(3000) }}
       Protocol: HTTP
-  {% endif %}
+  {% endif %} #}
 
   {% if uses_tikv_global %}
   # ============================================================================
@@ -486,9 +486,9 @@ Resources:
       DesiredCapacity: {{ tikv_config_global.aws.pd_count | default(1) }}
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
-        {% for realm in config.nodes.realms %}
+        {# {% for realm in config.nodes.realms %}
         - !Ref Realm{{ realm.id }}Subnet
-        {% endfor %}
+        {% endfor %} #}
       HealthCheckType: EC2
       HealthCheckGracePeriod: 900
       Tags:
@@ -622,9 +622,9 @@ Resources:
       DesiredCapacity: {{ tikv_config_global.aws.tikv_count | default(3) }}
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
-        {% for realm in config.nodes.realms %}
+        {# {% for realm in config.nodes.realms %}
         - !Ref Realm{{ realm.id }}Subnet
-        {% endfor %}
+        {% endfor %} #}
       HealthCheckType: EC2
       HealthCheckGracePeriod: 600
       Tags:
@@ -647,11 +647,11 @@ Resources:
   {% if coord_redis_type == 'elasticache' %}
     {% set uses_elasticache = true %}
   {% endif %}
-  {% for realm in config.nodes.realms %}
+  {# {% for realm in config.nodes.realms %}
     {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
       {% set uses_elasticache = true %}
-    {% endif %}
-  {% endfor %}
+    {% endif %} #}
+  {# {% endfor %} #}
 
   {% if uses_elasticache %}
   RedisSubnetGroup:
@@ -681,7 +681,7 @@ Resources:
           Value: !Sub '${ProjectName}-${Environment}-redis-coordinator'
   {% endif %}
 
-  # Realm Redis instances
+  {# # Realm Redis instances
   {% for realm in config.nodes.realms %}
   {% if realm.redis and realm.redis.aws %}
   {% set realm_redis_type = realm.redis.aws.deployment_type | default('elasticache') %}
@@ -703,7 +703,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-redis-realm-{{ realm.id }}'
   {% endif %}
-  {% endfor %}
+  {% endfor %} #}
 
   # IAM Roles
   EC2InstanceRole:
@@ -720,6 +720,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy  # Added for CloudWatch
       Policies:
         - PolicyName: !Sub '${ProjectName}-${Environment}-ec2-instance-policy'
           PolicyDocument:
@@ -737,11 +738,15 @@ Resources:
                   - ecr:BatchCheckLayerAvailability
                   - ecr:GetDownloadUrlForLayer
                   - ecr:BatchGetImage
+                  - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
                   - elasticloadbalancing:DescribeLoadBalancers
                   - autoscaling:DescribeAutoScalingGroups
                   - ec2:DescribeInstances
+                  - elasticache:DescribeCacheClusters
                 Resource: '*'
       Tags:
         - Key: Name
@@ -826,10 +831,10 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
+        {# - IpProtocol: tcp
           FromPort: 8545
           ToPort: 8545
-          SourceSecurityGroupId: !Ref ALBSecurityGroup
+          SourceSecurityGroupId: !Ref ALBSecurityGroup #}
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-coordinator-sg'
@@ -842,7 +847,7 @@ Resources:
       SourceSecurityGroupId: !Ref CoordinatorSecurityGroup
       Description: Internal communication
 
-  {% for realm in config.nodes.realms %}
+  {# {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -870,18 +875,17 @@ Resources:
       IpProtocol: -1
       SourceSecurityGroupId: !Ref Realm{{ realm.id }}SecurityGroup
       Description: Internal communication
-  {% endfor %}
-
-  # Coordinator Processor ASG
+  {% endfor %} #}
+# Coordinator Processor ASG
   CoordinatorProcessorLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-coordinator-processor-lt'
       LaunchTemplateData:
-      {% raw %}
+        {% raw %}
         ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
-      {% endraw %}
-        InstanceType: c6i.xlarge
+        {% endraw %}
+        InstanceType: c6i.2xlarge
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
         SecurityGroupIds:
@@ -901,13 +905,62 @@ Resources:
 
             # Update system and install Docker
             apt-get update -y
-            apt-get install -y docker.io awscli jq
+            apt-get install -y docker.io awscli jq 
             systemctl enable docker
             systemctl start docker
             usermod -aG docker ubuntu
 
+            # Install CloudWatch agent for Docker logging
+            cd /tmp
+            wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+            dpkg -i -E ./amazon-cloudwatch-agent.deb || true
+            
+            # Configure awslogs for Docker
+            cat > /etc/docker/daemon.json <<EOF
+            {
+              "log-driver": "json-file",
+              "log-opts": {
+                "max-size": "100m",
+                "max-file": "5"
+              }
+            }
+            EOF
+            
+            # Restart Docker to apply logging configuration
+            systemctl restart docker
+            
+            # Create CloudWatch Logs configuration for Docker
+            cat > /opt/aws/amazon-cloudwatch-agent/etc/docker-logs.json <<EOF
+            {
+              "logs": {
+                "logs_collected": {
+                  "files": {
+                    "collect_list": [
+                      {
+                        "file_path": "/var/lib/docker/containers/*/*.log",
+                        "log_group_name": "{{ config.nodes.deployment.aws.ecs.log_group }}",
+                        "log_stream_name": "coordinator-processor-{instance_id}",
+                        "timezone": "UTC"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+            EOF
+            
+            # Start CloudWatch agent
+            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+              -a fetch-config \
+              -m ec2 \
+              -s \
+              -c file:/opt/aws/amazon-cloudwatch-agent/etc/docker-logs.json
+
             # Login to ECR
             aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
+
+            # Pull the Docker image first
+            docker pull ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest
 
             # Get TiKV PD endpoints
             MAX_RETRIES=30
@@ -955,24 +1008,79 @@ Resources:
 
             # Get Redis endpoint
             REDIS_ENDPOINT="${RedisCoordinator.RedisEndpoint.Address}"
+            echo "Redis endpoint: $REDIS_ENDPOINT"
 
-            # Run coordinator processor
+            # Test Redis connectivity
+            for i in {1..30}; do
+              if nc -zv $REDIS_ENDPOINT 6379 2>/dev/null; then
+                echo "Redis is reachable"
+                break
+              fi
+              echo "Waiting for Redis... attempt $i of 30"
+              sleep 5
+            done
+
+            # Run coordinator processor with json-file logging
+            # CloudWatch agent will collect these logs automatically
             docker run -d --name coordinator-processor \
               --restart=unless-stopped \
-              --log-driver=awslogs \
-              --log-opt awslogs-group={{ config.nodes.deployment.aws.ecs.log_group }} \
-              --log-opt awslogs-region=${AWS::Region} \
-              --log-opt awslogs-stream-prefix=coordinator-processor \
+              --log-driver=json-file \
+              --log-opt max-size=100m \
+              --log-opt max-file=5 \
               -e RUST_LOG='{{ config.nodes.coordinator.processor.env.RUST_LOG }}' \
               ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
               coordinator-processor \
               --database tikv \
-              --tikv-pd-endpoints $PD_ENDPOINTS \
+              --tikv-pd-endpoints "$PD_ENDPOINTS" \
               --tikv-namespace {{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator \
-              --redis-uri redis://$REDIS_ENDPOINT:6379 \
+              --redis-uri "redis://$REDIS_ENDPOINT:6379" \
               {% for key, value in (config.nodes.coordinator.processor.args | default({}) | dictsort) %}
               --{{ key | replace('_','-') }} '{{ value | string }}' \
               {% endfor %}
+
+            # Verify container started
+            sleep 5
+            if docker ps | grep -q coordinator-processor; then
+              echo "SUCCESS: Coordinator processor is running"
+              docker logs coordinator-processor --tail 50
+            else
+              echo "ERROR: Coordinator processor failed to start"
+              docker logs coordinator-processor 2>&1 || true
+            fi
+
+            # Create a systemd service to ensure coordinator starts on reboot
+            cat > /etc/systemd/system/coordinator-processor.service <<EOF
+            [Unit]
+            Description=QED Coordinator Processor
+            After=docker.service
+            Requires=docker.service
+
+            [Service]
+            Type=simple
+            Restart=always
+            RestartSec=10
+            ExecStartPre=/usr/bin/docker pull ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest
+            ExecStart=/usr/bin/docker run --rm --name coordinator-processor \
+              --log-driver=json-file \
+              --log-opt max-size=100m \
+              --log-opt max-file=5 \
+              -e RUST_LOG='{{ config.nodes.coordinator.processor.env.RUST_LOG }}' \
+              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
+              coordinator-processor \
+              --database tikv \
+              --tikv-pd-endpoints "$PD_ENDPOINTS" \
+              --tikv-namespace {{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator \
+              --redis-uri "redis://$REDIS_ENDPOINT:6379"
+            ExecStop=/usr/bin/docker stop coordinator-processor
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+
+            systemctl daemon-reload
+            systemctl enable coordinator-processor
+
+            echo "Setup completed at $(date)"
 
   CoordinatorProcessorASG:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -995,7 +1103,7 @@ Resources:
         - Key: Service
           Value: coordinator-processor
           PropagateAtLaunch: true
-
+{# 
   # Realm Processor ASGs
   {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}ProcessorLaunchTemplate:
@@ -1117,9 +1225,9 @@ Resources:
         - Key: Service
           Value: realm-{{ realm.id }}-processor
           PropagateAtLaunch: true
-  {% endfor %}
+  {% endfor %} #}
 # ECS Container Instances for Edge, Worker, and API services
-  GeneralECSInstancesLaunchTemplate:
+  {# GeneralECSInstancesLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-ecs-container-lt'
@@ -1173,8 +1281,8 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-ecs-container'
-          PropagateAtLaunch: true
-
+          PropagateAtLaunch: true #}
+{# 
   WorkerInstancesLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -1291,9 +1399,9 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-prover'
-          PropagateAtLaunch: true  
+          PropagateAtLaunch: true   #}
 
-  {% if has_timescaledb %}
+  {# {% if has_timescaledb %}
   # ============================================================================
   # TIMESCALEDB
   # ============================================================================
@@ -1364,7 +1472,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-timescaledb'
-  {% endif %}
+  {% endif %} #}
 
 Outputs:
   VPCId:
@@ -1377,11 +1485,11 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-main-ecs-cluster'
 
-  ALBDNSName:
+  {# ALBDNSName:
     Value: !GetAtt ApplicationLoadBalancer.DNSName
     Export:
       Name: !Sub '${ProjectName}-${Environment}-alb-dns'
-    Description: Application Load Balancer DNS name
+    Description: Application Load Balancer DNS name #}
 
   ECRRepositoryURI:
     Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}'
@@ -1403,18 +1511,18 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-task-role'
 
-  # ALB Target Group ARNs
+  {# # ALB Target Group ARNs
   ALBTargetGroupCoordinatorArn:
     Value: !Ref ALBTargetGroupCoordinator
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-alb-tg-coordinator'
+      Name: !Sub '${ProjectName}-${Environment}-alb-tg-coordinator' #}
 
-  {% for realm in config.nodes.realms %}
+  {# {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}Arn:
     Value: !Ref ALBTargetGroupRealm{{ realm.id }}
     Export:
       Name: !Sub '${ProjectName}-${Environment}-alb-tg-realm-{{ realm.id }}'
-  {% endfor %}
+  {% endfor %} #}
 
   # Redis Endpoints
   {% if coord_redis_type == 'elasticache' %}
@@ -1425,7 +1533,7 @@ Outputs:
     Description: Redis Coordinator endpoint
   {% endif %}
 
-  {% for realm in config.nodes.realms %}
+  {# {% for realm in config.nodes.realms %}
   {% if realm.redis and realm.redis.aws %}
   {% set realm_redis_type = realm.redis.aws.deployment_type | default('elasticache') %}
   {% if realm_redis_type == 'elasticache' %}
@@ -1436,7 +1544,7 @@ Outputs:
     Description: Redis Realm {{ realm.id }} endpoint
   {% endif %}
   {% endif %}
-  {% endfor %}
+  {% endfor %} #}
 
   # This belongs in main.yaml, not ecs-services.yaml
   {% if uses_tikv_global %}
@@ -1447,7 +1555,7 @@ Outputs:
       Name: !Sub '${ProjectName}-${Environment}-tikv-pd-asg-name'
   {% endif %}
 
-  {% if has_timescaledb %}
+  {# {% if has_timescaledb %}
   TimescaleDBEndpoint:
     Description: TimescaleDB RDS endpoint
     Value: !GetAtt TimescaleDB.Endpoint.Address
@@ -1465,15 +1573,15 @@ Outputs:
     Value: !Ref DBPasswordSecret
     Export:
       Name: !Sub '${ProjectName}-${Environment}-db-password-secret'
-  {% endif %}
+  {% endif %} #}
 
-  {% if has_api_service %}
+  {# {% if has_api_service %}
   APIServiceLoadBalancerEndpoint:
     Description: API Service endpoint URL via ALB
     Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}:{{ config.global_services.api_service.port | default(3000) }}'
     Export:
       Name: !Sub '${ProjectName}-${Environment}-api-service-endpoint'
-  {% endif %}
+  {% endif %} #}
 
   # Security Groups
   ECSSecurityGroupId:
@@ -1494,9 +1602,9 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-subnet'
 
-  {% for realm in config.nodes.realms %}
+  {# {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}SubnetId:
     Value: !Ref Realm{{ realm.id }}Subnet
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-subnet'
-  {% endfor %}
+  {% endfor %} #}
