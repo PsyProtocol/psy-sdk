@@ -28,7 +28,7 @@ use tower_http::follow_redirect::policy::PolicyExt;
 use tracing::{debug, error, info, trace, warn};
 use qed_core::data::qhashout::QHashOut;
 use qed_store::queue::new_redis_async_pool;
-use qed_data::qdata::checkpoint::CheckpointSyncInfo;
+use qed_data::qdata::checkpoint::{CheckpointSyncInfo, PendingCheckpointState};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
@@ -45,6 +45,7 @@ use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use plonky2::field::types::Field;
 use qed_data::traits::qdatastore::{qtreedata::{QTreeDataStoreWriterSync}, qmetadata::QMetaDataStoreWriterSync};
 use std::{str::FromStr, collections::HashMap};
+use qed_store::queue::redis_queue::PendingCheckPointAsync;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use super::backup::{RealmS3BackupClient, try_backup_realm_checkpoint};
 use tokio::sync::mpsc;
@@ -298,12 +299,14 @@ impl RealmProcessor {
             trace!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
             return Ok(());
         }
+        if self.is_skip_build_block(next_checkpoint_id, slot).await? {
+            return Ok(());
+        }
         let now = Instant::now();
         info!("Start building block checkpoint: {}, slot: {}", next_checkpoint_id, slot);
         match self.build_block(build_ctx, next_checkpoint_id).await {
             Ok(job_id) => {
-                let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
-                if next_checkpoint_id > local_latest_checkpoint_id  {
+                if !self.is_skip_build_block(next_checkpoint_id, slot).await? {
                     self.sync_proof.chq_push_imm(job_id).await?;
                     self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
                     build_ctx.store.save_snapshot(next_checkpoint_id)?;
@@ -320,6 +323,27 @@ impl RealmProcessor {
             }
         }
         Ok(())
+    }
+
+    async fn is_skip_build_block(&self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<bool> {
+        let pending_checkpoint: Option<PendingCheckpointState> = self.sync_checkpoint.get_pending_checkpoint().await?;
+        if let Some(pending_checkpoint) = pending_checkpoint {
+            if pending_checkpoint.pending_checkpoint_id >= next_checkpoint_id {
+                warn!("Pending checkpoint id: {}, next_checkpoint_id: {}, skip block construction", pending_checkpoint.pending_checkpoint_id, next_checkpoint_id);
+                return Ok(true);
+            }
+            if pending_checkpoint.pending_slot >= slot {
+                warn!("Pending checkpoint slot: {}, slot: {}, skip block construction", pending_checkpoint.pending_slot, slot);
+                return Ok(true);
+            }
+        }
+
+        let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
+        if local_latest_checkpoint_id >= next_checkpoint_id {
+            warn!("Local latest checkpoint id: {}, next checkpoint id: {}, skip block construction", local_latest_checkpoint_id, next_checkpoint_id);
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     async fn ensure_checkpoint_sync(

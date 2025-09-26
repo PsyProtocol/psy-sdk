@@ -35,9 +35,7 @@ use qed_data::guta::api::{
     SubmitGUTARealmResultAPINoProofInput, SubmitGUTARealmResultAPIQueueItem,
 };
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
-use qed_data::qdata::checkpoint::{
-    QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
-};
+use qed_data::qdata::checkpoint::{PendingCheckpointState, QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState};
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_data::qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact};
@@ -1039,11 +1037,12 @@ use crate::common::whitelist::{WhiteList, WhiteListCache};
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use redis::AsyncCommands;
 use qed_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
 use serde::Serialize;
 use qed_prover::local::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
 use qed_prover::wallet::secp_sign::SignedRequest;
-use qed_store::queue::redis_queue::NotificationQueue;
+use qed_store::queue::redis_queue::{NotificationQueue, PendingCheckPointAsync};
 use qed_store::queue::task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl};
 use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserDeployContractMetadata, UserGutaSubmissionMetadata, WatcherMessage};
 use crate::watcher::watcher::NodeType;
@@ -1096,7 +1095,11 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .get_latest_checkpoint_id()
             .await
             .map_err(RpcError::Anyhow)?;
-        Ok(LatestCheckpointResponse { checkpoint_id })
+        let pending_state: Option<PendingCheckpointState> = self.proof_store.get_pending_checkpoint().await.map_err(RpcError::Anyhow)?;
+        Ok(LatestCheckpointResponse {
+            checkpoint_id,
+            pending_checkpoint_state: pending_state,
+        })
     }
 
     async fn latest_checkpoint(&self) -> RpcResult<u64> {
