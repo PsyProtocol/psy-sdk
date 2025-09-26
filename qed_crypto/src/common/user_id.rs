@@ -112,6 +112,13 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy3 {
 pub struct UserIdBitsStrategy4;
 
 //   user id must avoid common prefix to make the nca algorithm more useful
+//
+//   Case 0:
+//   0  = 0000
+//   1  = 0001
+//   2  = 0010
+//   4  = 0100
+//
 //   Case 1:
 //   10  = 000000000000000000001010
 //   26  = 000000000000000000011010

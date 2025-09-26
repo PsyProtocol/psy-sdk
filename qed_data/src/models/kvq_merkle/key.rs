@@ -92,24 +92,24 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
         }
     }
     pub fn is_same_node_location(&self, other: &Self) -> bool {
-        self.tree_id == other.tree_id && 
-        self.primary_id == other.primary_id && 
+        self.tree_id == other.tree_id &&
+        self.primary_id == other.primary_id &&
         self.secondary_id == other.secondary_id &&
         self.level == other.level &&
         self.index == other.index
 
     }
     pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
-        self.tree_id == other.tree_id && 
-        self.primary_id == other.primary_id && 
+        self.tree_id == other.tree_id &&
+        self.primary_id == other.primary_id &&
         self.secondary_id == other.secondary_id
     }
     pub fn is_sibling_for(&self, other: &Self) -> bool {
-        self.level == other.level && 
+        self.level == other.level &&
         self.index ^ 1 == other.index &&
         //inlined self.belongs_to_same_tree(other)
-        self.tree_id == other.tree_id && 
-        self.primary_id == other.primary_id && 
+        self.tree_id == other.tree_id &&
+        self.primary_id == other.primary_id &&
         self.secondary_id == other.secondary_id
     }
     pub fn sibling(&self) -> Self {
@@ -211,9 +211,24 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
         }
     }
     pub fn first_leaf_child(&self, tree_height: u8) -> Self {
+        if self.level >= tree_height {
+            let leaf_index = if self.level > tree_height {
+                self.index >> (self.level - tree_height)
+            } else {
+                self.index
+            };
+            return Self {
+                level: tree_height,
+                index: leaf_index,
+                tree_id: self.tree_id,
+                primary_id: self.primary_id,
+                secondary_id: self.secondary_id,
+                checkpoint_id: self.checkpoint_id,
+            };
+        }
         Self {
             level: tree_height,
-            index: self.index << (tree_height-self.level),
+            index: self.index << (tree_height - self.level),
             tree_id: self.tree_id,
             primary_id: self.primary_id,
             secondary_id: self.secondary_id,
@@ -269,8 +284,8 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
     }
     pub fn is_to_the_left_of(&self, other: &Self) -> bool {
         // Add validation to ensure nodes are from the same tree
-        if self.tree_id != other.tree_id || 
-        self.primary_id != other.primary_id || 
+        if self.tree_id != other.tree_id ||
+        self.primary_id != other.primary_id ||
         self.secondary_id != other.secondary_id {
             panic!(
                 "Cannot compare nodes from different trees: self({}, {}, {}) vs other({}, {}, {})",
