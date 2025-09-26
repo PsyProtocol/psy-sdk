@@ -10,7 +10,8 @@ cd "$(dirname "$0")"
 PROJECT_NAME="{{ config.nodes.deployment.aws.project_name }}"
 REGION="{{ config.nodes.deployment.aws.region }}"
 ECR_REPOSITORY="{{ config.nodes.deployment.aws.ecr.repository_name }}"
-CLUSTER_NAME="{{ config.nodes.deployment.aws.ecs.cluster_name }}"
+ENVIRONMENT="${ENVIRONMENT:-dev}"
+CLUSTER_NAME="${PROJECT_NAME}-${ENVIRONMENT}-main-ecs"  # Use consistent naming
 
 # Colors for output
 RED='\033[0;31m'
@@ -803,7 +804,7 @@ deploy_ecs_services() {
     local PD_ENDPOINTS=""
     
     # Try to get the ASG name from the main stack outputs first
-    local tikv_pd_asg_name=$(echo "$outputs" | jq -r '.[] | select(.OutputKey=="TiKVPDAutoScalingGroupName") | .OutputValue // ""')
+    local tikv_pd_asg_name="${PROJECT_NAME}-${ENVIRONMENT:-dev}-tikv-pd-asg"
     
     if [ -z "$tikv_pd_asg_name" ]; then
         # Fallback to constructed name
@@ -827,9 +828,9 @@ deploy_ecs_services() {
                 --region "${REGION}" 2>/dev/null)
             if [ -n "$IP" ]; then
                 if [ -z "$PD_ENDPOINTS" ]; then
-                    PD_ENDPOINTS="$IP:2379"
+                    PD_ENDPOINTS="${IP}:2379"
                 else
-                    PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
+                    PD_ENDPOINTS="${PD_ENDPOINTS},${IP}:2379"
                 fi
             fi
         done
@@ -840,16 +841,14 @@ deploy_ecs_services() {
         PD_ENDPOINTS="127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383"
     fi
     
-    # Build parameters array for create-stack/update-stack
-    # ONLY include parameters that are defined in the services template
-    local params_array=()
+    # Create a temporary JSON file for parameters to avoid shell interpretation issues
+    local params_file="/tmp/cf-params-$$.json"
     
-    # Add ProjectName and Environment parameters
-    params_array+=("ParameterKey=ProjectName,ParameterValue=${PROJECT_NAME}")
-    params_array+=("ParameterKey=Environment,ParameterValue=${ENVIRONMENT:-dev}")
-    
-    # Add TiKV PD endpoints parameter
-    params_array+=("ParameterKey=TiKVPDEndpoints,ParameterValue=$PD_ENDPOINTS")
+    # Start building the JSON parameters array
+    echo '[' > "$params_file"
+    echo '  {"ParameterKey": "ProjectName", "ParameterValue": "'"${PROJECT_NAME}"'"},' >> "$params_file"
+    echo '  {"ParameterKey": "Environment", "ParameterValue": "'"${ENVIRONMENT:-dev}"'"},' >> "$params_file"
+    echo '  {"ParameterKey": "TiKVPDEndpoints", "ParameterValue": "'"${PD_ENDPOINTS}"'"}' >> "$params_file"
     
     # List of parameters that the services template expects from main stack outputs
     local expected_params=(
@@ -871,36 +870,29 @@ deploy_ecs_services() {
     for param in "${expected_params[@]}"; do
         local value=$(echo "$outputs" | jq -r ".[] | select(.OutputKey==\"$param\") | .OutputValue // \"\"")
         if [ -n "$value" ]; then
-            params_array+=("ParameterKey=$param,ParameterValue=$value")
+            # Add comma before this parameter
+            echo ',' >> "$params_file"
+            # Properly escape the value for JSON
+            echo -n '  {"ParameterKey": "'"$param"'", "ParameterValue": ' >> "$params_file"
+            echo -n "$value" | jq -Rs . >> "$params_file"
+            echo -n '}' >> "$params_file"
         else
             log_warning "Expected parameter $param not found in main stack outputs"
-            # Add default values for critical missing parameters
-            case "$param" in
-                "MainECSClusterName")
-                    params_array+=("ParameterKey=$param,ParameterValue=${PROJECT_NAME}-${ENVIRONMENT:-dev}-main-ecs")
-                    ;;
-                "ECRRepositoryURI")
-                    local account_id=$(aws sts get-caller-identity --query Account --output text)
-                    params_array+=("ParameterKey=$param,ParameterValue=${account_id}.dkr.ecr.${REGION}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}")
-                    ;;
-            esac
         fi
     done
     
-    # Debug: Print parameters being passed
+    echo '' >> "$params_file"
+    echo ']' >> "$params_file"
+    
+    # Debug: show parameters if verbose
     if [ "$VERBOSE" = true ]; then
-        log_debug "Stack parameters:"
-        for param in "${params_array[@]}"; do
-            log_debug "  $param"
-        done
+        log_debug "Parameters JSON:"
+        cat "$params_file"
     fi
     
     if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY RUN] Would deploy services stack with parameters"
-        log_info "[DRY RUN] TiKV PD Endpoints: $PD_ENDPOINTS"
-        for param in "${params_array[@]}"; do
-            log_info "[DRY RUN] Parameter: $param"
-        done
+        log_info "[DRY RUN] Would deploy services stack with parameters:"
+        cat "$params_file"
     else
         local stack_name="${PROJECT_NAME}-services"
         
@@ -908,51 +900,46 @@ deploy_ecs_services() {
         if check_stack_exists "$stack_name"; then
             log_info "Services stack exists, updating..."
             aws cloudformation update-stack \
-                "$template_param" "$template_value" \
+                $template_param "$template_value" \
                 --stack-name "$stack_name" \
-                --parameters "${params_array[@]}" \
+                --parameters file://"$params_file" \
                 --capabilities CAPABILITY_IAM \
                 --region "${REGION}" 2>/dev/null || {
-                    # Check if no updates are needed
                     local update_status=$?
                     if [ $update_status -eq 254 ]; then
                         log_info "No changes detected for services stack"
+                        rm -f "$params_file"
                         return 0
                     else
-                        log_error "Failed to update services stack (status: $update_status)"
-                        # Show recent error events
-                        aws cloudformation describe-stack-events \
-                            --stack-name "$stack_name" \
-                            --query "StackEvents[?ResourceStatus=='UPDATE_FAILED'][0:3].{Resource:LogicalResourceId,Reason:ResourceStatusReason}" \
-                            --output table \
-                            --region "${REGION}" 2>/dev/null || true
+                        log_error "Failed to update services stack"
+                        rm -f "$params_file"
                         return $update_status
                     fi
                 }
         else
             log_info "Creating new services stack..."
+            
+            # Use the file:// syntax for parameters
             if ! aws cloudformation create-stack \
-                "$template_param" "$template_value" \
+                $template_param "$template_value" \
                 --stack-name "$stack_name" \
-                --parameters "${params_array[@]}" \
+                --parameters file://"$params_file" \
                 --capabilities CAPABILITY_IAM \
                 --region "${REGION}"; then
+                
                 log_error "Failed to create services stack"
+                rm -f "$params_file"
                 return 1
             fi
         fi
         
+        # Clean up temp file
+        rm -f "$params_file"
+        
         # Monitor progress
         monitor_stack_progress "$stack_name" "Services deployment"
-        
-        # After successful deployment, show service endpoints
-        if [ $? -eq 0 ]; then
-            log_info "Services deployed successfully!"
-            show_service_endpoints "$stack_name"
-        fi
     fi
 }
-
 # Helper function to show service endpoints after deployment
 show_service_endpoints() {
     local stack_name=$1
@@ -999,16 +986,22 @@ show_status() {
     local services_status=$(get_stack_status "${PROJECT_NAME}-services")
     echo -e "Services Stack: ${services_status}"
     
-    # Also check for dev services stack (alternative naming)
-    local dev_services_status=$(get_stack_status "${PROJECT_NAME}-${ENVIRONMENT}-services")
-    if [ "$dev_services_status" != "DOES_NOT_EXIST" ]; then
-        echo -e "Dev Services Stack: ${dev_services_status}"
+    # Get the actual cluster name from CloudFormation outputs
+    local actual_cluster_name=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='MainECSClusterName'].OutputValue" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$actual_cluster_name" ]; then
+        # Fallback to constructed name
+        actual_cluster_name="${PROJECT_NAME}-${ENVIRONMENT:-dev}-main-ecs"
     fi
     
-    # Check ECS cluster
-    if aws ecs describe-clusters --clusters "${CLUSTER_NAME}" --region "${REGION}" &> /dev/null; then
+    # Check ECS cluster using the actual name
+    if aws ecs describe-clusters --clusters "$actual_cluster_name" --region "${REGION}" &> /dev/null; then
         local container_instances=$(aws ecs describe-clusters \
-            --clusters "${CLUSTER_NAME}" \
+            --clusters "$actual_cluster_name" \
             --query "clusters[0].registeredContainerInstancesCount" \
             --output text \
             --region "${REGION}")
@@ -1017,10 +1010,12 @@ show_status() {
         # List services
         echo -e "\nECS Services:"
         aws ecs list-services \
-            --cluster "${CLUSTER_NAME}" \
+            --cluster "$actual_cluster_name" \
             --query "serviceArns[]" \
             --output table \
             --region "${REGION}"
+    else
+        echo "ECS Cluster not found or not accessible"
     fi
     
     # Show endpoints
@@ -1040,10 +1035,21 @@ show_status() {
         fi
     fi
 }
-
 # Show CloudWatch logs
 show_logs() {
     local service_name=$1
+    
+    # Get actual cluster name
+    local actual_cluster_name=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='MainECSClusterName'].OutputValue" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$actual_cluster_name" ]; then
+        actual_cluster_name="${PROJECT_NAME}-${ENVIRONMENT:-dev}-main-ecs"
+    fi
+    
     if [ -z "$service_name" ]; then
         log_error "Please specify a service name"
         echo "Available services:"
@@ -1093,6 +1099,16 @@ deploy() {
         log_error "Services deployment failed"
         return 1
     fi
+
+    # Wait for services stack to complete
+    log_info "Waiting for services deployment to complete..."
+    local services_status=$(get_stack_status "${PROJECT_NAME}-services")
+    local wait_count=0
+    while [[ "$services_status" == *"IN_PROGRESS"* ]] && [ $wait_count -lt 60 ]; do
+        sleep 5
+        services_status=$(get_stack_status "${PROJECT_NAME}-services")
+        wait_count=$((wait_count + 1))
+    done
 
     log_info "=== Deployment Completed Successfully! ==="
     show_status

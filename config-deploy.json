@@ -1,8 +1,9 @@
 {
   "network": {
-    "users_per_realm": 8388608,
+    "users_per_realm": 1048576,
     "global_user_tree_height": 24,
-    "realm_user_tree_height": 23,
+    "realm_user_tree_height": 20,
+    "group_realm_height": 1,
     "realm_configs": [
       {
         "id": 0,
@@ -134,7 +135,7 @@
           "path": "./db/coordinator",
           "mmap_size_gb": 100,
           "aws": {
-            "volume_size": 200
+            "volume_size": 300
           }
         },
         "scylla": {
@@ -159,16 +160,16 @@
           "namespace": "qed",
           "aws": {
             "cpu": 4096,
-            "memory": 16384,
+            "memory": 8192,
             "deployment_type": "ec2",
             "ec2": {
-              "min_instances": 3,
-              "max_instances": 6,
-              "desired_instances": 3
+              "min_instances": 1,
+              "max_instances": 1,
+              "desired_instances": 1
             },
             "data_volume_size": 500,
-            "pd_count": 3,
-            "tikv_count": 3
+            "pd_count": 1,
+            "tikv_count": 1
           }
         }
       },
@@ -179,7 +180,7 @@
           "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
         },
         "aws": {
-          "cpu": 4096,
+          "cpu": 8192,
           "memory": 8192,
           "deployment_type": "ec2",
           "ec2": {
@@ -199,8 +200,8 @@
           "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
         },
         "aws": {
-          "cpu": 4096,
-          "memory": 8192,
+          "cpu": 2048,
+          "memory": 4096,
           "deployment_type": "ecs",
           "ecs": {
             "instances": 2,
@@ -222,8 +223,8 @@
           "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
         },
         "aws": {
-          "cpu": 2048,
-          "memory": 4096,
+          "cpu": 1024,
+          "memory": 2048,
           "deployment_type": "ecs",
           "ecs": {
             "instances": 1,
@@ -260,7 +261,7 @@
             "replication_factor": 3,
             "consistency_level": "LOCAL_QUORUM",
             "aws": {
-              "cpu": 2048,
+              "cpu": 4096,
               "memory": 8192,
               "deployment_type": "ec2",
               "ec2": {
@@ -268,7 +269,7 @@
                 "max_instances": 3,
                 "desired_instances": 3
               },
-              "data_volume_size": 500,
+              "data_volume_size": 200,
               "commitlog_volume_size": 100
             }
           },
@@ -277,13 +278,13 @@
             "namespace": "qed_realm_0",
             "aws": {
               "deployment_type": "ec2",
-              "cpu": 2048,
+              "cpu": 4096,
               "memory": 8192,
               "volume_size": 200,
               "ec2": {
-                "min_instances": 3,
-                "max_instances": 6,
-                "desired_instances": 3
+                "min_instances": 1,
+                "max_instances": 1,
+                "desired_instances": 1
               }
             }
           }
@@ -302,7 +303,7 @@
             "deployment_type": "ec2",
             "ec2": {
               "min_instances": 1,
-              "max_instances": 3,
+              "max_instances": 1,
               "desired_instances": 1
             }
           }
@@ -319,8 +320,8 @@
             "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
           },
           "aws": {
-            "cpu": 4096,
-            "memory": 8192,
+            "cpu": 2048,
+            "memory": 4096,
             "deployment_type": "ecs",
             "ecs": {
               "task_count": 2
@@ -341,8 +342,8 @@
             "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
           },
           "aws": {
-            "cpu": 2048,
-            "memory": 4096,
+            "cpu": 1024,
+            "memory": 2048,
             "deployment_type": "ecs",
             "ecs": {
               "instances": 1,
@@ -395,13 +396,13 @@
             "namespace": "qed_realm_1",
             "aws": {
               "deployment_type": "ec2",
-              "cpu": 2048,
+              "cpu": 4096,
               "memory": 8192,
               "volume_size": 200,
               "ec2": {
-                "min_instances": 3,
-                "max_instances": 6,
-                "desired_instances": 3
+                "min_instances": 1,
+                "max_instances": 1,
+                "desired_instances": 1
               }
             }
           }
@@ -420,7 +421,7 @@
             "deployment_type": "ec2",
             "ec2": {
               "min_instances": 1,
-              "max_instances": 3,
+              "max_instances": 1,
               "desired_instances": 1
             }
           }
@@ -437,11 +438,11 @@
             "RUST_LOG": "qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error"
           },
           "aws": {
-            "cpu": 4096,
-            "memory": 8192,
+            "cpu": 2048,
+            "memory": 4096,
             "deployment_type": "ecs",
             "ecs": {
-              "task_count": 2
+              "task_count": 4
             },
             "load_balancer": {
               "port": 8547,
@@ -475,7 +476,7 @@
       "worker_pools": [
         {
           "id": "pool-1",
-          "instances": 3,
+          "instances": 2,
           "args": {
             "config": "/app/config.json",
             "private-key": "${USER0_PRIVATE_KEY}"
@@ -489,13 +490,13 @@
             "memory": 16384,
             "deployment_type": "ecs",
             "ecs": {
-              "task_count": 3
+              "task_count": 2
             }
           }
         },
         {
           "id": "pool-2",
-          "instances": 3,
+          "instances": 2,
           "args": {
             "config": "/app/config.json",
             "private-key": "${USER1_PRIVATE_KEY}"
@@ -509,7 +510,7 @@
             "memory": 16384,
             "deployment_type": "ecs",
             "ecs": {
-              "task_count": 3
+              "task_count": 2
             }
           }
         }
@@ -528,7 +529,7 @@
         "memory": 16384,
         "deployment_type": "ecs",
         "ecs": {
-          "task_count": 2
+          "task_count": 1
         },
         "load_balancer": {
           "port": 9999,
@@ -564,7 +565,7 @@
   "global_api_services": {
     "api_service": {
       "enabled": true,
-      "instances": 2,
+      "instances": 1,
       "args": {
         "listen_addr": "0.0.0.0:3000"
       },
@@ -577,7 +578,7 @@
         "memory": 8192,
         "deployment_type": "ecs",
         "ecs": {
-          "task_count": 2
+          "task_count": 1
         },
         "load_balancer": {
           "port": 3000,

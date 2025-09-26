@@ -1,3 +1,4 @@
+---  
 {# Global template variables for TiKV detection #}
 {%- set uses_tikv_global = false -%}
 {%- set tikv_config_global = None -%}
@@ -125,6 +126,9 @@ Resources:
       ClusterSettings:
         - Name: containerInsights
           Value: enabled
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-main-ecs'
 
   # Service Discovery Namespace
   ServiceDiscoveryNamespace:
@@ -370,7 +374,7 @@ Resources:
       Description: Inter-node communication
 
   # TiKV PD Launch Template
-  TiKVPDLaunchTemplate:
+  TiKVClusterLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-tikv-pd-lt'
@@ -378,7 +382,7 @@ Resources:
         {% raw %}
         ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
         {% endraw %}
-        InstanceType: {{ tikv_config_global.aws.pd_instance_type | default('c6i.large') }}
+        InstanceType: t3.medium  # Changed from i3.xlarge
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
         SecurityGroupIds:
@@ -475,18 +479,18 @@ Resources:
     Properties:
       AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-tikv-pd-asg'
       LaunchTemplate:
-        LaunchTemplateId: !Ref TiKVPDLaunchTemplate
-        Version: !GetAtt TiKVPDLaunchTemplate.LatestVersionNumber
-      MinSize: {{ tikv_config_global.aws.pd_count | default(3) }}
-      MaxSize: {{ tikv_config_global.aws.pd_count | default(3) }}
-      DesiredCapacity: {{ tikv_config_global.aws.pd_count | default(3) }}
+        LaunchTemplateId: !Ref TiKVClusterLaunchTemplate
+        Version: !GetAtt TiKVClusterLaunchTemplate.LatestVersionNumber
+      MinSize: {{ tikv_config_global.aws.pd_count | default(1) }}
+      MaxSize: {{ tikv_config_global.aws.pd_count | default(1) }}
+      DesiredCapacity: {{ tikv_config_global.aws.pd_count | default(1) }}
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
         {% for realm in config.nodes.realms %}
         - !Ref Realm{{ realm.id }}Subnet
         {% endfor %}
       HealthCheckType: EC2
-      HealthCheckGracePeriod: 600
+      HealthCheckGracePeriod: 900
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-tikv-pd'
@@ -1115,7 +1119,7 @@ Resources:
           PropagateAtLaunch: true
   {% endfor %}
 # ECS Container Instances for Edge, Worker, and API services
-  ECSContainerInstancesLaunchTemplate:
+  GeneralECSInstancesLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-ecs-container-lt'
@@ -1123,7 +1127,7 @@ Resources:
       {% raw %}
         ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}'
       {% endraw %}
-        InstanceType: m6i.xlarge  # Or use calculated instance type
+        InstanceType: t3.large 
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
         SecurityGroupIds:
@@ -1147,19 +1151,18 @@ Resources:
             echo ECS_CLUSTER=${MainECSCluster} >> /etc/ecs/ecs.config
             echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
             echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            # Set attributes for all ECS services
             echo 'ECS_INSTANCE_ATTRIBUTES={"service":"ecs-container"}' >> /etc/ecs/ecs.config
 
-  ECSContainerInstancesASG:
+  GeneralECSInstancesASG:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-ecs-container-asg'
       LaunchTemplate:
-        LaunchTemplateId: !Ref ECSContainerInstancesLaunchTemplate
-        Version: !GetAtt ECSContainerInstancesLaunchTemplate.LatestVersionNumber
+        LaunchTemplateId: !Ref GeneralECSInstancesLaunchTemplate
+        Version: !GetAtt GeneralECSInstancesLaunchTemplate.LatestVersionNumber
       MinSize: 2
-      MaxSize: 10
-      DesiredCapacity: 4
+      MaxSize: 4
+      DesiredCapacity: 2  
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
         {% for realm in config.nodes.realms %}
@@ -1171,6 +1174,124 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-ecs-container'
           PropagateAtLaunch: true
+
+  WorkerInstancesLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-worker-ecs-lt'
+      LaunchTemplateData:
+      {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}'
+      {% endraw %}
+        InstanceType: c6a.2xlarge  # AMD EPYC, 8 vCPUs, 16GB RAM
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        SecurityGroupIds:
+          - !Ref ECSSecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-worker-ecs'
+              - Key: Service
+                Value: worker-ecs
+              - Key: Type
+                Value: worker
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo ECS_CLUSTER=${MainECSCluster} >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
+            # Add worker-specific attribute
+            echo 'ECS_INSTANCE_ATTRIBUTES={"workload":"worker","instance_type":"c6a.2xlarge"}' >> /etc/ecs/ecs.config
+            # Optimize for compute workloads
+            echo ECS_ENABLE_TASK_CPU_MEM_LIMIT=false >> /etc/ecs/ecs.config
+            echo ECS_IMAGE_CLEANUP_INTERVAL=30m >> /etc/ecs/ecs.config
+            echo ECS_IMAGE_MINIMUM_CLEANUP_AGE=30m >> /etc/ecs/ecs.config
+            
+  WorkerInstancesASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-worker-ecs-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WorkerInstancesLaunchTemplate
+        Version: !GetAtt WorkerInstancesLaunchTemplate.LatestVersionNumber
+      MinSize: 3
+      MaxSize: 3
+      DesiredCapacity: 3  # 3 EC2 instances for workers
+      VPCZoneIdentifier:
+        - !Ref CoordinatorSubnet
+        {% for realm in config.nodes.realms %}
+        - !Ref Realm{{ realm.id }}Subnet
+        {% endfor %}
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-worker-ecs'
+          PropagateAtLaunch: true
+        - Key: Type
+          Value: worker
+          PropagateAtLaunch: true
+
+  ProverInstanceLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-prover-lt'
+      LaunchTemplateData:
+      {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}'
+      {% endraw %}
+        InstanceType: c6a.2xlarge  
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        SecurityGroupIds:
+          - !Ref ECSSecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 200
+              VolumeType: gp3
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-prover'
+              - Key: Service
+                Value: prover
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo ECS_CLUSTER=${MainECSCluster} >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
+            echo 'ECS_INSTANCE_ATTRIBUTES={"workload":"prover"}' >> /etc/ecs/ecs.config
+
+
+  ProverInstanceASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-prover-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ProverInstanceLaunchTemplate
+        Version: !GetAtt ProverInstanceLaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 1  # Single prover instance
+      VPCZoneIdentifier:
+        - !Ref CoordinatorSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-prover'
+          PropagateAtLaunch: true  
 
   {% if has_timescaledb %}
   # ============================================================================
@@ -1295,20 +1416,6 @@ Outputs:
       Name: !Sub '${ProjectName}-${Environment}-alb-tg-realm-{{ realm.id }}'
   {% endfor %}
 
-  {% if uses_tikv_global %}
-  TiKVPDAutoScalingGroupName:
-    Description: TiKV PD Auto Scaling Group name (use this to query endpoints dynamically)
-    Value: !Ref TiKVPDAutoScalingGroup
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-tikv-pd-asg-name'
-
-  TiKVNodeAutoScalingGroupName:
-    Description: TiKV Node Auto Scaling Group name
-    Value: !Ref TiKVNodeAutoScalingGroup
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-tikv-node-asg-name'
-  {% endif %}
-
   # Redis Endpoints
   {% if coord_redis_type == 'elasticache' %}
   RedisCoordinatorEndpoint:
@@ -1330,6 +1437,15 @@ Outputs:
   {% endif %}
   {% endif %}
   {% endfor %}
+
+  # This belongs in main.yaml, not ecs-services.yaml
+  {% if uses_tikv_global %}
+  TiKVPDAutoScalingGroupName:
+    Description: TiKV PD Auto Scaling Group name
+    Value: !Ref TiKVPDAutoScalingGroup
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-tikv-pd-asg-name'
+  {% endif %}
 
   {% if has_timescaledb %}
   TimescaleDBEndpoint:

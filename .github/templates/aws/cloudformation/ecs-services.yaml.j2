@@ -1,3 +1,4 @@
+---
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'QED Protocol ECS Services - Edge, Worker, Watcher, and API Services'
 
@@ -74,7 +75,7 @@ Resources:
   # COORDINATOR ECS SERVICES (Edge & Watcher)
   # ============================================================================
 
-# Coordinator Edge Service
+  # Coordinator Edge Service
   CoordinatorEdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -164,8 +165,6 @@ Resources:
       TaskDefinition: !Ref CoordinatorEdgeTaskDefinition
       DesiredCount: {{ config.nodes.coordinator.edge.aws.ecs.task_count }}
       LaunchType: EC2
-      # REMOVE or fix placement constraints
-      # Since all ECS instances have same attribute, no constraint needed
       LoadBalancers:
         - ContainerName: coordinator-edge
           ContainerPort: 8545
@@ -273,7 +272,7 @@ Resources:
       LaunchType: EC2
       PlacementConstraints:
         - Type: memberOf
-          Expression: 'attribute:service == coordinator-processor'
+          Expression: 'attribute:workload == general'
   {% endif %}
 
   # ============================================================================
@@ -361,9 +360,6 @@ Resources:
       TaskDefinition: !Ref Realm{{ realm.id }}EdgeTaskDefinition
       DesiredCount: {{ realm.edge.aws.ecs.task_count | default(1) }}
       LaunchType: EC2
-      PlacementConstraints:
-        - Type: memberOf
-          Expression: 'attribute:service == realm-{{ realm.id }}-processor'
       LoadBalancers:
         - ContainerName: realm-{{ realm.id }}-edge
           ContainerPort: {{ 8546 + realm.id }}
@@ -473,10 +469,8 @@ Resources:
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
-     {% if pool.aws %}
-      Cpu: '{{ pool.aws.cpu }}'
-      Memory: '{{ pool.aws.memory }}'
-      {% endif %}
+      Cpu: '{{ pool.aws.cpu | default(8192) }}'   
+      Memory: '{{ pool.aws.memory | default(8192) }}'  
       ExecutionRoleArn: !Ref TaskExecutionRoleArn
       TaskRoleArn: !Ref TaskRoleArn
       Volumes:
@@ -532,11 +526,9 @@ Resources:
             - SourceVolume: config
               ContainerPath: /app
               ReadOnly: false
-         {% if pool.aws %}
-          Memory: {{ pool.aws.memory }}
-          MemoryReservation: {{ (pool.aws.memory * 0.75) | int }}
-          Cpu: {{ pool.aws.cpu }}
-         {% endif %}
+          Memory: {{ pool.aws.memory | default(8192) }}
+          MemoryReservation: {{ (pool.aws.memory | default(8192) * 0.9) | int }}  # 90% reservation for workers
+          Cpu: {{ pool.aws.cpu | default(8192) }}
           LinuxParameters:
             InitProcessEnabled: true
           LogConfiguration:
@@ -553,19 +545,25 @@ Resources:
       ServiceName: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}'
       Cluster: !Ref MainECSClusterName
       TaskDefinition: !Ref WorkerPool{{ loop.index }}TaskDefinition
-     {% if pool.aws and pool.aws.ecs %}
-      DesiredCount: {{ pool.aws.ecs.task_count | default(pool.instances) }}
-     {% else %}
-      DesiredCount: {{ pool.instances }}
-     {% endif %}
+      DesiredCount: {{ pool.aws.ecs.task_count | default(3) }}
       LaunchType: EC2
-      # Workers don't need placement constraints, they can run on any instance
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:worker_pool == {{ pool.id }}'  # Place on correct pool
+      PlacementStrategies:
+        - Type: spread
+          Field: instanceId  # Spread across different instances
+      DeploymentConfiguration:
+        MaximumPercent: 100      # Don't over-provision
+        MinimumHealthyPercent: 66  # Allow rolling updates 
+
+      SchedulingStrategy: REPLICA
 
   # Auto Scaling for Worker Pool {{ loop.index }}
   WorkerPool{{ loop.index }}ScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
-      MaxCapacity: 20
+      MaxCapacity: 6  # Max 6 tasks for worker pools
       {% if pool.aws and pool.aws.ecs %}
       MinCapacity: {{ pool.aws.ecs.task_count | default(pool.instances) }}
       {% else %}
@@ -588,6 +586,7 @@ Resources:
         TargetValue: 70.0
   {% endfor %}
   {% endif %}
+
 
   # ============================================================================
   # GLOBAL API SERVICE
@@ -761,12 +760,12 @@ Resources:
               Value: '{{ value | string }}'
             {% endfor %}
           PortMappings:
-            - ContainerPort: 8888
+            - ContainerPort: 9999
               Protocol: tcp
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'curl -f http://localhost:8888/health || exit 1'
+              - 'curl -f http://localhost:9999/health || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
@@ -778,6 +777,7 @@ Resources:
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: prover
 
+  # Prover Service with dedicated placement
   ProverService:
     Type: AWS::ECS::Service
     Properties:
@@ -792,7 +792,7 @@ Resources:
       ServiceRegistries:
         - RegistryArn: !GetAtt ProverServiceDiscovery.Arn
           ContainerName: prover
-          ContainerPort: 8888
+          ContainerPort: 9999
 
   ProverServiceDiscovery:
     Type: AWS::ServiceDiscovery::Service
@@ -898,3 +898,4 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-prover-sd'
   {% endif %}
+  
