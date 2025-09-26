@@ -33,6 +33,8 @@ impl UPSVerifyPopDeferredTxStepGadget {
         current_proof_tree_root: HashOutTarget,
         ups_session_proof_tree_height: usize,
     ) -> Self {
+        tracing::debug!("🔄 UPS Pop Deferred TX - current_proof_tree_root: {:?}, deferred_tx_debt_tree_root: {:?}",
+            current_proof_tree_root, previous_step_header_gadget.current_state.deferred_tx_debt_tree_root);
         let ups_pop_deferred_tx_proof = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(
             builder,
             DEFERRED_TRANSACTION_TREE_HEIGHT as usize
@@ -95,6 +97,10 @@ impl UPSVerifyPopDeferredTxStepGadget {
         witness: &mut impl Witness<F>,
         target: &UPSVerifyPopDeferredTxStepInput<F>,
     )  -> anyhow::Result<()> {
+        tracing::debug!("🔄 UPS Pop Deferred TX set_witness - deferred_tx_proof old_root: {}, new_root: {}",
+            serde_json::to_string_pretty(&target.ups_pop_deferred_tx_proof.old_root).unwrap(),
+            serde_json::to_string_pretty(&target.ups_pop_deferred_tx_proof.new_root).unwrap());
+        
         self.standard_cfc_verify_gadget.set_witness(
             witness,
             &target.standard_cfc_verify_input

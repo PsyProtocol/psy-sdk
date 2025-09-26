@@ -516,12 +516,13 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
 impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreFred {
     async fn peek_with_position<T: DQSerializable>(
         &self,
+        _count: Option<isize>,
         _channel_id: u64,
         _checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueOffsetState)> {
         todo!()
     }
-    
+
     async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()> {
         todo!()
     }
@@ -554,7 +555,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreFred {
     async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
         Ok(0)
     }
-    
+
     async fn peek_with_position<F: RichField>(
         &self,
         _count: usize,
@@ -562,11 +563,11 @@ impl QPendingUserStoreAsyncImm for ProofStoreFred {
     ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueOffsetState)> {
         todo!()
     }
-    
+
     async fn commit_offset(&self, _state: &QueueOffsetState) -> anyhow::Result<()> {
         todo!()
     }
-    
+
     async fn get_last_peek_offset(&self) -> anyhow::Result<Option<QueueOffsetState>> {
         todo!()
     }

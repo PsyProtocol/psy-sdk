@@ -109,6 +109,7 @@ impl<const D: usize> VerifyAggUserRegistartionDeployContractsGUTAGadget<D> {
         guta_verifier_data_cap_height: usize,
         guta_circuit_whitelist_root: QHashOut<F>,
     ) -> Self  where C::Hasher: AlgebraicHasher<F> {
+        tracing::debug!("🏭 Agg User Registration Deploy Contracts GUTA - guta_circuit_whitelist_root: {:?}", guta_circuit_whitelist_root);
         let verify_register_users_gadget = VerifyStateTransitionProofGadget::<D>::add_virtual_to_with_config::<C,F>(
             builder,
             user_reg_proof_common_data,
@@ -186,6 +187,14 @@ impl<const D: usize> VerifyAggUserRegistartionDeployContractsGUTAGadget<D> {
     ) -> anyhow::Result<()>
     where
         C::Hasher: AlgebraicHasher<F> {
+
+        tracing::debug!("🏭 Agg User Registration Deploy Contracts GUTA set_witness - register_users public_inputs: {}, deploy_contracts public_inputs: {}, guta_proof public_inputs: {}",
+            serde_json::to_string_pretty(&register_users_proof.public_inputs).unwrap(),
+            serde_json::to_string_pretty(&deploy_contracts_proof.public_inputs).unwrap(),
+            serde_json::to_string_pretty(&guta_proof.public_inputs).unwrap());
+        
+        tracing::debug!("🏭 Agg User Registration Deploy Contracts GUTA set_witness - guta_proof_header: {}",
+            serde_json::to_string_pretty(guta_proof_header).unwrap());
 
         self.verify_register_users_gadget.set_witness::<F,C>(
             witness,

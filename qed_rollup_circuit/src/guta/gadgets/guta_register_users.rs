@@ -52,6 +52,8 @@ impl GUTARegisterUsersGadget {
 
         let mut state_transition = first_user.get_state_transition(builder);
 
+        tracing::debug!("🔄 GUTA Register Users - initial state_transition: {:?}", state_transition);
+
         let global_user_tree_proof_height = first_user.global_user_tree_proof_height;
         let user_registration_tree_root = first_user.user_registration_tree_root;
 
@@ -106,7 +108,7 @@ impl GUTARegisterUsersGadget {
             register_user_gadgets.push(user);
         }
 
-
+        tracing::debug!("🔄 GUTA Register Users - final state_transition: {:?}", state_transition);
 
         Self {
             register_user_gadgets,
@@ -132,6 +134,9 @@ impl GUTARegisterUsersGadget {
     ) -> anyhow::Result<()> {
 
         let inputs_len = guta_register_user_inputs.len();
+        
+        tracing::debug!("🔄 GUTA Register Users set_witness - inputs_len: {}, state_transition: {:?}", 
+            inputs_len, self.state_transition);
 
         if inputs_len == 0 {
             anyhow::bail!("must provide at least one guta_register_user_input");

@@ -125,6 +125,9 @@ impl HistoricalRootMerkleProofGadget {
         let mut historical_state: HashOutTarget = start_historical_state;
         //debug_assert_eq!(state.elements.len(), NUM_HASH_OUT_ELEMENTS);
 
+        tracing::debug!("🔍 Historical Merkle Proof - initial state: {:?}, historical_state: {:?}, value: {:?}",
+            state, historical_state, value);
+
         let mut level = 0;
 
         for (&bit, &sibling) in index_bits.iter().zip(siblings) {
@@ -171,6 +174,9 @@ impl HistoricalRootMerkleProofGadget {
         witness: &mut W,
         proof: &MerkleProofCore<QHashOut<F>>,
     )  -> anyhow::Result<()> {
+        tracing::debug!("🔍 Historical Merkle Proof set_witness - index: {}, value: {}, siblings_len: {}",
+            proof.index, proof.value, proof.siblings.len());
+
         self.set_witness_generic::<W, F>(
             witness,
             F::from_noncanonical_u64(proof.index),
@@ -208,10 +214,10 @@ mod tests {
         let (expected_historical_root, expected_current_root) = compute_historical_and_current_merkle_roots_core::<QHashOut<F>, PoseidonHash>(
             mp,
         );
-        
+
         // this should never happpen if mp.root and compute_historical_and_current_merkle_roots_core is correct
         assert_eq!(expected_current_root, mp.root, "compute_historical_and_current_merkle_roots_core computed a root which doesn't match merkle_proof.root");
- 
+
         let tree_height = mp.siblings.len();
 
         // start building the circuit
@@ -244,7 +250,7 @@ mod tests {
         for i in 0..128 {
             historical_roots.push(
                 merkle_tree.set_leaf(i, QHashOut::from_values(100+i, 5, 16, i)).old_root
-            );   
+            );
         }
 
         for (i, historical_root) in historical_roots.into_iter().enumerate() {
@@ -264,7 +270,7 @@ mod tests {
         for i in 0..4 {
             historical_roots.push(
                 merkle_tree.set_leaf(i, QHashOut::from_values(100+i, 5, 16, i)).old_root
-            );   
+            );
         }
 
         for (i, historical_root) in historical_roots.into_iter().enumerate() {

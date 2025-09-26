@@ -68,11 +68,13 @@ where
             &mut builder,
             b_guta_gadget.guta_proof_header_gadget.guta_circuit_whitelist,
         );
+        tracing::debug!("📊 a_guta_header: {:?}", a_guta_header);
 
         let b_guta_header = b_guta_gadget.get_guta_header::<C::Hasher, C::F>(
             &mut builder,
             b_guta_gadget.guta_proof_header_gadget.guta_circuit_whitelist
         );
+        tracing::debug!("📊 b_guta_header: {:?}", b_guta_header);
 
 
         let nca_state_transition_gadget = TwoNCAStateTransitionGadget::add_virtual_to::<C::Hasher, C::F, D>(

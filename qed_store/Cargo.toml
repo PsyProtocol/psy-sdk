@@ -20,6 +20,7 @@ plonky2 = { workspace = true }
 tracing = { workspace = true }
 indexmap = { workspace = true }
 clap = { workspace = true }
+hex = { workspace = true }
 
 kvq = { workspace = true }
 qed_core = { workspace = true }

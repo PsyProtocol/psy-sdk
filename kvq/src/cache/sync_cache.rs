@@ -132,7 +132,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
         self.map.write().clear();
     }
 
-    fn flush_simple(&self) -> anyhow::Result<()> {
+    fn flush_simple(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (keys_to_set, removed_keys) = {
             let mut map = self.map.write();
             let keys_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>> = map.iter().filter(|(_, vt)|{
@@ -173,7 +173,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
         self.store.set_and_delete_many(&keys_to_set_ref,&removed_keys)?;
 
         self.map.write().clear();
-        Ok(())
+        Ok((keys_to_set, removed_keys))
     }
 }
 

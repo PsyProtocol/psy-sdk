@@ -21,6 +21,8 @@ impl TwoNCAStateTransitionGadget {
         a_header: GlobalUserTreeAggregatorHeaderGadget,
         b_header: GlobalUserTreeAggregatorHeaderGadget,
     ) -> Self {
+        tracing::debug!("🔗 a_header: {:?}, b_header: {:?}", a_header, b_header);
+
         let update_nca_proof_gadget = UpdateNearestCommonAncestorProofOptGadget::add_virtual_to_full::<H,F,D>(builder, GLOBAL_USER_TREE_HEIGHT as usize);
 
         // TODO: WHY WAS THIS REMOVED, I am adding back!?!!, we need to make sure a and b have the same checkpoint root
@@ -87,6 +89,8 @@ impl TwoNCAStateTransitionGadget {
             },
             stats: new_stats,
         };
+
+        tracing::debug!("📊 new_guta_header: {:?}", new_guta_header);
 
 
 

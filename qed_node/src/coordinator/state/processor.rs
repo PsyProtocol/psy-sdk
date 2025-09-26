@@ -199,6 +199,7 @@ impl<
         let (deploy_contract_items, _consumption_state) = self
             .checkpoint_queue
             .peek_with_position::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
+                None,
                 self.coordinator_config.deploy_contract_channel_id,
                 checkpoint_id,
             )
@@ -293,7 +294,7 @@ impl<
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
         let (user_registrations, consumption_state) = self
             .checkpoint_queue
-            .peek_with_position::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID, checkpoint_id)
+            .peek_with_position::<ZKPublicKeyInfo<F>>(None, COORD_API_REGISTER_USER_CHANNEL_ID, checkpoint_id)
             .await?;
 
         let start_registration_user_id = last_l2_blockstate.next_user_id;
@@ -377,7 +378,7 @@ impl<
         tracing::debug!(checkpoint_id = checkpoint_id, "Processing checkpoint");
         let (mut guta_queue_items, consumption_state) = self
             .checkpoint_queue
-            .peek_with_position::<SubmitGUTARealmResultAPIQueueItem<F>>(self.coordinator_config.guta_channel_id, checkpoint_id)
+            .peek_with_position::<SubmitGUTARealmResultAPIQueueItem<F>>(None, self.coordinator_config.guta_channel_id, checkpoint_id)
             .await?;
         tracing::debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items).unwrap(), "GUTA queue items");
         let last_checkpoint_id = checkpoint_id.saturating_sub(1);
@@ -693,10 +694,6 @@ impl<
                         ProvingJobDataType::InputWitness,
                         0,
                     );
-
-                    for dep in &x.dependencies {
-                        graph.add_edge(w_id.get_output_id(), *dep);
-                    }
 
                     combo_stats.push((w_id.get_output_id(), x.input.get_combined_stats()));
 
@@ -1210,13 +1207,14 @@ impl<
         Ok(false)
     }
 
-    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
-        self.store.commit(checkpoint_id)?;
+    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
+        let (pair_to_set, remove_keys) = self.store.commit(checkpoint_id)?;
         self.commit_offset().await?;
         self.task_store
-        .save_job_dependency_graph(checkpoint_id)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", checkpoint_id, e))
+            .save_job_dependency_graph(checkpoint_id)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", checkpoint_id, e))?;
+        Ok((pair_to_set, remove_keys))
     }
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {

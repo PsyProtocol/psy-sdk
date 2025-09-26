@@ -11,7 +11,7 @@ struct OtherUserInfo {
 #[derive(Storage, StorageRef)]
 struct PsyTokenContract {
     pub balance: Felt,
-    pub other_user_info: [OtherUserInfo; 1073741824],
+    pub other_user_info: [OtherUserInfo; 16777216],
     pub last_claimed_pow_rewards_checkpoint_id: Felt
 }
 

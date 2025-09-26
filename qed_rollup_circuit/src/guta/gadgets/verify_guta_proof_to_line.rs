@@ -47,6 +47,8 @@ impl<const D: usize> VerifyGUTAProofToLineGadget<D> {
             global_user_tree_height,
             &verify_guta_proof_gadget.guta_proof_header_gadget
         );
+
+        tracing::debug!("📊 header_line_gadget.new_guta_header: {:?}", header_line_gadget.new_guta_header);
         Self {
             verify_guta_proof_gadget,
             header_line_gadget,

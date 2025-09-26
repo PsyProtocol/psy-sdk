@@ -11,9 +11,11 @@ pub type F = qed_data::config::store_config::QEDFelt;
 
 pub type H = QEDHasher;
 
+pub mod backup;
 pub mod config;
 pub mod edge;
 pub mod processor;
+pub mod recovery;
 pub mod state;
 
 pub use config::*;

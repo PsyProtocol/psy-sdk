@@ -43,12 +43,10 @@ where
             end_cap_proof_verifier_data_cap_height: usize,
             known_end_cap_fingerprint: QHashOut<C::F>,
         ) -> Self {
-
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
         let known_end_cap_fingerprint_hash = builder.constant_qhash(known_end_cap_fingerprint);
-
 
         let a_guta_gadget = VerifyGUTAProofGadget::<D>::add_virtual_to::<C, C::F>(
             &mut builder,
@@ -63,17 +61,17 @@ where
             known_end_cap_fingerprint_hash,
         );
 
-
         let a_guta_header = a_guta_gadget.get_guta_header::<C::Hasher, C::F>(
             &mut builder,
             a_guta_gadget.guta_proof_header_gadget.guta_circuit_whitelist,
         );
+        tracing::debug!("📊 a_guta_header: {:?}", a_guta_header);
 
         let b_guta_header = b_end_cap_gadget.get_guta_header::<C::Hasher, C::F>(
             &mut builder,
             a_guta_gadget.guta_proof_header_gadget.guta_circuit_whitelist,
         );
-
+        tracing::debug!("📊 b_guta_header: {:?}", b_guta_header);
 
         let nca_state_transition_gadget = TwoNCAStateTransitionGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,
@@ -226,7 +224,7 @@ where
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
         tracing::debug!("GUTAVerifyLeftGUTARightEndCapCircuitInput: {}", serde_json::to_string_pretty(&r)?);
-        
+
         if r.dependencies.len() != 2 {
             anyhow::bail!("invalid dependency count in left guta right end cap input");
         }

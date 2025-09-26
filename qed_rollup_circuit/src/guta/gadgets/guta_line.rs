@@ -38,6 +38,8 @@ impl GUTAHeaderLineProofGadget {
             stats: child_proof_header.stats,
         };
 
+        tracing::debug!("📏 GUTA Line - new_guta_header: {:?}", new_guta_header);
+
 
         Self {
             top_line_gadget,
