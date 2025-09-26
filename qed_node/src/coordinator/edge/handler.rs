@@ -1822,6 +1822,9 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                         unready_jobs.push(job.clone());
                         continue;
                     }
+                } else if job_id.is_notify_complete() {
+                    self.acknowledge_job_completion(job, &worker_id).await.map_err(RpcError::Anyhow)?;
+                    continue;
                 }
             }
             break;
@@ -1953,6 +1956,16 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             info!("✅ Proof stored successfully for job {:?}", job_id);
         }
 
+        self.acknowledge_job_completion(&job, worker_id).await.map_err(RpcError::Anyhow)?;
+        Ok(())
+    }
+}
+
+impl CoordinatorEdgeHandler {
+    async fn acknowledge_job_completion(&self, job: &QJob, worker_id: impl ToString) -> anyhow::Result<()> {
+        let job_id = job.job_id;
+        let worker_id = worker_id.to_string();
+
         // Acknowledge job completion and get the job status
         let job_status = match self.task_store.acknowledge_job_completion(&job, &worker_id).await {
             Ok(status) => {
@@ -1961,7 +1974,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             }
             Err(e) => {
                 error!("Error acknowledging job completion: {:?}", e);
-                return Err(RpcError::Anyhow(e.into()));
+                return Err(e.into());
             }
         };
 
@@ -1987,9 +2000,9 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             info!("Notifying core goal completed: {:?}", job_id);
             self.history_queue
                 .notify_core_goal_completed_imm(job_id)
-                .await
-                .map_err(RpcError::Anyhow)?;
+                .await?;
         }
+
         Ok(())
     }
 }

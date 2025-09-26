@@ -827,6 +827,9 @@ where
                         unready_jobs.push(job.clone());
                         continue;
                     }
+                } else if job_id.is_notify_complete() {
+                    self.acknowledge_job_completion(job, &worker_id).await.map_err(RpcError::Anyhow)?;
+                    continue;
                 }
             }
             break;
@@ -949,6 +952,22 @@ where
 
         // remove the job from the current task, no matter if proof is None or Some
         let worker_id = signed.worker_public_key.to_string();
+        self.acknowledge_job_completion(&job, worker_id).await.map_err(RpcError::Anyhow)?;
+        Ok(())
+    }
+}
+
+
+impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
+where
+    SR: QEDRealmStoreReaderAsync<F> + Sync,
+    DQ: CheckpointDrainQueueEmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
+{
+    async fn acknowledge_job_completion(&self, job: &QJob, worker_id: impl ToString) -> anyhow::Result<()> {
+        let job_id = job.job_id;
+        let worker_id = worker_id.to_string();
+
         let job_status = match self.task_store.acknowledge_job_completion(&job, &worker_id).await {
             Ok(status) => {
                 info!("Job completed successfully: {:?}", job_id);
@@ -956,11 +975,7 @@ where
             },
             Err(e) => {
                 error!("Error acknowledging job completion: {:?}", e);
-                return Err(ErrorObject::owned(
-                    ErrorCode::InternalError.code(),
-                    format!("Failed to acknowledge job completion: {}", e),
-                    None::<()>,
-                ));
+                return Err(e.into())
             }
         };
 
@@ -986,10 +1001,9 @@ where
             info!("Notifying core goal completed: {:?}", job_id);
             self.job_notify_queue
                 .notify_core_goal_completed_imm(job_id)
-                .await
-                .map_err(RpcError::Anyhow)?;
+                .await?;
         }
+
         Ok(())
     }
 }
-
