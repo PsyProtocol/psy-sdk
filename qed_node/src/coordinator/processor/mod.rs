@@ -70,7 +70,7 @@ use crate::common::retry::Retryable;
 use crate::common::slot;
 use crate::common::slot::{LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::realm::RealmProcessor;
-use super::backup::{S3BackupClient, try_backup_coordinator_checkpoint};
+use super::backup::{CoordinatorS3BackupClient, try_backup_coordinator_checkpoint};
 use tokio::sync::mpsc;
 
 type C = PoseidonGoldilocksConfig;
@@ -125,7 +125,7 @@ impl<
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
         task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
-        let backup_tx =  match S3BackupClient::new_from_env().await {
+        let backup_tx =  match CoordinatorS3BackupClient::new_from_env().await {
             Ok(client) => {
                 info!("✅ S3 backup client initialized");
                 let (tx, rx) = mpsc::unbounded_channel();
@@ -356,7 +356,7 @@ impl
         self.ctx.has_pending_tasks(checkpoint_id).await
     }
 
-    async fn backup_task(mut rx: mpsc::UnboundedReceiver<CoordinatorBackupRequest>, backup_client: S3BackupClient) {
+    async fn backup_task(mut rx: mpsc::UnboundedReceiver<CoordinatorBackupRequest>, backup_client: CoordinatorS3BackupClient) {
         info!("🚀 Coordinator backup task started");
         while let Some(request) = rx.recv().await {
             let CoordinatorBackupRequest {
@@ -406,7 +406,7 @@ impl
 
     async fn backup_checkpoint(
         &self,
-        backup_client: &S3BackupClient,
+        backup_client: &CoordinatorS3BackupClient,
         checkpoint_id: u64,
         pair_to_set: Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>,
         removed_keys: Vec<Vec<u8>>,
