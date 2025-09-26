@@ -1798,41 +1798,23 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             .map_err(|e| RpcError::Anyhow(e.into()))?;
 
         let worker_id = signed.worker_public_key.to_string();
-        let mut unready_jobs = vec![];
         let mut j = None;
         loop {
             j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
                 Ok(job) => job,
                 Err(e) => {
                     error!("Error claiming job from current task: {:?}", e);
-                    for job in unready_jobs {
-                        if let Err(err) = self.task_store.make_job_visible_again(&job).await {
-                            error!("Error making job visible again: {:?}, job: {:?}", err, job);
-                        }
-                    }
                     return Err(RpcError::Anyhow(e.into()))
                 }
             };
             if let Some(job) = &j {
                 let job_id = &job.job_id;
-                if job_id.is_provable() {
-                    if let Err(err) = self.proof_store.get_bytes_by_id(job_id.get_input_witness_id()).await {
-                        warn!("Error fetching witness for job {:?}: {:?}, marking job as unready", job_id, err);
-                        warn!("Input witness missing for job {:?}, marking as unready", job_id);
-                        unready_jobs.push(job.clone());
-                        continue;
-                    }
-                } else if job_id.is_notify_complete() {
+                if job_id.is_notify_complete() {
                     self.acknowledge_job_completion(job, &worker_id).await.map_err(RpcError::Anyhow)?;
                     continue;
                 }
             }
             break;
-        }
-        for job in unready_jobs {
-            if let Err(err) = self.task_store.make_job_visible_again(&job).await {
-                error!("Error making job visible again: {:?}, job: {:?}", err, job);
-            }
         }
         match j {
             Some(job) => {
