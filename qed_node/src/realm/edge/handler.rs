@@ -803,13 +803,39 @@ where
         )?;
 
         let worker_id = signed.worker_public_key.to_string();
-        let j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
-            Ok(job) => job,
-            Err(e) => {
-                error!("Error claiming job from current task: {:?}", e);
-                return Err(crate::coordinator::edge::error::RpcError::Anyhow(e.into()));
+        let mut unready_jobs = vec![];
+        let mut j = None;
+        loop {
+            j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
+                Ok(job) => job,
+                Err(e) => {
+                    error!("Error claiming job from current task: {:?}", e);
+                    for job in unready_jobs {
+                        if let Err(err) = self.task_store.make_job_visible_again(&job).await {
+                            error!("Error making job visible again: {:?}, job: {:?}", err, job);
+                        }
+                    }
+                    return Err(crate::coordinator::edge::error::RpcError::Anyhow(e.into()));
+                }
+            };
+            if let Some(job) = &j {
+                let job_id = &job.job_id;
+                if job_id.is_provable() {
+                    if let Err(err) = self.ctx.proof_store.get_bytes_by_id(job_id.get_input_witness_id()).await {
+                        warn!("Error retrieving input witness for job {:?}: {:?}", job_id, err);
+                        warn!("Input witness not found for job {:?}, marking as unready and trying next", job_id);
+                        unready_jobs.push(job.clone());
+                        continue;
+                    }
+                }
             }
-        };
+            break;
+        }
+        for job in unready_jobs {
+            if let Err(err) = self.task_store.make_job_visible_again(&job).await {
+                error!("Error making job visible again: {:?}, job: {:?}", err, job);
+            }
+        }
         match j {
             Some(job) => {
                 debug!("Pending job from current task: {:?}", job);
