@@ -874,9 +874,9 @@ Resources:
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-coordinator-processor-lt'
       LaunchTemplateData:
-        {% raw %}
+      {% raw %}
         ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
-        {% endraw %}
+      {% endraw %}
         InstanceType: c6i.xlarge
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
@@ -906,7 +906,7 @@ Resources:
             aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
 
             # Get TiKV PD endpoints
-            MAX_RETRIES=10
+            MAX_RETRIES=30
             RETRY_COUNT=0
 
             while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
@@ -941,7 +941,7 @@ Resources:
 
               echo "Waiting for TiKV PD cluster... attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
               RETRY_COUNT=$((RETRY_COUNT + 1))
-              sleep 30
+              sleep 10
             done
 
             if [ -z "$PD_ENDPOINTS" ]; then
@@ -955,13 +955,20 @@ Resources:
             # Run coordinator processor
             docker run -d --name coordinator-processor \
               --restart=unless-stopped \
+              --log-driver=awslogs \
+              --log-opt awslogs-group={{ config.nodes.deployment.aws.ecs.log_group }} \
+              --log-opt awslogs-region=${AWS::Region} \
+              --log-opt awslogs-stream-prefix=coordinator-processor \
               -e RUST_LOG='{{ config.nodes.coordinator.processor.env.RUST_LOG }}' \
               ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
               coordinator-processor \
               --database tikv \
               --tikv-pd-endpoints $PD_ENDPOINTS \
-              --tikv-namespace coordinator \
-              --redis-uri redis://$REDIS_ENDPOINT:6379
+              --tikv-namespace {{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator \
+              --redis-uri redis://$REDIS_ENDPOINT:6379 \
+              {% for key, value in (config.nodes.coordinator.processor.args | default({}) | dictsort) %}
+              --{{ key | replace('_','-') }} '{{ value | string }}' \
+              {% endfor %}
 
   CoordinatorProcessorASG:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -1107,154 +1114,63 @@ Resources:
           Value: realm-{{ realm.id }}-processor
           PropagateAtLaunch: true
   {% endfor %}
-
-  # ============================================================================
-  # EDGE SERVICES (ECS DEPLOYMENT) - ASGs for ECS instances only
-  # ============================================================================
-
-  # Coordinator Edge ASG (for ECS instances)
-  CoordinatorEdgeLaunchTemplate:
+# ECS Container Instances for Edge, Worker, and API services
+  ECSContainerInstancesLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-coordinator-edge-lt'
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-ecs-container-lt'
       LaunchTemplateData:
-        {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
-        {% endraw %}
-        InstanceType: m6i.xlarge
+      {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}'
+      {% endraw %}
+        InstanceType: m6i.xlarge  # Or use calculated instance type
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
         SecurityGroupIds:
-          - !Ref CoordinatorSecurityGroup
+          - !Ref ECSSecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              DeleteOnTermination: true
         TagSpecifications:
           - ResourceType: instance
             Tags:
               - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-coordinator-edge'
+                Value: !Sub '${ProjectName}-${Environment}-ecs-container'
               - Key: Service
-                Value: coordinator-edge
+                Value: ecs-container
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
-            set -e
-
-            # Update system and install ECS
-            apt-get update
-            apt-get install -y curl docker.io jq awscli
-            systemctl enable docker
-            systemctl start docker
-            usermod -aG docker ubuntu
-
-            # Install ECS agent
-            curl -O https://s3.${AWS::Region}.amazonaws.com/amazon-ecs-agent-${AWS::Region}/amazon-ecs-init-latest.amd64.deb
-            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
-
-            # Configure ECS
-            mkdir -p /etc/ecs
-            echo ECS_CLUSTER=${ProjectName}-${Environment}-main-ecs >> /etc/ecs/ecs.config
+            echo ECS_CLUSTER=${MainECSCluster} >> /etc/ecs/ecs.config
             echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
             echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo ECS_INSTANCE_ATTRIBUTES='{"service":"coordinator-edge"}' >> /etc/ecs/ecs.config
+            # Set attributes for all ECS services
+            echo 'ECS_INSTANCE_ATTRIBUTES={"service":"ecs-container"}' >> /etc/ecs/ecs.config
 
-            systemctl enable ecs
-            systemctl start ecs
-
-  CoordinatorEdgeASG:
+  ECSContainerInstancesASG:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-coordinator-edge-asg'
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-ecs-container-asg'
       LaunchTemplate:
-        LaunchTemplateId: !Ref CoordinatorEdgeLaunchTemplate
-        Version: !GetAtt CoordinatorEdgeLaunchTemplate.LatestVersionNumber
-      MinSize: 1
-      MaxSize: 3
-      DesiredCapacity: 2
+        LaunchTemplateId: !Ref ECSContainerInstancesLaunchTemplate
+        Version: !GetAtt ECSContainerInstancesLaunchTemplate.LatestVersionNumber
+      MinSize: 2
+      MaxSize: 10
+      DesiredCapacity: 4
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
-      TargetGroupARNs:
-        - !Ref ALBTargetGroupCoordinator
-      HealthCheckType: EC2
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-coordinator-edge'
-          PropagateAtLaunch: true
-        - Key: Service
-          Value: coordinator-edge
-          PropagateAtLaunch: true
-
-  # Realm Edge ASGs (for ECS instances)
-  {% for realm in config.nodes.realms %}
-  Realm{{ realm.id }}EdgeLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge-lt'
-      LaunchTemplateData:
-        {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
-        {% endraw %}
-        InstanceType: m6i.xlarge
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        SecurityGroupIds:
-          - !Ref Realm{{ realm.id }}SecurityGroup
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge'
-              - Key: Service
-                Value: realm-{{ realm.id }}-edge
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-
-            # Update system and install ECS
-            apt-get update
-            apt-get install -y curl docker.io jq awscli
-            systemctl enable docker
-            systemctl start docker
-            usermod -aG docker ubuntu
-
-            # Install ECS agent
-            curl -O https://s3.${AWS::Region}.amazonaws.com/amazon-ecs-agent-${AWS::Region}/amazon-ecs-init-latest.amd64.deb
-            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
-
-            # Configure ECS
-            mkdir -p /etc/ecs
-            echo ECS_CLUSTER=${ProjectName}-${Environment}-main-ecs >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo ECS_INSTANCE_ATTRIBUTES='{"service":"realm-{{ realm.id }}-edge"}' >> /etc/ecs/ecs.config
-
-            systemctl enable ecs
-            systemctl start ecs
-
-  Realm{{ realm.id }}EdgeASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref Realm{{ realm.id }}EdgeLaunchTemplate
-        Version: !GetAtt Realm{{ realm.id }}EdgeLaunchTemplate.LatestVersionNumber
-      MinSize: 1
-      MaxSize: 3
-      DesiredCapacity: 2
-      VPCZoneIdentifier:
+        {% for realm in config.nodes.realms %}
         - !Ref Realm{{ realm.id }}Subnet
-      TargetGroupARNs:
-        - !Ref ALBTargetGroupRealm{{ realm.id }}
+        {% endfor %}
       HealthCheckType: EC2
       HealthCheckGracePeriod: 300
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge'
+          Value: !Sub '${ProjectName}-${Environment}-ecs-container'
           PropagateAtLaunch: true
-        - Key: Service
-          Value: realm-{{ realm.id }}-edge
-          PropagateAtLaunch: true
-  {% endfor %}
 
   {% if has_timescaledb %}
   # ============================================================================

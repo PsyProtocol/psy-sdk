@@ -798,6 +798,48 @@ deploy_ecs_services() {
         --output json \
         --region "${REGION}")
     
+    # Get TiKV PD endpoints dynamically
+    log_info "Discovering TiKV PD endpoints..."
+    local PD_ENDPOINTS=""
+    
+    # Try to get the ASG name from the main stack outputs first
+    local tikv_pd_asg_name=$(echo "$outputs" | jq -r '.[] | select(.OutputKey=="TiKVPDAutoScalingGroupName") | .OutputValue // ""')
+    
+    if [ -z "$tikv_pd_asg_name" ]; then
+        # Fallback to constructed name
+        tikv_pd_asg_name="${PROJECT_NAME}-${ENVIRONMENT:-dev}-tikv-pd-asg"
+        log_warning "TiKV PD ASG name not found in outputs, using: $tikv_pd_asg_name"
+    fi
+    
+    # Get PD instance IDs
+    local PD_INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+        --auto-scaling-group-names "$tikv_pd_asg_name" \
+        --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
+        --output text \
+        --region "${REGION}" 2>/dev/null || echo "")
+    
+    if [ -n "$PD_INSTANCE_IDS" ]; then
+        for id in $PD_INSTANCE_IDS; do
+            local IP=$(aws ec2 describe-instances \
+                --instance-ids $id \
+                --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                --output text \
+                --region "${REGION}" 2>/dev/null)
+            if [ -n "$IP" ]; then
+                if [ -z "$PD_ENDPOINTS" ]; then
+                    PD_ENDPOINTS="$IP:2379"
+                else
+                    PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
+                fi
+            fi
+        done
+        log_info "Discovered TiKV PD endpoints: $PD_ENDPOINTS"
+    else
+        # Fallback to default if TiKV is not deployed or not ready
+        log_warning "Could not discover TiKV PD endpoints, using defaults"
+        PD_ENDPOINTS="127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383"
+    fi
+    
     # Build parameters array for create-stack/update-stack
     # ONLY include parameters that are defined in the services template
     local params_array=()
@@ -805,6 +847,9 @@ deploy_ecs_services() {
     # Add ProjectName and Environment parameters
     params_array+=("ParameterKey=ProjectName,ParameterValue=${PROJECT_NAME}")
     params_array+=("ParameterKey=Environment,ParameterValue=${ENVIRONMENT:-dev}")
+    
+    # Add TiKV PD endpoints parameter
+    params_array+=("ParameterKey=TiKVPDEndpoints,ParameterValue=$PD_ENDPOINTS")
     
     # List of parameters that the services template expects from main stack outputs
     local expected_params=(
@@ -819,6 +864,7 @@ deploy_ecs_services() {
         "RedisCoordinatorEndpoint"
         {% for realm in config.nodes.realms %}"RedisRealm{{ realm.id }}Endpoint" {% endfor %}
         {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"TimescaleDBEndpoint"{% endif %}
+        {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"DBPasswordSecretArn"{% endif %}
     )
     
     # Extract only the expected parameters
@@ -828,11 +874,33 @@ deploy_ecs_services() {
             params_array+=("ParameterKey=$param,ParameterValue=$value")
         else
             log_warning "Expected parameter $param not found in main stack outputs"
+            # Add default values for critical missing parameters
+            case "$param" in
+                "MainECSClusterName")
+                    params_array+=("ParameterKey=$param,ParameterValue=${PROJECT_NAME}-${ENVIRONMENT:-dev}-main-ecs")
+                    ;;
+                "ECRRepositoryURI")
+                    local account_id=$(aws sts get-caller-identity --query Account --output text)
+                    params_array+=("ParameterKey=$param,ParameterValue=${account_id}.dkr.ecr.${REGION}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}")
+                    ;;
+            esac
         fi
     done
     
+    # Debug: Print parameters being passed
+    if [ "$VERBOSE" = true ]; then
+        log_debug "Stack parameters:"
+        for param in "${params_array[@]}"; do
+            log_debug "  $param"
+        done
+    fi
+    
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY RUN] Would deploy services stack with parameters"
+        log_info "[DRY RUN] TiKV PD Endpoints: $PD_ENDPOINTS"
+        for param in "${params_array[@]}"; do
+            log_info "[DRY RUN] Parameter: $param"
+        done
     else
         local stack_name="${PROJECT_NAME}-services"
         
@@ -851,22 +919,72 @@ deploy_ecs_services() {
                         log_info "No changes detected for services stack"
                         return 0
                     else
+                        log_error "Failed to update services stack (status: $update_status)"
+                        # Show recent error events
+                        aws cloudformation describe-stack-events \
+                            --stack-name "$stack_name" \
+                            --query "StackEvents[?ResourceStatus=='UPDATE_FAILED'][0:3].{Resource:LogicalResourceId,Reason:ResourceStatusReason}" \
+                            --output table \
+                            --region "${REGION}" 2>/dev/null || true
                         return $update_status
                     fi
                 }
         else
             log_info "Creating new services stack..."
-            aws cloudformation create-stack \
+            if ! aws cloudformation create-stack \
                 "$template_param" "$template_value" \
                 --stack-name "$stack_name" \
                 --parameters "${params_array[@]}" \
                 --capabilities CAPABILITY_IAM \
-                --region "${REGION}"
+                --region "${REGION}"; then
+                log_error "Failed to create services stack"
+                return 1
+            fi
         fi
         
         # Monitor progress
         monitor_stack_progress "$stack_name" "Services deployment"
+        
+        # After successful deployment, show service endpoints
+        if [ $? -eq 0 ]; then
+            log_info "Services deployed successfully!"
+            show_service_endpoints "$stack_name"
+        fi
     fi
+}
+
+# Helper function to show service endpoints after deployment
+show_service_endpoints() {
+    local stack_name=$1
+    
+    log_info "Service Endpoints:"
+    
+    # Get ALB DNS
+    local alb_dns=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -n "$alb_dns" ]; then
+        log_info "  Coordinator Edge: http://${alb_dns}:{{ config.nodes.coordinator.edge.aws.load_balancer.port | default(8545) }}"
+        {% for realm in config.nodes.realms %}
+        log_info "  Realm {{ realm.id }} Edge: http://${alb_dns}:{{ realm.edge.aws.load_balancer.port | default(8546 + realm.id) }}"
+        {% endfor %}
+        {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
+        log_info "  API Service: http://${alb_dns}:{{ config.global_services.api_service.port | default(3000) }}"
+        {% endif %}
+    fi
+    
+    # Show Service Discovery endpoints
+    log_info "Service Discovery (Internal):"
+    log_info "  Coordinator Edge: coordinator-edge.qed.local:8545"
+    {% for realm in config.nodes.realms %}
+    log_info "  Realm {{ realm.id }} Edge: realm-{{ realm.id }}-edge.qed.local:{{ 8546 + realm.id }}"
+    {% endfor %}
+    {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
+    log_info "  API Service: api-service.qed.local:3000"
+    {% endif %}
 }
 # Show deployment status
 show_status() {

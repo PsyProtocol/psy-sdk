@@ -64,12 +64,17 @@ Parameters:
     Description: TimescaleDB RDS endpoint
   {% endif %}
 
+  TiKVPDEndpoints:
+    Type: String
+    Description: Comma-separated list of TiKV PD endpoints
+    Default: "127.0.0.1:2379"
+
 Resources:
   # ============================================================================
   # COORDINATOR ECS SERVICES (Edge & Watcher)
   # ============================================================================
 
-  # Coordinator Edge Service
+# Coordinator Edge Service
   CoordinatorEdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -86,72 +91,32 @@ Resources:
       ContainerDefinitions:
         - Name: coordinator-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
-          EntryPoint:
-            - /bin/bash
-            - -c
+          # REMOVE the complex EntryPoint/Command with bash script
+          # Use direct command instead
           Command:
-            - |
-              # Get TiKV PD endpoints dynamically
-              MAX_RETRIES=10
-              RETRY_COUNT=0
-
-              while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-                PD_INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
-                  --auto-scaling-group-names "${ProjectName}-${Environment}-tikv-pd-asg" \
-                  --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
-                  --output text \
-                  --region ${AWS::Region} 2>/dev/null || echo "")
-
-                if [ -n "$PD_INSTANCE_IDS" ]; then
-                  PD_ENDPOINTS=""
-                  for id in $PD_INSTANCE_IDS; do
-                    IP=$(aws ec2 describe-instances \
-                      --instance-ids $id \
-                      --query 'Reservations[0].Instances[0].PrivateIpAddress' \
-                      --output text \
-                      --region ${AWS::Region})
-                    if [ -n "$IP" ]; then
-                      if [ -z "$PD_ENDPOINTS" ]; then
-                        PD_ENDPOINTS="$IP:2379"
-                      else
-                        PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
-                      fi
-                    fi
-                  done
-
-                  if [ -n "$PD_ENDPOINTS" ]; then
-                    echo "Got TiKV PD endpoints: $PD_ENDPOINTS"
-                    break
-                  fi
-                fi
-
-                echo "Waiting for TiKV PD cluster... attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
-                RETRY_COUNT=$((RETRY_COUNT + 1))
-                sleep 30
-              done
-
-              if [ -z "$PD_ENDPOINTS" ]; then
-                echo "ERROR: Failed to get TiKV PD endpoints"
-                exit 1
-              fi
-
-              # Start coordinator-edge with dynamic endpoints
-              exec /qed-rollup/target/release/qed_rollup_cli coordinator-edge \
-                --database tikv \
-                --tikv-pd-endpoints $PD_ENDPOINTS \
-                --tikv-namespace "{{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator" \
-                --redis-uri redis://${RedisCoordinatorEndpoint}:6379 \
-                {% if config.nodes.coordinator.edge.args is defined and 'listen_addr' in config.nodes.coordinator.edge.args %}
-                --listen-addr '{{ config.nodes.coordinator.edge.args["listen_addr"] }}' \
-                {% else %}
-                --listen-addr 0.0.0.0:8545 \
-                {% endif %}
-                {% for key, value in (config.nodes.coordinator.edge.args | default({}) | dictsort) %}
-                {% if key != 'listen_addr' %}
-                --{{ key | replace('_','-') }} '{{ value | string }}' \
-                {% endif %}
-                {% endfor %}
-
+            - /qed-rollup/target/release/qed_rollup_cli
+            - coordinator-edge
+            - --database
+            - tikv
+            - --tikv-pd-endpoints
+            - !Ref TiKVPDEndpoints  # Use parameter directly
+            - --tikv-namespace
+            - "{{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator"
+            - --redis-uri
+            - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
+            {% if config.nodes.coordinator.edge.args is defined and 'listen_addr' in config.nodes.coordinator.edge.args %}
+            - --listen-addr
+            - '{{ config.nodes.coordinator.edge.args["listen_addr"] }}'
+            {% else %}
+            - --listen-addr
+            - '0.0.0.0:8545'
+            {% endif %}
+            {% for key, value in (config.nodes.coordinator.edge.args | default({}) | dictsort) %}
+            {% if key != 'listen_addr' %}
+            - --{{ key | replace('_','-') }}
+            - '{{ value | string }}'
+            {% endif %}
+            {% endfor %}
           Environment:
             {% for key, value in (config.nodes.coordinator.edge.env | default({}) | dictsort) %}
             - Name: {{ key }}
@@ -199,9 +164,8 @@ Resources:
       TaskDefinition: !Ref CoordinatorEdgeTaskDefinition
       DesiredCount: {{ config.nodes.coordinator.edge.aws.ecs.task_count }}
       LaunchType: EC2
-      PlacementConstraints:
-        - Type: memberOf
-          Expression: 'attribute:service == coordinator-edge'
+      # REMOVE or fix placement constraints
+      # Since all ECS instances have same attribute, no constraint needed
       LoadBalancers:
         - ContainerName: coordinator-edge
           ContainerPort: 8545
