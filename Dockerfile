@@ -1,4 +1,4 @@
-FROM docker.io/library/ubuntu:22.04
+FROM docker.io/library/ubuntu:24.04
 
 ARG PROFILE=release
 
@@ -10,6 +10,8 @@ WORKDIR /qed-rollup
 COPY ./target/${PROFILE}/qed_rollup_cli /qed-rollup
 COPY ./target/${PROFILE}/qed_user_cli /qed-rollup
 COPY ./target/${PROFILE}/qed_dev_cli /qed-rollup
+COPY ./target/${PROFILE}/qed_api_services /qed-rollup
+
 
 RUN echo '#!/bin/bash\n/qed-rollup/qed_rollup_cli $@' > /qed-rollup/.entrypoint.sh
 RUN chmod u+x /qed-rollup/.entrypoint.sh

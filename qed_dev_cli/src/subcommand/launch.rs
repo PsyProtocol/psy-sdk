@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -85,7 +85,7 @@ impl Drop for ProcessManager {
 }
 
 // Load config.json structure
-use super::generate::{Config, NodesConfig, BackendConfig, RedisConfig, NodeGroup, RealmNode, ServiceConfig};
+use super::generate::{Config, NodesConfig, BackendConfig, RedisConfig, CoordinatorNode, RealmNode, ServiceConfig};
 use super::LaunchArgs;
 
 /// Entry point for the launch command
@@ -128,6 +128,15 @@ pub async fn launch(config_path: Option<String>, verbose: bool) -> Result<()> {
     // Phase 3: Start realms
     info!("🏗️  Phase 3: Starting realms...");
     start_realms(&config, &manager, &work_dir, &log_dir).await?;
+
+    // Phase 5: Start independent workers
+    info!("🏗️  Phase 4: Starting independent workers...");
+    start_independent_workers(&config, &manager, &work_dir, &log_dir).await?;
+
+    // Phase 2: Start global services
+    info!("🏗️  Phase 5: Starting global services...");
+    start_global_services(&config, &manager, &work_dir, &log_dir).await?;
+
 
     info!("✅ All services started successfully!");
     info!("");
@@ -258,24 +267,32 @@ async fn start_coordinator(
         add_backend_args(&mut cmd, config, None)?;
         cmd.arg("--redis-uri").arg(redis_uri);
         add_service_args(&mut cmd, &node_cfg.processor)?;
+
+        // Set environment variables
+        for (key, value) in &node_cfg.processor.env {
+            cmd.env(key, value);
+        }
+
         manager.spawn("coordinator-processor".to_string(), cmd, log_dir)?;
     }
 
-    // Start workers
-    if node_cfg.worker.enabled {
-        let worker_count = node_cfg.worker.aws.as_ref()
-            .and_then(|aws| match &aws.deployment_type {
-                Some(super::generate::DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances),
-                _ => aws.ecs.as_ref().and_then(|e| e.instances.or(Some(e.task_count)))
-            })
-            .or(node_cfg.worker.instances)
-            .unwrap_or(1);
-        for i in 0..worker_count {
+    // Start watcher
+    if let Some(watcher_config) = &node_cfg.watcher {
+        if watcher_config.enabled {
             let mut cmd = Command::new(&binary);
-            cmd.arg("coordinator-worker");
-            cmd.arg("--redis-uri").arg(redis_uri);
-            add_service_args(&mut cmd, &node_cfg.worker)?;
-            manager.spawn(format!("coordinator-worker-{}", i), cmd, log_dir)?;
+            cmd.arg("watcher");
+            cmd.arg("--node-type").arg("coordinator");
+            add_backend_args(&mut cmd, config, None)?;
+            cmd.arg("--redis-url").arg(redis_uri);
+            cmd.arg("--api-endpoint").arg("http://localhost:3000");
+            add_service_args(&mut cmd, watcher_config)?;
+
+            // Set environment variables
+            for (key, value) in &watcher_config.env {
+                cmd.env(key, value);
+            }
+
+            manager.spawn("coordinator-watcher".to_string(), cmd, log_dir)?;
         }
     }
 
@@ -350,27 +367,23 @@ async fn start_realms(
             manager.spawn(format!("realm-{}-processor", realm_node.id), cmd, log_dir)?;
         }
 
-        // Start workers
-        if realm_node.worker.enabled {
-            let worker_count = realm_node.worker.aws.as_ref()
-                .and_then(|aws| match &aws.deployment_type {
-                    Some(super::generate::DeploymentType::EC2) => aws.ec2.as_ref().map(|e| e.desired_instances),
-                    _ => aws.ecs.as_ref().and_then(|e| e.instances.or(Some(e.task_count)))
-                })
-                .or(realm_node.worker.instances)
-                .unwrap_or(1);
-            for j in 0..worker_count {
+        // Start watcher
+        if let Some(watcher_config) = &realm_node.watcher {
+            if watcher_config.enabled {
                 let mut cmd = Command::new(&binary);
-                cmd.arg("realm-worker");
-                cmd.arg("--redis-uri").arg(redis_uri);
-                add_service_args(&mut cmd, &realm_node.worker)?;
+                cmd.arg("watcher");
+                cmd.arg("--node-type").arg("realm");
+                add_backend_args(&mut cmd, config, Some(realm_node.id))?;
+                cmd.arg("--redis-url").arg(redis_uri);
+                cmd.arg("--api-endpoint").arg("http://localhost:3000");
+                add_service_args(&mut cmd, watcher_config)?;
 
                 // Set environment variables
-                for (key, value) in &realm_node.worker.env {
+                for (key, value) in &watcher_config.env {
                     cmd.env(key, value);
                 }
 
-                manager.spawn(format!("realm-{}-worker-{}", realm_node.id, j), cmd, log_dir)?;
+                manager.spawn(format!("realm-{}-watcher", realm_node.id), cmd, log_dir)?;
             }
         }
 
@@ -575,7 +588,179 @@ fn create_keyspaces(config: &Config) -> Result<()> {
 
     Ok(())
 }
+async fn start_independent_workers(
+    config: &Config,
+    manager: &ProcessManager,
+    work_dir: &Path,
+    log_dir: &Path,
+) -> Result<()> {
+    if let Some(workers) = &config.nodes.workers {
+        if workers.enabled {
+            let binary = get_binary_path()?;
 
+            info!("👷 Starting independent workers...");
+
+            // First, ensure config.json exists with correct RPC URLs
+            ensure_worker_config_file(config, work_dir)?;
+
+            for (pool_idx, pool) in workers.worker_pools.iter().enumerate() {
+                info!("Starting worker pool {} ({}) with {} instances",
+                    pool_idx + 1,
+                    pool.id,
+                    pool.instances
+                );
+
+                for instance_idx in 0..pool.instances {
+                    let mut cmd = Command::new(&binary);
+                    cmd.arg("worker");
+
+                    // Workers use config.json to discover nodes
+                    cmd.arg("--config").arg(work_dir.join("config.json"));
+
+                    // Add pool-specific args (private-key, keystore-path, wallet-password)
+                    for (key, value) in &pool.args {
+                        // Skip config since we already set it above
+                        if key == "config" {
+                            continue;
+                        }
+
+                        cmd.arg(format!("--{}", key.replace('_', "-")));
+
+                        match value {
+                            Value::String(s) => {
+                                cmd.arg(s);
+                            },
+                            Value::Number(n) => {
+                                cmd.arg(n.to_string());
+                            },
+                            Value::Bool(b) => {
+                                cmd.arg(b.to_string());
+                            },
+                            _ => {}
+                        }
+                    }
+
+                    // Set environment variables
+                    for (key, value) in &pool.env {
+                        cmd.env(key, value);
+                    }
+
+                    // Add API service URL to environment for worker reporting
+                    cmd.env("API_SERVICE_URL", "http://localhost:3000");
+
+                    let service_name = format!("worker-{}-{}", pool.id, instance_idx);
+                    manager.spawn(service_name, cmd, log_dir)?;
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// Helper function to ensure config.json has correct RPC URLs for workers
+pub fn ensure_worker_config_file(config: &Config, work_dir: &Path) -> Result<()> {
+    info!("Creating config.json for workers with RPC endpoints...");
+
+    // Build the network configuration that workers need
+    let worker_config = json!({
+        "network": {
+            "coordinator_configs": config.network.coordinator_configs.iter().map(|c| {
+                json!({
+                    "id": c.id,
+                    "rpc_url": c.rpc_url
+                })
+            }).collect::<Vec<_>>(),
+            "realm_configs": config.network.realm_configs.iter().map(|r| {
+                json!({
+                    "id": r.id,
+                    "rpc_url": r.rpc_url
+                })
+            }).collect::<Vec<_>>(),
+            "prove_proxy_url": config.network.prove_proxy_url,
+            "native_currency": config.network.native_currency,
+        }
+    });
+
+    let config_path = work_dir.join("config.json");
+    fs::write(&config_path, serde_json::to_string_pretty(&worker_config)?)
+        .with_context(|| format!("Failed to write worker config to {}", config_path.display()))?;
+
+    info!("Worker config written to: {}", config_path.display());
+    info!("  Coordinator RPC: {:?}", config.network.coordinator_configs[0].rpc_url);
+    for realm in &config.network.realm_configs {
+        info!("  Realm {} RPC: {:?}", realm.id, realm.rpc_url);
+    }
+
+    Ok(())
+}
+
+async fn start_global_services(
+    config: &Config,
+    manager: &ProcessManager,
+    work_dir: &Path,
+    log_dir: &Path,
+) -> Result<()> {
+    if let Some(global_services) = &config.global_api_services {
+        info!("🌐 Starting global services...");
+
+        // Start TimescaleDB
+        if let Some(timescale_config) = &global_services.timescaledb {
+            if timescale_config.enabled {
+                info!("🐘 Starting TimescaleDB...");
+                let mut cmd = Command::new("docker");
+                cmd.args(&[
+                    "run", "--rm", "--name", "qed-timescaledb",
+                    "-p", "5432:5432",
+                    "-e", "POSTGRES_PASSWORD=password",
+                    "timescale/timescaledb:latest-pg17"
+                ]);
+                manager.spawn("docker-timescaledb".to_string(), cmd, log_dir)?;
+
+                // Wait for TimescaleDB to be ready
+                sleep(Duration::from_secs(10)).await;
+
+                // Run database migrations
+                info!("🔄 Running database migrations...");
+                let mut migrate_cmd = Command::new("cargo");
+                migrate_cmd.args(&["run", "--bin", "qed_api_services", "--", "migrate"])
+                    .current_dir("./qed_api_services")
+                    .env("DATABASE_URL", "postgres://postgres:password@localhost/postgres");
+
+                let output = migrate_cmd.output()?;
+                if !output.status.success() {
+                    warn!("Migration may have failed: {}", String::from_utf8_lossy(&output.stderr));
+                }
+            }
+        }
+
+        // Start API Service
+        if let Some(api_service) = &global_services.api_service {
+            if api_service.enabled {
+                info!("🔌 Starting API Service...");
+                let mut cmd = Command::new("./target/release/qed_api_services");
+
+                // Set default environment variables
+                cmd.env("DATABASE_URL", "postgres://postgres:password@localhost/postgres");
+
+                // Add service-specific args
+                add_service_args(&mut cmd, api_service)?;
+
+                // Set environment variables
+                for (key, value) in &api_service.env {
+                    cmd.env(key, value);
+                }
+
+                manager.spawn("qed-api-service".to_string(), cmd, log_dir)?;
+
+                // Wait for API service to be ready
+                wait_for_service("localhost", 3000, "API Service").await?;
+            }
+        }
+    }
+
+    Ok(())
+}
 fn extract_port(uri: &str) -> Result<u16> {
     let parts: Vec<&str> = uri.split(':').collect();
     if parts.len() >= 3 {
@@ -601,7 +786,9 @@ fn stop_docker_containers() {
         "qed-redis-coordinator",
         "qed-redis-realm-0",
         "qed-redis-realm-1",
-        "qed-scylladb"
+        "qed-scylladb",
+        "qed-timescaledb"
+
     ];
 
     for container in containers {
