@@ -112,10 +112,20 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy3 {
 pub struct UserIdBitsStrategy4;
 
 //   user id must avoid common prefix to make the nca algorithm more useful
-//   10 = 000000000000000000001010
-//   26 = 000000000000000000011010
-//   76 = 000000000000000001001100
-//  140 = 000000000000000010001100
+//   Case 1:
+//   10  = 000000000000000000001010
+//   26  = 000000000000000000011010
+//   76  = 000000000000000001001100
+//   140 = 000000000000000010001100
+//
+//   Case 2:
+//   1076736: 000100 000110 000000 000000
+//   1080832: 000100 001010 000000 000000
+//   1082880: 000100 001100 000000 000000
+//   1089024: 000100 010010 000000 000000
+//   1093120: 000100 010110 000000 000000
+//   1096704: 000100 011010 000000 000000
+//   1121280: 000100 100010 000000 000000
 impl UserIdGeneratorStrategy for UserIdBitsStrategy4 {
     fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
