@@ -301,43 +301,70 @@ pub trait KVQMerkleTreeModelCore<
         b: KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
         updates: &mut Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
     ) -> anyhow::Result<(KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>, UpdateNearestCommonAncestorProof<Hash>)> {
+        if a.key.is_direct_path_related(&b.key) {
+            anyhow::bail!("cannot update two keys on the same path");
+        }
+        if a.key > b.key {
+            return Self::smart_injest_nca_split_kv(store, tree_height, b, a, updates);
+        }
+
+        if a.key.is_sibling_for(&b.key) {
+            let parent = a.key.parent();
+            let a_b_parent = Self::get_nodes(store, tree_height,&[a.key, b.key, parent])?;
+
+            let new_value = if MARK_LEAVES && a.key.level as usize == tree_height {
+                Hasher::two_to_one_marked_leaf_swap(a.key.is_right_child(), &a.value, &b.value)
+            }else{
+                Hasher::two_to_one_swap(a.key.is_right_child(), &a.value, &b.value)
+            };
+
+            let r = UpdateNearestCommonAncestorProof {
+                old_nearest_common_ancestor_value: a_b_parent[2],
+                new_nearest_common_ancestor_value: new_value,
+                child_a: DeltaMerkleProofCore::single_value(a.key.index,a_b_parent[0], a.value),
+                child_b: DeltaMerkleProofCore::single_value(b.key.index,a_b_parent[1], b.value),
+                nearest_common_ancestor_level: parent.level,
+                nearest_common_ancestor_index: parent.index,
+                level_a: a.key.level,
+                level_b: b.key.level,
+            };
+
+            updates.reserve(2);
+
+            updates.push(a);
+            updates.push(b);
+
+            return Ok((KVQPair {
+                key: parent,
+                value: new_value,
+            }, r));
+        }
+
         let nca = a.key.find_nearest_common_ancestor(&b.key);
 
-        let mut all_siblings = Vec::new();
-        all_siblings.extend_from_slice(&a.key.siblings_to_level(nca.level+1));
-        all_siblings.extend_from_slice(&b.key.siblings_to_level(nca.level+1));
-        all_siblings.push(nca);
-        let mut all_siblings_values = Self::get_nodes(store, tree_height, &all_siblings)?;
-        let old_nearest_common_ancestor_value = all_siblings_values.pop().unwrap();
+        let a_root = nca.left_child();
+        let b_root = nca.right_child();
 
-        let dmp_a = Self::set_rehash_from_node_to_level_dmp_with_updates(
-            store,
-            tree_height,
-            a.key,
-            a.value,
-            nca.level+1,
-            updates
-        )?;
-        let dmp_b = Self::set_rehash_from_node_to_level_dmp_with_updates(
-            store,
-            tree_height,
-            b.key,
-            b.value,
-            nca.level+1,
-            updates
-        )?;
+        let child_a = Self::set_rehash_from_node_to_level_dmp_with_updates(store, tree_height, a.key, a.value, a_root.level, updates)?;
+        let child_b = Self::set_rehash_from_node_to_level_dmp_with_updates(store, tree_height, b.key, b.value, b_root.level, updates)?;
 
-        let new_nearest_common_ancestor_value = if a.key.is_to_the_left_of(&b.key) {
-            Hasher::two_to_one(&dmp_a.new_root, &dmp_b.new_root)
-        } else {
-            Hasher::two_to_one(&dmp_b.new_root, &dmp_a.new_root)
+        let old_nearest_common_ancestor_value = if MARK_LEAVES && a_root.level as usize == tree_height {
+            Hasher::two_to_one_marked_leaf(&child_a.old_root, &child_b.old_root)
+        }else{
+            Hasher::two_to_one(&child_a.old_root, &child_b.old_root)
+        };
+
+        let new_nearest_common_ancestor_value = if MARK_LEAVES && a_root.level as usize == tree_height {
+            Hasher::two_to_one_marked_leaf(&child_a.new_root, &child_b.new_root)
+        }else{
+            Hasher::two_to_one(&child_a.new_root, &child_b.new_root)
         };
 
         let update_nca_proof = UpdateNearestCommonAncestorProof {
             old_nearest_common_ancestor_value,
             new_nearest_common_ancestor_value,
-            child_a: dmp_a,
-            child_b: dmp_b,
+            child_a,
+            child_b,
             nearest_common_ancestor_level: nca.level,
             nearest_common_ancestor_index: nca.index,
             level_a: a.key.level,

@@ -131,7 +131,7 @@ impl<
 
         if checkpoint_tree_proof.root != input.core.state_transition.checkpoint_tree_root_hash {
             tracing::warn!(
-                "ensure checkpoint_tree_proof: {:?} == input.core.state_transition.checkpoint_tree_root_hash {:?}",
+                "ensure checkpoint_tree_proof: {} == input.core.state_transition.checkpoint_tree_root_hash {}",
                 checkpoint_tree_proof.root,
                 input.core.state_transition.checkpoint_tree_root_hash,
             );
@@ -150,7 +150,7 @@ impl<
         let expected_start_user_leaf_hash = user_leaf.qfhash::<H>();
         if expected_start_user_leaf_hash != input.core.state_transition.start_user_leaf_hash {
             tracing::error!(
-                "ensure expected_start_user_leaf_hash: {:?} == input.core.state_transition.start_user_leaf_hash {:?}",
+                "ensure expected_start_user_leaf_hash: {} == input.core.state_transition.start_user_leaf_hash {}",
                 expected_start_user_leaf_hash,
                 input.core.state_transition.start_user_leaf_hash,
             );

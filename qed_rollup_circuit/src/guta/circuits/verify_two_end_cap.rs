@@ -69,11 +69,13 @@ where
             &mut builder,
             guta_circuit_whitelist_root_hash,
         );
+        tracing::debug!("📊 a_end_cap_guta_header: {:?}", a_end_cap_guta_header);
 
         let b_end_cap_guta_header = b_end_cap_gadget.get_guta_header::<C::Hasher, C::F>(
             &mut builder,
             guta_circuit_whitelist_root_hash,
         );
+        tracing::debug!("📊 b_end_cap_guta_header: {:?}", b_end_cap_guta_header);
 
         let nca_state_transition_gadget = TwoNCAStateTransitionGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,
@@ -208,7 +210,7 @@ C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 
         let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<C::F>> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
         tracing::debug!("GUTAVerifyTwoEndCapCircuitInput: {}", serde_json::to_string_pretty(&r)?);
-        
+
         if r.dependencies.len() != 2 {
             anyhow::bail!("invalid dependency count in two end cap input");
         }

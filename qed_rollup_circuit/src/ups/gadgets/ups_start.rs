@@ -50,6 +50,9 @@ impl UPSStartStepGadget {
             MerkleProofGadget::add_virtual_to::<H, F, D>(builder, CHECKPOINT_TREE_HEIGHT as usize);
         let user_tree_proof = MerkleProofGadget::add_virtual_to::<H, F, D>(builder, GLOBAL_USER_TREE_HEIGHT as usize);
 
+        tracing::debug!("🏁 UPS Start - header_gadget: {:?}, checkpoint_leaf_gadget: {:?}, state_roots_gadget: {:?}",
+            header_gadget, checkpoint_leaf_gadget, state_roots_gadget);
+
         let gadget = Self {
             header_gadget,
             checkpoint_leaf_gadget,
@@ -233,6 +236,11 @@ impl UPSStartStepGadget {
         witness: &mut impl Witness<F>,
         target: &UPSStartStepInput<F>,
     ) -> anyhow::Result<()> {
+        tracing::debug!("🏁 UPS Start set_witness - user_leaf: {}, checkpoint_leaf: {}, checkpoint_tree_root: {}",
+            serde_json::to_string_pretty(&target.ups_header.current_state.user_leaf).unwrap(),
+            serde_json::to_string_pretty(&target.checkpoint_leaf).unwrap(),
+            serde_json::to_string_pretty(&target.ups_header.session_start_context.checkpoint_tree_root).unwrap());
+        
         self.header_gadget.set_witness(witness, &target.ups_header)?;
         self.checkpoint_leaf_gadget.set_witness(witness, &target.checkpoint_leaf)?;
         self.state_roots_gadget.set_witness(witness, &target.state_roots)?;

@@ -498,6 +498,9 @@ impl StateReaderGadget {
         let mut wb = StateReaderGadgetWitnessBuilderState::new();
 
         for (dsc, ciw) in fn_def.state_commands.iter().zip(input.cmd_witnesses.iter()) {
+            tracing::debug!("🔧 set_witness dsc: {}, ciw: {}",
+                serde_json::to_string_pretty(dsc).unwrap(),
+                serde_json::to_string_pretty(ciw).unwrap());
             self.set_witness_single(
                 witness,
                  dsc,
