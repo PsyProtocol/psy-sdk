@@ -45,6 +45,8 @@ use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use plonky2::field::types::Field;
 use qed_data::traits::qdatastore::{qtreedata::{QTreeDataStoreWriterSync}, qmetadata::QMetaDataStoreWriterSync};
 use std::{str::FromStr, collections::HashMap};
+use plonky2::field::goldilocks_field::GoldilocksField;
+use super::backup::{RealmS3BackupClient, try_backup_realm_checkpoint};
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<QEDStore>,
@@ -69,6 +71,7 @@ pub struct RealmProcessor {
     pub is_synced: AtomicBool,
     pub pending_checkpoint_id: AtomicU64,
     pub shutdown_requested: Arc<AtomicBool>,
+    pub backup_client: Option<RealmS3BackupClient>,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig, shutdown_requested: Arc<AtomicBool>) -> anyhow::Result<()> {
@@ -97,6 +100,19 @@ impl RealmProcessor {
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.realm_id);
         let sync_checkpoint = Arc::new(realm_qps.clone());
+
+        // Initialize backup client
+        let backup_client = match RealmS3BackupClient::new_from_env(config.realm.realm_id).await {
+            Ok(client) => {
+                info!("✅ S3 backup client initialized");
+                Some(client)
+            },
+            Err(e) => {
+                warn!("⚠️ S3 backup client initialization failed: {}", e);
+                None
+            }
+        };
+
         let processor = RealmProcessor {
             realm_config,
             max_processed_end_caps_per_block: config.realm.max_processed_end_caps_per_block.clone(),
@@ -111,6 +127,7 @@ impl RealmProcessor {
             is_synced: AtomicBool::new(false),
             pending_checkpoint_id: AtomicU64::new(0),
             shutdown_requested,
+            backup_client,
         };
         Ok(processor)
     }
@@ -206,9 +223,14 @@ impl RealmProcessor {
                 checkpoint, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
 
             if ret.checkpoint_id == checkpoint && realm_root.value == ret.realm_root {
-                context.commit(checkpoint).await?;
+                let (pair_to_set, remove_keys) = context.commit(checkpoint).await?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
                 info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint, ret.latest_checkpoint_id);
+
+                // Auto backup after successful commit
+                if let Some(backup_client) = &self.backup_client {
+                    self.backup_checkpoint(backup_client, checkpoint, pair_to_set, remove_keys).await;
+                }
             } else {
                 warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, checkpoint: {}", ret.latest_checkpoint_id, checkpoint);
                 context.rollback(checkpoint).await?;
@@ -350,7 +372,11 @@ impl RealmProcessor {
                             self.initialize_genesis_state().await?;
                         }
 
-                        context.store.commit(checkpoint_id)?;
+                        let (pair_to_set, remove_keys) = context.store.commit(checkpoint_id)?;
+                        // Auto backup after successful commit
+                        if let Some(backup_client) = &self.backup_client {
+                            self.backup_checkpoint(backup_client, checkpoint_id, pair_to_set, remove_keys).await;
+                        }
 
                         let pending_users_count = context.sync_queue.get_pending_users_count().await?;
                         trace!("Pending users count after checkpoint sync: {}", pending_users_count);
@@ -428,22 +454,18 @@ impl RealmProcessor {
         Ok(state.checkpoint_id)
     }
 
-    async fn initialize_genesis_state(&self) -> anyhow::Result<()> {
-        let genesis_config = GenesisConfig::from_path(&self.config_path)?;
-
+    pub async fn initialize_store(store: &QEDStore, genesis_config: Option<GenesisConfig<GoldilocksField>>, realm_id: u32) -> anyhow::Result<()> {
         if let Some(genesis_config) = genesis_config {
-            info!("Processing genesis state for realm {}", self.realm_config.realm_id);
+            info!("Processing genesis state for realm {}", realm_id);
 
-
-            let realm_start_user = (self.realm_config.realm_id as u64) * USERS_PER_REALM;
-            let realm_end_user = ((self.realm_config.realm_id + 1) as u64) * USERS_PER_REALM;
+            let realm_start_user = (realm_id as u64) * USERS_PER_REALM;
+            let realm_end_user = ((realm_id + 1) as u64) * USERS_PER_REALM;
 
             let mut user_contract_states: HashMap<u64, HashMap<u64, Vec<(u64, QHashOut<F>)>>> = HashMap::new();
             let mut user_id_to_register_id: HashMap<u64, u64> = HashMap::new();
 
             for (contract_id, users) in genesis_config.get_all_contracts() {
                 for (register_id, user_state) in users {
-
                     let user_id = get_user_id_from_registration_id(*register_id);
 
                     if user_id >= realm_start_user && user_id < realm_end_user {
@@ -473,10 +495,10 @@ impl RealmProcessor {
                 for (contract_id, slots) in contracts {
                     let mut contract_state_root = QEDHasher::get_zero_hash(MAX_CONTRACT_STATE_TREE_HEIGHT.into());
                     for (slot_id, slot_value) in slots {
-                        contract_state_root = self.store.set_user_state_tree_leaf_hash(0, user_id, contract_id as u32, MAX_CONTRACT_STATE_TREE_HEIGHT, slot_id, slot_value)?.new_root;
+                        contract_state_root = store.set_user_state_tree_leaf_hash(0, user_id, contract_id as u32, MAX_CONTRACT_STATE_TREE_HEIGHT, slot_id, slot_value)?.new_root;
                     }
 
-                    user_contract_tree_root = self.store.set_user_contract_tree_leaf_hash(
+                    user_contract_tree_root = store.set_user_contract_tree_leaf_hash(
                         0,
                         user_id,
                         contract_id as u32,
@@ -496,7 +518,7 @@ impl RealmProcessor {
 
                 let user_leaf_hash = user_leaf.qfhash::<QEDHasher>();
 
-                self.store.set_user_leaf_data(0, &user_leaf)
+                store.set_user_leaf_data(0, &user_leaf)
                     .map_err(|e| anyhow::anyhow!("Failed to set user leaf data for user {}: {}", user_id, e))?;
 
                 let realm_update = QMerkleNode {
@@ -509,15 +531,31 @@ impl RealmProcessor {
                 realm_updates.push(realm_update);
 
                 info!("✅ Genesis state set for user {} with UCT root {} (realm {})",
-                      user_id, user_contract_tree_root, self.realm_config.realm_id);
+                      user_id, user_contract_tree_root, realm_id);
             }
 
-            self.store.injest_user_tree_nodes_imm(0, COORDINATOR_USER_TREE_HEIGHT, &realm_updates).await?;
+            store.injest_user_tree_nodes_imm(0, COORDINATOR_USER_TREE_HEIGHT, &realm_updates).await?;
 
-            info!("Genesis state initialization completed for realm {}", self.realm_config.realm_id);
+            info!("Genesis state initialization completed for realm {}", realm_id);
         }
 
         Ok(())
+    }
+
+    async fn initialize_genesis_state(&self) -> anyhow::Result<()> {
+        let genesis_config = GenesisConfig::from_path(&self.config_path)?;
+        Self::initialize_store(&self.store, genesis_config, self.realm_config.realm_id).await
+    }
+
+    async fn backup_checkpoint(
+        &self,
+        backup_client: &RealmS3BackupClient,
+        checkpoint_id: u64,
+        pair_to_set: Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>,
+        removed_keys: Vec<Vec<u8>>,
+    ) {
+        let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+        try_backup_realm_checkpoint(backup_client, checkpoint_id, pair_to_set, removed_keys).await;
     }
 }
 

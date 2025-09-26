@@ -58,6 +58,8 @@ use qed_core::config::network_constants::{USERS_PER_REALM, REALM_USER_TREE_HEIGH
 use std::str::FromStr;
 use std::collections::HashMap;
 use indexmap::IndexMap;
+use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::hash::hash_types::RichField;
 use tokio::time::{sleep_until, Instant};
 use tracing::{debug, error, info, warn};
 use serde_json;
@@ -68,6 +70,7 @@ use crate::common::retry::Retryable;
 use crate::common::slot;
 use crate::common::slot::{LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::realm::RealmProcessor;
+use super::backup::{S3BackupClient, try_backup_checkpoint};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -91,6 +94,7 @@ pub struct CoordinatorProcessNode<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
     pub task_store: Arc<QProvingTaskStoreImpl>,
+    pub backup_client: Option<S3BackupClient>,
 }
 
 impl<
@@ -104,7 +108,7 @@ impl<
         TS: QProvingTaskStore,
     > CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER, TS>
 {
-    pub fn new(
+    pub async fn new(
         ctx: CoordinatorProcessorContext<SR, DQ, HQ, WQ, PS, TS>,
         journal_store: JL,
         edge_command_queue: Arc<HQ>,
@@ -114,6 +118,16 @@ impl<
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
         task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
+        let backup_client = match S3BackupClient::new_from_env().await {
+            Ok(client) => {
+                info!("✅ S3 backup client initialized");
+                Some(client)
+            },
+            Err(e) => {
+                warn!("⚠️ S3 backup client initialization failed: {}", e);
+                None
+            }
+        };
         Self {
             ctx,
             journal_store,
@@ -123,6 +137,7 @@ impl<
             proof_verifier,
             coordinator_worker_circuits,
             task_store,
+            backup_client,
         }
     }
 
@@ -215,29 +230,14 @@ impl
 
         let genesis_config = GenesisConfig::from_path(&cp_config.config_path)?;
 
-        let genesis_store_config = if let Some(ref config) = genesis_config {
-            let deploy_root = Self::process_genesis_contracts(&qed_store, config).await?;
-            let register_users_root = Self::process_genesis_user_registrations(&qed_store, config).await?;
-            let user_root = Self::process_genesis_user_states(&qed_store, config).await?;
-            let next_contract_id = config.get_precompile_configs().len() as u32;
-            let next_user_id = config.get_genesis_users().len() as u64;
-
-            Some(InitializeParams {
-                gutas_root: user_root,
-                deploy_contracts_root: deploy_root,
-                register_users_root,
-                next_contract_id,
-                next_user_id,
-            })
-        } else {
-            None
-        };
-
-        match qed_store.initialize_store(genesis_store_config).await {
+        match Self::initialize_store(&qed_store, genesis_config).await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
+                info!("Initialized store to genesis state");
                 qed_store.commit(0)?;
             }
-            Ok(_) => {}
+            Ok(checkpoint_id) => {
+                info!("Store already initialized, current checkpoint {}", checkpoint_id);
+            }
             Err(_) => {
                 qed_store.rollback(0)?;
             }
@@ -276,7 +276,28 @@ impl
             proof_verifier,
             coordinator_worker_circuits,
             task_store,
-        ))
+        ).await)
+    }
+
+    pub async fn initialize_store(qed_store: &JournalStore<QEDStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>) -> anyhow::Result<u64> {
+        let genesis_store_config = if let Some(ref config) = genesis_config {
+            let deploy_root = Self::process_genesis_contracts(qed_store, config).await?;
+            let register_users_root = Self::process_genesis_user_registrations(qed_store, config).await?;
+            let user_root = Self::process_genesis_user_states(qed_store, config).await?;
+            let next_contract_id = config.get_precompile_configs().len() as u32;
+            let next_user_id = config.get_genesis_users().len() as u64;
+
+            Some(InitializeParams {
+                gutas_root: user_root,
+                deploy_contracts_root: deploy_root,
+                register_users_root,
+                next_contract_id,
+                next_user_id,
+            })
+        } else {
+            None
+        };
+        qed_store.initialize_store(genesis_store_config).await
     }
 
     pub async fn build_block(&self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
@@ -289,12 +310,17 @@ impl
             }
             Ok(())
         }).await?;
-        self.ctx.commit(next_checkpoint_id).await?;
+        let (pair_to_set, remove_keys) = self.ctx.commit(next_checkpoint_id).await?;
 
         info!(
             "✅ Successfully built and committed block {}, slot {}, cost time: {:?}",
             next_checkpoint_id, slot, now.elapsed()
         );
+
+        // Auto backup after successful commit
+        if let Some(backup_client) = &self.backup_client {
+            self.backup_checkpoint_with_changes(backup_client, next_checkpoint_id, pair_to_set, remove_keys).await;
+        }
 
         Ok(next_checkpoint_id)
     }
@@ -306,6 +332,17 @@ impl
 
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
         self.ctx.has_pending_tasks(checkpoint_id).await
+    }
+
+    async fn backup_checkpoint_with_changes(
+        &self,
+        backup_client: &S3BackupClient,
+        checkpoint_id: u64,
+        pair_to_set: Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>,
+        removed_keys: Vec<Vec<u8>>,
+    ) {
+        let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+        try_backup_checkpoint(backup_client, checkpoint_id, pair_to_set, removed_keys).await;
     }
 
     async fn process_genesis_contracts<SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>>(

@@ -4,6 +4,8 @@ pub mod args;
 pub mod processor;
 pub mod edge;
 pub mod error;
+pub mod backup;
+pub mod recovery;
 
 pub use args::*;
 pub use processor::*;
