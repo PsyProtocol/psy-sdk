@@ -268,6 +268,16 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
         self.index & 1 == 1
     }
     pub fn is_to_the_left_of(&self, other: &Self) -> bool {
+        // Add validation to ensure nodes are from the same tree
+        if self.tree_id != other.tree_id || 
+        self.primary_id != other.primary_id || 
+        self.secondary_id != other.secondary_id {
+            panic!(
+                "Cannot compare nodes from different trees: self({}, {}, {}) vs other({}, {}, {})",
+                self.tree_id, self.primary_id, self.secondary_id,
+                other.tree_id, other.primary_id, other.secondary_id
+            );
+        }
         if other.level == self.level {
             self.index < other.index
         }else if other.level < self.level {
@@ -280,7 +290,12 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
 
     pub fn parent_at_level(&self, level: u8) -> Self {
         if level > self.level {
-            panic!("given level is not above this node")
+            // panic!("given level is not above this node")
+            panic!(
+                "Invalid level request: trying to get ancestor at level {} for node at level {} (index: {}). \
+                Level {} is further from root than current level {}.",
+                level, self.level, self.index, level, self.level
+            );
         }
         self.n_th_ancestor(self.level-level)
     }

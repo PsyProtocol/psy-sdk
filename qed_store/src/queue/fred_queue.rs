@@ -170,6 +170,10 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
         self.write_multidimensional_jobs_core(jobs_levels, next_jobs)
             .await
     }
+
+    async fn cleanup_old_proofs(&self, _current_height: u64, _keep_blocks: u64) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -311,7 +315,7 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
                     e2
                 ),
             };
-            sleep(Duration::from_millis(500)).await;
+            sleep(Duration::from_millis(100)).await;
         }
     }
 
@@ -326,7 +330,7 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
             match self.get_proof_by_id::<C, D>(job_id.get_output_id()).await {
                 Ok(proof) => return Ok(proof),
                 Err(_) => {
-                    sleep(Duration::from_millis(500)).await;
+                    sleep(Duration::from_millis(100)).await;
                 }
             }
         }
@@ -512,12 +516,13 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
 impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreFred {
     async fn peek_with_position<T: DQSerializable>(
         &self,
+        _count: Option<isize>,
         _channel_id: u64,
         _checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueOffsetState)> {
         todo!()
     }
-    
+
     async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()> {
         todo!()
     }
@@ -550,7 +555,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreFred {
     async fn get_pending_users_count(&self) -> anyhow::Result<usize> {
         Ok(0)
     }
-    
+
     async fn peek_with_position<F: RichField>(
         &self,
         _count: usize,
@@ -558,11 +563,11 @@ impl QPendingUserStoreAsyncImm for ProofStoreFred {
     ) -> anyhow::Result<(Vec<MerkleProofCore<QHashOut<F>>>, QueueOffsetState)> {
         todo!()
     }
-    
+
     async fn commit_offset(&self, _state: &QueueOffsetState) -> anyhow::Result<()> {
         todo!()
     }
-    
+
     async fn get_last_peek_offset(&self) -> anyhow::Result<Option<QueueOffsetState>> {
         todo!()
     }

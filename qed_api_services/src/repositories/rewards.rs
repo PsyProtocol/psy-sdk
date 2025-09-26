@@ -98,7 +98,7 @@ impl WorkerEventRewardRepository {
                 INSERT INTO worker_event_rewards
                     (id, public_key, checkpoint_id, reward_amount, timestamp)
                 VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT (id) DO NOTHING
+                ON CONFLICT (id, timestamp) DO NOTHING
                 "#,
                 reward.id,
                 reward.public_key,

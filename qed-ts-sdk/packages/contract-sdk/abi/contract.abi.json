@@ -14,7 +14,7 @@
           "type": {
             "type": "Array",
             "inner_type": "OtherUserInfo",
-            "length": 1073741824
+            "length": 16777216
           }
         }
       ],

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use kvq::traits::KVQPair;
-use plonky2::plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::GenericConfig, proof::ProofWithPublicInputs};
+use plonky2::{hash::hash_types::RichField, plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::GenericConfig, proof::ProofWithPublicInputs}};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{data::qhashout::QHashOut, job::id::QProvingTask};
@@ -186,6 +186,14 @@ pub trait QProofStoreReaderAsync {
         Ok(bincode::deserialize(&next_jobs)?)
     }
 
+    async fn get_public_input_by_id<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+    ) -> anyhow::Result<Vec<C::F>> {
+        let proof = self.get_proof_by_id::<C, D>(id).await?;
+        Ok(proof.public_inputs)
+    }
+
 }
 
 #[async_trait]
@@ -261,6 +269,8 @@ pub trait QProofStoreWriterAsyncImm: Send + Sync {
         }
         Ok(())
     }
+
+    async fn cleanup_old_proofs(&self, current_height: u64, keep_blocks: u64) -> anyhow::Result<()>;
 }
 
 
@@ -329,6 +339,9 @@ impl QProofStoreWriterAsyncImm for QDummyProofStore {
     }
     async fn write_multidimensional_jobs(&self, _jobs_levels: &[Vec<QProvingJobDataID>], _next_jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         anyhow::bail!("Not implemented")
+    }
+    async fn cleanup_old_proofs(&self, _current_height: u64, _keep_blocks: u64) -> anyhow::Result<()> {
+        Ok(())
     }
 }
 

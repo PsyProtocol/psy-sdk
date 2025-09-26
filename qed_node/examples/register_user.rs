@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
         .build()?;
 
     loop {
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
         register_user(counter, &rpc_url, &test_client).await?;
         counter += 1;
     }

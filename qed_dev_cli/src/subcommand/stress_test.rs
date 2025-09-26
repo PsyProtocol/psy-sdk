@@ -70,7 +70,7 @@ pub(crate) fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -> Resu
     info!("current checkpoint: {}", start_checkpoint);
     let local_clock = LocalClock{};
     let timeout_duration = Duration::from_millis(10 * offset * SLOT_SIZE);
-    let interval = Duration::from_millis(SLOT_SIZE);
+    let interval = Duration::from_millis(2 * SLOT_SIZE);
     let start_time = Instant::now();
     let mut pre_checkpoint = start_checkpoint;
     loop {

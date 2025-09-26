@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 type Felt = SymFeltRef;
 
 /*
-const MAX_USERS: usize = 1073741824;
+const MAX_USERS: usize = 16777216;
 const TICKER_FELT_LEN: usize = 2;
 #[derive(Debug, QContractState)]
 pub struct SimpleTokenContract<C: DPNContext<Felt>> {

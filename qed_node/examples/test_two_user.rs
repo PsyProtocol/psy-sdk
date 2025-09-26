@@ -55,7 +55,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let qps = Arc::new(q.clone());
 
-    let st = Arc::new(store_reader);
+    let st = Arc::new(store_reader.clone());
 
     timer.lap("initialized store");
 

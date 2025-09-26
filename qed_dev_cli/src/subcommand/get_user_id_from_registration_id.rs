@@ -1,12 +1,12 @@
 use clap::Parser;
-use qed_core::config::network_constants::{REALM_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT};
+use qed_core::config::network_constants::{REALM_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT};
 
 #[derive(Parser)]
 pub struct GetUserIdFromRegistrationIdArgs {
     #[arg(help = "Registration ID to convert")]
     pub registration_id: u64,
     
-    #[arg(long, short, default_value = "2", help = "Strategy to use (1, 2, or 3)")]
+    #[arg(long, short, default_value = "4", help = "Strategy to use (1, 2, 3, or 4)")]
     pub strategy: u8,
 }
 
@@ -35,6 +35,17 @@ fn get_user_id_from_registration_id_strategy3(registration_id: u64) -> u64 {
     (registration_id & ((1u64<<10)-1u64))
 }
 
+fn get_user_id_from_registration_id_strategy4(registration_id: u64) -> u64 {
+    let realm_index = registration_id & ((1u64 << GROUP_REALM_HEIGHT) - 1);
+    let user_index = (registration_id >> GROUP_REALM_HEIGHT) & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+    let group_id = (registration_id >> (GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT)) & ((1u64 << (COORDINATOR_USER_TREE_HEIGHT - GROUP_REALM_HEIGHT)) - 1);
+
+    let reversed_realm_index = reverse_bits_in_limit(realm_index, GROUP_REALM_HEIGHT);
+    let realm_id = (group_id << GROUP_REALM_HEIGHT) | reversed_realm_index;
+
+    (realm_id << REALM_USER_TREE_HEIGHT) | user_index
+}
+
 pub async fn run(args: GetUserIdFromRegistrationIdArgs) -> anyhow::Result<()> {
     let registration_id = args.registration_id;
     
@@ -42,7 +53,8 @@ pub async fn run(args: GetUserIdFromRegistrationIdArgs) -> anyhow::Result<()> {
         1 => get_user_id_from_registration_id_strategy1(registration_id),
         2 => get_user_id_from_registration_id_strategy2(registration_id),
         3 => get_user_id_from_registration_id_strategy3(registration_id),
-        _ => anyhow::bail!("Invalid strategy. Please use 1, 2, or 3"),
+        4 => get_user_id_from_registration_id_strategy4(registration_id),
+        _ => anyhow::bail!("Invalid strategy. Please use 1, 2, 3, or 4"),
     };
     
     let realm = user_id >> REALM_USER_TREE_HEIGHT;

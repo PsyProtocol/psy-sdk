@@ -497,35 +497,6 @@ impl WalletSession {
         Ok(())
     }
 
-    async fn check_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
-        let latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
-        let max_retries = 3;
-        let mut retries = 0;
-        loop {
-            let realm_latest_l2_block_state = self.st_provider.get_realm_latest_l2_block_state().await?;
-            if realm_latest_l2_block_state.checkpoint_id < latest_l2_block_state.checkpoint_id {
-                tracing::info!(
-                    "realm latest checkpoint {} is behind coordinator, wait for 1s",
-                    realm_latest_l2_block_state.checkpoint_id
-                );
-                crate::session::sleep(std::time::Duration::from_secs(1)).await;
-            } else {
-                tracing::info!(
-                    "realm latest checkpoint {} is up to coordinator",
-                    realm_latest_l2_block_state.checkpoint_id
-                );
-                break;
-            }
-            retries += 1;
-            if retries >= max_retries {
-                return Err(anyhow::format_err!(
-                    "realm latest checkpoint {} is behind coordinator, max retries reached",
-                    realm_latest_l2_block_state.checkpoint_id
-                ));
-            }
-        }
-        Ok(latest_l2_block_state)
-    }
 
     pub async fn start_session(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
         tracing::info!("start new user proving session");
@@ -534,7 +505,29 @@ impl WalletSession {
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
-        let latest_l2_block_state = self.check_block_state().await?;
+        
+        let latest_l2_block_state = user_session_mgr.rpc_provider.get_realm_latest_l2_block_state().await?;
+        let global_latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
+
+        if latest_l2_block_state.checkpoint_id <= global_latest_l2_block_state.checkpoint_id {
+            tracing::info!(
+                "block state: user_id {}, realm latest checkpoint {}, coordinator checkpoint {}",
+                user_session_mgr.user_id,
+                latest_l2_block_state.checkpoint_id,
+                global_latest_l2_block_state.checkpoint_id
+            );
+        } else {
+            tracing::error!(
+                "realm latest checkpoint {} is ahead coordinator checkpoint {}",
+                latest_l2_block_state.checkpoint_id,
+                global_latest_l2_block_state.checkpoint_id
+            );
+            return Err(anyhow::format_err!(
+                "realm latest checkpoint {} is ahead of coordinator checkpoint {}",
+                latest_l2_block_state.checkpoint_id,
+                global_latest_l2_block_state.checkpoint_id
+            ))
+        };
 
         match user_session_mgr.user_state {
             UserState::Active => {
@@ -1206,7 +1199,7 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str(
             "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
         )?;
-        let private_key8388608 = QHashOut::<GoldilocksField>::from_str(
+        let private_key1 = QHashOut::<GoldilocksField>::from_str(
             "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d",
         )?;
 
@@ -1225,7 +1218,7 @@ mod tests {
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
-        let user8388608 = wallet_session.register_user(private_key8388608)?;
+        let user1 = wallet_session.register_user(private_key0)?;
 
         // wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(20));
@@ -1238,8 +1231,8 @@ mod tests {
         // add user0
         wallet_session.add_user(private_key0)?;
 
-        // add user8388608
-        wallet_session.add_user(private_key8388608)?;
+        // add user1
+        wallet_session.add_user(private_key1)?;
 
         // user0 mint 1000
         wallet_session.exec_contract_call(
@@ -1256,13 +1249,13 @@ mod tests {
         // wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(20));
 
-        // user0 transfer 500 to user8388608
+        // user0 transfer 500 to user1
         wallet_session.exec_contract_call(
             user0,
             vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
-                inputs: vec![8388608, 500],
+                inputs: vec![1, 500],
             }],
         )?;
 
@@ -1271,9 +1264,9 @@ mod tests {
         // wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(20));
 
-        // user8388608 claim
+        // user1 claim
         wallet_session.exec_contract_call(
-            user8388608,
+            user1,
             vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
@@ -1286,9 +1279,9 @@ mod tests {
         // wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(20));
 
-        // user8388608 transfer 500 to user0
+        // user1 transfer 500 to user0
         wallet_session.exec_contract_call(
-            user8388608,
+            user1,
             vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
@@ -1314,7 +1307,7 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str(
             "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
         )?;
-        let private_key8388608 = QHashOut::<GoldilocksField>::from_str(
+        let private_key1 = QHashOut::<GoldilocksField>::from_str(
             "f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d",
         )?;
 
@@ -1335,7 +1328,7 @@ mod tests {
         wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
-        let user8388608 = wallet_session.register_user(private_key8388608)?;
+        let user1 = wallet_session.register_user(private_key0)?;
 
         // wallet_session.st_provider.produce_block::<F>()?;
         thread::sleep(Duration::from_secs(20));
@@ -1348,8 +1341,8 @@ mod tests {
         // add user0
         wallet_session.add_user(private_key0)?;
 
-        // add user8388608
-        wallet_session.add_user(private_key8388608)?;
+        // add user1
+        wallet_session.add_user(private_key1)?;
 
         // user0 mint 1000 contract 0
         wallet_session.exec_contract_call(

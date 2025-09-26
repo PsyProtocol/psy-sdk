@@ -454,6 +454,7 @@ impl RpcProvider {
 
     pub fn get_realm_url(&self, user_id: u64) -> anyhow::Result<&String> {
         let realm_id = self.get_realm_id(user_id);
+        tracing::info!("get realm url for user id {}, realm id {}", user_id, realm_id);
 
         let realm_urls = self
             .realm_configs

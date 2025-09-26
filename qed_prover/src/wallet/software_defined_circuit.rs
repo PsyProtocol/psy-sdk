@@ -78,7 +78,7 @@ impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>> Sof
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    async fn clone(&self) -> Self {
+    pub async fn clone(&self) -> Self {
         Self::new(&self.signature_gadget.get_circuit_builder_input()).await
     }
 }

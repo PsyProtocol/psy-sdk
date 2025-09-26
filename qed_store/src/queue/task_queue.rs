@@ -216,13 +216,13 @@ impl QProvingTaskStoreImpl {
     /// Generate job-status key
     #[inline]
     pub fn job_status_key(job_id: &QProvingJobDataID) -> String {
-        format!("{}:{}", JOB_STATUS_PREFIX, job_id.to_key_string())
+        format!("{}:{}", JOB_STATUS_PREFIX, job_id.to_hex_string())
     }
 
     /// Generate job-timeout key
     #[inline]
     pub fn job_timeout_key(job_id: &QProvingJobDataID) -> String {
-        format!("{}:{}", JOB_TIMEOUT_PREFIX, job_id.to_key_string())
+        format!("{}:{}", JOB_TIMEOUT_PREFIX, job_id.to_hex_string())
     }
 
     #[inline]
@@ -321,7 +321,7 @@ impl QProvingTaskStoreImpl {
         for key in keys {
             // Extract job ID from key (skip "job-status:" prefix)
             if let Some(job_id_str) = key.strip_prefix("job-status:") {
-                if let Ok(job_id) = QProvingJobDataID::from_key_string(job_id_str) {
+                if let Ok(job_id) = QProvingJobDataID::try_from_byte_vec(&hex::decode(job_id_str)?) {
                     if let Ok(Some(status)) = self.get_job_status(&job_id).await {
                         // Check if job is completed and old enough
                         if status.status == Status::Completed {
@@ -354,7 +354,7 @@ impl QProvingTaskStoreImpl {
         let mut active_jobs = Vec::new();
         for key in keys {
             if let Some(job_id_str) = key.strip_prefix("job-status:") {
-                if let Ok(job_id) = QProvingJobDataID::from_key_string(job_id_str) {
+                if let Ok(job_id) = QProvingJobDataID::try_from_byte_vec(&hex::decode(job_id_str)?) {
                     if let Ok(Some(status)) = self.get_job_status(&job_id).await {
                         if status.status == Status::Processing {
                             active_jobs.push(status);
@@ -382,7 +382,7 @@ impl QProvingTaskStoreImpl {
 
         for key in keys {
             if let Some(job_id_str) = key.strip_prefix("job-status:") {
-                if let Ok(job_id) = QProvingJobDataID::from_key_string(job_id_str) {
+                if let Ok(job_id) = QProvingJobDataID::try_from_byte_vec(&hex::decode(job_id_str)?) {
                     if let Ok(Some(status)) = self.get_job_status(&job_id).await {
                         match status.status {
                             Status::Processing => {
@@ -993,6 +993,8 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             | ProvingJobCircuitType::GUTALeftGUTARightEndCap
             | ProvingJobCircuitType::GUTASingleEndCap
             | ProvingJobCircuitType::GUTAVerifyToCap
+            | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+            | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
             | ProvingJobCircuitType::GUTANoChange => Ok(self.job_graph.lock().await.guta_graph.clone()),
 
             _ => Err(anyhow!("Job ID {:?} does not belong to any known graph", job_id)),

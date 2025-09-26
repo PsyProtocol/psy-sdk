@@ -5,6 +5,9 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail};
 use chrono::Utc;
+use qed_core::traits::to_qfelts::ToQFelts;
+use qed_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
+use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, info, warn, trace};
@@ -72,7 +75,7 @@ pub struct CoordinatorEdgeHandler {
     ctx: CoordinatorEdgeContext<StoreReader, DrainQueue, ProofStore>,
     store: Arc<StoreReader>,
     task_store: Arc<QProvingTaskStoreImpl>,
-    white_list: Arc<WhiteList>,
+    whitelist_cache: WhiteListCache,
     watcher_client: Arc<WatcherClient>,
 }
 
@@ -107,7 +110,7 @@ impl CoordinatorEdgeHandler {
         )
         .await?;
 
-        let whitelist = WhiteList::from_file(&args.config_path)?;
+        let whitelist_cache = WhiteListCache::new(&args.config_path)?;
 
         // Initialize watcher
         info!("📡 Initializing watcher client...");
@@ -122,7 +125,7 @@ impl CoordinatorEdgeHandler {
             ctx,
             store: store_reader,
             task_store: Arc::new(task_store),
-            white_list: Arc::new(whitelist),
+            whitelist_cache,
             watcher_client,
         })
     }
@@ -239,6 +242,16 @@ impl CoordinatorEdgeHandler {
             "submit_guta input: {}",
             serde_json::to_string_pretty(&input).unwrap()
         );
+        let checkpoint_id = self.get_latest_checkpoint_id().await?;
+        if input.checkpoint_id.saturating_sub(1) < checkpoint_id {
+            warn!("⚠️ got guta at old checkpoint {}, expected {}", input.checkpoint_id.saturating_sub(1), checkpoint_id);
+        }
+
+        let expected_realm_checkpoint_tree_root = QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_root(&self.store, input.checkpoint_id.saturating_sub(1)).await?;
+        if expected_realm_checkpoint_tree_root != input.checkpoint_tree_root {
+            anyhow::bail!("invalid checkpoint tree root {} from realm, expected {}", input.checkpoint_tree_root, expected_realm_checkpoint_tree_root);
+        }
+
         let checkpoint_queue = self.ctx.checkpoint_queue.clone();
         let proof_store = self.ctx.proof_store.clone();
         let config = self.ctx.coordinator_config.clone();
@@ -248,52 +261,30 @@ impl CoordinatorEdgeHandler {
             anyhow::bail!("invalid top line proof from realm");
         }
 
-        if input.top_line_proof.new_root != input.top_line_proof.new_value {
+        if input.top_line_proof.old_root != input.top_line_proof.old_value || input.top_line_proof.new_root != input.top_line_proof.new_value {
             anyhow::bail!("top line not currently supported for guta proofs");
         }
-
-        // verify proof
-        verifier.verify_proof_of_type(input.circuit_type, &proof)?;
 
         //if circuit type is GUTANoChange, disable the proof
         if input.circuit_type == ProvingJobCircuitType::GUTANoChange {
             info!("⚠️ GUTANoChange proof, disabling it");
             return Ok(());
         }
-        tracing::info!(
-            "✅ verified guta result proof public input: {:?} ",
-            proof.public_inputs
-        );
+        if input.top_line_proof.new_root == input.top_line_proof.old_root {
+            anyhow::bail!("⚠️ realm root should be different");
+        }
 
         // verify state consistency
-        let old_root = match self
+        let old_root = self
             .store
-            .get_user_latest_top_tree_cap_root(config.realm_root_level, input.realm_id)
-            .await
-        {
-            Ok(root) => root,
-            Err(e) => {
-                error!("❌ Failed to get old root: {:?}", e);
+            .get_user_top_tree_cap_root(checkpoint_id, config.realm_root_level, input.realm_id)
+            .await?;
 
-                let mut source = e.source();
-                while let Some(err) = source {
-                    error!("⛓ Caused by: {}", err);
-                    source = err.source();
-                }
-
-                return Err(anyhow::anyhow!("Failed to get old root"));
-            }
-        };
-
-        info!(
-            "old root from db: {}, hex = {:?}",
-            old_root,
-            hex::encode(old_root.to_bytes()?)
-        );
+        info!("old root from db: {}", old_root);
         info!("old root from realm: {}", input.top_line_proof.old_root);
-        if old_root != input.top_line_proof.old_root && old_root != input.top_line_proof.new_root {
-            // anyhow::bail!("invalid top line proof old value from realm");
-            tracing::warn!("invalid top line proof old value from realm");
+        if old_root != input.top_line_proof.old_root {
+            tracing::error!("invalid top line proof old value {} from realm, expected {}", input.top_line_proof.old_root, old_root);
+            anyhow::bail!("invalid top line proof old value from realm");
         }
         let top_line_proof_data = TopLineProofData {
             old_root: format!("{}", input.top_line_proof.old_root.to_string_le()),
@@ -301,8 +292,50 @@ impl CoordinatorEdgeHandler {
             old_value: format!("{}", input.top_line_proof.old_value.to_string_le()),
             new_value: format!("{}", input.top_line_proof.new_value.to_string_le()),
         };
+
+        tracing::info!(
+            "✅ verified guta result proof public input: {:?} ",
+            proof.public_inputs
+        );
+
+        // verify witness
+        let guta_header = GlobalUserTreeAggregatorHeader {
+            guta_circuit_whitelist: config.guta_circuit_whitelist,
+            checkpoint_tree_root: input.checkpoint_tree_root,
+            state_transition: SubTreeNodeStateTransition {
+                old_node_value: input.top_line_proof.old_root,
+                new_node_value: input.top_line_proof.new_root,
+                node_index: F::from_noncanonical_u64(input.top_line_proof.index),
+                node_level: F::from_canonical_u64((config.realm_root_level as usize + input.top_line_proof.siblings.len()) as u64),
+            },
+            stats: input.guta_stats,
+        };
+        let proof_public_inputs_hash = QHashOut::from_qfelts(&proof.public_inputs[11..15]);
+        let expected_proof_public_inputs_hash = guta_header.qfhash::<QEDHasher>();
+        if expected_proof_public_inputs_hash != proof_public_inputs_hash {
+            tracing::error!(
+                "ensure expected_proof_public_inputs_hash: {} == proof.public_inputs[11..15] {}",
+                expected_proof_public_inputs_hash,
+                proof_public_inputs_hash,
+            );
+            anyhow::bail!("invalid realm submit guta proof public inputs hash");
+        }
+
+        // verify proof
+        verifier.verify_proof_of_type(input.circuit_type, &proof)?;
+
         let realm_proof_public_inputs =  proof.public_inputs.clone();
         let circuit_type = input.circuit_type;
+
+        // Report GUTA submission to watcher with structured metadata
+        let checkpoint_id = self.get_latest_checkpoint_id().await?;
+        let next_checkpoint_id = checkpoint_id + 1;
+
+        if input.checkpoint_id  != next_checkpoint_id {
+            warn!("❌ Invalid checkpoint id from realm: {}, latest checkpoint id {}", input.checkpoint_id, checkpoint_id);
+            anyhow::bail!("invalid checkpoint id from realm");
+        }
+
 
         // build queue item
         let queue_item: SubmitGUTARealmResultAPIQueueItem<GoldilocksField> =
@@ -328,8 +361,8 @@ impl CoordinatorEdgeHandler {
         );
 
         // Report GUTA submission to watcher with structured metadata
-
         let metadata = UserGutaSubmissionMetadata {
+            checkpoint_id,
             circuit_type,
             top_line_proof: top_line_proof_data,
             realm_proof_public_inputs,
@@ -1002,7 +1035,7 @@ impl CoordinatorEdgeHandler {
 use super::error::RpcError;
 use super::rpc::CoordinatorEdgeRpcServer;
 use super::types::LatestCheckpointResponse;
-use crate::common::whitelist::WhiteList;
+use crate::common::whitelist::{WhiteList, WhiteListCache};
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -1619,7 +1652,10 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                         ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange |
                         ProvingJobCircuitType::GUTASingleEndCap | ProvingJobCircuitType::GUTATwoEndCap |
                         ProvingJobCircuitType::GUTALeftEndCapRightGUTA | ProvingJobCircuitType::GUTALeftGUTARightEndCap |
+                        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade |
                         ProvingJobCircuitType::GUTAVerifyToCap => {
+                            graph.guta_graph.has_node(job_id)
+                        } | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade => {
                             graph.guta_graph.has_node(job_id)
                         }
                         _ => false
@@ -1670,6 +1706,8 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
                 | ProvingJobCircuitType::GUTATwoEndCap
                 | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
                 | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+                | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
                 | ProvingJobCircuitType::GUTAVerifyToCap => {
                     checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
                 }
@@ -1751,7 +1789,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 #[async_trait]
 impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     async fn get_pending_job(&self, signed: SignedRequest<QEDHash>) -> RpcResult<Option<QJob>> {
-        self.white_list
+        self.whitelist_cache
             .verify_request(
                 &signed,
                 &MESSAGE_CLAIM_JOB.to_string(),
@@ -1815,7 +1853,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         signed: SignedRequest<QEDHash>,
     ) -> RpcResult<()> {
         // Verify signature and whitelist
-        self.white_list
+        self.whitelist_cache
             .verify_request(&signed, &proof, Some(Duration::from_secs(300)))
             .map_err(|e| RpcError::Anyhow(e.into()))?;
 

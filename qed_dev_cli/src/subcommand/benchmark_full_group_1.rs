@@ -162,6 +162,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     ).await?;
     let mut realm_processor_node = RealmProcessorContext::new(
         realm_config,
+        None,
         JournalStore::new(st.clone()),
         realm_qps.clone(),
         realm_qps.clone(),

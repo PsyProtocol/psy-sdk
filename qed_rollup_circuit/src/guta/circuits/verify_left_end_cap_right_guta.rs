@@ -85,7 +85,7 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
 
-        builder.assert_non_zero_hash(worker_public_key);
+        // builder.assert_non_zero_hash(worker_public_key);
 
         let a_commitment = builder.constant_hash(HashOut::ZERO);
 

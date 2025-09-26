@@ -37,7 +37,7 @@ use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob, current_timestamp_millis};
 use crate::coordinator::edge::ProofStore;
 use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
-use crate::common::whitelist::WhiteList;
+use crate::common::whitelist::{WhiteList, WhiteListCache};
 use crate::watcher::events::{JobCompletedEvent, WatcherMessage};
 use crate::watcher::watcher_client::WatcherClient;
 
@@ -50,7 +50,7 @@ pub struct RealmEdgeHandler<
     ctx: RealmEdgeContext<SR, DQ, PS>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
     task_store: Arc<QProvingTaskStoreImpl>,
-    white_list: Arc<WhiteList>,
+    whitelist_cache: WhiteListCache,
     watcher_client: Arc<WatcherClient>,
     coordinator_client: HttpClient,
 }
@@ -65,7 +65,7 @@ where
         ctx: RealmEdgeContext<SR, DQ, PS>,
         job_notify_queue: Arc<ProofStoreRedisAsync>,
         task_store: Arc<QProvingTaskStoreImpl>,
-        white_list: Arc<WhiteList>,
+        whitelist_cache: WhiteListCache,
         watcher_client: Arc<WatcherClient>,
         coordinator_addr: &str,
     ) -> Result<Self, anyhow::Error> {
@@ -75,7 +75,7 @@ where
             ctx,
             job_notify_queue,
             task_store,
-            white_list,
+            whitelist_cache,
             watcher_client,
             coordinator_client,
         })
@@ -662,6 +662,10 @@ where
                         ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange |
                         ProvingJobCircuitType::GUTASingleEndCap | ProvingJobCircuitType::GUTATwoEndCap |
                         ProvingJobCircuitType::GUTALeftEndCapRightGUTA | ProvingJobCircuitType::GUTALeftGUTARightEndCap |
+                        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade  | 
+                        ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade => {
+                            graph.guta_graph.has_node(job_id)
+                        } | 
                         ProvingJobCircuitType::GUTAVerifyToCap => {
                             graph.guta_graph.has_node(job_id)
                         }
@@ -733,6 +737,7 @@ where
                         ProvingJobCircuitType::GUTAOnlyRegisterUsers |
                         ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange | ProvingJobCircuitType::GUTASingleEndCap |
                         ProvingJobCircuitType::GUTATwoEndCap | ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
+                        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade |
                         ProvingJobCircuitType::GUTALeftGUTARightEndCap | ProvingJobCircuitType::GUTAVerifyToCap => {
                             checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
                         }
@@ -793,7 +798,7 @@ where
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
     async fn get_pending_job(&self, signed: SignedRequest<QEDHash>) -> RpcResult<Option<QJob>> {
-        self.white_list.verify_request(&signed, &MESSAGE_CLAIM_JOB.to_string(), Some(Duration::from_secs(30))).map_err(|e|
+        self.whitelist_cache.verify_request(&signed, &MESSAGE_CLAIM_JOB.to_string(), Some(Duration::from_secs(30))).map_err(|e|
             RpcError::Anyhow(e.into())
         )?;
 
@@ -844,7 +849,7 @@ where
         signed: SignedRequest<QEDHash>,
     ) -> RpcResult<()> {
         // Verify signature and whitelist
-        self.white_list.verify_request(&signed, &proof, Some(Duration::from_secs(300))).map_err(|e|
+        self.whitelist_cache.verify_request(&signed, &proof, Some(Duration::from_secs(300))).map_err(|e|
             RpcError::Anyhow(e.into())
         )?;
 

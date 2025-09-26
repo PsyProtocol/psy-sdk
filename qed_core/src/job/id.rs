@@ -39,25 +39,25 @@ pub trait QJobRewardDataProvider {
 #[async_trait::async_trait]
 impl<T: QProofStoreAsyncImm> QJobRewardDataProvider for T {
     async fn get_job_commitment(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>> {
-        let proof = self.get_proof_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
+        let public_inputs = self.get_public_input_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
         Ok(QHashOut(HashOut {
             elements: [
-                proof.public_inputs[0],
-                proof.public_inputs[1],
-                proof.public_inputs[2],
-                proof.public_inputs[3],
+                public_inputs[0],
+                public_inputs[1],
+                public_inputs[2],
+                public_inputs[3],
             ],
         }))
     }
 
     async fn get_job_worker_public_key(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>> {
-        let proof = self.get_proof_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
+        let public_inputs = self.get_public_input_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
         Ok(QHashOut(HashOut {
             elements: [
-                proof.public_inputs[4],
-                proof.public_inputs[5],
-                proof.public_inputs[6],
-                proof.public_inputs[7],
+                public_inputs[4],
+                public_inputs[5],
+                public_inputs[6],
+                public_inputs[7],
             ],
         }))
     }
@@ -204,6 +204,10 @@ pub enum ProvingJobCircuitType {
     DummyProcessL1WithdrawalAggregate = 53,
     DummyBatchDeployContractsAggregate = 54,
 
+    // ADDED NEW - For Historical Upgrades
+    GUTATwoGUTAWithCheckpointUpgrade = 55,
+    GUTAVerifyToCapWithCheckpointUpgrade = 56,
+
     WrappedSignatureProof = 64,
     Secp256K1SignatureProof = 65,
 
@@ -329,6 +333,9 @@ impl TryFrom<u8> for ProvingJobCircuitType {
             52 => Ok(ProvingJobCircuitType::DummyAddL1WithdrawalAggregate),
             53 => Ok(ProvingJobCircuitType::DummyProcessL1WithdrawalAggregate),
             54 => Ok(ProvingJobCircuitType::DummyBatchDeployContractsAggregate),
+            55 => Ok(ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade),
+            56 => Ok(ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade),
+
             64 => Ok(ProvingJobCircuitType::WrappedSignatureProof),
             65 => Ok(ProvingJobCircuitType::Secp256K1SignatureProof),
             192 => Ok(ProvingJobCircuitType::NotifyRealmComplete),
@@ -507,6 +514,8 @@ impl QProvingJobGraph {
             | GUTALeftGUTARightEndCap
             | GUTASingleEndCap
             | GUTAVerifyToCap
+            | GUTATwoGUTAWithCheckpointUpgrade
+            | GUTAVerifyToCapWithCheckpointUpgrade
             | GUTANoChange => Ok(&self.guta_graph),
             _ => anyhow::bail!("Unsupported circuit type: {:?}", job_id.circuit_type),
         }
@@ -806,52 +815,6 @@ impl QProvingJobDataID {
             data_index,
         })
     }
-
-    pub fn to_key_string(&self) -> String {
-        format!(
-            "topic:{:02X}:goal:{:016X}:circuit:{:02X}:group:{:08X}:subgroup:{:08X}:task:{:08X}:dtype:{:02X}:didx:{:02X}",
-            self.topic.to_u8(),
-            self.goal_id,
-            self.circuit_type.to_u8(),
-            self.group_id,
-            self.sub_group_id,
-            self.task_index,
-            self.data_type.to_u8(),
-            self.data_index,
-        )
-    }
-    pub fn from_key_string(s: &str) -> anyhow::Result<Self> {
-        let parts: Vec<&str> = s.split(':').collect();
-        if parts.len() != 18 {
-            anyhow::bail!("invalid key string: {}", s);
-        }
-
-        // Parts index correspondence:
-        // 0="topic" 1=val 2="goal" 3=val 4="circuit" 5=val
-        // 6="group" 7=val 8="subgroup" 9=val 10="task" 11=val
-        // 12="dtype" 13=val 14="didx" 15=val
-        // (Note that the length after split is 16, not 18; there is no extra ":")
-
-        let topic: QJobTopic = u8::from_str_radix(parts[1], 16)?.try_into()?;
-        let goal_id = u64::from_str_radix(parts[3], 16)?;
-        let circuit_type = ProvingJobCircuitType::try_from(u8::from_str_radix(parts[5], 16)?)?;
-        let group_id = u32::from_str_radix(parts[7], 16)?;
-        let sub_group_id = u32::from_str_radix(parts[9], 16)?;
-        let task_index = u32::from_str_radix(parts[11], 16)?;
-        let data_type = ProvingJobDataType::try_from(u8::from_str_radix(parts[13], 16)?)?;
-        let data_index = u8::from_str_radix(parts[15], 16)?;
-
-        Ok(Self {
-            topic,
-            goal_id,
-            circuit_type,
-            group_id,
-            sub_group_id,
-            task_index,
-            data_type,
-            data_index,
-        })
-    }
 }
 
 
@@ -956,6 +919,18 @@ impl QProvingJobDataID {
             sub_group_id,
             task_index,
             ProvingJobCircuitType::GUTATwoGUTA,
+            ProvingJobDataType::InputWitness,
+            0,
+        )
+    }
+    pub fn guta_two_agg_witness_with_checkpoint_upgrade(checkpoint_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
+        Self::new(
+            QJobTopic::GenerateStandardProof,
+            checkpoint_id,
+            group_id,
+            sub_group_id,
+            task_index,
+            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade,
             ProvingJobDataType::InputWitness,
             0,
         )

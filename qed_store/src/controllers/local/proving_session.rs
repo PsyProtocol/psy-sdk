@@ -457,7 +457,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
         let user_leaf = self
             .cmd_store
             .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
-                checkpoint_id: self.start_checkpoint_u64 + 1000,
+                checkpoint_id: self.start_checkpoint_u64,
                 user_id: user.to_canonical_u64(),
             }).await?;
         /*println!(

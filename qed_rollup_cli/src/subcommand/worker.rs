@@ -19,8 +19,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
+use plonky2::field::types::Field;
+use plonky2::hash::hash_types::HashOut;
 use tokio::sync::Mutex;
 use tracing::{error, info};
+use qed_node::worker::client::WorkerCoordinatorClient;
 
 type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -77,9 +80,16 @@ pub async fn run(
     let worker_public_key = public_key_info.qfhash::<QEDHasher>();
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
+
+    let worker_coordinator_client = WorkerCoordinatorClient::new(
+        &config.network.coordinator_configs[0].rpc_url[0],
+    ).await?;
+    let user_id = worker_coordinator_client.get_user_id(&worker_public_key).await?;
+    let user_qhashout = user_id_to_qhashout(user_id);
+
     let prover = Arc::new(QEDCoordinatorCircuitManager::<C, D>::new_with_library(
         &proof_verifier.library,
-        worker_public_key,
+        user_qhashout,
     ));
     let library = Arc::new(proof_verifier.library.clone());
 
@@ -98,7 +108,8 @@ pub async fn run(
                 prover.clone(),
                 library.clone(),
                 wallet.clone(),
-                worker_public_key.clone()
+                worker_public_key.clone(),
+                user_id,
             ));
             handles.push(handle);
         }
@@ -113,7 +124,8 @@ pub async fn run(
                 prover.clone(),
                 library.clone(),
                 wallet.clone(),
-                worker_public_key.clone()
+                worker_public_key.clone(),
+                user_id,
             ));
             handles.push(handle);
         }
@@ -139,4 +151,16 @@ pub async fn run(
 
     info!("Worker exit.");
     Ok(())
+}
+
+
+pub fn user_id_to_qhashout(user_id: u64) -> QHashOut<F> {
+    let elements = [
+        F::from_canonical_u64(user_id),
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+    ];
+
+    QHashOut(HashOut { elements })
 }

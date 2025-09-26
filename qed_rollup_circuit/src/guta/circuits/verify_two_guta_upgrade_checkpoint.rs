@@ -14,17 +14,16 @@ use qed_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{
         QStandardCircuit,
         QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
-    }, proof_minifier::pm_core::get_circuit_fingerprint_generic, traits::{CreatableTarget, ToTargets}
+    }, hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget, proof_minifier::pm_core::get_circuit_fingerprint_generic, traits::{CreatableTarget, ToTargets}
 };
 use qed_core::{
-    data::qhashout::QHashOut,
-    job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
+    config::network_constants::CHECKPOINT_TREE_HEIGHT, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}
 };
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{
     merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher,
 }};
 use qed_data::guta::proof_input::{
-    VerifyTwoGUTAProofGadgetStandardInput, VerifyTwoGUTAProofGadgetStandardInputSimple,
+    VerifyTwoGUTAProofGadgetStandardInput, VerifyTwoGUTAProofUpgradeCheckpointStandardInput, VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple,
 };
 
 use crate::{guta::gadgets::{
@@ -33,12 +32,14 @@ use crate::{guta::gadgets::{
 }, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 #[derive(Debug)]
-pub struct GUTAVerifyTwoGUTACircuit<C: GenericConfig<D> + 'static, const D: usize>
+pub struct GUTAVerifyTwoGUTAUpgradeCheckpointCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     pub a_guta_gadget: VerifyGUTAProofGadget<D>,
     pub b_guta_gadget: VerifyGUTAProofGadget<D>,
+    pub historical_checkpoint_proof_a: HistoricalRootMerkleProofGadget,
+    pub historical_checkpoint_proof_b: HistoricalRootMerkleProofGadget,
     pub nca_state_transition_gadget: TwoNCAStateTransitionGadget,
     pub worker_public_key: HashOutTarget,
     pub commitment: HashOutTarget,
@@ -48,7 +49,7 @@ where
     pub fingerprint: QHashOut<C::F>,
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> GUTAVerifyTwoGUTACircuit<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> GUTAVerifyTwoGUTAUpgradeCheckpointCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -71,7 +72,30 @@ where
             guta_proof_verifier_data_cap_height,
         );
 
-        let a_guta_header = a_guta_gadget.get_guta_header::<C::Hasher, C::F>(
+        let historical_checkpoint_proof_a = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<C::Hasher, C::F, D>(
+            &mut builder,
+            CHECKPOINT_TREE_HEIGHT as usize
+        );
+
+        let historical_checkpoint_proof_b = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<C::Hasher, C::F, D>(
+            &mut builder,
+            CHECKPOINT_TREE_HEIGHT as usize
+        );
+
+        // ensure we are syncing both proofs to the same checkpoint root
+        builder.connect_hashes(
+            historical_checkpoint_proof_a.current_root,
+            historical_checkpoint_proof_b.current_root
+        );
+        
+        // sanity check: ensure we are not referencing a checkpoint proof with a zero checkpoint leaf
+        builder.ensure_hash_is_non_zero(historical_checkpoint_proof_a.current_value);
+        builder.ensure_hash_is_non_zero(historical_checkpoint_proof_b.current_value);
+
+
+
+
+        let mut a_guta_header = a_guta_gadget.get_guta_header::<C::Hasher, C::F>(
             &mut builder,
             a_guta_gadget
                 .guta_proof_header_gadget
@@ -79,12 +103,26 @@ where
             //a_guta_gadget.guta_whitelist_merkle_proof.root,
         );
 
-        let b_guta_header = b_guta_gadget.get_guta_header::<C::Hasher, C::F>(
+        let mut b_guta_header = b_guta_gadget.get_guta_header::<C::Hasher, C::F>(
             &mut builder,
             b_guta_gadget
                 .guta_proof_header_gadget
                 .guta_circuit_whitelist,
         );
+        
+        // ensure that the guta proof headers match our historical checkpoint tree proofs historical roots
+        builder.connect_hashes(
+            a_guta_header.checkpoint_tree_root,
+            historical_checkpoint_proof_a.historical_root,
+        );
+        builder.connect_hashes(
+            b_guta_header.checkpoint_tree_root,
+            historical_checkpoint_proof_b.historical_root,
+        );
+
+        // AFTER we have connected the historical roots, we can now override the checkpoint tree roots in the guta headers to be the current roots from the historical proofs
+        a_guta_header.checkpoint_tree_root = historical_checkpoint_proof_a.current_root;
+        b_guta_header.checkpoint_tree_root = historical_checkpoint_proof_b.current_root;
 
         let nca_state_transition_gadget = TwoNCAStateTransitionGadget::add_virtual_to::<
             C::Hasher,
@@ -94,7 +132,7 @@ where
 
         let worker_public_key = builder.add_virtual_hash();
 
-        // builder.assert_non_zero_hash(worker_public_key);
+        builder.assert_non_zero_hash(worker_public_key);
 
         let a_commitment = HashOutTarget {
             elements: [
@@ -176,6 +214,8 @@ where
         Self {
             a_guta_gadget,
             b_guta_gadget,
+            historical_checkpoint_proof_a,
+            historical_checkpoint_proof_b,
             nca_state_transition_gadget,
             pm_jobs_completed,
             worker_public_key,
@@ -188,7 +228,7 @@ where
     pub fn prove_base(
         &self,
         worker_public_key: QHashOut<C::F>,
-        input: &VerifyTwoGUTAProofGadgetStandardInput<C::F>,
+        input: &VerifyTwoGUTAProofUpgradeCheckpointStandardInput<C::F>,
         child_a_proof: &ProofWithPublicInputs<C::F, C, D>,
         child_a_verifier_data: &VerifierOnlyCircuitData<C, D>,
         child_b_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -197,17 +237,20 @@ where
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
+        self.historical_checkpoint_proof_a.set_witness_proof_core(&mut pw, &input.historical_checkpoint_proof_a)?;
+        self.historical_checkpoint_proof_b.set_witness_proof_core(&mut pw, &input.historical_checkpoint_proof_b)?;
+
         self.a_guta_gadget.set_witness(
             &mut pw,
             &input.guta_inclusion_proof_a,
-            &input.get_guta_header_a(),
+            &input.get_guta_header_a_ho::<C::Hasher>(),
             child_a_proof,
             child_a_verifier_data,
         )?;
         self.b_guta_gadget.set_witness(
             &mut pw,
             &input.guta_inclusion_proof_b,
-            &input.get_guta_header_b(),
+            &input.get_guta_header_b_ho::<C::Hasher>(),
             child_b_proof,
             child_b_verifier_data,
         )?;
@@ -220,7 +263,7 @@ where
 }
 
 impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
-    for GUTAVerifyTwoGUTACircuit<C, D>
+    for GUTAVerifyTwoGUTAUpgradeCheckpointCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -244,7 +287,7 @@ impl<
         C: GenericConfig<D> + 'static,
         const D: usize,
     > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
-    for GUTAVerifyTwoGUTACircuit<C, D>
+    for GUTAVerifyTwoGUTAUpgradeCheckpointCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -255,10 +298,10 @@ where
         job_id: QProvingJobDataID,
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let r: CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<C::F>> =
+        let r: CircuitInputWithDependencies<VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
-        tracing::debug!("GUTAVerifyTwoGUTACircuitInput: {}", serde_json::to_string_pretty(&r)?);
+        tracing::debug!("GUTAVerifyTwoGUTAUpgradeCheckpointCircuitInput: {}", serde_json::to_string_pretty(&r)?);
         
         if r.dependencies.len() != 2 {
             anyhow::bail!("invalid dependency count in two end guta input");
@@ -278,9 +321,9 @@ where
             library.get_group_inclusion_proof(job_id.circuit_type, dep_b_type)?;
         let result = self.prove_base(
             worker_public_key,
-            &VerifyTwoGUTAProofGadgetStandardInput {
-                checkpoint_tree_root: r.input.checkpoint_tree_root,
-                b_checkpoint_tree_root: r.input.b_checkpoint_tree_root,
+            &VerifyTwoGUTAProofUpgradeCheckpointStandardInput {
+                historical_checkpoint_proof_a: r.input.historical_checkpoint_proof_a,
+                historical_checkpoint_proof_b: r.input.historical_checkpoint_proof_b,
                 stats_a: r.input.stats_a,
                 stats_b: r.input.stats_b,
                 nca_proof: r.input.nca_proof,

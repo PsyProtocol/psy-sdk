@@ -327,7 +327,7 @@ pub trait KVQMerkleTreeModelCore<
             updates
         )?;
 
-        let new_nearest_common_ancestor_value = if nca.index&1 == 0 {
+        let new_nearest_common_ancestor_value = if a.key.is_to_the_left_of(&b.key) {
             Hasher::two_to_one(&dmp_a.new_root, &dmp_b.new_root)
         } else {
             Hasher::two_to_one(&dmp_b.new_root, &dmp_a.new_root)
@@ -614,6 +614,7 @@ pub trait KVQMerkleTreeModelCore<
         root_level: u8,
         updates: &mut Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
     ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+        let root_level = root_level.min(node.level);
         if root_level == node.level {
             let old_value = Self::get_node(store, tree_height, &node)?;
             Self::set_node(store, &node, &new_value)?;

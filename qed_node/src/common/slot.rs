@@ -5,12 +5,40 @@ use serde::{Deserialize, Serialize};
 pub const SLOT0: u64 = 0;
 pub const SLOT_SIZE: u64 = 6000; // 6s
 pub const SLOT0_TIMESTAMP: u64 = 1753891200000; // 2025-07-31 00:00:00
-pub const NETWORK_COST_TIME_MS: u64 = 1000; // 500ms
+pub const NETWORK_COST_TIME_MS: u64 = 1000; // 1s
 
 #[auto_impl(&, Box, Arc)]
 pub trait Clock {
     fn get_current_timestamp(&self) -> u64;
 }
+
+#[auto_impl(&, Box, Arc)]
+pub trait Parity {
+    fn is_odd(&self) -> bool;
+    fn is_even(&self) -> bool;
+}
+
+
+macro_rules! impl_parity {
+    ($($type:ty),*) => {
+        $(
+            impl Parity for $type {
+                fn is_odd(&self) -> bool {
+                    self % 2 != 0
+                }
+                fn is_even(&self) -> bool {
+                    self % 2 == 0
+                }
+            }
+        )*
+    };
+}
+
+// Implement Parity for all unsigned integer types
+impl_parity!(u8, u16, u32, u64, u128, usize);
+
+// Implement Parity for all signed integer types
+impl_parity!(i8, i16, i32, i64, i128, isize);
 
 // #[auto_impl(&, Box, Arc)]
 pub trait Slot: Clock {

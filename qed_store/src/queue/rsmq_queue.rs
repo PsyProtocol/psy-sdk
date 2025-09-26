@@ -739,7 +739,7 @@ impl WorkerEventTransmitterAsyncImm for RsmqQueue {
                     }
                 }
             }
-            sleep(Duration::from_millis(500)).await;
+            sleep(Duration::from_millis(100)).await;
         }
     }
 

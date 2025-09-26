@@ -59,6 +59,7 @@ pub struct UserGutaSubmissionEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserGutaSubmissionMetadata {
+    pub checkpoint_id: u64,
     pub circuit_type: ProvingJobCircuitType,
     pub top_line_proof: TopLineProofData,
     pub realm_proof_public_inputs: Vec<QEDFelt>,

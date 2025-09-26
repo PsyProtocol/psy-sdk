@@ -22,7 +22,7 @@ use std::sync::Arc;
 use sync::spawn_active_checkpoint_sync_task;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
-use crate::common::whitelist::WhiteList;
+use crate::common::whitelist::WhiteListCache;
 use crate::watcher::watcher_client::WatcherClient;
 
 pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedisAsync> {
@@ -100,7 +100,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         .await?;
     let job_notify_queue = proof_store.clone();
 
-    let whitelist = WhiteList::from_file(&config.config_path)?;
+    let whitelist_cache = WhiteListCache::new(&config.config_path)?;
 
     // Initialize watcher
     info!("📡 Initializing watcher client...");
@@ -114,7 +114,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         edge_ctx.clone(),
         job_notify_queue,
         Arc::new(task_store),
-        Arc::new(whitelist),
+        whitelist_cache,
         watcher_client,
         &config.rpc.coordinator_addr,
     )?;

@@ -6,23 +6,24 @@ use plonky2::{
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }, field::types::Field
+    }
 };
 use qed_common_circuit::{
-    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget, proof_minifier::
         pm_core::get_circuit_fingerprint_generic, traits::ToTargets
 };
-use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
+use qed_core::{config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
 use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::{core::MerkleProofCore, treeprover::data::CircuitInputWithDependencies}, traits::hasher::MerkleZeroHasher}};
-use qed_data::guta::{header::GlobalUserTreeAggregatorHeader, proof_input::VerifyGUTAToCapCircuitInputSimple};
+use qed_data::guta::{header::GlobalUserTreeAggregatorHeader, proof_input::VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple};
 
 use crate::{guta::gadgets::verify_guta_proof_to_line::VerifyGUTAProofToLineGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 
 #[derive(Debug)]
-pub struct GUTAVerifyGUTAToCapCircuit<C: GenericConfig<D>, const D: usize>
+pub struct GUTAVerifyGUTAToCapUpgradeCheckpointCircuit<C: GenericConfig<D>, const D: usize>
 {
     pub verify_to_line_gadget: VerifyGUTAProofToLineGadget<D>,
+    pub upgrade_checkpoint_historical_merkle_proof_gadget: HistoricalRootMerkleProofGadget,
     pub worker_public_key_target: HashOutTarget,
     pub pm_jobs_completed: PMJobsCompletedStatsGadget,
 
@@ -30,7 +31,7 @@ pub struct GUTAVerifyGUTAToCapCircuit<C: GenericConfig<D>, const D: usize>
     pub fingerprint: QHashOut<C::F>,
 }
 
-impl<C: GenericConfig<D>, const D: usize> GUTAVerifyGUTAToCapCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> GUTAVerifyGUTAToCapUpgradeCheckpointCircuit<C, D>
 where
     C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> {
         pub fn new(
@@ -50,12 +51,31 @@ where
             GLOBAL_USER_TREE_HEIGHT as usize,
             GLOBAL_USER_TREE_HEIGHT as usize,
         );
+        let upgrade_checkpoint_historical_merkle_proof_gadget = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<C::Hasher, C::F, D>(
+            &mut builder,
+            CHECKPOINT_TREE_HEIGHT as usize
+        );
 
-        let public_inputs_hash = verify_to_line_gadget.get_guta_header_line().to_hash::<C::Hasher, C::F, D>(&mut builder);
+        // sanity check: ensure the checkpoint leaf is non-zero
+        builder.ensure_hash_is_non_zero(upgrade_checkpoint_historical_merkle_proof_gadget.current_value);
+
+        let mut computed_header_line = verify_to_line_gadget.get_guta_header_line();
+
+        // ensure the computed header has a root which equals the historical checkpoint root proof
+        builder.connect_hashes(
+            computed_header_line.checkpoint_tree_root,
+            upgrade_checkpoint_historical_merkle_proof_gadget.historical_root
+        );
+
+        // now we can modify the computed header to have the new checkpoint root
+        computed_header_line.checkpoint_tree_root = upgrade_checkpoint_historical_merkle_proof_gadget.current_root;
+        
+        // let public_inputs_hash = verify_to_line_gadget.get_guta_header_line().to_hash::<C::Hasher, C::F, D>(&mut builder);
+        let public_inputs_hash = computed_header_line.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         let worker_public_key = builder.add_virtual_hash();
 
-        // builder.assert_non_zero_hash(worker_public_key);
+        builder.assert_non_zero_hash(worker_public_key);
 
         let child_commitment = HashOutTarget {
             elements: [
@@ -109,6 +129,7 @@ where
             circuit_data,
             fingerprint,
             verify_to_line_gadget,
+            upgrade_checkpoint_historical_merkle_proof_gadget,
             worker_public_key_target: worker_public_key,
             pm_jobs_completed,
         }
@@ -122,6 +143,7 @@ where
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         top_line_siblings: &[QHashOut<C::F>],
         worker_public_key: QHashOut<C::F>,
+        checkpoint_historical_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
 
         let mut pw = PartialWitness::<C::F>::new();
@@ -134,8 +156,9 @@ where
             verifier_data,
             top_line_siblings,
         )?;
+        self.upgrade_checkpoint_historical_merkle_proof_gadget.set_witness_proof_core(&mut pw, checkpoint_historical_merkle_proof)?;
 
-        pw.set_hash_target(self.worker_public_key_target, worker_public_key.0);
+        pw.set_hash_target(self.worker_public_key_target, worker_public_key.0)?;
 
         self.circuit_data.prove(pw)
 
@@ -144,7 +167,7 @@ where
 
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for GUTAVerifyGUTAToCapCircuit<C, D>
+    for GUTAVerifyGUTAToCapUpgradeCheckpointCircuit<C, D>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {
@@ -169,7 +192,7 @@ impl<
         C: GenericConfig<D> + 'static,
         const D: usize,
     > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
-    for GUTAVerifyGUTAToCapCircuit<C, D>
+    for GUTAVerifyGUTAToCapUpgradeCheckpointCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>
 {
@@ -180,10 +203,10 @@ where
         job_id: QProvingJobDataID,
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let r: CircuitInputWithDependencies<VerifyGUTAToCapCircuitInputSimple<C::F>> =
+        let r: CircuitInputWithDependencies<VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
-        tracing::debug!("GUTAVerifyGUTAToCapCircuitInput: {}", serde_json::to_string_pretty(&r)?);
+        tracing::debug!("GUTAVerifyGUTAToCapUpgradeCheckpointCircuitInput: {}", serde_json::to_string_pretty(&r)?);
 
         if r.dependencies.len() != 1 {
             anyhow::bail!("invalid dependency count in guta to cap input");
@@ -206,6 +229,7 @@ where
             &child_a_verifier_data,
             &r.input.top_line_siblings,
             worker_public_key,
+            &r.input.historical_checkpoint_proof,
         )?;
 
         Ok(result)

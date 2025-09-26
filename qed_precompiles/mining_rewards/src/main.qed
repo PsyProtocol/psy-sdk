@@ -22,7 +22,7 @@ struct PersistentState {
 #[derive(Storage, StorageRef)]
 pub struct PsyPOWMiningRewardsClaimContract {
     pub persistent_state: PersistentState,
-    pub claimed_guta_nullifiers: [Felt; 1073741824],
+    pub claimed_guta_nullifiers: [Felt; 16777216],
     pub claimed_contract_deployment_nullifiers: [Felt; 1048576],
     pub claimed_user_registration_nullifiers: [Felt; 1048576]
 }
@@ -145,7 +145,7 @@ impl PsyPOWMiningRewardsClaimContractRef {
         assert(claim_checkpoint_id > persistent_state.last_sealed_checkpoint_id, "checkpoint is sealed");
 
         let expected_guta_rewards_tree_root = get_gutas_root(claim_checkpoint_id);
-        let user_public_key_hash = get_user_public_key_hash();
+        let user_public_key_hash = get_user_id();
 
         let total_proofs = get_gutas_completed(claim_checkpoint_id);
         let total_fees = get_fees_collected(claim_checkpoint_id);
@@ -179,10 +179,10 @@ impl PsyPOWMiningRewardsClaimContractRef {
                 "guta tree root mismatch");
 
                 assert(
-                    proof.reward_leaf[0] == user_public_key_hash[0]
-                    && proof.reward_leaf[1] == user_public_key_hash[1]
-                    && proof.reward_leaf[2] == user_public_key_hash[2]
-                    && proof.reward_leaf[3] == user_public_key_hash[3],
+                    proof.reward_leaf[0] == user_public_key_hash
+                    && proof.reward_leaf[1] == 0
+                    && proof.reward_leaf[2] == 0
+                    && proof.reward_leaf[3] == 0,
                 "reward not for current user");
 
                 assert(c.claimed_guta_nullifiers.index(nullifier_index).get() == 0, "reward already claimed");

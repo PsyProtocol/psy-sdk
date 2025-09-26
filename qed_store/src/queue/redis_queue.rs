@@ -24,6 +24,7 @@ use qed_core::job::{
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
 use tokio::{sync::Mutex, time::sleep};
+use tracing::error;
 // Re-use constants from fred_queue
 use crate::queue::{PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, PS_WORKER_QUEUE_KEY_PREFIX};
 
@@ -53,6 +54,9 @@ pub trait QueuePrefixKey {
     // checkpoint management keys
     fn checkpoint_list_key(&self) -> String;
     fn checkpoint_proofs_key(&self, checkpoint_id: u64) -> String;
+
+    // public inputs key
+    fn public_inputs_key(&self) -> String;
 }
 
 // fixed prefix + biz key
@@ -93,6 +97,10 @@ impl<T: BizKey> QueuePrefixKey for T {
     fn checkpoint_proofs_key(&self, checkpoint_id: u64) -> String {
         format!("checkpoint_proofs:{}-{}", checkpoint_id, self.biz_key())
     }
+
+    fn public_inputs_key(&self) -> String {
+        format!("public_inputs-{}", self.biz_key())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -121,32 +129,13 @@ impl ProofStoreRedisAsync {
         &self.pool
     }
 
-    async fn manage_checkpoint_limit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+    async fn add_checkpoint(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         let mut con = self.pool.get().await?;
         let checkpoint_list_key = self.checkpoint_list_key();
-
-        // Check if checkpoint already exists in the list
-        let existing_checkpoints: Vec<u64> = con.lrange(&checkpoint_list_key, 0, -1).await?;
-        if !existing_checkpoints.contains(&checkpoint_id) {
-            // Add new checkpoint_id to the right end of list only if it doesn't exist
-            let _: () = con.rpush(&checkpoint_list_key, checkpoint_id).await?;
-
-            // Check list length
-            let list_len: usize = con.llen(&checkpoint_list_key).await?;
-            if list_len > MAX_CHECKPOINT_COUNT {
-                // Remove oldest checkpoint from the left end
-                let old_checkpoint_id: Option<u64> = con.lpop(&checkpoint_list_key, None).await?;
-                if let Some(old_id) = old_checkpoint_id {
-                    // Delete corresponding proof hashmap
-                    let old_checkpoint_proofs_key = self.checkpoint_proofs_key(old_id);
-                    let _: () = con.del(&old_checkpoint_proofs_key).await?;
-                    tracing::debug!("Removed old checkpoint {} and its proofs", old_id);
-                }
-            }
-        }
-
+        let _: () = con.sadd(&checkpoint_list_key, checkpoint_id).await?;
         Ok(())
     }
+
 }
 
 #[async_trait]
@@ -185,6 +174,18 @@ impl QProofStoreReaderAsync for ProofStoreRedisAsync {
             .await?;
         Ok(data)
     }
+
+    async fn get_public_input_by_id<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+    ) -> anyhow::Result<Vec<C::F>> {
+        let mut con = self.pool.get().await?;
+        let public_inputs_key = self.public_inputs_key();
+        let data: Vec<u8> = con
+            .hget(&public_inputs_key, id.to_fixed_bytes().as_slice())
+            .await?;
+        Ok(bincode::deserialize(&data)?)
+    }
 }
 
 #[async_trait]
@@ -197,8 +198,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         let data = bincode::serialize(&proof)?;
         let checkpoint_id = id.goal_id;
 
-        // Manage checkpoint limit
-        self.manage_checkpoint_limit(checkpoint_id).await?;
+        self.add_checkpoint(checkpoint_id).await?;
 
         // Store proof to corresponding checkpoint's hashmap
         let mut con = self.pool.get().await?;
@@ -210,6 +210,18 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
                 data.as_slice(),
             )
             .await?;
+
+        // Store public_inputs separately to a permanent queue
+        let public_inputs_data = bincode::serialize(&proof.public_inputs)?;
+        let public_inputs_key = self.public_inputs_key();
+        let _: bool = con
+            .hset_nx(
+                &public_inputs_key,
+                id.to_fixed_bytes().as_slice(),
+                public_inputs_data.as_slice(),
+            )
+            .await?;
+
         Ok(())
     }
     async fn set_bytes_by_id_batch(
@@ -222,7 +234,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         let checkpoint_id = id.goal_id;
 
         // Manage checkpoint limit
-        self.manage_checkpoint_limit(checkpoint_id).await?;
+        self.add_checkpoint(checkpoint_id).await?;
 
         // Store data to corresponding checkpoint's hashmap
         let mut con = self.pool.get().await?;
@@ -268,6 +280,30 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         Ok(())
     }
 
+    async fn cleanup_old_proofs(&self, current_height: u64, keep_blocks: u64) -> anyhow::Result<()> {
+        let mut con = self.pool.get().await?;
+        let checkpoint_list_key = self.checkpoint_list_key();
+
+        let threshold = current_height.saturating_sub(keep_blocks);
+        let all_checkpoints: Vec<u64> = con.smembers(&checkpoint_list_key).await?;
+
+        let to_remove: Vec<_> = all_checkpoints
+            .into_iter()
+            .filter(|&id| id < threshold)
+            .collect();
+
+        for checkpoint_id in &to_remove {
+            let key = self.checkpoint_proofs_key(*checkpoint_id);
+            let _: () = con.del(&key).await?;
+        }
+
+        if !to_remove.is_empty() {
+            let _: () = con.srem(&checkpoint_list_key, &to_remove).await?;
+            tracing::info!("Cleaned up {} old checkpoints < {}", to_remove.len(), threshold);
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -334,6 +370,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
 pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueueConsumerAsyncImm {
     async fn peek_with_position<T: DQSerializable>(
         &self,
+        count: Option<isize>,
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueOffsetState)>;
@@ -408,18 +445,22 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
                             Ok(job) => {
                                 if job.is_notify_complete() {
                                     return Ok(job);
+                                } else {
+                                    error!("job is not notify complete, checkpoint_id = {}", _checkpoint_id);
                                 }
                             }
-                            Err(e1) => eprintln!(
-                                "error deserializing job id in wait_for_block_proving_jobs_imm: {:?}",
-                                e1
+                            Err(e1) => error!(
+                                "error deserializing job id in wait_for_block_proving_jobs_imm: {:?}, checkpoint_id = {}",
+                                e1, _checkpoint_id,
                             ),
                         }
+                    } else {
+                        error!("g.len() != 24, g.len() = {}, checkpoint_id = {}", g.len(), _checkpoint_id);
                     }
                 }
                 None => {}
             };
-            sleep(Duration::from_millis(500)).await;
+            sleep(Duration::from_millis(100)).await;
         }
     }
 
@@ -434,7 +475,7 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
             match self.get_proof_by_id::<C, D>(job_id.get_output_id()).await {
                 Ok(proof) => return Ok(proof),
                 Err(_) => {
-                    sleep(Duration::from_millis(500)).await;
+                    sleep(Duration::from_millis(100)).await;
                 }
             }
         }
@@ -726,6 +767,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
     async fn peek_with_position<T: DQSerializable>(
         &self,
+        count: Option<isize>,
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<(Vec<T>, QueueOffsetState)> {
@@ -737,7 +779,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         );
 
         let mut con = self.pool.get().await?;
-        let members: Vec<Vec<u8>> = con.lrange(key.clone(), 0, -1).await?;
+        let members: Vec<Vec<u8>> = con.lrange(key.clone(), 0, (count.unwrap_or_default() - 1) as isize).await?;
         // Deserialize items
         let items: Vec<T> = members
             .into_iter()
@@ -760,7 +802,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!(e))?;
         con.set_ex(&state_key, state_data, 3600).await?; // 1 hour TTL
 
-        tracing::debug!("Consumed {} items from drain queue {} for checkpoint {}",
+        tracing::debug!("Consumed redis {} items from drain queue {} for checkpoint {}",
               items.len(), channel_id, checkpoint_id);
 
         Ok((items, state))
@@ -794,7 +836,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         // Clear consumption state
         let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", state.channel_id);
         con.del(&state_key).await?;
-        tracing::debug!("Committed consumption of {} items for checkpoint {}",
+        tracing::debug!("Consumed redis {} items for checkpoint {}",
               state.consumed_count, state.checkpoint_id);
 
         Ok(())

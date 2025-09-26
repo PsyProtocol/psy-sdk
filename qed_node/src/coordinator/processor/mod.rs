@@ -66,7 +66,7 @@ use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosi
 use crate::common::clock::SlotTimer;
 use crate::common::retry::Retryable;
 use crate::common::slot;
-use crate::common::slot::{LocalClock, Slot};
+use crate::common::slot::{LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::realm::RealmProcessor;
 
 type C = PoseidonGoldilocksConfig;
@@ -279,8 +279,9 @@ impl
         ))
     }
 
-    pub async fn build_block(&mut self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
+    pub async fn build_block(&self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
         let ctx = self.ctx.clone();
+        let now = Instant::now();
         self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
             if let Err(e) = ctx.build_block(slot).await {
                 ctx.rollback(next_checkpoint_id).await?;
@@ -291,8 +292,8 @@ impl
         self.ctx.commit(next_checkpoint_id).await?;
 
         info!(
-            "✅ Successfully built and committed block {}, slot {}",
-            next_checkpoint_id, slot
+            "✅ Successfully built and committed block {}, slot {}, cost time: {:?}",
+            next_checkpoint_id, slot, now.elapsed()
         );
 
         Ok(next_checkpoint_id)
@@ -489,24 +490,43 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
     loop {
         let next_checkpoint_id = coordinator_processor.next_checkpoint_id().await?;
         tokio::select! {
-            is = coordinator_processor.wait_for_make_block() => {
-                if !is {
+            biased;
+            slot = slot_timer.wait_for_next_slot() => {
+                if slot.is_odd() {
                     continue;
                 }
-                debug!("✅ make block, checkpoint {}", next_checkpoint_id);
-            }
-            slot = slot_timer.wait_for_next_slot() => {
                 trace!("✅ Successfully wait for next slot: {}", slot);
                 if !coordinator_processor.has_pending_tasks(next_checkpoint_id).await? {
                     trace!("⚠️ No pending tasks for checkpoint {}, waiting for next checkpoint", next_checkpoint_id);
                     continue;
                 }
             }
+            is = coordinator_processor.wait_for_make_block() => {
+                if !is {
+                    continue;
+                }
+                debug!("✅ make block, checkpoint {}", next_checkpoint_id);
+            }
         }
 
         let slot = slot_timer_other.get_current_slot();
-        if let Err(err) = coordinator_processor.build_block(next_checkpoint_id, slot).await {
-            error!("❌ Failed to build block: {:?}, slot: {}", err, slot);
+        tokio::select! {
+            result = coordinator_processor.build_block(next_checkpoint_id, slot) => {
+                match result {
+                    Ok(checkpoint_id) => {
+                        info!("✅ Successfully built block for checkpoint {}, slot {}", checkpoint_id, slot);
+                    }
+                    Err(err) => {
+                        error!("❌ Failed to build block: {:?}, slot: {}", err, slot);
+                    }
+                }
+            }
+            _ = tokio::time::sleep(Duration::from_secs(2 * SLOT_SIZE)) => {
+                if let Err(err) = coordinator_processor.ctx.rollback(next_checkpoint_id).await {
+                    error!("❌ Failed to rollback checkpoint {}: {:?}", next_checkpoint_id, err);
+                }
+                error!("⏰ Timeout waiting for build block to complete, slot: {}", slot);
+            }
         }
     }
 }

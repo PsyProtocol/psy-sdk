@@ -2,7 +2,7 @@ export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 export SQLX_OFFLINE=true
 
 PROFILE := release
-LOG_LEVEL := qed_rollup_utils=debug,tikv_client=debug,qed_store=debug,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error
+LOG_LEVEL := qed_rollup_utils=trace,tikv_client=warn,qed_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,qed_node=trace,qed_common_circuit=trace,qed_rollup_circuit=trace,qed_prover=trace,qed_data=trace,plonky2=error
 
 default: build wallet-build
 
@@ -146,7 +146,7 @@ SLOT_ID                  := 0
 CONTRACT_STATE_HEIGHT    := 32
 REALM_ID                 := 0
 REGISTRATION_ID          := 1
-STRATEGY                 := 2
+STRATEGY                 := 4
 SIGN_TYPE                := zk
 
 COORDINATOR_RPC_URL      := $(shell jq -r '.network.coordinator_configs[].rpc_url[]' config.json)
@@ -261,6 +261,16 @@ run-watcher-coordinator:
 	--database lmdbx \
 	--lmdbx-path ${PWD}/db/coordinator
 
+run-watcher-coordinator-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 0 \
+	--node-type coordinator \
+	--redis-url redis://127.0.0.1:6379 \
+	--api-endpoint "http://localhost:3000" \
+    --database tikv \
+    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+    --tikv-namespace watcher-coordinator
+
 run-watcher-realm0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 0 \
@@ -270,6 +280,17 @@ run-watcher-realm0:
 	--database lmdbx \
     --lmdbx-path ${PWD}/db/realm0
 
+run-watcher-realm0-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 0 \
+	--node-type realm \
+	--redis-url redis://127.0.0.1:6380 \
+	--api-endpoint "http://localhost:3000" \
+    --database tikv \
+    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+    --tikv-namespace watcher-realm0
+
+
 run-watcher-realm1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 1 \
@@ -278,6 +299,17 @@ run-watcher-realm1:
 	--api-endpoint "http://localhost:3000" \
 	--database lmdbx \
     --lmdbx-path ${PWD}/db/realm1
+
+
+run-watcher-realm1-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 1 \
+	--node-type realm \
+	--redis-url redis://127.0.0.1:6381 \
+	--api-endpoint "http://localhost:3000" \
+    --database tikv \
+    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+    --tikv-namespace watcher-realm1
 
 run-api-service:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_api_services
@@ -358,6 +390,9 @@ run-realm-edge1-tikv:
 		--queue-biz-key=rwq1
 
 run-all-tikv: shutdown-tikv init-tikv
+	@redis-cli -p 6379 FLUSHALL > /dev/null 2>&1 || true
+	@redis-cli -p 6380 FLUSHALL > /dev/null 2>&1 || true
+	@redis-cli -p 6381 FLUSHALL > /dev/null 2>&1 || true
 	@./scripts/run_all_tikv.sh
 
 run-user-prover:
@@ -370,7 +405,25 @@ run-web-wallet:
 	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
 
 run-benchmark:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --repeat 100
+	@./scripts/run_benchmark.sh
+
+run-benchmark-user:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-user --max-task 10
+
+run-benchmark-deploy:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-deploy-contract --contract-path qed_precompiles/token/target/token.json --max-task 5
+
+run-benchmark-mint:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100 --max-task 50
+
+run-benchmark-transfer:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-multi-user-transfer --concurrent-tasks 100 --max-task 50
+
+run-benchmark-flow:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --concurrent-tasks 100 --max-task 50
+
+run-benchmark-multi-transfer:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-multi-transfer --max-task 10
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token
@@ -428,7 +481,7 @@ mint:
 
 transfer:
 	@echo "USER0 transferring 250 to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER1 transferring 250 to USER0..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
@@ -436,13 +489,13 @@ claim:
 	@echo "USER1 claiming transfer..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0 --sign-type $(SIGN_TYPE)
 	@echo "USER0 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 8388608 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 1048576 --sign-type $(SIGN_TYPE)
 
 return-back:
 	@echo "USER1 transferring back to USER0..."
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER0 transferring back to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 8388608 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
 claim-rewards:
 	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
