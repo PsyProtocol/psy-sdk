@@ -70,7 +70,7 @@ use crate::common::retry::Retryable;
 use crate::common::slot;
 use crate::common::slot::{LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::realm::RealmProcessor;
-use super::backup::{S3BackupClient, try_backup_checkpoint};
+use super::backup::{S3BackupClient, try_backup_coordinator_checkpoint};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -319,7 +319,7 @@ impl
 
         // Auto backup after successful commit
         if let Some(backup_client) = &self.backup_client {
-            self.backup_checkpoint_with_changes(backup_client, next_checkpoint_id, pair_to_set, remove_keys).await;
+            self.backup_checkpoint(backup_client, next_checkpoint_id, pair_to_set, remove_keys).await;
         }
 
         Ok(next_checkpoint_id)
@@ -334,7 +334,7 @@ impl
         self.ctx.has_pending_tasks(checkpoint_id).await
     }
 
-    async fn backup_checkpoint_with_changes(
+    async fn backup_checkpoint(
         &self,
         backup_client: &S3BackupClient,
         checkpoint_id: u64,
@@ -342,7 +342,7 @@ impl
         removed_keys: Vec<Vec<u8>>,
     ) {
         let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
-        try_backup_checkpoint(backup_client, checkpoint_id, pair_to_set, removed_keys).await;
+        try_backup_coordinator_checkpoint(backup_client, checkpoint_id, pair_to_set, removed_keys).await;
     }
 
     async fn process_genesis_contracts<SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>>(

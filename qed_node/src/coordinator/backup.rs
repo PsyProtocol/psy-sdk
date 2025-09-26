@@ -203,7 +203,7 @@ pub async fn create_checkpoint_backup(
     })
 }
 
-pub async fn try_backup_checkpoint(
+pub async fn try_backup_coordinator_checkpoint(
     backup_client: &S3BackupClient,
     checkpoint_id: u64,
     journal_changes: Vec<(Vec<u8>, Vec<u8>)>,
