@@ -47,6 +47,13 @@ use qed_data::traits::qdatastore::{qtreedata::{QTreeDataStoreWriterSync}, qmetad
 use std::{str::FromStr, collections::HashMap};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use super::backup::{RealmS3BackupClient, try_backup_realm_checkpoint};
+use tokio::sync::mpsc;
+
+struct RealmBackupRequest {
+    checkpoint_id: u64,
+    pair_to_set: Vec<(Vec<u8>, Vec<u8>)>,
+    removed_keys: Vec<Vec<u8>>,
+}
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<QEDStore>,
@@ -71,7 +78,7 @@ pub struct RealmProcessor {
     pub is_synced: AtomicBool,
     pub pending_checkpoint_id: AtomicU64,
     pub shutdown_requested: Arc<AtomicBool>,
-    pub backup_client: Option<RealmS3BackupClient>,
+    pub backup_tx: Option<mpsc::UnboundedSender<RealmBackupRequest>>,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig, shutdown_requested: Arc<AtomicBool>) -> anyhow::Result<()> {
@@ -102,10 +109,15 @@ impl RealmProcessor {
         let sync_checkpoint = Arc::new(realm_qps.clone());
 
         // Initialize backup client
-        let backup_client = match RealmS3BackupClient::new_from_env(config.realm.realm_id).await {
+        let backup_tx = match RealmS3BackupClient::new_from_env(config.realm.realm_id).await {
             Ok(client) => {
                 info!("✅ S3 backup client initialized");
-                Some(client)
+                let (tx, rx) = mpsc::unbounded_channel();
+                tokio::spawn(async move {
+                    RealmProcessor::backup_task(rx, client, config.realm.realm_id).await;
+                });
+                info!("Started realm backup task");
+                Some(tx)
             },
             Err(e) => {
                 warn!("⚠️ S3 backup client initialization failed: {}", e);
@@ -127,7 +139,7 @@ impl RealmProcessor {
             is_synced: AtomicBool::new(false),
             pending_checkpoint_id: AtomicU64::new(0),
             shutdown_requested,
-            backup_client,
+            backup_tx,
         };
         Ok(processor)
     }
@@ -228,8 +240,16 @@ impl RealmProcessor {
                 info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint, ret.latest_checkpoint_id);
 
                 // Auto backup after successful commit
-                if let Some(backup_client) = &self.backup_client {
-                    self.backup_checkpoint(backup_client, checkpoint, pair_to_set, remove_keys).await;
+                if let Some(backup_tx) = &self.backup_tx {
+                    let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+                    let request = RealmBackupRequest {
+                        checkpoint_id: checkpoint,
+                        pair_to_set,
+                        removed_keys: remove_keys,
+                    };
+                    if let Err(e) = backup_tx.send(request) {
+                        error!("❌ Failed to send realm backup request for checkpoint {}: {}", checkpoint, e);
+                    }
                 }
             } else {
                 warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, checkpoint: {}", ret.latest_checkpoint_id, checkpoint);
@@ -374,8 +394,16 @@ impl RealmProcessor {
 
                         let (pair_to_set, remove_keys) = context.store.commit(checkpoint_id)?;
                         // Auto backup after successful commit
-                        if let Some(backup_client) = &self.backup_client {
-                            self.backup_checkpoint(backup_client, checkpoint_id, pair_to_set, remove_keys).await;
+                        if let Some(backup_tx) = &self.backup_tx {
+                            let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+                            let request = RealmBackupRequest {
+                                checkpoint_id,
+                                pair_to_set,
+                                removed_keys: remove_keys,
+                            };
+                            if let Err(e) = backup_tx.send(request) {
+                                error!("❌ Failed to send realm backup request for checkpoint {}: {}", checkpoint_id, e);
+                            }
                         }
 
                         let pending_users_count = context.sync_queue.get_pending_users_count().await?;
@@ -545,6 +573,51 @@ impl RealmProcessor {
     async fn initialize_genesis_state(&self) -> anyhow::Result<()> {
         let genesis_config = GenesisConfig::from_path(&self.config_path)?;
         Self::initialize_store(&self.store, genesis_config, self.realm_config.realm_id).await
+    }
+
+    async fn backup_task(mut rx: mpsc::UnboundedReceiver<RealmBackupRequest>, backup_client: RealmS3BackupClient , realm_id: u32) {
+        info!("🚀 Realm backup task started");
+        while let Some(request) = rx.recv().await {
+            let RealmBackupRequest { checkpoint_id, pair_to_set, removed_keys } = request;
+            // Retry up to 3 times with 1 second delay
+            for retry_count in 0..=3 {
+                match super::backup::create_realm_checkpoint_backup(
+                    realm_id,
+                    checkpoint_id,
+                    pair_to_set.clone(),
+                    removed_keys.clone(),
+                ).await {
+                    Ok(backup) => {
+                        match backup_client.backup_checkpoint(&backup).await {
+                            Ok(_) => {
+                                info!("✅ Realm checkpoint {} backup succeeded", checkpoint_id);
+                                break;
+                            }
+                            Err(e) if retry_count < 3 => {
+                                warn!("⚠️ Realm backup retry {}/3 for checkpoint {}: {}",
+                                    retry_count + 1, checkpoint_id, e);
+                                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                            }
+                            Err(e) => {
+                                error!("❌ Realm backup final failure for checkpoint {}: {}",
+                                    checkpoint_id, e);
+                            }
+                        }
+                    }
+                    Err(e) if retry_count < 3 => {
+                        warn!("⚠️ Realm backup creation retry {}/3 for checkpoint {}: {}",
+                            retry_count + 1, checkpoint_id, e);
+                        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    }
+                    Err(e) => {
+                        error!("❌ Failed to create realm backup for checkpoint {}: {}",
+                            checkpoint_id, e);
+                        break;
+                    }
+                }
+            }
+        }
+        warn!("🔚 Realm backup task stopped");
     }
 
     async fn backup_checkpoint(

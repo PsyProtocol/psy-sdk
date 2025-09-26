@@ -11,19 +11,19 @@ use qed_store::{
 };
 use tracing::{error, info, warn};
 
-use super::backup::S3BackupClient;
+use super::backup::CoordinatorS3BackupClient;
 use crate::coordinator::CoordinatorProcessNode;
 
 pub struct CoordinatorRecoveryManager {
     store: JournalStore<QEDStore>,
-    backup_client: S3BackupClient,
+    backup_client: CoordinatorS3BackupClient,
     current_checkpoint_id: u64,
     config_path: String,
 }
 
 impl CoordinatorRecoveryManager {
     pub async fn new(backend: qed_store::store::backend::Backend, bucket: String, config_path: String) -> Result<Self> {
-        let backup_client = S3BackupClient::new(bucket).await?;
+        let backup_client = CoordinatorS3BackupClient::new(bucket).await?;
         info!("Initialized S3BackupClient for recovery");
         let qed_store = QEDStore::from_backend(backend).await?;
         info!("Initialized QEDStore for recovery");

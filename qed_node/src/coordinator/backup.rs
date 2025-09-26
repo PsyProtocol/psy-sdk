@@ -19,12 +19,13 @@ pub struct RecoveryInfo {
     pub checkpoints_available: Vec<u64>,
 }
 
-pub struct S3BackupClient {
+#[derive(Clone)]
+pub struct CoordinatorS3BackupClient {
     bucket: String,
     client: aws_sdk_s3::Client,
 }
 
-impl S3BackupClient {
+impl CoordinatorS3BackupClient {
     pub async fn new(bucket: String) -> Result<Self> {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = aws_sdk_s3::Client::new(&config);
@@ -203,8 +204,8 @@ pub async fn create_checkpoint_backup(
     })
 }
 
-pub async fn try_backup_checkpoint(
-    backup_client: &S3BackupClient,
+pub async fn try_backup_coordinator_checkpoint(
+    backup_client: &CoordinatorS3BackupClient,
     checkpoint_id: u64,
     journal_changes: Vec<(Vec<u8>, Vec<u8>)>,
     removed_keys: Vec<Vec<u8>>,
