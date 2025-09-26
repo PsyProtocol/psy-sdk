@@ -209,10 +209,11 @@ impl RealmProcessor {
                 context.commit(ret.checkpoint_id).await?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
                 info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint, ret.latest_checkpoint_id);
-            } else {
+            }
+            if ret.latest_checkpoint_id < checkpoint || ret.checkpoint_id > checkpoint + 10 {
                 warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, checkpoint: {}", ret.latest_checkpoint_id, checkpoint);
                 context.rollback(checkpoint).await?;
-                self.pending_checkpoint_id.store(0, Ordering::Relaxed);
+                self.pending_checkpoint_id.swap(0, Ordering::Relaxed);
             }
         }
         Ok(())
@@ -388,21 +389,19 @@ impl RealmProcessor {
         context: &ConcreteRealmProcessorContext,
         next_checkpoint_id: u64,
     ) -> anyhow::Result<ProvingJobDataId> {
-        self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
-            // Build block with enhanced error handling(all logic including logging is inside context.build_block)
-            match context.build_block().await {
-                Ok(job_id) => {
-                    Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
-                },
-                Err(err) => {
-                    // Rollback database changes
-                    context.rollback(next_checkpoint_id).await?;
+        // Build block with enhanced error handling(all logic including logging is inside context.build_block)
+        match context.build_block().await {
+            Ok(job_id) => {
+                Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
+            },
+            Err(err) => {
+                // Rollback database changes
+                context.rollback(next_checkpoint_id).await?;
 
-                    error!("Rollback: build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
-                    Err(err)
-                }
+                error!("Rollback: build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
+                Err(err)
             }
-        }).await
+        }
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {
