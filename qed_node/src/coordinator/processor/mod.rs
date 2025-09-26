@@ -71,10 +71,17 @@ use crate::common::slot;
 use crate::common::slot::{LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::realm::RealmProcessor;
 use super::backup::{S3BackupClient, try_backup_coordinator_checkpoint};
+use tokio::sync::mpsc;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = QEDFelt;
+
+struct CoordinatorBackupRequest {
+    checkpoint_id: u64,
+    pair_to_set: Vec<(Vec<u8>, Vec<u8>)>,
+    removed_keys: Vec<Vec<u8>>,
+}
 
 pub struct CoordinatorProcessNode<
     JL: Journal,
@@ -94,7 +101,7 @@ pub struct CoordinatorProcessNode<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
     pub task_store: Arc<QProvingTaskStoreImpl>,
-    pub backup_client: Option<S3BackupClient>,
+    pub backup_tx: Option<mpsc::UnboundedSender<CoordinatorBackupRequest>>,
 }
 
 impl<
@@ -118,16 +125,23 @@ impl<
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
         task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
-        let backup_client = match S3BackupClient::new_from_env().await {
+        let backup_tx =  match S3BackupClient::new_from_env().await {
             Ok(client) => {
                 info!("✅ S3 backup client initialized");
-                Some(client)
+                let (tx, rx) = mpsc::unbounded_channel();
+                tokio::spawn(async move {
+                    CoordinatorProcessNode::backup_task(rx, client).await;
+                });
+                info!("Started coordinator backup task");
+
+                Some(tx)
             },
             Err(e) => {
                 warn!("⚠️ S3 backup client initialization failed: {}", e);
                 None
             }
         };
+
         Self {
             ctx,
             journal_store,
@@ -137,7 +151,7 @@ impl<
             proof_verifier,
             coordinator_worker_circuits,
             task_store,
-            backup_client,
+            backup_tx,
         }
     }
 
@@ -318,8 +332,16 @@ impl
         );
 
         // Auto backup after successful commit
-        if let Some(backup_client) = &self.backup_client {
-            self.backup_checkpoint(backup_client, next_checkpoint_id, pair_to_set, remove_keys).await;
+        if let Some(backup_tx) = &self.backup_tx {
+            let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+            let request = CoordinatorBackupRequest {
+                checkpoint_id: next_checkpoint_id,
+                pair_to_set,
+                removed_keys: remove_keys,
+            };
+            if let Err(e) = backup_tx.send(request) {
+                error!("❌ Failed to send backup request for checkpoint {}: {}", next_checkpoint_id, e);
+            }
         }
 
         Ok(next_checkpoint_id)
@@ -332,6 +354,54 @@ impl
 
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
         self.ctx.has_pending_tasks(checkpoint_id).await
+    }
+
+    async fn backup_task(mut rx: mpsc::UnboundedReceiver<CoordinatorBackupRequest>, backup_client: S3BackupClient) {
+        info!("🚀 Coordinator backup task started");
+        while let Some(request) = rx.recv().await {
+            let CoordinatorBackupRequest {
+                checkpoint_id,
+                pair_to_set,
+                removed_keys,
+            } = request;
+            // Retry up to 3 times with 1 second delay
+            for retry_count in 0..=3 {
+                match super::backup::create_checkpoint_backup(
+                    checkpoint_id,
+                    pair_to_set.clone(),
+                    removed_keys.clone(),
+                ).await {
+                    Ok(backup) => {
+                        match backup_client.backup_checkpoint(&backup).await {
+                            Ok(_) => {
+                                info!("✅ Coordinator checkpoint {} backup succeeded", checkpoint_id);
+                                break;
+                            }
+                            Err(e) if retry_count < 3 => {
+                                warn!("⚠️ Coordinator backup retry {}/3 for checkpoint {}: {}",
+                                    retry_count + 1, checkpoint_id, e);
+                                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                            }
+                            Err(e) => {
+                                error!("❌ Coordinator backup final failure for checkpoint {}: {}",
+                                    checkpoint_id, e);
+                            }
+                        }
+                    }
+                    Err(e) if retry_count < 3 => {
+                        warn!("⚠️ Coordinator backup creation retry {}/3 for checkpoint {}: {}",
+                            retry_count + 1, checkpoint_id, e);
+                        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    }
+                    Err(e) => {
+                        error!("❌ Failed to create coordinator backup for checkpoint {}: {}",
+                            checkpoint_id, e);
+                        break;
+                    }
+                }
+            }
+        }
+        warn!("🔚 Coordinator backup task stopped");
     }
 
     async fn backup_checkpoint(

@@ -21,10 +21,11 @@ pub struct RealmRecoveryInfo {
     pub checkpoints_available: Vec<u64>,
 }
 
+#[derive(Clone)]
 pub struct RealmS3BackupClient {
-    realm_id: u32,
-    bucket: String,
-    client: aws_sdk_s3::Client,
+    pub realm_id: u32,
+    pub bucket: String,
+    pub client: aws_sdk_s3::Client,
 }
 
 impl RealmS3BackupClient {

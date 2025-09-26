@@ -19,6 +19,7 @@ pub struct RecoveryInfo {
     pub checkpoints_available: Vec<u64>,
 }
 
+#[derive(Clone)]
 pub struct S3BackupClient {
     bucket: String,
     client: aws_sdk_s3::Client,
