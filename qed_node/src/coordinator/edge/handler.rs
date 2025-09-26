@@ -1798,33 +1798,32 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             .map_err(|e| RpcError::Anyhow(e.into()))?;
 
         let worker_id = signed.worker_public_key.to_string();
-        match self.task_store.claim_job_from_current_layer(&worker_id).await {
-            Ok(Some(job)) => {
-                debug!("Pending job from current task: {:?}", job);
-
-                // Report job started event to watcher
-                let start_event = JobStartedEvent {
-                    job_id: job.job_id,
-                    worker_id,
-                    start_time: current_timestamp_mills(),
-                    layer_id: job.layer_id,
-                };
-
-                // Send to watcher queue
-                let message = WatcherMessage::JobStarted(start_event);
-                if let Err(e) = self.watcher_client.send_event(message).await {
-                    warn!("⚠️ Failed to report job started to watcher: {}", e);
+        let mut j = None;
+        loop {
+            j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
+                Ok(job) => job,
+                Err(e) => {
+                    error!("Error claiming job from current task: {:?}", e);
+                    return Err(RpcError::Anyhow(e.into()))
                 }
-
+            };
+            if let Some(job) = &j {
+                let job_id = &job.job_id;
+                if job_id.is_notify_complete() {
+                    self.acknowledge_job_completion(job, &worker_id).await.map_err(RpcError::Anyhow)?;
+                    continue;
+                }
+            }
+            break;
+        }
+        match j {
+            Some(job) => {
+                debug!("Pending job from current task: {:?}", job);
                 Ok(Some(job))
             }
-            Ok(None) => {
+            None => {
                 trace!("No pending job from current task");
                 Ok(None)
-            }
-            Err(e) => {
-                error!("Error claiming job from current task: {:?}", e);
-                Err(RpcError::Anyhow(e.into()))
             }
         }
     }
@@ -1939,6 +1938,16 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             info!("✅ Proof stored successfully for job {:?}", job_id);
         }
 
+        self.acknowledge_job_completion(&job, worker_id).await.map_err(RpcError::Anyhow)?;
+        Ok(())
+    }
+}
+
+impl CoordinatorEdgeHandler {
+    async fn acknowledge_job_completion(&self, job: &QJob, worker_id: impl ToString) -> anyhow::Result<()> {
+        let job_id = job.job_id;
+        let worker_id = worker_id.to_string();
+
         // Acknowledge job completion and get the job status
         let job_status = match self.task_store.acknowledge_job_completion(&job, &worker_id).await {
             Ok(status) => {
@@ -1947,7 +1956,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             }
             Err(e) => {
                 error!("Error acknowledging job completion: {:?}", e);
-                return Err(RpcError::Anyhow(e.into()));
+                return Err(e.into());
             }
         };
 
@@ -1973,9 +1982,9 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             info!("Notifying core goal completed: {:?}", job_id);
             self.history_queue
                 .notify_core_goal_completed_imm(job_id)
-                .await
-                .map_err(RpcError::Anyhow)?;
+                .await?;
         }
+
         Ok(())
     }
 }
