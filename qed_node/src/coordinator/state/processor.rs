@@ -1,5 +1,6 @@
 use std::{marker::Sync, sync::Arc, time::Instant};
 
+use anyhow::ensure;
 use chrono::Utc;
 use kvq::traits::KVQPair;
 use plonky2::{
@@ -448,11 +449,11 @@ impl<
                 tracing::warn!("Checkpoint tree root in GUTA queue item does not match last checkpoint tree root");
                 let real_guta_checkpoint_id = guta_queue_items[0].checkpoint_id.saturating_sub(1);
                 let historical_checkpoint_proof = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_guta_checkpoint_id).await?;
-                assert!(historical_checkpoint_proof.root == last_checkpoint_tree_root);
+                ensure!(historical_checkpoint_proof.root == last_checkpoint_tree_root);
                 let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&historical_checkpoint_proof);
-                assert!(current_root == historical_checkpoint_proof.root);
-                assert!(current_root == last_checkpoint_tree_root);
-                assert!(historical_root == guta_queue_items[0].checkpoint_tree_root);
+                ensure!(current_root == historical_checkpoint_proof.root);
+                ensure!(current_root == last_checkpoint_tree_root);
+                ensure!(historical_root == guta_queue_items[0].checkpoint_tree_root);
                 let rw = VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple {
                     historical_checkpoint_proof,
                     guta_proof_header: GlobalUserTreeAggregatorHeader {
@@ -491,7 +492,6 @@ impl<
                 let new_nodes = guta_queue_items
                     .iter()
                     .map(|x| {
-                        assert_eq!(x.top_line_proof.index, x.realm_id, "right now guta proofs with top line are not allowed");
                         SimpleMerkleNode {
                             key: SimpleMerkleNodeKey {
                                 level: self.coordinator_config.realm_root_level,
@@ -506,7 +506,7 @@ impl<
                 tracing::debug!(res = %serde_json::to_string_pretty(&res).unwrap(), "GUTA result");
                 let good_old = self
                     .store
-                    .get_user_top_tree_cap_root(checkpoint_id - 1, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index)
+                    .get_user_top_tree_cap_root(last_checkpoint_id, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index)
                     .await?;
                 tracing::debug!(good_old = %good_old, "Good old value");
 
@@ -562,7 +562,6 @@ impl<
             let new_nodes = guta_queue_items
                 .iter()
                 .map(|x| {
-                    assert_eq!(x.top_line_proof.index, x.realm_id, "right now guta proofs with top line are not allowed");
                     SimpleMerkleNode {
                         key: SimpleMerkleNodeKey {
                             level: self.coordinator_config.realm_root_level,
@@ -577,7 +576,7 @@ impl<
             tracing::debug!(res = %serde_json::to_string_pretty(&res).unwrap(), "GUTA result");
             let good_old = self
                 .store
-                .get_user_top_tree_cap_root(checkpoint_id - 1, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index)
+                .get_user_top_tree_cap_root(last_checkpoint_id, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index)
                 .await?;
             tracing::debug!(good_old = %good_old, "Good old value");
 
@@ -605,7 +604,6 @@ impl<
         let new_nodes = guta_queue_items
             .iter()
             .map(|x| {
-                assert_eq!(x.top_line_proof.index, x.realm_id, "right now guta proofs with top line are not allowed");
                 SimpleMerkleNode {
                     key: SimpleMerkleNodeKey {
                         level: self.coordinator_config.realm_root_level,

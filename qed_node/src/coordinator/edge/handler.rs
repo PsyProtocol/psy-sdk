@@ -240,7 +240,7 @@ impl CoordinatorEdgeHandler {
     ) -> anyhow::Result<()> {
         debug!(
             "submit_guta input: {}",
-            serde_json::to_string_pretty(&input).unwrap()
+            serde_json::to_string_pretty(&input)?
         );
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
         if input.checkpoint_id.saturating_sub(1) < checkpoint_id {
@@ -257,11 +257,7 @@ impl CoordinatorEdgeHandler {
         let config = self.ctx.coordinator_config.clone();
         let verifier = self.ctx.proof_verifier.clone();
         // verify top line proof
-        if !input.top_line_proof.verify::<QEDHasher>() {
-            anyhow::bail!("invalid top line proof from realm");
-        }
-
-        if input.top_line_proof.old_root != input.top_line_proof.old_value || input.top_line_proof.new_root != input.top_line_proof.new_value {
+        if input.top_line_proof.old_root != input.top_line_proof.old_value || input.top_line_proof.new_root != input.top_line_proof.new_value || input.top_line_proof.siblings.len() != 0 {
             anyhow::bail!("top line not currently supported for guta proofs");
         }
 
@@ -275,15 +271,15 @@ impl CoordinatorEdgeHandler {
         }
 
         // verify state consistency
-        let old_root = self
+        let latest_realm_root = self
             .store
             .get_user_top_tree_cap_root(checkpoint_id, config.realm_root_level, input.realm_id)
             .await?;
 
-        info!("old root from db: {}", old_root);
+        info!("old root from db: {}", latest_realm_root);
         info!("old root from realm: {}", input.top_line_proof.old_root);
-        if old_root != input.top_line_proof.old_root {
-            tracing::error!("invalid top line proof old value {} from realm, expected {}", input.top_line_proof.old_root, old_root);
+        if latest_realm_root != input.top_line_proof.old_root {
+            tracing::error!("invalid top line proof old value {} from realm, expected {}", input.top_line_proof.old_root, latest_realm_root);
             anyhow::bail!("invalid top line proof old value from realm");
         }
         let top_line_proof_data = TopLineProofData {
@@ -306,7 +302,7 @@ impl CoordinatorEdgeHandler {
                 old_node_value: input.top_line_proof.old_root,
                 new_node_value: input.top_line_proof.new_root,
                 node_index: F::from_noncanonical_u64(input.top_line_proof.index),
-                node_level: F::from_canonical_u64((config.realm_root_level as usize + input.top_line_proof.siblings.len()) as u64),
+                node_level: F::from_canonical_u8(config.realm_root_level),
             },
             stats: input.guta_stats,
         };
@@ -329,11 +325,12 @@ impl CoordinatorEdgeHandler {
 
         // Report GUTA submission to watcher with structured metadata
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
-        // let next_checkpoint_id = checkpoint_id + 1;
-        // if input.checkpoint_id  != next_checkpoint_id {
-        //     warn!("❌ Invalid checkpoint id from realm: {}, latest checkpoint id {}", input.checkpoint_id, checkpoint_id);
-        //     anyhow::bail!("invalid checkpoint id from realm");
-        // }
+        let next_checkpoint_id = checkpoint_id + 1;
+
+        if input.checkpoint_id  > next_checkpoint_id {
+            warn!("❌ Invalid checkpoint id from realm: {}, latest checkpoint id {}", input.checkpoint_id, checkpoint_id);
+            anyhow::bail!("invalid checkpoint id from realm");
+        }
 
 
         // build queue item
