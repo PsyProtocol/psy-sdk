@@ -14,8 +14,6 @@
 {%- endfor -%}
 
 {# Check if global services exist #}
-{%- set has_global_workers = config.global_services and config.global_services.workers and config.global_services.workers.enabled -%}
-{%- set has_global_watchers = config.global_services and config.global_services.watchers -%}
 {%- set has_api_service = config.global_services and config.global_services.api_service and config.global_services.api_service.enabled -%}
 {%- set has_timescaledb = config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled -%}
 
@@ -115,13 +113,13 @@ Resources:
       SubnetId: !Ref CoordinatorSubnet
       RouteTableId: !Ref PublicRouteTable
 
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref Realm{{ realm.id }}Subnet
       RouteTableId: !Ref PublicRouteTable
-  {% endfor %} #}
+  {% endfor %}
 
   # Main ECS Cluster
   MainECSCluster:
@@ -165,7 +163,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  {# # Security Groups
+  # Security Groups
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -193,7 +191,7 @@ Resources:
         {% endif %} #}
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-alb-sg' #}
+          Value: !Sub '${ProjectName}-${Environment}-alb-sg'
 
   ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -201,21 +199,21 @@ Resources:
       GroupDescription: Security group for ECS tasks
       VpcId: !Ref VPC
       SecurityGroupIngress:
-        {# - IpProtocol: tcp
-          FromPort: 0
-          ToPort: 65535
+        - IpProtocol: tcp
+          FromPort: 8545
+          ToPort: 8545
           SourceSecurityGroupId: !Ref ALBSecurityGroup
-          Description: Allow traffic from ALB #}
+          Description: Allow traffic from ALB for Coordinator Edge
         - IpProtocol: tcp
           FromPort: 6379
           ToPort: 6379
-          CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
+          CidrIp: !GetAtt VPC.CidrBlock
           Description: Allow Redis access within VPC
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-ecs-sg'
 
-  {# # Application Load Balancer
+  # Application Load Balancer
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -231,10 +229,10 @@ Resources:
         {% endfor %}
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-alb' #}
+          Value: !Sub '${ProjectName}-${Environment}-alb'
 
   # ALB Target Groups
-  {# ALBTargetGroupCoordinator:
+  ALBTargetGroupCoordinator:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: !Sub '${ProjectName}-${Environment}-coord-tg'
@@ -250,7 +248,7 @@ Resources:
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 3
       Matcher:
-        HttpCode: "200,404" #}
+        HttpCode: "200,404"
 
   {# {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}:
@@ -292,7 +290,7 @@ Resources:
         HttpCode: "200"
   {% endif %} #}
 
-  {# # ALB Listeners
+  # ALB Listeners
   ALBListenerCoordinator:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -301,7 +299,7 @@ Resources:
           TargetGroupArn: !Ref ALBTargetGroupCoordinator
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
-      Protocol: HTTP #}
+      Protocol: HTTP
 
   {# {% for realm in config.nodes.realms %}
   ALBListenerRealm{{ realm.id }}:
@@ -368,10 +366,7 @@ Resources:
           ToPort: 20180
           CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
           Description: TiKV status port
-          # Allow all traffic from within VPC for debugging
-        - IpProtocol: -1
-          CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
-          Description: Allow all VPC traffic for debugging
+
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-tikv-sg'
@@ -385,7 +380,7 @@ Resources:
       FromPort: 2379
       ToPort: 20180
       SourceSecurityGroupId: !Ref TiKVSecurityGroup
-      Description: Inter-node communication
+      Description: TiKV cluster inter-node communication
 
   # TiKV PD Launch Template
   TiKVPDLaunchTemplate:
@@ -394,7 +389,7 @@ Resources:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-tikv-pd-lt'
       LaunchTemplateData:
         ImageId: !Ref LatestAmiId  
-        InstanceType: t3.large
+        InstanceType: t3.xlarge
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
         SecurityGroupIds:
@@ -428,7 +423,7 @@ Resources:
 
             # Install Docker and AWS CLI
             apt-get update -y
-            apt-get install -y docker.io docker-compose awscli jq netcat
+            apt-get install -y docker.io docker-compose awscli jq netcat net-tools
             systemctl enable docker
             systemctl start docker
 
@@ -441,30 +436,31 @@ Resources:
 
             # Setup data volume - FIXED for NVMe
             DATA_DEVICE=""
-            if [ -b /dev/nvme2n1 ]; then
-                DATA_DEVICE="/dev/nvme2n1"
-            elif [ -b /dev/nvme1n1 ]; then
-                DATA_DEVICE="/dev/nvme1n1"
-            elif [ -b /dev/xvdb ]; then
-                DATA_DEVICE="/dev/xvdb"
-            fi
+            for device in /dev/nvme1n1 /dev/nvme2n1 /dev/xvdb; do
+                if [ -b "$device" ]; then
+                    DATA_DEVICE="$device"
+                    break
+                fi
+            done
 
             if [ -n "$DATA_DEVICE" ]; then
                 mkfs.ext4 -F $DATA_DEVICE 2>/dev/null || true
                 mkdir -p /data/pd
                 mount $DATA_DEVICE /data
                 echo "$DATA_DEVICE /data ext4 defaults,noatime 0 0" >> /etc/fstab
+                chmod 777 /data/pd
             fi
 
             # Get all PD instance IPs
             ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
+
             # Wait for all PD instances to be launched
             echo "Waiting for all PD instances in ASG..."
-            for i in {1..30}; do
+            for i in {1..60}; do
                 INSTANCE_COUNT=$(aws autoscaling describe-auto-scaling-groups \
                   --auto-scaling-group-names $ASG_NAME \
-                  --query 'AutoScalingGroups[0].Instances | length(@)' \
-                  --output text)
+                  --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`] | length(@)' \
+                  --output text 2>/dev/null || echo 0)
               
                 if [ "$INSTANCE_COUNT" -ge "3" ]; then
                     echo "All PD instances are ready"
@@ -473,52 +469,83 @@ Resources:
                 echo "Waiting for PD instances... ($INSTANCE_COUNT/3)"
                 sleep 10
             done
-            PD_IPS=""
-            for id in $(aws autoscaling describe-auto-scaling-groups \
-              --auto-scaling-group-names $ASG_NAME \
-              --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
-              --output text); do
+
+            # Get all PD instance IPs with retry logic
+            for attempt in {1..10}; do
+                PD_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
+                  --auto-scaling-group-names $ASG_NAME \
+                  --query 'AutoScalingGroups[0].Instances[*].[InstanceId,PrivateIpAddress]' \
+                  --output text 2>/dev/null || true)
                 
-                IP=$(aws ec2 describe-instances \
-                  --instance-ids $id \
-                  --query 'Reservations[0].Instances[0].PrivateIpAddress' \
-                  --output text)
-                
-                if [ -n "$IP" ]; then
-                    if [ -z "$PD_IPS" ]; then
-                        PD_IPS="$IP"
-                    else
-                        PD_IPS="$PD_IPS,$IP"
+                if [ -n "$PD_INSTANCES" ]; then
+                    # Create IP list
+                    ALL_IPS=""
+                    while IFS=$'\t' read -r instance_id ip_address; do
+                        if [ -z "$ip_address" ] || [ "$ip_address" = "None" ]; then
+                            # Fetch IP if not in ASG response
+                            ip_address=$(aws ec2 describe-instances \
+                              --instance-ids $instance_id \
+                              --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                              --output text 2>/dev/null || echo "")
+                        fi
+                        
+                        if [ -n "$ip_address" ] && [ "$ip_address" != "None" ]; then
+                            if [ -z "$ALL_IPS" ]; then
+                                ALL_IPS="$ip_address"
+                            else
+                                ALL_IPS="$ALL_IPS,$ip_address"
+                            fi
+                        fi
+                    done <<< "$PD_INSTANCES"
+                    
+                    IP_COUNT=$(echo "$ALL_IPS" | tr ',' '\n' | wc -l)
+                    if [ "$IP_COUNT" -ge "3" ]; then
+                        echo "Got $IP_COUNT PD IPs: $ALL_IPS"
+                        break
                     fi
                 fi
+                
+                echo "Attempt $attempt: Waiting for all PD IPs..."
+                sleep 10
             done
 
             # Sort IPs using a simpler method to avoid array syntax issues
-            PD_IPS_SORTED=$(echo "$PD_IPS" | tr ',' '\n' | sort | tr '\n' ',' | sed 's/,$$//')
+            SORTED_IPS=$(echo "$ALL_IPS" | tr ',' '\n' | sort -V | paste -sd ',')
+            echo "Sorted PD IPs: $SORTED_IPS"
 
             # Determine which PD node this is (pd0, pd1, or pd2)
-            PD_INDEX=0
-            for IP in $(echo "$PD_IPS_SORTED" | tr ',' ' '); do
+            PD_INDEX=-1
+            for IP in $(echo "$SORTED_IPS" | tr ',' ' '); do
                 if [ "$IP" = "$INSTANCE_IP" ]; then
+                    PD_INDEX=$NODE_NUM
                     break
                 fi
-                PD_INDEX=$((PD_INDEX + 1))
+                NODE_NUM=$((NODE_NUM + 1))
             done
+
+            if [ "$PD_INDEX" -eq -1 ]; then
+                echo "ERROR: Could not find instance IP in sorted list"
+                exit 1
+            fi
+
+            echo "This node is pd${!PD_INDEX} with IP ${!INSTANCE_IP}"
 
             # Build initial cluster string
             INITIAL_CLUSTER=""
-            INDEX=0
-            for IP in $(echo "$PD_IPS_SORTED" | tr ',' ' '); do
-                if [ $INDEX -eq 0 ]; then
-                    INITIAL_CLUSTER="pd$INDEX=http://$IP:2380"
-                else
-                    INITIAL_CLUSTER="$INITIAL_CLUSTER,pd$INDEX=http://$IP:2380"
+            NODE_NUM=0
+            for IP in $(echo "${!SORTED_IPS}" | tr ',' ' '); do
+                if [ -n "${!INITIAL_CLUSTER}" ]; then
+                    INITIAL_CLUSTER="${!INITIAL_CLUSTER},"
                 fi
-                INDEX=$((INDEX + 1))
+                INITIAL_CLUSTER="${!INITIAL_CLUSTER}pd${!NODE_NUM}=http://${!IP}:2380"
+                NODE_NUM=$((NODE_NUM + 1))
             done
+            
+            echo "Initial cluster: ${!INITIAL_CLUSTER}"
 
             # Create docker-compose for PD node
-            cat > /opt/docker-compose.yml <<EOF
+            cat > /opt/docker-compose.yml <<'COMPOSE_EOF'
+
             version: '3.8'
 
             services:
@@ -530,29 +557,42 @@ Resources:
                   - --name=pd$PD_INDEX
                   - --client-urls=http://0.0.0.0:2379
                   - --peer-urls=http://0.0.0.0:2380
-                  - --advertise-client-urls=http://$INSTANCE_IP:2379
-                  - --advertise-peer-urls=http://$INSTANCE_IP:2380
-                  - --initial-cluster=$INITIAL_CLUSTER
+                  - --advertise-client-urls=http://__INSTANCE_IP__:2379
+                  - --advertise-peer-urls=http://__INSTANCE_IP__:2380
+                  - --initial-cluster=__INITIAL_CLUSTER__
                   - --data-dir=/var/lib/pd
                   - --log-file=/var/log/pd.log
                 volumes:
                   - /data/pd:/var/lib/pd
                   - /var/log:/var/log
                 restart: unless-stopped
-            EOF
-
+            COMPOSE_EOF
+            
+            # Replace placeholders
+            sed -i "s/__PD_INDEX__/${!PD_INDEX}/g" /opt/docker-compose.yml
+            sed -i "s/__INSTANCE_IP__/${!INSTANCE_IP}/g" /opt/docker-compose.yml
+            sed -i "s/__INITIAL_CLUSTER__/${!INITIAL_CLUSTER}/g" /opt/docker-compose.yml
 
             # Start PD container
             cd /opt
             docker-compose up -d
 
             # Wait for PD to be ready
-            for i in {1..60}; do
-                if curl -f http://localhost:2379/pd/api/v1/version >/dev/null 2>&1; then
-                    echo "PD server is ready!"
-                    break
+            echo "Waiting for PD to be healthy..."
+            for i in {1..120}; do
+                if curl -sf http://localhost:2379/pd/api/v1/health >/dev/null 2>&1; then
+                    echo "PD is healthy!"
+                    
+                    # Verify cluster formation
+                    MEMBER_COUNT=$(curl -s http://localhost:2379/pd/api/v1/members | jq '.members | length' 2>/dev/null || echo 0)
+                    echo "PD cluster has $MEMBER_COUNT members"
+                    
+                    if [ "$MEMBER_COUNT" -ge "3" ]; then
+                        echo "PD cluster formation successful"
+                        break
+                    fi
                 fi
-                echo "Waiting for PD to start... attempt $$i of 60"
+                echo "Health check attempt $i/120..."
                 sleep 5
             done
 
@@ -572,9 +612,9 @@ Resources:
       DesiredCapacity: {{ tikv_config_global.aws.pd_count | default(3) }}
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
-        {# {% for realm in config.nodes.realms %}
+        {% for realm in config.nodes.realms %}
         - !Ref Realm{{ realm.id }}Subnet
-        {% endfor %} #}
+        {% endfor %}
       HealthCheckType: EC2
       HealthCheckGracePeriod: 900
       Tags:
@@ -591,9 +631,7 @@ Resources:
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-tikv-node-lt'
       LaunchTemplateData:
-        {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
-        {% endraw %}
+        ImageId: !Ref LatestAmiId  
         InstanceType: {{ tikv_config_global.aws.instance_type | default('c6i.xlarge') }}
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
@@ -630,7 +668,7 @@ Resources:
 
             # Install Docker
             apt-get update -y
-            apt-get install -y docker.io docker-compose awscli jq netcat
+            apt-get install -y docker.io docker-compose awscli jq netcat net-tools
             systemctl enable docker
             systemctl start docker
 
@@ -638,23 +676,24 @@ Resources:
 
             # Get instance metadata
             INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
-            CURRENT_INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 
             # Setup data volume
             DATA_DEVICE=""
-            if [ -b /dev/nvme2n1 ]; then
-                DATA_DEVICE="/dev/nvme2n1"
-            elif [ -b /dev/nvme1n1 ]; then
-                DATA_DEVICE="/dev/nvme1n1"
-            elif [ -b /dev/xvdb ]; then
-                DATA_DEVICE="/dev/xvdb"
-            fi
+            for device in /dev/nvme1n1 /dev/nvme2n1 /dev/xvdb; do
+                if [ -b "$device" ]; then
+                    DATA_DEVICE="$device"
+                    break
+                fi
+            done
 
             if [ -n "$DATA_DEVICE" ]; then
                 mkfs.ext4 -F $DATA_DEVICE 2>/dev/null || true
                 mkdir -p /data/tikv
                 mount $DATA_DEVICE /data
                 echo "$DATA_DEVICE /data ext4 defaults,noatime 0 0" >> /etc/fstab
+                chmod 777 /data/tikv
+
             fi
 
             # Get PD endpoints
@@ -663,73 +702,72 @@ Resources:
 
             # Wait for PD nodes to be ready
             echo "Waiting for PD nodes to be ready..."
+
             for retry in {1..30}; do
                 PD_ENDPOINTS=""
-                  for id in $(aws autoscaling describe-auto-scaling-groups \
-                    --auto-scaling-group-names $PD_ASG_NAME \
-                    --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
-                    --output text); do
-                      
-                      IP=$(aws ec2 describe-instances \
-                        --instance-ids $id \
+                # Get all PD instances
+                PD_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
+                  --auto-scaling-group-names $PD_ASG_NAME \
+                  --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`].InstanceId' \
+                  --output text 2>/dev/null || echo "")
+
+                if [ -n "$PD_INSTANCES" ]; then
+                  for pd_id in $PD_INSTANCES; do
+                      PD_IP=$(aws ec2 describe-instances \
+                        --instance-ids $pd_id \
                         --query 'Reservations[0].Instances[0].PrivateIpAddress' \
-                        --output text)
+                        --output text 2>/dev/null || echo "")
                       
-                      if [ -n "$IP" ]; then
+                      if [ -n "$PD_IP" ] && [ "$PD_IP" != "None" ]; then
                           if [ -z "$PD_ENDPOINTS" ]; then
-                              PD_ENDPOINTS="$IP:2379"
+                              PD_ENDPOINTS="${!PD_IP}:2379"
                           else
-                              PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
+                              PD_ENDPOINTS="${!PD_ENDPOINTS},${!PD_IP}:2379"
                           fi
                       fi
                   done
-                # Test PD connectivity
-                PD_READY=false
-                for endpoint in $(echo $PD_ENDPOINTS | tr ',' ' '); do
-                    if curl -f -m 5 http://$endpoint/pd/api/v1/version >/dev/null 2>&1; then
-                        echo "PD is ready at $endpoint"
-                        PD_READY=true
-                        break
-                    fi
-                done
-
-                if [ "$PD_READY" = true ]; then
-                    echo "PD cluster is ready!"
-                    break
                 fi
-
-                echo "Waiting for PD cluster... attempt $retry/30"
+                # Verify PD cluster is ready
+                if [ -n "$PD_ENDPOINTS" ]; then
+                    echo "Testing PD endpoints: $PD_ENDPOINTS"
+                    
+                    for endpoint in $(echo $PD_ENDPOINTS | tr ',' ' '); do
+                        if curl -sf -m 5 http://$endpoint/pd/api/v1/health >/dev/null 2>&1; then
+                            # Check if cluster is formed
+                            MEMBER_COUNT=$(curl -s http://$endpoint/pd/api/v1/members | jq '.members | length' 2>/dev/null || echo 0)
+                            
+                            if [ "$MEMBER_COUNT" -ge "3" ]; then
+                                echo "PD cluster is ready with $MEMBER_COUNT members"
+                                break 2
+                            fi
+                        fi
+                    done
+                fi
+                echo "Attempt $attempt: Waiting for PD cluster to be ready..."
                 sleep 10
-            done
+            done           
 
             if [ "$PD_READY" != true ]; then
-                echo "ERROR: PD cluster not ready after 5 minutes"
+                echo "ERROR: Failed to get PD endpoints"
                 exit 1
             fi
-            # Get a unique port for this TiKV instance (based on instance index in ASG)
-            TIKV_ASG_NAME="${ProjectName}-${Environment}-tikv-node-asg"
-            TIKV_INDEX=$(aws autoscaling describe-auto-scaling-groups \
-              --auto-scaling-group-names $TIKV_ASG_NAME \
-              --query "AutoScalingGroups[0].Instances[?InstanceId=='$CURRENT_INSTANCE_ID'].InstanceId" \
-              --output text | wc -w)
 
-            TIKV_PORT=$((20160 + TIKV_INDEX - 1))
-            STATUS_PORT=$((20180 + TIKV_INDEX - 1))
+            echo "Using PD endpoints: $PD_ENDPOINTS"
 
-            # Create docker-compose for TiKV node
-            cat > /opt/docker-compose.yml <<'COMPOSE_EOF'
+
+            # Create docker-compose for TiKV
+            cat > /opt/docker-compose.yml <<EOF
             version: '3.8'
-
             services:
               tikv:
                 image: pingcap/tikv:latest
                 container_name: tikv-server
                 network_mode: host
                 command:
-                  - --addr=0.0.0.0:TIKV_PORT_PLACEHOLDER
-                  - --advertise-addr=INSTANCE_IP_PLACEHOLDER:TIKV_PORT_PLACEHOLDER
-                  - --status-addr=0.0.0.0:STATUS_PORT_PLACEHOLDER
-                  - --advertise-status-addr=INSTANCE_IP_PLACEHOLDER:STATUS_PORT_PLACEHOLDER
+                  - --addr=0.0.0.0:20160
+                  - --advertise-addr=INSTANCE_IP_PLACEHOLDER:20160
+                  - --status-addr=0.0.0.0:20180
+                  - --advertise-status-addr=INSTANCE_IP_PLACEHOLDER:20180
                   - --data-dir=/var/lib/tikv
                   - --pd-endpoints=PD_ENDPOINTS_PLACEHOLDER
                   - --log-file=/var/log/tikv.log
@@ -737,40 +775,35 @@ Resources:
                   - /data/tikv:/var/lib/tikv
                   - /var/log:/var/log
                 restart: unless-stopped
-            EOF 
+                environment:
+                  - TZ=UTC
+            COMPOSE_EOF
+          
 
-
-            # Substitute placeholders in docker-compose.yml
-            sed -i "s/TIKV_PORT_PLACEHOLDER/$TIKV_PORT/g" /opt/docker-compose.yml
-            sed -i "s/STATUS_PORT_PLACEHOLDER/$STATUS_PORT/g" /opt/docker-compose.yml
+            # Replace placeholders with actual values
             sed -i "s/INSTANCE_IP_PLACEHOLDER/$INSTANCE_IP/g" /opt/docker-compose.yml
             sed -i "s/PD_ENDPOINTS_PLACEHOLDER/$PD_ENDPOINTS/g" /opt/docker-compose.yml
 
-            # Wait for PD to be ready before starting TiKV
-            for endpoint in $(echo $PD_ENDPOINTS | tr ',' ' '); do
-                echo "Checking PD at $endpoint"
-                for i in {1..60}; do
-                    if curl -f http://$endpoint/pd/api/v1/version >/dev/null 2>&1; then
-                        echo "PD is ready at $endpoint"
-                        break 2
-                    fi
-                    sleep 5
-                done
-            done
-
-            # Start TiKV container
+            # Start TiKV
             cd /opt
             docker-compose up -d
-
-            # Verify TiKV started
-            sleep 10
+            
+            # Verify TiKV started successfully
+            sleep 20
             if docker ps | grep -q tikv-server; then
                 echo "TiKV storage node started successfully"
+                
+                # Check if TiKV registered with PD
+                for endpoint in $(echo $PD_ENDPOINTS | tr ',' ' '); do
+                    STORE_COUNT=$(curl -s http://$endpoint/pd/api/v1/stores | jq '.count' 2>/dev/null || echo 0)
+                    echo "PD reports $STORE_COUNT TiKV stores"
+                    break
+                done
             else
                 echo "ERROR: TiKV failed to start"
-                docker logs tikv-server
+                docker logs tikv-server || true
                 exit 1
-            fi
+            fi            
             echo "TiKV storage node setup completed at $(date)"
 
   # TiKV Storage Node Auto Scaling Group
@@ -996,10 +1029,10 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
-        {# - IpProtocol: tcp
+        - IpProtocol: tcp
           FromPort: 8545
           ToPort: 8545
-          SourceSecurityGroupId: !Ref ALBSecurityGroup #}
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-coordinator-sg'
@@ -1387,14 +1420,14 @@ Resources:
           Value: realm-{{ realm.id }}-processor
           PropagateAtLaunch: true
   {% endfor %} #}
-# ECS Container Instances for Edge, Worker, and API services
-  {# GeneralECSInstancesLaunchTemplate:
+  # ECS Container Instances for Edge, Worker, and API services
+  GeneralECSInstancesLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-ecs-container-lt'
       LaunchTemplateData:
         ImageId: !Ref LatestAmiId  
-        InstanceType: t3.large 
+        InstanceType: t3.xlarge  # 4 vCPUs, 16GB RAM
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
         SecurityGroupIds:
@@ -1415,10 +1448,127 @@ Resources:
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
-            echo ECS_CLUSTER=${MainECSCluster} >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo 'ECS_INSTANCE_ATTRIBUTES={"service":"ecs-container"}' >> /etc/ecs/ecs.config
+            set -e
+            exec > /var/log/user-data.log 2>&1
+            echo "Starting ECS instance setup at $(date)"
+            
+            # Update and install dependencies
+            apt-get update -y
+            apt-get install -y docker.io curl wget jq awscli
+            systemctl enable docker
+            systemctl start docker
+            usermod -aG docker ubuntu
+
+            # Create ECS directories
+            mkdir -p /etc/ecs /var/log/ecs /var/lib/ecs/data
+
+            # Create ECS config
+            cat > /etc/ecs/ecs.config <<EOF
+            ECS_CLUSTER=${MainECSCluster}
+            ECS_ENABLE_TASK_IAM_ROLE=true
+            ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true
+            ECS_LOGFILE=/var/log/ecs/ecs-agent.log
+            ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]
+            ECS_LOGLEVEL=info
+            ECS_DATADIR=/var/lib/ecs/data
+            ECS_ENABLE_CONTAINER_METADATA=true
+            ECS_CONTAINER_STOP_TIMEOUT=30s
+            ECS_INSTANCE_ATTRIBUTES={"workload":"general","type":"ecs-container"}
+            EOF
+            
+            # Run ECS agent as Docker container
+            docker run -d \
+              --name ecs-agent \
+              --restart=always \
+              --volume=/var/run/docker.sock:/var/run/docker.sock \
+              --volume=/var/log/ecs:/log \
+              --volume=/var/lib/ecs/data:/data \
+              --volume=/etc/ecs:/etc/ecs \
+              --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro \
+              --net=host \
+              --env-file=/etc/ecs/ecs.config \
+              --env=ECS_LOGFILE=/log/ecs-agent.log \
+              --env=ECS_DATADIR=/data \
+              --env=ECS_ENABLE_TASK_IAM_ROLE=true \
+              --env=ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
+              amazon/amazon-ecs-agent:latest
+
+            echo "Waiting for ECS agent to register with cluster..."
+            for i in {1..60}; do
+              if docker logs ecs-agent 2>&1 | grep -q "Successfully registered container instance"; then
+                echo "ECS agent successfully registered!"
+                break
+              fi
+              
+              # Alternative check using AWS CLI
+              INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
+              CONTAINER_INSTANCES=$(aws ecs list-container-instances \
+                --cluster ${MainECSCluster} \
+                --region ${AWS::Region} \
+                --query 'containerInstanceArns[*]' \
+                --output text 2>/dev/null || echo "")
+              
+              if [ -n "$CONTAINER_INSTANCES" ]; then
+                for arn in $CONTAINER_INSTANCES; do
+                  REGISTERED_ID=$(aws ecs describe-container-instances \
+                    --cluster ${MainECSCluster} \
+                    --container-instances $arn \
+                    --region ${AWS::Region} \
+                    --query 'containerInstances[0].ec2InstanceId' \
+                    --output text 2>/dev/null || echo "")
+                  
+                  if [ "$REGISTERED_ID" = "$INSTANCE_ID" ]; then
+                    echo "Instance $INSTANCE_ID registered with ECS cluster"
+                    break 2
+                  fi
+                done
+              fi
+              
+              echo "Waiting for ECS agent registration... attempt $i/60"
+              sleep 5
+            done
+
+            # Verify agent status
+            docker ps | grep ecs-agent
+          
+            # Create systemd service for ECS agent (survives reboots)
+            cat > /etc/systemd/system/ecs-agent.service <<EOF
+            [Unit]
+            Description=AWS ECS Agent
+            After=docker.service
+            Requires=docker.service
+            
+            [Service]
+            Type=simple
+            Restart=always
+            RestartSec=10
+            
+            ExecStartPre=-/usr/bin/docker stop ecs-agent
+            ExecStartPre=-/usr/bin/docker rm ecs-agent
+            ExecStart=/usr/bin/docker run \
+              --name ecs-agent \
+              --volume=/var/run/docker.sock:/var/run/docker.sock \
+              --volume=/var/log/ecs:/log \
+              --volume=/var/lib/ecs/data:/data \
+              --volume=/etc/ecs:/etc/ecs \
+              --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro \
+              --net=host \
+              --env-file=/etc/ecs/ecs.config \
+              --env=ECS_LOGFILE=/log/ecs-agent.log \
+              --env=ECS_DATADIR=/data \
+              amazon/amazon-ecs-agent:latest
+            
+            ExecStop=/usr/bin/docker stop ecs-agent
+            
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            
+            systemctl daemon-reload
+            systemctl enable ecs-agent
+            
+            echo "ECS instance setup completed at $(date)"
+
 
   GeneralECSInstancesASG:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -1427,9 +1577,9 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref GeneralECSInstancesLaunchTemplate
         Version: !GetAtt GeneralECSInstancesLaunchTemplate.LatestVersionNumber
-      MinSize: 2
-      MaxSize: 4
-      DesiredCapacity: 2  
+      MinSize: 4
+      MaxSize: 8
+      DesiredCapacity: 4  # 4 EC2 instances for ECS tasks  , 2 for coordinator edge , 2 for realm edge 
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
         {% for realm in config.nodes.realms %}
@@ -1440,8 +1590,8 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-ecs-container'
-          PropagateAtLaunch: true #}
-{# 
+          PropagateAtLaunch: true
+
   WorkerInstancesLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -1456,7 +1606,7 @@ Resources:
         BlockDeviceMappings:
           - DeviceName: /dev/xvda
             Ebs:
-              VolumeSize: 100
+              VolumeSize: 50
               VolumeType: gp3
               DeleteOnTermination: true
         TagSpecifications:
@@ -1471,15 +1621,45 @@ Resources:
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
-            echo ECS_CLUSTER=${MainECSCluster} >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            # Add worker-specific attribute
-            echo 'ECS_INSTANCE_ATTRIBUTES={"workload":"worker","instance_type":"c6a.2xlarge"}' >> /etc/ecs/ecs.config
-            # Optimize for compute workloads
-            echo ECS_ENABLE_TASK_CPU_MEM_LIMIT=false >> /etc/ecs/ecs.config
-            echo ECS_IMAGE_CLEANUP_INTERVAL=30m >> /etc/ecs/ecs.config
-            echo ECS_IMAGE_MINIMUM_CLEANUP_AGE=30m >> /etc/ecs/ecs.config
+            set -e
+            exec > /var/log/user-data.log 2>&1
+            echo "Starting ECS instance setup at $(date)"
+            
+            # Install Docker
+            apt-get update -y
+            apt-get install -y docker.io curl wget jq awscli
+            systemctl enable docker
+            systemctl start docker
+            
+            # ECS configuration for workers
+            mkdir -p /etc/ecs /var/log/ecs /var/lib/ecs/data
+            
+            cat > /etc/ecs/ecs.config <<EOF
+            ECS_CLUSTER=${MainECSCluster}
+            ECS_ENABLE_TASK_IAM_ROLE=true
+            ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true
+            ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]
+            ECS_INSTANCE_ATTRIBUTES={"workload":"worker","compute":"optimized"}
+            ECS_ENABLE_SPOT_INSTANCE_DRAINING=true
+            ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=1h
+            ECS_IMAGE_CLEANUP_INTERVAL=30m
+            ECS_IMAGE_MINIMUM_CLEANUP_AGE=1h
+            ECS_NUM_IMAGES_DELETE_PER_CYCLE=5
+            EOF
+        
+            # Run ECS agent
+            docker run -d \
+              --name ecs-agent \
+              --restart=always \
+              --volume=/var/run/docker.sock:/var/run/docker.sock \
+              --volume=/var/log/ecs:/log \
+              --volume=/var/lib/ecs/data:/data \
+              --volume=/etc/ecs:/etc/ecs \
+              --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro \
+              --net=host \
+              --env-file=/etc/ecs/ecs.config \
+              amazon/amazon-ecs-agent:latest
+            
             
   WorkerInstancesASG:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -1489,7 +1669,7 @@ Resources:
         LaunchTemplateId: !Ref WorkerInstancesLaunchTemplate
         Version: !GetAtt WorkerInstancesLaunchTemplate.LatestVersionNumber
       MinSize: 3
-      MaxSize: 3
+      MaxSize: 12
       DesiredCapacity: 3  # 3 EC2 instances for workers
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
@@ -1506,7 +1686,7 @@ Resources:
           Value: worker
           PropagateAtLaunch: true
 
-  ProverInstanceLaunchTemplate:
+  {# ProverInstanceLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-prover-lt'
@@ -1640,11 +1820,11 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-main-ecs-cluster'
 
-  {# ALBDNSName:
+  ALBDNSName:
     Value: !GetAtt ApplicationLoadBalancer.DNSName
     Export:
       Name: !Sub '${ProjectName}-${Environment}-alb-dns'
-    Description: Application Load Balancer DNS name #}
+    Description: Application Load Balancer DNS name
 
   ECRRepositoryURI:
     Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}'
@@ -1666,11 +1846,11 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-task-role'
 
-  {# # ALB Target Group ARNs
+  # ALB Target Group ARNs
   ALBTargetGroupCoordinatorArn:
     Value: !Ref ALBTargetGroupCoordinator
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-alb-tg-coordinator' #}
+      Name: !Sub '${ProjectName}-${Environment}-alb-tg-coordinator'
 
   {# {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}Arn:
@@ -1757,9 +1937,11 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-subnet'
 
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}SubnetId:
     Value: !Ref Realm{{ realm.id }}Subnet
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-subnet'
-  {% endfor %} #}
+  {% endfor %}
+
+

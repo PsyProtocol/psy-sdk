@@ -20,10 +20,10 @@ Parameters:
     Type: String
     Description: ECR Repository URI from main stack
 
-  {# # ALB Target Groups
+  # ALB Target Groups
   ALBTargetGroupCoordinatorArn:
     Type: String
-    Description: ALB Target Group ARN for Coordinator #}
+    Description: ALB Target Group ARN for Coordinator
 
   {# {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}Arn:
@@ -54,9 +54,9 @@ Parameters:
     Description: Redis Realm {{ realm.id }} endpoint
   {% endfor %} #}
 
-  {# ALBDNSName:
+  ALBDNSName:
     Type: String
-    Description: Application Load Balancer DNS name #}
+    Description: Application Load Balancer DNS name
 
   {# # TimescaleDB Endpoint (if enabled)
   {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}
@@ -70,12 +70,12 @@ Parameters:
     Description: Comma-separated list of TiKV PD endpoints
     Default: "127.0.0.1:2379"
 
-{# Resources: #}
+Resources:
   # ============================================================================
   # COORDINATOR ECS SERVICES (Edge & Watcher)
   # ============================================================================
 
-  {# # Coordinator Edge Service
+  # Coordinator Edge Service
   CoordinatorEdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -165,6 +165,9 @@ Parameters:
       TaskDefinition: !Ref CoordinatorEdgeTaskDefinition
       DesiredCount: {{ config.nodes.coordinator.edge.aws.ecs.task_count }}
       LaunchType: EC2
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:workload == ecs-container'
       LoadBalancers:
         - ContainerName: coordinator-edge
           ContainerPort: 8545
@@ -174,6 +177,7 @@ Parameters:
         - RegistryArn: !GetAtt CoordinatorEdgeServiceDiscovery.Arn
           ContainerName: coordinator-edge
           ContainerPort: 8545
+
 
   CoordinatorEdgeServiceDiscovery:
     Type: AWS::ServiceDiscovery::Service
@@ -208,7 +212,8 @@ Parameters:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageMemoryUtilization
         TargetValue: 70.0
-  # Coordinator Watcher Service
+
+  {# # Coordinator Watcher Service
   {% if config.nodes.coordinator.watcher and config.nodes.coordinator.watcher.enabled %}
   CoordinatorWatcherTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -459,18 +464,17 @@ Parameters:
   # ============================================================================
   # INDEPENDENT WORKER SERVICES
   # ============================================================================
-  {# {% if config.nodes.workers and config.nodes.workers.enabled %}
-  {% for pool in config.nodes.workers.worker_pools %}
-  # Independent Worker Pool {{ loop.index }}
-  WorkerPool{{ loop.index }}TaskDefinition:
+  {% if config.nodes.workers and config.nodes.workers.enabled %}
+
+  WorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}'
+      Family: !Sub '${ProjectName}-${Environment}-worker'
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
-      Cpu: '{{ pool.aws.cpu | default(8192) }}'   
-      Memory: '{{ pool.aws.memory | default(8192) }}'  
+      Cpu: '{{ config.nodes.workers.aws.cpu }}'
+      Memory: '{{ config.nodes.workers.aws.memory }}'
       ExecutionRoleArn: !Ref TaskExecutionRoleArn
       TaskRoleArn: !Ref TaskRoleArn
       Volumes:
@@ -478,7 +482,7 @@ Parameters:
           Host:
             SourcePath: /etc/qed
       ContainerDefinitions:
-        - Name: worker-pool-{{ loop.index }}
+        - Name: worker
           Image: !Sub '${ECRRepositoryURI}:latest'
           EntryPoint:
             - /bin/sh
@@ -506,29 +510,29 @@ Parameters:
                 }
               }
               EOF
+              # Create keystore directory if specified
+              {% if config.nodes.workers.env.KEYSTORE_PATH is defined %}
+              mkdir -p {{ config.nodes.workers.env.KEYSTORE_PATH }}
+              {% endif %}
 
               # Start worker with generated config
               exec /qed-rollup/target/release/qed_rollup_cli worker \
-                --config /app/config.json \
-                {% for key, value in (pool.args | default({}) | dictsort) %}
-                --{{ key | replace('_', '-') }} '{{ value }}' \
-                {% endfor %}
+              {% for key, value in (config.nodes.workers.args | default({}) | dictsort) %}
+              --{{ key | replace('_', '-') }} '{{ value }}' \
+              {% endfor %}
 
           Environment:
-           {% for key, value in (pool.env | default({}) | dictsort) %}
+            {% for key, value in (config.nodes.workers.env | default({}) | dictsort) %}
             - Name: {{ key }}
               Value: '{{ value | string }}'
-           {% endfor %}
-            # Add API service endpoint for worker reporting
-            - Name: API_SERVICE_URL
-              Value: 'http://api-service.qed.local:3000'
+            {% endfor %}
           MountPoints:
             - SourceVolume: config
               ContainerPath: /app
               ReadOnly: false
-          Memory: {{ pool.aws.memory | default(8192) }}
-          MemoryReservation: {{ (pool.aws.memory | default(8192) * 0.9) | int }}  # 90% reservation for workers
-          Cpu: {{ pool.aws.cpu | default(8192) }}
+          Memory: {{ config.nodes.workers.aws.memory }}
+          MemoryReservation: {{ (config.nodes.workers.aws.memory * 0.875) | int }}
+          Cpu: {{ config.nodes.workers.aws.cpu }}
           LinuxParameters:
             InitProcessEnabled: true
           LogConfiguration:
@@ -536,56 +540,48 @@ Parameters:
             Options:
               awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
               awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: worker-pool-{{ loop.index }}
-          Essential: true
+              awslogs-stream-prefix: worker
 
-  WorkerPool{{ loop.index }}Service:
+  WorkerService:
     Type: AWS::ECS::Service
     Properties:
-      ServiceName: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}'
+      ServiceName: !Sub '${ProjectName}-${Environment}-worker'
       Cluster: !Ref MainECSClusterName
-      TaskDefinition: !Ref WorkerPool{{ loop.index }}TaskDefinition
-      DesiredCount: {{ pool.aws.ecs.task_count | default(3) }}
+      TaskDefinition: !Ref WorkerTaskDefinition
+      DesiredCount: {{ config.nodes.workers.aws.ecs.task_count }}
       LaunchType: EC2
       PlacementConstraints:
         - Type: memberOf
-          Expression: 'attribute:worker_pool == {{ pool.id }}'  # Place on correct pool
+          Expression: 'attribute:workload == worker'
       PlacementStrategies:
         - Type: spread
-          Field: instanceId  # Spread across different instances
+          Field: instanceId  
       DeploymentConfiguration:
         MaximumPercent: 100      # Don't over-provision
         MinimumHealthyPercent: 66  # Allow rolling updates 
 
-      SchedulingStrategy: REPLICA
-
-  # Auto Scaling for Worker Pool {{ loop.index }}
-  WorkerPool{{ loop.index }}ScalableTarget:
+  # Auto Scaling for Worker
+  WorkerScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
-      MaxCapacity: 6  # Max 6 tasks for worker pools
-      {% if pool.aws and pool.aws.ecs %}
-      MinCapacity: {{ pool.aws.ecs.task_count | default(pool.instances) }}
-      {% else %}
-      MinCapacity: {{ pool.instances }}
-      {% endif %}
-      ResourceId: !Sub 'service/${MainECSClusterName}/${WorkerPool{{ loop.index }}Service.Name}'
+      MaxCapacity: 12  # Max 12 tasks 
+      MinCapacity: {{ config.nodes.workers.aws.ecs.task_count }}
+      ResourceId: !Sub 'service/${MainECSClusterName}/${WorkerService.Name}'
       RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
 
-  WorkerPool{{ loop.index }}ScalingPolicy:
+  WorkerScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}-scaling'
+      PolicyName: !Sub '${ProjectName}-${Environment}-worker-scaling'
       PolicyType: TargetTrackingScaling
-      ScalingTargetId: !Ref WorkerPool{{ loop.index }}ScalableTarget
+      ScalingTargetId: !Ref WorkerScalableTarget
       TargetTrackingScalingPolicyConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
         TargetValue: 70.0
-  {% endfor %}
-  {% endif %} #}
+  {% endif %}
 
 
   # ============================================================================
@@ -830,20 +826,20 @@ Parameters:
   {% endif %} #}
 
 Outputs:
-  {# # Coordinator Service Outputs
+  # Coordinator Service Outputs
   CoordinatorEdgeServiceName:
     Value: !Ref CoordinatorEdgeService
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-edge-service'
 
-  {% if config.nodes.coordinator.watcher and config.nodes.coordinator.watcher.enabled %}
+  {# {% if config.nodes.coordinator.watcher and config.nodes.coordinator.watcher.enabled %}
   CoordinatorWatcherServiceName:
     Value: !Ref CoordinatorWatcherService
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-watcher-service'
-  {% endif %}
+  {% endif %} #}
 
-  # Realm Service Outputs
+  {# # Realm Service Outputs
   {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}EdgeServiceName:
     Value: !Ref Realm{{ realm.id }}EdgeService
@@ -856,20 +852,25 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-watcher-service'
   {% endif %}
-  {% endfor %}
+  {% endfor %} #}
 
   # Independent Worker Outputs
   {% if config.nodes.workers and config.nodes.workers.enabled %}
-  {% for pool in config.nodes.workers.worker_pools %}
-  WorkerPool{{ loop.index }}ServiceName:
-    Value: !Ref WorkerPool{{ loop.index }}Service
+  WorkerServiceName:
+    Value: !Ref WorkerService
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}-service'
-  {% endfor %}
+      Name: !Sub '${ProjectName}-${Environment}-worker-service'
+    Description: Worker Service Name
+
+  WorkerServiceArn:
+    Value: !Ref WorkerService
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-worker-service-arn'
+    Description: Worker Service ARN
   {% endif %}
 
   # Global Service Outputs
-  {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
+  {# {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
   ApiServiceName:
     Value: !Ref ApiService
     Export:
@@ -879,7 +880,7 @@ Outputs:
     Value: !GetAtt ApiServiceDiscovery.Arn
     Export:
       Name: !Sub '${ProjectName}-${Environment}-api-service-sd'
-  {% endif %}
+  {% endif %} #}
 
   # Service Discovery
   CoordinatorEdgeServiceDiscoveryArn:
@@ -887,7 +888,7 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-edge-sd'
 
-  {% if config.nodes.prover and config.nodes.prover.enabled %}
+  {# {% if config.nodes.prover and config.nodes.prover.enabled %}
   ProverServiceName:
     Value: !Ref ProverService
     Export:
@@ -897,5 +898,5 @@ Outputs:
     Value: !GetAtt ProverServiceDiscovery.Arn
     Export:
       Name: !Sub '${ProjectName}-${Environment}-prover-sd'
-  {% endif %}
-   #}
+  {% endif %} #}
+  

@@ -856,11 +856,11 @@ deploy_ecs_services() {
     local expected_params=(
         "MainECSClusterName"
         "ECRRepositoryURI"
-        {# "ALBDNSName" #}
+        "ALBDNSName"
         "TaskExecutionRoleArn"
         "TaskRoleArn"
         "ServiceDiscoveryNamespaceId"
-        {# "ALBTargetGroupCoordinatorArn" #}
+        "ALBTargetGroupCoordinatorArn"
         {# {% for realm in config.nodes.realms %}"ALBTargetGroupRealm{{ realm.id }}Arn" {% endfor %} #}
         "RedisCoordinatorEndpoint"
         {# {% for realm in config.nodes.realms %}"RedisRealm{{ realm.id }}Endpoint" {% endfor %} #}
@@ -1025,7 +1025,7 @@ perform_rolling_update() {
         # Terminate instance with replacement
         aws autoscaling terminate-instance-in-auto-scaling-group \
             --instance-id "$instance_id" \
-            --should-decrement-desired-capacity \
+            --should-decrement-desired-capacity false \
             --region "${REGION}"
         
         # Wait for new instance to be healthy
@@ -1492,7 +1492,7 @@ ENVIRONMENT="dev"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        deploy|update|destroy|cleanup|status|build|update-services|monitor|logs)
+        deploy|update|update-instances|destroy|cleanup|status|build|update-services|monitor|logs)
             COMMAND=$1
             shift
             ;;
