@@ -34,6 +34,11 @@ Parameters:
     AllowedValues: [dev, staging, prod]
     Description: Environment name
 
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+    Description: Latest Ubuntu 22.04 LTS AMI
+
 Resources:
   # VPC Configuration
   VPC:
@@ -322,11 +327,11 @@ Resources:
       Protocol: HTTP
   {% endif %} #}
 
-  {% if uses_tikv_global %}
+
   # ============================================================================
   # TIKV CLUSTER INFRASTRUCTURE
   # ============================================================================
-
+  {% if uses_tikv_global %}
   # TiKV Security Group
   TiKVSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -340,6 +345,11 @@ Resources:
           ToPort: 2379
           SourceSecurityGroupId: !Ref ECSSecurityGroup
           Description: PD client port
+        - IpProtocol: tcp
+          FromPort: 2379
+          ToPort: 2379
+          SourceSecurityGroupId: !Ref CoordinatorSecurityGroup
+          Description: PD client port from Coordinator
         # PD peer port
         - IpProtocol: tcp
           FromPort: 2380
@@ -358,6 +368,10 @@ Resources:
           ToPort: 20180
           CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
           Description: TiKV status port
+          # Allow all traffic from within VPC for debugging
+        - IpProtocol: -1
+          CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
+          Description: Allow all VPC traffic for debugging
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-tikv-sg'
@@ -374,15 +388,13 @@ Resources:
       Description: Inter-node communication
 
   # TiKV PD Launch Template
-  TiKVClusterLaunchTemplate:
+  TiKVPDLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-tikv-pd-lt'
       LaunchTemplateData:
-        {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
-        {% endraw %}
-        InstanceType: t3.medium  # Changed from i3.xlarge
+        ImageId: !Ref LatestAmiId  
+        InstanceType: t3.large
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
         SecurityGroupIds:
@@ -407,71 +419,145 @@ Resources:
               - Key: Component
                 Value: tikv-pd
         UserData:
-          Fn::Base64: !Sub |
+          Fn::Base64: !Sub | 
             #!/bin/bash
             set -e
             exec > /var/log/user-data.log 2>&1
 
-            # Update system
+            echo "Starting TiKV PD setup with Docker at $(date)"
+
+            # Install Docker and AWS CLI
             apt-get update -y
-            apt-get install -y wget curl jq
+            apt-get install -y docker.io docker-compose awscli jq netcat
+            systemctl enable docker
+            systemctl start docker
+
+            # Configure AWS region
+            export AWS_DEFAULT_REGION=${AWS::Region}
 
             # Get instance metadata
             INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
             INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
 
-            # Setup data volume
-            DATA_DEVICE="/dev/nvme1n1"
-            [ -b /dev/xvdb ] && DATA_DEVICE="/dev/xvdb"
-
-            if [ -n "$DATA_DEVICE" ]; then
-                mkfs.ext4 $DATA_DEVICE
-                mkdir -p /data/pd
-                mount $DATA_DEVICE /data/pd
-                echo "$DATA_DEVICE /data/pd ext4 defaults,noatime 0 0" >> /etc/fstab
+            # Setup data volume - FIXED for NVMe
+            DATA_DEVICE=""
+            if [ -b /dev/nvme2n1 ]; then
+                DATA_DEVICE="/dev/nvme2n1"
+            elif [ -b /dev/nvme1n1 ]; then
+                DATA_DEVICE="/dev/nvme1n1"
+            elif [ -b /dev/xvdb ]; then
+                DATA_DEVICE="/dev/xvdb"
             fi
 
-            # Download TiKV
-            cd /opt
-            wget https://download.pingcap.org/tidb-community-toolkit-v7.5.1-linux-amd64.tar.gz
-            tar -xzf tidb-community-toolkit-v7.5.1-linux-amd64.tar.gz
+            if [ -n "$DATA_DEVICE" ]; then
+                mkfs.ext4 -F $DATA_DEVICE 2>/dev/null || true
+                mkdir -p /data/pd
+                mount $DATA_DEVICE /data
+                echo "$DATA_DEVICE /data ext4 defaults,noatime 0 0" >> /etc/fstab
+            fi
 
-            # Get cluster IPs for initial cluster
+            # Get all PD instance IPs
             ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
-            INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+            # Wait for all PD instances to be launched
+            echo "Waiting for all PD instances in ASG..."
+            for i in {1..30}; do
+                INSTANCE_COUNT=$(aws autoscaling describe-auto-scaling-groups \
+                  --auto-scaling-group-names $ASG_NAME \
+                  --query 'AutoScalingGroups[0].Instances | length(@)' \
+                  --output text)
+              
+                if [ "$INSTANCE_COUNT" -ge "3" ]; then
+                    echo "All PD instances are ready"
+                    break
+                fi
+                echo "Waiting for PD instances... ($INSTANCE_COUNT/3)"
+                sleep 10
+            done
+            PD_IPS=""
+            for id in $(aws autoscaling describe-auto-scaling-groups \
               --auto-scaling-group-names $ASG_NAME \
               --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
-              --output text \
-              --region ${AWS::Region})
-
-            INITIAL_CLUSTER=""
-            for id in $INSTANCE_IDS; do
-              IP=$(aws ec2 describe-instances \
-                --instance-ids $id \
-                --query 'Reservations[0].Instances[0].PrivateIpAddress' \
-                --output text \
-                --region ${AWS::Region})
-              if [ -n "$IP" ]; then
-                if [ -z "$INITIAL_CLUSTER" ]; then
-                  INITIAL_CLUSTER="pd-$IP=http://$IP:2380"
-                else
-                  INITIAL_CLUSTER="$INITIAL_CLUSTER,pd-$IP=http://$IP:2380"
+              --output text); do
+                
+                IP=$(aws ec2 describe-instances \
+                  --instance-ids $id \
+                  --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                  --output text)
+                
+                if [ -n "$IP" ]; then
+                    if [ -z "$PD_IPS" ]; then
+                        PD_IPS="$IP"
+                    else
+                        PD_IPS="$PD_IPS,$IP"
+                    fi
                 fi
-              fi
             done
 
-            # Start PD
-            /opt/tidb-community-toolkit-v7.5.1-linux-amd64/bin/pd-server \
-              --name=pd-$INSTANCE_IP \
-              --data-dir=/data/pd \
-              --client-urls=http://0.0.0.0:2379 \
-              --peer-urls=http://0.0.0.0:2380 \
-              --advertise-client-urls=http://$INSTANCE_IP:2379 \
-              --advertise-peer-urls=http://$INSTANCE_IP:2380 \
-              --initial-cluster="$INITIAL_CLUSTER" \
-              --log-file=/var/log/pd.log &
+            # Sort IPs using a simpler method to avoid array syntax issues
+            PD_IPS_SORTED=$(echo "$PD_IPS" | tr ',' '\n' | sort | tr '\n' ',' | sed 's/,$$//')
 
-            echo "PD server started successfully"
+            # Determine which PD node this is (pd0, pd1, or pd2)
+            PD_INDEX=0
+            for IP in $(echo "$PD_IPS_SORTED" | tr ',' ' '); do
+                if [ "$IP" = "$INSTANCE_IP" ]; then
+                    break
+                fi
+                PD_INDEX=$((PD_INDEX + 1))
+            done
+
+            # Build initial cluster string
+            INITIAL_CLUSTER=""
+            INDEX=0
+            for IP in $(echo "$PD_IPS_SORTED" | tr ',' ' '); do
+                if [ $INDEX -eq 0 ]; then
+                    INITIAL_CLUSTER="pd$INDEX=http://$IP:2380"
+                else
+                    INITIAL_CLUSTER="$INITIAL_CLUSTER,pd$INDEX=http://$IP:2380"
+                fi
+                INDEX=$((INDEX + 1))
+            done
+
+            # Create docker-compose for PD node
+            cat > /opt/docker-compose.yml <<EOF
+            version: '3.8'
+
+            services:
+              pd:
+                image: pingcap/pd:latest
+                container_name: pd$PD_INDEX
+                network_mode: host
+                command:
+                  - --name=pd$PD_INDEX
+                  - --client-urls=http://0.0.0.0:2379
+                  - --peer-urls=http://0.0.0.0:2380
+                  - --advertise-client-urls=http://$INSTANCE_IP:2379
+                  - --advertise-peer-urls=http://$INSTANCE_IP:2380
+                  - --initial-cluster=$INITIAL_CLUSTER
+                  - --data-dir=/var/lib/pd
+                  - --log-file=/var/log/pd.log
+                volumes:
+                  - /data/pd:/var/lib/pd
+                  - /var/log:/var/log
+                restart: unless-stopped
+            EOF
+
+
+            # Start PD container
+            cd /opt
+            docker-compose up -d
+
+            # Wait for PD to be ready
+            for i in {1..60}; do
+                if curl -f http://localhost:2379/pd/api/v1/version >/dev/null 2>&1; then
+                    echo "PD server is ready!"
+                    break
+                fi
+                echo "Waiting for PD to start... attempt $$i of 60"
+                sleep 5
+            done
+
+            echo "PD setup completed at $$(date)"
+     
 
   # TiKV PD Auto Scaling Group
   TiKVPDAutoScalingGroup:
@@ -479,11 +565,11 @@ Resources:
     Properties:
       AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-tikv-pd-asg'
       LaunchTemplate:
-        LaunchTemplateId: !Ref TiKVClusterLaunchTemplate
-        Version: !GetAtt TiKVClusterLaunchTemplate.LatestVersionNumber
-      MinSize: {{ tikv_config_global.aws.pd_count | default(1) }}
-      MaxSize: {{ tikv_config_global.aws.pd_count | default(1) }}
-      DesiredCapacity: {{ tikv_config_global.aws.pd_count | default(1) }}
+        LaunchTemplateId: !Ref TiKVPDLaunchTemplate
+        Version: !GetAtt TiKVPDLaunchTemplate.LatestVersionNumber
+      MinSize: {{ tikv_config_global.aws.pd_count | default(3) }}
+      MaxSize: {{ tikv_config_global.aws.pd_count | default(3) }}
+      DesiredCapacity: {{ tikv_config_global.aws.pd_count | default(3) }}
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
         {# {% for realm in config.nodes.realms %}
@@ -540,73 +626,152 @@ Resources:
             set -e
             exec > /var/log/user-data.log 2>&1
 
-            # Update system
+            echo "Starting TiKV storage node with Docker at $(date)"
+
+            # Install Docker
             apt-get update -y
-            apt-get install -y wget curl jq
+            apt-get install -y docker.io docker-compose awscli jq netcat
+            systemctl enable docker
+            systemctl start docker
+
+            export AWS_DEFAULT_REGION=${AWS::Region}
 
             # Get instance metadata
-            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
             INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+            CURRENT_INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 
             # Setup data volume
-            DATA_DEVICE="/dev/nvme1n1"
-            [ -b /dev/xvdb ] && DATA_DEVICE="/dev/xvdb"
-
-            if [ -n "$DATA_DEVICE" ]; then
-                mkfs.ext4 $DATA_DEVICE
-                mkdir -p /data/tikv
-                mount $DATA_DEVICE /data/tikv
-                echo "$DATA_DEVICE /data/tikv ext4 defaults,noatime 0 0" >> /etc/fstab
+            DATA_DEVICE=""
+            if [ -b /dev/nvme2n1 ]; then
+                DATA_DEVICE="/dev/nvme2n1"
+            elif [ -b /dev/nvme1n1 ]; then
+                DATA_DEVICE="/dev/nvme1n1"
+            elif [ -b /dev/xvdb ]; then
+                DATA_DEVICE="/dev/xvdb"
             fi
 
-            # Download TiKV
-            cd /opt
-            wget https://download.pingcap.org/tidb-community-toolkit-v7.5.1-linux-amd64.tar.gz
-            tar -xzf tidb-community-toolkit-v7.5.1-linux-amd64.tar.gz
+            if [ -n "$DATA_DEVICE" ]; then
+                mkfs.ext4 -F $DATA_DEVICE 2>/dev/null || true
+                mkdir -p /data/tikv
+                mount $DATA_DEVICE /data
+                echo "$DATA_DEVICE /data ext4 defaults,noatime 0 0" >> /etc/fstab
+            fi
 
             # Get PD endpoints
             PD_ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
-            PD_INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
-              --auto-scaling-group-names $PD_ASG_NAME \
-              --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
-              --output text \
-              --region ${AWS::Region})
-
             PD_ENDPOINTS=""
-            for id in $PD_INSTANCE_IDS; do
-              IP=$(aws ec2 describe-instances \
-                --instance-ids $id \
-                --query 'Reservations[0].Instances[0].PrivateIpAddress' \
-                --output text \
-                --region ${AWS::Region})
-              if [ -n "$IP" ]; then
-                if [ -z "$PD_ENDPOINTS" ]; then
-                  PD_ENDPOINTS="http://$IP:2379"
-                else
-                  PD_ENDPOINTS="$PD_ENDPOINTS,http://$IP:2379"
+
+            # Wait for PD nodes to be ready
+            echo "Waiting for PD nodes to be ready..."
+            for retry in {1..30}; do
+                PD_ENDPOINTS=""
+                  for id in $(aws autoscaling describe-auto-scaling-groups \
+                    --auto-scaling-group-names $PD_ASG_NAME \
+                    --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
+                    --output text); do
+                      
+                      IP=$(aws ec2 describe-instances \
+                        --instance-ids $id \
+                        --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                        --output text)
+                      
+                      if [ -n "$IP" ]; then
+                          if [ -z "$PD_ENDPOINTS" ]; then
+                              PD_ENDPOINTS="$IP:2379"
+                          else
+                              PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
+                          fi
+                      fi
+                  done
+                # Test PD connectivity
+                PD_READY=false
+                for endpoint in $(echo $PD_ENDPOINTS | tr ',' ' '); do
+                    if curl -f -m 5 http://$endpoint/pd/api/v1/version >/dev/null 2>&1; then
+                        echo "PD is ready at $endpoint"
+                        PD_READY=true
+                        break
+                    fi
+                done
+
+                if [ "$PD_READY" = true ]; then
+                    echo "PD cluster is ready!"
+                    break
                 fi
-              fi
+
+                echo "Waiting for PD cluster... attempt $retry/30"
+                sleep 10
             done
 
-            # Wait for PD to be ready
-            for i in {1..30}; do
-              if curl -f $PD_ENDPOINTS/pd/api/v1/version >/dev/null 2>&1; then
-                echo "PD cluster is ready"
-                break
-              fi
-              echo "Waiting for PD cluster... ($i/30)"
-              sleep 10
+            if [ "$PD_READY" != true ]; then
+                echo "ERROR: PD cluster not ready after 5 minutes"
+                exit 1
+            fi
+            # Get a unique port for this TiKV instance (based on instance index in ASG)
+            TIKV_ASG_NAME="${ProjectName}-${Environment}-tikv-node-asg"
+            TIKV_INDEX=$(aws autoscaling describe-auto-scaling-groups \
+              --auto-scaling-group-names $TIKV_ASG_NAME \
+              --query "AutoScalingGroups[0].Instances[?InstanceId=='$CURRENT_INSTANCE_ID'].InstanceId" \
+              --output text | wc -w)
+
+            TIKV_PORT=$((20160 + TIKV_INDEX - 1))
+            STATUS_PORT=$((20180 + TIKV_INDEX - 1))
+
+            # Create docker-compose for TiKV node
+            cat > /opt/docker-compose.yml <<'COMPOSE_EOF'
+            version: '3.8'
+
+            services:
+              tikv:
+                image: pingcap/tikv:latest
+                container_name: tikv-server
+                network_mode: host
+                command:
+                  - --addr=0.0.0.0:TIKV_PORT_PLACEHOLDER
+                  - --advertise-addr=INSTANCE_IP_PLACEHOLDER:TIKV_PORT_PLACEHOLDER
+                  - --status-addr=0.0.0.0:STATUS_PORT_PLACEHOLDER
+                  - --advertise-status-addr=INSTANCE_IP_PLACEHOLDER:STATUS_PORT_PLACEHOLDER
+                  - --data-dir=/var/lib/tikv
+                  - --pd-endpoints=PD_ENDPOINTS_PLACEHOLDER
+                  - --log-file=/var/log/tikv.log
+                volumes:
+                  - /data/tikv:/var/lib/tikv
+                  - /var/log:/var/log
+                restart: unless-stopped
+            EOF 
+
+
+            # Substitute placeholders in docker-compose.yml
+            sed -i "s/TIKV_PORT_PLACEHOLDER/$TIKV_PORT/g" /opt/docker-compose.yml
+            sed -i "s/STATUS_PORT_PLACEHOLDER/$STATUS_PORT/g" /opt/docker-compose.yml
+            sed -i "s/INSTANCE_IP_PLACEHOLDER/$INSTANCE_IP/g" /opt/docker-compose.yml
+            sed -i "s/PD_ENDPOINTS_PLACEHOLDER/$PD_ENDPOINTS/g" /opt/docker-compose.yml
+
+            # Wait for PD to be ready before starting TiKV
+            for endpoint in $(echo $PD_ENDPOINTS | tr ',' ' '); do
+                echo "Checking PD at $endpoint"
+                for i in {1..60}; do
+                    if curl -f http://$endpoint/pd/api/v1/version >/dev/null 2>&1; then
+                        echo "PD is ready at $endpoint"
+                        break 2
+                    fi
+                    sleep 5
+                done
             done
 
-            # Start TiKV
-            /opt/tidb-community-toolkit-v7.5.1-linux-amd64/bin/tikv-server \
-              --pd-endpoints="$PD_ENDPOINTS" \
-              --addr="0.0.0.0:20160" \
-              --status-addr="0.0.0.0:20180" \
-              --data-dir="/data/tikv" \
-              --log-file="/var/log/tikv.log" &
+            # Start TiKV container
+            cd /opt
+            docker-compose up -d
 
-            echo "TiKV server started successfully"
+            # Verify TiKV started
+            sleep 10
+            if docker ps | grep -q tikv-server; then
+                echo "TiKV storage node started successfully"
+            else
+                echo "ERROR: TiKV failed to start"
+                docker logs tikv-server
+                exit 1
+            fi
+            echo "TiKV storage node setup completed at $(date)"
 
   # TiKV Storage Node Auto Scaling Group
   TiKVNodeAutoScalingGroup:
@@ -876,15 +1041,13 @@ Resources:
       SourceSecurityGroupId: !Ref Realm{{ realm.id }}SecurityGroup
       Description: Internal communication
   {% endfor %} #}
-# Coordinator Processor ASG
+  # Coordinator Processor ASG
   CoordinatorProcessorLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-coordinator-processor-lt'
       LaunchTemplateData:
-        {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
-        {% endraw %}
+        ImageId: !Ref LatestAmiId  
         InstanceType: c6i.2xlarge
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
@@ -1111,9 +1274,7 @@ Resources:
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor-lt'
       LaunchTemplateData:
-        {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
-        {% endraw %}
+        ImageId: !Ref LatestAmiId  
         InstanceType: c6i.xlarge
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
@@ -1232,9 +1393,7 @@ Resources:
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-ecs-container-lt'
       LaunchTemplateData:
-      {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}'
-      {% endraw %}
+        ImageId: !Ref LatestAmiId  
         InstanceType: t3.large 
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
@@ -1288,9 +1447,7 @@ Resources:
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-worker-ecs-lt'
       LaunchTemplateData:
-      {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}'
-      {% endraw %}
+        ImageId: !Ref LatestAmiId  
         InstanceType: c6a.2xlarge  # AMD EPYC, 8 vCPUs, 16GB RAM
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
@@ -1354,9 +1511,7 @@ Resources:
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-prover-lt'
       LaunchTemplateData:
-      {% raw %}
-        ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}'
-      {% endraw %}
+        ImageId: !Ref LatestAmiId  
         InstanceType: c6a.2xlarge  
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile

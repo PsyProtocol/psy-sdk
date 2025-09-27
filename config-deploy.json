@@ -163,13 +163,13 @@
             "memory": 8192,
             "deployment_type": "ec2",
             "ec2": {
-              "min_instances": 1,
-              "max_instances": 1,
-              "desired_instances": 1
+              "min_instances": 3,
+              "max_instances": 3,
+              "desired_instances": 3
             },
-            "data_volume_size": 500,
-            "pd_count": 1,
-            "tikv_count": 1
+            "data_volume_size": 100,
+            "pd_count": 3,
+            "tikv_count": 3
           }
         }
       },
@@ -282,9 +282,9 @@
               "memory": 8192,
               "volume_size": 200,
               "ec2": {
-                "min_instances": 1,
-                "max_instances": 1,
-                "desired_instances": 1
+                "min_instances": 3,
+                "max_instances": 3,
+                "desired_instances": 3
               }
             }
           }
@@ -400,9 +400,9 @@
               "memory": 8192,
               "volume_size": 200,
               "ec2": {
-                "min_instances": 1,
-                "max_instances": 1,
-                "desired_instances": 1
+                "min_instances": 3,
+                "max_instances": 3,
+                "desired_instances": 3
               }
             }
           }

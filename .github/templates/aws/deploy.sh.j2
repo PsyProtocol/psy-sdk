@@ -44,6 +44,8 @@ Usage: $0 [COMMAND] [OPTIONS]
 
 Commands:
     deploy              Deploy the full QED Protocol infrastructure
+    update              Update infrastructure and force instance refresh
+    update-instances    Force refresh EC2 instances only
     destroy             Destroy all infrastructure
     cleanup             Clean up orphaned resources
     status              Show deployment status
@@ -940,6 +942,258 @@ deploy_ecs_services() {
         monitor_stack_progress "$stack_name" "Services deployment"
     fi
 }
+
+# Function to force update EC2 instances in Auto Scaling Groups
+force_update_instances() {
+    log_info "Force updating EC2 instances in Auto Scaling Groups..."
+    
+    # Get all ASGs for our project
+    local ASG_NAMES=$(aws autoscaling describe-auto-scaling-groups \
+        --query "AutoScalingGroups[?contains(AutoScalingGroupName, '${PROJECT_NAME}')].AutoScalingGroupName" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$ASG_NAMES" ]; then
+        log_warning "No Auto Scaling Groups found"
+        return 0
+    fi
+    
+    for asg_name in $ASG_NAMES; do
+        log_info "Updating ASG: $asg_name"
+        
+        # Get current configuration
+        local asg_info=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "$asg_name" \
+            --query "AutoScalingGroups[0]" \
+            --output json \
+            --region "${REGION}")
+        
+        local current_desired=$(echo "$asg_info" | jq -r '.DesiredCapacity')
+        local current_min=$(echo "$asg_info" | jq -r '.MinSize')
+        local current_max=$(echo "$asg_info" | jq -r '.MaxSize')
+        
+        # Check if it's a TiKV cluster (special handling)
+        if [[ "$asg_name" == *"tikv"* ]]; then
+            log_info "TiKV cluster detected, using rolling update..."
+            perform_rolling_update "$asg_name" "$current_desired"
+        else
+            log_info "Performing instance refresh for $asg_name..."
+            
+            # Start instance refresh
+            local refresh_id=$(aws autoscaling start-instance-refresh \
+                --auto-scaling-group-name "$asg_name" \
+                --preferences '{
+                    "MinHealthyPercentage": 50,
+                    "InstanceWarmup": 300,
+                    "CheckpointPercentages": [50],
+                    "CheckpointDelay": 600
+                }' \
+                --query 'InstanceRefreshId' \
+                --output text \
+                --region "${REGION}" 2>/dev/null)
+            
+            if [ -n "$refresh_id" ]; then
+                log_info "Started instance refresh: $refresh_id"
+                
+                # Monitor refresh progress
+                monitor_instance_refresh "$asg_name" "$refresh_id"
+            else
+                log_warning "Failed to start instance refresh for $asg_name, trying alternative method..."
+                force_replace_instances "$asg_name" "$current_desired"
+            fi
+        fi
+    done
+}
+
+# Function to perform rolling update for stateful services like TiKV
+perform_rolling_update() {
+    local asg_name=$1
+    local desired_capacity=$2
+    
+    log_info "Performing rolling update for stateful service: $asg_name"
+    
+    # Get instance IDs
+    local instance_ids=$(aws autoscaling describe-auto-scaling-groups \
+        --auto-scaling-group-names "$asg_name" \
+        --query "AutoScalingGroups[0].Instances[*].InstanceId" \
+        --output text \
+        --region "${REGION}")
+    
+    for instance_id in $instance_ids; do
+        log_info "Replacing instance: $instance_id"
+        
+        # Terminate instance with replacement
+        aws autoscaling terminate-instance-in-auto-scaling-group \
+            --instance-id "$instance_id" \
+            --should-decrement-desired-capacity \
+            --region "${REGION}"
+        
+        # Wait for new instance to be healthy
+        log_info "Waiting for replacement instance to be healthy..."
+        sleep 60
+        
+        # Wait until ASG is back to desired capacity
+        local current_running=0
+        local max_wait=300  # 5 minutes
+        local waited=0
+        
+        while [ $current_running -lt $desired_capacity ] && [ $waited -lt $max_wait ]; do
+            current_running=$(aws autoscaling describe-auto-scaling-groups \
+                --auto-scaling-group-names "$asg_name" \
+                --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'] | length(@)" \
+                --output text \
+                --region "${REGION}")
+            
+            echo -ne "\rWaiting for instances: $current_running/$desired_capacity"
+            sleep 10
+            waited=$((waited + 10))
+        done
+        echo ""
+    done
+}
+
+# Function to monitor instance refresh progress
+monitor_instance_refresh() {
+    local asg_name=$1
+    local refresh_id=$2
+    
+    log_info "Monitoring instance refresh for $asg_name..."
+    
+    while true; do
+        local refresh_status=$(aws autoscaling describe-instance-refreshes \
+            --auto-scaling-group-name "$asg_name" \
+            --instance-refresh-ids "$refresh_id" \
+            --query "InstanceRefreshes[0].Status" \
+            --output text \
+            --region "${REGION}" 2>/dev/null)
+        
+        local percentage=$(aws autoscaling describe-instance-refreshes \
+            --auto-scaling-group-name "$asg_name" \
+            --instance-refresh-ids "$refresh_id" \
+            --query "InstanceRefreshes[0].PercentageComplete" \
+            --output text \
+            --region "${REGION}" 2>/dev/null)
+        
+        echo -ne "\rRefresh status: $refresh_status ($percentage%)"
+        
+        case "$refresh_status" in
+            "Successful")
+                echo -e "\n${GREEN}Instance refresh completed successfully${NC}"
+                return 0
+                ;;
+            "Failed"|"Cancelled")
+                echo -e "\n${RED}Instance refresh failed: $refresh_status${NC}"
+                return 1
+                ;;
+            "InProgress"|"Pending")
+                sleep 10
+                ;;
+            *)
+                echo -e "\n${YELLOW}Unknown refresh status: $refresh_status${NC}"
+                return 1
+                ;;
+        esac
+    done
+}
+
+# Alternative method to force replace instances
+force_replace_instances() {
+    local asg_name=$1
+    local desired=$2
+    
+    log_info "Force replacing instances in $asg_name..."
+    
+    # Scale down to 0
+    aws autoscaling update-auto-scaling-group \
+        --auto-scaling-group-name "$asg_name" \
+        --min-size 0 \
+        --desired-capacity 0 \
+        --region "${REGION}"
+    
+    # Wait for instances to terminate
+    log_info "Waiting for instances to terminate..."
+    sleep 60
+    
+    # Scale back up
+    aws autoscaling update-auto-scaling-group \
+        --auto-scaling-group-name "$asg_name" \
+        --min-size 1 \
+        --desired-capacity "$desired" \
+        --region "${REGION}"
+    
+    log_info "Scaling back up to $desired instances..."
+}
+
+# Main update function
+update() {
+    log_info "Starting infrastructure update..."
+    
+    # First update the infrastructure stack
+    log_info "=== Phase 1: Updating Infrastructure Stack ==="
+    if ! deploy_infrastructure; then
+        log_error "Infrastructure update failed"
+        return 1
+    fi
+    
+    # Force update EC2 instances to pick up new configurations
+    if [ "$ENVIRONMENT" = "dev" ] || [ "$FORCE" = true ]; then
+        log_info "=== Phase 2: Force Updating EC2 Instances ==="
+        force_update_instances
+    else
+        log_warning "Skipping instance refresh in production. Use --force to override."
+    fi
+    
+    # Update ECS services if needed
+    log_info "=== Phase 3: Updating ECS Services ==="
+    if ! deploy_ecs_services; then
+        log_error "Services update failed"
+        return 1
+    fi
+    
+    log_info "=== Update Completed Successfully! ==="
+    show_status
+}
+{# 
+# Function to check instance health after update
+check_instance_health() {
+    log_info "Checking instance health..."
+    
+    # Check EC2 instances
+    local instances=$(aws ec2 describe-instances \
+        --filters "Name=tag:Project,Values=${PROJECT_NAME}" \
+                  "Name=instance-state-name,Values=running" \
+        --query "Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,State.Name,Tags[?Key=='Name'].Value|[0]]" \
+        --output table \
+        --region "${REGION}")
+    
+    echo -e "\n${BLUE}EC2 Instances:${NC}"
+    echo "$instances"
+    
+    # Check if Docker containers are running on each instance
+    log_info "\nChecking Docker containers on instances..."
+    
+    local instance_ids=$(aws ec2 describe-instances \
+        --filters "Name=tag:Project,Values=${PROJECT_NAME}" \
+                  "Name=instance-state-name,Values=running" \
+        --query "Reservations[*].Instances[*].InstanceId" \
+        --output text \
+        --region "${REGION}")
+    
+    for instance_id in $instance_ids; do
+        log_info "Checking instance $instance_id..."
+        
+        # Use SSM to check Docker status - FIXED VERSION
+        aws ssm send-command \
+            --instance-ids "$instance_id" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["docker ps --format \"table {{.Names}}\\t{{.Status}}\""]' \
+            --output text \
+            --region "${REGION}" &>/dev/null || {
+                log_warning "Cannot access instance $instance_id via SSM"
+        }
+    done
+} #}
+
 # Helper function to show service endpoints after deployment
 show_service_endpoints() {
     local stack_name=$1
@@ -1238,7 +1492,7 @@ ENVIRONMENT="dev"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        deploy|destroy|cleanup|status|build|update-services|monitor|logs)
+        deploy|update|destroy|cleanup|status|build|update-services|monitor|logs)
             COMMAND=$1
             shift
             ;;
@@ -1319,6 +1573,15 @@ case "$COMMAND" in
             log_error "No active stacks found"
         fi
         ;;
+    update)
+        update
+        ;;
+    update-instances)
+        force_update_instances
+        ;;
+    {# health|check-health)
+        check_instance_health
+        ;; #}
     logs)
         show_logs "$SERVICE_NAME"
         ;;
