@@ -167,7 +167,7 @@ Resources:
       LaunchType: EC2
       PlacementConstraints:
         - Type: memberOf
-          Expression: 'attribute:workload == ecs-container'
+          Expression: 'attribute:workload == general'
       LoadBalancers:
         - ContainerName: coordinator-edge
           ContainerPort: 8545
@@ -516,7 +516,7 @@ Resources:
               {% endif %}
 
               # Start worker with generated config
-              exec /qed-rollup/target/release/qed_rollup_cli worker \
+              exec /qed_rollup/qed_rollup_cli worker \
               {% for key, value in (config.nodes.workers.args | default({}) | dictsort) %}
               --{{ key | replace('_', '-') }} '{{ value }}' \
               {% endfor %}

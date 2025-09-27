@@ -668,7 +668,7 @@ Resources:
 
             # Install Docker
             apt-get update -y
-            apt-get install -y docker.io docker-compose awscli jq netcat net-tools
+            apt-get install -y docker.io docker-compose awscli jq netcat net-tools ec2-instance-connect
             systemctl enable docker
             systemctl start docker
 
@@ -834,7 +834,7 @@ Resources:
           PropagateAtLaunch: true
   {% endif %}
 
-      # Redis Configuration (simplified - keeping existing Redis for caching)
+  # Redis Configuration (simplified - keeping existing Redis for caching)
   {% if config.nodes.coordinator.redis and config.nodes.coordinator.redis.aws %}
   {% set coord_redis_type = config.nodes.coordinator.redis.aws.deployment_type | default('elasticache') %}
   {% else %}
@@ -954,7 +954,7 @@ Resources:
     Type: AWS::IAM::InstanceProfile
     DependsOn: EC2InstanceRole  
     Properties:
-      InstanceProfileName: !Sub '${ProjectName}-${Environment}-ec2-instance-profile'  # Add unique naming
+      InstanceProfileName: !Sub '${ProjectName}-${Environment}-ec2-instance-profile'  
       Roles:
         - !Ref EC2InstanceRole
 
@@ -1454,7 +1454,7 @@ Resources:
             
             # Update and install dependencies
             apt-get update -y
-            apt-get install -y docker.io curl wget jq awscli
+            apt-get install -y docker.io curl wget jq awscli ec2-instance-connect
             systemctl enable docker
             systemctl start docker
             usermod -aG docker ubuntu
@@ -1469,6 +1469,7 @@ Resources:
             ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true
             ECS_LOGFILE=/var/log/ecs/ecs-agent.log
             ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]
+            ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE=true
             ECS_LOGLEVEL=info
             ECS_DATADIR=/var/lib/ecs/data
             ECS_ENABLE_CONTAINER_METADATA=true
@@ -1501,7 +1502,7 @@ Resources:
               fi
               
               # Alternative check using AWS CLI
-              INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
+              INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
               CONTAINER_INSTANCES=$(aws ecs list-container-instances \
                 --cluster ${MainECSCluster} \
                 --region ${AWS::Region} \
@@ -1627,7 +1628,7 @@ Resources:
             
             # Install Docker
             apt-get update -y
-            apt-get install -y docker.io curl wget jq awscli
+            apt-get install -y docker.io curl wget jq awscli ec2-instance-connect
             systemctl enable docker
             systemctl start docker
             
@@ -1640,6 +1641,7 @@ Resources:
             ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true
             ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]
             ECS_INSTANCE_ATTRIBUTES={"workload":"worker","compute":"optimized"}
+            ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE=true
             ECS_ENABLE_SPOT_INSTANCE_DRAINING=true
             ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=1h
             ECS_IMAGE_CLEANUP_INTERVAL=30m
