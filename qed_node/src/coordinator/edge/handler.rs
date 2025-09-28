@@ -1798,27 +1798,35 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             .map_err(|e| RpcError::Anyhow(e.into()))?;
 
         let worker_id = signed.worker_public_key.to_string();
-        let mut j = None;
-        loop {
-            j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
-                Ok(job) => job,
-                Err(e) => {
-                    error!("Error claiming job from current task: {:?}", e);
-                    return Err(RpcError::Anyhow(e.into()))
-                }
-            };
-            if let Some(job) = &j {
-                let job_id = &job.job_id;
-                if job_id.is_notify_complete() {
-                    self.acknowledge_job_completion(job, &worker_id).await.map_err(RpcError::Anyhow)?;
-                    continue;
-                }
+        let j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
+            Ok(job) => job,
+            Err(e) => {
+                error!("Error claiming job from current task: {:?}", e);
+                return Err(RpcError::Anyhow(e.into()))
             }
-            break;
-        }
+        };
         match j {
+            Some(job) if job.job_id.is_notify_complete() => {
+                self.acknowledge_job_completion(&job, &worker_id).await.map_err(RpcError::Anyhow)?;
+                Ok(None)
+            }
             Some(job) => {
                 debug!("Pending job from current task: {:?}", job);
+
+                // Report job started event to watcher
+                let start_event = JobStartedEvent {
+                    job_id: job.job_id,
+                    worker_id,
+                    start_time: current_timestamp_mills(),
+                    layer_id: job.layer_id,
+                };
+
+                // Send to watcher queue
+                let message = WatcherMessage::JobStarted(start_event);
+                if let Err(e) = self.watcher_client.send_event(message).await {
+                    warn!("⚠️ Failed to report job started to watcher: {}", e);
+                }
+
                 Ok(Some(job))
             }
             None => {
