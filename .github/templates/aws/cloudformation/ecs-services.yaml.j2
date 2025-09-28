@@ -1,5 +1,6 @@
+---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'QED Protocol ECS Services - Edge and Worker Services Only (Processors run on EC2)'
+Description: 'QED Protocol ECS Services - Edge, Worker, Watcher, and API Services'
 
 Parameters:
   ProjectName:
@@ -45,21 +46,33 @@ Parameters:
   # Redis Endpoints
   RedisCoordinatorEndpoint:
     Type: String
-    Description: Redis Coordinator NLB endpoint
+    Description: Redis Coordinator endpoint
 
   {% for realm in config.nodes.realms %}
   RedisRealm{{ realm.id }}Endpoint:
     Type: String
-    Description: Redis Realm {{ realm.id }} NLB endpoint
+    Description: Redis Realm {{ realm.id }} endpoint
   {% endfor %}
 
   ALBDNSName:
     Type: String
     Description: Application Load Balancer DNS name
 
+  # TimescaleDB Endpoint (if enabled)
+  {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}
+  TimescaleDBEndpoint:
+    Type: String
+    Description: TimescaleDB RDS endpoint
+  {% endif %}
+
+  TiKVPDEndpoints:
+    Type: String
+    Description: Comma-separated list of TiKV PD endpoints
+    Default: "127.0.0.1:2379"
+
 Resources:
   # ============================================================================
-  # COORDINATOR ECS SERVICES (Edge & Worker only)
+  # COORDINATOR ECS SERVICES (Edge & Watcher)
   # ============================================================================
 
   # Coordinator Edge Service
@@ -79,19 +92,43 @@ Resources:
       ContainerDefinitions:
         - Name: coordinator-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
+          # REMOVE the complex EntryPoint/Command with bash script
+          # Use direct command instead
           Command:
+            - /qed-rollup/target/release/qed_rollup_cli
             - coordinator-edge
             - --database
-            - lmdbx
-            - --lmdbx-path
-            - /data  # Mounted from processor instance
+            - tikv
+            - --tikv-pd-endpoints
+            - !Ref TiKVPDEndpoints  # Use parameter directly
+            - --tikv-namespace
+            - "{{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator"
             - --redis-uri
             - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
+            {% if config.nodes.coordinator.edge.args is defined and 'listen_addr' in config.nodes.coordinator.edge.args %}
+            - --listen-addr
+            - '{{ config.nodes.coordinator.edge.args["listen_addr"] }}'
+            {% else %}
             - --listen-addr
             - '0.0.0.0:8545'
+            {% endif %}
+            {% for key, value in (config.nodes.coordinator.edge.args | default({}) | dictsort) %}
+            {% if key != 'listen_addr' %}
+            - --{{ key | replace('_','-') }}
+            - '{{ value | string }}'
+            {% endif %}
+            {% endfor %}
           Environment:
-            - Name: RUST_LOG
-              Value: '{{ config.nodes.coordinator.edge.env.RUST_LOG }}'
+            {% for key, value in (config.nodes.coordinator.edge.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref 'AWS::Region'
+            - Name: ProjectName
+              Value: !Ref ProjectName
+            - Name: Environment
+              Value: !Ref Environment
           Memory: {{ config.nodes.coordinator.edge.aws.memory }}
           MemoryReservation: {{ (config.nodes.coordinator.edge.aws.memory * 0.75) | int }}
           Cpu: {{ config.nodes.coordinator.edge.aws.cpu }}
@@ -111,7 +148,7 @@ Resources:
             Interval: 30
             Timeout: 5
             Retries: 3
-            StartPeriod: 60
+            StartPeriod: 120  # Increased to allow time for PD discovery
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -128,14 +165,11 @@ Resources:
       TaskDefinition: !Ref CoordinatorEdgeTaskDefinition
       DesiredCount: {{ config.nodes.coordinator.edge.aws.ecs.task_count }}
       LaunchType: EC2
-      PlacementConstraints:
-        - Type: memberOf
-          Expression: 'attribute:service == coordinator-processor'
       LoadBalancers:
         - ContainerName: coordinator-edge
           ContainerPort: 8545
           TargetGroupArn: !Ref ALBTargetGroupCoordinatorArn
-      HealthCheckGracePeriodSeconds: 60
+      HealthCheckGracePeriodSeconds: 120
       ServiceRegistries:
         - RegistryArn: !GetAtt CoordinatorEdgeServiceDiscovery.Arn
           ContainerName: coordinator-edge
@@ -174,76 +208,75 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageMemoryUtilization
         TargetValue: 70.0
-
-  # Coordinator Worker Service
-  CoordinatorWorkerTaskDefinition:
+  # Coordinator Watcher Service
+  {% if config.nodes.coordinator.watcher and config.nodes.coordinator.watcher.enabled %}
+  CoordinatorWatcherTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub '${ProjectName}-${Environment}-coordinator-worker'
+      Family: !Sub '${ProjectName}-${Environment}-coordinator-watcher'
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
       ExecutionRoleArn: !Ref TaskExecutionRoleArn
       TaskRoleArn: !Ref TaskRoleArn
       ContainerDefinitions:
-        - Name: coordinator-worker
-          Memory: {{ config.nodes.coordinator.worker.aws.memory }}
-          MemoryReservation: {{ (config.nodes.coordinator.worker.aws.memory * 0.75) | int }}
-          Cpu: {{ config.nodes.coordinator.worker.aws.cpu }}
-          LinuxParameters:
-            InitProcessEnabled: true
+        - Name: coordinator-watcher
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - coordinator-worker
-            - --redis-uri
+            - watcher
+            - --node-type
+            - coordinator
+            - --node-id
+            - "0"
+            - --database
+            - tikv
+            - --tikv-pd-endpoints
+            - "{{ config.nodes.coordinator.backend.tikv.pd_endpoints | join(',') }}"
+            - --tikv-namespace
+            - "watcher-coordinator"
+            - --redis-url
             - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
+            - --api-endpoint
+            - http://api-service:3000
+            {% for key, value in (config.nodes.coordinator.watcher.args | default({}) | dictsort) %}
+            {% if key not in ['redis-url'] %}
+            - --{{ key | replace('_', '-') }}
+            - '{{ value | string }}'
+            {% endif %}
+            {% endfor %}
           Environment:
-            - Name: RUST_LOG
-              Value: '{{ config.nodes.coordinator.worker.env.RUST_LOG }}'
+            {% for key, value in (config.nodes.coordinator.watcher.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
+          Memory: {{ config.nodes.coordinator.watcher.aws.memory }}
+          MemoryReservation: {{ (config.nodes.coordinator.watcher.aws.memory * 0.75) | int }}
+          Cpu: {{ config.nodes.coordinator.watcher.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
               awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: coordinator-worker
+              awslogs-stream-prefix: coordinator-watcher
           Essential: true
 
-  CoordinatorWorkerService:
+  CoordinatorWatcherService:
     Type: AWS::ECS::Service
     Properties:
-      ServiceName: !Sub '${ProjectName}-${Environment}-coordinator-worker'
+      ServiceName: !Sub '${ProjectName}-${Environment}-coordinator-watcher'
       Cluster: !Ref MainECSClusterName
-      TaskDefinition: !Ref CoordinatorWorkerTaskDefinition
-      DesiredCount: {{ config.nodes.coordinator.worker.aws.ecs.task_count }}
+      TaskDefinition: !Ref CoordinatorWatcherTaskDefinition
+      DesiredCount: 1  # Single watcher per partition
       LaunchType: EC2
       PlacementConstraints:
         - Type: memberOf
-          Expression: 'attribute:service == coordinator-worker'
-
-  # Auto Scaling for Coordinator Worker
-  CoordinatorWorkerScalableTarget:
-    Type: AWS::ApplicationAutoScaling::ScalableTarget
-    Properties:
-      MaxCapacity: 10
-      MinCapacity: {{ config.nodes.coordinator.worker.aws.ecs.task_count }}
-      ResourceId: !Sub 'service/${MainECSClusterName}/${CoordinatorWorkerService.Name}'
-      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
-      ScalableDimension: ecs:service:DesiredCount
-      ServiceNamespace: ecs
-
-  CoordinatorWorkerScalingPolicy:
-    Type: AWS::ApplicationAutoScaling::ScalingPolicy
-    Properties:
-      PolicyName: !Sub '${ProjectName}-${Environment}-coordinator-worker-scaling'
-      PolicyType: TargetTrackingScaling
-      ScalingTargetId: !Ref CoordinatorWorkerScalableTarget
-      TargetTrackingScalingPolicyConfiguration:
-        PredefinedMetricSpecification:
-          PredefinedMetricType: ECSServiceAverageCPUUtilization
-        TargetValue: 70.0
+          Expression: 'attribute:workload == general'
+  {% endif %}
 
   # ============================================================================
-  # REALM ECS SERVICES (Edge & Worker only)
+  # REALM ECS SERVICES (Edge & Watcher)
   # ============================================================================
 
   {% for realm in config.nodes.realms %}
@@ -269,40 +302,49 @@ Resources:
           Command:
             - realm-edge
             - --database
-            - lmdbx
-            - --lmdbx-path
-            - /data  # Mounted from processor instance
+            - tikv
+            - --tikv-pd-endpoints
+            - "{{ realm.backend.tikv.pd_endpoints | join(',') }}"
+            - --tikv-namespace
+            - "{{ realm.backend.tikv.namespace }}-realm{{ realm.id }}"
             - --redis-uri
             - !Sub 'redis://${RedisRealm{{ realm.id }}Endpoint}:6379'
             - --realm-id
             - '{{ realm.id }}'
             - --coordinator-addr
-            - 'http://coordinator-edge.qed.local:{{ config.nodes.coordinator.edge.aws.load_balancer.port }}'
+            - 'http://coordinator-edge.qed.local:8545'
+            {% if realm.edge.args is defined and 'listen_addr' in realm.edge.args %}
             - --listen-addr
-            - '0.0.0.0:{{ realm.edge.aws.load_balancer.port }}'
-            {% for key, value in realm.edge.args | items %}
+            - '{{ realm.edge.args["listen_addr"] }}'
+            {% else %}
+            - --listen-addr
+            - '0.0.0.0:{{ 8546 + realm.id }}'
+            {% endif %}
+            {% for key, value in (realm.edge.args | default({}) | dictsort) %}
             {% if key not in ['coordinator_addr', 'listen_addr'] %}
             - --{{ key | replace('_', '-') }}
             - '{{ value }}'
             {% endif %}
             {% endfor %}
           Environment:
-            - Name: RUST_LOG
-              Value: '{{ realm.edge.env.RUST_LOG }}'
+            {% for key, value in (realm.edge.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
           MountPoints:
             - SourceVolume: realm{{ realm.id }}-data
               ContainerPath: /data
           PortMappings:
-            - ContainerPort: {{ realm.edge.aws.load_balancer.port }}
+            - ContainerPort: {{ 8546 + realm.id }}
               Protocol: tcp
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'curl -f http://localhost:{{ realm.edge.aws.load_balancer.port }}{{ realm.edge.aws.load_balancer.health_check_path }} || exit 1'
+              - 'curl -f http://localhost:{{ 8546 + realm.id }}/health || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
-            StartPeriod: 60
+            StartPeriod: 120
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -318,12 +360,9 @@ Resources:
       TaskDefinition: !Ref Realm{{ realm.id }}EdgeTaskDefinition
       DesiredCount: {{ realm.edge.aws.ecs.task_count | default(1) }}
       LaunchType: EC2
-      PlacementConstraints:
-        - Type: memberOf
-          Expression: 'attribute:service == realm-{{ realm.id }}-processor'
       LoadBalancers:
         - ContainerName: realm-{{ realm.id }}-edge
-          ContainerPort: {{ realm.edge.aws.load_balancer.port }}
+          ContainerPort: {{ 8546 + realm.id }}
           TargetGroupArn: !Ref ALBTargetGroupRealm{{ realm.id }}Arn
       HealthCheckGracePeriodSeconds: 120
 
@@ -349,73 +388,321 @@ Resources:
           PredefinedMetricType: ECSServiceAverageMemoryUtilization
         TargetValue: 70.0
 
-  # Realm {{ realm.id }} Worker Service
-  Realm{{ realm.id }}WorkerTaskDefinition:
+  # Realm {{ realm.id }} Watcher Service
+  {% if realm.watcher and realm.watcher.enabled %}
+  Realm{{ realm.id }}WatcherTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker'
+      Family: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-watcher'
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
-      Cpu: '{{ realm.worker.aws.cpu }}'
-      Memory: '{{ realm.worker.aws.memory }}'
       ExecutionRoleArn: !Ref TaskExecutionRoleArn
       TaskRoleArn: !Ref TaskRoleArn
       ContainerDefinitions:
-        - Name: realm-{{ realm.id }}-worker
+        - Name: realm-{{ realm.id }}-watcher
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - realm-worker
-            - --redis-uri
+            - watcher
+            - --node-type
+            - realm
+            - --node-id
+            - "{{ realm.id }}"
+            - --database
+            - tikv
+            - --tikv-pd-endpoints
+            - "{{ realm.backend.tikv.pd_endpoints | join(',') }}"
+            - --tikv-namespace
+            - "watcher-realm{{ realm.id }}"
+            - --redis-url
             - !Sub 'redis://${RedisRealm{{ realm.id }}Endpoint}:6379'
-            {% for key, value in realm.worker.args | items %}
+            - --api-endpoint
+            - http://api-service:3000
+            {% for key, value in (realm.watcher.args | default({}) | dictsort) %}
+            {% if key not in ['redis-url'] %}
             - --{{ key | replace('_', '-') }}
             - '{{ value }}'
+            {% endif %}
             {% endfor %}
           Environment:
-            - Name: RUST_LOG
-              Value: '{{ realm.worker.env.RUST_LOG }}'
+            {% for key, value in (realm.watcher.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
+          Memory: {{ realm.watcher.aws.memory }}
+          MemoryReservation: {{ (realm.watcher.aws.memory * 0.75) | int }}
+          Cpu: {{ realm.watcher.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
               awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: realm-{{ realm.id }}-worker
+              awslogs-stream-prefix: realm-{{ realm.id }}-watcher
+          Essential: true
 
-  Realm{{ realm.id }}WorkerService:
+  Realm{{ realm.id }}WatcherService:
     Type: AWS::ECS::Service
     Properties:
-      ServiceName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker'
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-watcher'
       Cluster: !Ref MainECSClusterName
-      TaskDefinition: !Ref Realm{{ realm.id }}WorkerTaskDefinition
-      DesiredCount: {{ realm.worker.aws.ecs.task_count | default(1) }}
+      TaskDefinition: !Ref Realm{{ realm.id }}WatcherTaskDefinition
+      DesiredCount: 1  # Single watcher per partition
       LaunchType: EC2
       PlacementConstraints:
         - Type: memberOf
-          Expression: 'attribute:service == realm-{{ realm.id }}-worker'
+          Expression: 'attribute:service == realm-{{ realm.id }}-processor'
+  {% endif %}
+  {% endfor %}
 
-  # Auto Scaling for Realm {{ realm.id }} Worker
-  Realm{{ realm.id }}WorkerScalableTarget:
+  # ============================================================================
+  # INDEPENDENT WORKER SERVICES
+  # ============================================================================
+  {% if config.nodes.workers and config.nodes.workers.enabled %}
+  {% for pool in config.nodes.workers.worker_pools %}
+  # Independent Worker Pool {{ loop.index }}
+  WorkerPool{{ loop.index }}TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}'
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      Cpu: '{{ pool.aws.cpu | default(8192) }}'   
+      Memory: '{{ pool.aws.memory | default(8192) }}'  
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      Volumes:
+        - Name: config
+          Host:
+            SourcePath: /etc/qed
+      ContainerDefinitions:
+        - Name: worker-pool-{{ loop.index }}
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          EntryPoint:
+            - /bin/sh
+            - -c
+          Command:
+            - |
+              # Generate config.json dynamically with service discovery URLs
+              cat > /app/config.json << 'EOF'
+              {
+                "network": {
+                  "coordinator_configs": [
+                    {
+                      "id": 0,
+                      "rpc_url": ["http://coordinator-edge.qed.local:8545"]
+                    }
+                  ],
+                  "realm_configs": [
+                   {% for realm in config.nodes.realms %}
+                    {
+                      "id": {{ realm.id }},
+                      "rpc_url": ["http://realm-{{ realm.id }}-edge.qed.local:{{ 8546 + realm.id }}"]
+                    }{% if not loop.last %},{% endif %}
+                   {% endfor %}
+                  ]
+                }
+              }
+              EOF
+
+              # Start worker with generated config
+              exec /qed-rollup/target/release/qed_rollup_cli worker \
+                --config /app/config.json \
+                {% for key, value in (pool.args | default({}) | dictsort) %}
+                --{{ key | replace('_', '-') }} '{{ value }}' \
+                {% endfor %}
+
+          Environment:
+           {% for key, value in (pool.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+           {% endfor %}
+            # Add API service endpoint for worker reporting
+            - Name: API_SERVICE_URL
+              Value: 'http://api-service.qed.local:3000'
+          MountPoints:
+            - SourceVolume: config
+              ContainerPath: /app
+              ReadOnly: false
+          Memory: {{ pool.aws.memory | default(8192) }}
+          MemoryReservation: {{ (pool.aws.memory | default(8192) * 0.9) | int }}  # 90% reservation for workers
+          Cpu: {{ pool.aws.cpu | default(8192) }}
+          LinuxParameters:
+            InitProcessEnabled: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: worker-pool-{{ loop.index }}
+          Essential: true
+
+  WorkerPool{{ loop.index }}Service:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}'
+      Cluster: !Ref MainECSClusterName
+      TaskDefinition: !Ref WorkerPool{{ loop.index }}TaskDefinition
+      DesiredCount: {{ pool.aws.ecs.task_count | default(3) }}
+      LaunchType: EC2
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:worker_pool == {{ pool.id }}'  # Place on correct pool
+      PlacementStrategies:
+        - Type: spread
+          Field: instanceId  # Spread across different instances
+      DeploymentConfiguration:
+        MaximumPercent: 100      # Don't over-provision
+        MinimumHealthyPercent: 66  # Allow rolling updates 
+
+      SchedulingStrategy: REPLICA
+
+  # Auto Scaling for Worker Pool {{ loop.index }}
+  WorkerPool{{ loop.index }}ScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
-      MaxCapacity: 20
-      MinCapacity: {{ realm.worker.aws.ecs.task_count | default(1) }}
-      ResourceId: !Sub 'service/${MainECSClusterName}/${Realm{{ realm.id }}WorkerService.Name}'
+      MaxCapacity: 6  # Max 6 tasks for worker pools
+      {% if pool.aws and pool.aws.ecs %}
+      MinCapacity: {{ pool.aws.ecs.task_count | default(pool.instances) }}
+      {% else %}
+      MinCapacity: {{ pool.instances }}
+      {% endif %}
+      ResourceId: !Sub 'service/${MainECSClusterName}/${WorkerPool{{ loop.index }}Service.Name}'
       RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
 
-  Realm{{ realm.id }}WorkerScalingPolicy:
+  WorkerPool{{ loop.index }}ScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker-scaling'
+      PolicyName: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}-scaling'
       PolicyType: TargetTrackingScaling
-      ScalingTargetId: !Ref Realm{{ realm.id }}WorkerScalableTarget
+      ScalingTargetId: !Ref WorkerPool{{ loop.index }}ScalableTarget
       TargetTrackingScalingPolicyConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
         TargetValue: 70.0
   {% endfor %}
+  {% endif %}
+
+
+  # ============================================================================
+  # GLOBAL API SERVICE
+  # ============================================================================
+  {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
+  ApiServiceTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-api-service'
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      {% if config.global_services.api_service.aws %}
+      Cpu: '{{ config.global_services.api_service.aws.cpu }}'
+      Memory: '{{ config.global_services.api_service.aws.memory }}'
+      {% endif %}
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: api-service
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Command:
+            - qed_api_services
+            {% for key, value in (config.global_services.api_service.args | default({}) | dictsort) %}
+            - --{{ key | replace('_', '-') }}
+            - '{{ value }}'
+            {% endfor %}
+          Environment:
+            {% if config.global_services.timescaledb and config.global_services.timescaledb.enabled %}
+            - Name: DATABASE_URL
+            {% raw %}
+              Value: !Sub 'postgresql://postgres:{{resolve:secretsmanager:${DBPasswordSecret}:SecretString:password}}@${TimescaleDBEndpoint}:5432/qed'
+            {% endraw %}
+
+            {% endif %}
+            {% for key, value in (config.global_services.api_service.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
+          {% if config.global_services.api_service.aws %}
+          Memory: {{ config.global_services.api_service.aws.memory }}
+          MemoryReservation: {{ (config.global_services.api_service.aws.memory * 0.75) | int }}
+          Cpu: {{ config.global_services.api_service.aws.cpu }}
+          {% endif %}
+          LinuxParameters:
+            InitProcessEnabled: true
+          PortMappings:
+            - ContainerPort: 3000
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://localhost:3000/health || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: api-service
+          Essential: true
+
+  ApiService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-api-service'
+      Cluster: !Ref MainECSClusterName
+      TaskDefinition: !Ref ApiServiceTaskDefinition
+      {% if config.global_services.api_service.aws and config.global_services.api_service.aws.ecs %}
+      DesiredCount: {{ config.global_services.api_service.aws.ecs.task_count | default(1) }}
+      {% else %}
+      DesiredCount: 1
+      {% endif %}
+      LaunchType: EC2
+      ServiceRegistries:
+        - RegistryArn: !GetAtt ApiServiceDiscovery.Arn
+          ContainerName: api-service
+          ContainerPort: 3000
+
+  ApiServiceDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: api-service
+      DnsConfig:
+        DnsRecords:
+          - Type: SRV
+            TTL: 10
+        NamespaceId: !Ref ServiceDiscoveryNamespaceId
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+
+  # Auto Scaling for API Service
+  ApiServiceScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 5
+      MinCapacity: 1
+      ResourceId: !Sub 'service/${MainECSClusterName}/${ApiService.Name}'
+      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  ApiServiceScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub '${ProjectName}-${Environment}-api-service-scaling'
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ApiServiceScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
+        TargetValue: 70.0
+  {% endif %}
 
   # ============================================================================
   # PROVER SERVICE (if enabled)
@@ -451,7 +738,7 @@ Resources:
                     {% for realm in config.nodes.realms %}
                     {
                       "id": {{ realm.id }},
-                      "rpc_url": ["http://realm-{{ realm.id }}-edge.qed.local:{{ realm.edge.aws.load_balancer.port }}"]
+                      "rpc_url": ["http://realm-{{ realm.id }}-edge.qed.local:{{ 8546 + realm.id }}"]
                     }{{ "," if not loop.last }}
                     {% endfor %}
                   ],
@@ -461,22 +748,24 @@ Resources:
                       "rpc_url": ["http://coordinator-edge.qed.local:8545"]
                     }
                   ],
-                  "prover_url": "http://prover.qed.local:8888"
+                  "prove_proxy_url": "http://prover.qed.local:9999"
                 }
               }
               EOF
               # Start the prover service
-              cd /qed-rollup && ./qed_user_cli local-prover {% for key, value in config.nodes.prover.args | items %}--{{ key | replace('_', '-') }} '{{ value }}' {% endfor %}
+              cd /qed-rollup && ./qed_user_cli local-prover {% for key, value in config.nodes.prover.args | dictsort %}--{{ key | replace('_', '-') }} '{{ value }}' {% endfor %}
           Environment:
-            - Name: RUST_LOG
-              Value: '{{ config.nodes.prover.env.RUST_LOG }}'
+            {% for key, value in (config.nodes.prover.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
           PortMappings:
-            - ContainerPort: 8888
+            - ContainerPort: 9999
               Protocol: tcp
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'curl -f http://localhost:8888/health || exit 1'
+              - 'curl -f http://localhost:9999/health || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
@@ -488,6 +777,7 @@ Resources:
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: prover
 
+  # Prover Service with dedicated placement
   ProverService:
     Type: AWS::ECS::Service
     Properties:
@@ -502,7 +792,7 @@ Resources:
       ServiceRegistries:
         - RegistryArn: !GetAtt ProverServiceDiscovery.Arn
           ContainerName: prover
-          ContainerPort: 8888
+          ContainerPort: 9999
 
   ProverServiceDiscovery:
     Type: AWS::ServiceDiscovery::Service
@@ -546,10 +836,12 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-edge-service'
 
-  CoordinatorWorkerServiceName:
-    Value: !Ref CoordinatorWorkerService
+  {% if config.nodes.coordinator.watcher and config.nodes.coordinator.watcher.enabled %}
+  CoordinatorWatcherServiceName:
+    Value: !Ref CoordinatorWatcherService
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-coordinator-worker-service'
+      Name: !Sub '${ProjectName}-${Environment}-coordinator-watcher-service'
+  {% endif %}
 
   # Realm Service Outputs
   {% for realm in config.nodes.realms %}
@@ -558,14 +850,52 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge-service'
 
-  Realm{{ realm.id }}WorkerServiceName:
-    Value: !Ref Realm{{ realm.id }}WorkerService
+  {% if realm.watcher and realm.watcher.enabled %}
+  Realm{{ realm.id }}WatcherServiceName:
+    Value: !Ref Realm{{ realm.id }}WatcherService
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker-service'
+      Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-watcher-service'
+  {% endif %}
   {% endfor %}
+
+  # Independent Worker Outputs
+  {% if config.nodes.workers and config.nodes.workers.enabled %}
+  {% for pool in config.nodes.workers.worker_pools %}
+  WorkerPool{{ loop.index }}ServiceName:
+    Value: !Ref WorkerPool{{ loop.index }}Service
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}-service'
+  {% endfor %}
+  {% endif %}
+
+  # Global Service Outputs
+  {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
+  ApiServiceName:
+    Value: !Ref ApiService
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-api-service'
+
+  ApiServiceDiscoveryArn:
+    Value: !GetAtt ApiServiceDiscovery.Arn
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-api-service-sd'
+  {% endif %}
 
   # Service Discovery
   CoordinatorEdgeServiceDiscoveryArn:
     Value: !GetAtt CoordinatorEdgeServiceDiscovery.Arn
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-edge-sd'
+
+  {% if config.nodes.prover and config.nodes.prover.enabled %}
+  ProverServiceName:
+    Value: !Ref ProverService
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-prover-service'
+
+  ProverServiceDiscoveryArn:
+    Value: !GetAtt ProverServiceDiscovery.Arn
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-prover-sd'
+  {% endif %}
+  

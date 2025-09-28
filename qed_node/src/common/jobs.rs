@@ -1,7 +1,9 @@
 use std::sync::Arc;
+
 use crate::common::QEDProof;
 
 pub const MESSAGE_CLAIM_JOB: &str = "CLAIM_JOB";
+use alloy_primitives::{keccak256, B256};
 use async_trait::async_trait;
 use jsonrpsee::{
     core::RpcResult,
@@ -9,12 +11,16 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use qed_core::job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
+use qed_core::job::{
+    id::{ProvingJobDataType, QProvingJobDataID},
+    traits::QProofStoreReaderAsync,
+};
+use qed_prover::wallet::{
+    secp_sign::{Eip712Signable, SignedRequest},
+    secp_wallet::Wallet,
+};
 use qed_store::queue::task_queue::QJob;
-use tracing::{info, debug, trace};
-use qed_prover::wallet::secp_sign::{SignedRequest, Eip712Signable};
-use alloy_primitives::{keccak256, B256};
-use qed_prover::wallet::secp_wallet::{Wallet};
+use tracing::{debug, info, trace, warn};
 
 #[rpc(server, client, namespace = "qed")]
 pub trait JobSchedulerRpc {
@@ -52,10 +58,7 @@ impl JobClient {
 impl JobReceiver for JobClient {
     async fn get_next_job(&self, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<QJob> {
         loop {
-            let mut signed_request = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(
-                &wallet,
-                &MESSAGE_CLAIM_JOB
-            )?;
+            let mut signed_request = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &MESSAGE_CLAIM_JOB)?;
             signed_request.worker_public_key = worker_public_key.to_string();
             if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client, signed_request).await? {
                 return Ok(job);
@@ -64,13 +67,7 @@ impl JobReceiver for JobClient {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
-    async fn submit_job_proof(
-        &self,
-        job: QJob,
-        proof: Option<QEDProof>,
-        wallet: Arc<Wallet>,
-        worker_public_key: &str,
-    ) -> anyhow::Result<()> {
+    async fn submit_job_proof(&self, job: QJob, proof: Option<QEDProof>, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<()> {
         trace!("Submitted job proof for job_id: {:?}", job);
         let mut signed = qed_prover::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &proof)?;
         signed.worker_public_key = worker_public_key.to_string();
@@ -85,18 +82,39 @@ impl QProofStoreReaderAsync for JobClient {
         unimplemented!()
     }
 
-    async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
-        &self,
-        id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(&self, id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let proof_bytes = JobSchedulerRpcClient::get_proof_by_id(&self.rpc_client, id).await?;
         let proof = bincode::deserialize(&proof_bytes).map_err(|e| anyhow::anyhow!(e))?;
         Ok(proof)
     }
 
     async fn get_bytes_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
-        let bytes = JobSchedulerRpcClient::get_bytes_by_id(&self.rpc_client, id).await?;
-        Ok(bytes)
+        // For witness data type, implement retry mechanism
+        if matches!(id.data_type, ProvingJobDataType::InputWitness) {
+            let mut attempt = 0;
+            loop {
+                match JobSchedulerRpcClient::get_bytes_by_id(&self.rpc_client, id).await {
+                    Ok(bytes) => return Ok(bytes),
+                    Err(err) => {
+                        if attempt < 5 {
+                            warn!(
+                                "Failed to get witness data (attempt {}), retrying in 500ms: {:?}",
+                                attempt + 1,
+                                err
+                            );
+                            attempt += 1;
+                            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                        } else {
+                            return Err(err.into())
+                        }
+                    }
+                }
+            }
+        } else {
+            // For non-witness data types, no retry
+            let bytes = JobSchedulerRpcClient::get_bytes_by_id(&self.rpc_client, id).await?;
+            Ok(bytes)
+        }
     }
 }
 
@@ -104,11 +122,5 @@ impl QProofStoreReaderAsync for JobClient {
 pub trait JobReceiver {
     async fn get_next_job(&self, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<QJob>;
 
-    async fn submit_job_proof(
-        &self,
-        job: QJob,
-        proof: Option<QEDProof>,
-        wallet: Arc<Wallet>,
-        worker_public_key: &str,
-    ) -> anyhow::Result<()>;
+    async fn submit_job_proof(&self, job: QJob, proof: Option<QEDProof>, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<()>;
 }

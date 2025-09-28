@@ -1,31 +1,38 @@
-{# Global template variables for ScyllaDB detection #}
-{%- set uses_scylla_global = false -%}
-{%- set scylla_config_global = None -%}
-{%- if config.nodes.coordinator.backend.type == "scylla" -%}
-  {%- set uses_scylla_global = true -%}
-  {%- set scylla_config_global = config.nodes.coordinator.backend.scylla -%}
+---  
+{# Global template variables for TiKV detection #}
+{%- set uses_tikv_global = false -%}
+{%- set tikv_config_global = None -%}
+{%- if config.nodes.coordinator.backend.type == "tikv" -%}
+  {%- set uses_tikv_global = true -%}
+  {%- set tikv_config_global = config.nodes.coordinator.backend.tikv -%}
 {%- endif -%}
 {%- for realm in config.nodes.realms -%}
-  {%- if realm.backend.type == "scylla" and not scylla_config_global -%}
-    {%- set uses_scylla_global = true -%}
-    {%- set scylla_config_global = realm.backend.scylla -%}
+  {%- if realm.backend.type == "tikv" and not tikv_config_global -%}
+    {%- set uses_tikv_global = true -%}
+    {%- set tikv_config_global = realm.backend.tikv -%}
   {%- endif -%}
 {%- endfor -%}
+
+{# Check if global services exist #}
+{%- set has_global_workers = config.global_services and config.global_services.workers and config.global_services.workers.enabled -%}
+{%- set has_global_watchers = config.global_services and config.global_services.watchers -%}
+{%- set has_api_service = config.global_services and config.global_services.api_service and config.global_services.api_service.enabled -%}
+{%- set has_timescaledb = config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled -%}
+
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'QED Protocol Infrastructure - Generated from config.json'
+Description: 'QED Protocol Infrastructure - TiKV Unified Storage with Independent Workers, Watchers, and API Service'
 
 Parameters:
   ProjectName:
     Type: String
     Default: {{ config.nodes.deployment.aws.project_name }}
     Description: Project name for resource naming
-  
+
   Environment:
     Type: String
     Default: dev
     AllowedValues: [dev, staging, prod]
     Description: Environment name
-  
 
 Resources:
   # VPC Configuration
@@ -53,8 +60,7 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  # Service-specific Public Subnets
-  # Coordinator Subnet
+  # Subnets
   CoordinatorSubnet:
     Type: AWS::EC2::Subnet
     Properties:
@@ -66,14 +72,14 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-coordinator-subnet'
 
-  # Realm Subnets
   {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}Subnet:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !Select [{{ loop.index }}, !Cidr [!GetAtt VPC.CidrBlock, 8, 8]]
-      AvailabilityZone: !Select [{{ loop.index0 % config.nodes.deployment.aws.vpc.availability_zones }}, !GetAZs '']
+
+      AvailabilityZone: !Select [{{ (loop.index) % config.nodes.deployment.aws.vpc.availability_zones }}, !GetAZs '']
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
@@ -112,7 +118,7 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
   {% endfor %}
 
-  # Main ECS Cluster for all services
+  # Main ECS Cluster
   MainECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
@@ -120,6 +126,9 @@ Resources:
       ClusterSettings:
         - Name: containerInsights
           Value: enabled
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-main-ecs'
 
   # Service Discovery Namespace
   ServiceDiscoveryNamespace:
@@ -135,14 +144,6 @@ Resources:
     Properties:
       LogGroupName: {{ config.nodes.deployment.aws.ecs.log_group }}
       RetentionInDays: 7
-
-  # ECR Repository - commented out as it may already exist
-  # ECRRepository:
-  #   Type: AWS::ECR::Repository
-  #   Properties:
-  #     RepositoryName: {{ config.nodes.deployment.aws.ecr.repository_name }}
-  #     ImageScanningConfiguration:
-  #       ScanOnPush: true
 
   # S3 Bucket for artifacts
   ArtifactsBucket:
@@ -178,12 +179,12 @@ Resources:
           ToPort: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
           CidrIp: 0.0.0.0/0
           Description: Coordinator Edge RPC
-        {% if config.nodes.prover and config.nodes.prover.enabled %}
+        {% if has_api_service %}
         - IpProtocol: tcp
-          FromPort: {{ config.nodes.prover.aws.load_balancer.port }}
-          ToPort: {{ config.nodes.prover.aws.load_balancer.port }}
+          FromPort: {{ config.global_services.api_service.port | default(3000) }}
+          ToPort: {{ config.global_services.api_service.port | default(3000) }}
           CidrIp: 0.0.0.0/0
-          Description: Prover RPC
+          Description: API Service
         {% endif %}
       Tags:
         - Key: Name
@@ -219,6 +220,7 @@ Resources:
       SecurityGroups:
         - !Ref ALBSecurityGroup
       Subnets:
+        - !Ref CoordinatorSubnet
         {% for realm in config.nodes.realms %}
         - !Ref Realm{{ realm.id }}Subnet
         {% endfor %}
@@ -265,24 +267,24 @@ Resources:
         HttpCode: "200,404"
   {% endfor %}
 
-  {% if config.nodes.prover and config.nodes.prover.enabled %}
-  ALBTargetGroupProver:
+  {% if has_api_service %}
+  ALBTargetGroupAPI:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub '${ProjectName}-${Environment}-prover-tg'
-      Port: {{ config.nodes.prover.aws.load_balancer.port }}
+      Name: !Sub '${ProjectName}-${Environment}-api-tg'
+      Port: {{ config.global_services.api_service.port | default(3000) }}
       Protocol: HTTP
       VpcId: !Ref VPC
-      TargetType: instance
+      TargetType: ip
       HealthCheckEnabled: true
       HealthCheckProtocol: HTTP
-      HealthCheckPath: {{ config.nodes.prover.aws.load_balancer.health_check_path }}
+      HealthCheckPath: {{ config.global_services.api_service.aws.load_balancer.health_check_path | default('/health') }}
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 10
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 3
       Matcher:
-        HttpCode: "200,404"
+        HttpCode: "200"
   {% endif %}
 
   # ALB Listeners
@@ -308,208 +310,141 @@ Resources:
       Protocol: HTTP
   {% endfor %}
 
-  {% if config.nodes.prover and config.nodes.prover.enabled %}
-  ALBListenerProver:
+  {% if has_api_service %}
+  ALBListenerAPI:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref ALBTargetGroupProver
+          TargetGroupArn: !Ref ALBTargetGroupAPI
       LoadBalancerArn: !Ref ApplicationLoadBalancer
-      Port: {{ config.nodes.prover.aws.load_balancer.port }}
+      Port: {{ config.global_services.api_service.port | default(3000) }}
       Protocol: HTTP
   {% endif %}
 
-  {% if uses_scylla_global %}
-  # ScyllaDB EC2 Instances and Configuration
-  ScyllaDBSecurityGroup:
+  {% if uses_tikv_global %}
+  # ============================================================================
+  # TIKV CLUSTER INFRASTRUCTURE
+  # ============================================================================
+
+  # TiKV Security Group
+  TiKVSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for ScyllaDB instances
+      GroupDescription: Security group for TiKV cluster
       VpcId: !Ref VPC
       SecurityGroupIngress:
-        # CQL port from ECS tasks
+        # PD client port
         - IpProtocol: tcp
-          FromPort: 9042
-          ToPort: 9042
+          FromPort: 2379
+          ToPort: 2379
           SourceSecurityGroupId: !Ref ECSSecurityGroup
-          Description: CQL port
-        # JMX port
+          Description: PD client port
+        # PD peer port
         - IpProtocol: tcp
-          FromPort: 7199
-          ToPort: 7199
+          FromPort: 2380
+          ToPort: 2380
           CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
-          Description: JMX port
-        # REST API
+          Description: PD peer communication
+        # TiKV server port
         - IpProtocol: tcp
-          FromPort: 10000
-          ToPort: 10000
+          FromPort: 20160
+          ToPort: 20160
           CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
-          Description: REST API
-        # Prometheus metrics
+          Description: TiKV server port
+        # Status port
         - IpProtocol: tcp
-          FromPort: 9180
-          ToPort: 9180
+          FromPort: 20180
+          ToPort: 20180
           CidrIp: {{ config.nodes.deployment.aws.vpc.cidr }}
-          Description: Prometheus metrics
+          Description: TiKV status port
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-scylla-sg'
+          Value: !Sub '${ProjectName}-${Environment}-tikv-sg'
 
-  # Self-referencing ingress rule for ScyllaDB inter-node communication
-  ScyllaDBInterNodeIngress:
+  # Self-referencing ingress rule for TiKV inter-node communication
+  TiKVInterNodeIngress:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      GroupId: !Ref ScyllaDBSecurityGroup
+      GroupId: !Ref TiKVSecurityGroup
       IpProtocol: tcp
-      FromPort: 7000
-      ToPort: 7001
-      SourceSecurityGroupId: !Ref ScyllaDBSecurityGroup
+      FromPort: 2379
+      ToPort: 20180
+      SourceSecurityGroupId: !Ref TiKVSecurityGroup
       Description: Inter-node communication
 
-  # ScyllaDB Instance Profile
-  ScyllaDBInstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-      Policies:
-        - PolicyName: ScyllaDBPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - autoscaling:DescribeAutoScalingGroups
-                  - ec2:DescribeInstances
-                  - ssm:PutParameter
-                  - ssm:GetParameter
-                Resource: '*'
-
-  ScyllaDBInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref ScyllaDBInstanceRole
-
-  # ScyllaDB Launch Template
-  ScyllaDBLaunchTemplate:
+  # TiKV PD Launch Template
+  TiKVClusterLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-scylla-lt'
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-tikv-pd-lt'
       LaunchTemplateData:
-        ImageId: !Sub '{%raw%}{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}{%endraw%}'
-        InstanceType: {{ ('i3.large' if scylla_config_global.aws and scylla_config_global.aws.cpu >= 2048 and scylla_config_global.aws.cpu < 4096 else 'i3.xlarge' if scylla_config_global.aws and scylla_config_global.aws.cpu >= 4096 else 'i3.large') }}
+        {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
+        {% endraw %}
+        InstanceType: t3.medium  # Changed from i3.xlarge
         IamInstanceProfile:
-          Name: !Ref ScyllaDBInstanceProfile
+          Name: !Ref EC2InstanceProfile
         SecurityGroupIds:
-          - !Ref ScyllaDBSecurityGroup
+          - !Ref TiKVSecurityGroup
         BlockDeviceMappings:
-          # Root volume
           - DeviceName: /dev/xvda
             Ebs:
               VolumeSize: 100
               VolumeType: gp3
               DeleteOnTermination: true
-          # Data volume
           - DeviceName: /dev/xvdb
             Ebs:
-              VolumeSize: {{ scylla_config_global.aws.data_volume_size if scylla_config_global.aws else 500 }}
+              VolumeSize: {{ tikv_config_global.aws.pd_volume_size | default(50) }}
               VolumeType: gp3
-              Iops: 16000
-              Throughput: 1000
-              DeleteOnTermination: true
-              Encrypted: true
-          # Commit log volume
-          - DeviceName: /dev/xvdc
-            Ebs:
-              VolumeSize: {{ scylla_config_global.aws.commitlog_volume_size if scylla_config_global.aws else 100 }}
-              VolumeType: gp3
-              Iops: 16000
-              Throughput: 1000
               DeleteOnTermination: true
               Encrypted: true
         TagSpecifications:
           - ResourceType: instance
             Tags:
               - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-scylla'
+                Value: !Sub '${ProjectName}-${Environment}-tikv-pd'
               - Key: Component
-                Value: scylladb
+                Value: tikv-pd
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
             set -e
             exec > /var/log/user-data.log 2>&1
-            
-            # Install dependencies
+
+            # Update system
             apt-get update -y
-            apt-get install -y docker.io awscli jq xfsprogs python3-pip
-            pip3 install cassandra-driver cqlsh
-            
-            # Configure system settings
-            sysctl -w fs.aio-max-nr=5029568
-            echo "fs.aio-max-nr=5029568" >> /etc/sysctl.conf
-            swapoff -a
-            sed -i '/ swap / s/^/#/' /etc/fstab
-            
-            # Setup storage - Auto-detect device names for Nitro instances
-            # Find data and commitlog devices
-            DATA_DEVICE=""
-            COMMITLOG_DEVICE=""
-            
-            # Check for NVMe devices first (Nitro instances)
-            if [ -b /dev/nvme1n1 ]; then
-                DATA_DEVICE="/dev/nvme1n1"
-            elif [ -b /dev/xvdb ]; then
-                DATA_DEVICE="/dev/xvdb"
-            fi
-            
-            if [ -b /dev/nvme2n1 ]; then
-                COMMITLOG_DEVICE="/dev/nvme2n1"
-            elif [ -b /dev/xvdc ]; then
-                COMMITLOG_DEVICE="/dev/xvdc"
-            fi
-            
-            # Format and mount devices
-            if [ -n "$DATA_DEVICE" ] && [ -n "$COMMITLOG_DEVICE" ]; then
-                mkfs.xfs -f $DATA_DEVICE
-                mkfs.xfs -f $COMMITLOG_DEVICE
-                mkdir -p /var/lib/scylla/data /var/lib/scylla/commitlog
-                mount $DATA_DEVICE /var/lib/scylla/data
-                mount $COMMITLOG_DEVICE /var/lib/scylla/commitlog
-                echo "$DATA_DEVICE /var/lib/scylla/data xfs defaults,noatime 0 0" >> /etc/fstab
-                echo "$COMMITLOG_DEVICE /var/lib/scylla/commitlog xfs defaults,noatime 0 0" >> /etc/fstab
-            else
-                echo "Error: Could not find data or commitlog devices"
-                exit 1
-            fi
-            
+            apt-get install -y wget curl jq
+
             # Get instance metadata
             INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
             INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
-            AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
-            
-            # Start Docker
-            systemctl enable docker
-            systemctl start docker
-            
-            # Get all IPs in the Auto Scaling Group for cluster setup
-            ASG_NAME="{{ '${ProjectName}-${Environment}-scylla-asg' }}"
+
+            # Setup data volume
+            DATA_DEVICE="/dev/nvme1n1"
+            [ -b /dev/xvdb ] && DATA_DEVICE="/dev/xvdb"
+
+            if [ -n "$DATA_DEVICE" ]; then
+                mkfs.ext4 $DATA_DEVICE
+                mkdir -p /data/pd
+                mount $DATA_DEVICE /data/pd
+                echo "$DATA_DEVICE /data/pd ext4 defaults,noatime 0 0" >> /etc/fstab
+            fi
+
+            # Download TiKV
+            cd /opt
+            wget https://download.pingcap.org/tidb-community-toolkit-v7.5.1-linux-amd64.tar.gz
+            tar -xzf tidb-community-toolkit-v7.5.1-linux-amd64.tar.gz
+
+            # Get cluster IPs for initial cluster
+            ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
             INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
               --auto-scaling-group-names $ASG_NAME \
               --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
               --output text \
               --region ${AWS::Region})
-            
-            ALL_IPS=""
+
+            INITIAL_CLUSTER=""
             for id in $INSTANCE_IDS; do
               IP=$(aws ec2 describe-instances \
                 --instance-ids $id \
@@ -517,907 +452,197 @@ Resources:
                 --output text \
                 --region ${AWS::Region})
               if [ -n "$IP" ]; then
-                if [ -z "$ALL_IPS" ]; then
-                  ALL_IPS="$IP"
+                if [ -z "$INITIAL_CLUSTER" ]; then
+                  INITIAL_CLUSTER="pd-$IP=http://$IP:2380"
                 else
-                  ALL_IPS="$ALL_IPS,$IP"
+                  INITIAL_CLUSTER="$INITIAL_CLUSTER,pd-$IP=http://$IP:2380"
                 fi
               fi
             done
-            
-            # Use the first IP as seed node
-            SEED_IP=$(echo $ALL_IPS | cut -d',' -f1)
-            echo "Seed IP: $SEED_IP"
-            echo "All IPs: $ALL_IPS"
-            
-            # Pull and run ScyllaDB
-            docker pull scylladb/scylla:5.2
-            docker run --name scylladb -d \
-              --restart always \
-              -p 9042:9042 \
-              -p 9180:9180 \
-              -p 7000:7000 \
-              -p 7001:7001 \
-              -p 7199:7199 \
-              -p 10000:10000 \
-              -v /var/lib/scylla/data:/var/lib/scylla \
-              -v /var/lib/scylla/commitlog:/var/lib/scylla/commitlog \
-              scylladb/scylla:5.2 \
-              --overprovisioned 1 \
-              --smp {{ scylla_config_global.aws.cpu // 1024 if scylla_config_global.aws else 2 }} \
-              --seeds "$SEED_IP" \
-              --listen-address "$INSTANCE_IP" \
-              --rpc-address "$INSTANCE_IP" \
-              --broadcast-address "$INSTANCE_IP" \
-              --broadcast-rpc-address "$INSTANCE_IP" \
-              --endpoint-snitch Ec2Snitch
-            
-            # Wait for ScyllaDB to start
-            echo "Waiting for ScyllaDB to start..."
-            while ! cqlsh -e "DESC KEYSPACES" $INSTANCE_IP 9042 > /dev/null 2>&1; do
-              sleep 5
-            done
-            
-            # Create keyspaces
-            cqlsh $INSTANCE_IP 9042 <<EOF
-            CREATE KEYSPACE IF NOT EXISTS qed_coordinator WITH replication = {
-              'class': 'SimpleStrategy',
-              'replication_factor': {{ scylla_config_global.replication_factor | default(3) }}
-            };
-            CREATE KEYSPACE IF NOT EXISTS qed_realm0 WITH replication = {
-              'class': 'SimpleStrategy',
-              'replication_factor': {{ scylla_config_global.replication_factor | default(3) }}
-            };
-            CREATE KEYSPACE IF NOT EXISTS qed_realm1 WITH replication = {
-              'class': 'SimpleStrategy',
-              'replication_factor': {{ scylla_config_global.replication_factor | default(3) }}
-            };
-            EOF
-            
-            # Store endpoint in SSM
-            aws ssm put-parameter \
-              --name "/${ProjectName}/scylladb/node-$INSTANCE_ID/endpoint" \
-              --value "$INSTANCE_IP:9042" \
-              --type String \
-              --overwrite \
-              --region ${AWS::Region}
-            
-            echo "ScyllaDB setup completed successfully"
 
-  # ScyllaDB Auto Scaling Group
-  ScyllaDBAutoScalingGroup:
+            # Start PD
+            /opt/tidb-community-toolkit-v7.5.1-linux-amd64/bin/pd-server \
+              --name=pd-$INSTANCE_IP \
+              --data-dir=/data/pd \
+              --client-urls=http://0.0.0.0:2379 \
+              --peer-urls=http://0.0.0.0:2380 \
+              --advertise-client-urls=http://$INSTANCE_IP:2379 \
+              --advertise-peer-urls=http://$INSTANCE_IP:2380 \
+              --initial-cluster="$INITIAL_CLUSTER" \
+              --log-file=/var/log/pd.log &
+
+            echo "PD server started successfully"
+
+  # TiKV PD Auto Scaling Group
+  TiKVPDAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-scylla-asg'
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-tikv-pd-asg'
       LaunchTemplate:
-        LaunchTemplateId: !Ref ScyllaDBLaunchTemplate
-        Version: !GetAtt ScyllaDBLaunchTemplate.LatestVersionNumber
-      MinSize: {{ scylla_config_global.aws.ec2.min_instances if scylla_config_global.aws and scylla_config_global.aws.ec2 else 3 }}
-      MaxSize: {{ scylla_config_global.aws.ec2.max_instances if scylla_config_global.aws and scylla_config_global.aws.ec2 else 3 }}
-      DesiredCapacity: {{ scylla_config_global.aws.ec2.desired_instances if scylla_config_global.aws and scylla_config_global.aws.ec2 else 3 }}
+        LaunchTemplateId: !Ref TiKVClusterLaunchTemplate
+        Version: !GetAtt TiKVClusterLaunchTemplate.LatestVersionNumber
+      MinSize: {{ tikv_config_global.aws.pd_count | default(1) }}
+      MaxSize: {{ tikv_config_global.aws.pd_count | default(1) }}
+      DesiredCapacity: {{ tikv_config_global.aws.pd_count | default(1) }}
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
+        {% for realm in config.nodes.realms %}
+        - !Ref Realm{{ realm.id }}Subnet
+        {% endfor %}
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 900
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-tikv-pd'
+          PropagateAtLaunch: true
+        - Key: Component
+          Value: tikv-pd
+          PropagateAtLaunch: true
+
+  # TiKV Storage Node Launch Template
+  TiKVNodeLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-tikv-node-lt'
+      LaunchTemplateData:
+        {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
+        {% endraw %}
+        InstanceType: {{ tikv_config_global.aws.instance_type | default('c6i.xlarge') }}
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        SecurityGroupIds:
+          - !Ref TiKVSecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              DeleteOnTermination: true
+          - DeviceName: /dev/xvdb
+            Ebs:
+              VolumeSize: {{ tikv_config_global.aws.data_volume_size | default(500) }}
+              VolumeType: gp3
+              Iops: 16000
+              Throughput: 1000
+              DeleteOnTermination: true
+              Encrypted: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-tikv-node'
+              - Key: Component
+                Value: tikv
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            exec > /var/log/user-data.log 2>&1
+
+            # Update system
+            apt-get update -y
+            apt-get install -y wget curl jq
+
+            # Get instance metadata
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+
+            # Setup data volume
+            DATA_DEVICE="/dev/nvme1n1"
+            [ -b /dev/xvdb ] && DATA_DEVICE="/dev/xvdb"
+
+            if [ -n "$DATA_DEVICE" ]; then
+                mkfs.ext4 $DATA_DEVICE
+                mkdir -p /data/tikv
+                mount $DATA_DEVICE /data/tikv
+                echo "$DATA_DEVICE /data/tikv ext4 defaults,noatime 0 0" >> /etc/fstab
+            fi
+
+            # Download TiKV
+            cd /opt
+            wget https://download.pingcap.org/tidb-community-toolkit-v7.5.1-linux-amd64.tar.gz
+            tar -xzf tidb-community-toolkit-v7.5.1-linux-amd64.tar.gz
+
+            # Get PD endpoints
+            PD_ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
+            PD_INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+              --auto-scaling-group-names $PD_ASG_NAME \
+              --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
+              --output text \
+              --region ${AWS::Region})
+
+            PD_ENDPOINTS=""
+            for id in $PD_INSTANCE_IDS; do
+              IP=$(aws ec2 describe-instances \
+                --instance-ids $id \
+                --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                --output text \
+                --region ${AWS::Region})
+              if [ -n "$IP" ]; then
+                if [ -z "$PD_ENDPOINTS" ]; then
+                  PD_ENDPOINTS="http://$IP:2379"
+                else
+                  PD_ENDPOINTS="$PD_ENDPOINTS,http://$IP:2379"
+                fi
+              fi
+            done
+
+            # Wait for PD to be ready
+            for i in {1..30}; do
+              if curl -f $PD_ENDPOINTS/pd/api/v1/version >/dev/null 2>&1; then
+                echo "PD cluster is ready"
+                break
+              fi
+              echo "Waiting for PD cluster... ($i/30)"
+              sleep 10
+            done
+
+            # Start TiKV
+            /opt/tidb-community-toolkit-v7.5.1-linux-amd64/bin/tikv-server \
+              --pd-endpoints="$PD_ENDPOINTS" \
+              --addr="0.0.0.0:20160" \
+              --status-addr="0.0.0.0:20180" \
+              --data-dir="/data/tikv" \
+              --log-file="/var/log/tikv.log" &
+
+            echo "TiKV server started successfully"
+
+  # TiKV Storage Node Auto Scaling Group
+  TiKVNodeAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn: TiKVPDAutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-tikv-node-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref TiKVNodeLaunchTemplate
+        Version: !GetAtt TiKVNodeLaunchTemplate.LatestVersionNumber
+      MinSize: {{ tikv_config_global.aws.tikv_count | default(3) }}
+      MaxSize: {{ tikv_config_global.aws.max_instances | default(6) }}
+      DesiredCapacity: {{ tikv_config_global.aws.tikv_count | default(3) }}
+      VPCZoneIdentifier:
+        - !Ref CoordinatorSubnet
+        {% for realm in config.nodes.realms %}
+        - !Ref Realm{{ realm.id }}Subnet
+        {% endfor %}
       HealthCheckType: EC2
       HealthCheckGracePeriod: 600
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-scylla'
+          Value: !Sub '${ProjectName}-${Environment}-tikv-node'
           PropagateAtLaunch: true
         - Key: Component
-          Value: scylladb
+          Value: tikv
           PropagateAtLaunch: true
   {% endif %}
 
-  # Service-specific Infrastructure
-  # Each service has its own ASG and infrastructure
-  
-  # Service-specific Security Groups
-  # Coordinator Security Group
-  CoordinatorSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for coordinator services
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        # SSH access
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-        # Allow traffic from ALB
-        - IpProtocol: tcp
-          FromPort: 8545
-          ToPort: 8545
-          SourceSecurityGroupId: !Ref ALBSecurityGroup
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-coordinator-sg'
-
-  # Self-referencing ingress rule for Coordinator internal communication
-  CoordinatorInternalIngress:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !Ref CoordinatorSecurityGroup
-      IpProtocol: -1
-      SourceSecurityGroupId: !Ref CoordinatorSecurityGroup
-      Description: Internal communication
-
-  {% for realm in config.nodes.realms %}
-  Realm{{ realm.id }}SecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for realm {{ realm.id }} services
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        # SSH access
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-        # Allow traffic from ALB
-        - IpProtocol: tcp
-          FromPort: {{ 8546 + loop.index0 }}
-          ToPort: {{ 8546 + loop.index0 }}
-          SourceSecurityGroupId: !Ref ALBSecurityGroup
-        # Allow communication from coordinator
-        - IpProtocol: -1
-          SourceSecurityGroupId: !Ref CoordinatorSecurityGroup
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-sg'
-
-  # Self-referencing ingress rule for Realm {{ realm.id }} internal communication
-  Realm{{ realm.id }}InternalIngress:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !Ref Realm{{ realm.id }}SecurityGroup
-      IpProtocol: -1
-      SourceSecurityGroupId: !Ref Realm{{ realm.id }}SecurityGroup
-      Description: Internal communication
-  {% endfor %}
-
-  # IAM Role for EC2 Instances
-  EC2InstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-      Policies:
-        - PolicyName: ECSInstancePolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ecs:RegisterContainerInstance
-                  - ecs:DeregisterContainerInstance
-                  - ecs:DiscoverPollEndpoint
-                  - ecs:Submit*
-                  - ecs:Poll
-                  - ecs:StartTelemetrySession
-                  - ecr:GetAuthorizationToken
-                  - ecr:BatchCheckLayerAvailability
-                  - ecr:GetDownloadUrlForLayer
-                  - ecr:BatchGetImage
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - elasticloadbalancing:DescribeLoadBalancers
-                Resource: '*'
-
-  EC2InstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref EC2InstanceRole
-
-  # ============================================================================
-  # NEW 12 ASG ARCHITECTURE
-  # ============================================================================
-  # Processor Services (EC2 Deployment) - 3 ASGs
-  # Edge Services (ECS Deployment) - 3 ASGs  
-  # Worker Services (ECS Deployment) - 3 ASGs
-  # Redis Services (EC2 Deployment) - 3 ASGs
-  # Total: 12 ASGs
-
-  # ============================================================================
-  # PROCESSOR SERVICES (EC2 DEPLOYMENT)
-  # ============================================================================
-
-  # Coordinator Processor ASG
-  CoordinatorProcessorLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-coordinator-processor-lt'
-      LaunchTemplateData:
-        ImageId: !Sub '{%raw%}{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}{%endraw%}'
-        InstanceType: c6i.xlarge  # 4 vCPU, 8GB RAM for processor
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        SecurityGroupIds:
-          - !Ref CoordinatorSecurityGroup
-        BlockDeviceMappings:
-          # Root volume
-          - DeviceName: /dev/xvda
-            Ebs:
-              VolumeSize: 100
-              VolumeType: gp3
-              DeleteOnTermination: true
-          # Data volume for LMDBX
-          - DeviceName: /dev/xvdb
-            Ebs:
-              VolumeSize: {{ config.nodes.coordinator.backend.lmdbx.aws.volume_size | default(200) }}
-              VolumeType: gp3
-              Iops: 3000
-              DeleteOnTermination: true
-              Encrypted: true
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-coordinator-processor'
-              - Key: Service
-                Value: coordinator-processor
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            exec > /var/log/user-data.log 2>&1
-            echo "Starting coordinator processor setup at $(date)"
-            
-            # Update system
-            apt-get update -y
-            apt-get install -y docker.io awscli jq
-            
-            # Enable and start Docker
-            systemctl enable docker
-            systemctl start docker
-            usermod -aG docker ubuntu
-            
-            # Install ECS agent
-            curl -O https://s3.${AWS::Region}.amazonaws.com/amazon-ecs-agent-${AWS::Region}/amazon-ecs-init-latest.amd64.deb
-            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
-            
-            # Configure ECS
-            mkdir -p /etc/ecs
-            echo ECS_CLUSTER=${ProjectName}-${Environment}-main-ecs >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo ECS_INSTANCE_ATTRIBUTES='{"service":"coordinator-processor"}' >> /etc/ecs/ecs.config
-            
-            # Start ECS agent
-            systemctl enable ecs
-            systemctl start ecs
-            
-            # Setup data volume for LMDBX
-            DATA_DEVICE="/dev/nvme1n1"
-            [ -b /dev/xvdb ] && DATA_DEVICE="/dev/xvdb"
-            
-            if [ -n "$DATA_DEVICE" ]; then
-                mkfs.ext4 $DATA_DEVICE
-                mkdir -p /data/coordinator
-                mount $DATA_DEVICE /data/coordinator
-                echo "$DATA_DEVICE /data/coordinator ext4 defaults,noatime 0 0" >> /etc/fstab
-                chmod 755 /data/coordinator
-                chown -R 1000:1000 /data/coordinator
-            fi
-            
-            # Login to ECR
-            echo "Logging into ECR..."
-            aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com || {
-              echo "ERROR: Failed to login to ECR"
-              exit 1
-            }
-            
-            # Get Redis endpoint from NLB
-            echo "Getting Redis endpoint..."
-            MAX_RETRIES=10
-            RETRY_COUNT=0
-            
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              REDIS_ENDPOINT=$(aws elbv2 describe-load-balancers \
-                --names "${ProjectName}-${Environment}-redis-c-nlb" \
-                --query 'LoadBalancers[0].DNSName' \
-                --output text \
-                --region ${AWS::Region} 2>/dev/null || echo "")
-              
-              if [ -n "$REDIS_ENDPOINT" ] && [ "$REDIS_ENDPOINT" != "None" ]; then
-                echo "Got Redis NLB endpoint: $REDIS_ENDPOINT"
-                break
-              else
-                echo "Waiting for Redis NLB... attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
-                RETRY_COUNT=$((RETRY_COUNT + 1))
-                sleep 30
-              fi
-            done
-            
-            if [ -z "$REDIS_ENDPOINT" ] || [ "$REDIS_ENDPOINT" == "None" ]; then
-              echo "ERROR: Failed to get Redis NLB endpoint after $MAX_RETRIES attempts"
-              echo "Please check:"
-              echo "1. IAM permissions for elasticloadbalancing:DescribeLoadBalancers"
-              echo "2. Redis NLB deployment status"
-              echo "3. NLB name: ${ProjectName}-${Environment}-redis-c-nlb"
-              exit 1
-            fi
-            
-            # Pull the image first
-            echo "Pulling processor image..."
-            docker pull ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest || {
-              echo "ERROR: Failed to pull processor image"
-              exit 1
-            }
-            
-            # Run coordinator processor with retry logic
-            echo "Starting coordinator processor..."
-            MAX_RETRIES=3
-            RETRY_COUNT=0
-            
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              docker run -d --name coordinator-processor \
-                --restart=unless-stopped \
-                -v /data/coordinator:/data \
-                -e RUST_LOG='{{ config.nodes.coordinator.processor.env.RUST_LOG }}' \
-                ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
-                coordinator-processor \
-                --database lmdbx \
-                --lmdbx-path /data \
-                --redis-uri redis://$REDIS_ENDPOINT:6379
-              
-              # Check if container started successfully
-              sleep 5
-              if docker ps | grep -q coordinator-processor; then
-                echo "Coordinator processor started successfully"
-                break
-              else
-                echo "Processor failed to start, attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
-                docker logs coordinator-processor 2>&1 || true
-                docker rm coordinator-processor 2>/dev/null || true
-                RETRY_COUNT=$((RETRY_COUNT + 1))
-                sleep 10
-              fi
-            done
-            
-            # Ensure LMDBX files are created and have correct permissions
-            echo "Waiting for LMDBX initialization..."
-            for i in {1..30}; do
-              if [ -f /data/coordinator/mdbx.dat ]; then
-                echo "LMDBX files created"
-                break
-              fi
-              echo "Waiting for LMDBX files... ($i/30)"
-              sleep 2
-            done
-            
-            # Fix permissions
-            echo "Fixing file permissions..."
-            chown -R 1000:1000 /data/coordinator/ || {
-              echo "WARNING: Failed to change ownership, trying with sudo"
-              sudo chown -R 1000:1000 /data/coordinator/ || true
-            }
-            
-            echo "Coordinator processor setup completed at $(date)"
-
-  CoordinatorProcessorASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-coordinator-processor-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref CoordinatorProcessorLaunchTemplate
-        Version: !GetAtt CoordinatorProcessorLaunchTemplate.LatestVersionNumber
-      MinSize: {{ config.nodes.coordinator.processor.aws.ec2.min_instances | default(1) }}
-      MaxSize: {{ config.nodes.coordinator.processor.aws.ec2.max_instances | default(3) }}
-      DesiredCapacity: {{ config.nodes.coordinator.processor.aws.ec2.desired_instances | default(1) }}
-      VPCZoneIdentifier:
-        - !Ref CoordinatorSubnet
-      HealthCheckType: EC2
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-coordinator-processor'
-          PropagateAtLaunch: true
-        - Key: Service
-          Value: coordinator-processor
-          PropagateAtLaunch: true
-
-  # Realm Processor ASGs
-  {% for realm in config.nodes.realms %}
-  Realm{{ realm.id }}ProcessorLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor-lt'
-      LaunchTemplateData:
-        ImageId: !Sub '{%raw%}{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}{%endraw%}'
-        InstanceType: c6i.xlarge  # 4 vCPU, 8GB RAM for processor
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        SecurityGroupIds:
-          - !Ref Realm{{ realm.id }}SecurityGroup
-        BlockDeviceMappings:
-          - DeviceName: /dev/xvda
-            Ebs:
-              VolumeSize: 100
-              VolumeType: gp3
-              DeleteOnTermination: true
-          - DeviceName: /dev/xvdb
-            Ebs:
-              VolumeSize: {{ realm.backend.lmdbx.aws.volume_size | default(200) }}
-              VolumeType: gp3
-              Iops: 3000
-              DeleteOnTermination: true
-              Encrypted: true
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
-              - Key: Service
-                Value: realm-{{ realm.id }}-processor
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            exec > /var/log/user-data.log 2>&1
-            echo "Starting realm {{ realm.id }} processor setup at $(date)"
-            
-            # Update system
-            apt-get update -y
-            apt-get install -y docker.io awscli jq
-            
-            # Enable and start Docker
-            systemctl enable docker
-            systemctl start docker
-            usermod -aG docker ubuntu
-            
-            # Install ECS agent
-            curl -O https://s3.${AWS::Region}.amazonaws.com/amazon-ecs-agent-${AWS::Region}/amazon-ecs-init-latest.amd64.deb
-            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
-            
-            # Configure ECS
-            mkdir -p /etc/ecs
-            echo ECS_CLUSTER=${ProjectName}-${Environment}-main-ecs >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo ECS_INSTANCE_ATTRIBUTES='{"service":"realm-{{ realm.id }}-processor"}' >> /etc/ecs/ecs.config
-            
-            # Start ECS agent
-            systemctl enable ecs
-            systemctl start ecs
-            
-            # Setup data volume for LMDBX
-            DATA_DEVICE="/dev/nvme1n1"
-            [ -b /dev/xvdb ] && DATA_DEVICE="/dev/xvdb"
-            
-            if [ -n "$DATA_DEVICE" ]; then
-                mkfs.ext4 $DATA_DEVICE
-                mkdir -p /data/realm{{ realm.id }}
-                mount $DATA_DEVICE /data/realm{{ realm.id }}
-                echo "$DATA_DEVICE /data/realm{{ realm.id }} ext4 defaults,noatime 0 0" >> /etc/fstab
-                chmod 755 /data/realm{{ realm.id }}
-                chown -R 1000:1000 /data/realm{{ realm.id }}
-            fi
-            
-            # Login to ECR
-            echo "Logging into ECR..."
-            aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com || {
-              echo "ERROR: Failed to login to ECR"
-              exit 1
-            }
-            
-            # Get Redis endpoint from NLB
-            echo "Getting Redis endpoint for realm {{ realm.id }}..."
-            MAX_RETRIES=10
-            RETRY_COUNT=0
-            
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              REDIS_ENDPOINT=$(aws elbv2 describe-load-balancers \
-                --names "${ProjectName}-${Environment}-redis-r{{ realm.id }}-nlb" \
-                --query 'LoadBalancers[0].DNSName' \
-                --output text \
-                --region ${AWS::Region} 2>/dev/null || echo "")
-              
-              if [ -n "$REDIS_ENDPOINT" ] && [ "$REDIS_ENDPOINT" != "None" ]; then
-                echo "Got Redis NLB endpoint: $REDIS_ENDPOINT"
-                break
-              else
-                echo "Waiting for Redis NLB... attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
-                RETRY_COUNT=$((RETRY_COUNT + 1))
-                sleep 30
-              fi
-            done
-            
-            if [ -z "$REDIS_ENDPOINT" ] || [ "$REDIS_ENDPOINT" == "None" ]; then
-              echo "ERROR: Failed to get Redis NLB endpoint after $MAX_RETRIES attempts"
-              echo "Please check:"
-              echo "1. IAM permissions for elasticloadbalancing:DescribeLoadBalancers"
-              echo "2. Redis NLB deployment status"
-              echo "3. NLB name: ${ProjectName}-${Environment}-redis-r{{ realm.id }}-nlb"
-              exit 1
-            fi
-            
-            # Pull the image first
-            echo "Pulling processor image..."
-            docker pull ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest || {
-              echo "ERROR: Failed to pull processor image"
-              exit 1
-            }
-            
-            # Run realm processor with retry logic
-            echo "Starting realm {{ realm.id }} processor..."
-            MAX_RETRIES=3
-            RETRY_COUNT=0
-            
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              docker run -d --name realm-{{ realm.id }}-processor \
-                --restart=unless-stopped \
-                -v /data/realm{{ realm.id }}:/data \
-                -e RUST_LOG='{{ realm.processor.env.RUST_LOG }}' \
-                ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
-                realm-processor \
-                --database lmdbx \
-                --lmdbx-path /data \
-                --redis-uri redis://$REDIS_ENDPOINT:6379 \
-                --realm-id {{ realm.id }} \
-                {% if realm.processor.args.queue-biz-key %}\
-                --queue-biz-key {{ realm.processor.args.queue-biz-key }} \
-                {% endif %}
-              
-              # Check if container started successfully
-              sleep 5
-              if docker ps | grep -q realm-{{ realm.id }}-processor; then
-                echo "Realm {{ realm.id }} processor started successfully"
-                break
-              else
-                echo "Processor failed to start, attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
-                docker logs realm-{{ realm.id }}-processor 2>&1 || true
-                docker rm realm-{{ realm.id }}-processor 2>/dev/null || true
-                RETRY_COUNT=$((RETRY_COUNT + 1))
-                sleep 10
-              fi
-            done
-            
-            # Ensure LMDBX files are created and have correct permissions
-            echo "Waiting for LMDBX initialization..."
-            for i in {1..30}; do
-              if [ -f /data/realm{{ realm.id }}/mdbx.dat ]; then
-                echo "LMDBX files created"
-                break
-              fi
-              echo "Waiting for LMDBX files... ($i/30)"
-              sleep 2
-            done
-            
-            # Fix permissions
-            echo "Fixing file permissions..."
-            chown -R 1000:1000 /data/realm{{ realm.id }}/ || {
-              echo "WARNING: Failed to change ownership, trying with sudo"
-              sudo chown -R 1000:1000 /data/realm{{ realm.id }}/ || true
-            }
-            
-            echo "Realm {{ realm.id }} processor setup completed at $(date)"
-
-  Realm{{ realm.id }}ProcessorASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref Realm{{ realm.id }}ProcessorLaunchTemplate
-        Version: !GetAtt Realm{{ realm.id }}ProcessorLaunchTemplate.LatestVersionNumber
-      MinSize: {{ realm.processor.aws.ec2.min_instances | default(1) }}
-      MaxSize: {{ realm.processor.aws.ec2.max_instances | default(3) }}
-      DesiredCapacity: {{ realm.processor.aws.ec2.desired_instances | default(1) }}
-      VPCZoneIdentifier:
-        - !Ref Realm{{ realm.id }}Subnet
-      HealthCheckType: EC2
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
-          PropagateAtLaunch: true
-        - Key: Service
-          Value: realm-{{ realm.id }}-processor
-          PropagateAtLaunch: true
-  {% endfor %}
-
-  # ============================================================================
-  # ECS CLUSTERS FOR EDGE/WORKER SERVICES
-  # ============================================================================
-
-  # Note: Using single MainECSCluster for all services
-
-  # Coordinator Edge ASG (for ECS instances)
-  CoordinatorEdgeLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-coordinator-edge-lt'
-      LaunchTemplateData:
-        ImageId: !Sub '{%raw%}{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}{%endraw%}'
-        InstanceType: m6i.xlarge  # 4 vCPU, 16GB RAM for edge
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        SecurityGroupIds:
-          - !Ref CoordinatorSecurityGroup
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-coordinator-edge'
-              - Key: Service
-                Value: coordinator-edge
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            
-            # Update system
-            apt-get update
-            apt-get install -y curl docker.io jq awscli
-            
-            # Enable and start Docker
-            systemctl enable docker
-            systemctl start docker
-            usermod -aG docker ubuntu
-            
-            # Install ECS agent
-            curl -O https://s3.${AWS::Region}.amazonaws.com/amazon-ecs-agent-${AWS::Region}/amazon-ecs-init-latest.amd64.deb
-            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
-            
-            # Configure ECS
-            mkdir -p /etc/ecs
-            echo ECS_CLUSTER=${ProjectName}-${Environment}-main-ecs >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo ECS_INSTANCE_ATTRIBUTES='{"service":"coordinator-edge"}' >> /etc/ecs/ecs.config
-            
-            # Start ECS agent
-            systemctl enable ecs
-            systemctl start ecs
-
-  CoordinatorEdgeASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-coordinator-edge-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref CoordinatorEdgeLaunchTemplate
-        Version: !GetAtt CoordinatorEdgeLaunchTemplate.LatestVersionNumber
-      MinSize: 1
-      MaxSize: 3
-      DesiredCapacity: 2
-      VPCZoneIdentifier:
-        - !Ref CoordinatorSubnet
-      HealthCheckType: EC2
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-coordinator-edge'
-          PropagateAtLaunch: true
-        - Key: Service
-          Value: coordinator-edge
-          PropagateAtLaunch: true
-
-  # Coordinator Worker ASG (for ECS instances)
-  CoordinatorWorkerLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-coordinator-worker-lt'
-      LaunchTemplateData:
-        ImageId: !Sub '{%raw%}{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}{%endraw%}'
-        InstanceType: c6i.2xlarge  # 8 vCPU, 16GB RAM for workers
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        SecurityGroupIds:
-          - !Ref CoordinatorSecurityGroup
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-coordinator-worker'
-              - Key: Service
-                Value: coordinator-worker
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            
-            # Update system
-            apt-get update
-            apt-get install -y curl docker.io jq awscli
-            
-            # Enable and start Docker
-            systemctl enable docker
-            systemctl start docker
-            usermod -aG docker ubuntu
-            
-            # Install ECS agent
-            curl -O https://s3.${AWS::Region}.amazonaws.com/amazon-ecs-agent-${AWS::Region}/amazon-ecs-init-latest.amd64.deb
-            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
-            
-            # Configure ECS
-            mkdir -p /etc/ecs
-            echo ECS_CLUSTER=${ProjectName}-${Environment}-main-ecs >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo ECS_INSTANCE_ATTRIBUTES='{"service":"coordinator-worker"}' >> /etc/ecs/ecs.config
-            
-            # Start ECS agent
-            systemctl enable ecs
-            systemctl start ecs
-
-  CoordinatorWorkerASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-coordinator-worker-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref CoordinatorWorkerLaunchTemplate
-        Version: !GetAtt CoordinatorWorkerLaunchTemplate.LatestVersionNumber
-      MinSize: 1
-      MaxSize: 5
-      DesiredCapacity: 2
-      VPCZoneIdentifier:
-        - !Ref CoordinatorSubnet
-      HealthCheckType: EC2
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-coordinator-worker'
-          PropagateAtLaunch: true
-        - Key: Service
-          Value: coordinator-worker
-          PropagateAtLaunch: true
-
-  # Realm ECS Clusters and ASGs
-  {% for realm in config.nodes.realms %}
-  # Note: Realm {{ realm.id }} uses MainECSCluster
-
-  # Realm {{ realm.id }} Edge ASG
-  Realm{{ realm.id }}EdgeLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge-lt'
-      LaunchTemplateData:
-        ImageId: !Sub '{%raw%}{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}{%endraw%}'
-        InstanceType: m6i.xlarge  # 4 vCPU, 16GB RAM for edge
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        SecurityGroupIds:
-          - !Ref Realm{{ realm.id }}SecurityGroup
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge'
-              - Key: Service
-                Value: realm-{{ realm.id }}-edge
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            
-            # Update system and install ECS
-            apt-get update
-            apt-get install -y curl docker.io jq awscli
-            systemctl enable docker
-            systemctl start docker
-            usermod -aG docker ubuntu
-            
-            # Install ECS agent
-            curl -O https://s3.${AWS::Region}.amazonaws.com/amazon-ecs-agent-${AWS::Region}/amazon-ecs-init-latest.amd64.deb
-            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
-            
-            # Configure ECS
-            mkdir -p /etc/ecs
-            echo ECS_CLUSTER=${ProjectName}-${Environment}-main-ecs >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo ECS_INSTANCE_ATTRIBUTES='{"service":"realm-{{ realm.id }}-edge"}' >> /etc/ecs/ecs.config
-            
-            systemctl enable ecs
-            systemctl start ecs
-
-  Realm{{ realm.id }}EdgeASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref Realm{{ realm.id }}EdgeLaunchTemplate
-        Version: !GetAtt Realm{{ realm.id }}EdgeLaunchTemplate.LatestVersionNumber
-      MinSize: 1
-      MaxSize: 3
-      DesiredCapacity: 2
-      VPCZoneIdentifier:
-        - !Ref Realm{{ realm.id }}Subnet
-      HealthCheckType: EC2
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge'
-          PropagateAtLaunch: true
-        - Key: Service
-          Value: realm-{{ realm.id }}-edge
-          PropagateAtLaunch: true
-
-  # Realm {{ realm.id }} Worker ASG
-  Realm{{ realm.id }}WorkerLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker-lt'
-      LaunchTemplateData:
-        ImageId: !Sub '{%raw%}{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}{%endraw%}'
-        InstanceType: c6i.2xlarge  # 8 vCPU, 16GB RAM for workers
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        SecurityGroupIds:
-          - !Ref Realm{{ realm.id }}SecurityGroup
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker'
-              - Key: Service
-                Value: realm-{{ realm.id }}-worker
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            
-            # Update system and install ECS
-            apt-get update
-            apt-get install -y curl docker.io jq awscli
-            systemctl enable docker
-            systemctl start docker
-            usermod -aG docker ubuntu
-            
-            # Install ECS agent
-            curl -O https://s3.${AWS::Region}.amazonaws.com/amazon-ecs-agent-${AWS::Region}/amazon-ecs-init-latest.amd64.deb
-            dpkg -i amazon-ecs-init-latest.amd64.deb || apt-get install -f -y
-            
-            # Configure ECS
-            mkdir -p /etc/ecs
-            echo ECS_CLUSTER=${ProjectName}-${Environment}-main-ecs >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
-            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
-            echo ECS_INSTANCE_ATTRIBUTES='{"service":"realm-{{ realm.id }}-worker"}' >> /etc/ecs/ecs.config
-            
-            systemctl enable ecs
-            systemctl start ecs
-
-  Realm{{ realm.id }}WorkerASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref Realm{{ realm.id }}WorkerLaunchTemplate
-        Version: !GetAtt Realm{{ realm.id }}WorkerLaunchTemplate.LatestVersionNumber
-      MinSize: 1
-      MaxSize: 5
-      DesiredCapacity: 2
-      VPCZoneIdentifier:
-        - !Ref Realm{{ realm.id }}Subnet
-      HealthCheckType: EC2
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-worker'
-          PropagateAtLaunch: true
-        - Key: Service
-          Value: realm-{{ realm.id }}-worker
-          PropagateAtLaunch: true
-  {% endfor %}
-
-  # Redis Configuration
+      # Redis Configuration (simplified - keeping existing Redis for caching)
   {% if config.nodes.coordinator.redis and config.nodes.coordinator.redis.aws %}
   {% set coord_redis_type = config.nodes.coordinator.redis.aws.deployment_type | default('elasticache') %}
   {% else %}
   {% set coord_redis_type = 'elasticache' %}
   {% endif %}
 
-  # ElastiCache Subnet Group (if any Redis uses ElastiCache)
   {% set uses_elasticache = false %}
   {% if coord_redis_type == 'elasticache' %}
     {% set uses_elasticache = true %}
@@ -1454,103 +679,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-redis-coordinator'
-  {% elif coord_redis_type == 'ec2' %}
-  # Network Load Balancer for Coordinator Redis
-  RedisCoordinatorNLB:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Name: !Sub '${ProjectName}-${Environment}-redis-c-nlb'
-      Type: network
-      Scheme: internal
-      Subnets:
-        - !Ref CoordinatorSubnet
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-redis-coordinator-nlb'
-
-  RedisCoordinatorNLBTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: !Sub '${ProjectName}-${Environment}-redis-coord-tg'
-      Port: 6379
-      Protocol: TCP
-      VpcId: !Ref VPC
-      TargetType: instance
-      HealthCheckProtocol: TCP
-      HealthCheckPort: 6379
-      HealthCheckIntervalSeconds: 30
-      HealthCheckTimeoutSeconds: 10
-      HealthyThresholdCount: 3
-      UnhealthyThresholdCount: 3
-
-  RedisCoordinatorNLBListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref RedisCoordinatorNLB
-      Port: 6379
-      Protocol: TCP
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref RedisCoordinatorNLBTargetGroup
-
-  # EC2 Launch Template for Coordinator Redis
-  RedisCoordinatorLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-redis-coordinator-lt'
-      LaunchTemplateData:
-        ImageId: !Sub '{%raw%}{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}{%endraw%}'
-        InstanceType: {{ recommendations | selectattr('service_name', 'equalto', 'Redis') | map(attribute='instance_type') | first | default('r6i.large') }}
-        SecurityGroupIds:
-          - !Ref ECSSecurityGroup
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        BlockDeviceMappings:
-          - DeviceName: /dev/xvda
-            Ebs:
-              VolumeSize: {{ config.nodes.coordinator.redis.aws.ec2.volume_size | default(200) }}
-              VolumeType: gp3
-              DeleteOnTermination: true
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            exec > /var/log/user-data.log 2>&1
-            
-            # Update system and install Docker
-            apt-get update -y
-            apt-get install -y docker.io awscli jq
-            
-            # Enable and start Docker
-            systemctl enable docker
-            systemctl start docker
-            
-            # Run Redis in Docker container
-            docker run -d --name redis-coordinator \
-              --restart=unless-stopped \
-              -p 6379:6379 \
-              redis:7-alpine \
-              redis-server \
-              --save "" \
-              --maxmemory 2gb \
-              --maxmemory-policy allkeys-lru
-            
-            echo "Redis configuration completed"
-            
-  RedisCoordinatorASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-redis-coordinator-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref RedisCoordinatorLaunchTemplate
-        Version: !GetAtt RedisCoordinatorLaunchTemplate.LatestVersionNumber
-      MinSize: {{ config.nodes.coordinator.redis.aws.ec2.min_instances | default(1) }}
-      MaxSize: {{ config.nodes.coordinator.redis.aws.ec2.max_instances | default(1) }}
-      DesiredCapacity: {{ config.nodes.coordinator.redis.aws.ec2.desired_instances | default(1) }}
-      VPCZoneIdentifier:
-        - !Ref CoordinatorSubnet
-      TargetGroupARNs:
-        - !Ref RedisCoordinatorNLBTargetGroup
   {% endif %}
 
   # Realm Redis instances
@@ -1560,7 +688,7 @@ Resources:
   {% else %}
   {% set realm_redis_type = 'elasticache' %}
   {% endif %}
-  
+
   {% if realm_redis_type == 'elasticache' %}
   RedisRealm{{ realm.id }}:
     Type: AWS::ElastiCache::CacheCluster
@@ -1574,110 +702,63 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-redis-realm-{{ realm.id }}'
-  {% elif realm_redis_type == 'ec2' %}
-  # Network Load Balancer for Realm {{ realm.id }} Redis
-  RedisRealm{{ realm.id }}NLB:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Name: !Sub '${ProjectName}-${Environment}-redis-r{{ realm.id }}-nlb'
-      Type: network
-      Scheme: internal
-      Subnets:
-        - !Ref Realm{{ realm.id }}Subnet
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-redis-realm-{{ realm.id }}-nlb'
-
-  RedisRealm{{ realm.id }}NLBTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: !Sub '${ProjectName}-${Environment}-redis-realm{{ realm.id }}-tg'
-      Port: 6379
-      Protocol: TCP
-      VpcId: !Ref VPC
-      TargetType: instance
-      HealthCheckProtocol: TCP
-      HealthCheckPort: 6379
-      HealthCheckIntervalSeconds: 30
-      HealthCheckTimeoutSeconds: 10
-      HealthyThresholdCount: 3
-      UnhealthyThresholdCount: 3
-
-  RedisRealm{{ realm.id }}NLBListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref RedisRealm{{ realm.id }}NLB
-      Port: 6379
-      Protocol: TCP
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref RedisRealm{{ realm.id }}NLBTargetGroup
-
-  # EC2 Launch Template for Realm {{ realm.id }} Redis
-  RedisRealm{{ realm.id }}LaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-redis-realm-{{ realm.id }}-lt'
-      LaunchTemplateData:
-        ImageId: !Sub '{%raw%}{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}{%endraw%}'
-        InstanceType: {{ recommendations | selectattr('service_name', 'equalto', 'Redis') | map(attribute='instance_type') | first | default('r6i.large') }}
-        SecurityGroupIds:
-          - !Ref ECSSecurityGroup
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        BlockDeviceMappings:
-          - DeviceName: /dev/xvda
-            Ebs:
-              VolumeSize: {{ realm.redis.aws.ec2.volume_size | default(200) }}
-              VolumeType: gp3
-              DeleteOnTermination: true
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            exec > /var/log/user-data.log 2>&1
-            
-            # Update system and install Docker
-            apt-get update -y
-            apt-get install -y docker.io awscli jq
-            
-            # Enable and start Docker
-            systemctl enable docker
-            systemctl start docker
-            
-            # Run Redis in Docker container
-            docker run -d --name redis-realm-{{ realm.id }} \
-              --restart=unless-stopped \
-              -p 6379:6379 \
-              redis:7-alpine \
-              redis-server \
-              --save "" \
-              --maxmemory 2gb \
-              --maxmemory-policy allkeys-lru
-            
-            echo "Redis configuration completed for Realm {{ realm.id }}"
-            
-  RedisRealm{{ realm.id }}ASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-redis-realm-{{ realm.id }}-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref RedisRealm{{ realm.id }}LaunchTemplate
-        Version: !GetAtt RedisRealm{{ realm.id }}LaunchTemplate.LatestVersionNumber
-      MinSize: {{ realm.redis.aws.ec2.min_instances | default(1) }}
-      MaxSize: {{ realm.redis.aws.ec2.max_instances | default(1) }}
-      DesiredCapacity: {{ realm.redis.aws.ec2.desired_instances | default(1) }}
-      VPCZoneIdentifier:
-        - !Ref Realm{{ realm.id }}Subnet
-      TargetGroupARNs:
-        - !Ref RedisRealm{{ realm.id }}NLBTargetGroup
   {% endif %}
   {% endfor %}
 
   # IAM Roles
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-${Environment}-ec2-instance-role'  
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: !Sub '${ProjectName}-${Environment}-ec2-instance-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:RegisterContainerInstance
+                  - ecs:DeregisterContainerInstance
+                  - ecs:DiscoverPollEndpoint
+                  - ecs:Submit*
+                  - ecs:Poll
+                  - ecs:StartTelemetrySession
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - elasticloadbalancing:DescribeLoadBalancers
+                  - autoscaling:DescribeAutoScalingGroups
+                  - ec2:DescribeInstances
+                Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-ec2-instance-role'
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    DependsOn: EC2InstanceRole  
+    Properties:
+      InstanceProfileName: !Sub '${ProjectName}-${Environment}-ec2-instance-profile'  # Add unique naming
+      Roles:
+        - !Ref EC2InstanceRole
+
   ECSTaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub '${ProjectName}-${Environment}-ecs-task-execution-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -1688,7 +769,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       Policies:
-        - PolicyName: ECRAccess
+        - PolicyName: !Sub '${ProjectName}-${Environment}-ecr-access-policy'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -1699,10 +780,14 @@ Resources:
                   - ecr:GetDownloadUrlForLayer
                   - ecr:BatchGetImage
                 Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-ecs-task-execution-role'
 
   ECSTaskRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub '${ProjectName}-${Environment}-ecs-task-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -1711,7 +796,7 @@ Resources:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: S3Access
+        - PolicyName: !Sub '${ProjectName}-${Environment}-s3-access-policy'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -1723,77 +808,613 @@ Resources:
                 Resource:
                   - !Sub '${ArtifactsBucket.Arn}/*'
                   - !GetAtt ArtifactsBucket.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-ecs-task-role'
+  # ============================================================================
+  # PROCESSOR SERVICES (EC2 DEPLOYMENT) - ASGs for Processors only
+  # ============================================================================
+
+  # Service-specific Security Groups
+  CoordinatorSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for coordinator services
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8545
+          ToPort: 8545
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-coordinator-sg'
+
+  CoordinatorInternalIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref CoordinatorSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref CoordinatorSecurityGroup
+      Description: Internal communication
+
+  {% for realm in config.nodes.realms %}
+  Realm{{ realm.id }}SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for realm {{ realm.id }} services
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: {{ 8546 + loop.index0 }}
+          ToPort: {{ 8546 + loop.index0 }}
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        - IpProtocol: -1
+          SourceSecurityGroupId: !Ref CoordinatorSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-sg'
+
+  Realm{{ realm.id }}InternalIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref Realm{{ realm.id }}SecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref Realm{{ realm.id }}SecurityGroup
+      Description: Internal communication
+  {% endfor %}
+
+  # Coordinator Processor ASG
+  CoordinatorProcessorLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-coordinator-processor-lt'
+      LaunchTemplateData:
+      {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
+      {% endraw %}
+        InstanceType: c6i.xlarge
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        SecurityGroupIds:
+          - !Ref CoordinatorSecurityGroup
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-coordinator-processor'
+              - Key: Service
+                Value: coordinator-processor
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            exec > /var/log/user-data.log 2>&1
+
+            # Update system and install Docker
+            apt-get update -y
+            apt-get install -y docker.io awscli jq
+            systemctl enable docker
+            systemctl start docker
+            usermod -aG docker ubuntu
+
+            # Login to ECR
+            aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
+
+            # Get TiKV PD endpoints
+            MAX_RETRIES=30
+            RETRY_COUNT=0
+
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              PD_INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+                --auto-scaling-group-names "${ProjectName}-${Environment}-tikv-pd-asg" \
+                --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
+                --output text \
+                --region ${AWS::Region} 2>/dev/null || echo "")
+
+              if [ -n "$PD_INSTANCE_IDS" ]; then
+                PD_ENDPOINTS=""
+                for id in $PD_INSTANCE_IDS; do
+                  IP=$(aws ec2 describe-instances \
+                    --instance-ids $id \
+                    --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                    --output text \
+                    --region ${AWS::Region})
+                  if [ -n "$IP" ]; then
+                    if [ -z "$PD_ENDPOINTS" ]; then
+                      PD_ENDPOINTS="$IP:2379"
+                    else
+                      PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
+                    fi
+                  fi
+                done
+
+                if [ -n "$PD_ENDPOINTS" ]; then
+                  echo "Got TiKV PD endpoints: $PD_ENDPOINTS"
+                  break
+                fi
+              fi
+
+              echo "Waiting for TiKV PD cluster... attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              sleep 10
+            done
+
+            if [ -z "$PD_ENDPOINTS" ]; then
+              echo "ERROR: Failed to get TiKV PD endpoints"
+              exit 1
+            fi
+
+            # Get Redis endpoint
+            REDIS_ENDPOINT="${RedisCoordinator.RedisEndpoint.Address}"
+
+            # Run coordinator processor
+            docker run -d --name coordinator-processor \
+              --restart=unless-stopped \
+              --log-driver=awslogs \
+              --log-opt awslogs-group={{ config.nodes.deployment.aws.ecs.log_group }} \
+              --log-opt awslogs-region=${AWS::Region} \
+              --log-opt awslogs-stream-prefix=coordinator-processor \
+              -e RUST_LOG='{{ config.nodes.coordinator.processor.env.RUST_LOG }}' \
+              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
+              coordinator-processor \
+              --database tikv \
+              --tikv-pd-endpoints $PD_ENDPOINTS \
+              --tikv-namespace {{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator \
+              --redis-uri redis://$REDIS_ENDPOINT:6379 \
+              {% for key, value in (config.nodes.coordinator.processor.args | default({}) | dictsort) %}
+              --{{ key | replace('_','-') }} '{{ value | string }}' \
+              {% endfor %}
+
+  CoordinatorProcessorASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-coordinator-processor-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref CoordinatorProcessorLaunchTemplate
+        Version: !GetAtt CoordinatorProcessorLaunchTemplate.LatestVersionNumber
+      MinSize: {{ config.nodes.coordinator.processor.aws.ec2.min_instances | default(1) }}
+      MaxSize: {{ config.nodes.coordinator.processor.aws.ec2.max_instances | default(3) }}
+      DesiredCapacity: {{ config.nodes.coordinator.processor.aws.ec2.desired_instances | default(1) }}
+      VPCZoneIdentifier:
+        - !Ref CoordinatorSubnet
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-coordinator-processor'
+          PropagateAtLaunch: true
+        - Key: Service
+          Value: coordinator-processor
+          PropagateAtLaunch: true
+
+  # Realm Processor ASGs
+  {% for realm in config.nodes.realms %}
+  Realm{{ realm.id }}ProcessorLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor-lt'
+      LaunchTemplateData:
+        {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
+        {% endraw %}
+        InstanceType: c6i.xlarge
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        SecurityGroupIds:
+          - !Ref Realm{{ realm.id }}SecurityGroup
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
+              - Key: Service
+                Value: realm-{{ realm.id }}-processor
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+            exec > /var/log/user-data.log 2>&1
+
+            # Update system and install Docker
+            apt-get update -y
+            apt-get install -y docker.io awscli jq
+            systemctl enable docker
+            systemctl start docker
+            usermod -aG docker ubuntu
+
+            # Login to ECR
+            aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
+
+            # Get TiKV PD endpoints
+            MAX_RETRIES=10
+            RETRY_COUNT=0
+
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              PD_INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+                --auto-scaling-group-names "${ProjectName}-${Environment}-tikv-pd-asg" \
+                --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
+                --output text \
+                --region ${AWS::Region} 2>/dev/null || echo "")
+
+              if [ -n "$PD_INSTANCE_IDS" ]; then
+                PD_ENDPOINTS=""
+                for id in $PD_INSTANCE_IDS; do
+                  IP=$(aws ec2 describe-instances \
+                    --instance-ids $id \
+                    --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                    --output text \
+                    --region ${AWS::Region})
+                  if [ -n "$IP" ]; then
+                    if [ -z "$PD_ENDPOINTS" ]; then
+                      PD_ENDPOINTS="$IP:2379"
+                    else
+                      PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
+                    fi
+                  fi
+                done
+
+                if [ -n "$PD_ENDPOINTS" ]; then
+                  echo "Got TiKV PD endpoints: $PD_ENDPOINTS"
+                  break
+                fi
+              fi
+
+              echo "Waiting for TiKV PD cluster... attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              sleep 30
+            done
+
+            if [ -z "$PD_ENDPOINTS" ]; then
+              echo "ERROR: Failed to get TiKV PD endpoints"
+              exit 1
+            fi
+
+            # Get Redis endpoint
+            REDIS_ENDPOINT="${RedisRealm{{ realm.id }}.RedisEndpoint.Address}"
+
+            # Run realm processor
+            docker run -d --name realm-{{ realm.id }}-processor \
+              --restart=unless-stopped \
+              -e RUST_LOG='{{ realm.processor.env.RUST_LOG }}' \
+              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
+              realm-processor \
+              --database tikv \
+              --tikv-pd-endpoints $PD_ENDPOINTS \
+              --tikv-namespace realm{{ realm.id }} \
+              --redis-uri redis://$REDIS_ENDPOINT:6379 \
+              --realm-id {{ realm.id }} \
+              {% if realm.processor.args['queue-biz-key'] %}
+              --queue-biz-key {{ realm.processor.args['queue-biz-key'] }}
+              {% endif %}
+
+  Realm{{ realm.id }}ProcessorASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref Realm{{ realm.id }}ProcessorLaunchTemplate
+        Version: !GetAtt Realm{{ realm.id }}ProcessorLaunchTemplate.LatestVersionNumber
+      MinSize: {{ realm.processor.aws.ec2.min_instances | default(1) }}
+      MaxSize: {{ realm.processor.aws.ec2.max_instances | default(3) }}
+      DesiredCapacity: {{ realm.processor.aws.ec2.desired_instances | default(1) }}
+      VPCZoneIdentifier:
+        - !Ref Realm{{ realm.id }}Subnet
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
+          PropagateAtLaunch: true
+        - Key: Service
+          Value: realm-{{ realm.id }}-processor
+          PropagateAtLaunch: true
+  {% endfor %}
+# ECS Container Instances for Edge, Worker, and API services
+  GeneralECSInstancesLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-ecs-container-lt'
+      LaunchTemplateData:
+      {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}'
+      {% endraw %}
+        InstanceType: t3.large 
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        SecurityGroupIds:
+          - !Ref ECSSecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-ecs-container'
+              - Key: Service
+                Value: ecs-container
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo ECS_CLUSTER=${MainECSCluster} >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
+            echo 'ECS_INSTANCE_ATTRIBUTES={"service":"ecs-container"}' >> /etc/ecs/ecs.config
+
+  GeneralECSInstancesASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-ecs-container-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref GeneralECSInstancesLaunchTemplate
+        Version: !GetAtt GeneralECSInstancesLaunchTemplate.LatestVersionNumber
+      MinSize: 2
+      MaxSize: 4
+      DesiredCapacity: 2  
+      VPCZoneIdentifier:
+        - !Ref CoordinatorSubnet
+        {% for realm in config.nodes.realms %}
+        - !Ref Realm{{ realm.id }}Subnet
+        {% endfor %}
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-ecs-container'
+          PropagateAtLaunch: true
+
+  WorkerInstancesLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-worker-ecs-lt'
+      LaunchTemplateData:
+      {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}'
+      {% endraw %}
+        InstanceType: c6a.2xlarge  # AMD EPYC, 8 vCPUs, 16GB RAM
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        SecurityGroupIds:
+          - !Ref ECSSecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-worker-ecs'
+              - Key: Service
+                Value: worker-ecs
+              - Key: Type
+                Value: worker
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo ECS_CLUSTER=${MainECSCluster} >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
+            # Add worker-specific attribute
+            echo 'ECS_INSTANCE_ATTRIBUTES={"workload":"worker","instance_type":"c6a.2xlarge"}' >> /etc/ecs/ecs.config
+            # Optimize for compute workloads
+            echo ECS_ENABLE_TASK_CPU_MEM_LIMIT=false >> /etc/ecs/ecs.config
+            echo ECS_IMAGE_CLEANUP_INTERVAL=30m >> /etc/ecs/ecs.config
+            echo ECS_IMAGE_MINIMUM_CLEANUP_AGE=30m >> /etc/ecs/ecs.config
+            
+  WorkerInstancesASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-worker-ecs-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WorkerInstancesLaunchTemplate
+        Version: !GetAtt WorkerInstancesLaunchTemplate.LatestVersionNumber
+      MinSize: 3
+      MaxSize: 3
+      DesiredCapacity: 3  # 3 EC2 instances for workers
+      VPCZoneIdentifier:
+        - !Ref CoordinatorSubnet
+        {% for realm in config.nodes.realms %}
+        - !Ref Realm{{ realm.id }}Subnet
+        {% endfor %}
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-worker-ecs'
+          PropagateAtLaunch: true
+        - Key: Type
+          Value: worker
+          PropagateAtLaunch: true
+
+  ProverInstanceLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-prover-lt'
+      LaunchTemplateData:
+      {% raw %}
+        ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id}}'
+      {% endraw %}
+        InstanceType: c6a.2xlarge  
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        SecurityGroupIds:
+          - !Ref ECSSecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 200
+              VolumeType: gp3
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-${Environment}-prover'
+              - Key: Service
+                Value: prover
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo ECS_CLUSTER=${MainECSCluster} >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_TASK_IAM_ROLE=true >> /etc/ecs/ecs.config
+            echo ECS_ENABLE_CONTAINER_METADATA=true >> /etc/ecs/ecs.config
+            echo 'ECS_INSTANCE_ATTRIBUTES={"workload":"prover"}' >> /etc/ecs/ecs.config
+
+
+  ProverInstanceASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-prover-asg'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ProverInstanceLaunchTemplate
+        Version: !GetAtt ProverInstanceLaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 1  # Single prover instance
+      VPCZoneIdentifier:
+        - !Ref CoordinatorSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-prover'
+          PropagateAtLaunch: true  
+
+  {% if has_timescaledb %}
+  # ============================================================================
+  # TIMESCALEDB
+  # ============================================================================
+
+  # Database Security Group for TimescaleDB
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for TimescaleDB RDS instance
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
+          Description: Allow PostgreSQL access from ECS
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-database-sg'
+
+  # TimescaleDB Subnet Group
+  TimescaleDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for TimescaleDB
+      SubnetIds:
+        - !Ref CoordinatorSubnet
+        {% if config.nodes.realms|length > 0 %}
+        - !Ref Realm{{ config.nodes.realms[0].id }}Subnet
+        {% endif %}
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-timescaledb-subnet-group'
+
+  # Database Password Secret
+  DBPasswordSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${ProjectName}-${Environment}-db-password'
+      Description: Password for TimescaleDB instance
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "postgres"}'
+        GenerateStringKey: 'password'
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+
+  # TimescaleDB RDS Instance
+  TimescaleDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub '${ProjectName}-${Environment}-timescaledb'
+      DBInstanceClass: {{ config.global_services.timescaledb.aws.instance_class }}
+      Engine: postgres
+      EngineVersion: '15.4'
+      AllocatedStorage: {{ config.global_services.timescaledb.aws.allocated_storage }}
+      DBSubnetGroupName: !Ref TimescaleDBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      DBName: qed
+      MasterUsername: postgres
+      {% raw %}
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBPasswordSecret}:SecretString:password}}'
+      {% endraw %}
+      BackupRetentionPeriod: 7
+      MultiAZ: {{ config.global_services.timescaledb.aws.multi_az|lower }}
+      StorageType: gp3
+      DeletionProtection: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-timescaledb'
+  {% endif %}
 
 Outputs:
   VPCId:
     Value: !Ref VPC
     Export:
       Name: !Sub '${ProjectName}-${Environment}-vpc-id'
-  
+
   MainECSClusterName:
     Value: !Ref MainECSCluster
     Export:
       Name: !Sub '${ProjectName}-${Environment}-main-ecs-cluster'
-  
+
   ALBDNSName:
     Value: !GetAtt ApplicationLoadBalancer.DNSName
     Export:
       Name: !Sub '${ProjectName}-${Environment}-alb-dns'
-  
+    Description: Application Load Balancer DNS name
+
   ECRRepositoryURI:
     Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}'
     Export:
       Name: !Sub '${ProjectName}-${Environment}-ecr-uri'
-  
+
   ServiceDiscoveryNamespaceId:
     Value: !Ref ServiceDiscoveryNamespace
     Export:
       Name: !Sub '${ProjectName}-${Environment}-sd-namespace-id'
-  
+
+  TaskExecutionRoleArn:
+    Value: !GetAtt ECSTaskExecutionRole.Arn
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-task-execution-role'
+
+  TaskRoleArn:
+    Value: !GetAtt ECSTaskRole.Arn
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-task-role'
+
+  # ALB Target Group ARNs
   ALBTargetGroupCoordinatorArn:
     Value: !Ref ALBTargetGroupCoordinator
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-tg-coordinator-arn'
-  
+      Name: !Sub '${ProjectName}-${Environment}-alb-tg-coordinator'
+
   {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}Arn:
     Value: !Ref ALBTargetGroupRealm{{ realm.id }}
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-tg-realm{{ realm.id }}-arn'
+      Name: !Sub '${ProjectName}-${Environment}-alb-tg-realm-{{ realm.id }}'
   {% endfor %}
-  
-  {% if config.nodes.prover and config.nodes.prover.enabled %}
-  ALBTargetGroupProverArn:
-    Value: !Ref ALBTargetGroupProver
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-tg-prover-arn'
-  {% endif %}
-  
-  TaskExecutionRoleArn:
-    Value: !GetAtt ECSTaskExecutionRole.Arn
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-task-execution-role-arn'
-  
-  TaskRoleArn:
-    Value: !GetAtt ECSTaskRole.Arn
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-task-role-arn'
-  
-  ECSSecurityGroupId:
-    Value: !Ref ECSSecurityGroup
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-ecs-sg-id'
-  
-  PublicSubnetIds:
-    Value: !Join
-      - ','
-      - - !Ref CoordinatorSubnet
-        {% for realm in config.nodes.realms %}
-        - !Ref Realm{{ realm.id }}Subnet
-        {% endfor %}
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-public-subnet-ids'
-  
 
   # Redis Endpoints
   {% if coord_redis_type == 'elasticache' %}
@@ -1802,45 +1423,80 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-redis-coordinator-endpoint'
     Description: Redis Coordinator endpoint
-  {% elif coord_redis_type == 'ec2' %}
-  RedisCoordinatorEndpoint:
-    Value: !GetAtt RedisCoordinatorNLB.DNSName
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-redis-coordinator-endpoint'
-    Description: Redis Coordinator NLB endpoint
   {% endif %}
-  
+
   {% for realm in config.nodes.realms %}
   {% if realm.redis and realm.redis.aws %}
   {% set realm_redis_type = realm.redis.aws.deployment_type | default('elasticache') %}
-  {% else %}
-  {% set realm_redis_type = 'elasticache' %}
-  {% endif %}
   {% if realm_redis_type == 'elasticache' %}
   RedisRealm{{ realm.id }}Endpoint:
     Value: !GetAtt RedisRealm{{ realm.id }}.RedisEndpoint.Address
     Export:
       Name: !Sub '${ProjectName}-${Environment}-redis-realm-{{ realm.id }}-endpoint'
     Description: Redis Realm {{ realm.id }} endpoint
-  {% elif realm_redis_type == 'ec2' %}
-  RedisRealm{{ realm.id }}Endpoint:
-    Value: !GetAtt RedisRealm{{ realm.id }}NLB.DNSName
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-redis-realm-{{ realm.id }}-endpoint'
-    Description: Redis Realm {{ realm.id }} NLB endpoint
+  {% endif %}
   {% endif %}
   {% endfor %}
 
-  {% if uses_scylla_global %}
-  ScyllaDBAutoScalingGroupName:
-    Value: !Ref ScyllaDBAutoScalingGroup
+  # This belongs in main.yaml, not ecs-services.yaml
+  {% if uses_tikv_global %}
+  TiKVPDAutoScalingGroupName:
+    Description: TiKV PD Auto Scaling Group name
+    Value: !Ref TiKVPDAutoScalingGroup
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-scylla-asg'
-    Description: ScyllaDB Auto Scaling Group name
-  
-  ScyllaDBSecurityGroupId:
-    Value: !Ref ScyllaDBSecurityGroup
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-scylla-sg'
-    Description: ScyllaDB Security Group ID
+      Name: !Sub '${ProjectName}-${Environment}-tikv-pd-asg-name'
   {% endif %}
+
+  {% if has_timescaledb %}
+  TimescaleDBEndpoint:
+    Description: TimescaleDB RDS endpoint
+    Value: !GetAtt TimescaleDB.Endpoint.Address
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-timescaledb-endpoint'
+
+  TimescaleDBPort:
+    Description: TimescaleDB RDS port
+    Value: !GetAtt TimescaleDB.Endpoint.Port
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-timescaledb-port'
+
+  DBPasswordSecretArn:
+    Description: ARN of the secret containing the database password
+    Value: !Ref DBPasswordSecret
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-db-password-secret'
+  {% endif %}
+
+  {% if has_api_service %}
+  APIServiceLoadBalancerEndpoint:
+    Description: API Service endpoint URL via ALB
+    Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}:{{ config.global_services.api_service.port | default(3000) }}'
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-api-service-endpoint'
+  {% endif %}
+
+  # Security Groups
+  ECSSecurityGroupId:
+    Value: !Ref ECSSecurityGroup
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-ecs-sg'
+
+  {% if uses_tikv_global %}
+  TiKVSecurityGroupId:
+    Value: !Ref TiKVSecurityGroup
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-tikv-sg'
+  {% endif %}
+
+  # Subnet IDs
+  CoordinatorSubnetId:
+    Value: !Ref CoordinatorSubnet
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-coordinator-subnet'
+
+  {% for realm in config.nodes.realms %}
+  Realm{{ realm.id }}SubnetId:
+    Value: !Ref Realm{{ realm.id }}Subnet
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-subnet'
+  {% endfor %}

@@ -48,6 +48,8 @@ impl SubTreeNodeTopLineGadget {
             node_level,
         };
 
+        tracing::debug!("🔝 SubTree Top Line - new_state_transition: {:?}", new_state_transition);
+
         Self {
             top_line_height,
             top_line_proof,

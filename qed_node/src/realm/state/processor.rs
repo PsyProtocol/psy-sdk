@@ -675,9 +675,10 @@ impl<
 
         // let checkpoint_tree_root = guta_queue_items[0].checkpoint_tree_proof.root;
         for (i, p) in res.nca_proofs.iter().enumerate() {
+            tracing::debug!(i = i, verify_result = ?res.nca_proofs[i].verify::<QEDHasher>(), "NCA proof verification");
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind == -1 && r_dep_ind == -1 {
-                debug!("Both GUTA dependencies are new");
+                debug!("LeftRightEndCap");
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoEndCapCircuitInput {
                         guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
@@ -717,7 +718,7 @@ impl<
                     value: bincode::serialize(&x)?,
                 });
             } else if r_dep_ind != -1 && l_dep_ind != -1 {
-                debug!("Both GUTA dependencies exist");
+                debug!("LeftRightGuta");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
 
@@ -732,9 +733,6 @@ impl<
                     0,
                 );
                 combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&r_stats)));
-
-                // let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
-                // let b_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[r_dep_ind as usize].value)?.input.checkpoint_tree_root;
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoGUTAProofGadgetStandardInputSimple {
                         checkpoint_tree_root: checkpoint_tree_root,
@@ -756,20 +754,19 @@ impl<
                     value: bincode::serialize(&x)?,
                 });
             } else if l_dep_ind != -1 {
-                debug!("Left GUTA dependency exists");
+                debug!("LeftGUTARightEndCap");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
-                // let a_checkpoint_tree_root = bincode::deserialize::<CircuitInputWithDependencies<VerifyTwoGUTAProofGadgetStandardInputSimple<F>>>(&updates[l_dep_ind as usize].value)?.input.checkpoint_tree_root;
-                let last_guta_item = guta_queue_items.last().unwrap();
+                let right_endcap = &guta_queue_items[i*2 + 1];
                 let x = CircuitInputWithDependencies {
                     input: VerifyLeftGUTARightEndCapInputSimple {
                         checkpoint_tree_root,
-                        b_end_cap: last_guta_item.get_verify_end_cap_simple_input(),
+                        b_end_cap: right_endcap.get_verify_end_cap_simple_input(),
                         stats_a: l_stats,
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
                     dependencies: vec![
                         l_proof_id.get_output_id(),
-                        last_guta_item.proof_id.get_output_id(),
+                        right_endcap.proof_id.get_output_id(),
                     ],
                 };
                 x.input.check_witness()?;
@@ -783,7 +780,7 @@ impl<
                     ProvingJobDataType::InputWitness,
                     0,
                 );
-                combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&guta_queue_items.last().as_ref().unwrap().input.stats)));
+                combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&right_endcap.input.stats)));
 
                 graph.add_edge(w_id.get_output_id(), l_proof_id.get_output_id());
 
@@ -792,7 +789,40 @@ impl<
                     value: bincode::serialize(&x).map_err(|e| anyhow::anyhow!("serialize x: {:?}", e))?,
                 });
             } else {
-                panic!("unsupoorted");
+                debug!("LeftEndCapRightGuta");
+                let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
+                let left_endcap = &guta_queue_items[2*i];
+                let x = CircuitInputWithDependencies {
+                    input: VerifyLeftEndCapRightGUTAInputSimple {
+                        checkpoint_tree_root,
+                        a_end_cap: left_endcap.get_verify_end_cap_simple_input(),
+                        stats_b: r_stats,
+                        nca_proof: res.nca_proofs[i].to_partial(),
+                    },
+                    dependencies: vec![
+                        r_proof_id.get_output_id(),
+                        left_endcap.proof_id.get_output_id(),
+                    ],
+                };
+                x.input.check_witness()?;
+                let w_id = QProvingJobDataID::new(
+                    QJobTopic::GenerateStandardProof,
+                    checkpoint_id,
+                    self.realm_config.realm_id,
+                    p.nearest_common_ancestor_level as u32,
+                    p.nearest_common_ancestor_index as u32,
+                    ProvingJobCircuitType::GUTALeftEndCapRightGUTA,
+                    ProvingJobDataType::InputWitness,
+                    0,
+                );
+                combo_stats.push((w_id.get_output_id(), r_stats.combine_with(&left_endcap.input.stats)));
+
+                graph.add_edge(w_id.get_output_id(), r_proof_id.get_output_id());
+
+                updates.push(KVQPair {
+                    key: w_id,
+                    value: bincode::serialize(&x).map_err(|e| anyhow::anyhow!("serialize x: {:?}", e))?,
+                });
             }
         }
 
@@ -933,10 +963,11 @@ impl<
         Ok(())
     }
 
-    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
-        self.store.commit(Some(checkpoint_id))?;
+    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
+        let (pair_to_set, remove_keys) = self.store.commit(Some(checkpoint_id))?;
         self.commit_offset(checkpoint_id).await?;
-        self.task_store.save_job_dependency_graph(checkpoint_id).await
+        self.task_store.save_job_dependency_graph(checkpoint_id).await?;
+        Ok((pair_to_set, remove_keys))
     }
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {

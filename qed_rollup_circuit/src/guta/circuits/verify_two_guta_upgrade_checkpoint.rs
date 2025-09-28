@@ -72,6 +72,9 @@ where
             guta_proof_verifier_data_cap_height,
         );
 
+        tracing::debug!("🔄 Two GUTA Upgrade Checkpoint - a_guta_gadget: {:?}, b_guta_gadget: {:?}",
+            a_guta_gadget, b_guta_gadget);
+
         let historical_checkpoint_proof_a = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<C::Hasher, C::F, D>(
             &mut builder,
             CHECKPOINT_TREE_HEIGHT as usize
@@ -236,6 +239,11 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
+
+        tracing::debug!("🔄 Two GUTA Upgrade Checkpoint set_witness - worker_public_key: {}, checkpoint_proof_a: {}, checkpoint_proof_b: {}",
+            serde_json::to_string_pretty(&worker_public_key).unwrap(),
+            serde_json::to_string_pretty(&input.historical_checkpoint_proof_a).unwrap(),
+            serde_json::to_string_pretty(&input.historical_checkpoint_proof_b).unwrap());
 
         self.historical_checkpoint_proof_a.set_witness_proof_core(&mut pw, &input.historical_checkpoint_proof_a)?;
         self.historical_checkpoint_proof_b.set_witness_proof_core(&mut pw, &input.historical_checkpoint_proof_b)?;

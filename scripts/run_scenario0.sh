@@ -13,8 +13,8 @@ mkdir -p "$LOG_DIR"
 # Define log file for the scenario
 SCENARIO_LOG="$LOG_DIR/scenario0.log"
 
-GET_USER0_BALANCE="make CHECKPOINT_ID=100 USER_ID=0 balance-of"
-GET_USER1_BALANCE="make CHECKPOINT_ID=100 USER_ID=1048576 REALM_RPC_URL=http://127.0.0.1:8547 balance-of"
+GET_USER0_BALANCE="make CHECKPOINT_ID=100 USER_ID=0 get-slot-value"
+GET_USER1_BALANCE="make CHECKPOINT_ID=100 USER_ID=1048576 REALM_RPC_URL=http://127.0.0.1:8547 get-slot-value"
 
 # Clear log file at startup
 echo "Clearing log file..."

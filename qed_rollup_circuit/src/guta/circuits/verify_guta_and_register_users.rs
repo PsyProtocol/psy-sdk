@@ -62,6 +62,8 @@ where
             max_users,
         );
 
+        tracing::debug!("📊 register_batch_gadget.new_guta_header: {:?}", register_batch_gadget.new_guta_header);
+
         let public_inputs_hash = register_batch_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         let worker_public_key = builder.add_virtual_hash();

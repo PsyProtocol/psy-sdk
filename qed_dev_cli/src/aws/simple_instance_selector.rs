@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{info, debug};
 
-/// 服务类型枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ServiceType {
     Edge,
@@ -12,9 +11,11 @@ pub enum ServiceType {
     Redis,
     ScyllaDB,
     Prover,
+    Watcher,
+    ApiService,
+    TiKV,
 }
 
-/// 实例系列枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstanceFamily {
     GeneralPurpose,   // m5/m6i
@@ -23,7 +24,6 @@ pub enum InstanceFamily {
     StorageOptimized, // i3/i3en
 }
 
-/// 简化的实例定义
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimpleInstance {
     pub name: String,
@@ -33,7 +33,6 @@ pub struct SimpleInstance {
     pub price_per_hour: f32,
 }
 
-/// 服务组需求
 #[derive(Debug, Clone)]
 pub struct ServiceGroupRequirements {
     pub name: String,
@@ -43,7 +42,6 @@ pub struct ServiceGroupRequirements {
     pub instance_count: u32,
 }
 
-/// 实例推荐结果
 #[derive(Debug, Clone, Serialize)]
 pub struct SimpleInstanceRecommendation {
     pub group_name: String,
@@ -56,14 +54,12 @@ pub struct SimpleInstanceRecommendation {
     pub monthly_cost: f32,
 }
 
-/// 简化的实例选择器
 pub struct SimpleInstanceSelector {
     instances: Vec<SimpleInstance>,
     resource_margin: f32,
 }
 
 impl SimpleInstanceSelector {
-    /// 创建新的简化实例选择器
     pub fn new() -> Self {
         Self {
             instances: Self::load_instances(),
@@ -71,10 +67,9 @@ impl SimpleInstanceSelector {
         }
     }
 
-    /// 加载预定义的实例类型
     fn load_instances() -> Vec<SimpleInstance> {
         vec![
-            // M6i 系列 - 通用平衡型 (Edge服务) - 最新一代
+            // M6i Series - Universal Balanced (Edge Service) - Latest Generation
             SimpleInstance {
                 name: "m6i.large".to_string(),
                 family: InstanceFamily::GeneralPurpose,
@@ -252,17 +247,18 @@ impl SimpleInstanceSelector {
         ]
     }
 
-    /// 根据服务类型选择实例系列
     fn get_preferred_family(service_type: ServiceType) -> InstanceFamily {
         match service_type {
             ServiceType::Edge => InstanceFamily::GeneralPurpose,
             ServiceType::Worker | ServiceType::Processor | ServiceType::Prover => InstanceFamily::ComputeOptimized,
             ServiceType::Redis => InstanceFamily::MemoryOptimized,
             ServiceType::ScyllaDB => InstanceFamily::StorageOptimized,
+            ServiceType::Watcher => InstanceFamily::GeneralPurpose,
+            ServiceType::ApiService => InstanceFamily::GeneralPurpose,
+            ServiceType::TiKV => InstanceFamily::StorageOptimized,
         }
     }
 
-    /// 为服务组计算实例推荐
     pub fn calculate_recommendation(
         &self, 
         requirements: &ServiceGroupRequirements
@@ -281,40 +277,40 @@ impl SimpleInstanceSelector {
             (self.resource_margin * 100.0) as u32
         );
 
-        // 过滤合适的实例类型（优先选择指定系列）
+        // Filter for appropriate instance types (giving priority to specific series)
         let preferred_instances: Vec<&SimpleInstance> = self.instances.iter()
             .filter(|instance| instance.family == preferred_family)
             .collect();
 
-        // 如果首选系列无合适实例，则考虑所有实例
+        // If there is no suitable instance for the preferred series, consider all instances
         let candidate_instances: Vec<&SimpleInstance> = if preferred_instances.is_empty() {
             self.instances.iter().collect()
         } else {
             preferred_instances
         };
 
-        // 寻找最合适的实例
+        // Find the most suitable instance
         let mut best_option: Option<(SimpleInstance, u32, f32)> = None;
         
         for instance in candidate_instances {
-            // 计算需要多少个实例
+            // Calculate how many instances are needed
             let instances_for_cpu = (required_vcpus as f32 / instance.vcpus as f32).ceil() as u32;
             let instances_for_memory = (required_memory / instance.memory_gb).ceil() as u32;
             let instances_needed = instances_for_cpu.max(instances_for_memory);
 
-            // 限制实例数量（避免管理复杂性）
+            // Limit the number of instances (to avoid management complexity)
             if instances_needed > 10 {
                 continue;
             }
 
-            // 检查是否满足需求
+            // Check if the requirements are met
             let total_vcpus = instance.vcpus * instances_needed;
             let total_memory = instance.memory_gb * instances_needed as f32;
 
             if total_vcpus >= required_vcpus && total_memory >= required_memory {
                 let total_cost = instance.price_per_hour * instances_needed as f32;
-                
-                // 简单的成本效率评分（资源利用率 / 成本）
+
+                // Simple cost efficiency score (resource utilization / cost)
                 let cpu_utilization = requirements.total_vcpus as f32 / total_vcpus as f32;
                 let memory_utilization = requirements.total_memory_gb / total_memory;
                 let avg_utilization = (cpu_utilization + memory_utilization) / 2.0;
@@ -328,8 +324,7 @@ impl SimpleInstanceSelector {
 
         let (best_instance, instance_count, _) = best_option
             .ok_or_else(|| anyhow::anyhow!(
-                "无法为 {} 找到合适的实例类型：需要 {} vCPUs, {:.1} GB 内存",
-                requirements.name,
+            "Unable to find a suitable instance type for {}: requires {} vCPUs, {:.1} GB memory",                requirements.name,
                 required_vcpus,
                 required_memory
             ))?;
@@ -346,7 +341,7 @@ impl SimpleInstanceSelector {
         })
     }
 
-    /// 为多个服务组计算推荐
+
     pub fn calculate_multiple_recommendations(
         &self,
         requirements: Vec<ServiceGroupRequirements>
@@ -361,7 +356,6 @@ impl SimpleInstanceSelector {
         Ok(recommendations)
     }
 
-    /// 打印推荐总结
     pub fn print_recommendations_summary(recommendations: &[SimpleInstanceRecommendation]) {
         if recommendations.is_empty() {
             info!("No instance recommendations");
@@ -374,8 +368,8 @@ impl SimpleInstanceSelector {
         let mut total_vcpus = 0;
         let mut total_memory_gb = 0.0;
         let mut total_hourly_cost = 0.0;
-        
-        // 按实例类型分组统计
+
+        // Group statistics by instance type
         let mut instance_counts: HashMap<String, u32> = HashMap::new();
         
         for rec in recommendations {
@@ -406,28 +400,42 @@ impl SimpleInstanceSelector {
         }
     }
 
-    /// 从配置中构建服务组需求
+    /// Build service group requirements from configuration
     pub fn build_service_requirements_from_config(
         config: &crate::subcommand::generate::Config
     ) -> Vec<ServiceGroupRequirements> {
         let mut requirements = Vec::new();
 
-        // 构建协调器服务需求
+
         if let Some(coordinator_req) = Self::build_coordinator_requirements(config) {
             requirements.push(coordinator_req);
         }
 
-        // 构建领域服务需求
         for realm in &config.nodes.realms {
             if let Some(realm_req) = Self::build_realm_requirements(config, realm) {
                 requirements.push(realm_req);
             }
         }
 
-        // 构建Redis EC2服务需求
         if let Some(redis_req) = Self::build_redis_requirements(config) {
             requirements.push(redis_req);
         }
+
+        // Add independent workers
+        if let Some(workers_req) = Self::build_independent_workers_requirements(config) {
+            requirements.push(workers_req);
+        }
+
+        // Add global services
+        if let Some(api_service_req) = Self::build_api_service_requirements(config) {
+            requirements.push(api_service_req);
+        }
+
+        // Add TiKV requirements
+        if let Some(tikv_req) = Self::build_tikv_requirements(config) {
+            requirements.push(tikv_req);
+        }
+
 
         requirements
     }
@@ -458,21 +466,6 @@ impl SimpleInstanceSelector {
             }
         }
 
-        if coordinator.worker.enabled {
-            if let Some(aws_config) = &coordinator.worker.aws {
-                let task_count = match &aws_config.deployment_type {
-                    Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                        aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
-                    },
-                    Some(crate::subcommand::generate::DeploymentType::EC2) => {
-                        aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
-                    },
-                    _ => 1
-                };
-                total_vcpus += aws_config.cpu * task_count / 1024;
-                total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
-            }
-        }
 
         if coordinator.edge.enabled {
             if let Some(aws_config) = &coordinator.edge.aws {
@@ -487,6 +480,25 @@ impl SimpleInstanceSelector {
                 };
                 total_vcpus += aws_config.cpu * task_count / 1024;
                 total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
+            }
+        }
+
+        // Add watcher if enabled
+        if let Some(watcher) = &coordinator.watcher {
+            if watcher.enabled {
+                if let Some(aws_config) = &watcher.aws {
+                    let task_count = match &aws_config.deployment_type {
+                        Some(crate::subcommand::generate::DeploymentType::ECS) => {
+                            aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
+                        },
+                        Some(crate::subcommand::generate::DeploymentType::EC2) => {
+                            aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
+                        },
+                        _ => 1
+                    };
+                    total_vcpus += aws_config.cpu * task_count / 1024;
+                    total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
+                }
             }
         }
 
@@ -530,21 +542,6 @@ impl SimpleInstanceSelector {
             }
         }
 
-        if realm.worker.enabled {
-            if let Some(aws_config) = &realm.worker.aws {
-                let task_count = match &aws_config.deployment_type {
-                    Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                        aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
-                    },
-                    Some(crate::subcommand::generate::DeploymentType::EC2) => {
-                        aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
-                    },
-                    _ => 1
-                };
-                total_vcpus += aws_config.cpu * task_count / 1024;
-                total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
-            }
-        }
 
         if realm.edge.enabled {
             if let Some(aws_config) = &realm.edge.aws {
@@ -561,6 +558,24 @@ impl SimpleInstanceSelector {
                 total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
             }
         }
+        // Add watcher if enabled
+        if let Some(watcher) = &realm.watcher {
+            if watcher.enabled {
+                if let Some(aws_config) = &watcher.aws {
+                    let task_count = match &aws_config.deployment_type {
+                        Some(crate::subcommand::generate::DeploymentType::ECS) => {
+                            aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
+                        },
+                        Some(crate::subcommand::generate::DeploymentType::EC2) => {
+                            aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
+                        },
+                        _ => 1
+                    };
+                    total_vcpus += aws_config.cpu * task_count / 1024;
+                    total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
+                }
+            }
+        }
 
         // For EC2 instances, we want a reasonable minimum count
         instance_count = 1;
@@ -568,7 +583,7 @@ impl SimpleInstanceSelector {
         if total_vcpus > 0 {
             Some(ServiceGroupRequirements {
                 name: format!("Realm-{}", realm.id),
-                service_type: ServiceType::Worker, // 领域主要是工作负载
+                service_type: ServiceType::Worker,
                 total_vcpus,
                 total_memory_gb,
                 instance_count,
@@ -627,6 +642,117 @@ impl SimpleInstanceSelector {
             None
         }
     }
+    fn build_independent_workers_requirements(
+        config: &crate::subcommand::generate::Config
+    ) -> Option<ServiceGroupRequirements> {
+        if let Some(workers) = &config.nodes.workers {
+            if workers.enabled {
+                let mut total_vcpus = 0;
+                let mut total_memory_gb = 0.0;
+                let mut instance_count = 0;
+
+                for pool in &workers.worker_pools {
+                    if let Some(aws_config) = &pool.aws {
+                        let task_count = match &aws_config.deployment_type {
+                            Some(crate::subcommand::generate::DeploymentType::ECS) => {
+                                aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(pool.instances)
+                            },
+                            Some(crate::subcommand::generate::DeploymentType::EC2) => {
+                                aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(pool.instances)
+                            },
+                            _ => pool.instances
+                        };
+                        total_vcpus += aws_config.cpu * task_count / 1024;
+                        total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
+                        instance_count += task_count;
+                    }
+                }
+                if total_vcpus > 0 {
+                    return Some(ServiceGroupRequirements {
+                        name: "Independent-Workers".to_string(),
+                        service_type: ServiceType::Worker,
+                        total_vcpus,
+                        total_memory_gb,
+                        instance_count,
+                    });
+                }
+            }
+        }
+        None
+    }
+
+    fn build_api_service_requirements(
+        config: &crate::subcommand::generate::Config
+    ) -> Option<ServiceGroupRequirements> {
+        if let Some(global_services) = &config.global_api_services {
+            if let Some(api_service) = &global_services.api_service {
+                if api_service.enabled {
+                    if let Some(aws_config) = &api_service.aws {
+                        let task_count = match &aws_config.deployment_type {
+                            Some(crate::subcommand::generate::DeploymentType::ECS) => {
+                                aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
+                            },
+                            Some(crate::subcommand::generate::DeploymentType::EC2) => {
+                                aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
+                            },
+                            _ => 1
+                        };
+
+                        let total_vcpus = aws_config.cpu * task_count / 1024;
+                        let total_memory_gb = aws_config.memory as f32 * task_count as f32 / 1024.0;
+
+                        if total_vcpus > 0 {
+                            return Some(ServiceGroupRequirements {
+                                name: "API-Service".to_string(),
+                                service_type: ServiceType::ApiService,
+                                total_vcpus,
+                                total_memory_gb,
+                                instance_count: task_count,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn build_tikv_requirements(
+        config: &crate::subcommand::generate::Config
+    ) -> Option<ServiceGroupRequirements> {
+        // Check if any node is using TiKV
+        let coordinator_uses_tikv = config.nodes.coordinator.backend.as_ref()
+            .map(|b| b.database == "tikv").unwrap_or(false);
+        let realm_uses_tikv = config.nodes.realms.iter().any(|r|
+            r.backend.as_ref().map(|b| b.database == "tikv").unwrap_or(false));
+
+        if coordinator_uses_tikv || realm_uses_tikv {
+            // Get TiKV configuration from coordinator (assume unified TiKV cluster)
+            if let Some(backend) = &config.nodes.coordinator.backend {
+                if let Some(tikv_config) = &backend.tikv {
+                    if let Some(tikv_aws) = &tikv_config.aws {
+                        let tikv_instances = tikv_aws.tikv_count;
+                        let pd_instances = tikv_aws.pd_count;
+                        let total_instances = tikv_instances + pd_instances;
+
+                        let total_vcpus = tikv_aws.cpu * total_instances / 1024;
+                        let total_memory_gb = tikv_aws.memory as f32 * total_instances as f32 / 1024.0;
+
+                        if total_vcpus > 0 {
+                            return Some(ServiceGroupRequirements {
+                                name: "TiKV-Cluster".to_string(),
+                                service_type: ServiceType::TiKV,
+                                total_vcpus,
+                                total_memory_gb,
+                                instance_count: total_instances,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
 }
 
 impl Default for SimpleInstanceSelector {
@@ -645,6 +771,9 @@ mod tests {
         assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::Worker), InstanceFamily::ComputeOptimized);
         assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::Redis), InstanceFamily::MemoryOptimized);
         assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::ScyllaDB), InstanceFamily::StorageOptimized);
+        assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::Watcher), InstanceFamily::GeneralPurpose);
+        assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::ApiService), InstanceFamily::GeneralPurpose);
+        assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::TiKV), InstanceFamily::StorageOptimized);
     }
 
     #[test]
@@ -660,8 +789,8 @@ mod tests {
         };
 
         let recommendation = selector.calculate_recommendation(&requirements).unwrap();
-        
-        // 验证推荐结果包含足够的资源（含25%余量）
+
+        // Verify that the recommendation result contains sufficient resources (including 25% margin)
         assert!(recommendation.total_vcpus >= 5); // 4 * 1.25 = 5
         assert!(recommendation.total_memory_gb >= 10.0); // 8.0 * 1.25 = 10.0
         assert_eq!(recommendation.service_type, ServiceType::Worker);

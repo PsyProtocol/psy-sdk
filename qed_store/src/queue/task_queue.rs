@@ -643,6 +643,12 @@ impl QProvingTaskStoreImpl {
             _ => Ok(false),
         }
     }
+
+    pub async fn make_job_visible_again(&self, job: &QJob) -> Result<()> {
+        let queue_id = self.layer_queue_id(&job.layer_id);
+        self.rsmq.change_message_visibility(&queue_id, &job.msg_id, Duration::from_secs(0)).await?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

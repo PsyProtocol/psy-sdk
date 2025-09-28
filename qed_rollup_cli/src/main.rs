@@ -1,14 +1,8 @@
 mod subcommand;
 
 use clap::Parser;
-use crate::subcommand::coordinator_edge;
-use crate::subcommand::coordinator_processor;
-use crate::subcommand::realm_edge;
-use crate::subcommand::realm_processor;
-use crate::subcommand::worker;
-use crate::subcommand::watcher;
-use crate::subcommand::Cli;
-use crate::subcommand::Commands;
+
+use crate::subcommand::{coordinator_edge, coordinator_processor, realm_edge, realm_processor, watcher, worker, Cli, Commands};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -35,7 +29,34 @@ async fn main() -> anyhow::Result<()> {
         Commands::Watcher(args) => {
             watcher::run(args).await?;
         }
-
+        Commands::CoordinatorProcessorSync {
+            checkpoint,
+            aws_bucket,
+            backend_config,
+            config_path
+        } => {
+            qed_node::coordinator::recovery::run_sync_command(checkpoint, aws_bucket, backend_config, config_path).await?;
+        }
+        Commands::RealmProcessorSync {
+            realm_id,
+            checkpoint,
+            aws_bucket,
+            redis_uri,
+            queue_biz_key,
+            backend_config,
+            config_path,
+        } => {
+            qed_node::realm::recovery::run_realm_sync_command(
+                realm_id,
+                checkpoint,
+                aws_bucket,
+                backend_config,
+                redis_uri,
+                queue_biz_key,
+                config_path,
+            )
+            .await?;
+        }
     };
     Ok::<_, anyhow::Error>(())
 }

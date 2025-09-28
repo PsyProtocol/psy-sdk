@@ -4,6 +4,13 @@ export SQLX_OFFLINE=true
 PROFILE := release
 LOG_LEVEL := qed_rollup_utils=trace,tikv_client=warn,qed_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,qed_node=trace,qed_common_circuit=trace,qed_rollup_circuit=trace,qed_prover=trace,qed_data=trace,plonky2=error
 
+
+BACKUP ?= false
+ifeq ($(BACKUP),true)
+	# you must set aws credentials and config in under ~/.aws folder or in environment variables if you want to enable backup
+	export QED_BACKUP_BUCKET=qed-backup
+endif
+
 default: build wallet-build
 
 check:
@@ -408,22 +415,25 @@ run-benchmark:
 	@./scripts/run_benchmark.sh
 
 run-benchmark-user:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-user --max-task 10
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-user
 
-run-benchmark-deploy:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-deploy-contract --contract-path qed_precompiles/token/target/token.json --max-task 5
+run-benchmark-register:
+	@RUST_LOG=${LOG_LEVEL} cargo run --example register_user
 
 run-benchmark-mint:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100 --max-task 50
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100
 
 run-benchmark-transfer:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-multi-user-transfer --concurrent-tasks 100 --max-task 50
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-multi-user-transfer --concurrent-tasks 20
 
 run-benchmark-flow:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --concurrent-tasks 100 --max-task 50
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --concurrent-tasks 100
 
-run-benchmark-multi-transfer:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-multi-transfer --max-task 10
+run-benchmark-flow-repeat:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --repeat 100
+
+run-benchmark-deploy:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path token/target/token.json
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token
@@ -504,8 +514,8 @@ get-job-proof:
 	@RUST_LOG=info ./target/${PROFILE}/qed_dev_cli get-job-proof --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
 
 # Unified RPC commands using qed_user_cli automatic routing
-balance-of:
-	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
+get-slot-value:
+	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID} | jq '.value' | tr -d '"'
 
 reward-of:
 	@echo "Getting rewards of all users ..."
@@ -594,6 +604,17 @@ get-user-contract-tree-merkle-proof:
 
 get-user-contract-state-tree-merkle-proof:
 	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
+
+AWS_S3_BUCKET := qed-backup
+
+sync-store-coordinator-processor:
+	@./target/${PROFILE}/qed_rollup_cli coordinator-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/coordinator
+
+sync-store-realm-processor:
+	@./target/${PROFILE}/qed_rollup_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm0 --realm-id 0 --queue-biz-key rwq0 --redis-uri redis://127.0.0.1:6380
+
+sync-store-realm-processor1:
+	@./target/${PROFILE}/qed_rollup_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm1 --realm-id 1 --queue-biz-key rwq1 --redis-uri redis://127.0.0.1:6381
 
 # Check if user exists in realm
 check-user-id:

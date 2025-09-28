@@ -1205,13 +1205,14 @@ impl<
         Ok(false)
     }
 
-    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<()> {
-        self.store.commit(None)?;
+    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
+        let (pair_to_set, remove_keys) = self.store.commit(None)?;
         self.commit_offset().await?;
         self.task_store
-        .save_job_dependency_graph(checkpoint_id)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", checkpoint_id, e))
+            .save_job_dependency_graph(checkpoint_id)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to save job dependency graph for checkpoint {}: {}", checkpoint_id, e))?;
+        Ok((pair_to_set, remove_keys))
     }
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {

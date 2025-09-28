@@ -137,7 +137,7 @@ impl<
 
         if checkpoint_tree_proof.root != input.core.state_transition.checkpoint_tree_root_hash {
             tracing::warn!(
-                "ensure checkpoint_tree_proof: {:?} == input.core.state_transition.checkpoint_tree_root_hash {:?}",
+                "ensure checkpoint_tree_proof: {} == input.core.state_transition.checkpoint_tree_root_hash {}",
                 checkpoint_tree_proof.root,
                 input.core.state_transition.checkpoint_tree_root_hash,
             );

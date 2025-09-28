@@ -10,7 +10,7 @@ use kvq::traits::ambassador_impl_KVQBinaryStore;
 
 #[auto_impl(&, Box, Arc)]
 pub trait Journal: KVQBinaryStore {
-    fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<()>;
+    fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
     fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
     fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
     fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()>{ Ok(()) }
@@ -48,7 +48,7 @@ impl<S: KVQBinaryStore> JournalStore<S> {
 }
 
 impl<S: KVQBinaryStore> Journal for JournalStore<S> {
-    fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<()> {
+    fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         self.inner.flush_simple(_checkpoint_id)
     }
 
@@ -81,7 +81,7 @@ impl<S: KVQBinaryStore> Journal for JournalStore<S> {
 #[async_trait]
 #[auto_impl(&, Box, Arc)]
 pub trait JournalAsync: KVQBinaryStoreAsync {
-    async fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<()>;
+    async fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
     async fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
     async fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
     async fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()>{ Ok(()) }
@@ -181,7 +181,7 @@ impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStoreAsync for JournalStoreA
 
 #[async_trait]
 impl<S: KVQBinaryStoreAsync+ Send + Sync> JournalAsync for JournalStoreAsync<S> {
-    async fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<()> {
+    async fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         self.inner.flush_simple(_checkpoint_id).await
     }
 
@@ -207,7 +207,7 @@ impl<S: KVQBinaryStoreAsync+ Send + Sync> JournalAsync for JournalStoreAsync<S> 
     async fn get_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<Option<Vec<u8>>> {
         self.get_base_store().await.get_exact_if_exists(&self.snapshot_key(checkpoint_id)).await
     }
-    
+
     async fn get_base_store(&self) -> &dyn KVQBinaryStoreAsync {
         self.inner.store.as_ref()
     }

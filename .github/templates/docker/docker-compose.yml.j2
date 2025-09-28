@@ -110,7 +110,7 @@ services:
   # ScyllaDB clusters
 
   # Coordinator ScyllaDB cluster
-  {% if config.nodes.coordinator.backend and config.nodes.coordinator..database == "scylla" -%}
+  {% if config.nodes.coordinator.backend and config.nodes.coordinator.database == "scylla" -%}
     {% set coordinator_cluster_size = config.nodes.coordinator.backend.scylla.aws.ec2.desired_instances | default(1) -%}
   {% else -%}
     {% set coordinator_cluster_size = 0 -%}
@@ -441,7 +441,7 @@ services:
         PROFILE: release
     container_name: qed-realm{{ realm.id }}-edge
     ports:
-      - "{{ (realm.edge.args.listen_addr | default('0.0.0.0:' ~ (8546 + realm.id))) | split(':') | last }}:{{ 8546 + realm.id }}"
+      - "{{ (realm.edge.args['listen-addr'] | default('0.0.0.0:' ~ (8546 + realm.id))) | split(':') | last }}:{{ 8546 + realm.id }}"
     command: >
       realm-edge
       {% if realm.backend -%}

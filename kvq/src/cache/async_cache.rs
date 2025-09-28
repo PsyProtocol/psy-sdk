@@ -134,7 +134,7 @@ impl<S: KVQBinaryStoreAsync + Sync + Send> KVQBinaryStoreCachedTraitAsync for KV
         self.map.write().await.clear();
     }
 
-    async fn flush_simple(&self, checkpoint_id: Option<u64>) -> anyhow::Result<()> {
+    async fn flush_simple(&self, checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (keys_to_set, removed_keys) = {
             let mut map = self.map.write().await;
             let keys_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>> = map.iter().filter(|(_, vt)|{
@@ -186,7 +186,7 @@ impl<S: KVQBinaryStoreAsync + Sync + Send> KVQBinaryStoreCachedTraitAsync for KV
         self.store.set_and_delete_many(&keys_to_set_ref, &removed_keys).await?;
 
         self.map.write().await.clear();
-        Ok(())
+        Ok((keys_to_set, removed_keys))
     }
 }
 

@@ -78,6 +78,7 @@ where
                 .guta_circuit_whitelist,
             //a_guta_gadget.guta_whitelist_merkle_proof.root,
         );
+        tracing::debug!("📊 a_guta_header: {:?}", a_guta_header);
 
         let b_guta_header = b_guta_gadget.get_guta_header::<C::Hasher, C::F>(
             &mut builder,
@@ -85,6 +86,7 @@ where
                 .guta_proof_header_gadget
                 .guta_circuit_whitelist,
         );
+        tracing::debug!("📊 b_guta_header: {:?}", b_guta_header);
 
         let nca_state_transition_gadget = TwoNCAStateTransitionGadget::add_virtual_to::<
             C::Hasher,
@@ -259,7 +261,7 @@ where
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
         tracing::debug!("GUTAVerifyTwoGUTACircuitInput: {}", serde_json::to_string_pretty(&r)?);
-        
+
         if r.dependencies.len() != 2 {
             anyhow::bail!("invalid dependency count in two end guta input");
         }
