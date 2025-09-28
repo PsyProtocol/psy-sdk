@@ -190,8 +190,8 @@ pub trait QProofStoreReaderAsync {
         &self,
         id: QProvingJobDataID,
     ) -> anyhow::Result<Vec<C::F>> {
-        let proof = self.get_proof_by_id::<C, D>(id).await?;
-        Ok(proof.public_inputs)
+        let public_inputs = self.get_public_input_by_id::<C, D>(id).await?;
+        Ok(public_inputs)
     }
 
 }
