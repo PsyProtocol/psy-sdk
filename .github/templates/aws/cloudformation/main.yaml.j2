@@ -602,15 +602,15 @@ Resources:
             services:
               pd:
                 image: pingcap/pd:latest
-                container_name: pd$${PD_INDEX}
+                container_name: pdPD_INDEX_PLACEHOLDER
                 network_mode: host
                 command:
-                  - --name=pd$${PD_INDEX}
+                  - --name=pdPD_INDEX_PLACEHOLDER
                   - --client-urls=http://0.0.0.0:2379
                   - --peer-urls=http://0.0.0.0:2380
-                  - --advertise-client-urls=http://$${INSTANCE_IP}:2379
-                  - --advertise-peer-urls=http://$${INSTANCE_IP}:2380
-                  - --initial-cluster=$${INITIAL_CLUSTER}
+                  - --advertise-client-urls=http://INSTANCE_IP_PLACEHOLDER:2379
+                  - --advertise-peer-urls=http://INSTANCE_IP_PLACEHOLDER:2380
+                  - --initial-cluster=INITIAL_CLUSTER_PLACEHOLDER
                   - --data-dir=/var/lib/pd
                   - --log-file=/var/log/pd.log
                 volumes:
@@ -618,7 +618,34 @@ Resources:
                   - /var/log:/var/log
                 restart: unless-stopped
             COMPOSE_EOF
+
+            replace_placeholder() {
+                local placeholder="$1"
+                local value="$2"
+                local file="$3"
+
+                local escaped_value
+                escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\]/\\&/g')
+
+                echo "[INFO] Replacing $placeholder with '$value' in $file ..."
+                if ! sed -i "s|$placeholder|$escaped_value|g" "$file"; then
+                    echo "[ERROR] sed replacement failed for $placeholder"
+                    echo "[DEBUG] Original replacement value: '$value'"
+                    echo "[DEBUG] File content around placeholder ($placeholder):"
+                    grep -n "$placeholder" -C 3 "$file" || echo "  (placeholder not found)"
+                    exit 1
+                fi
+            }
             
+            replace_placeholder "INSTANCE_IP_PLACEHOLDER" "$INSTANCE_IP" /opt/docker-compose.yml
+            replace_placeholder "PD_INDEX_PLACEHOLDER" "$PD_INDEX" /opt/docker-compose.yml
+            replace_placeholder "INITIAL_CLUSTER_PLACEHOLDER" "$INITIAL_CLUSTER" /opt/docker-compose.yml
+
+            echo "[INFO] Final /opt/docker-compose.yml after replacements:"
+            echo "-----------------------------------------"
+            cat /opt/docker-compose.yml
+            echo "-----------------------------------------"
+
             # Start PD container
             cd /opt
             docker-compose up -d
@@ -829,10 +856,33 @@ Resources:
                   - TZ=UTC
             COMPOSE_EOF
           
+            # Function to safely run sed with logging
+            replace_placeholder() {
+                local placeholder="$1"
+                local value="$2"
+                local file="$3"
 
-            # Replace placeholders with actual values
-            sed -i "s/INSTANCE_IP_PLACEHOLDER/$INSTANCE_IP/g" /opt/docker-compose.yml
-            sed -i "s/PD_ENDPOINTS_PLACEHOLDER/$PD_ENDPOINTS/g" /opt/docker-compose.yml
+                # Escape sed special chars in the replacement string
+                local escaped_value
+                escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\]/\\&/g')
+
+                echo "[INFO] Replacing $placeholder with '$value' in $file ..."
+                if ! sed -i "s|$placeholder|$escaped_value|g" "$file"; then
+                    echo "[ERROR] sed replacement failed for $placeholder"
+                    echo "[DEBUG] Original placeholder value: '$value'"
+                    echo "[DEBUG] File content around placeholder:"
+                    grep -n "$placeholder" -C 3 "$file" || echo "  (placeholder not found)"
+                    exit 1
+                fi
+            }
+
+            # Replace placeholders with actual values, with logging
+            replace_placeholder "INSTANCE_IP_PLACEHOLDER" "$INSTANCE_IP" /opt/docker-compose.yml
+            replace_placeholder "PD_ENDPOINTS_PLACEHOLDER" "$PD_ENDPOINTS" /opt/docker-compose.yml
+
+            echo "[INFO] Final docker-compose.yml:"
+            cat /opt/docker-compose.yml
+
 
             # Start TiKV
             cd /opt

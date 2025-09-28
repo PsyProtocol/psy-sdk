@@ -100,15 +100,14 @@ Resources:
             - /bin/bash
             - -c
           Command:
-            - |
+            - !Sub |
               # Download configuration from S3
-              CONFIG_BUCKET="${ProjectName}-${Environment}-config"
-              CONFIG_URL="https://${CONFIG_BUCKET}.s3.${AWS::Region}.amazonaws.com/services/coordinator.json"
+              CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/services/coordinator.json"
 
               echo "Downloading config from: $CONFIG_URL"
               if ! curl -o /app/config.json "$CONFIG_URL"; then
                 echo "ERROR: Failed to download config from S3, trying base config..."
-                CONFIG_URL="https://${CONFIG_BUCKET}.s3.${AWS::Region}.amazonaws.com/current/config.json"
+                CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/current/config.json"
                 if ! curl -o /app/config.json "$CONFIG_URL"; then
                   echo "ERROR: Failed to download any config"
                   exit 1
@@ -882,18 +881,26 @@ Resources:
             - /bin/bash
             - -c
           Command:
-            - |
+            - !Sub |
               # Install jq if not available (it should be in your Docker image)
               if ! command -v jq &> /dev/null; then
                 apt-get update && apt-get install -y jq
               fi
               # Download latest config from S3
-              CONFIG_URL="https://${ConfigBucket}.s3.${AWS::Region}.amazonaws.com/services/worker.json"
+              CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/services/worker.json"
               echo "Downloading config from: $CONFIG_URL"
 
               # Use curl or wget to download config
-              curl -o /app/config.json "$CONFIG_URL" || \
-                wget -O /app/config.json "$CONFIG_URL"
+              if ! curl -f -o /app/config.json "$CONFIG_URL"; then
+                echo "ERROR: Failed to download config from $CONFIG_URL"
+                # Try alternative path
+                CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/current/config.json"
+                echo "Trying alternative: $CONFIG_URL"
+                if ! curl -f -o /app/config.json "$CONFIG_URL"; then
+                  echo "ERROR: Failed to download config from any location"
+                  exit 1
+                fi
+              fi
               
               # Verify config was downloaded
               if [ ! -f /app/config.json ]; then
