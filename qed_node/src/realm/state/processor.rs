@@ -803,8 +803,8 @@ impl<
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
                     dependencies: vec![
-                        r_proof_id.get_output_id(),
                         left_endcap.proof_id.get_output_id(),
+                        r_proof_id.get_output_id(),
                     ],
                 };
                 x.input.check_witness()?;
