@@ -626,10 +626,10 @@ impl<
             tracing::debug!(i = i, verify_result = ?res.nca_proofs[i].verify::<QEDHasher>(), "NCA proof verification");
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind <= -1 && r_dep_ind <= -1 {
-                tracing::debug!("Both dependencies are new");
                 let l_dep_ind = -(l_dep_ind + 1) as usize;
                 let r_dep_ind = -(r_dep_ind + 1) as usize;
                 if guta_queue_items[l_dep_ind].checkpoint_tree_root != last_checkpoint_tree_root || guta_queue_items[r_dep_ind].checkpoint_tree_root != last_checkpoint_tree_root {
+                    tracing::debug!("LeftRightRealmGutaWithCheckpointUpgrade");
                     let real_left_guta_checkpoint_id = guta_queue_items[l_dep_ind].checkpoint_id.saturating_sub(1);
                     let real_right_guta_checkpoint_id = guta_queue_items[r_dep_ind].checkpoint_id.saturating_sub(1);
                     let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_left_guta_checkpoint_id).await?;
@@ -670,6 +670,7 @@ impl<
                         value: bincode::serialize(&x)?,
                     });
                 } else {
+                    tracing::debug!("LeftRightRealmGuta");
                     let input = VerifyTwoGUTAProofGadgetStandardInputSimple {
                         checkpoint_tree_root: guta_queue_items[l_dep_ind].checkpoint_tree_root,
                         b_checkpoint_tree_root: guta_queue_items[r_dep_ind].checkpoint_tree_root,
@@ -707,7 +708,7 @@ impl<
                     });
                 }
             } else if r_dep_ind > -1 && l_dep_ind > -1 {
-                tracing::debug!("Both dependencies exist");
+                tracing::debug!("LeftRightCoordinatorGuta");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
                 let x = CircuitInputWithDependencies {
@@ -745,12 +746,12 @@ impl<
                 });
 
             } else if l_dep_ind > -1 {
-                tracing::debug!("Left dependency exists");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let r_dep_ind = -(r_dep_ind + 1) as usize;
                 let right_guta_item = &guta_queue_items[r_dep_ind];
 
                 if right_guta_item.checkpoint_tree_root != last_checkpoint_tree_root {
+                    tracing::debug!("LeftCoordinatorGutaRightRealmGutaWithCheckpointUpgrade");
                     let real_last_guta_checkpoint_id = right_guta_item.checkpoint_id.saturating_sub(1);
                     let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id).await?;
                     let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id).await?;
@@ -791,6 +792,7 @@ impl<
                     });
 
                 } else {
+                    tracing::debug!("LeftCoordinatorGutaRightRealmGuta");
                     let x = CircuitInputWithDependencies {
                         input: VerifyTwoGUTAProofGadgetStandardInputSimple {
                             checkpoint_tree_root: last_checkpoint_tree_root,
@@ -828,12 +830,12 @@ impl<
                     });
                 }
             } else {
-                tracing::debug!("Right dependency exists");
                 let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
                 let l_dep_ind = -(l_dep_ind + 1) as usize;
                 let left_guta_item = &guta_queue_items[l_dep_ind];
 
                 if left_guta_item.checkpoint_tree_root != last_checkpoint_tree_root {
+                    tracing::debug!("LeftRealmGutaRightCoordinatorGutaWithCheckpointUpgrade");
                     let real_last_guta_checkpoint_id = left_guta_item.checkpoint_id.saturating_sub(1);
                     let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id).await?;
                     let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id).await?;
@@ -872,8 +874,8 @@ impl<
                         key: w_id,
                         value: bincode::serialize(&x)?,
                     });
-
                 } else {
+                    tracing::debug!("LeftRealmGutaRightCoordinatorGuta");
                     let x = CircuitInputWithDependencies {
                         input: VerifyTwoGUTAProofGadgetStandardInputSimple {
                             checkpoint_tree_root: last_checkpoint_tree_root,
