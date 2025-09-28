@@ -1,6 +1,7 @@
 pub mod prove_proxy;
 
 use std::sync::Arc;
+use std::time::Duration;
 use parking_lot::{RwLock, Mutex};
 use jsonrpsee::core::async_trait;
 use jsonrpsee::proc_macros::rpc;
@@ -8,6 +9,7 @@ use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use tokio::time::timeout;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
@@ -129,11 +131,30 @@ impl RpcServer for RpcServerImpl {
         public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .prove_contract_calls(public_key, contract_call_args)
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
-        Ok("prove contract calls".to_string())
+        let wallet_session = self.wallet_session.clone();
+        match timeout(
+            Duration::from_secs(60),
+            tokio::task::spawn_blocking(move || {
+                wallet_session
+                    .write()
+                    .prove_contract_calls(public_key, contract_call_args)
+            })
+        ).await {
+            Ok(join_result) => {
+                match join_result {
+                    Ok(result) => {
+                        result.map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
+                        Ok("prove contract calls".to_string())
+                    }
+                    Err(join_err) => {
+                        Err(ErrorObject::owned(1, join_err.to_string(), None::<()>))
+                    }
+                }
+            }
+            Err(_timeout_err) => {
+                Err(ErrorObject::owned(1, "Timeout: prove_contract_calls took longer than 60 seconds".to_string(), None::<()>))
+            }
+        }
     }
 
     async fn sign_and_submit(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
