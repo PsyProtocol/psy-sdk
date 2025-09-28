@@ -501,10 +501,10 @@ impl VerifyLeftEndCapRightGUTAInputSimple<GoldilocksField> {
         self.a_end_cap.check_witness()?;
         let (_historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.a_end_cap.checkpoint_historical_merkle_proof);
         if current_root != self.checkpoint_tree_root {
-            return Err(anyhow::anyhow!("left guta right endcap checkpoint tree root not match"));
+            return Err(anyhow::anyhow!("left endcap right guta checkpoint tree root not match"));
         }
         if current_root != self.a_end_cap.checkpoint_historical_merkle_proof.root {
-            return Err(anyhow::anyhow!("right endcap historical merkel proof not match"));
+            return Err(anyhow::anyhow!("left endcap historical merkel proof not match"));
         }
         Ok(())
     }
