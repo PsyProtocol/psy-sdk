@@ -494,7 +494,7 @@ build_and_push_image() {
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY RUN] Would build Docker image: ${ECR_URI}:${tag}"
     else
-        if ! docker build -t "${ECR_URI}:${tag}" -f ../Dockerfile ..; then
+        if ! docker build --no-cache -t "${ECR_URI}:${tag}" -f ../Dockerfile ..; then
             log_error "Failed to build Docker image"
             return 1
         fi
@@ -801,6 +801,7 @@ deploy_ecs_services() {
         --output json \
         --region "${REGION}")
     
+
     # Get TiKV PD endpoints dynamically
     log_info "Discovering TiKV PD endpoints..."
     local PD_ENDPOINTS=""
@@ -861,6 +862,7 @@ deploy_ecs_services() {
         "TaskRoleArn"
         "ServiceDiscoveryNamespaceId"
         "ALBTargetGroupCoordinatorArn"
+        "ConfigBucketName"
         {# {% for realm in config.nodes.realms %}"ALBTargetGroupRealm{{ realm.id }}Arn" {% endfor %} #}
         "RedisCoordinatorEndpoint"
         {# {% for realm in config.nodes.realms %}"RedisRealm{{ realm.id }}Endpoint" {% endfor %} #}
@@ -891,6 +893,7 @@ deploy_ecs_services() {
         log_debug "Parameters JSON:"
         cat "$params_file"
     fi
+
     
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY RUN] Would deploy services stack with parameters:"
@@ -1322,53 +1325,441 @@ show_logs() {
         --region "${REGION}"
 }
 
+# Function to upload and manage config in S3
+manage_config() {
+    local action=$1
+    local config_bucket="${PROJECT_NAME}-${ENVIRONMENT}-config"
+    local base_config_key="base/config.json"
+    local service_configs_prefix="services/"
+    
+    case "$action" in
+        upload-base)
+            log_info "Uploading base config to S3..."
+            aws s3 cp ../config.json "s3://${config_bucket}/${base_config_key}" \
+                --content-type "application/json" \
+                --metadata "timestamp=$(date -u +%Y%m%d%H%M%S)" \
+                --region "${REGION}"
+            ;;
+            
+        generate-service-configs)
+            log_info "Generating service-specific configs..."
+            
+            # Get current infrastructure endpoints
+            local alb_dns=$(aws cloudformation describe-stacks \
+                --stack-name "${PROJECT_NAME}-main" \
+                --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+                --output text \
+                --region "${REGION}")
+            
+            # Download base config
+            aws s3 cp "s3://${config_bucket}/${base_config_key}" /tmp/base_config.json
+            
+            # Generate coordinator config
+            jq --arg alb "$alb_dns" \
+                '.network.coordinator_configs[0].rpc_url = ["http://\($alb):8545"]' \
+                /tmp/base_config.json > /tmp/coordinator_config.json
+            
+            aws s3 cp /tmp/coordinator_config.json \
+                "s3://${config_bucket}/${service_configs_prefix}coordinator.json" \
+                --content-type "application/json" \
+                --region "${REGION}"
+            
+            # Generate realm configs
+            for i in 0 1; do
+                jq --arg alb "$alb_dns" --arg realm_id "$i" \
+                    '.network.realm_configs[$realm_id | tonumber].rpc_url = ["http://\($alb):" + (8546 + ($realm_id | tonumber) | tostring)]' \
+                    /tmp/base_config.json > "/tmp/realm${i}_config.json"
+                
+                aws s3 cp "/tmp/realm${i}_config.json" \
+                    "s3://${config_bucket}/${service_configs_prefix}realm${i}.json" \
+                    --content-type "application/json" \
+                    --region "${REGION}"
+            done
+            
+            # Generate worker config with all endpoints
+            jq --arg alb "$alb_dns" '
+                .network.coordinator_configs[0].rpc_url = ["http://\($alb):8545"] |
+                .network.realm_configs[0].rpc_url = ["http://\($alb):8546"] |
+                .network.realm_configs[1].rpc_url = ["http://\($alb):8547"]
+            ' /tmp/base_config.json > /tmp/worker_config.json
+            
+            aws s3 cp /tmp/worker_config.json \
+                "s3://${config_bucket}/${service_configs_prefix}worker.json" \
+                --content-type "application/json" \
+                --region "${REGION}"
+            ;;
+            
+        get-url)
+            local service=${2:-base}
+            if [ "$service" = "base" ]; then
+                echo "https://${config_bucket}.s3.${REGION}.amazonaws.com/${base_config_key}"
+            else
+                echo "https://${config_bucket}.s3.${REGION}.amazonaws.com/${service_configs_prefix}${service}.json"
+            fi
+            ;;
+    esac
+}
+
 # Main deployment function
 deploy() {
     log_info "Starting QED Protocol deployment..."
     
-    # Build and push Docker image
+    # ========================================
+    # Phase 1: Build and Push Docker Image
+    # ========================================
     if [ "$SKIP_BUILD" != true ]; then
+        log_info "=== Phase 1: Building Docker Image ==="
         if ! build_and_push_image "$IMAGE_TAG"; then
             log_error "Failed to build and push Docker image"
             return 1
         fi
     else
-        log_info "Skipping Docker build as requested"
+        log_info "=== Phase 1: Skipping Docker build (--skip-build) ==="
     fi
     
-    # Deploy infrastructure first
-    log_info "=== Phase 1: Infrastructure Deployment ==="
+    # ========================================
+    # Phase 2: Deploy Infrastructure
+    # ========================================
+    log_info "=== Phase 2: Deploying Infrastructure ==="
     if ! deploy_infrastructure; then
         log_error "Infrastructure deployment failed"
         return 1
     fi
-
-    # Wait a moment for resources to stabilize
-    log_info "Waiting for infrastructure to stabilize..."
-    sleep 10
-
-    # Deploy ECS services
-    log_info "=== Phase 2: Services Deployment ==="
+    
+    # ========================================
+    # Phase 3: Wait for Infrastructure & Get Endpoints
+    # ========================================
+    log_info "=== Phase 3: Waiting for Infrastructure to be Ready ==="
+    local alb_dns=$(wait_for_alb_dns)
+    if [ -z "$alb_dns" ]; then
+        log_error "Failed to get ALB DNS"
+        return 1
+    fi
+    log_info "ALB DNS obtained: $alb_dns"
+    
+    # ========================================
+    # Phase 4: Setup Configuration Management
+    # ========================================
+    log_info "=== Phase 4: Setting up Configuration ==="
+    if ! setup_config_management "$alb_dns"; then
+        log_error "Failed to setup configuration"
+        return 1
+    fi
+    
+    # ========================================
+    # Phase 5: Deploy ECS Services
+    # ========================================
+    log_info "=== Phase 5: Deploying ECS Services ==="
     if ! deploy_ecs_services; then
         log_error "Services deployment failed"
         return 1
     fi
-
-    # Wait for services stack to complete
-    log_info "Waiting for services deployment to complete..."
-    local services_status=$(get_stack_status "${PROJECT_NAME}-services")
-    local wait_count=0
-    while [[ "$services_status" == *"IN_PROGRESS"* ]] && [ $wait_count -lt 60 ]; do
-        sleep 5
-        services_status=$(get_stack_status "${PROJECT_NAME}-services")
-        wait_count=$((wait_count + 1))
-    done
-
+    
+    # ========================================
+    # Phase 6: Verify Deployment
+    # ========================================
+    log_info "=== Phase 6: Verifying Deployment ==="
+    verify_deployment
+    
     log_info "=== Deployment Completed Successfully! ==="
     show_status
-    
-    # Print ALB URLs and helpful commands
     print_deployment_info
+}
+
+# Helper function to wait for ALB DNS
+wait_for_alb_dns() {
+    local max_attempts=30
+    local attempt=0
+    local alb_dns=""
+    
+    while [ -z "$alb_dns" ] && [ $attempt -lt $max_attempts ]; do
+        alb_dns=$(aws cloudformation describe-stacks \
+            --stack-name "${PROJECT_NAME}-main" \
+            --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+            --output text \
+            --region "${REGION}" 2>/dev/null)
+        
+        if [ -z "$alb_dns" ]; then
+            echo -ne "\rWaiting for ALB DNS... attempt $((attempt+1))/$max_attempts"
+            sleep 5
+            attempt=$((attempt+1))
+        fi
+    done
+    echo ""
+    
+    echo "$alb_dns"
+}
+
+# Centralized config management setup
+setup_config_management() {
+    local alb_dns=$1
+    
+    # Ensure config bucket exists
+    if ! ensure_config_bucket; then
+        log_error "Failed to create config bucket"
+        return 1
+    fi
+    
+    # Upload base config
+    log_info "Uploading base config to S3..."
+    aws s3 cp ../config.json \
+        "s3://${PROJECT_NAME}-${ENVIRONMENT}-config/base/config.json" \
+        --content-type "application/json" \
+        --region "${REGION}"
+    
+    # Generate and upload service-specific configs
+    log_info "Generating service-specific configs..."
+    generate_service_configs "$alb_dns"
+    
+    # Show config URLs for verification
+    log_info "Configuration files available at:"
+    echo "  Base: https://${PROJECT_NAME}-${ENVIRONMENT}-config.s3.${REGION}.amazonaws.com/base/config.json"
+    echo "  Current: https://${PROJECT_NAME}-${ENVIRONMENT}-config.s3.${REGION}.amazonaws.com/current/config.json"
+    echo "  Worker: https://${PROJECT_NAME}-${ENVIRONMENT}-config.s3.${REGION}.amazonaws.com/services/worker.json"
+    
+    return 0
+}
+
+# Ensure config S3 bucket exists
+ensure_config_bucket() {
+    local bucket_name="${PROJECT_NAME}-${ENVIRONMENT}-config"
+    
+    # Check if bucket exists
+    if aws s3 ls "s3://${bucket_name}" --region "${REGION}" >/dev/null 2>&1; then
+        log_info "Config bucket already exists: $bucket_name"
+        return 0
+    fi
+    
+    log_info "Creating config bucket: $bucket_name"
+    
+    # Create bucket with proper region handling
+    if [ "${REGION}" = "us-east-1" ]; then
+        aws s3api create-bucket \
+            --bucket "$bucket_name" \
+            --region "${REGION}"
+    else
+        aws s3api create-bucket \
+            --bucket "$bucket_name" \
+            --region "${REGION}" \
+            --create-bucket-configuration LocationConstraint="${REGION}"
+    fi
+    
+    # Enable versioning for config history
+    aws s3api put-bucket-versioning \
+        --bucket "$bucket_name" \
+        --versioning-configuration Status=Enabled \
+        --region "${REGION}"
+    
+    # Set public read policy for easy access
+    aws s3api put-bucket-policy \
+        --bucket "$bucket_name" \
+        --policy '{
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "PublicReadGetObject",
+                    "Effect": "Allow",
+                    "Principal": "*",
+                    "Action": "s3:GetObject",
+                    "Resource": "arn:aws:s3:::'"$bucket_name"'/*"
+                }
+            ]
+        }' \
+        --region "${REGION}"
+    
+    return 0
+}
+
+# Generate all service-specific configs
+generate_service_configs() {
+    local alb_dns=$1
+    local bucket_name="${PROJECT_NAME}-${ENVIRONMENT}-config"
+    
+    # Generate main config with actual endpoints
+    log_info "Generating config with actual endpoints..."
+    cat ../config.json | jq \
+        --arg alb "$alb_dns" \
+        '.network.coordinator_configs[0].rpc_url = ["http://\($alb):8545"] |
+         .network.realm_configs[0].rpc_url = ["http://\($alb):8546"] |
+         .network.realm_configs[1].rpc_url = ["http://\($alb):8547"]' \
+        > /tmp/config-current.json
+    
+    # Upload current config
+    aws s3 cp /tmp/config-current.json \
+        "s3://${bucket_name}/current/config.json" \
+        --content-type "application/json" \
+        --region "${REGION}"
+    
+    # Generate worker-specific config
+    log_info "Generating worker config..."
+    cat /tmp/config-current.json | jq \
+        '.nodes.workers.args["config"] = "/app/config.json"' \
+        > /tmp/config-worker.json
+    
+    aws s3 cp /tmp/config-worker.json \
+        "s3://${bucket_name}/services/worker.json" \
+        --content-type "application/json" \
+        --region "${REGION}"
+    
+    # Generate coordinator config (if needed)
+    cp /tmp/config-current.json /tmp/config-coordinator.json
+    aws s3 cp /tmp/config-coordinator.json \
+        "s3://${bucket_name}/services/coordinator.json" \
+        --content-type "application/json" \
+        --region "${REGION}"
+    
+    # Generate realm configs
+    for realm_id in 0 1; do
+        cp /tmp/config-current.json "/tmp/config-realm${realm_id}.json"
+        aws s3 cp "/tmp/config-realm${realm_id}.json" \
+            "s3://${bucket_name}/services/realm${realm_id}.json" \
+            --content-type "application/json" \
+            --region "${REGION}"
+    done
+    
+    # Clean up temp files
+    rm -f /tmp/config-*.json
+}
+
+# Verify deployment is working
+verify_deployment() {
+    log_info "Verifying services are running..."
+    
+    # Get cluster name
+    local cluster_name=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='MainECSClusterName'].OutputValue" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$cluster_name" ]; then
+        cluster_name="${PROJECT_NAME}-${ENVIRONMENT}-main-ecs"
+    fi
+    
+    # Check ECS services
+    local services=$(aws ecs list-services \
+        --cluster "$cluster_name" \
+        --query "serviceArns[]" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -n "$services" ]; then
+        log_info "ECS Services deployed:"
+        for service_arn in $services; do
+            local service_name=$(echo "$service_arn" | awk -F'/' '{print $NF}')
+            local status=$(aws ecs describe-services \
+                --cluster "$cluster_name" \
+                --services "$service_arn" \
+                --query "services[0].status" \
+                --output text \
+                --region "${REGION}" 2>/dev/null)
+            echo "  - $service_name: $status"
+        done
+    fi
+    
+    # Test endpoints (optional)
+    local alb_dns=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -n "$alb_dns" ]; then
+        log_info "Testing endpoints..."
+        for port in 8545 8546 8547; do
+            if curl -s -f -m 5 "http://${alb_dns}:${port}/health" >/dev/null 2>&1; then
+                echo "  ✓ Port $port is responding"
+            else
+                echo "  ⚠ Port $port not responding yet (may still be starting)"
+            fi
+        done
+    fi
+}
+
+# Simplified update-services function
+update_services() {
+    log_info "Updating ECS services with new configuration..."
+    
+    # Get ALB DNS
+    local alb_dns=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$alb_dns" ]; then
+        log_error "Could not get ALB DNS. Is infrastructure deployed?"
+        return 1
+    fi
+    
+    # Update configs
+    setup_config_management "$alb_dns"
+    
+    # Force ECS services to pull new config
+    local cluster_name="${PROJECT_NAME}-${ENVIRONMENT}-main-ecs"
+    local services=$(aws ecs list-services \
+        --cluster "$cluster_name" \
+        --query "serviceArns[]" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    for service_arn in $services; do
+        log_info "Restarting service: $(basename $service_arn)"
+        aws ecs update-service \
+            --cluster "$cluster_name" \
+            --service "$service_arn" \
+            --force-new-deployment \
+            --region "${REGION}" >/dev/null
+    done
+    
+    log_info "Services updated. They will restart and fetch new configs."
+}
+
+# Function to cleanup S3 buckets before stack deletion
+cleanup_s3_buckets() {
+    log_info "Cleaning up S3 buckets..."
+    
+    # List all buckets that match our naming pattern
+    local buckets=$(aws s3api list-buckets \
+        --query "Buckets[?contains(Name, '${PROJECT_NAME}')].Name" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    for bucket in $buckets; do
+        log_info "Processing bucket: $bucket"
+        
+        # Check if bucket exists and we can access it
+        if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
+            # Delete all objects in the bucket
+            log_info "Emptying bucket: $bucket"
+            aws s3 rm "s3://${bucket}" --recursive --region "${REGION}" 2>/dev/null || true
+            
+            # Delete all versions (if versioning is enabled)
+            log_info "Deleting object versions in bucket: $bucket"
+            aws s3api delete-objects \
+                --bucket "$bucket" \
+                --delete "$(aws s3api list-object-versions \
+                    --bucket "$bucket" \
+                    --output json \
+                    --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
+                    --region "${REGION}" 2>/dev/null | \
+                    jq -c 'select(.Objects != null)')" \
+                --region "${REGION}" 2>/dev/null || true
+            
+            # Delete all delete markers
+            aws s3api delete-objects \
+                --bucket "$bucket" \
+                --delete "$(aws s3api list-object-versions \
+                    --bucket "$bucket" \
+                    --output json \
+                    --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' \
+                    --region "${REGION}" 2>/dev/null | \
+                    jq -c 'select(.Objects != null)')" \
+                --region "${REGION}" 2>/dev/null || true
+        fi
+    done
+    
+    log_info "S3 cleanup completed"
 }
 
 # Function to print deployment information
@@ -1455,6 +1846,9 @@ destroy() {
     
     log_warning "Destroying all stacks..."
     
+    # IMPORTANT: Clean up S3 buckets BEFORE deleting stacks
+    cleanup_s3_buckets
+
     # Delete services stack first
     delete_stack "${PROJECT_NAME}-services"
     

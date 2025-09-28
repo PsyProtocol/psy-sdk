@@ -478,7 +478,7 @@
         "private-key": "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a"
       },
       "env": {
-        "RUST_LOG": "qed_rollup_cli=info,qed_worker=info",
+        "RUST_LOG": "qed_rollup_cli=info,qed_worker=debug",
         "KEYSTORE_PATH": "/app/keystore"
       },
       "aws": {

@@ -163,6 +163,55 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
+  ConfigBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-${Environment}-config'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-config'
+
+  ConfigBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ConfigBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowPublicRead
+            Effect: Allow
+            Principal: '*'
+            Action: 
+              - s3:GetObject
+              - s3:ListBucket
+            Resource:
+              - !Sub '${ConfigBucket.Arn}/*'
+              - !GetAtt ConfigBucket.Arn
+          - Sid: AllowServiceWrite
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action:
+              - s3:PutObject
+              - s3:PutObjectAcl
+            Resource: !Sub '${ConfigBucket.Arn}/*'
+
   # Security Groups
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -445,9 +494,11 @@ Resources:
 
             if [ -n "$DATA_DEVICE" ]; then
                 mkfs.ext4 -F $DATA_DEVICE 2>/dev/null || true
-                mkdir -p /data/pd
+                mkdir -p /data
                 mount $DATA_DEVICE /data
                 echo "$DATA_DEVICE /data ext4 defaults,noatime 0 0" >> /etc/fstab
+                # Create pd directory AFTER mounting
+                mkdir -p /data/pd
                 chmod 777 /data/pd
             fi
 
@@ -471,6 +522,7 @@ Resources:
             done
 
             # Get all PD instance IPs with retry logic
+            ALL_IPS=""
             for attempt in {1..10}; do
                 PD_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
                   --auto-scaling-group-names $ASG_NAME \
@@ -515,6 +567,7 @@ Resources:
 
             # Determine which PD node this is (pd0, pd1, or pd2)
             PD_INDEX=-1
+            NODE_NUM=0
             for IP in $(echo "$SORTED_IPS" | tr ',' ' '); do
                 if [ "$IP" = "$INSTANCE_IP" ]; then
                     PD_INDEX=$NODE_NUM
@@ -528,38 +581,36 @@ Resources:
                 exit 1
             fi
 
-            echo "This node is pd${!PD_INDEX} with IP ${!INSTANCE_IP}"
+            echo "This node is pd$PD_INDEX with IP $INSTANCE_IP"
 
             # Build initial cluster string
             INITIAL_CLUSTER=""
             NODE_NUM=0
-            for IP in $(echo "${!SORTED_IPS}" | tr ',' ' '); do
-                if [ -n "${!INITIAL_CLUSTER}" ]; then
-                    INITIAL_CLUSTER="${!INITIAL_CLUSTER},"
+            for IP in $(echo "$SORTED_IPS" | tr ',' ' '); do
+                if [ -n "$INITIAL_CLUSTER" ]; then
+                    INITIAL_CLUSTER="$INITIAL_CLUSTER,"
                 fi
-                INITIAL_CLUSTER="${!INITIAL_CLUSTER}pd${!NODE_NUM}=http://${!IP}:2380"
+                    INITIAL_CLUSTER="$INITIAL_CLUSTER"pd$NODE_NUM=http://$IP:2380
                 NODE_NUM=$((NODE_NUM + 1))
             done
             
-            echo "Initial cluster: ${!INITIAL_CLUSTER}"
+            echo "Initial cluster: $INITIAL_CLUSTER"
 
             # Create docker-compose for PD node
-            cat > /opt/docker-compose.yml <<'COMPOSE_EOF'
-
+            cat > /opt/docker-compose.yml <<COMPOSE_EOF
             version: '3.8'
-
             services:
               pd:
                 image: pingcap/pd:latest
-                container_name: pd$PD_INDEX
+                container_name: pd$${PD_INDEX}
                 network_mode: host
                 command:
-                  - --name=pd$PD_INDEX
+                  - --name=pd$${PD_INDEX}
                   - --client-urls=http://0.0.0.0:2379
                   - --peer-urls=http://0.0.0.0:2380
-                  - --advertise-client-urls=http://__INSTANCE_IP__:2379
-                  - --advertise-peer-urls=http://__INSTANCE_IP__:2380
-                  - --initial-cluster=__INITIAL_CLUSTER__
+                  - --advertise-client-urls=http://$${INSTANCE_IP}:2379
+                  - --advertise-peer-urls=http://$${INSTANCE_IP}:2380
+                  - --initial-cluster=$${INITIAL_CLUSTER}
                   - --data-dir=/var/lib/pd
                   - --log-file=/var/log/pd.log
                 volumes:
@@ -568,11 +619,6 @@ Resources:
                 restart: unless-stopped
             COMPOSE_EOF
             
-            # Replace placeholders
-            sed -i "s/__PD_INDEX__/${!PD_INDEX}/g" /opt/docker-compose.yml
-            sed -i "s/__INSTANCE_IP__/${!INSTANCE_IP}/g" /opt/docker-compose.yml
-            sed -i "s/__INITIAL_CLUSTER__/${!INITIAL_CLUSTER}/g" /opt/docker-compose.yml
-
             # Start PD container
             cd /opt
             docker-compose up -d
@@ -626,7 +672,7 @@ Resources:
           PropagateAtLaunch: true
 
   # TiKV Storage Node Launch Template
-  TiKVNodeLaunchTemplate:
+  TiKVStorageNodeLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateName: !Sub '${ProjectName}-${Environment}-tikv-node-lt'
@@ -689,11 +735,12 @@ Resources:
 
             if [ -n "$DATA_DEVICE" ]; then
                 mkfs.ext4 -F $DATA_DEVICE 2>/dev/null || true
-                mkdir -p /data/tikv
+                mkdir -p /data
                 mount $DATA_DEVICE /data
                 echo "$DATA_DEVICE /data ext4 defaults,noatime 0 0" >> /etc/fstab
+                # Create tikv directory AFTER mounting
+                mkdir -p /data/tikv
                 chmod 777 /data/tikv
-
             fi
 
             # Get PD endpoints
@@ -703,6 +750,7 @@ Resources:
             # Wait for PD nodes to be ready
             echo "Waiting for PD nodes to be ready..."
 
+            PD_READY=false
             for retry in {1..30}; do
                 PD_ENDPOINTS=""
                 # Get all PD instances
@@ -712,39 +760,41 @@ Resources:
                   --output text 2>/dev/null || echo "")
 
                 if [ -n "$PD_INSTANCES" ]; then
-                  for pd_id in $PD_INSTANCES; do
-                      PD_IP=$(aws ec2 describe-instances \
-                        --instance-ids $pd_id \
-                        --query 'Reservations[0].Instances[0].PrivateIpAddress' \
-                        --output text 2>/dev/null || echo "")
-                      
-                      if [ -n "$PD_IP" ] && [ "$PD_IP" != "None" ]; then
-                          if [ -z "$PD_ENDPOINTS" ]; then
-                              PD_ENDPOINTS="${!PD_IP}:2379"
-                          else
-                              PD_ENDPOINTS="${!PD_ENDPOINTS},${!PD_IP}:2379"
-                          fi
-                      fi
-                  done
-                fi
-                # Verify PD cluster is ready
-                if [ -n "$PD_ENDPOINTS" ]; then
-                    echo "Testing PD endpoints: $PD_ENDPOINTS"
-                    
-                    for endpoint in $(echo $PD_ENDPOINTS | tr ',' ' '); do
-                        if curl -sf -m 5 http://$endpoint/pd/api/v1/health >/dev/null 2>&1; then
-                            # Check if cluster is formed
-                            MEMBER_COUNT=$(curl -s http://$endpoint/pd/api/v1/members | jq '.members | length' 2>/dev/null || echo 0)
-                            
-                            if [ "$MEMBER_COUNT" -ge "3" ]; then
-                                echo "PD cluster is ready with $MEMBER_COUNT members"
-                                break 2
+                    PD_ENDPOINTS=""
+                    for pd_id in $PD_INSTANCES; do
+                        PD_IP=$(aws ec2 describe-instances \
+                          --instance-ids $pd_id \
+                          --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                          --output text 2>/dev/null || echo "")
+                        
+                        if [ -n "$PD_IP" ] && [ "$PD_IP" != "None" ]; then
+                            if [ -z "$PD_ENDPOINTS" ]; then
+                                PD_ENDPOINTS="$PD_IP:2379"
+                            else
+                                PD_ENDPOINTS="$PD_ENDPOINTS,$PD_IP:2379"
                             fi
                         fi
                     done
                 fi
-                echo "Attempt $attempt: Waiting for PD cluster to be ready..."
+                  
+                # Test PD endpoints
+                if [ -n "$PD_ENDPOINTS" ]; then
+                    echo "Testing PD endpoints: $PD_ENDPOINTS"
+                    for endpoint in $(echo $PD_ENDPOINTS | tr ',' ' '); do
+                        if curl -sf -m 5 http://$endpoint/pd/api/v1/health >/dev/null 2>&1; then
+                            MEMBER_COUNT=$(curl -s http://$endpoint/pd/api/v1/members | jq '.members | length' 2>/dev/null || echo 0)
+                            if [ "$MEMBER_COUNT" -ge "3" ]; then
+                                echo "PD cluster is ready with $MEMBER_COUNT members"
+                                PD_READY=true
+                                break 2
+                            fi
+                        fi
+                    done
+
+                fi
+                echo "Attempt $retry: Waiting for PD cluster to be ready..."
                 sleep 10
+
             done           
 
             if [ "$PD_READY" != true ]; then
@@ -813,8 +863,8 @@ Resources:
     Properties:
       AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-tikv-node-asg'
       LaunchTemplate:
-        LaunchTemplateId: !Ref TiKVNodeLaunchTemplate
-        Version: !GetAtt TiKVNodeLaunchTemplate.LatestVersionNumber
+        LaunchTemplateId: !Ref TiKVStorageNodeLaunchTemplate
+        Version: !GetAtt TiKVStorageNodeLaunchTemplate.LatestVersionNumber
       MinSize: {{ tikv_config_global.aws.tikv_count | default(3) }}
       MaxSize: {{ tikv_config_global.aws.max_instances | default(6) }}
       DesiredCapacity: {{ tikv_config_global.aws.tikv_count | default(3) }}
@@ -1454,7 +1504,7 @@ Resources:
             
             # Update and install dependencies
             apt-get update -y
-            apt-get install -y docker.io curl wget jq awscli ec2-instance-connect
+            apt-get install -y docker.io curl wget jq awscli ec2-instance-connect vim net-tools
             systemctl enable docker
             systemctl start docker
             usermod -aG docker ubuntu
@@ -1462,22 +1512,10 @@ Resources:
             # Create ECS directories
             mkdir -p /etc/ecs /var/log/ecs /var/lib/ecs/data
 
-            # Create ECS config
-            cat > /etc/ecs/ecs.config <<EOF
-            ECS_CLUSTER=${MainECSCluster}
-            ECS_ENABLE_TASK_IAM_ROLE=true
-            ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true
-            ECS_LOGFILE=/var/log/ecs/ecs-agent.log
-            ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]
-            ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE=true
-            ECS_LOGLEVEL=info
-            ECS_DATADIR=/var/lib/ecs/data
-            ECS_ENABLE_CONTAINER_METADATA=true
-            ECS_CONTAINER_STOP_TIMEOUT=30s
-            ECS_INSTANCE_ATTRIBUTES={"workload":"general","type":"ecs-container"}
-            EOF
-            
-            # Run ECS agent as Docker container
+            # Pull ECS agent image
+            docker pull amazon/amazon-ecs-agent:latest
+
+            # Run ECS agent using Docker
             docker run -d \
               --name ecs-agent \
               --restart=always \
@@ -1487,86 +1525,75 @@ Resources:
               --volume=/etc/ecs:/etc/ecs \
               --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro \
               --net=host \
-              --env-file=/etc/ecs/ecs.config \
-              --env=ECS_LOGFILE=/log/ecs-agent.log \
-              --env=ECS_DATADIR=/data \
+              --env=ECS_CLUSTER=${MainECSCluster} \
               --env=ECS_ENABLE_TASK_IAM_ROLE=true \
               --env=ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
+              --env=ECS_ENABLE_CONTAINER_METADATA=true \
+              --env=ECS_LOGFILE=/log/ecs-agent.log \
+              --env=ECS_DATADIR=/data \
+              --env=ECS_LOGLEVEL=info \
+              --env='ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]' \
+              --env=ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE=true \
+              --env=ECS_CONTAINER_STOP_TIMEOUT=30s \
+              --env='ECS_INSTANCE_ATTRIBUTES={"workload":"general","type":"ecs-container"}' \
+              --env=AWS_REGION=${AWS::Region} \
               amazon/amazon-ecs-agent:latest
-
-            echo "Waiting for ECS agent to register with cluster..."
-            for i in {1..60}; do
-              if docker logs ecs-agent 2>&1 | grep -q "Successfully registered container instance"; then
-                echo "ECS agent successfully registered!"
-                break
-              fi
-              
-              # Alternative check using AWS CLI
-              INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-              CONTAINER_INSTANCES=$(aws ecs list-container-instances \
-                --cluster ${MainECSCluster} \
-                --region ${AWS::Region} \
-                --query 'containerInstanceArns[*]' \
-                --output text 2>/dev/null || echo "")
-              
-              if [ -n "$CONTAINER_INSTANCES" ]; then
-                for arn in $CONTAINER_INSTANCES; do
-                  REGISTERED_ID=$(aws ecs describe-container-instances \
-                    --cluster ${MainECSCluster} \
-                    --container-instances $arn \
-                    --region ${AWS::Region} \
-                    --query 'containerInstances[0].ec2InstanceId' \
-                    --output text 2>/dev/null || echo "")
-                  
-                  if [ "$REGISTERED_ID" = "$INSTANCE_ID" ]; then
-                    echo "Instance $INSTANCE_ID registered with ECS cluster"
-                    break 2
-                  fi
-                done
-              fi
-              
-              echo "Waiting for ECS agent registration... attempt $i/60"
-              sleep 5
-            done
-
-            # Verify agent status
-            docker ps | grep ecs-agent
-          
-            # Create systemd service for ECS agent (survives reboots)
-            cat > /etc/systemd/system/ecs-agent.service <<EOF
+            
+            # Create systemd service for ECS agent to survive reboots
+            cat > /etc/systemd/system/ecs-agent.service <<'EOF'
             [Unit]
             Description=AWS ECS Agent
             After=docker.service
             Requires=docker.service
-            
+
             [Service]
             Type=simple
             Restart=always
             RestartSec=10
-            
             ExecStartPre=-/usr/bin/docker stop ecs-agent
             ExecStartPre=-/usr/bin/docker rm ecs-agent
-            ExecStart=/usr/bin/docker run \
-              --name ecs-agent \
+            ExecStart=/usr/bin/docker run --name ecs-agent \
               --volume=/var/run/docker.sock:/var/run/docker.sock \
               --volume=/var/log/ecs:/log \
               --volume=/var/lib/ecs/data:/data \
               --volume=/etc/ecs:/etc/ecs \
               --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro \
               --net=host \
-              --env-file=/etc/ecs/ecs.config \
+              --env=ECS_CLUSTER=${MainECSCluster} \
+              --env=ECS_ENABLE_TASK_IAM_ROLE=true \
+              --env=ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
+              --env=ECS_ENABLE_CONTAINER_METADATA=true \
               --env=ECS_LOGFILE=/log/ecs-agent.log \
               --env=ECS_DATADIR=/data \
+              --env=ECS_LOGLEVEL=info \
+              --env='ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]' \
+              --env=ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE=true \
+              --env=ECS_CONTAINER_STOP_TIMEOUT=30s \
+              --env='ECS_INSTANCE_ATTRIBUTES={"workload":"general","type":"ecs-container"}' \
+              --env=AWS_REGION=${AWS::Region} \
               amazon/amazon-ecs-agent:latest
-            
             ExecStop=/usr/bin/docker stop ecs-agent
-            
+
             [Install]
             WantedBy=multi-user.target
             EOF
-            
+
             systemctl daemon-reload
             systemctl enable ecs-agent
+
+            # Verify ECS agent started
+            for i in {1..60}; do
+              if docker ps | grep -q ecs-agent; then
+                echo "ECS agent container is running"
+                # Check logs for successful registration
+                if docker logs ecs-agent 2>&1 | grep -q "Successfully registered container instance"; then
+                  echo "Instance registered with ECS cluster"
+                  break
+                fi
+              fi
+              echo "Waiting for ECS agent... attempt $i/60"
+              sleep 5
+            done
             
             echo "ECS instance setup completed at $(date)"
 
@@ -1624,32 +1651,21 @@ Resources:
             #!/bin/bash
             set -e
             exec > /var/log/user-data.log 2>&1
-            echo "Starting ECS instance setup at $(date)"
+            echo "Starting Worrker ECS instance setup at $(date)"
             
             # Install Docker
             apt-get update -y
-            apt-get install -y docker.io curl wget jq awscli ec2-instance-connect
+            apt-get install -y docker.io curl wget jq awscli ec2-instance-connect vim net-tools
             systemctl enable docker
             systemctl start docker
-            
-            # ECS configuration for workers
+            usermod -aG docker ubuntu
+
             mkdir -p /etc/ecs /var/log/ecs /var/lib/ecs/data
-            
-            cat > /etc/ecs/ecs.config <<EOF
-            ECS_CLUSTER=${MainECSCluster}
-            ECS_ENABLE_TASK_IAM_ROLE=true
-            ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true
-            ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]
-            ECS_INSTANCE_ATTRIBUTES={"workload":"worker","compute":"optimized"}
-            ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE=true
-            ECS_ENABLE_SPOT_INSTANCE_DRAINING=true
-            ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=1h
-            ECS_IMAGE_CLEANUP_INTERVAL=30m
-            ECS_IMAGE_MINIMUM_CLEANUP_AGE=1h
-            ECS_NUM_IMAGES_DELETE_PER_CYCLE=5
-            EOF
-        
-            # Run ECS agent
+
+            # Pull ECS agent image
+            docker pull amazon/amazon-ecs-agent:latest
+            # Run ECS agent using Docker with worker-specific attributes
+
             docker run -d \
               --name ecs-agent \
               --restart=always \
@@ -1659,8 +1675,88 @@ Resources:
               --volume=/etc/ecs:/etc/ecs \
               --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro \
               --net=host \
-              --env-file=/etc/ecs/ecs.config \
+              --env=ECS_CLUSTER=${MainECSCluster} \
+              --env=ECS_ENABLE_TASK_IAM_ROLE=true \
+              --env=ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
+              --env=ECS_ENABLE_CONTAINER_METADATA=true \
+              --env=ECS_LOGFILE=/log/ecs-agent.log \
+              --env=ECS_DATADIR=/data \
+              --env=ECS_LOGLEVEL=info \
+              --env='ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]' \
+              --env=ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE=true \
+              --env=ECS_CONTAINER_STOP_TIMEOUT=30s \
+              --env='ECS_INSTANCE_ATTRIBUTES={"workload":"worker","compute":"optimized"}' \
+              --env=ECS_ENABLE_SPOT_INSTANCE_DRAINING=true \
+              --env=ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=1h \
+              --env=ECS_IMAGE_CLEANUP_INTERVAL=30m \
+              --env=ECS_IMAGE_MINIMUM_CLEANUP_AGE=1h \
+              --env=ECS_NUM_IMAGES_DELETE_PER_CYCLE=5 \
+              --env=AWS_REGION=${AWS::Region} \
               amazon/amazon-ecs-agent:latest
+            
+            # Create systemd service for persistence
+            cat > /etc/systemd/system/ecs-agent.service <<'EOF'
+            [Unit]
+            Description=AWS ECS Agent
+            After=docker.service
+            Requires=docker.service
+
+            [Service]
+            Type=simple
+            Restart=always
+            RestartSec=10
+            ExecStartPre=-/usr/bin/docker stop ecs-agent
+            ExecStartPre=-/usr/bin/docker rm ecs-agent
+            ExecStart=/usr/bin/docker run --name ecs-agent \
+                --volume=/var/run/docker.sock:/var/run/docker.sock \
+                --volume=/var/log/ecs:/log \
+                --volume=/var/lib/ecs/data:/data \
+                --volume=/etc/ecs:/etc/ecs \
+                --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro \
+                --net=host \
+                --env=ECS_CLUSTER=${MainECSCluster} \
+                --env=ECS_ENABLE_TASK_IAM_ROLE=true \
+                --env=ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
+                --env=ECS_ENABLE_CONTAINER_METADATA=true \
+                --env=ECS_LOGFILE=/log/ecs-agent.log \
+                --env=ECS_DATADIR=/data \
+                --env=ECS_LOGLEVEL=info \
+                --env='ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs"]' \
+                --env=ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE=true \
+                --env=ECS_CONTAINER_STOP_TIMEOUT=30s \
+                --env='ECS_INSTANCE_ATTRIBUTES={"workload":"worker","compute":"optimized"}' \
+                --env=ECS_ENABLE_SPOT_INSTANCE_DRAINING=true \
+                --env=ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=1h \
+                --env=ECS_IMAGE_CLEANUP_INTERVAL=30m \
+                --env=ECS_IMAGE_MINIMUM_CLEANUP_AGE=1h \
+                --env=ECS_NUM_IMAGES_DELETE_PER_CYCLE=5 \
+                --env=AWS_REGION=${AWS::Region} \
+                amazon/amazon-ecs-agent:latest
+            ExecStop=/usr/bin/docker stop ecs-agent
+
+            [Install]
+              WantedBy=multi-user.target
+              EOF
+            
+            systemctl daemon-reload
+            systemctl enable ecs-agent
+
+            # Verify ECS agent started
+            for i in {1..60}; do
+              if docker ps | grep -q ecs-agent; then
+                echo "ECS agent container is running"
+                # Check logs for successful registration
+                if docker logs ecs-agent 2>&1 | grep -q "Successfully registered container instance"; then
+                  echo "Instance registered with ECS cluster"
+                  break
+                fi
+              fi
+              echo "Waiting for ECS agent... attempt $i/60"
+              sleep 5
+            done
+
+            echo "Worker ECS instance setup completed at $(date)"
+
             
             
   WorkerInstancesASG:
@@ -1946,4 +2042,8 @@ Outputs:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-subnet'
   {% endfor %}
 
-
+  ConfigBucketName:
+    Description: Name of the config S3 bucket
+    Value: !Ref ConfigBucket
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-config-bucket-name'
