@@ -780,7 +780,7 @@ impl<
                     ProvingJobDataType::InputWitness,
                     0,
                 );
-                combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&guta_queue_items.last().as_ref().unwrap().input.stats)));
+                combo_stats.push((w_id.get_output_id(), l_stats.combine_with(&right_endcap.input.stats)));
 
                 graph.add_edge(w_id.get_output_id(), l_proof_id.get_output_id());
 
@@ -811,11 +811,11 @@ impl<
                     self.realm_config.realm_id,
                     p.nearest_common_ancestor_level as u32,
                     p.nearest_common_ancestor_index as u32,
-                    ProvingJobCircuitType::GUTALeftGUTARightEndCap,
+                    ProvingJobCircuitType::GUTALeftEndCapRightGUTA,
                     ProvingJobDataType::InputWitness,
                     0,
                 );
-                combo_stats.push((w_id.get_output_id(), r_stats.combine_with(&guta_queue_items.last().as_ref().unwrap().input.stats)));
+                combo_stats.push((w_id.get_output_id(), r_stats.combine_with(&left_endcap.input.stats)));
 
                 graph.add_edge(w_id.get_output_id(), r_proof_id.get_output_id());
 
