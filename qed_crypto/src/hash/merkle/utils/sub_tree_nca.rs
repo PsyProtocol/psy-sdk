@@ -516,28 +516,6 @@ impl<Hash: PartialEq + Copy + Default> UpdateNCAProofsWithDependencies<Hash> {
     pub fn new() -> Self {
         Self::default()
     }
-    
-    /// Convert dependency index to real node index
-    /// - Positive indices (>= 0): index into nca_proofs array (return None)
-    /// - Negative indices (< 0): index into original nodes array
-    /// 
-    /// Example:
-    /// - dep_index = -1 → Some(0) → nodes[0]
-    /// - dep_index = -2 → Some(1) → nodes[1]
-    /// - dep_index = -3 → Some(2) → nodes[2]
-    /// - dep_index = 5  → None (use nca_proofs[5])
-    pub fn dep_index_to_node_index(dep_index: i64) -> Option<usize> {
-        if dep_index < 0 {
-            Some(-(dep_index + 1) as usize)
-        } else {
-            None
-        }
-    }
-    
-    /// Check if a dependency index refers to an original input node (negative index)
-    pub fn is_leaf_dependency(dep_index: i64) -> bool {
-        dep_index < 0
-    }
 }
 impl<Hash: PartialEq + Copy + Default> UpdateNCAProofsWithDependencies<Hash> {
     pub fn get_index_levels(&self) -> Vec<Vec<usize>> {
