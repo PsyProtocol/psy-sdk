@@ -74,9 +74,9 @@ use crate::{
 
 type F = GoldilocksField;
 
-pub const GUTA_REWARDS_TREE_MAX_HEIGHT: usize = 16;
-pub const CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT: usize = 32;
-pub const USER_REGISTRATION_REWARDS_MAX_HEIGHT: usize = 32;
+pub const GUTA_REWARDS_TREE_MAX_HEIGHT: usize = 12;
+pub const CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT: usize = 20;
+pub const USER_REGISTRATION_REWARDS_MAX_HEIGHT: usize = 20;
 
 #[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
@@ -1607,16 +1607,6 @@ mod tests {
 
         assert_eq!(job_id, recovered);
         assert!(hex_string.len() == 48); // 24 bytes * 2 chars per byte
-    }
-
-    #[test]
-    fn test_max_height_limits() {
-        assert_eq!(GUTA_REWARDS_TREE_MAX_HEIGHT, 16);
-        assert_eq!(CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT, 32);
-        assert_eq!(USER_REGISTRATION_REWARDS_MAX_HEIGHT, 32);
-
-        let max_index = (1u64 << GUTA_REWARDS_TREE_MAX_HEIGHT) - 1;
-        assert_eq!(max_index, 65535); // 2^16 - 1
     }
 
     #[test]

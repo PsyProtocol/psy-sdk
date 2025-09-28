@@ -4,7 +4,7 @@ struct WeirdMerkleProofSiblingLevel {
 }
 
 struct VariableHeightRewardMerkleProof {
-    pub top_siblings: [WeirdMerkleProofSiblingLevel; 32],
+    pub top_siblings: [WeirdMerkleProofSiblingLevel; 12],
     pub sibling_branch: [Felt; 4],
     pub reward_leaf: [Felt; 4],
     pub proof_height: Felt,
@@ -31,17 +31,17 @@ impl VariableHeightRewardMerkleProof {
     pub fn compute_root_and_nullifier_index(self) -> ([Felt; 4], Felt) {
         let proof_height = self.proof_height;
         let index = self.index;
-        let max_height = 32;
+        let max_height = 12;
 
         assert(proof_height <= max_height, "proof height too large");
-        assert(index < 4294967296, "index too large");
+        assert(index < 4096, "index too large");
 
         let mut nullifier_base = 0;
         let mut nullifier_level_start_index_multiplier = 1;
 
         let mut current_node_value = hash_two_to_one(self.sibling_branch, self.reward_leaf);
 
-        for i in 0u32..32u32 {
+        for i in 0u32..12u32 {
             let level_index = i as Felt;
             let sibling = self.top_siblings[level_index];
             let sibling_node = sibling.sibling_branch;
@@ -128,20 +128,22 @@ impl PsyPOWMiningRewardsClaimContractRef {
         });
     }
 
-    pub fn batch_claim_guta_rewards(
+    pub fn claim_guta_rewards_1(
         claim_checkpoint_id: Felt,
-        proofs: [VariableHeightRewardMerkleProof; 8],
+        proof: VariableHeightRewardMerkleProof,
         proposed_reward: Felt
     ) {
         let c = PsyPOWMiningRewardsClaimContractRef::new(ContractMetadata::current());
-        // let current_checkpoint = get_checkpoint_id();
-        // let claim_rewards_cooldown = 2;
-        //
-        // assert(current_checkpoint > claim_checkpoint_id + claim_rewards_cooldown, "cooldown not satisfied");
-
         let persistent_state = c.persistent_state.get();
 
-        assert(claim_checkpoint_id == persistent_state.last_claimed_checkpoint_id, "session mismatch");
+        if claim_checkpoint_id != persistent_state.last_claimed_checkpoint_id {
+            if persistent_state.last_claimed_checkpoint_id != persistent_state.last_sealed_checkpoint_id {
+                Self::end_session(persistent_state.last_claimed_checkpoint_id);
+            };
+
+            Self::start_session(claim_checkpoint_id);
+        };
+
         assert(claim_checkpoint_id > persistent_state.last_sealed_checkpoint_id, "checkpoint is sealed");
 
         let expected_guta_rewards_tree_root = get_gutas_root(claim_checkpoint_id);
@@ -159,12 +161,155 @@ impl PsyPOWMiningRewardsClaimContractRef {
 
         let mut total_rewards_claimed = 0;
 
-        for i in 0u32..8u32 {
+        let is_nonzero = (proof.sibling_branch[0] != 0 || proof.sibling_branch[1] != 0 ||
+                         proof.sibling_branch[2] != 0 || proof.sibling_branch[3] != 0);
+
+        if is_nonzero {
+            let result: ([Felt; 4], Felt) = proof.compute_root_and_nullifier_index();
+            let guta_rewards_tree_root = result.0;
+            let nullifier_index = result.1;
+
+            assert(
+                guta_rewards_tree_root[0] == expected_guta_rewards_tree_root[0]
+                && guta_rewards_tree_root[1] == expected_guta_rewards_tree_root[1]
+                && guta_rewards_tree_root[2] == expected_guta_rewards_tree_root[2]
+                && guta_rewards_tree_root[3] == expected_guta_rewards_tree_root[3],
+            "guta tree root mismatch");
+
+            assert(
+                proof.reward_leaf[0] == user_public_key_hash
+                && proof.reward_leaf[1] == 0
+                && proof.reward_leaf[2] == 0
+                && proof.reward_leaf[3] == 0,
+            "reward not for current user");
+
+            assert(c.claimed_guta_nullifiers.index(nullifier_index).get() == 0, "reward already claimed");
+
+            c.claimed_guta_nullifiers.index(nullifier_index).set(1);
+
+            total_rewards_claimed = proposed_reward;
+        };
+
+        c.persistent_state.set(new PersistentState {
+            last_claimed_checkpoint_id: persistent_state.last_claimed_checkpoint_id,
+            claimed_rewards: old_claimed_rewards + total_rewards_claimed,
+            last_sealed_checkpoint_id: persistent_state.last_sealed_checkpoint_id,
+        });
+    }
+
+    pub fn claim_guta_rewards_2(
+        claim_checkpoint_id: Felt,
+        proofs: [VariableHeightRewardMerkleProof; 2],
+        proposed_reward: Felt
+    ) {
+        let c = PsyPOWMiningRewardsClaimContractRef::new(ContractMetadata::current());
+        let persistent_state = c.persistent_state.get();
+
+        if claim_checkpoint_id != persistent_state.last_claimed_checkpoint_id {
+            if persistent_state.last_claimed_checkpoint_id != persistent_state.last_sealed_checkpoint_id {
+                Self::end_session(persistent_state.last_claimed_checkpoint_id);
+            };
+
+            Self::start_session(claim_checkpoint_id);
+        };
+
+        assert(claim_checkpoint_id > persistent_state.last_sealed_checkpoint_id, "checkpoint is sealed");
+
+        let expected_guta_rewards_tree_root = get_gutas_root(claim_checkpoint_id);
+        let user_public_key_hash = get_user_id();
+
+        let total_proofs = get_gutas_completed(claim_checkpoint_id);
+        let total_fees = get_fees_collected(claim_checkpoint_id);
+        assert(Self::check_guta_reward(total_proofs, total_fees, proposed_reward), "invalid reward amount");
+
+        let old_claimed_rewards = if persistent_state.last_claimed_checkpoint_id == claim_checkpoint_id {
+            persistent_state.claimed_rewards
+        } else {
+            0
+        };
+
+        let mut total_rewards_claimed = 0;
+
+        for i in 0u32..2u32 {
             let idx = i as Felt;
             let proof = proofs[idx];
 
-            let is_nonzero = (proof.reward_leaf[0] != 0 || proof.reward_leaf[1] != 0 ||
-                             proof.reward_leaf[2] != 0 || proof.reward_leaf[3] != 0);
+            let is_nonzero = (proof.sibling_branch[0] != 0 || proof.sibling_branch[1] != 0 ||
+                             proof.sibling_branch[2] != 0 || proof.sibling_branch[3] != 0);
+
+            if is_nonzero {
+                let result: ([Felt; 4], Felt) = proof.compute_root_and_nullifier_index();
+                let guta_rewards_tree_root = result.0;
+                let nullifier_index = result.1;
+
+                assert(
+                    guta_rewards_tree_root[0] == expected_guta_rewards_tree_root[0]
+                    && guta_rewards_tree_root[1] == expected_guta_rewards_tree_root[1]
+                    && guta_rewards_tree_root[2] == expected_guta_rewards_tree_root[2]
+                    && guta_rewards_tree_root[3] == expected_guta_rewards_tree_root[3],
+                "guta tree root mismatch");
+
+                assert(
+                    proof.reward_leaf[0] == user_public_key_hash
+                    && proof.reward_leaf[1] == 0
+                    && proof.reward_leaf[2] == 0
+                    && proof.reward_leaf[3] == 0,
+                "reward not for current user");
+
+                assert(c.claimed_guta_nullifiers.index(nullifier_index).get() == 0, "reward already claimed");
+
+                c.claimed_guta_nullifiers.index(nullifier_index).set(1);
+
+                total_rewards_claimed = total_rewards_claimed + proposed_reward;
+            };
+        }
+
+        c.persistent_state.set(new PersistentState {
+            last_claimed_checkpoint_id: persistent_state.last_claimed_checkpoint_id,
+            claimed_rewards: old_claimed_rewards + total_rewards_claimed,
+            last_sealed_checkpoint_id: persistent_state.last_sealed_checkpoint_id,
+        });
+    }
+
+    pub fn claim_guta_rewards_5(
+        claim_checkpoint_id: Felt,
+        proofs: [VariableHeightRewardMerkleProof; 5],
+        proposed_reward: Felt
+    ) {
+        let c = PsyPOWMiningRewardsClaimContractRef::new(ContractMetadata::current());
+        let persistent_state = c.persistent_state.get();
+
+        if claim_checkpoint_id != persistent_state.last_claimed_checkpoint_id {
+            if persistent_state.last_claimed_checkpoint_id != persistent_state.last_sealed_checkpoint_id {
+                Self::end_session(persistent_state.last_claimed_checkpoint_id);
+            };
+
+            Self::start_session(claim_checkpoint_id);
+        };
+
+        assert(claim_checkpoint_id > persistent_state.last_sealed_checkpoint_id, "checkpoint is sealed");
+
+        let expected_guta_rewards_tree_root = get_gutas_root(claim_checkpoint_id);
+        let user_public_key_hash = get_user_id();
+
+        let total_proofs = get_gutas_completed(claim_checkpoint_id);
+        let total_fees = get_fees_collected(claim_checkpoint_id);
+        assert(Self::check_guta_reward(total_proofs, total_fees, proposed_reward), "invalid reward amount");
+
+        let old_claimed_rewards = if persistent_state.last_claimed_checkpoint_id == claim_checkpoint_id {
+            persistent_state.claimed_rewards
+        } else {
+            0
+        };
+
+        let mut total_rewards_claimed = 0;
+
+        for i in 0u32..5u32 {
+            let idx = i as Felt;
+            let proof = proofs[idx];
+
+            let is_nonzero = (proof.sibling_branch[0] != 0 || proof.sibling_branch[1] != 0 ||
+                             proof.sibling_branch[2] != 0 || proof.sibling_branch[3] != 0);
 
             if is_nonzero {
                 let result: ([Felt; 4], Felt) = proof.compute_root_and_nullifier_index();

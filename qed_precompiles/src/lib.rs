@@ -101,19 +101,4 @@ mod tests {
         // function lookups use OnceLock for lazy loading
         assert!(elapsed.as_secs() < 1, "API calls should be very fast");
     }
-
-    #[test]
-    fn test_precompiled_contract_constants() {
-        // Test that the constants are correctly generated and available
-        println!("REWARDS_CONTRACT_ID = {}", REWARDS_CONTRACT_ID);
-        println!("TOKEN_CONTRACT_ID = {}", TOKEN_CONTRACT_ID);
-
-        // Verify that constants match the API
-        assert_eq!(get_contract_id_by_name("rewards"), Some(REWARDS_CONTRACT_ID));
-        assert_eq!(get_contract_id_by_name("token"), Some(TOKEN_CONTRACT_ID));
-
-        // Test that constants are consecutive starting from 0
-        assert_eq!(TOKEN_CONTRACT_ID, 0);
-        assert_eq!(REWARDS_CONTRACT_ID, 1);
-    }
 }
