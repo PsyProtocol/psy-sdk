@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                id, realm_id, public_key, status, source,\n                job_id, checkpoint_id, duration, metadata, timestamp, created_at, updated_at\n            FROM worker_events\n            WHERE ($1::BIGINT IS NULL OR realm_id = $1)\n                AND ($2::VARCHAR IS NULL OR status = $2)\n                AND ($3::VARCHAR IS NULL OR source = $3)\n                AND ($4::SMALLINT IS NULL OR topic = $4)\n                AND ($5::SMALLINT IS NULL OR circuit_type = $5)\n                AND ($6::TIMESTAMPTZ IS NULL OR timestamp >= $6)\n                AND ($7::TIMESTAMPTZ IS NULL OR timestamp <= $7)\n            ORDER BY timestamp DESC\n            LIMIT $8 OFFSET $9\n            ",
+  "query": "\n            SELECT\n                id, realm_id, public_key, status, source,\n                job_id, checkpoint_id, duration, metadata, timestamp, created_at, updated_at\n            FROM worker_events\n            WHERE ($1::BIGINT IS NULL OR realm_id = $1)\n                AND ($2::VARCHAR IS NULL OR status = $2)\n                AND ($3::VARCHAR IS NULL OR source = $3)\n                AND ($4::SMALLINT IS NULL OR topic = $4)\n                AND ($5::SMALLINT IS NULL OR circuit_type = $5)\n                AND ($6::BIGINT IS NULL OR checkpoint_id >= $6)\n                AND ($7::BIGINT IS NULL OR checkpoint_id <= $7)\n            ORDER BY checkpoint_id DESC, timestamp DESC\n            LIMIT $8 OFFSET $9\n            ",
   "describe": {
     "columns": [
       {
@@ -71,8 +71,8 @@
         "Varchar",
         "Int2",
         "Int2",
-        "Timestamptz",
-        "Timestamptz",
+        "Int8",
+        "Int8",
         "Int8",
         "Int8"
       ]
@@ -92,5 +92,5 @@
       false
     ]
   },
-  "hash": "6e61dd3914e0618a3f47c8d20baf4428dc45b24e744acb3afec19159b52c4b98"
+  "hash": "27d55e3f97d502ce9f75a0334fdc0caaf86bf994b44b9a18582b6d82fae5e8ff"
 }
