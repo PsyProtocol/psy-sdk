@@ -113,6 +113,17 @@ impl QProofStoreReaderAsync for ProofStoreFred {
 
         Ok(data)
     }
+
+    async fn get_public_input_by_id<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+    ) -> anyhow::Result<Vec<C::F>> {
+        let public_inputs_key = self.public_inputs_key();
+        let data: Vec<u8> = self.pool
+            .hget(&public_inputs_key, id.to_fixed_bytes().as_slice())
+            .await?;
+        Ok(bincode::deserialize(&data)?)
+    }
 }
 
 #[async_trait]
