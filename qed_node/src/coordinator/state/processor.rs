@@ -828,7 +828,88 @@ impl<
                     });
                 }
             } else {
-                panic!("unsupoorted");
+                tracing::debug!("Right dependency exists");
+                let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
+                let l_dep_ind = -(l_dep_ind + 1) as usize;
+                let left_guta_item = &guta_queue_items[l_dep_ind];
+
+                if left_guta_item.checkpoint_tree_root != last_checkpoint_tree_root {
+                    let real_last_guta_checkpoint_id = left_guta_item.checkpoint_id.saturating_sub(1);
+                    let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id).await?;
+                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id).await?;
+                    let x = CircuitInputWithDependencies {
+                        input: VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple {
+                            historical_checkpoint_proof_a,
+                            historical_checkpoint_proof_b,
+                            stats_a: r_stats,
+                            stats_b: left_guta_item.guta_stats.clone(),
+                            nca_proof: res.nca_proofs[i].to_partial(),
+                        },
+                        dependencies: vec![
+                            r_proof_id.get_output_id(),
+                            left_guta_item.proof_id,
+                        ],
+                    };
+                    x.input.check_witness()?;
+                    let w_id = QProvingJobDataID::new(
+                        QJobTopic::GenerateStandardProof,
+                        checkpoint_id,
+                        self.coordinator_config.coordinator_id,
+                        p.nearest_common_ancestor_level as u32,
+                        p.nearest_common_ancestor_index as u32,
+                        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade,
+                        ProvingJobDataType::InputWitness,
+                        0,
+                    );
+
+                    combo_stats.push((w_id.get_output_id(), x.input.get_combined_stats()));
+
+                    for dep in &x.dependencies {
+                        graph.add_edge(w_id.get_output_id(), *dep);
+                    }
+
+                    updates.push(KVQPair {
+                        key: w_id,
+                        value: bincode::serialize(&x)?,
+                    });
+
+                } else {
+                    let x = CircuitInputWithDependencies {
+                        input: VerifyTwoGUTAProofGadgetStandardInputSimple {
+                            checkpoint_tree_root: last_checkpoint_tree_root,
+                            b_checkpoint_tree_root: last_checkpoint_tree_root,
+                            stats_a: r_stats,
+                            stats_b: left_guta_item.guta_stats.clone(),
+                            nca_proof: res.nca_proofs[i].to_partial(),
+                        },
+                        dependencies: vec![
+                            r_proof_id.get_output_id(),
+                            left_guta_item.proof_id,
+                        ],
+                    };
+                    x.input.check_witness()?;
+                    let w_id = QProvingJobDataID::new(
+                        QJobTopic::GenerateStandardProof,
+                        checkpoint_id,
+                        self.coordinator_config.coordinator_id,
+                        p.nearest_common_ancestor_level as u32,
+                        p.nearest_common_ancestor_index as u32,
+                        ProvingJobCircuitType::GUTATwoGUTA,
+                        ProvingJobDataType::InputWitness,
+                        0,
+                    );
+
+                    combo_stats.push((w_id.get_output_id(), x.input.get_combined_stats()));
+
+                    for dep in &x.dependencies {
+                        graph.add_edge(w_id.get_output_id(), *dep);
+                    }
+
+                    updates.push(KVQPair {
+                        key: w_id,
+                        value: bincode::serialize(&x)?,
+                    });
+                }
             }
         }
 
