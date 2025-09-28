@@ -562,7 +562,13 @@ pub trait KVQMerkleTreeModelCore<
     ) -> anyhow::Result<Vec<NCAAggregation<TABLE_TYPE>>> {
         let mut aggregations = Vec::new();
         let mut node_to_proof_index: HashMap<(u8, u64), usize> = HashMap::new();
-        Self::build_recursive_helper(nodes, subtree_root, tree_height, &mut aggregations, &mut node_to_proof_index)?;
+
+        let mut leaf_to_array_index: HashMap<(u8, u64), i64> = HashMap::new();
+        for (i, node) in nodes.iter().enumerate() {
+            leaf_to_array_index.insert((node.key.level, node.key.index), -(i as i64) - 1);
+        }
+
+        Self::build_recursive_helper(nodes, subtree_root, tree_height, &mut aggregations, &mut node_to_proof_index, &leaf_to_array_index)?;
         Ok(aggregations)
     }
 
@@ -572,6 +578,7 @@ pub trait KVQMerkleTreeModelCore<
         tree_height: u8,
         aggregations: &mut Vec<NCAAggregation<TABLE_TYPE>>,
         node_to_proof_index: &mut HashMap<(u8, u64), usize>,
+        leaf_to_array_index: &HashMap<(u8, u64), i64>,
     ) -> anyhow::Result<Option<KVQMerkleNodeKey<TABLE_TYPE>>> {
         if nodes.is_empty() {
             return Ok(None);
@@ -598,22 +605,36 @@ pub trait KVQMerkleTreeModelCore<
             subtree_root.left_child(),
             tree_height,
             aggregations,
-            node_to_proof_index
+            node_to_proof_index,
+            leaf_to_array_index
         )?;
         let right_nca = Self::build_recursive_helper(
             right_nodes,
             right_child,
             tree_height,
             aggregations,
-            node_to_proof_index
+            node_to_proof_index,
+            leaf_to_array_index
         )?;
 
         match (left_nca, right_nca) {
             (Some(l), Some(r)) => {
                 let combined_nca = l.find_nearest_common_ancestor(&r);
 
-                let left_dep = node_to_proof_index.get(&(l.level, l.index)).map(|&i| i as i64).unwrap_or(-1);
-                let right_dep = node_to_proof_index.get(&(r.level, r.index)).map(|&i| i as i64).unwrap_or(-1);
+                let left_dep = node_to_proof_index.get(&(l.level, l.index))
+                    .map(|&i| i as i64)
+                    .or_else(|| leaf_to_array_index.get(&(l.level, l.index)).copied())
+                    .ok_or_else(|| anyhow::anyhow!(
+                        "Left dependency not found for node (level={}, index={})",
+                        l.level, l.index
+                    ))?;
+                let right_dep = node_to_proof_index.get(&(r.level, r.index))
+                    .map(|&i| i as i64)
+                    .or_else(|| leaf_to_array_index.get(&(r.level, r.index)).copied())
+                    .ok_or_else(|| anyhow::anyhow!(
+                        "Right dependency not found for node (level={}, index={})",
+                        r.level, r.index
+                    ))?;
 
                 let current_proof_index = aggregations.len();
                 node_to_proof_index.insert((combined_nca.level, combined_nca.index), current_proof_index);
