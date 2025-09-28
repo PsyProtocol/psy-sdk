@@ -619,32 +619,33 @@ impl<
         let res = self.store.injest_user_tree_nodes_imm(checkpoint_id, 0, &new_nodes).await?;
         tracing::debug!(res = %serde_json::to_string_pretty(&res).unwrap(), "GUTA aggregation result");
 
-        // let mut witnesses = Vec::with_capacity(res.nca_proofs.len());
         let mut updates = Vec::with_capacity(res.nca_proofs.len());
         let mut combo_stats = Vec::with_capacity(res.nca_proofs.len());
 
         for (i, p) in res.nca_proofs.iter().enumerate() {
             tracing::debug!(i = i, verify_result = ?res.nca_proofs[i].verify::<QEDHasher>(), "NCA proof verification");
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
-            if l_dep_ind == -1 && r_dep_ind == -1 {
-                tracing::debug!("Both dependencies are new");
-                if guta_queue_items[i * 2].checkpoint_tree_root != last_checkpoint_tree_root || guta_queue_items[i * 2 + 1].checkpoint_tree_root != last_checkpoint_tree_root {
-                    let real_left_guta_checkpoint_id = guta_queue_items[i * 2].checkpoint_id.saturating_sub(1);
-                    let real_right_guta_checkpoint_id = guta_queue_items[i * 2 + 1].checkpoint_id.saturating_sub(1);
+            if l_dep_ind <= -1 && r_dep_ind <= -1 {
+                let l_dep_ind = -(l_dep_ind + 1) as usize;
+                let r_dep_ind = -(r_dep_ind + 1) as usize;
+                if guta_queue_items[l_dep_ind].checkpoint_tree_root != last_checkpoint_tree_root || guta_queue_items[r_dep_ind].checkpoint_tree_root != last_checkpoint_tree_root {
+                    tracing::debug!("LeftRightRealmGutaWithCheckpointUpgrade");
+                    let real_left_guta_checkpoint_id = guta_queue_items[l_dep_ind].checkpoint_id.saturating_sub(1);
+                    let real_right_guta_checkpoint_id = guta_queue_items[r_dep_ind].checkpoint_id.saturating_sub(1);
                     let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_left_guta_checkpoint_id).await?;
                     let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_right_guta_checkpoint_id).await?;
                     let input = VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple {
                         historical_checkpoint_proof_a,
                         historical_checkpoint_proof_b,
-                        stats_a: guta_queue_items[i * 2].guta_stats,
-                        stats_b: guta_queue_items[i * 2 + 1].guta_stats,
+                        stats_a: guta_queue_items[l_dep_ind].guta_stats,
+                        stats_b: guta_queue_items[r_dep_ind].guta_stats,
                         nca_proof: res.nca_proofs[i].to_partial(),
                     };
                     tracing::debug!(input = %serde_json::to_string_pretty(&input).unwrap(), "Two GUTA upgrade input");
 
                     let x = CircuitInputWithDependencies {
                         input,
-                        dependencies: vec![guta_queue_items[i * 2].proof_id, guta_queue_items[i * 2 + 1].proof_id],
+                        dependencies: vec![guta_queue_items[l_dep_ind].proof_id, guta_queue_items[r_dep_ind].proof_id],
                     };
                     x.input.check_witness()?;
                     let w_id = QProvingJobDataID::new(
@@ -668,20 +669,20 @@ impl<
                         key: w_id,
                         value: bincode::serialize(&x)?,
                     });
-                    // witnesses.push((w_id, x));
                 } else {
+                    tracing::debug!("LeftRightRealmGuta");
                     let input = VerifyTwoGUTAProofGadgetStandardInputSimple {
-                        checkpoint_tree_root: guta_queue_items[i * 2].checkpoint_tree_root,
-                        b_checkpoint_tree_root: guta_queue_items[i * 2 + 1].checkpoint_tree_root,
-                        stats_a: guta_queue_items[i * 2].guta_stats,
-                        stats_b: guta_queue_items[i * 2 + 1].guta_stats,
+                        checkpoint_tree_root: guta_queue_items[l_dep_ind].checkpoint_tree_root,
+                        b_checkpoint_tree_root: guta_queue_items[r_dep_ind].checkpoint_tree_root,
+                        stats_a: guta_queue_items[l_dep_ind].guta_stats,
+                        stats_b: guta_queue_items[r_dep_ind].guta_stats,
                         nca_proof: res.nca_proofs[i].to_partial(),
                     };
                     tracing::debug!(input = %serde_json::to_string_pretty(&input).unwrap(), "Two GUTA input");
 
                     let x = CircuitInputWithDependencies {
                         input,
-                        dependencies: vec![guta_queue_items[i * 2].proof_id, guta_queue_items[i * 2 + 1].proof_id],
+                        dependencies: vec![guta_queue_items[l_dep_ind].proof_id, guta_queue_items[r_dep_ind].proof_id],
                     };
                     x.input.check_witness()?;
                     let w_id = QProvingJobDataID::new(
@@ -706,8 +707,8 @@ impl<
                         value: bincode::serialize(&x)?,
                     });
                 }
-            } else if r_dep_ind != -1 && l_dep_ind != -1 {
-                tracing::debug!("Both dependencies exist");
+            } else if r_dep_ind > -1 && l_dep_ind > -1 {
+                tracing::debug!("LeftRightCoordinatorGuta");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
                 let x = CircuitInputWithDependencies {
@@ -744,14 +745,14 @@ impl<
                     value: bincode::serialize(&x)?,
                 });
 
-                // witnesses.push((w_id, x));
-            } else if l_dep_ind != -1 {
-                tracing::debug!("Left dependency exists");
+            } else if l_dep_ind > -1 {
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
-                let last_guta_item = guta_queue_items.last().unwrap();
+                let r_dep_ind = -(r_dep_ind + 1) as usize;
+                let right_guta_item = &guta_queue_items[r_dep_ind];
 
-                if last_guta_item.checkpoint_tree_root != last_checkpoint_tree_root {
-                    let real_last_guta_checkpoint_id = last_guta_item.checkpoint_id.saturating_sub(1);
+                if right_guta_item.checkpoint_tree_root != last_checkpoint_tree_root {
+                    tracing::debug!("LeftCoordinatorGutaRightRealmGutaWithCheckpointUpgrade");
+                    let real_last_guta_checkpoint_id = right_guta_item.checkpoint_id.saturating_sub(1);
                     let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id).await?;
                     let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id).await?;
                     let x = CircuitInputWithDependencies {
@@ -759,12 +760,12 @@ impl<
                             historical_checkpoint_proof_a,
                             historical_checkpoint_proof_b,
                             stats_a: l_stats,
-                            stats_b: last_guta_item.guta_stats.clone(),
+                            stats_b: right_guta_item.guta_stats.clone(),
                             nca_proof: res.nca_proofs[i].to_partial(),
                         },
                         dependencies: vec![
                             l_proof_id.get_output_id(),
-                            last_guta_item.proof_id,
+                            right_guta_item.proof_id,
                         ],
                     };
                     x.input.check_witness()?;
@@ -791,17 +792,18 @@ impl<
                     });
 
                 } else {
+                    tracing::debug!("LeftCoordinatorGutaRightRealmGuta");
                     let x = CircuitInputWithDependencies {
                         input: VerifyTwoGUTAProofGadgetStandardInputSimple {
                             checkpoint_tree_root: last_checkpoint_tree_root,
                             b_checkpoint_tree_root: last_checkpoint_tree_root,
                             stats_a: l_stats,
-                            stats_b: last_guta_item.guta_stats.clone(),
+                            stats_b: right_guta_item.guta_stats.clone(),
                             nca_proof: res.nca_proofs[i].to_partial(),
                         },
                         dependencies: vec![
                             l_proof_id.get_output_id(),
-                            last_guta_item.proof_id,
+                            right_guta_item.proof_id,
                         ],
                     };
                     x.input.check_witness()?;
@@ -826,21 +828,92 @@ impl<
                         key: w_id,
                         value: bincode::serialize(&x)?,
                     });
-
-                    // witnesses.push((w_id, x));
                 }
             } else {
-                panic!("unsupoorted");
+                let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
+                let l_dep_ind = -(l_dep_ind + 1) as usize;
+                let left_guta_item = &guta_queue_items[l_dep_ind];
+
+                if left_guta_item.checkpoint_tree_root != last_checkpoint_tree_root {
+                    tracing::debug!("LeftRealmGutaRightCoordinatorGutaWithCheckpointUpgrade");
+                    let real_last_guta_checkpoint_id = left_guta_item.checkpoint_id.saturating_sub(1);
+                    let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id).await?;
+                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id).await?;
+                    let x = CircuitInputWithDependencies {
+                        input: VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple {
+                            historical_checkpoint_proof_a,
+                            historical_checkpoint_proof_b,
+                            stats_a: r_stats,
+                            stats_b: left_guta_item.guta_stats.clone(),
+                            nca_proof: res.nca_proofs[i].to_partial(),
+                        },
+                        dependencies: vec![
+                            r_proof_id.get_output_id(),
+                            left_guta_item.proof_id,
+                        ],
+                    };
+                    x.input.check_witness()?;
+                    let w_id = QProvingJobDataID::new(
+                        QJobTopic::GenerateStandardProof,
+                        checkpoint_id,
+                        self.coordinator_config.coordinator_id,
+                        p.nearest_common_ancestor_level as u32,
+                        p.nearest_common_ancestor_index as u32,
+                        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade,
+                        ProvingJobDataType::InputWitness,
+                        0,
+                    );
+
+                    combo_stats.push((w_id.get_output_id(), x.input.get_combined_stats()));
+
+                    for dep in &x.dependencies {
+                        graph.add_edge(w_id.get_output_id(), *dep);
+                    }
+
+                    updates.push(KVQPair {
+                        key: w_id,
+                        value: bincode::serialize(&x)?,
+                    });
+                } else {
+                    tracing::debug!("LeftRealmGutaRightCoordinatorGuta");
+                    let x = CircuitInputWithDependencies {
+                        input: VerifyTwoGUTAProofGadgetStandardInputSimple {
+                            checkpoint_tree_root: last_checkpoint_tree_root,
+                            b_checkpoint_tree_root: last_checkpoint_tree_root,
+                            stats_a: r_stats,
+                            stats_b: left_guta_item.guta_stats.clone(),
+                            nca_proof: res.nca_proofs[i].to_partial(),
+                        },
+                        dependencies: vec![
+                            r_proof_id.get_output_id(),
+                            left_guta_item.proof_id,
+                        ],
+                    };
+                    x.input.check_witness()?;
+                    let w_id = QProvingJobDataID::new(
+                        QJobTopic::GenerateStandardProof,
+                        checkpoint_id,
+                        self.coordinator_config.coordinator_id,
+                        p.nearest_common_ancestor_level as u32,
+                        p.nearest_common_ancestor_index as u32,
+                        ProvingJobCircuitType::GUTATwoGUTA,
+                        ProvingJobDataType::InputWitness,
+                        0,
+                    );
+
+                    combo_stats.push((w_id.get_output_id(), x.input.get_combined_stats()));
+
+                    for dep in &x.dependencies {
+                        graph.add_edge(w_id.get_output_id(), *dep);
+                    }
+
+                    updates.push(KVQPair {
+                        key: w_id,
+                        value: bincode::serialize(&x)?,
+                    });
+                }
             }
         }
-
-        // let updates = witnesses
-        //     .iter()
-        //     .map(|(id, w)| KVQPair {
-        //         key: *id,
-        //         value: bincode::serialize(w).unwrap(),
-        //     })
-        //     .collect::<Vec<_>>();
 
         self.proof_store.set_bytes_by_id_batch(&updates).await?;
 
