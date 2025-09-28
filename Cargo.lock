@@ -8244,8 +8244,7 @@ dependencies = [
 [[package]]
 name = "tikv-client"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "048968e4e3d04db472346770cc19914c6b5ae206fa44677f6a0874d54cd05940"
+source = "git+https://github.com/tikv/client-rust?branch=cse#c7db27f8b4f7001e54d4d903bb102d4189b5ec82"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -8519,6 +8518,7 @@ dependencies = [
  "axum 0.6.20",
  "base64 0.21.7",
  "bytes",
+ "flate2",
  "h2 0.3.27",
  "http 0.2.12",
  "http-body 0.4.6",

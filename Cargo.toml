@@ -159,7 +159,7 @@ quote = "1.0"
 # Additional common dependencies
 uuid = { version = "1.0", features = ["serde", "v4", "js"] }
 scylla = { version = "0.15.1" }
-tikv-client = "0.3"
+tikv-client = { git = "https://github.com/tikv/client-rust", branch = "cse" }
 http = "1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
