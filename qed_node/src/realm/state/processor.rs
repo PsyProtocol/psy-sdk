@@ -673,22 +673,23 @@ impl<
         let mut combo_stats = Vec::with_capacity(res.nca_proofs.len());
         let mut graph = BidirectionalGraph::new();
 
-        // let checkpoint_tree_root = guta_queue_items[0].checkpoint_tree_proof.root;
         for (i, p) in res.nca_proofs.iter().enumerate() {
             tracing::debug!(i = i, verify_result = ?res.nca_proofs[i].verify::<QEDHasher>(), "NCA proof verification");
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
-            if l_dep_ind == -1 && r_dep_ind == -1 {
+            if l_dep_ind <= -1 && r_dep_ind <= -1 {
                 debug!("LeftRightEndCap");
+                let l_dep_ind = -(l_dep_ind + 1) as usize;
+                let r_dep_ind = -(r_dep_ind + 1) as usize;
                 let x = CircuitInputWithDependencies {
                     input: VerifyTwoEndCapCircuitInput {
                         guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
-                        a_end_cap: guta_queue_items[i * 2].get_verify_end_cap_simple_input(),
-                        b_end_cap: guta_queue_items[i * 2 + 1].get_verify_end_cap_simple_input(),
+                        a_end_cap: guta_queue_items[l_dep_ind].get_verify_end_cap_simple_input(),
+                        b_end_cap: guta_queue_items[r_dep_ind].get_verify_end_cap_simple_input(),
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
                     dependencies: vec![
-                        guta_queue_items[i * 2].proof_id.get_output_id(),
-                        guta_queue_items[i * 2 + 1].proof_id.get_output_id(),
+                        guta_queue_items[l_dep_ind].proof_id.get_output_id(),
+                        guta_queue_items[r_dep_ind].proof_id.get_output_id(),
                     ],
                 };
                 x.input.check_witness()?;
@@ -705,10 +706,10 @@ impl<
 
                 combo_stats.push((
                     w_id.get_output_id(),
-                    guta_queue_items[i * 2]
+                    guta_queue_items[l_dep_ind]
                         .input
                         .stats
-                        .combine_with(&guta_queue_items[i * 2 + 1].input.stats),
+                        .combine_with(&guta_queue_items[r_dep_ind].input.stats),
                 ));
 
                 graph.add_node(w_id.get_output_id());
@@ -717,7 +718,7 @@ impl<
                     key: w_id,
                     value: bincode::serialize(&x)?,
                 });
-            } else if r_dep_ind != -1 && l_dep_ind != -1 {
+            } else if r_dep_ind > -1 && l_dep_ind > -1 {
                 debug!("LeftRightGuta");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
@@ -753,10 +754,11 @@ impl<
                     key: w_id,
                     value: bincode::serialize(&x)?,
                 });
-            } else if l_dep_ind != -1 {
+            } else if l_dep_ind > -1 {
                 debug!("LeftGUTARightEndCap");
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
-                let right_endcap = &guta_queue_items[i*2 + 1];
+                let r_dep_ind = -(r_dep_ind + 1) as usize;
+                let right_endcap = &guta_queue_items[r_dep_ind];
                 let x = CircuitInputWithDependencies {
                     input: VerifyLeftGUTARightEndCapInputSimple {
                         checkpoint_tree_root,
@@ -791,7 +793,8 @@ impl<
             } else {
                 debug!("LeftEndCapRightGuta");
                 let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
-                let left_endcap = &guta_queue_items[2*i];
+                let l_dep_ind = -(l_dep_ind + 1) as usize;
+                let left_endcap = &guta_queue_items[l_dep_ind];
                 let x = CircuitInputWithDependencies {
                     input: VerifyLeftEndCapRightGUTAInputSimple {
                         checkpoint_tree_root,

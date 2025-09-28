@@ -532,7 +532,7 @@ impl<Hash: PartialEq + Copy + Default> UpdateNCAProofsWithDependencies<Hash> {
 
             for x in remaining {
                 let (l, r) = self.dependencies[x];
-                if (l == -1 || solved.contains(&l)) && (r == -1 || solved.contains(&r)) {
+                if (l <= -1 || solved.contains(&l)) && (r <= -1 || solved.contains(&r)) {
                     level.push(x);
                     solved_values += 1;
                 } else {
