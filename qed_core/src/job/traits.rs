@@ -189,11 +189,7 @@ pub trait QProofStoreReaderAsync {
     async fn get_public_input_by_id<C: GenericConfig<D>, const D: usize>(
         &self,
         id: QProvingJobDataID,
-    ) -> anyhow::Result<Vec<C::F>> {
-        let proof = self.get_proof_by_id::<C, D>(id).await?;
-        Ok(proof.public_inputs)
-    }
-
+    ) -> anyhow::Result<Vec<C::F>>;
 }
 
 #[async_trait]
@@ -279,106 +275,6 @@ pub trait QProofStoreAsyncImm: QProofStoreReaderAsync + QProofStoreWriterAsyncIm
 }
 
 impl<T: QProofStoreReaderAsync + QProofStoreWriterAsyncImm> QProofStoreAsyncImm for T {}
-#[derive(Clone, Copy, Debug)]
-pub struct QDummyProofStore {}
-
-impl QDummyProofStore {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl QProofStoreReaderSync for QDummyProofStore {
-    fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
-        &self,
-        _id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        anyhow::bail!("Not implemented")
-    }
-
-    fn get_bytes_by_id(&self, _id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
-        Ok(vec![])
-    }
-}
-#[async_trait]
-impl QProofStoreReaderAsync for QDummyProofStore {
-    async fn contains_id(&self, _id: QProvingJobDataID) -> anyhow::Result<bool> {
-        Ok(false)
-    }
-    async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
-        &self,
-        _id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        anyhow::bail!("Not implemented")
-    }
-    async fn get_bytes_by_id(&self, _id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
-        Ok(vec![])
-    }
-}
-
-#[async_trait]
-impl QProofStoreWriterAsyncImm for QDummyProofStore {
-    async fn set_proof_by_id<C: GenericConfig<D>, const D: usize>(
-        &self,
-        _id: QProvingJobDataID,
-        _proof: &ProofWithPublicInputs<C::F, C, D>,
-    ) -> anyhow::Result<()> {
-        anyhow::bail!("Not implemented")
-    }
-    async fn set_bytes_by_id(&self, _id: QProvingJobDataID, _data: &[u8]) -> anyhow::Result<()> {
-        anyhow::bail!("Not implemented")
-    }
-    async fn set_bytes_by_id_batch(&self, _kv_pairs: &[KVQPair<QProvingJobDataID, Vec<u8>>]) -> anyhow::Result<()> {
-        anyhow::bail!("Not implemented")
-    }
-    async fn inc_counter_by_id(&self, _id: QProvingJobDataID) -> anyhow::Result<u32> {
-        anyhow::bail!("Not implemented")
-    }
-    async fn write_next_jobs(&self, _jobs: &[QProvingJobDataID], _next_jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
-        anyhow::bail!("Not implemented")
-    }
-    async fn write_multidimensional_jobs(&self, _jobs_levels: &[Vec<QProvingJobDataID>], _next_jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
-        anyhow::bail!("Not implemented")
-    }
-    async fn cleanup_old_proofs(&self, _current_height: u64, _keep_blocks: u64) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
-impl QProofStoreWriterSync for QDummyProofStore {
-    fn set_proof_by_id<C: GenericConfig<D>, const D: usize>(
-        &mut self,
-        _id: QProvingJobDataID,
-        _proof: &ProofWithPublicInputs<C::F, C, D>,
-    ) -> anyhow::Result<()> {
-        anyhow::bail!("Not implemented")
-    }
-
-    fn set_bytes_by_id(&mut self, _id: QProvingJobDataID, _data: &[u8]) -> anyhow::Result<()> {
-        anyhow::bail!("Not implemented")
-    }
-
-    fn inc_counter_by_id(&mut self, _id: QProvingJobDataID) -> anyhow::Result<u32> {
-        anyhow::bail!("Not implemented")
-    }
-
-    fn write_next_jobs(
-        &mut self,
-        _jobs: &[QProvingJobDataID],
-        _next_jobs: &[QProvingJobDataID],
-    ) -> anyhow::Result<()> {
-        anyhow::bail!("Not implemented")
-    }
-
-    fn write_multidimensional_jobs(
-        &mut self,
-        _jobs_levels: &[Vec<QProvingJobDataID>],
-        _next_jobs: &[QProvingJobDataID],
-    ) -> anyhow::Result<()> {
-        anyhow::bail!("Not implemented")
-    }
-}
-
 
 #[async_trait]
 pub trait QWorkerGenericProverAsyncMut<S: QProofStoreReaderAsync, C: GenericConfig<D>, const D: usize>:
