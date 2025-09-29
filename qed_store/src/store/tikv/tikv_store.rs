@@ -3,10 +3,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use std::{fmt::Debug, sync::Arc};
+use std::time::Duration;
 use tikv_client::proto::kvrpcpb::{Mutation, Op};
-use tikv_client::{
-    CheckLevel, Key, Snapshot, Transaction, TransactionClient, TransactionOptions, Value,
-};
+use tikv_client::{CheckLevel, Key, Snapshot, Transaction, TransactionClient, TransactionOptions, Value};
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
 
@@ -47,7 +46,11 @@ impl Debug for TiKVStore {
 impl TiKVStore {
     pub async fn new(config: TiKVConfig) -> Result<Self> {
         let pd_endpoints = config.get_pd_endpoints();
-        let connection = TransactionClient::new(pd_endpoints).await?;
+        let mut tikv_config = tikv_client::Config::default();
+        tikv_config = tikv_config.
+            with_grpc_max_decoding_message_size(config.grpc_max_decoding_message_size).
+            with_timeout(Duration::from_secs(config.timeout));
+        let connection = TransactionClient::new_with_config(pd_endpoints, tikv_config).await?;
         let namespace_bytes = config.namespace.as_bytes().to_vec();
 
         Ok(Self {
