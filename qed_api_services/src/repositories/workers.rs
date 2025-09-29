@@ -71,7 +71,7 @@ impl WorkerEventRepository {
         })
     }
 
-    /// Get worker events with filtering and pagination
+    /// Get worker events with filtering and pagination by checkpoint range
     /// Note: Uses dynamic query due to complex optional filtering
     pub async fn list(
         pool: &PgPool,
@@ -80,8 +80,8 @@ impl WorkerEventRepository {
         source: Option<WorkerEventSource>,
         topic: Option<QJobTopic>,
         circuit_type: Option<ProvingJobCircuitType>,
-        start_time: Option<DateTime<Utc>>,
-        end_time: Option<DateTime<Utc>>,
+        from_checkpoint_id: Option<i64>,
+        to_checkpoint_id: Option<i64>,
         offset: i64,
         limit: i64,
     ) -> Result<Vec<WorkerEvent>> {
@@ -98,9 +98,9 @@ impl WorkerEventRepository {
                 AND ($3::VARCHAR IS NULL OR source = $3)
                 AND ($4::SMALLINT IS NULL OR topic = $4)
                 AND ($5::SMALLINT IS NULL OR circuit_type = $5)
-                AND ($6::TIMESTAMPTZ IS NULL OR timestamp >= $6)
-                AND ($7::TIMESTAMPTZ IS NULL OR timestamp <= $7)
-            ORDER BY timestamp DESC
+                AND ($6::BIGINT IS NULL OR checkpoint_id >= $6)
+                AND ($7::BIGINT IS NULL OR checkpoint_id <= $7)
+            ORDER BY checkpoint_id DESC, timestamp DESC
             LIMIT $8 OFFSET $9
             "#,
             realm_id,
@@ -108,8 +108,8 @@ impl WorkerEventRepository {
             source.map(|s| s.to_string()),
             topic,
             circuit_type,
-            start_time,
-            end_time,
+            from_checkpoint_id,
+            to_checkpoint_id,
             limit,
             offset
         )
