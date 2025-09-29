@@ -1,5 +1,5 @@
 import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair } from "../types";
+import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair, JobInfo } from "../types";
 
 // Assertion for DPN function circuits
 interface DPNAssertEqInfoIndexed {
@@ -114,6 +114,9 @@ interface IQedUserProverProvider {
     proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
     proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
     signAndSubmit(pk_hash: string): Promise<string>;
+
+    getClaimRewardsCallArgs(pk_hash: string, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]>;
+    claimRewards(pk_hash: string, checkpointId: bigint, jobInfos: JobInfo[]): Promise<string>;
 
     // User operations
     registerUser(privateKey: PrivateKey): Promise<PublicKey>;

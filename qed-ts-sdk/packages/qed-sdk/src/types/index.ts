@@ -437,3 +437,13 @@ export interface QCheckpointTreeMerkleProofFRPCRequest {
     checkpoint_id: bigint;
     leaf_checkpoint_id: bigint;
 }
+
+export type JobLocation =
+    | { Realm: number }
+    | { Coordinator: {} };
+
+export type QProvingJobDataID = string;
+export interface JobInfo {
+    job_id: QProvingJobDataID,
+    location: JobLocation,
+}

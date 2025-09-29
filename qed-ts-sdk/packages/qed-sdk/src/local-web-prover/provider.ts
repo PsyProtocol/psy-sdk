@@ -9,7 +9,7 @@ import {
     QBCDeployContract,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
-import { ZKPublicKeyInfo } from "../types";
+import { ZKPublicKeyInfo, JobInfo } from "../types";
 import { QedJSON } from "../utils";
 
 
@@ -55,6 +55,23 @@ export class QedWasmWebProverProvider implements IQedUserProverProvider {
         await this.signAndSubmit(pkHash);
 
         console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
+        return result;
+    }
+
+    async getClaimRewardsCallArgs(pkHash: string, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]> {
+        const now = new Date().getTime();
+        const json = QedJSON.stringify(jobInfos);
+        const result = await QedWasmWebProverProvider.wasmServer.get_claim_rewards_call_args_json(pkHash, checkpointId, json);
+        console.log(`claimRewards in ${(new Date().getTime() - now) / 1000} seconds`);
+        const contractCallArgs = QedJSON.parse(result) as ContractCallArgs[];
+        return contractCallArgs;
+    }
+
+    async claimRewards(pkHash: string,  checkpointId: bigint, jobInfos: JobInfo[]): Promise<string> {
+        const now = new Date().getTime();
+        const json = QedJSON.stringify(jobInfos);
+        const result = await QedWasmWebProverProvider.wasmServer.claim_rewards_json(pkHash, checkpointId, json);
+        console.log(`claimRewards in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
 

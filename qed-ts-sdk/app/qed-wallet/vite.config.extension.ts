@@ -57,6 +57,10 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 popup: resolve(__dirname, "index.html"),
+                approve: resolve(__dirname, "src/components/DappService/index.html"),
+                background: resolve(__dirname, "src/background/index.js"), 
+                contentScript: resolve(__dirname, "src/contentScript/index.js"), 
+                webHook: resolve(__dirname, "src/webHook/index.js")
             },
             output: {
                 entryFileNames: "assets/[name].js",

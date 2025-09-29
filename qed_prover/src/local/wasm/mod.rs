@@ -15,6 +15,7 @@ use crate::local::store::UserProverWorkerStore;
 use crate::local::{args::ContractCallArgs, provider::RpcConfig};
 use crate::session::WalletKeyPair;
 use crate::session::WalletSession;
+use crate::local::args::JobInfo;
 
 // pub mod wallet_session;
 
@@ -57,6 +58,44 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
         Ok("start session".to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn get_claim_rewards_call_args_json(
+        &self,
+        pk_hash: &str,
+        checkpoint_id: u64,
+        job_infos_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let job_infos: Vec<JobInfo> = serde_json::from_str(job_infos_json)
+            .map_err(|e| JsError::new(&format!("Parse job infos JSON error: {}", e)))?;
+
+        let contract_call_args = self.wallet_session.get_claim_rewards_call_args(pk_hash, checkpoint_id, job_infos)
+            .await
+            .map_err(|e| JsError::new(&format!("Error get claim rewards call args error: {}", e)))?;
+        Ok(serde_json::to_string(&contract_call_args)?)
+    }
+
+    #[wasm_bindgen]
+    pub async fn claim_rewards_json(
+        &mut self, 
+        pk_hash: &str, 
+        checkpoint_id: u64, 
+        job_infos_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let job_infos: Vec<JobInfo> = serde_json::from_str(job_infos_json)
+            .map_err(|e| JsError::new(&format!("Parse job infos JSON error: {}", e)))?;
+
+        self.wallet_session.claim_rewards(pk_hash, checkpoint_id, job_infos)
+            .await
+            .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
+        Ok("claim_rewards".to_string())
     }
 
     // Local proving operations
