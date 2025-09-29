@@ -118,9 +118,7 @@ log = { version = "0.4.14", default-features = false }
 env_logger = { version = "0.11", default-features = false }
 dotenvy = "0.15.0"
 
-tokio = { version = "1.43.0", features = ["full"] }
-tokio-executor-trait = "2.1.3"
-tokio-reactor-trait = "2"
+tokio = { version = "1.47.0", features = ["full"] }
 
 futures = "0.3.0"
 redis = { version = "0.30.0", default-features = false, features = [
@@ -222,7 +220,7 @@ url = "2.5"
 dirs = "6.0"
 semver = "1.0"
 md5 = "0.7"
-jsonrpsee = { version = "0.25", features = ["server", "client", "macros"] }
+jsonrpsee = { version = "0.26", features = ["server", "client", "macros"] }
 config = "0.15"
 
 qedlang_core = { path = "./qedlang_core" }
