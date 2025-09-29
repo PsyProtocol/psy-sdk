@@ -80,7 +80,8 @@ impl<F: RichField> SimpleCircuitLibrary<F>{
     
     pub fn to_serialized(&self) -> SerializableSimpleCircuitLibrary<F> {
 
-        let circuits = self.info_map.values().map(|x|x.to_owned()).collect::<Vec<_>>();
+        let mut circuits = self.info_map.values().map(|x|x.to_owned()).collect::<Vec<_>>();
+        circuits.sort_by_key(|x| x.circuit_type as u32); // sort to ensure consistent ordering for serialization
         let inclusion_proofs_len = self.inclusion_proofs.len();
         let mut inclusion_proof_mapping = vec![Vec::new(); inclusion_proofs_len];
 
@@ -89,6 +90,8 @@ impl<F: RichField> SimpleCircuitLibrary<F>{
                 inclusion_proof_mapping[*index].push(*mapping_key);
             }
         });
+
+        inclusion_proof_mapping.iter_mut().for_each(|v| v.sort_by_key(|x| (x.parent as u32, x.child as u32))); // sort to ensure consistent ordering for serialization
 
         let inclusion_proofs = self.inclusion_proofs.clone();
 
