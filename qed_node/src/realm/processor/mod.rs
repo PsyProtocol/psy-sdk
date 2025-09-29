@@ -209,7 +209,9 @@ impl RealmProcessor {
                     break;
                 }
                 if let Err(err) =  self.block_handle(&build_ctx).await {
-                    error!("Block handle error: {:?}, pending_checkpoint_id: {}", err, self.pending_checkpoint_id.load(Ordering::Relaxed));
+                    let checkpoint = self.pending_checkpoint_id.load(Ordering::Relaxed);
+                    error!("Block handle error: {:?}, pending_checkpoint_id: {}", err, checkpoint);
+                    let _ = build_ctx.rollback(checkpoint).await;
                 }
             }}
         );
@@ -294,7 +296,7 @@ impl RealmProcessor {
         let now = Instant::now();
         info!("Start building block checkpoint: {}, slot: {}", next_checkpoint_id, slot);
         let proving_data_job_id: ProvingJobDataId = match tokio::time::timeout(
-            Duration::from_secs(2 * SLOT_SIZE),
+            Duration::from_millis(2 * SLOT_SIZE),
             self.build_block(build_ctx, next_checkpoint_id)
         ).await?{
             Ok(job_id) => job_id,
@@ -440,19 +442,7 @@ impl RealmProcessor {
         build_ctx: &ConcreteRealmProcessorContext,
         next_checkpoint_id: u64,
     ) -> anyhow::Result<ProvingJobDataId> {
-        // Build block with enhanced error handling(all logic including logging is inside context.build_block)
-        match build_ctx.build_block().await {
-            Ok(job_id) => {
-                Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
-            },
-            Err(err) => {
-                // Rollback database changes
-                build_ctx.rollback(next_checkpoint_id).await?;
-
-                error!("Rollback: build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
-                Err(err)
-            }
-        }
+        build_ctx.build_block().await.map(|job_id|ProvingJobDataId::new(next_checkpoint_id, job_id))
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {

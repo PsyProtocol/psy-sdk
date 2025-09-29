@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useWalletState } from '@qed/qed-wallet-widget';
 
-const WALLET_STORAGE_KEY = 'psy_wallet_data';
+export const WALLET_STORAGE_KEY = 'psy_wallet_data';
 
 // Helper function to recursively clean BigInt values from objects
 const cleanBigIntValues = (obj: any): any => {
@@ -28,7 +28,7 @@ const cleanBigIntValues = (obj: any): any => {
   return obj;
 };
 
-interface StoredWalletData {
+export interface StoredWalletData {
   wallets: {
     userId: number;
     name: string;

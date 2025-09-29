@@ -14,6 +14,12 @@ pub struct TiKVConfig {
     
     #[clap(long = "tikv-namespace", env = "TIKV_NAMESPACE", default_value = "qed")]
     pub namespace: String,
+    #[clap(long = "tikv-timeout", env = "TIKV_TIMEOUT", default_value = "2")]
+    pub timeout: u64,
+    #[clap(long = "tikv-grpc-max-decoding-message-size", env = "TIKV_GRPC_MAX_DECODING_MESSAGE_SIZE", default_value = "12582912")] // 12MB
+    pub grpc_max_decoding_message_size: usize,
+    #[clap(long = "tikv-enable-grpc-gzip-compression", env = "TIKV_ENABLE_GRPC_GZIP_COMPRESSION", default_value = "true")]
+    pub enable_grpc_gzip_compression: bool,
 }
 
 impl TiKVConfig {
@@ -36,6 +42,9 @@ impl Default for TiKVConfig {
         Self {
             pd_endpoints: "127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383".to_string(),
             namespace: "qed".to_string(),
+            timeout: 10,
+            grpc_max_decoding_message_size:  12 * 1024 * 1024,// 12MB => 12582912
+            enable_grpc_gzip_compression: true,
         }
     }
 }
@@ -48,13 +57,13 @@ mod tests {
     fn test_get_pd_endpoints() {
         let config = TiKVConfig {
             pd_endpoints: "127.0.0.1:2379".to_string(),
-            namespace: "test".to_string(),
+            ..Default::default()
         };
         assert_eq!(config.get_pd_endpoints(), vec!["127.0.0.1:2379"]);
 
         let config = TiKVConfig {
             pd_endpoints: "127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383".to_string(),
-            namespace: "test".to_string(),
+            ..Default::default()
         };
         assert_eq!(
             config.get_pd_endpoints(),
@@ -63,7 +72,7 @@ mod tests {
 
         let config = TiKVConfig {
             pd_endpoints: "127.0.0.1:2379, 127.0.0.1:2381 , 127.0.0.1:2383".to_string(),
-            namespace: "test".to_string(),
+            ..Default::default()
         };
         assert_eq!(
             config.get_pd_endpoints(),
@@ -72,7 +81,7 @@ mod tests {
 
         let config = TiKVConfig {
             pd_endpoints: "".to_string(),
-            namespace: "test".to_string(),
+            ..Default::default()
         };
         assert_eq!(config.get_pd_endpoints(), vec!["127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383"]);
     }

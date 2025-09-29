@@ -9,7 +9,7 @@ import {
     QBCDeployContract,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
-import { ZKPublicKeyInfo } from "../types";
+import { JobInfo, ZKPublicKeyInfo } from "../types";
 
 // Client-side types
 interface ClientRequest {
@@ -325,6 +325,14 @@ export class QedProverClient implements IQedUserProverProvider {
 
     async addUser(privateKey: PrivateKey): Promise<PublicKey> {
         return this.callServerMethod(QedUserProverRPCCommand.AddUser, [privateKey]);
+    }
+
+    async getClaimRewardsCallArgs(pkHash: PublicKey, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]> {
+        throw new Error("Method not implemented.");
+    }
+
+    async claimRewards(pkHash: PublicKey, checkpointId: bigint, jobInfos: JobInfo[]): Promise<string> {
+        throw new Error("Method not implemented.");
     }
 
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {

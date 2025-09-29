@@ -49,6 +49,7 @@ k256 = { workspace = true }
 
 rand = { workspace = true }
 getrandom = { workspace = true }
+hex = {workspace = true}
 
 # Native-only dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -61,7 +62,6 @@ jsonrpsee = { workspace = true }
 reqwest = { workspace = true }
 sodalite = { workspace = true }
 secp256k1 = { workspace = true }
-hex = {workspace = true}
 bincode = { workspace = true }
 dirs = {workspace = true}
 rpassword = { workspace = true }

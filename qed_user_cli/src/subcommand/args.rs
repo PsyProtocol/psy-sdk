@@ -474,11 +474,6 @@ pub struct ClaimRewardsArgs {
     #[clap(long, short)]
     pub private_key: String,
 
-    /// Checkpoint ID for the rewards claim
-    #[arg(long)]
-    pub checkpoint_id: u64,
-
-
     /// Job specifications in format "job_id:location" where location is either "realm:id" or "coordinator"
     /// Example: --job "12345:realm:0" --job "67890:coordinator"
     #[arg(long = "job", action = clap::ArgAction::Append)]

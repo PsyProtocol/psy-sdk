@@ -1,5 +1,6 @@
 import { getQedNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { IQedUserProverProvider } from "../../local-prover-rpc";
+import { ContractCallArgs, IQedUserProverProvider } from "../../local-prover-rpc";
+import { JobInfo } from "../../types";
 import { cryptoRandomHashOutHex } from "../../utils";
 import { IQedTransactionSigner, IQedTransactionSignerProvider, TQedTransactionSignerProviderAbility } from "../types";
 import { QedMemoryTransactionSigner } from "./signer";
@@ -41,6 +42,18 @@ class QedMemoryTransactionSignerProvider implements IQedTransactionSignerProvide
 
     async registerUser(privateKeyHex: string): Promise<string> {
         return this.proverProvider.registerUser(privateKeyHex);
+    }
+
+    async addUser(privateKeyHex: string): Promise<string> {
+        return this.proverProvider.addUser(privateKeyHex);
+    }
+
+    async getClaimRewardsCallArgs(pk_hash: string, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]> {
+        return this.proverProvider.getClaimRewardsCallArgs(pk_hash, checkpointId, jobInfos);
+    }
+
+    async claimRewards(pk_hash: string,  checkpointId: bigint, jobInfos: JobInfo[]): Promise<string> {
+        return this.proverProvider.claimRewards(pk_hash, checkpointId, jobInfos);
     }
 }
 
