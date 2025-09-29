@@ -293,28 +293,34 @@ impl RealmProcessor {
         }
         let now = Instant::now();
         info!("Start building block checkpoint: {}, slot: {}", next_checkpoint_id, slot);
-        let proving_data_job_id: ProvingJobDataId = match tokio::time::timeout(
-            Duration::from_secs(2 * SLOT_SIZE),
-            self.build_block(build_ctx, next_checkpoint_id)
-        ).await?{
-            Ok(job_id) => job_id,
-            Err(err) => {
-                let _ = build_ctx.rollback(next_checkpoint_id).await;
-                error!("Timeout waiting: {:?} for produce block, slot: {}", err, slot);
-                return Ok(());
+        tokio::select! {
+            result = self.build_block(build_ctx, next_checkpoint_id) => {
+                match result {
+                    Ok(job_id) => {
+                        let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
+                        if local_latest_checkpoint_id >= next_checkpoint_id {
+                            warn!("Rollback: local latest checkpoint id: {}, next checkpoint id: {}", local_latest_checkpoint_id, next_checkpoint_id);
+                            build_ctx.rollback(next_checkpoint_id).await?;
+                            self.pending_checkpoint_id.store(0, Ordering::Relaxed);
+                            return Ok(());
+                        }
+                        self.sync_proof.chq_push_imm(job_id).await?;
+                        self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
+                        build_ctx.store.save_snapshot(next_checkpoint_id)?;
+                        info!("build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
+                    }
+                    Err(err) => {
+                        // Rollback database changes
+                        build_ctx.rollback(next_checkpoint_id).await?;
+                        error!("Rollback: build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
+                    }
+                }
             }
-        };
-        let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
-        if local_latest_checkpoint_id >= next_checkpoint_id {
-            warn!("Rollback: local latest checkpoint id: {}, next checkpoint id: {}", local_latest_checkpoint_id, next_checkpoint_id);
-            build_ctx.rollback(next_checkpoint_id).await?;
-            self.pending_checkpoint_id.store(0, Ordering::Relaxed);
-            return Ok(());
+            err = tokio::time::sleep(Duration::from_secs(2 * SLOT_SIZE)) => {
+                build_ctx.rollback(next_checkpoint_id).await?;
+                error!("Timeout waiting: {:?} for produce block, slot: {}, next checkpoint id: {}", err, slot, next_checkpoint_id);
+            }
         }
-        self.sync_proof.chq_push_imm(proving_data_job_id).await?;
-        self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
-        build_ctx.store.save_snapshot(next_checkpoint_id)?;
-        info!("build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
         Ok(())
     }
 
@@ -440,19 +446,7 @@ impl RealmProcessor {
         build_ctx: &ConcreteRealmProcessorContext,
         next_checkpoint_id: u64,
     ) -> anyhow::Result<ProvingJobDataId> {
-        // Build block with enhanced error handling(all logic including logging is inside context.build_block)
-        match build_ctx.build_block().await {
-            Ok(job_id) => {
-                Ok(ProvingJobDataId::new(next_checkpoint_id, job_id))
-            },
-            Err(err) => {
-                // Rollback database changes
-                build_ctx.rollback(next_checkpoint_id).await?;
-
-                error!("Rollback: build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
-                Err(err)
-            }
-        }
+        build_ctx.build_block().await.map(|job_id|ProvingJobDataId::new(next_checkpoint_id, job_id))
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {
