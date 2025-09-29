@@ -118,9 +118,7 @@ log = { version = "0.4.14", default-features = false }
 env_logger = { version = "0.11", default-features = false }
 dotenvy = "0.15.0"
 
-tokio = { version = "1.43.0", features = ["full"] }
-tokio-executor-trait = "2.1.3"
-tokio-reactor-trait = "2"
+tokio = { version = "1.47.0", features = ["full"] }
 
 futures = "0.3.0"
 redis = { version = "0.30.0", default-features = false, features = [
@@ -161,7 +159,7 @@ quote = "1.0"
 # Additional common dependencies
 uuid = { version = "1.0", features = ["serde", "v4", "js"] }
 scylla = { version = "0.15.1" }
-tikv-client = "0.3"
+tikv-client = { git = "https://github.com/tikv/client-rust", branch = "cse" }
 http = "1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
@@ -222,7 +220,7 @@ url = "2.5"
 dirs = "6.0"
 semver = "1.0"
 md5 = "0.7"
-jsonrpsee = { version = "0.25", features = ["server", "client", "macros"] }
+jsonrpsee = { version = "0.26", features = ["server", "client", "macros"] }
 config = "0.15"
 
 qedlang_core = { path = "./qedlang_core" }
@@ -259,9 +257,8 @@ bs58 = { version = "0.5.1", features = ["std", "check"] }
 hyper = { version = "1", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 http-body-util = "0.1"
-reqwest = { version = "0.11.22", default-features = false, features = [
+reqwest = { version = "0.12", default-features = false, features = [
   "json",
-  "rustls",
   "blocking",
 ] }
 

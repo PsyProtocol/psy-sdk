@@ -40,7 +40,7 @@ tracing-subscriber = { workspace = true }
 [dev-dependencies]
 reqwest = { version = "0.12", features = ["json"] }
 rand = { version = "0.8" }
-tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.28", features = ["native-tls"] }
 futures-util = { version = "0.3" }
 
 [lints]
