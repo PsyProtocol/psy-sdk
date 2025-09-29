@@ -209,7 +209,9 @@ impl RealmProcessor {
                     break;
                 }
                 if let Err(err) =  self.block_handle(&build_ctx).await {
-                    error!("Block handle error: {:?}, pending_checkpoint_id: {}", err, self.pending_checkpoint_id.load(Ordering::Relaxed));
+                    let checkpoint = self.pending_checkpoint_id.load(Ordering::Relaxed);
+                    error!("Block handle error: {:?}, pending_checkpoint_id: {}", err, checkpoint);
+                    let _ = build_ctx.rollback(checkpoint).await;
                 }
             }}
         );
@@ -313,7 +315,7 @@ impl RealmProcessor {
                     }
                 }
             }
-            err = tokio::time::sleep(Duration::from_secs(2 * SLOT_SIZE)) => {
+            err = tokio::time::sleep(Duration::from_millis(2 * SLOT_SIZE)) => {
                 error!("Rollback: Timeout waiting {:?} for produce block, slot: {}, next checkpoint id: {}", err, slot, next_checkpoint_id);
             }
         }

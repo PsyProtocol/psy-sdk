@@ -628,7 +628,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                     }
                 }
             }
-            _ = tokio::time::sleep(Duration::from_secs(2 * SLOT_SIZE)) => {
+            _ = tokio::time::sleep(Duration::from_millis(2 * SLOT_SIZE)) => {
                 if let Err(err) = coordinator_processor.ctx.rollback(next_checkpoint_id).await {
                     error!("❌ Failed to rollback checkpoint {}: {:?}", next_checkpoint_id, err);
                 }
