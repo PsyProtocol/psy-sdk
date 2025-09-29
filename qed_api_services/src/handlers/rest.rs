@@ -192,8 +192,8 @@ pub struct WorkerEventsQuery {
     pub public_key: Option<String>,
     pub topic: Option<QJobTopic>,
     pub circuit_type: Option<ProvingJobCircuitType>,
-    pub start_time: Option<DateTime<Utc>>,
-    pub end_time: Option<DateTime<Utc>>,
+    pub from_checkpoint_id: Option<i64>,
+    pub to_checkpoint_id: Option<i64>,
 }
 
 async fn worker_events_handler(
@@ -210,8 +210,8 @@ async fn worker_events_handler(
         None, // source filter not provided in query params yet
         query.topic,
         query.circuit_type,
-        query.start_time,
-        query.end_time,
+        query.from_checkpoint_id,
+        query.to_checkpoint_id,
         0,   // offset
         100, // limit
     )

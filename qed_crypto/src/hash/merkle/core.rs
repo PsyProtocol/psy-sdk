@@ -80,9 +80,15 @@ pub fn compute_root_merkle_proof<H: QHasher<F>, F: RichField>(
     current
 }
 pub fn verify_merkle_proof<H: QHasher<F>, F: RichField>(proof: &MerkleProof<F>) -> bool {
+    if proof.siblings.len() > 64 {
+        return false;
+    }
     compute_root_merkle_proof::<H, F>(proof.value, proof.index, &proof.siblings) == proof.root
 }
 pub fn verify_delta_merkle_proof<H: QHasher<F>, F: RichField>(proof: &DeltaMerkleProof<F>) -> bool {
+    if proof.siblings.len() > 64 {
+        return false;
+    }
     compute_root_merkle_proof::<H, F>(proof.old_value, proof.index, &proof.siblings)
         == proof.old_root
         && compute_root_merkle_proof::<H, F>(proof.new_value, proof.index, &proof.siblings)
@@ -121,6 +127,9 @@ pub struct MerkleProof<F: RichField> {
 
 impl<F: RichField> MerkleProof<F> {
     pub fn verify<H: QHasher<F>>(&self) -> bool {
+        if self.siblings.len() > 64 {
+            return false;
+        }
         verify_merkle_proof::<H, F>(self)
     }
 }
@@ -165,6 +174,9 @@ pub struct DeltaMerkleProof<F: RichField> {
 
 impl<F: RichField> DeltaMerkleProof<F> {
     pub fn verify<H: QHasher<F>>(&self) -> bool {
+        if self.siblings.len() > 64 {
+            return false;
+        }
         verify_delta_merkle_proof::<H, F>(self)
     }
 }
@@ -200,9 +212,15 @@ impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
         }
     }
     pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool where Hash: Display{
+        if self.siblings.len() > 64 {
+            return false;
+        }
         verify_merkle_proof_core::<Hash, Hasher>(self)
     }
     pub fn verify_marked<Hasher: MerkleHasherWithMarkedLeaf<Hash>>(&self) -> bool {
+        if self.siblings.len() > 64 {
+            return false;
+        }
         verify_merkle_proof_marked_leaves_core::<Hash, Hasher>(self)
     }
     pub fn to_delta_merkle_proof_inplace(self) -> DeltaMerkleProofCore<Hash> {
@@ -367,15 +385,24 @@ impl<Hash: PartialEq + Copy + Default> Default for DeltaMerkleProofCore<Hash> {
 }
 impl<Hash: PartialEq + Copy> DeltaMerkleProofCore<Hash> {
     pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool {
+        if self.siblings.len() > 64 {
+            return false;
+        }
         verify_delta_merkle_proof_core::<Hash, Hasher>(self)
     }
     pub fn verify_marked<Hasher: MerkleHasherWithMarkedLeaf<Hash>>(&self) -> bool {
+        if self.siblings.len() > 64 {
+            return false;
+        }
         verify_delta_merkle_proof_marked_leaves_core::<Hash, Hasher>(self)
     }
 }
 pub fn verify_merkle_proof_core<Hash: PartialEq + Copy + Display, Hasher: MerkleHasher<Hash>>(
     proof: &MerkleProofCore<Hash>,
 ) -> bool {
+    if proof.siblings.len() > 64 {
+        return false;
+    }
     let mut current = proof.value;
     for (i, sibling) in proof.siblings.iter().enumerate() {
         if proof.index & (1 << i) == 0 {
@@ -460,6 +487,9 @@ pub fn compute_historical_and_current_merkle_roots_core_gt_qho<F: RichField, Has
 pub fn verify_delta_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(
     proof: &DeltaMerkleProofCore<Hash>,
 ) -> bool {
+    if proof.siblings.len() > 64 {
+        return false;
+    }
     let mut current = proof.old_value;
     for (i, sibling) in proof.siblings.iter().enumerate() {
         if proof.index & (1 << i) == 0 {
@@ -488,6 +518,9 @@ pub fn verify_merkle_proof_marked_leaves_core<
 >(
     proof: &MerkleProofCore<Hash>,
 ) -> bool {
+    if proof.siblings.len() > 64 {
+        return false;
+    }
     let mut current = proof.value;
     for (i, sibling) in proof.siblings.iter().enumerate() {
         if proof.index & (1 << i) == 0 {
@@ -504,6 +537,9 @@ pub fn verify_delta_merkle_proof_marked_leaves_core<
 >(
     proof: &DeltaMerkleProofCore<Hash>,
 ) -> bool {
+    if proof.siblings.len() > 64 {
+        return false;
+    }
     let mut current = proof.old_value;
     for (i, sibling) in proof.siblings.iter().enumerate() {
         if i == 0 {
