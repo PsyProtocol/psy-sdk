@@ -982,16 +982,16 @@ impl WalletSession {
                     }
                 };
 
-                if let Ok(job_proof) = get_job_proof(&self.st_provider, &job_info, *checkpoint_id).await {
-                    tracing::info!("Found GUTA proof for job {}", job_info.job_id.to_hex_string());
-                    job_proofs.push(job_proof);
+                if let Ok((actual_checkpoint_id, job_proof)) = get_job_proof(&self.st_provider, &job_info, *checkpoint_id).await {
+                    tracing::info!("Found GUTA proof for job {} (actual checkpoint: {})", job_info.job_id.to_hex_string(), actual_checkpoint_id);
+                    job_proofs.push((actual_checkpoint_id, job_proof));
                 } else {
                     tracing::warn!("Skipping job {}: failed to get proof", job_info.job_id.to_hex_string());
                 }
             }
 
-            for proof in job_proofs {
-                all_proofs.push((*checkpoint_id, proof, *proposed_reward));
+            for (actual_checkpoint_id, proof) in job_proofs {
+                all_proofs.push((actual_checkpoint_id, proof, *proposed_reward));
             }
         }
 

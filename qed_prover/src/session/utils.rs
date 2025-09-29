@@ -99,43 +99,23 @@ pub async fn get_job_proof(
     provider: &RpcProvider,
     job_info: &JobInfo,
     checkpoint_id: u64,
-) -> anyhow::Result<qed_core::job::id::VariableHeightRewardMerkleProof> {
-    let job_proof = match &job_info.location {
+) -> anyhow::Result<(u64, qed_core::job::id::VariableHeightRewardMerkleProof)> {
+    let (job_proof, actual_checkpoint_id) = match &job_info.location {
         JobLocation::Realm(realm_id) => {
             let (proof, root_job_id) = provider
                 .get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id())
                 .await?;
-
-            if root_job_id.goal_id != checkpoint_id {
-                return Err(anyhow::format_err!(
-                    "checkpoint mismatch: job {} was processed in checkpoint {} but expected {}",
-                    job_info.job_id.to_hex_string(),
-                    root_job_id.goal_id,
-                    checkpoint_id
-                ));
-            }
-
-            proof
+            (proof, root_job_id.goal_id)
         }
         JobLocation::Coordinator => {
             let (proof, root_job_id) = provider
                 .get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id())
                 .await?;
-
-            if root_job_id.goal_id != checkpoint_id {
-                return Err(anyhow::format_err!(
-                    "checkpoint mismatch: job {} was processed in checkpoint {} but expected {}",
-                    job_info.job_id.to_hex_string(),
-                    root_job_id.goal_id,
-                    checkpoint_id
-                ));
-            }
-
-            proof
+            (proof, root_job_id.goal_id)
         }
     };
 
-    Ok(job_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT * 2))
+    Ok((actual_checkpoint_id, job_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT)))
 }
 
 #[maybe_async]

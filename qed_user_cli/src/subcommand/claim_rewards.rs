@@ -148,7 +148,6 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
     sorted_checkpoints.sort();
 
     let mut all_proofs_with_checkpoints = Vec::new();
-    let mut last_valid_checkpoint = None;
 
     for &checkpoint_id in &sorted_checkpoints {
         let jobs = checkpoint_jobs.get(&checkpoint_id).unwrap();
@@ -180,7 +179,6 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
                 proposed_reward,
             });
         }
-        last_valid_checkpoint = Some(checkpoint_id);
     }
 
     if all_proofs_with_checkpoints.is_empty() {
@@ -195,19 +193,22 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
         return Ok(());
     }
 
-    if let Some(last_checkpoint) = last_valid_checkpoint {
-        all_contract_calls.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID,
-            method_name: "end_session".to_string(),
-            inputs: vec![last_checkpoint],
-        });
+    let last_checkpoint = all_proofs_with_checkpoints
+        .last()
+        .unwrap()
+        .checkpoint_id;
 
-        all_contract_calls.push(ContractCallArgs {
-            contract_id: TOKEN_CONTRACT_ID as u64,
-            method_name: "simple_claim_pow_rewards".to_string(),
-            inputs: vec![last_checkpoint],
-        });
-    }
+    all_contract_calls.push(ContractCallArgs {
+        contract_id: MINING_REWARDS_CONTRACT_ID,
+        method_name: "end_session".to_string(),
+        inputs: vec![last_checkpoint],
+    });
+
+    all_contract_calls.push(ContractCallArgs {
+        contract_id: TOKEN_CONTRACT_ID as u64,
+        method_name: "simple_claim_pow_rewards".to_string(),
+        inputs: vec![last_checkpoint],
+    });
 
     if all_contract_calls.is_empty() {
         info!("No rewards to claim");
