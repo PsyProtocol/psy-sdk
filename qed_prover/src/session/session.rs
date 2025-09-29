@@ -1001,10 +1001,9 @@ impl WalletSession {
 
         tracing::info!("Found {} GUTA proofs total across all checkpoints", all_proofs.len());
 
-        let mining_rewards_contract_id = 2;
+        let mining_rewards_contract_id = 1;
         let mut contract_call_args = Vec::new();
 
-        // Use our new 10/5/2/1 batching approach
         let mut remaining_proofs = all_proofs.clone();
 
         while !remaining_proofs.is_empty() {
@@ -1023,7 +1022,6 @@ impl WalletSession {
             }
         }
 
-        // Add end session and token claim at the end
         let last_checkpoint = proofs_with_checkpoints.last().unwrap().0;
         contract_call_args.push(ContractCallArgs {
             contract_id: mining_rewards_contract_id,
@@ -1050,68 +1048,61 @@ impl WalletSession {
         method_name: &str,
     ) -> anyhow::Result<()> {
         let batch_size = batch.len();
-        let mut checkpoints = Vec::new();
-        let mut proof_inputs = Vec::new();
-        let mut proposed_rewards = Vec::new();
+        let mut batch_inputs = Vec::new();
 
-        for (checkpoint_id, proof, proposed_reward) in batch {
-            checkpoints.push(checkpoint_id);
-            proposed_rewards.push(proposed_reward);
-
-            // Serialize proof (32 siblings + sibling_branch + reward_leaf + proof_height + index)
-            for j in 0..32 {
-                if j < proof.top_siblings.len() {
-                    let sibling = &proof.top_siblings[j];
-                    proof_inputs.extend(vec![
-                        sibling.sibling_branch.0.elements[0].0,
-                        sibling.sibling_branch.0.elements[1].0,
-                        sibling.sibling_branch.0.elements[2].0,
-                        sibling.sibling_branch.0.elements[3].0,
-                        sibling.sibling_reward_leaf.0.elements[0].0,
-                        sibling.sibling_reward_leaf.0.elements[1].0,
-                        sibling.sibling_reward_leaf.0.elements[2].0,
-                        sibling.sibling_reward_leaf.0.elements[3].0,
-                    ]);
-                } else {
-                    proof_inputs.extend(vec![0u64; 8]);
-                }
-            }
-            proof_inputs.extend(vec![
-                proof.sibling_branch.0.elements[0].0,
-                proof.sibling_branch.0.elements[1].0,
-                proof.sibling_branch.0.elements[2].0,
-                proof.sibling_branch.0.elements[3].0,
-            ]);
-            proof_inputs.extend(vec![
-                proof.reward_leaf.0.elements[0].0,
-                proof.reward_leaf.0.elements[1].0,
-                proof.reward_leaf.0.elements[2].0,
-                proof.reward_leaf.0.elements[3].0,
-            ]);
-            proof_inputs.extend(vec![proof.proof_height.0, proof.index.0]);
+        for (checkpoint_id, _, _) in &batch {
+            batch_inputs.push(*checkpoint_id);
         }
 
-        // Pad remaining slots for smaller batches
-        let proof_slots_per_element = 266; // 32*8 + 4 + 4 + 2
-        for _ in batch_size..10 {
-            checkpoints.push(0);
-            proposed_rewards.push(0);
-            proof_inputs.extend(vec![0u64; proof_slots_per_element]);
+        for (_, proof, _) in &batch {
+            self.serialize_proof_to_inputs(proof, &mut batch_inputs);
         }
 
-        let mut call_inputs = Vec::new();
-        call_inputs.extend(checkpoints);
-        call_inputs.extend(proof_inputs);
-        call_inputs.extend(proposed_rewards);
+        for (_, _, proposed_reward) in &batch {
+            batch_inputs.push(*proposed_reward);
+        }
 
         contract_call_args.push(ContractCallArgs {
             contract_id: mining_rewards_contract_id,
             method_name: method_name.to_string(),
-            inputs: call_inputs,
+            inputs: batch_inputs,
         });
 
         tracing::info!("Added {} call with {} proofs", method_name, batch_size);
         Ok(())
+    }
+
+    fn serialize_proof_to_inputs(&self, proof: &VariableHeightRewardMerkleProof, inputs: &mut Vec<u64>) {
+        for j in 0..qed_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT {
+            if j < proof.top_siblings.len() {
+                let sibling = &proof.top_siblings[j];
+                inputs.extend(vec![
+                    sibling.sibling_branch.0.elements[0].0,
+                    sibling.sibling_branch.0.elements[1].0,
+                    sibling.sibling_branch.0.elements[2].0,
+                    sibling.sibling_branch.0.elements[3].0,
+                    sibling.sibling_reward_leaf.0.elements[0].0,
+                    sibling.sibling_reward_leaf.0.elements[1].0,
+                    sibling.sibling_reward_leaf.0.elements[2].0,
+                    sibling.sibling_reward_leaf.0.elements[3].0,
+                ]);
+            } else {
+                inputs.extend(vec![0u64; 8]);
+            }
+        }
+        inputs.extend(vec![
+            proof.sibling_branch.0.elements[0].0,
+            proof.sibling_branch.0.elements[1].0,
+            proof.sibling_branch.0.elements[2].0,
+            proof.sibling_branch.0.elements[3].0,
+        ]);
+        inputs.extend(vec![
+            proof.reward_leaf.0.elements[0].0,
+            proof.reward_leaf.0.elements[1].0,
+            proof.reward_leaf.0.elements[2].0,
+            proof.reward_leaf.0.elements[3].0,
+        ]);
+        inputs.extend(vec![proof.proof_height.0, proof.index.0]);
     }
 
     pub async fn claim_rewards(
