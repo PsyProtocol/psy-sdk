@@ -34,6 +34,13 @@ use tracing::{info, warn};
 
 use super::args::ClaimRewardsArgs;
 
+#[derive(Clone)]
+struct ProofWithCheckpoint {
+    checkpoint_id: u64,
+    proof: VariableHeightRewardMerkleProof,
+    proposed_reward: u64,
+}
+
 type F = GoldilocksField;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -140,7 +147,7 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
     let mut sorted_checkpoints: Vec<_> = checkpoint_jobs.keys().copied().collect();
     sorted_checkpoints.sort();
 
-    let mut all_contract_calls = Vec::new();
+    let mut all_proofs_with_checkpoints = Vec::new();
     let mut last_valid_checkpoint = None;
 
     for &checkpoint_id in &sorted_checkpoints {
@@ -166,11 +173,22 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
             });
         }
 
-        let proofs: Vec<_> = jobs.iter().map(|(_, proof)| proof.clone()).collect();
-        let checkpoint_calls = build_claim_calls_for_checkpoint(checkpoint_id, &proofs, proposed_reward);
-        all_contract_calls.extend(checkpoint_calls);
+        for (_, proof) in jobs {
+            all_proofs_with_checkpoints.push(ProofWithCheckpoint {
+                checkpoint_id,
+                proof: proof.clone(),
+                proposed_reward,
+            });
+        }
         last_valid_checkpoint = Some(checkpoint_id);
     }
+
+    if all_proofs_with_checkpoints.is_empty() {
+        info!("No checkpoints with valid rewards to claim");
+        return Ok(());
+    }
+
+    let mut all_contract_calls = build_claim_calls_for_multi_checkpoints(&all_proofs_with_checkpoints);
 
     if all_contract_calls.is_empty() {
         info!("No checkpoints with valid rewards to claim");
@@ -223,10 +241,8 @@ fn get_last_claimed_checkpoint_id(provider: &RpcProvider, user_id: u64, latest_c
     Ok(proof.value.0.elements[1].0)
 }
 
-fn build_claim_calls_for_checkpoint(
-    checkpoint_id: u64,
-    all_proofs: &[VariableHeightRewardMerkleProof],
-    proposed_reward: u64,
+fn build_claim_calls_for_multi_checkpoints(
+    all_proofs: &[ProofWithCheckpoint],
 ) -> Vec<ContractCallArgs> {
     let mut contract_call_args = Vec::new();
 
@@ -238,15 +254,19 @@ fn build_claim_calls_for_checkpoint(
 
     for _ in 0..count_5s {
         let chunk = &all_proofs[proof_index..proof_index + 5];
-        let mut proof_inputs = Vec::new();
+        let mut batch_inputs = Vec::new();
 
-        for proof in chunk {
-            serialize_proof_to_inputs(proof, &mut proof_inputs);
+        for proof_with_checkpoint in chunk {
+            batch_inputs.push(proof_with_checkpoint.checkpoint_id);
         }
 
-        let mut batch_inputs = vec![checkpoint_id];
-        batch_inputs.extend(proof_inputs);
-        batch_inputs.push(proposed_reward);
+        for proof_with_checkpoint in chunk {
+            serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut batch_inputs);
+        }
+
+        for proof_with_checkpoint in chunk {
+            batch_inputs.push(proof_with_checkpoint.proposed_reward);
+        }
 
         contract_call_args.push(ContractCallArgs {
             contract_id: MINING_REWARDS_CONTRACT_ID,
@@ -259,15 +279,19 @@ fn build_claim_calls_for_checkpoint(
 
     if remainder >= 2 {
         let chunk = &all_proofs[proof_index..proof_index + 2];
-        let mut proof_inputs = Vec::new();
+        let mut batch_inputs = Vec::new();
 
-        for proof in chunk {
-            serialize_proof_to_inputs(proof, &mut proof_inputs);
+        for proof_with_checkpoint in chunk {
+            batch_inputs.push(proof_with_checkpoint.checkpoint_id);
         }
 
-        let mut batch_inputs = vec![checkpoint_id];
-        batch_inputs.extend(proof_inputs);
-        batch_inputs.push(proposed_reward);
+        for proof_with_checkpoint in chunk {
+            serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut batch_inputs);
+        }
+
+        for proof_with_checkpoint in chunk {
+            batch_inputs.push(proof_with_checkpoint.proposed_reward);
+        }
 
         contract_call_args.push(ContractCallArgs {
             contract_id: MINING_REWARDS_CONTRACT_ID,
@@ -279,14 +303,14 @@ fn build_claim_calls_for_checkpoint(
     }
 
     if proof_index < total_proofs {
-        let proof = &all_proofs[proof_index];
+        let proof_with_checkpoint = &all_proofs[proof_index];
         let mut proof_inputs = Vec::new();
 
-        serialize_proof_to_inputs(proof, &mut proof_inputs);
+        serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut proof_inputs);
 
-        let mut batch_inputs = vec![checkpoint_id];
+        let mut batch_inputs = vec![proof_with_checkpoint.checkpoint_id];
         batch_inputs.extend(proof_inputs);
-        batch_inputs.push(proposed_reward);
+        batch_inputs.push(proof_with_checkpoint.proposed_reward);
 
         contract_call_args.push(ContractCallArgs {
             contract_id: MINING_REWARDS_CONTRACT_ID,
