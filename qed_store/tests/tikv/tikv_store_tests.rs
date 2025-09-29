@@ -513,6 +513,422 @@ mod fuzzy_search_operations {
 }
 
 #[cfg(test)]
+mod large_data_chunking_tests {
+    use super::*;
+
+    /// Generate large data (5MB) for chunking tests
+    fn generate_large_data(size_mb: usize) -> Vec<u8> {
+        let size_bytes = size_mb * 1024 * 1024;
+        let mut data = Vec::with_capacity(size_bytes);
+        for i in 0..size_bytes {
+            data.push((i % 256) as u8);
+        }
+        data
+    }
+
+    #[tokio::test]
+    async fn test_large_data_basic_operations() -> Result<()> {
+        let store = create_test_store().await?;
+        let key = b"large_data_key".to_vec();
+        let large_value = generate_large_data(5); // 5MB data
+        
+        // Test set large data
+        store.set(key.clone(), large_value.clone()).await?;
+        
+        // Test get_exact_if_exists with large data
+        let result = store.get_exact_if_exists(&key).await?;
+        assert_eq!(result, Some(large_value.clone()));
+        
+        // Test get_exact with large data
+        let result = store.get_exact(&key).await?;
+        assert_eq!(result, large_value);
+        
+        // Clean up
+        store.delete(&key).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_data_set_and_set_ref() -> Result<()> {
+        let store = create_test_store().await?;
+        let key1 = b"large_key1".to_vec();
+        let key2 = b"large_key2".to_vec();
+        let large_value1 = generate_large_data(6); // 6MB data
+        let large_value2 = generate_large_data(7); // 7MB data
+
+        // Test set with large data
+        store.set(key1.clone(), large_value1.clone()).await?;
+        let result1 = store.get_exact(&key1).await?;
+        assert_eq!(result1, large_value1);
+
+        // Test set_ref with large data
+        store.set_ref(&key2, &large_value2).await?;
+        let result2 = store.get_exact(&key2).await?;
+        assert_eq!(result2, large_value2);
+
+        // Clean up
+        store.delete_many(&[key1, key2]).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_data_get_many_exact() -> Result<()> {
+        let store = create_test_store().await?;
+        let keys = vec![
+            b"large_key1".to_vec(),
+            b"large_key2".to_vec(),
+            b"large_key3".to_vec(),
+        ];
+        let large_values = vec![
+            generate_large_data(5), // 5MB
+            generate_large_data(6), // 6MB
+            generate_large_data(7), // 7MB
+        ];
+
+        // Set multiple large data items
+        for (key, value) in keys.iter().zip(large_values.iter()) {
+            store.set(key.clone(), value.clone()).await?;
+        }
+
+        // Test get_many_exact with large data
+        let results = store.get_many_exact(&keys).await?;
+        assert_eq!(results, large_values);
+
+        // Clean up
+        store.delete_many(&keys).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_data_set_many_ref() -> Result<()> {
+        let store = create_test_store().await?;
+        let keys = vec![
+            b"batch_large_key1".to_vec(),
+            b"batch_large_key2".to_vec(),
+            b"batch_large_key3".to_vec(),
+        ];
+        let large_values = vec![
+            generate_large_data(5), // 5MB
+            generate_large_data(6), // 6MB
+            generate_large_data(7), // 7MB
+        ];
+        
+        let items: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = keys
+            .iter()
+            .zip(large_values.iter())
+            .map(|(k, v)| KVQPair { key: k, value: v })
+            .collect();
+
+        // Test set_many_ref with large data
+        store.set_many_ref(&items).await?;
+
+        // Verify all large data items were set correctly
+        for (key, value) in keys.iter().zip(large_values.iter()) {
+            let result = store.get_exact(key).await?;
+            assert_eq!(result, *value);
+        }
+
+        // Clean up
+        store.delete_many(&keys).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_data_set_many_vec() -> Result<()> {
+        let store = create_test_store().await?;
+        let items = vec![
+            KVQPair {
+                key: b"batch_large_vec_key1".to_vec(),
+                value: generate_large_data(5), // 5MB
+            },
+            KVQPair {
+                key: b"batch_large_vec_key2".to_vec(),
+                value: generate_large_data(6), // 6MB
+            },
+            KVQPair {
+                key: b"batch_large_vec_key3".to_vec(),
+                value: generate_large_data(7), // 7MB
+            },
+        ];
+
+        // Test set_many_vec with large data
+        store.set_many_vec(items.clone()).await?;
+
+        // Verify all large data items were set correctly
+        for item in &items {
+            let result = store.get_exact(&item.key).await?;
+            assert_eq!(result, item.value);
+        }
+
+        // Clean up
+        let keys: Vec<Vec<u8>> = items.iter().map(|item| item.key.clone()).collect();
+        store.delete_many(&keys).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_data_set_many_split_ref() -> Result<()> {
+        let store = create_test_store().await?;
+        let keys = vec![
+            b"split_large_key1".to_vec(),
+            b"split_large_key2".to_vec(),
+            b"split_large_key3".to_vec(),
+        ];
+        let large_values = vec![
+            generate_large_data(5), // 5MB
+            generate_large_data(6), // 6MB
+            generate_large_data(7), // 7MB
+        ];
+
+        // Test set_many_split_ref with large data
+        store.set_many_split_ref(&keys, &large_values).await?;
+
+        // Verify all large data items were set correctly
+        for (key, value) in keys.iter().zip(large_values.iter()) {
+            let result = store.get_exact(key).await?;
+            assert_eq!(result, *value);
+        }
+
+        // Clean up
+        store.delete_many(&keys).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_data_delete() -> Result<()> {
+        let store = create_test_store().await?;
+        let key = b"large_delete_key".to_vec();
+        let large_value = generate_large_data(8); // 8MB data
+        
+        // Set large data
+        store.set(key.clone(), large_value).await?;
+        
+        // Verify it exists
+        let result = store.get_exact_if_exists(&key).await?;
+        assert!(result.is_some());
+        
+        // Test delete with large data
+        let deleted = store.delete(&key).await?;
+        assert!(deleted);
+        
+        // Verify it's deleted
+        let result = store.get_exact_if_exists(&key).await?;
+        assert_eq!(result, None);
+        
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_data_delete_many() -> Result<()> {
+        let store = create_test_store().await?;
+        let keys = vec![
+            b"large_delete_key1".to_vec(),
+            b"large_delete_key2".to_vec(),
+            b"large_delete_key3".to_vec(),
+        ];
+        let large_values = vec![
+            generate_large_data(5), // 5MB
+            generate_large_data(6), // 6MB
+            generate_large_data(7), // 7MB
+        ];
+
+        // Set multiple large data items
+        for (key, value) in keys.iter().zip(large_values.iter()) {
+            store.set(key.clone(), value.clone()).await?;
+        }
+
+        // Verify they exist
+        let results = store.get_many_exact(&keys).await?;
+        assert_eq!(results.len(), 3);
+
+        // Test delete_many with large data
+        let deleted_results = store.delete_many(&keys).await?;
+        assert_eq!(deleted_results, vec![true, true, true]);
+
+        // Verify all are deleted
+        for key in &keys {
+            let result = store.get_exact_if_exists(key).await?;
+            assert_eq!(result, None);
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_data_set_and_delete_many() -> Result<()> {
+        let store = create_test_store().await?;
+        
+        // First set some large data to delete later
+        let delete_keys = vec![
+            b"large_delete_set_key1".to_vec(),
+            // b"large_delete_set_key2".to_vec(),
+        ];
+        let delete_values = vec![
+            generate_large_data(5), // 5MB
+            // generate_large_data(6), // 6MB
+        ];
+
+        for (key, value) in delete_keys.iter().zip(delete_values.iter()) {
+            store.set(key.clone(), value.clone()).await?;
+        }
+
+        // Prepare new large data to set
+        let set_keys = vec![
+            b"large_new_set_key1".to_vec(),
+        ];
+        let set_values = vec![
+            generate_large_data(11), // 11MB
+        ];
+
+        let set_items: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = set_keys
+            .iter()
+            .zip(set_values.iter())
+            .map(|(k, v)| KVQPair { key: k, value: v })
+            .collect();
+
+        // Test set_and_delete_many with large data
+        store.set_and_delete_many(&set_items, &delete_keys).await?;
+
+        // Verify set operations worked
+        for (key, value) in set_keys.iter().zip(set_values.iter()) {
+            let result = store.get_exact(key).await?;
+            assert_eq!(result, *value);
+        }
+
+        // Verify delete operations worked
+        for key in &delete_keys {
+            let result = store.get_exact_if_exists(key).await?;
+            assert_eq!(result, None);
+        }
+
+        // Clean up
+        store.delete_many(&set_keys).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_mixed_small_and_large_data() -> Result<()> {
+        let store = create_test_store().await?;
+        
+        // Mix of small and large data
+        let items = vec![
+            KVQPair {
+                key: b"small_key1".to_vec(),
+                value: b"small_value1".to_vec(),
+            },
+            KVQPair {
+                key: b"large_key1".to_vec(),
+                value: generate_large_data(5), // 5MB
+            },
+            KVQPair {
+                key: b"small_key2".to_vec(),
+                value: b"small_value2".to_vec(),
+            },
+            KVQPair {
+                key: b"large_key2".to_vec(),
+                value: generate_large_data(6), // 6MB
+            },
+        ];
+
+        // Test set_many_vec with mixed data
+        store.set_many_vec(items.clone()).await?;
+
+        // Verify all items were set correctly
+        for item in &items {
+            let result = store.get_exact(&item.key).await?;
+            assert_eq!(result, item.value);
+        }
+
+        // Test get_many_exact with mixed data
+        let keys: Vec<Vec<u8>> = items.iter().map(|item| item.key.clone()).collect();
+        let results = store.get_many_exact(&keys).await?;
+        assert_eq!(results.len(), 4);
+        
+        for (expected, actual) in items.iter().zip(results.iter()) {
+            assert_eq!(expected.value, *actual);
+        }
+
+        // Clean up
+        store.delete_many(&keys).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_data_fuzzy_search() -> Result<()> {
+        let store = create_test_store().await?;
+        
+        // Set up test data with large values
+        let test_data = vec![
+            (vec![1, 1, 1], generate_large_data(5)), // 5MB
+            (vec![1, 1, 2], generate_large_data(6)), // 6MB
+            (vec![1, 1, 3], generate_large_data(7)), // 7MB
+            (vec![1, 2, 1], b"small_value".to_vec()),
+            (vec![1, 2, 2], generate_large_data(4)), // 4MB
+        ];
+
+        for (key, value) in &test_data {
+            store.set(key.clone(), value.clone()).await?;
+        }
+
+        // Test get_leq with large data
+        let search_key = vec![1, 1, 2];
+        let result = store.get_leq(&search_key, 0).await?;
+        assert_eq!(result, Some(generate_large_data(6)));
+
+        // Test get_leq_kv with large data
+        let result = store.get_leq_kv(&search_key, 0).await?;
+        assert!(result.is_some());
+        let kv_pair = result.unwrap();
+        assert_eq!(kv_pair.key, vec![1, 1, 2]);
+        assert_eq!(kv_pair.value, generate_large_data(6));
+
+        // Test get_many_leq with large data
+        let search_keys = vec![vec![1, 1, 2], vec![1, 1, 4]];
+        let results = store.get_many_leq(&search_keys, 1).await?;
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0], Some(generate_large_data(6)));
+        assert_eq!(results[1], Some(generate_large_data(7)));
+
+        // Clean up
+        for (key, _) in &test_data {
+            store.delete(key).await?;
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_data_chunking_edge_cases() -> Result<()> {
+        let store = create_test_store().await?;
+        
+        // Test exactly 4MB (boundary case)
+        let key_exact_4mb = b"exact_4mb_key".to_vec();
+        let value_exact_4mb = generate_large_data(4); // Exactly 4MB
+        store.set(key_exact_4mb.clone(), value_exact_4mb.clone()).await?;
+        let result = store.get_exact(&key_exact_4mb).await?;
+        assert_eq!(result, value_exact_4mb);
+        
+        // Test just over 4MB (should be chunked)
+        let key_over_4mb = b"over_4mb_key".to_vec();
+        let mut value_over_4mb = generate_large_data(4);
+        value_over_4mb.extend_from_slice(&vec![0u8; 1]); // 4MB + 1 byte
+        store.set(key_over_4mb.clone(), value_over_4mb.clone()).await?;
+        let result = store.get_exact(&key_over_4mb).await?;
+        assert_eq!(result, value_over_4mb);
+        
+        // Test very large data (10MB)
+        let key_very_large = b"very_large_key".to_vec();
+        let value_very_large = generate_large_data(10); // 10MB
+        store.set(key_very_large.clone(), value_very_large.clone()).await?;
+        let result = store.get_exact(&key_very_large).await?;
+        assert_eq!(result, value_very_large);
+        
+        // Clean up
+        store.delete_many(&[key_exact_4mb, key_over_4mb, key_very_large]).await?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
 mod edge_cases_and_error_handling {
     use super::*;
 
