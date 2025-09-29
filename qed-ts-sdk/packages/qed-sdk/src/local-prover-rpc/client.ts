@@ -10,7 +10,7 @@ import {
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import { IHTTPClient } from "../http";
 import { BaseProvider } from "../provider";
-import { ZKPublicKeyInfo } from "../types";
+import { JobInfo, ZKPublicKeyInfo } from "../types";
 import { waitMs } from "../utils";
 
 class QedRPCUserProverProvider extends BaseProvider implements IQedUserProverProvider {
@@ -50,6 +50,14 @@ class QedRPCUserProverProvider extends BaseProvider implements IQedUserProverPro
 
     async signAndSubmit(pk_hash: string): Promise<string> {
         return this.rpc<string>(QedUserProverRPCCommand.SignAndSubmit, [pk_hash]);
+    }
+
+    async getClaimRewardsCallArgs(pkHash: PublicKey, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]> {
+        throw new Error("Method not implemented.");
+    }
+
+    async claimRewards(pkHash: PublicKey, checkpointId: bigint, jobInfos: JobInfo[]): Promise<string> {
+        throw new Error("Method not implemented.");
     }
 
     // User operations
