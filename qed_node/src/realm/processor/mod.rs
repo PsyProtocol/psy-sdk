@@ -298,29 +298,26 @@ impl RealmProcessor {
                 match result {
                     Ok(job_id) => {
                         let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
-                        if local_latest_checkpoint_id >= next_checkpoint_id {
-                            warn!("Rollback: local latest checkpoint id: {}, next checkpoint id: {}", local_latest_checkpoint_id, next_checkpoint_id);
-                            build_ctx.rollback(next_checkpoint_id).await?;
-                            self.pending_checkpoint_id.store(0, Ordering::Relaxed);
+                        if next_checkpoint_id > local_latest_checkpoint_id  {
+                            self.sync_proof.chq_push_imm(job_id).await?;
+                            self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
+                            build_ctx.store.save_snapshot(next_checkpoint_id)?;
+                            info!("build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
                             return Ok(());
                         }
-                        self.sync_proof.chq_push_imm(job_id).await?;
-                        self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
-                        build_ctx.store.save_snapshot(next_checkpoint_id)?;
-                        info!("build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
+                        warn!("Rollback: local latest checkpoint id: {}, next checkpoint id: {}", local_latest_checkpoint_id, next_checkpoint_id);
                     }
                     Err(err) => {
                         // Rollback database changes
-                        build_ctx.rollback(next_checkpoint_id).await?;
                         error!("Rollback: build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
                     }
                 }
             }
             err = tokio::time::sleep(Duration::from_secs(2 * SLOT_SIZE)) => {
-                build_ctx.rollback(next_checkpoint_id).await?;
-                error!("Timeout waiting: {:?} for produce block, slot: {}, next checkpoint id: {}", err, slot, next_checkpoint_id);
+                error!("Rollback: Timeout waiting {:?} for produce block, slot: {}, next checkpoint id: {}", err, slot, next_checkpoint_id);
             }
         }
+        build_ctx.rollback(next_checkpoint_id).await?;
         Ok(())
     }
 
