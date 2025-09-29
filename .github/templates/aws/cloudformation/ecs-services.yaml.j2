@@ -25,11 +25,11 @@ Parameters:
     Type: String
     Description: ALB Target Group ARN for Coordinator
 
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}Arn:
     Type: String
     Description: ALB Target Group ARN for Realm {{ realm.id }}
-  {% endfor %} #}
+  {% endfor %}
 
   TaskExecutionRoleArn:
     Type: String
@@ -48,11 +48,11 @@ Parameters:
     Type: String
     Description: Redis Coordinator endpoint
 
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
   RedisRealm{{ realm.id }}Endpoint:
     Type: String
     Description: Redis Realm {{ realm.id }} endpoint
-  {% endfor %} #}
+  {% endfor %}
 
   ALBDNSName:
     Type: String
@@ -102,13 +102,13 @@ Resources:
           Command:
             - !Sub |
               # Download configuration from S3
-              CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/services/coordinator.json"
+              CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/config.json"
 
               echo "Downloading config from: $CONFIG_URL"
-              if ! curl -o /app/config.json "$CONFIG_URL"; then
+              if ! curl -o /qed-rollup/config.json "$CONFIG_URL"; then
                 echo "ERROR: Failed to download config from S3, trying base config..."
-                CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/current/config.json"
-                if ! curl -o /app/config.json "$CONFIG_URL"; then
+                CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/config.json"
+                if ! curl -o /qed-rollup/config.json "$CONFIG_URL"; then
                   echo "ERROR: Failed to download any config"
                   exit 1
                 fi
@@ -118,7 +118,7 @@ Resources:
               # Show network section for debugging
               if command -v jq &> /dev/null; then
                 echo "Network configuration:"
-                jq '.network.coordinator_configs, .network.realm_configs[].rpc_url' /app/config.json 2>/dev/null || true
+                jq '.network.coordinator_configs, .network.realm_configs[].rpc_url' /qed-rollup/config.json 2>/dev/null || true
               fi
             
               # Get TiKV PD endpoints dynamically
@@ -352,8 +352,8 @@ Resources:
   # ============================================================================
   # REALM PROCESSOR ECS SERVICES
   # ============================================================================
-   
-  {# {% for realm in config.nodes.realms %}
+    
+  {% for realm in config.nodes.realms %}
   # Realm {{ realm.id }} Processor Service
   Realm{{ realm.id }}ProcessorTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -364,6 +364,9 @@ Resources:
         - EC2
       ExecutionRoleArn: !Ref TaskExecutionRoleArn
       TaskRoleArn: !Ref TaskRoleArn
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:workload == general'  
       Volumes:
         - Name: realm{{ realm.id }}-processor-data
           Host:
@@ -371,10 +374,9 @@ Resources:
       ContainerDefinitions:
         - Name: realm-{{ realm.id }}-processor
           Image: !Sub '${ECRRepositoryURI}:latest'
-          EntryPoint:
+          Command:
             - /bin/bash
             - -c
-          Command:
             - |
               # Get TiKV PD endpoints dynamically
               PD_ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
@@ -548,12 +550,12 @@ Resources:
           Value: !Ref MainECSClusterName
       TreatMissingData: breaching 
 
-  {% endfor %} #}
+  {% endfor %} 
   # ============================================================================
   # REALM ECS SERVICES (Edge & Watcher)
   # ============================================================================
 
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
   # Realm {{ realm.id }} Edge Service
   Realm{{ realm.id }}EdgeTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -571,10 +573,9 @@ Resources:
       ContainerDefinitions:
         - Name: realm-{{ realm.id }}-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
-          EntryPoint:
+          Command:
             - /bin/bash
             - -c
-          Command:
             - |
               # Get TiKV PD endpoints dynamically
               PD_ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
@@ -665,6 +666,8 @@ Resources:
               Value: !Ref Environment
             - Name: TiKVPDEndpoints
               Value: !Ref TiKVPDEndpoints
+            - Name: MainECSClusterName
+              Value: !Ref MainECSClusterName
             {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
             - Name: RedisRealm{{ realm.id }}Endpoint
               Value: !Ref RedisRealm{{ realm.id }}Endpoint
@@ -687,7 +690,7 @@ Resources:
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'curl -f http://localhost:{{ 8546 + realm.id }}/health || exit 1'
+              - 'curl -f http://127.0.0.1:{{ 8546 + realm.id }}/health || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
@@ -702,25 +705,30 @@ Resources:
           DependsOn:
             - ContainerName: wait-for-processor
               Condition: SUCCESS
-
-        # Helper container to wait for processor to be ready
-        - Name: wait-for-processor
-          Image: busybox:latest
-          Command:
-            - sh
-            - -c
-            - |
-              echo "Waiting for Realm {{ realm.id }} Processor to be ready..."
-              for i in $(seq 1 60); do
-                if nslookup realm-{{ realm.id }}-processor.qed.local 2>/dev/null | grep -q "Address"; then
-                  echo "Realm {{ realm.id }} Processor is discoverable"
-                  exit 0
-                fi
-                echo "Waiting for processor... attempt $i/60"
-                sleep 5
-              done
-              echo "Processor discovery check bypassed, continuing anyway"
-              exit 0
+            - Name: wait-for-processor
+              Image: amazon/aws-cli:latest  # Has AWS CLI and dig
+              Command:
+                - sh
+                - -c
+                - |
+                  echo "Waiting for Realm {{ realm.id }} Processor task..."
+                  for i in $(seq 1 60); do
+                    RUNNING_TASKS=$(aws ecs list-tasks \
+                      --cluster ${MainECSClusterName} \
+                      --service-name ${ProjectName}-${Environment}-realm-{{ realm.id }}-processor \
+                      --desired-status RUNNING \
+                      --region ${AWS::Region} \
+                      --query 'taskArns | length(@)' \
+                      --output text 2>/dev/null || echo "0")
+                    
+                    if [ "$RUNNING_TASKS" -ge "1" ]; then
+                      echo "Processor task is running!"
+                      exit 0
+                    fi
+                    echo "Attempt $i/60: Waiting for processor task..."
+                    sleep 3
+                  done
+                  echo "Timeout waiting for processor, continuing anyway..."
           Essential: false
           LogConfiguration:
             LogDriver: awslogs
@@ -788,8 +796,8 @@ Resources:
       TargetTrackingScalingPolicyConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageMemoryUtilization
-        TargetValue: 70.0  #}
-
+        TargetValue: 70.0  
+  {% endfor %}
   {# #Realm {{ realm.id }} Watcher Service
   {% if realm.watcher and realm.watcher.enabled %}
   Realm{{ realm.id }}WatcherTaskDefinition:
@@ -882,42 +890,72 @@ Resources:
             - -c
           Command:
             - !Sub |
+              # Enable verbose debugging
+              set -x
+
+              # Create directory if it doesn't exist (shouldn't be needed since WORKDIR is set)
+              mkdir -p /qed-rollup
+              cd /qed-rollup
+
               # Install jq if not available (it should be in your Docker image)
               if ! command -v jq &> /dev/null; then
                 apt-get update && apt-get install -y jq
               fi
+
               # Download latest config from S3
-              CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/services/worker.json"
+              CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/config.json"
+              echo "============================================"
+              echo "WORKER CONFIG DOWNLOAD DEBUG"
+              echo "============================================"
               echo "Downloading config from: $CONFIG_URL"
 
-              # Use curl or wget to download config
-              if ! curl -f -o /app/config.json "$CONFIG_URL"; then
-                echo "ERROR: Failed to download config from $CONFIG_URL"
+              # Download with verbose output
+              curl -v -f -o /qed-rollup/config.json "$CONFIG_URL" 2>&1
+              
+              if [ $? -ne 0 ]; then
+                echo "ERROR: Failed to download from primary URL"
                 # Try alternative path
-                CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/current/config.json"
+                CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/config.json"
                 echo "Trying alternative: $CONFIG_URL"
-                if ! curl -f -o /app/config.json "$CONFIG_URL"; then
+                curl -v -f -o /qed-rollup/config.json "$CONFIG_URL" 2>&1
+                
+                if [ $? -ne 0 ]; then
                   echo "ERROR: Failed to download config from any location"
                   exit 1
                 fi
               fi
-              
+  
               # Verify config was downloaded
-              if [ ! -f /app/config.json ]; then
+              if [ ! -f /qed-rollup/config.json ]; then
                 echo "ERROR: Failed to download config"
                 exit 1
               fi
+              echo "============================================"
+              echo "FULL CONFIG FILE CONTENT"
+              echo "============================================"
+              cat /qed-rollup/config.json
+              
+              echo "============================================"
+              echo "WORKER CONFIGURATION SECTION"
+              echo "============================================"
+              jq '.nodes.workers' /qed-rollup/config.json
+              
+              echo "============================================"
+              echo "EXTRACTING PRIVATE KEY"
+              echo "============================================"
+              
               echo "Config downloaded successfully:"
-              cat /app/config.json | jq '.network'
+              cat /qed-rollup/config.json | jq '.network'
 
               # Start worker with downloaded config
               exec /qed-rollup/qed_rollup_cli worker \
-                --config /app/config.json \
+                --config /qed-rollup/config.json \
                 {% for key, value in (config.nodes.workers.args | default({}) | dictsort) %}
                 {% if key != 'config' %}
                 --{{ key | replace('_', '-') }} '{{ value }}' \
                 {% endif %}
                 {% endfor %}
+              
 
           Environment:
             - Name: CONFIG_BUCKET
@@ -1237,20 +1275,20 @@ Outputs:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-watcher-service'
   {% endif %} #}
 
-  {# # Realm Service Outputs
+  # Realm Service Outputs
   {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}EdgeServiceName:
     Value: !Ref Realm{{ realm.id }}EdgeService
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge-service'
 
-  {% if realm.watcher and realm.watcher.enabled %}
+  {# {% if realm.watcher and realm.watcher.enabled %}
   Realm{{ realm.id }}WatcherServiceName:
     Value: !Ref Realm{{ realm.id }}WatcherService
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-watcher-service'
-  {% endif %}
-  {% endfor %} #}
+  {% endif %} #}
+  {% endfor %}
 
   # Independent Worker Outputs
   {% if config.nodes.workers and config.nodes.workers.enabled %}
@@ -1297,4 +1335,6 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-prover-sd'
   {% endif %} #}
+
+
   

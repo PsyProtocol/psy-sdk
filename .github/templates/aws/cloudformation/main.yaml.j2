@@ -15,6 +15,8 @@
 
 {# Check if global services exist #}
 {%- set has_api_service = config.global_services and config.global_services.api_service and config.global_services.api_service.enabled -%}
+
+{# Check if TimescaleDB is enabled #}
 {%- set has_timescaledb = config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled -%}
 
 AWSTemplateFormatVersion: '2010-09-09'
@@ -299,7 +301,7 @@ Resources:
       Matcher:
         HttpCode: "200,404"
 
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -317,27 +319,44 @@ Resources:
       UnhealthyThresholdCount: 3
       Matcher:
         HttpCode: "200,404"
-  {% endfor %} #}
+  {% endfor %}
 
-  {# {% if has_api_service %}
+  {% if has_api_service %}
   ALBTargetGroupAPI:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: !Sub '${ProjectName}-${Environment}-api-tg'
-      Port: {{ config.global_services.api_service.port | default(3000) }}
+      Port: 3000
       Protocol: HTTP
       VpcId: !Ref VPC
-      TargetType: ip
+      TargetType: instance
       HealthCheckEnabled: true
       HealthCheckProtocol: HTTP
-      HealthCheckPath: {{ config.global_services.api_service.aws.load_balancer.health_check_path | default('/health') }}
+      HealthCheckPath: /health
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 10
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 3
       Matcher:
         HttpCode: "200"
-  {% endif %} #}
+      # Support WebSocket connections
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+        - Key: stickiness.enabled
+          Value: 'true'
+        - Key: stickiness.type
+          Value: 'lb_cookie'
+
+  # Register TimescaleDB instance with API target group
+  TimescaleDBInstanceTargetGroupAttachment:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroupAttachment
+    Properties:
+      TargetGroupArn: !Ref ALBTargetGroupAPI
+      TargetId: !Ref TimescaleDBInstance
+      Port: 3000
+
+  {% endif %}
 
   # ALB Listeners
   ALBListenerCoordinator:
@@ -350,7 +369,7 @@ Resources:
       Port: {{ config.nodes.coordinator.edge.aws.load_balancer.port }}
       Protocol: HTTP
 
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
   ALBListenerRealm{{ realm.id }}:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -360,9 +379,9 @@ Resources:
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: {{ realm.edge.aws.load_balancer.port }}
       Protocol: HTTP
-  {% endfor %} #}
+  {% endfor %}
 
-  {# {% if has_api_service %}
+  {% if has_api_service %}
   ALBListenerAPI:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -372,7 +391,28 @@ Resources:
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: {{ config.global_services.api_service.port | default(3000) }}
       Protocol: HTTP
-  {% endif %} #}
+  # Allow API traffic from ALB to Database instance
+  DatabaseAPIIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DatabaseSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3000
+      ToPort: 3000
+      SourceSecurityGroupId: !Ref ALBSecurityGroup
+      Description: API Service from ALB
+
+  # Allow API port in ALB security group
+  ALBAPIIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref ALBSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3000
+      ToPort: 3000
+      CidrIp: 0.0.0.0/0
+      Description: Public API access
+  {% endif %}
 
 
   # ============================================================================
@@ -444,12 +484,7 @@ Resources:
         SecurityGroupIds:
           - !Ref TiKVSecurityGroup
         BlockDeviceMappings:
-          - DeviceName: /dev/xvda
-            Ebs:
-              VolumeSize: 100
-              VolumeType: gp3
-              DeleteOnTermination: true
-          - DeviceName: /dev/xvdb
+          - DeviceName: /dev/sdf # Data device (will be /dev/nvme1n1 or /dev/nvme0n1 , not sure)
             Ebs:
               VolumeSize: {{ tikv_config_global.aws.pd_volume_size | default(50) }}
               VolumeType: gp3
@@ -472,7 +507,7 @@ Resources:
 
             # Install Docker and AWS CLI
             apt-get update -y
-            apt-get install -y docker.io docker-compose awscli jq netcat net-tools
+            apt-get install -y docker.io docker-compose awscli jq netcat net-tools nvme-cli
             systemctl enable docker
             systemctl start docker
 
@@ -484,24 +519,59 @@ Resources:
             INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
 
             # Setup data volume - FIXED for NVMe
-            DATA_DEVICE=""
-            for device in /dev/nvme1n1 /dev/nvme2n1 /dev/xvdb; do
-                if [ -b "$device" ]; then
-                    DATA_DEVICE="$device"
-                    break
-                fi
-            done
+            echo "Setting up data volume for PD..."
 
-            if [ -n "$DATA_DEVICE" ]; then
-                mkfs.ext4 -F $DATA_DEVICE 2>/dev/null || true
-                mkdir -p /data
-                mount $DATA_DEVICE /data
-                echo "$DATA_DEVICE /data ext4 defaults,noatime 0 0" >> /etc/fstab
-                # Create pd directory AFTER mounting
-                mkdir -p /data/pd
-                chmod 777 /data/pd
+            #Get root volume size to exclude it
+            ROOT_DEVICE=$(findmnt -n -o SOURCE / | sed 's/\[.*\]//' | sed 's/p[0-9]*$//')
+            ROOT_SIZE=$(lsblk -bdn -o SIZE "$ROOT_DEVICE") 
+
+            echo "Root device: $ROOT_DEVICE (size: $ROOT_SIZE bytes)"
+            echo "All block devices:"
+            lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
+
+            # Find the non-root volume (data volume)
+            root_name=$(echo "$ROOT_DEVICE" | sed 's|/dev/||')
+            DATA_DEVICE=$(lsblk -ndo NAME,SIZE,TYPE -b | \
+              awk -v root="$root_name" -v root_size="$ROOT_SIZE" \
+              '$3 == "disk" && $1 != root && $2 != root_size && $2 > 10737418240 {print "/dev/"$1; exit}')
+
+            if [ -z "$DATA_DEVICE" ]; then
+                echo "ERROR: Could not find data volume"
+                echo "Root device: $ROOT_DEVICE (size: $ROOT_SIZE bytes)"
+                lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
+                exit 1
             fi
 
+            echo "Root device: $ROOT_DEVICE"
+            echo "Data device: $DATA_DEVICE"
+
+            # Check if already mounted (from previous launch)
+            if mountpoint -q /data; then
+                echo "/data already mounted, skipping format"
+            else
+                # Format only if not already formatted
+                if ! blkid "$DATA_DEVICE" | grep -q "TYPE="; then
+                    echo "Formatting $DATA_DEVICE ..."
+                    mkfs.ext4 -F -L tikv_pd_data "$DATA_DEVICE"
+                else
+                    echo "Device already formatted"
+                fi
+
+                # Mount
+                mkdir -p /data
+                if ! grep -q "$DATA_DEVICE" /etc/fstab; then
+                    echo "$DATA_DEVICE /data ext4 defaults,nofail 0 2" >> /etc/fstab
+                fi
+                mount -a
+            fi
+
+            # Create pd directory
+            mkdir -p /data/pd
+            chmod 777 /data/pd
+
+            echo "Data volume mounted successfully at /data"
+            df -h /data 
+    
             # Get all PD instance IPs
             ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
 
@@ -711,17 +781,10 @@ Resources:
         SecurityGroupIds:
           - !Ref TiKVSecurityGroup
         BlockDeviceMappings:
-          - DeviceName: /dev/xvda
+          - DeviceName: /dev/sdf 
             Ebs:
-              VolumeSize: 100
+              VolumeSize: {{ tikv_config_global.aws.data_volume_size | default(200) }}
               VolumeType: gp3
-              DeleteOnTermination: true
-          - DeviceName: /dev/xvdb
-            Ebs:
-              VolumeSize: {{ tikv_config_global.aws.data_volume_size | default(500) }}
-              VolumeType: gp3
-              Iops: 16000
-              Throughput: 1000
               DeleteOnTermination: true
               Encrypted: true
         TagSpecifications:
@@ -741,7 +804,7 @@ Resources:
 
             # Install Docker
             apt-get update -y
-            apt-get install -y docker.io docker-compose awscli jq netcat net-tools ec2-instance-connect
+            apt-get install -y docker.io docker-compose awscli jq netcat net-tools ec2-instance-connect nvme-cli
             systemctl enable docker
             systemctl start docker
 
@@ -750,26 +813,71 @@ Resources:
             # Get instance metadata
             INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
             INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+            
+            echo "TiKV storage node setup completed at $(date)"
 
-            # Setup data volume
-            DATA_DEVICE=""
-            for device in /dev/nvme1n1 /dev/nvme2n1 /dev/xvdb; do
-                if [ -b "$device" ]; then
-                    DATA_DEVICE="$device"
-                    break
-                fi
-            done
+             
+            # Setup data volume - /dev/sdf becomes /dev/nvme1n1 on Nitro instances
+            echo "Setting up data volume for TiKV..."
+            # Get the ACTUAL root device (resolve /dev/root symlink)
 
-            if [ -n "$DATA_DEVICE" ]; then
-                mkfs.ext4 -F $DATA_DEVICE 2>/dev/null || true
-                mkdir -p /data
-                mount $DATA_DEVICE /data
-                echo "$DATA_DEVICE /data ext4 defaults,noatime 0 0" >> /etc/fstab
-                # Create tikv directory AFTER mounting
-                mkdir -p /data/tikv
-                chmod 777 /data/tikv
+            ROOT_DEVICE=$(findmnt -n -o SOURCE / | sed 's/\[.*\]//' | sed 's/p[0-9]*$//')
+            ROOT_SIZE=$(lsblk -bdn -o SIZE "$ROOT_DEVICE")
+
+            echo "Root device: $ROOT_DEVICE (size: $ROOT_SIZE bytes)"
+            echo "All block devices:"
+            lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
+            
+            # Find data volume: non-root, no partitions, larger than 10GB
+            root_name=$(echo "$ROOT_DEVICE" | sed 's|/dev/||')
+            DATA_DEVICE=$(lsblk -ndo NAME,SIZE,TYPE -b | \
+              awk -v root="$root_name" -v root_size="$ROOT_SIZE" \
+              '$3 == "disk" && $1 != root && $2 != root_size && $2 > 10737418240 {print "/dev/"$1; exit}')
+
+            if [ -z "$DATA_DEVICE" ]; then
+                echo "ERROR: Could not find data volume"
+                echo "Root: $ROOT_DEVICE ($ROOT_SIZE bytes)"
+                lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
+                exit 1
             fi
 
+            echo "Data device identified: $DATA_DEVICE"
+            
+            # Check if already mounted (from previous launch)
+            if mountpoint -q /data; then
+                echo "/data already mounted, skipping format"
+            else
+                # Format only if not already formatted
+                if ! blkid "$DATA_DEVICE" | grep -q "TYPE="; then
+                    echo "Formatting $DATA_DEVICE..."
+                    mkfs.ext4 -F -L tikv_node_data "$DATA_DEVICE"
+                else
+                    echo "Device already formatted"
+                fi
+
+                # Mount
+                mkdir -p /data
+                if ! grep -q "$DATA_DEVICE" /etc/fstab; then
+                    echo "$DATA_DEVICE /data ext4 defaults,nofail 0 2" >> /etc/fstab
+                fi
+                mount -a
+            fi 
+            
+            # Verify
+            if ! mountpoint -q /data; then
+                echo "ERROR: /data not mounted"
+                exit 1
+            fi
+
+            # Create tikv directory
+            mkdir -p /data/tikv
+            chmod 777 /data/tikv
+
+            echo "Data volume mounted successfully at /data"
+            df -h /data
+
+            echo "Data volume mounted successfully"
+                    
             # Get PD endpoints
             PD_ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
             PD_ENDPOINTS=""
@@ -833,7 +941,7 @@ Resources:
 
 
             # Create docker-compose for TiKV
-            cat > /opt/docker-compose.yml <<EOF
+            cat > /opt/docker-compose.yml <<COMPOSE_EOF
             version: '3.8'
             services:
               tikv:
@@ -904,7 +1012,6 @@ Resources:
                 docker logs tikv-server || true
                 exit 1
             fi            
-            echo "TiKV storage node setup completed at $(date)"
 
   # TiKV Storage Node Auto Scaling Group
   TiKVNodeAutoScalingGroup:
@@ -920,9 +1027,9 @@ Resources:
       DesiredCapacity: {{ tikv_config_global.aws.tikv_count | default(3) }}
       VPCZoneIdentifier:
         - !Ref CoordinatorSubnet
-        {# {% for realm in config.nodes.realms %}
+        {% for realm in config.nodes.realms %}
         - !Ref Realm{{ realm.id }}Subnet
-        {% endfor %} #}
+        {% endfor %}
       HealthCheckType: EC2
       HealthCheckGracePeriod: 600
       Tags:
@@ -945,11 +1052,11 @@ Resources:
   {% if coord_redis_type == 'elasticache' %}
     {% set uses_elasticache = true %}
   {% endif %}
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
     {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
       {% set uses_elasticache = true %}
-    {% endif %} #}
-  {# {% endfor %} #}
+    {% endif %}
+  {% endfor %}
 
   {% if uses_elasticache %}
   RedisSubnetGroup:
@@ -979,7 +1086,7 @@ Resources:
           Value: !Sub '${ProjectName}-${Environment}-redis-coordinator'
   {% endif %}
 
-  {# # Realm Redis instances
+  # Realm Redis instances
   {% for realm in config.nodes.realms %}
   {% if realm.redis and realm.redis.aws %}
   {% set realm_redis_type = realm.redis.aws.deployment_type | default('elasticache') %}
@@ -1001,7 +1108,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-redis-realm-{{ realm.id }}'
   {% endif %}
-  {% endfor %} #}
+  {% endfor %}
 
   # IAM Roles
   EC2InstanceRole:
@@ -1145,7 +1252,7 @@ Resources:
       SourceSecurityGroupId: !Ref CoordinatorSecurityGroup
       Description: Internal communication
 
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
   Realm{{ realm.id }}SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -1173,7 +1280,7 @@ Resources:
       IpProtocol: -1
       SourceSecurityGroupId: !Ref Realm{{ realm.id }}SecurityGroup
       Description: Internal communication
-  {% endfor %} #}
+  {% endfor %}
   # Coordinator Processor ASG
   CoordinatorProcessorLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -1399,127 +1506,12 @@ Resources:
         - Key: Service
           Value: coordinator-processor
           PropagateAtLaunch: true
-{# 
-  # Realm Processor ASGs
-  {% for realm in config.nodes.realms %}
-  Realm{{ realm.id }}ProcessorLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor-lt'
-      LaunchTemplateData:
-        ImageId: !Ref LatestAmiId  
-        InstanceType: c6i.xlarge
-        IamInstanceProfile:
-          Name: !Ref EC2InstanceProfile
-        SecurityGroupIds:
-          - !Ref Realm{{ realm.id }}SecurityGroup
-        TagSpecifications:
-          - ResourceType: instance
-            Tags:
-              - Key: Name
-                Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
-              - Key: Service
-                Value: realm-{{ realm.id }}-processor
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
-            exec > /var/log/user-data.log 2>&1
 
-            # Update system and install Docker
-            apt-get update -y
-            apt-get install -y docker.io awscli jq
-            systemctl enable docker
-            systemctl start docker
-            usermod -aG docker ubuntu
+  # ============================================================================
+  # ECS CONTAINER INSTANCES (EC2 DEPLOYMENT) - ASG for general ECS tasks , 
+  # (Coordinator Edge, Realm Processor/Realm Edge, Watcher, Api services)
+  # ============================================================================
 
-            # Login to ECR
-            aws ecr get-login-password --region ${AWS::Region} | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
-
-            # Get TiKV PD endpoints
-            MAX_RETRIES=10
-            RETRY_COUNT=0
-
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              PD_INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
-                --auto-scaling-group-names "${ProjectName}-${Environment}-tikv-pd-asg" \
-                --query 'AutoScalingGroups[0].Instances[*].InstanceId' \
-                --output text \
-                --region ${AWS::Region} 2>/dev/null || echo "")
-
-              if [ -n "$PD_INSTANCE_IDS" ]; then
-                PD_ENDPOINTS=""
-                for id in $PD_INSTANCE_IDS; do
-                  IP=$(aws ec2 describe-instances \
-                    --instance-ids $id \
-                    --query 'Reservations[0].Instances[0].PrivateIpAddress' \
-                    --output text \
-                    --region ${AWS::Region})
-                  if [ -n "$IP" ]; then
-                    if [ -z "$PD_ENDPOINTS" ]; then
-                      PD_ENDPOINTS="$IP:2379"
-                    else
-                      PD_ENDPOINTS="$PD_ENDPOINTS,$IP:2379"
-                    fi
-                  fi
-                done
-
-                if [ -n "$PD_ENDPOINTS" ]; then
-                  echo "Got TiKV PD endpoints: $PD_ENDPOINTS"
-                  break
-                fi
-              fi
-
-              echo "Waiting for TiKV PD cluster... attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              sleep 30
-            done
-
-            if [ -z "$PD_ENDPOINTS" ]; then
-              echo "ERROR: Failed to get TiKV PD endpoints"
-              exit 1
-            fi
-
-            # Get Redis endpoint
-            REDIS_ENDPOINT="${RedisRealm{{ realm.id }}.RedisEndpoint.Address}"
-
-            # Run realm processor
-            docker run -d --name realm-{{ realm.id }}-processor \
-              --restart=unless-stopped \
-              -e RUST_LOG='{{ realm.processor.env.RUST_LOG }}' \
-              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
-              realm-processor \
-              --database tikv \
-              --tikv-pd-endpoints $PD_ENDPOINTS \
-              --tikv-namespace realm{{ realm.id }} \
-              --redis-uri redis://$REDIS_ENDPOINT:6379 \
-              --realm-id {{ realm.id }} \
-              {% if realm.processor.args['queue-biz-key'] %}
-              --queue-biz-key {{ realm.processor.args['queue-biz-key'] }}
-              {% endif %}
-
-  Realm{{ realm.id }}ProcessorASG:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor-asg'
-      LaunchTemplate:
-        LaunchTemplateId: !Ref Realm{{ realm.id }}ProcessorLaunchTemplate
-        Version: !GetAtt Realm{{ realm.id }}ProcessorLaunchTemplate.LatestVersionNumber
-      MinSize: {{ realm.processor.aws.ec2.min_instances | default(1) }}
-      MaxSize: {{ realm.processor.aws.ec2.max_instances | default(3) }}
-      DesiredCapacity: {{ realm.processor.aws.ec2.desired_instances | default(1) }}
-      VPCZoneIdentifier:
-        - !Ref Realm{{ realm.id }}Subnet
-      HealthCheckType: EC2
-      HealthCheckGracePeriod: 300
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
-          PropagateAtLaunch: true
-        - Key: Service
-          Value: realm-{{ realm.id }}-processor
-          PropagateAtLaunch: true
-  {% endfor %} #}
   # ECS Container Instances for Edge, Worker, and API services
   GeneralECSInstancesLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -1884,11 +1876,11 @@ Resources:
           Value: !Sub '${ProjectName}-${Environment}-prover'
           PropagateAtLaunch: true   #}
 
-  {# {% if has_timescaledb %}
+
   # ============================================================================
   # TIMESCALEDB
   # ============================================================================
-
+  {% if has_timescaledb %}
   # Database Security Group for TimescaleDB
   DatabaseSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -1901,9 +1893,145 @@ Resources:
           ToPort: 5432
           SourceSecurityGroupId: !Ref ECSSecurityGroup
           Description: Allow PostgreSQL access from ECS
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: SSH access
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-database-sg'
+
+  TimescaleDBInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.xlarge  # 4 vCPU, 16GB RAM
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SecurityGroupIds:
+        - !Ref DatabaseSecurityGroup
+      SubnetId: !Ref CoordinatorSubnet
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+        - DeviceName: /dev/sdf  # Data volume
+          Ebs:
+            VolumeSize: 200  # Adjust based on your data needs
+            VolumeType: gp3
+            DeleteOnTermination: false  # Preserve data
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${Environment}-timescaledb'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          exec > /var/log/user-data.log 2>&1
+          
+          echo "Starting TimescaleDB + API Service setup at $(date)"
+          
+          # Install Docker and dependencies
+          apt-get update -y
+          apt-get install -y docker.io docker-compose awscli jq postgresql-client
+          systemctl enable docker
+          systemctl start docker
+          
+          # Setup data volume
+          DATA_DEVICE=$(lsblk -ndo NAME,SIZE,TYPE -b | \
+            awk '$3 == "disk" && $2 > 10737418240 {print "/dev/"$1; exit}')
+          
+          if [ -z "$DATA_DEVICE" ]; then
+            echo "ERROR: Could not find data volume"
+            exit 1
+          fi
+          
+          # Format and mount if not already done
+          if ! mountpoint -q /data; then
+            if ! blkid "$DATA_DEVICE" | grep -q "TYPE="; then
+              mkfs.ext4 -F "$DATA_DEVICE"
+            fi
+            mkdir -p /data
+            echo "$DATA_DEVICE /data ext4 defaults,nofail 0 2" >> /etc/fstab
+            mount -a
+          fi
+          # Create directories
+          mkdir -p /data/timescaledb /data/api-service
+          chmod 777 /data/timescaledb /data/api-service
+          
+          # Create docker-compose for TimescaleDB + API Service
+          cat > /opt/docker-compose.yml <<'COMPOSE_EOF'
+          version: '3.8'
+          services:
+            timescaledb:
+              image: timescale/timescaledb:latest-pg17
+              container_name: timescaledb
+              restart: unless-stopped
+              environment:
+                POSTGRES_PASSWORD: ${DB_PASSWORD}
+                POSTGRES_DB: qed
+              ports:
+                - "5432:5432"
+              volumes:
+                - /data/timescaledb:/var/lib/postgresql/data
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U postgres"]
+                interval: 10s
+                timeout: 5s
+                retries: 5
+          api-service:
+            image: ${ECR_REPOSITORY_URI}:latest
+            container_name: api-service
+            restart: unless-stopped
+            depends_on:
+              timescaledb:
+                condition: service_healthy
+            ports:
+              - "3000:3000"
+            environment:
+              DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@timescaledb:5432/qed
+              RUST_LOG: ${RUST_LOG}
+            command: qed_api_services
+            logging:
+              driver: json-file
+              options:
+                max-size: "100m"
+                max-file: "5"
+        COMPOSE_EOF
+
+        # Create secrets file
+        cat > /opt/.env <<ENV_EOF
+        DB_PASSWORD=your_secure_password_here_change_me
+        ECR_REPOSITORY_URI=${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}
+        RUST_LOG={{ config.global_services.api_service.env.RUST_LOG | default('info') }}
+        ENV_EOF
+        
+        # Login to ECR
+        aws ecr get-login-password --region ${AWS::Region} | \
+          docker login --username AWS --password-stdin \
+          ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
+        
+        # Start services
+        cd /opt
+        docker-compose --env-file .env up -d
+        
+        # Wait for TimescaleDB to be ready
+        echo "Waiting for TimescaleDB..."
+        for i in {1..60}; do
+          if docker exec timescaledb pg_isready -U postgres > /dev/null 2>&1; then
+            echo "TimescaleDB is ready"
+            break
+          fi
+          echo "Attempt $i/60..."
+          sleep 5
+        done
+
+        # Run migrations (assumes your image has migrations)
+        echo "Running database migrations..."
+        docker exec api-service /bin/bash -c "cd /qed-rollup/qed_api_services && sqlx database create || true && sqlx migrate run" || true
+        
+        echo "Setup completed at $(date)"
 
   # TimescaleDB Subnet Group
   TimescaleDBSubnetGroup:
@@ -1955,7 +2083,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${Environment}-timescaledb'
-  {% endif %} #}
+  {% endif %}
 
 Outputs:
   VPCId:
@@ -2000,12 +2128,12 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-alb-tg-coordinator'
 
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
   ALBTargetGroupRealm{{ realm.id }}Arn:
     Value: !Ref ALBTargetGroupRealm{{ realm.id }}
     Export:
       Name: !Sub '${ProjectName}-${Environment}-alb-tg-realm-{{ realm.id }}'
-  {% endfor %} #}
+  {% endfor %}
 
   # Redis Endpoints
   {% if coord_redis_type == 'elasticache' %}
@@ -2016,7 +2144,7 @@ Outputs:
     Description: Redis Coordinator endpoint
   {% endif %}
 
-  {# {% for realm in config.nodes.realms %}
+  {% for realm in config.nodes.realms %}
   {% if realm.redis and realm.redis.aws %}
   {% set realm_redis_type = realm.redis.aws.deployment_type | default('elasticache') %}
   {% if realm_redis_type == 'elasticache' %}
@@ -2027,7 +2155,7 @@ Outputs:
     Description: Redis Realm {{ realm.id }} endpoint
   {% endif %}
   {% endif %}
-  {% endfor %} #}
+  {% endfor %}
 
   # This belongs in main.yaml, not ecs-services.yaml
   {% if uses_tikv_global %}
@@ -2038,33 +2166,33 @@ Outputs:
       Name: !Sub '${ProjectName}-${Environment}-tikv-pd-asg-name'
   {% endif %}
 
-  {# {% if has_timescaledb %}
+  {% if has_timescaledb %}
+  TimescaleDBInstanceId:
+    Value: !Ref TimescaleDBInstance
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-timescaledb-instance'
+    Description: TimescaleDB EC2 Instance ID
+  
+  TimescaleDBPrivateIP:
+    Value: !GetAtt TimescaleDBInstance.PrivateIp
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-timescaledb-ip'
+    Description: TimescaleDB Private IP
+
   TimescaleDBEndpoint:
     Description: TimescaleDB RDS endpoint
     Value: !GetAtt TimescaleDB.Endpoint.Address
     Export:
       Name: !Sub '${ProjectName}-${Environment}-timescaledb-endpoint'
+  {% endif %}
 
-  TimescaleDBPort:
-    Description: TimescaleDB RDS port
-    Value: !GetAtt TimescaleDB.Endpoint.Port
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-timescaledb-port'
-
-  DBPasswordSecretArn:
-    Description: ARN of the secret containing the database password
-    Value: !Ref DBPasswordSecret
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-db-password-secret'
-  {% endif %} #}
-
-  {# {% if has_api_service %}
+  {% if has_api_service %}
   APIServiceLoadBalancerEndpoint:
     Description: API Service endpoint URL via ALB
     Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}:{{ config.global_services.api_service.port | default(3000) }}'
     Export:
       Name: !Sub '${ProjectName}-${Environment}-api-service-endpoint'
-  {% endif %} #}
+  {% endif %}
 
   # Security Groups
   ECSSecurityGroupId:

@@ -13,6 +13,15 @@ ECR_REPOSITORY="{{ config.nodes.deployment.aws.ecr.repository_name }}"
 ENVIRONMENT="${ENVIRONMENT:-dev}"
 CLUSTER_NAME="${PROJECT_NAME}-${ENVIRONMENT}-main-ecs"  # Use consistent naming
 
+# Config file settings
+LOCAL_CONFIG_FILE="${LOCAL_CONFIG_FILE:-../config-deploy.json}"  # Local source file
+S3_CONFIG_KEY="config.json"  # Always upload as config.json to S3
+CONFIG_BUCKET_NAME="${PROJECT_NAME}-${ENVIRONMENT}-config"
+
+# Deployment settings
+MAX_WAIT_SECONDS=300
+INSTANCE_WARMUP_SECONDS=300
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -22,7 +31,9 @@ NC='\033[0m' # No Color
 
 # Functions
 log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+    local timestamp
+    timestamp=$(date "+%H:%M:%S")
+    echo -e "${GREEN}[INFO]${NC} [$timestamp] $1"
 }
 
 log_error() {
@@ -53,6 +64,8 @@ Commands:
     update-services     Update ECS services with new image
     monitor             Monitor deployment progress
     logs                Show CloudWatch logs
+    validate-template   Validate CloudFormation template (uploads to S3 if >51KB)
+
 
 Options:
     --force             Force operation without confirmation
@@ -69,6 +82,13 @@ Examples:
     $0 cleanup                   # Clean up orphaned resources
     $0 status                    # Check deployment status
     $0 logs coordinator-processor # Show logs for a specific service
+    $0 validate-template                              # Validate main.yaml
+    $0 validate-template cloudformation/main.yaml     # Validate specific template
+    $0 validate-template cloudformation/ecs-services.yaml
+
+Environment Variables:
+    LOCAL_CONFIG_FILE   Path to local config file (default: ../config-deploy.json)
+    ENVIRONMENT         Deployment environment (default: dev)
 
 EOF
 }
@@ -656,6 +676,104 @@ deploy_with_template() {
     echo "$template_param"
     echo "$template_value"
 }
+# Function to validate CloudFormation template via S3
+validate_template() {
+    local template_file="${1:-cloudformation/main.yaml}"
+    
+    log_info "Validating CloudFormation template: $template_file"
+    
+    # Check if template file exists
+    if [ ! -f "$template_file" ]; then
+        log_error "Template file not found: $template_file"
+        return 1
+    fi
+    
+    # Check file size
+    local template_size=$(wc -c < "$template_file")
+    log_info "Template file size: $template_size bytes"
+    
+    if [ $template_size -le 51200 ]; then
+        # Small enough - validate directly
+        log_info "Template is within size limit, validating locally..."
+        if aws cloudformation validate-template \
+            --template-body "file://$template_file" \
+            --region "${REGION}" 2>&1 | tee /tmp/cf-validation.log; then
+            log_info "✓ Template validation successful"
+            return 0
+        else
+            log_error "✗ Template validation failed"
+            cat /tmp/cf-validation.log
+            return 1
+        fi
+    else
+        # Too large - upload to S3 for validation only
+        log_info "Template exceeds 51200 bytes, uploading to S3 for validation..."
+        
+        # Use the CF templates bucket instead of config bucket
+        local validation_bucket="${PROJECT_NAME}-cf-templates-${AWS_ACCOUNT_ID}-${REGION}"
+        local timestamp=$(date +%s)
+        local template_basename=$(basename "$template_file" .yaml)
+        local validation_key="validation/${template_basename}-${timestamp}.yaml"
+        
+        # Create bucket if needed (this is the CF templates bucket, not config bucket)
+        if ! aws s3 ls "s3://${validation_bucket}" --region "${REGION}" >/dev/null 2>&1; then
+            log_info "Creating validation bucket: $validation_bucket"
+            if [ "${REGION}" = "us-east-1" ]; then
+                aws s3api create-bucket \
+                    --bucket "$validation_bucket" \
+                    --region "${REGION}" >/dev/null 2>&1
+            else
+                aws s3api create-bucket \
+                    --bucket "$validation_bucket" \
+                    --region "${REGION}" \
+                    --create-bucket-configuration LocationConstraint="${REGION}" >/dev/null 2>&1
+            fi
+        fi
+        
+        # Upload template
+        local template_url="https://${validation_bucket}.s3.${REGION}.amazonaws.com/${validation_key}"
+        if ! aws s3 cp "$template_file" "s3://${validation_bucket}/${validation_key}" \
+            --region "${REGION}" \
+            --content-type "text/yaml" >/dev/null 2>&1; then
+            log_error "Failed to upload template to S3"
+            return 1
+        fi
+        
+        log_info "Template uploaded to: $template_url"
+        log_info "Validating template via S3 URL..."
+        
+        local validation_result=0
+        if aws cloudformation validate-template \
+            --template-url "$template_url" \
+            --region "${REGION}" 2>&1 | tee /tmp/cf-validation.log; then
+            log_info "✓ Template validation successful"
+            
+            echo ""
+            echo -e "${GREEN}=== Validation Summary ===${NC}"
+            echo "Template: $template_file"
+            echo "Size: $template_size bytes"
+            echo "Status: Valid"
+            echo ""
+            grep -E "Description|Parameters" /tmp/cf-validation.log | head -10 || true
+        else
+            log_error "✗ Template validation failed"
+            echo ""
+            echo -e "${RED}Validation Errors:${NC}"
+            cat /tmp/cf-validation.log
+            validation_result=1
+        fi
+        
+        # Clean up: Delete the uploaded template
+        log_info "Cleaning up validation template from S3..."
+        if aws s3 rm "s3://${validation_bucket}/${validation_key}" --region "${REGION}" 2>/dev/null; then
+            log_info "✓ Validation template deleted"
+        else
+            log_warning "Failed to delete validation template"
+        fi
+        
+        return $validation_result
+    fi
+}
 # Updated deploy_infrastructure function - always use S3 for large templates
 deploy_infrastructure() {
     log_info "Deploying infrastructure stack..."
@@ -863,9 +981,9 @@ deploy_ecs_services() {
         "ServiceDiscoveryNamespaceId"
         "ALBTargetGroupCoordinatorArn"
         "ConfigBucketName"
-        {# {% for realm in config.nodes.realms %}"ALBTargetGroupRealm{{ realm.id }}Arn" {% endfor %} #}
         "RedisCoordinatorEndpoint"
-        {# {% for realm in config.nodes.realms %}"RedisRealm{{ realm.id }}Endpoint" {% endfor %} #}
+        {% for realm in config.nodes.realms %}"ALBTargetGroupRealm{{ realm.id }}Arn" {% endfor %}
+        {% for realm in config.nodes.realms %}"RedisRealm{{ realm.id }}Endpoint" {% endfor %}
         {# {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"TimescaleDBEndpoint"{% endif %} #}
         {# {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"DBPasswordSecretArn"{% endif %} #}
     )
@@ -1441,6 +1559,7 @@ deploy() {
     # Phase 4: Setup Configuration Management
     # ========================================
     log_info "=== Phase 4: Setting up Configuration ==="
+    log_info "Local config file: ${LOCAL_CONFIG_FILE}"
     if ! setup_config_management "$alb_dns"; then
         log_error "Failed to setup configuration"
         return 1
@@ -1494,65 +1613,155 @@ wait_for_alb_dns() {
 setup_config_management() {
     local alb_dns=$1
     
+    # Clean the ALB DNS - remove any whitespace/newlines
+    alb_dns=$(echo "$alb_dns" | tr -d '[:space:]')
+
+    log_info "Using ALB DNS: $alb_dns"
+
+    # Validate the cleaned DNS
+    if [[ ! "$alb_dns" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+        log_error "Invalid ALB DNS after cleaning: '$alb_dns'"
+        return 1
+    fi
+    log_info "Using cleaned ALB DNS: $alb_dns"
+
     # Ensure config bucket exists
     if ! ensure_config_bucket; then
         log_error "Failed to create config bucket"
         return 1
     fi
+
+    # Check if local config exists
+    if [ ! -f "$LOCAL_CONFIG_FILE" ]; then
+        log_error "Local config file not found: $LOCAL_CONFIG_FILE"
+        log_info "Please ensure ${LOCAL_CONFIG_FILE} exists in the project root"
+        return 1
+    fi
+
+    log_info "Using local config: $LOCAL_CONFIG_FILE"
+
     
-    # Upload base config
-    log_info "Uploading base config to S3..."
-    aws s3 cp ../config.json \
-        "s3://${PROJECT_NAME}-${ENVIRONMENT}-config/base/config.json" \
+    # Generate config with actual endpoints
+    log_info "Generating config with actual endpoints..."
+    local coord_url="http://${alb_dns}:8545"
+    local realm0_url="http://${alb_dns}:8546"
+    local realm1_url="http://${alb_dns}:8547"
+
+    jq \
+        --arg coord_url "$coord_url" \
+        --arg realm0_url "$realm0_url" \
+        --arg realm1_url "$realm1_url" \
+        '.network.coordinator_configs[0].rpc_url = [$coord_url] | 
+         .network.realm_configs[0].rpc_url = [$realm0_url] | 
+         .network.realm_configs[1].rpc_url = [$realm1_url]' \
+        "$LOCAL_CONFIG_FILE" > /tmp/config-deploy.json
+   
+    # Check if jq succeeded
+    if [ $? -ne 0 ]; then
+        log_error "jq command failed"
+        return 1
+    fi
+   
+    # Verify the file was created and is valid JSON
+    if [ ! -s /tmp/config-deploy.json ]; then
+        log_error "Generated config file is empty"
+        return 1
+    fi
+
+    if ! jq empty /tmp/config-deploy.json 2>/dev/null; then
+        log_error "Generated config is not valid JSON"
+        cat /tmp/config-deploy.json
+        return 1
+    fi
+
+    # Extract and verify URLs
+    log_info "Verifying generated URLs..."
+    local verify_coord=$(jq -r '.network.coordinator_configs[0].rpc_url[0] // empty' /tmp/config-deploy.json)
+    local verify_realm0=$(jq -r '.network.realm_configs[0].rpc_url[0] // empty' /tmp/config-deploy.json)
+    local verify_realm1=$(jq -r '.network.realm_configs[1].rpc_url[0] // empty' /tmp/config-deploy.json)
+    
+    # Check if extraction succeeded
+    if [ -z "$verify_coord" ] || [ -z "$verify_realm0" ] || [ -z "$verify_realm1" ]; then
+        log_error "Failed to extract URLs from generated config"
+        echo "Config structure:"
+        jq '.network' /tmp/config-deploy.json
+        return 1
+    fi
+    
+    # Simple validation - just check they start with http://
+    if [[ ! "$verify_coord" =~ ^http:// ]]; then
+        log_error "Coordinator URL invalid: $verify_coord"
+        return 1
+    fi
+    
+    if [[ ! "$verify_realm0" =~ ^http:// ]]; then
+        log_error "Realm 0 URL invalid: $verify_realm0"
+        return 1
+    fi
+    
+    if [[ ! "$verify_realm1" =~ ^http:// ]]; then
+        log_error "Realm 1 URL invalid: $verify_realm1"
+        return 1
+    fi
+
+    # Upload as config.json to S3 (single source of truth)
+    log_info "Uploading config to S3 as ${S3_CONFIG_KEY}..."
+    if ! aws s3 cp /tmp/config-deploy.json \
+        "s3://${CONFIG_BUCKET_NAME}/${S3_CONFIG_KEY}" \
         --content-type "application/json" \
-        --region "${REGION}"
-    
-    # Generate and upload service-specific configs
-    log_info "Generating service-specific configs..."
-    generate_service_configs "$alb_dns"
-    
-    # Show config URLs for verification
-    log_info "Configuration files available at:"
-    echo "  Base: https://${PROJECT_NAME}-${ENVIRONMENT}-config.s3.${REGION}.amazonaws.com/base/config.json"
-    echo "  Current: https://${PROJECT_NAME}-${ENVIRONMENT}-config.s3.${REGION}.amazonaws.com/current/config.json"
-    echo "  Worker: https://${PROJECT_NAME}-${ENVIRONMENT}-config.s3.${REGION}.amazonaws.com/services/worker.json"
+        --metadata "source=${LOCAL_CONFIG_FILE},timestamp=$(date -u +%Y%m%d%H%M%S)" \
+        --region "${REGION}"; then
+        log_error "Failed to upload config to S3"
+        return 1
+    fi 
+
+    # Verify upload
+    if aws s3 ls "s3://${CONFIG_BUCKET_NAME}/${S3_CONFIG_KEY}" --region "${REGION}" >/dev/null 2>&1; then
+        log_info "Configuration uploaded successfully"
+        echo "  Config URL: https://${CONFIG_BUCKET_NAME}.s3.${REGION}.amazonaws.com/${S3_CONFIG_KEY}"
+    else
+        log_error "Failed to verify config upload"
+        return 1
+    fi
+
+    # Clean up temp file
+    rm -f /tmp/config-deploy.json
     
     return 0
 }
 
 # Ensure config S3 bucket exists
 ensure_config_bucket() {
-    local bucket_name="${PROJECT_NAME}-${ENVIRONMENT}-config"
-    
+
     # Check if bucket exists
-    if aws s3 ls "s3://${bucket_name}" --region "${REGION}" >/dev/null 2>&1; then
-        log_info "Config bucket already exists: $bucket_name"
+    if aws s3 ls "s3://${CONFIG_BUCKET_NAME}" --region "${REGION}" >/dev/null 2>&1; then
+        log_info "Config bucket already exists: ${CONFIG_BUCKET_NAME}"
         return 0
     fi
-    
-    log_info "Creating config bucket: $bucket_name"
-    
-    # Create bucket with proper region handling
+
+    log_info "Creating config bucket: ${CONFIG_BUCKET_NAME}"
+
     if [ "${REGION}" = "us-east-1" ]; then
         aws s3api create-bucket \
-            --bucket "$bucket_name" \
+            --bucket "${CONFIG_BUCKET_NAME}" \
             --region "${REGION}"
     else
         aws s3api create-bucket \
-            --bucket "$bucket_name" \
+            --bucket "${CONFIG_BUCKET_NAME}" \
             --region "${REGION}" \
             --create-bucket-configuration LocationConstraint="${REGION}"
     fi
     
+    
     # Enable versioning for config history
     aws s3api put-bucket-versioning \
-        --bucket "$bucket_name" \
+        --bucket "${CONFIG_BUCKET_NAME}" \
         --versioning-configuration Status=Enabled \
         --region "${REGION}"
     
-    # Set public read policy for easy access
+    # Set public read policy for easy access by services
     aws s3api put-bucket-policy \
-        --bucket "$bucket_name" \
+        --bucket "${CONFIG_BUCKET_NAME}" \
         --policy '{
             "Version": "2012-10-17",
             "Statement": [
@@ -1561,7 +1770,7 @@ ensure_config_bucket() {
                     "Effect": "Allow",
                     "Principal": "*",
                     "Action": "s3:GetObject",
-                    "Resource": "arn:aws:s3:::'"$bucket_name"'/*"
+                    "Resource": "arn:aws:s3:::'"${CONFIG_BUCKET_NAME}"'/*"
                 }
             ]
         }' \
@@ -1570,56 +1779,6 @@ ensure_config_bucket() {
     return 0
 }
 
-# Generate all service-specific configs
-generate_service_configs() {
-    local alb_dns=$1
-    local bucket_name="${PROJECT_NAME}-${ENVIRONMENT}-config"
-    
-    # Generate main config with actual endpoints
-    log_info "Generating config with actual endpoints..."
-    cat ../config.json | jq \
-        --arg alb "$alb_dns" \
-        '.network.coordinator_configs[0].rpc_url = ["http://\($alb):8545"] |
-         .network.realm_configs[0].rpc_url = ["http://\($alb):8546"] |
-         .network.realm_configs[1].rpc_url = ["http://\($alb):8547"]' \
-        > /tmp/config-current.json
-    
-    # Upload current config
-    aws s3 cp /tmp/config-current.json \
-        "s3://${bucket_name}/current/config.json" \
-        --content-type "application/json" \
-        --region "${REGION}"
-    
-    # Generate worker-specific config
-    log_info "Generating worker config..."
-    cat /tmp/config-current.json | jq \
-        '.nodes.workers.args["config"] = "/app/config.json"' \
-        > /tmp/config-worker.json
-    
-    aws s3 cp /tmp/config-worker.json \
-        "s3://${bucket_name}/services/worker.json" \
-        --content-type "application/json" \
-        --region "${REGION}"
-    
-    # Generate coordinator config (if needed)
-    cp /tmp/config-current.json /tmp/config-coordinator.json
-    aws s3 cp /tmp/config-coordinator.json \
-        "s3://${bucket_name}/services/coordinator.json" \
-        --content-type "application/json" \
-        --region "${REGION}"
-    
-    # Generate realm configs
-    for realm_id in 0 1; do
-        cp /tmp/config-current.json "/tmp/config-realm${realm_id}.json"
-        aws s3 cp "/tmp/config-realm${realm_id}.json" \
-            "s3://${bucket_name}/services/realm${realm_id}.json" \
-            --content-type "application/json" \
-            --region "${REGION}"
-    done
-    
-    # Clean up temp files
-    rm -f /tmp/config-*.json
-}
 
 # Verify deployment is working
 verify_deployment() {
@@ -1692,8 +1851,10 @@ update_services() {
         return 1
     fi
     
-    # Update configs
+    # Update single config file
+    log_info "Updating config.json in S3..."
     setup_config_management "$alb_dns"
+
     
     # Force ECS services to pull new config
     local cluster_name="${PROJECT_NAME}-${ENVIRONMENT}-main-ecs"
@@ -1703,8 +1864,14 @@ update_services() {
         --output text \
         --region "${REGION}" 2>/dev/null)
     
+    if [ -z "$services" ]; then
+        log_warning "No ECS services found in cluster: $cluster_name"
+        return 0
+    fi
+
     for service_arn in $services; do
-        log_info "Restarting service: $(basename $service_arn)"
+        local service_name=$(basename "$service_arn")
+        log_info "Forcing new deployment for: $service_name"
         aws ecs update-service \
             --cluster "$cluster_name" \
             --service "$service_arn" \
@@ -1886,7 +2053,7 @@ ENVIRONMENT="dev"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        deploy|update|update-instances|destroy|cleanup|status|build|update-services|monitor|logs)
+        deploy|update|update-instances|destroy|cleanup|status|build|update-services|monitor|logs|validate-template|validate)
             COMMAND=$1
             shift
             ;;
@@ -1972,6 +2139,9 @@ case "$COMMAND" in
         ;;
     update-instances)
         force_update_instances
+        ;;
+    validate-template|validate)
+        validate_template "$SERVICE_NAME"  # Optional template path
         ;;
     {# health|check-health)
         check_instance_health
