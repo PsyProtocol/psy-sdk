@@ -249,8 +249,36 @@ fn build_claim_calls_for_multi_checkpoints(
     let total_proofs = all_proofs.len();
     let mut proof_index = 0;
 
-    let count_5s = total_proofs / 5;
-    let remainder = total_proofs % 5;
+    let count_10s = total_proofs / 10;
+    let mut remaining = total_proofs % 10;
+
+    let count_5s = remaining / 5;
+    remaining = remaining % 5;
+
+    for _ in 0..count_10s {
+        let chunk = &all_proofs[proof_index..proof_index + 10];
+        let mut batch_inputs = Vec::new();
+
+        for proof_with_checkpoint in chunk {
+            batch_inputs.push(proof_with_checkpoint.checkpoint_id);
+        }
+
+        for proof_with_checkpoint in chunk {
+            serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut batch_inputs);
+        }
+
+        for proof_with_checkpoint in chunk {
+            batch_inputs.push(proof_with_checkpoint.proposed_reward);
+        }
+
+        contract_call_args.push(ContractCallArgs {
+            contract_id: MINING_REWARDS_CONTRACT_ID,
+            method_name: "claim_guta_rewards_10".to_string(),
+            inputs: batch_inputs,
+        });
+
+        proof_index += 10;
+    }
 
     for _ in 0..count_5s {
         let chunk = &all_proofs[proof_index..proof_index + 5];
@@ -277,7 +305,7 @@ fn build_claim_calls_for_multi_checkpoints(
         proof_index += 5;
     }
 
-    if remainder >= 2 {
+    if remaining >= 2 {
         let chunk = &all_proofs[proof_index..proof_index + 2];
         let mut batch_inputs = Vec::new();
 
