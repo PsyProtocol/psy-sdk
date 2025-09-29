@@ -285,6 +285,11 @@ impl RealmProcessor {
             return Ok(());
         }
 
+        if !build_ctx.store.is_committed() {
+            warn!("Store is not committed, continue, pending_checkpoint_id: {}", self.pending_checkpoint_id.load(Ordering::Relaxed));
+            return Ok(());
+        }
+
         // Build block based on slot timing
         self.pending_checkpoint_id.store(0, Ordering::Relaxed);
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
