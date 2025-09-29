@@ -14,7 +14,7 @@ use qed_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{
         QStandardCircuit,
         QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
-    }, hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget, proof_minifier::pm_core::get_circuit_fingerprint_generic, traits::{CreatableTarget, ToTargets}
+    }, hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget, proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic}, traits::{CreatableTarget, ToTargets}
 };
 use qed_core::{
     config::network_constants::CHECKPOINT_TREE_HEIGHT, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}
@@ -47,6 +47,8 @@ where
 
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
+
+    pub minifier_chain: QEDProofMinifierDynamicChain<D, C::F, C>,
 }
 
 impl<C: GenericConfig<D> + 'static, const D: usize> GUTAVerifyTwoGUTAUpgradeCheckpointCircuit<C, D>
@@ -209,10 +211,16 @@ where
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(
             builder.config.num_constants,
         )));
-        pad_circuit_degree(&mut builder, 13);
+        // pad_circuit_degree(&mut builder, 12);
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
+
+        let minifier_chain = QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
+            &circuit_data.verifier_only,
+            &circuit_data.common,
+            &[true],
+        );
 
         Self {
             a_guta_gadget,
@@ -225,6 +233,7 @@ where
             commitment,
             circuit_data,
             fingerprint,
+            minifier_chain,
         }
     }
 
@@ -266,7 +275,8 @@ where
         self.nca_state_transition_gadget
             .set_witness_partial(&mut pw, &input.nca_proof)?;
 
-        self.circuit_data.prove(pw)
+        let base_proof = self.circuit_data.prove(pw)?;
+        self.minifier_chain.prove(&base_proof)
     }
 }
 
@@ -276,15 +286,15 @@ where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
-        self.fingerprint
+        qed_core::data::qhashout::QHashOut(self.minifier_chain.get_fingerprint())
     }
 
     fn get_verifier_config_ref(&self) -> &VerifierOnlyCircuitData<C, D> {
-        &self.circuit_data.verifier_only
+        &self.minifier_chain.get_verifier_data()
     }
 
     fn get_common_circuit_data_ref(&self) -> &CommonCircuitData<C::F, D> {
-        &self.circuit_data.common
+        &self.minifier_chain.get_common_data()
     }
 }
 

@@ -81,7 +81,7 @@ where
         builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&public_inputs_hash.elements);
 
-        pad_circuit_degree(&mut builder, 13);
+        pad_circuit_degree(&mut builder, 12);
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(
