@@ -76,18 +76,25 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     let start_checkpoint = last_claimed + 1;
 
-    if start_checkpoint > latest_checkpoint_id {
-        info!("No new checkpoints to claim");
+    let claim_rewards_cooldown = 0;
+    let max_claimable_checkpoint = if latest_checkpoint_id > claim_rewards_cooldown {
+        latest_checkpoint_id - claim_rewards_cooldown
+    } else {
+        0
+    };
+
+    if start_checkpoint > max_claimable_checkpoint {
+        info!("No new checkpoints to claim (latest: {}, cooldown: {}, max claimable: {})",
+              latest_checkpoint_id, claim_rewards_cooldown, max_claimable_checkpoint);
         return Ok(());
     }
 
-    info!("Claiming rewards from checkpoint {} to {}", start_checkpoint, latest_checkpoint_id);
+    info!("Claiming rewards from checkpoint {} to {} (latest: {}, cooldown: {})",
+          start_checkpoint, max_claimable_checkpoint, latest_checkpoint_id, claim_rewards_cooldown);
 
-    let mut all_contract_calls = Vec::new();
+    let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
 
-    for checkpoint_id in start_checkpoint..=latest_checkpoint_id {
-        info!("Processing checkpoint {}", checkpoint_id);
-
+    for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
         let mut job_infos = if !args.jobs.is_empty() {
             parse_job_specs(&args.jobs)?
         } else {
@@ -95,23 +102,10 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
         };
 
         if job_infos.is_empty() {
-            info!("No jobs found for checkpoint {}, skipping", checkpoint_id);
             continue;
         }
 
-        job_infos.sort_by_key(|job| job.job_id.goal_id);
-
-        info!("Found {} jobs for checkpoint {}:", job_infos.len(), checkpoint_id);
-        for job_info in &job_infos {
-            info!("  - {} ({})", job_info.job_id.to_hex_string(), match &job_info.location {
-                JobLocation::Coordinator => "coordinator".to_string(),
-                JobLocation::Realm(id) => format!("realm:{}", id),
-            });
-        }
-
-        let mut all_proofs = Vec::new();
-
-        for job_info in &job_infos {
+        for job_info in job_infos {
             match job_info.job_id.circuit_type {
                 ProvingJobCircuitType::GUTAOnlyRegisterUsers
                 | ProvingJobCircuitType::GUTARegisterUsers
@@ -130,17 +124,27 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
                 }
             };
 
-            if let Ok(job_proof) = get_job_proof(&provider, &job_info, checkpoint_id) {
-                all_proofs.push(job_proof);
+            if let Ok((actual_checkpoint_id, job_proof)) = get_job_proof(&provider, &job_info, checkpoint_id) {
+                checkpoint_jobs.entry(actual_checkpoint_id)
+                    .or_insert_with(Vec::new)
+                    .push((job_info, job_proof));
             }
         }
+    }
 
-        if all_proofs.is_empty() {
-            info!("No valid GUTA proofs found for checkpoint {}", checkpoint_id);
-            continue;
-        }
+    if checkpoint_jobs.is_empty() {
+        info!("No valid checkpoints with rewards to claim");
+        return Ok(());
+    }
 
-        info!("Found {} GUTA proofs for checkpoint {}", all_proofs.len(), checkpoint_id);
+    let mut sorted_checkpoints: Vec<_> = checkpoint_jobs.keys().copied().collect();
+    sorted_checkpoints.sort();
+
+    let mut all_contract_calls = Vec::new();
+    let mut last_valid_checkpoint = None;
+
+    for &checkpoint_id in &sorted_checkpoints {
+        let jobs = checkpoint_jobs.get(&checkpoint_id).unwrap();
 
         let checkpoint_leaf = provider.get_checkpoint_leaf_data(checkpoint_id)?;
         let fees_collected = checkpoint_leaf.stats.fees_collected.to_canonical_u64();
@@ -154,16 +158,36 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
             continue;
         }
 
-        info!("Checkpoint {} reward: {} (fees_collected={}, gutas_completed={})",
-              checkpoint_id, proposed_reward, fees_collected, gutas_completed);
+        info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, jobs.len());
+        for (job_info, _) in jobs {
+            info!("  - {} ({})", job_info.job_id.to_hex_string(), match &job_info.location {
+                JobLocation::Coordinator => "coordinator".to_string(),
+                JobLocation::Realm(id) => format!("realm:{}", id),
+            });
+        }
 
-        let checkpoint_calls = build_claim_calls_for_checkpoint(checkpoint_id, &all_proofs, proposed_reward);
+        let proofs: Vec<_> = jobs.iter().map(|(_, proof)| proof.clone()).collect();
+        let checkpoint_calls = build_claim_calls_for_checkpoint(checkpoint_id, &proofs, proposed_reward);
         all_contract_calls.extend(checkpoint_calls);
+        last_valid_checkpoint = Some(checkpoint_id);
+    }
+
+    if all_contract_calls.is_empty() {
+        info!("No checkpoints with valid rewards to claim");
+        return Ok(());
+    }
+
+    if let Some(last_checkpoint) = last_valid_checkpoint {
+        all_contract_calls.push(ContractCallArgs {
+            contract_id: MINING_REWARDS_CONTRACT_ID,
+            method_name: "end_session".to_string(),
+            inputs: vec![last_checkpoint],
+        });
 
         all_contract_calls.push(ContractCallArgs {
             contract_id: TOKEN_CONTRACT_ID as u64,
             method_name: "simple_claim_pow_rewards".to_string(),
-            inputs: vec![checkpoint_id],
+            inputs: vec![last_checkpoint],
         });
     }
 
@@ -311,39 +335,19 @@ fn get_job_proof(
     provider: &RpcProvider,
     job_info: &JobInfo,
     checkpoint_id: u64,
-) -> anyhow::Result<qed_core::job::id::VariableHeightRewardMerkleProof> {
-    let job_proof = match &job_info.location {
+) -> anyhow::Result<(u64, qed_core::job::id::VariableHeightRewardMerkleProof)> {
+    let (job_proof, actual_checkpoint_id) = match &job_info.location {
         JobLocation::Realm(realm_id) => {
             let (proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id())?;
-
-            if root_job_id.goal_id != checkpoint_id {
-                return Err(anyhow::format_err!(
-                    "checkpoint mismatch: job {} was processed in checkpoint {} but expected {}",
-                    job_info.job_id.to_hex_string(),
-                    root_job_id.goal_id,
-                    checkpoint_id
-                ));
-            }
-
-            proof
+            (proof, root_job_id.goal_id)
         }
         JobLocation::Coordinator => {
             let (proof, root_job_id) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id())?;
-
-            if root_job_id.goal_id != checkpoint_id {
-                return Err(anyhow::format_err!(
-                    "checkpoint mismatch: job {} was processed in checkpoint {} but expected {}",
-                    job_info.job_id.to_hex_string(),
-                    root_job_id.goal_id,
-                    checkpoint_id
-                ));
-            }
-
-            proof
+            (proof, root_job_id.goal_id)
         }
     };
 
-    Ok(job_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT))
+    Ok((actual_checkpoint_id, job_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT)))
 }
 
 fn parse_job_specs(specs: &[String]) -> Result<Vec<JobInfo>> {

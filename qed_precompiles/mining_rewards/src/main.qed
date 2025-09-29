@@ -13,8 +13,8 @@ struct VariableHeightRewardMerkleProof {
 
 #[derive(Storage, StorageRef)]
 struct PersistentState {
-    pub last_claimed_checkpoint_id: Felt,
     pub claimed_rewards: Felt,
+    pub last_claimed_checkpoint_id: Felt,
     pub last_sealed_checkpoint_id: Felt,
 }
 
@@ -105,7 +105,7 @@ impl PsyPOWMiningRewardsClaimContractRef {
 
         c.persistent_state.set(new PersistentState {
             last_claimed_checkpoint_id: claim_checkpoint_id,
-            claimed_rewards: 0,
+            claimed_rewards: persistent_state.claimed_rewards,
             last_sealed_checkpoint_id: persistent_state.last_sealed_checkpoint_id,
         });
     }
@@ -191,7 +191,7 @@ impl PsyPOWMiningRewardsClaimContractRef {
         };
 
         c.persistent_state.set(new PersistentState {
-            last_claimed_checkpoint_id: persistent_state.last_claimed_checkpoint_id,
+            last_claimed_checkpoint_id: claim_checkpoint_id,
             claimed_rewards: old_claimed_rewards + total_rewards_claimed,
             last_sealed_checkpoint_id: persistent_state.last_sealed_checkpoint_id,
         });
@@ -265,7 +265,7 @@ impl PsyPOWMiningRewardsClaimContractRef {
         }
 
         c.persistent_state.set(new PersistentState {
-            last_claimed_checkpoint_id: persistent_state.last_claimed_checkpoint_id,
+            last_claimed_checkpoint_id: claim_checkpoint_id,
             claimed_rewards: old_claimed_rewards + total_rewards_claimed,
             last_sealed_checkpoint_id: persistent_state.last_sealed_checkpoint_id,
         });
@@ -339,7 +339,7 @@ impl PsyPOWMiningRewardsClaimContractRef {
         }
 
         c.persistent_state.set(new PersistentState {
-            last_claimed_checkpoint_id: persistent_state.last_claimed_checkpoint_id,
+            last_claimed_checkpoint_id: claim_checkpoint_id,
             claimed_rewards: old_claimed_rewards + total_rewards_claimed,
             last_sealed_checkpoint_id: persistent_state.last_sealed_checkpoint_id,
         });

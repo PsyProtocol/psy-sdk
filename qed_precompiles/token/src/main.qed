@@ -12,6 +12,7 @@ struct OtherUserInfo {
 struct PsyTokenContract {
     pub balance: Felt,
     pub last_claimed_pow_rewards_checkpoint_id: Felt,
+    pub claimed_rewards: Felt,
     pub other_user_info: [OtherUserInfo; 16777216],
 }
 
@@ -72,11 +73,17 @@ impl PsyTokenContractRef {
         let pow_rewards_persistant_state: Hash = get_other_contract_state_hash_at(32, 1, 0);
 
         assert_eq(pow_rewards_persistant_state[2], checkpoint_id, "the checkpoint must be sealed");
-        assert(checkpoint_id > c.last_claimed_pow_rewards_checkpoint_id.get(), "this checkpoint's rewards have been claimed");
+        assert(checkpoint_id > c.last_claimed_pow_rewards_checkpoint_id.get(), "the rewards until this checkpoint have been claimed");
+
+        let total_claimed_rewards = pow_rewards_persistant_state[0];
+        let claimed_rewards = c.claimed_rewards.get();
+        assert(total_claimed_rewards > claimed_rewards, "no new rewards to claim");
+
+        let reward_diff = total_claimed_rewards - claimed_rewards;
 
         c.last_claimed_pow_rewards_checkpoint_id.set(checkpoint_id);
-
-        c.balance.set(c.balance.get() + pow_rewards_persistant_state[1]);
+        c.claimed_rewards.set(total_claimed_rewards);
+        c.balance.set(c.balance.get() + reward_diff);
     }
 
     // pub fn claim_pow_rewards() {
