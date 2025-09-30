@@ -285,6 +285,11 @@ impl RealmProcessor {
             return Ok(());
         }
 
+        if !build_ctx.store.is_committed() {
+            warn!("Store is not committed, continue, pending_checkpoint_id: {}", self.pending_checkpoint_id.load(Ordering::Relaxed));
+            return Ok(());
+        }
+
         // Build block based on slot timing
         self.pending_checkpoint_id.store(0, Ordering::Relaxed);
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
@@ -295,28 +300,19 @@ impl RealmProcessor {
         }
         let now = Instant::now();
         info!("Start building block checkpoint: {}, slot: {}", next_checkpoint_id, slot);
-        let proving_data_job_id: ProvingJobDataId = match tokio::time::timeout(
-            Duration::from_millis(2 * SLOT_SIZE),
-            self.build_block(build_ctx, next_checkpoint_id)
-        ).await?{
-            Ok(job_id) => job_id,
-            Err(err) => {
-                let _ = build_ctx.rollback(next_checkpoint_id).await;
-                error!("Timeout waiting: {:?} for produce block, slot: {}", err, slot);
-                return Ok(());
+        match self.build_block(build_ctx, next_checkpoint_id).await {
+            Ok(job_id) => {
+                self.sync_proof.chq_push_imm(job_id).await?;
+                self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
+                build_ctx.store.save_snapshot(next_checkpoint_id)?;
+                info!("build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
             }
-        };
-        // let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
-        // if local_latest_checkpoint_id >= next_checkpoint_id {
-        //     warn!("Rollback: local latest checkpoint id: {}, next checkpoint id: {}", local_latest_checkpoint_id, next_checkpoint_id);
-        //     build_ctx.rollback(next_checkpoint_id).await?;
-        //     self.pending_checkpoint_id.store(0, Ordering::Relaxed);
-        //     return Ok(());
-        // }
-        self.sync_proof.chq_push_imm(proving_data_job_id).await?;
-        self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
-        build_ctx.store.save_snapshot(next_checkpoint_id)?;
-        info!("build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
+            Err(err) => {
+                // Rollback database changes
+                build_ctx.rollback(next_checkpoint_id).await?;
+                error!("Rollback: build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
+            }
+        }
         Ok(())
     }
 

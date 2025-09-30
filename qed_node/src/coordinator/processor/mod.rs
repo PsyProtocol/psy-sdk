@@ -317,14 +317,19 @@ impl
     pub async fn build_block(&self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
         let ctx = self.ctx.clone();
         let now = Instant::now();
-        self.retry_with_backoff(&format!("build block for checkpoint {}", next_checkpoint_id), || async {
-            if let Err(e) = ctx.build_block(slot).await {
-                ctx.rollback(next_checkpoint_id).await?;
-                bail!("Failed to build and prove block: {}", e);
+        if let Err(e) = ctx.build_block(slot).await {
+            ctx.rollback(next_checkpoint_id).await?;
+            bail!("Rollback: Failed to build and prove block: {}", e);
+        }
+        let (pair_to_set, remove_keys) = match self.ctx.commit(next_checkpoint_id).await {
+            Ok((pair_to_set, remove_keys)) => {
+                (pair_to_set, remove_keys)
             }
-            Ok(())
-        }).await?;
-        let (pair_to_set, remove_keys) = self.ctx.commit(next_checkpoint_id).await?;
+            Err(e) => {
+                ctx.rollback(next_checkpoint_id).await?;
+                bail!("Rollback: Failed to commit block: {}", e);
+            }
+        };
 
         info!(
             "✅ Successfully built and committed block {}, slot {}, cost time: {:?}",
@@ -617,22 +622,12 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         }
 
         let slot = slot_timer_other.get_current_slot();
-        tokio::select! {
-            result = coordinator_processor.build_block(next_checkpoint_id, slot) => {
-                match result {
-                    Ok(checkpoint_id) => {
-                        info!("✅ Successfully built block for checkpoint {}, slot {}", checkpoint_id, slot);
-                    }
-                    Err(err) => {
-                        error!("❌ Failed to build block: {:?}, slot: {}", err, slot);
-                    }
-                }
+        match coordinator_processor.build_block(next_checkpoint_id, slot).await {
+            Ok(checkpoint_id) => {
+                info!("✅ Successfully built block for checkpoint {}, slot {}", checkpoint_id, slot);
             }
-            _ = tokio::time::sleep(Duration::from_millis(2 * SLOT_SIZE)) => {
-                if let Err(err) = coordinator_processor.ctx.rollback(next_checkpoint_id).await {
-                    error!("❌ Failed to rollback checkpoint {}: {:?}", next_checkpoint_id, err);
-                }
-                error!("⏰ Timeout waiting for build block to complete, slot: {}", slot);
+            Err(err) => {
+                error!("❌Failed to build block checkpoint: {}, error: {:?}, slot: {}",next_checkpoint_id, err, slot);
             }
         }
     }

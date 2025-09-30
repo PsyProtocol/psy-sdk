@@ -58,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let user_filter_msg = serde_json::to_string(&user_filter_update)?;
 
-    user_ws_sender.send(Message::Text(user_filter_msg)).await?;
+    user_ws_sender.send(Message::Text(user_filter_msg.into())).await?;
     println!(
         "🔧 User Event filters set: user_id={:?}",
         user_filters.user_id
@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let worker_filter_msg = serde_json::to_string(&worker_filter_update)?;
 
     worker_ws_sender
-        .send(Message::Text(worker_filter_msg))
+        .send(Message::Text(worker_filter_msg.into()))
         .await?;
     println!(
         "🔧 Worker Event filters set: realm_id={:?}, worker_pubkey={:?}",
