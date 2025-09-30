@@ -96,6 +96,50 @@ Resources:
       ContainerDefinitions:
         - Name: coordinator-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
+          Environment:
+            {% for key, value in (config.nodes.coordinator.edge.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref 'AWS::Region'
+            - Name: ProjectName
+              Value: !Ref ProjectName
+            - Name: Environment
+              Value: !Ref Environment
+            - Name: TiKVPDEndpoints
+              Value: !Ref TiKVPDEndpoints
+            - Name: RedisCoordinatorEndpoint
+              Value: !Ref RedisCoordinatorEndpoint
+            - Name: CONFIG_BUCKET
+              Value: !Ref ConfigBucketName
+          Memory: {{ config.nodes.coordinator.edge.aws.memory }}
+          MemoryReservation: {{ (config.nodes.coordinator.edge.aws.memory * 0.75) | int }}
+          Cpu: {{ config.nodes.coordinator.edge.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
+          MountPoints:
+            - SourceVolume: coordinator-data
+              ContainerPath: /data
+          PortMappings:
+            - ContainerPort: 8545
+              HostPort: 0
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://localhost:8545/health || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 120  # Increased to allow time for PD discovery
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: coordinator-edge
+          Essential: false
           EntryPoint:
             - /bin/bash
             - -c
@@ -180,51 +224,6 @@ Resources:
                 --{{ key | replace('_','-') }} "{{ value | string }}" \
                 {% endif %}
                 {% endfor %}
-
-          Environment:
-            {% for key, value in (config.nodes.coordinator.edge.env | default({}) | dictsort) %}
-            - Name: {{ key }}
-              Value: '{{ value | string }}'
-            {% endfor %}
-            - Name: AWS_DEFAULT_REGION
-              Value: !Ref 'AWS::Region'
-            - Name: ProjectName
-              Value: !Ref ProjectName
-            - Name: Environment
-              Value: !Ref Environment
-            - Name: TiKVPDEndpoints
-              Value: !Ref TiKVPDEndpoints
-            - Name: RedisCoordinatorEndpoint
-              Value: !Ref RedisCoordinatorEndpoint
-            - Name: CONFIG_BUCKET
-              Value: !Ref ConfigBucketName
-          Memory: {{ config.nodes.coordinator.edge.aws.memory }}
-          MemoryReservation: {{ (config.nodes.coordinator.edge.aws.memory * 0.75) | int }}
-          Cpu: {{ config.nodes.coordinator.edge.aws.cpu }}
-          LinuxParameters:
-            InitProcessEnabled: true
-          MountPoints:
-            - SourceVolume: coordinator-data
-              ContainerPath: /data
-          PortMappings:
-            - ContainerPort: 8545
-              HostPort: 0
-              Protocol: tcp
-          HealthCheck:
-            Command:
-              - CMD-SHELL
-              - 'curl -f http://localhost:8545/health || exit 1'
-            Interval: 30
-            Timeout: 5
-            Retries: 3
-            StartPeriod: 120  # Increased to allow time for PD discovery
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
-              awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: coordinator-edge
-          Essential: true
 
   CoordinatorEdgeService:
     Type: AWS::ECS::Service
@@ -374,9 +373,53 @@ Resources:
       ContainerDefinitions:
         - Name: realm-{{ realm.id }}-processor
           Image: !Sub '${ECRRepositoryURI}:latest'
-          Command:
+          Environment:
+            {% for key, value in (realm.processor.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref 'AWS::Region'
+            - Name: ProjectName
+              Value: !Ref ProjectName
+            - Name: Environment
+              Value: !Ref Environment
+            - Name: TiKVPDEndpoints
+              Value: !Ref TiKVPDEndpoints
+            {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
+            - Name: RedisRealm{{ realm.id }}Endpoint
+              Value: !Ref RedisRealm{{ realm.id }}Endpoint
+            {% else %}
+            - Name: RedisCoordinatorEndpoint
+              Value: !Ref RedisCoordinatorEndpoint
+            {% endif %}
+          Memory: {{ realm.processor.aws.memory }}
+          MemoryReservation: {{ (realm.processor.aws.memory * 0.75) | int }}
+          Cpu: {{ realm.processor.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
+          MountPoints:
+            - SourceVolume: realm{{ realm.id }}-processor-data
+              ContainerPath: /data
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'ps aux | grep -v grep | grep realm-processor || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 120
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-{{ realm.id }}-processor
+          Essential: true 
+          EntryPoint:
             - /bin/bash
             - -c
+          Command:
             - |
               # Get TiKV PD endpoints dynamically
               PD_ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
@@ -454,49 +497,6 @@ Resources:
                 {% endif %}
                 {% endfor %}
 
-          Environment:
-            {% for key, value in (realm.processor.env | default({}) | dictsort) %}
-            - Name: {{ key }}
-              Value: '{{ value | string }}'
-            {% endfor %}
-            - Name: AWS_DEFAULT_REGION
-              Value: !Ref 'AWS::Region'
-            - Name: ProjectName
-              Value: !Ref ProjectName
-            - Name: Environment
-              Value: !Ref Environment
-            - Name: TiKVPDEndpoints
-              Value: !Ref TiKVPDEndpoints
-            {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
-            - Name: RedisRealm{{ realm.id }}Endpoint
-              Value: !Ref RedisRealm{{ realm.id }}Endpoint
-            {% else %}
-            - Name: RedisCoordinatorEndpoint
-              Value: !Ref RedisCoordinatorEndpoint
-            {% endif %}
-          Memory: {{ realm.processor.aws.memory }}
-          MemoryReservation: {{ (realm.processor.aws.memory * 0.75) | int }}
-          Cpu: {{ realm.processor.aws.cpu }}
-          LinuxParameters:
-            InitProcessEnabled: true
-          MountPoints:
-            - SourceVolume: realm{{ realm.id }}-processor-data
-              ContainerPath: /data
-          HealthCheck:
-            Command:
-              - CMD-SHELL
-              - 'ps aux | grep -v grep | grep realm-processor || exit 1'
-            Interval: 30
-            Timeout: 5
-            Retries: 3
-            StartPeriod: 120
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
-              awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: realm-{{ realm.id }}-processor
-          Essential: true 
 
   Realm{{ realm.id }}ProcessorService:
     Type: AWS::ECS::Service
@@ -573,9 +573,68 @@ Resources:
       ContainerDefinitions:
         - Name: realm-{{ realm.id }}-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
-          Command:
+          Environment:
+            {% for key, value in (realm.edge.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref 'AWS::Region'
+            - Name: ProjectName
+              Value: !Ref ProjectName
+            - Name: Environment
+              Value: !Ref Environment
+            - Name: TiKVPDEndpoints
+              Value: !Ref TiKVPDEndpoints
+            - Name: MainECSClusterName
+              Value: !Ref MainECSClusterName
+            {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
+            - Name: RedisRealm{{ realm.id }}Endpoint
+              Value: !Ref RedisRealm{{ realm.id }}Endpoint
+            {% else %}
+            - Name: RedisCoordinatorEndpoint
+              Value: !Ref RedisCoordinatorEndpoint
+            {% endif %}
+          Memory: {{ realm.edge.aws.memory }}
+          MemoryReservation: {{ (realm.edge.aws.memory * 0.75) | int }}
+          Cpu: {{ realm.edge.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
+          MountPoints:
+            - SourceVolume: realm{{ realm.id }}-edge-data
+              ContainerPath: /data
+          PortMappings:
+            - ContainerPort: {{ 8546 + realm.id }}
+              HostPort: 0  # Dynamic port mapping
+              Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://127.0.0.1:{{ 8546 + realm.id }}/health || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 120
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-{{ realm.id }}-edge
+          Essential: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-{{ realm.id }}-edge-init
+          DependsOn:
+            - ContainerName: wait-for-processor
+              Condition: SUCCESS
+          EntryPoint:
             - /bin/bash
             - -c
+          Command:
             - |
               # Get TiKV PD endpoints dynamically
               PD_ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
@@ -653,89 +712,47 @@ Resources:
                 {% endif %}
                 {% endfor %}
 
+        - Name: wait-for-processor
+          Image: amazon/aws-cli:latest  # Has AWS CLI and dig
+          Command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Realm {{ realm.id }} Processor task..."
+              for i in $(seq 1 60); do
+                RUNNING_TASKS=$(aws ecs list-tasks \
+                  --cluster ${MainECSClusterName} \
+                  --service-name ${ProjectName}-${Environment}-realm-{{ realm.id }}-processor \
+                  --desired-status RUNNING \
+                  --region ${AWS::Region} \
+                  --query 'taskArns | length(@)' \
+                  --output text 2>/dev/null || echo "0")
+                
+                if [ "$RUNNING_TASKS" -ge "1" ]; then
+                  echo "Processor task is running!"
+                  exit 0
+                fi
+                echo "Attempt $i/60: Waiting for processor task..."
+                sleep 3
+              done
+              echo "Timeout waiting for processor, continuing anyway..."
+          Essential: false
           Environment:
-            {% for key, value in (realm.edge.env | default({}) | dictsort) %}
-            - Name: {{ key }}
-              Value: '{{ value | string }}'
-            {% endfor %}
             - Name: AWS_DEFAULT_REGION
               Value: !Ref 'AWS::Region'
             - Name: ProjectName
               Value: !Ref ProjectName
             - Name: Environment
               Value: !Ref Environment
-            - Name: TiKVPDEndpoints
-              Value: !Ref TiKVPDEndpoints
             - Name: MainECSClusterName
               Value: !Ref MainECSClusterName
-            {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
-            - Name: RedisRealm{{ realm.id }}Endpoint
-              Value: !Ref RedisRealm{{ realm.id }}Endpoint
-            {% else %}
-            - Name: RedisCoordinatorEndpoint
-              Value: !Ref RedisCoordinatorEndpoint
-            {% endif %}
-          Memory: {{ realm.edge.aws.memory }}
-          MemoryReservation: {{ (realm.edge.aws.memory * 0.75) | int }}
-          Cpu: {{ realm.edge.aws.cpu }}
-          LinuxParameters:
-            InitProcessEnabled: true
-          MountPoints:
-            - SourceVolume: realm{{ realm.id }}-edge-data
-              ContainerPath: /data
-          PortMappings:
-            - ContainerPort: {{ 8546 + realm.id }}
-              HostPort: 0  # Dynamic port mapping
-              Protocol: tcp
-          HealthCheck:
-            Command:
-              - CMD-SHELL
-              - 'curl -f http://127.0.0.1:{{ 8546 + realm.id }}/health || exit 1'
-            Interval: 30
-            Timeout: 5
-            Retries: 3
-            StartPeriod: 120
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
-              awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: realm-{{ realm.id }}-edge
-          Essential: true
-          DependsOn:
-            - ContainerName: wait-for-processor
-              Condition: SUCCESS
-            - Name: wait-for-processor
-              Image: amazon/aws-cli:latest  # Has AWS CLI and dig
-              Command:
-                - sh
-                - -c
-                - |
-                  echo "Waiting for Realm {{ realm.id }} Processor task..."
-                  for i in $(seq 1 60); do
-                    RUNNING_TASKS=$(aws ecs list-tasks \
-                      --cluster ${MainECSClusterName} \
-                      --service-name ${ProjectName}-${Environment}-realm-{{ realm.id }}-processor \
-                      --desired-status RUNNING \
-                      --region ${AWS::Region} \
-                      --query 'taskArns | length(@)' \
-                      --output text 2>/dev/null || echo "0")
-                    
-                    if [ "$RUNNING_TASKS" -ge "1" ]; then
-                      echo "Processor task is running!"
-                      exit 0
-                    fi
-                    echo "Attempt $i/60: Waiting for processor task..."
-                    sleep 3
-                  done
-                  echo "Timeout waiting for processor, continuing anyway..."
-          Essential: false
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: realm-{{ realm.id }}-edge-init
+
 
   Realm{{ realm.id }}EdgeService:
     Type: AWS::ECS::Service
@@ -885,7 +902,27 @@ Resources:
       ContainerDefinitions:
         - Name: worker
           Image: !Sub '${ECRRepositoryURI}:latest'
-          EntryPoint:
+          Environment:
+            - Name: CONFIG_BUCKET
+              Value: !Ref ConfigBucketName
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref 'AWS::Region'
+            {% for key, value in (config.nodes.workers.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
+          Memory: {{ config.nodes.workers.aws.memory }}
+          MemoryReservation: {{ (config.nodes.workers.aws.memory * 0.875) | int }}
+          Cpu: {{ config.nodes.workers.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: worker
+                 EntryPoint:
             - /bin/bash
             - -c
           Command:
@@ -955,28 +992,6 @@ Resources:
                 --{{ key | replace('_', '-') }} '{{ value }}' \
                 {% endif %}
                 {% endfor %}
-              
-
-          Environment:
-            - Name: CONFIG_BUCKET
-              Value: !Ref ConfigBucketName
-            - Name: AWS_DEFAULT_REGION
-              Value: !Ref 'AWS::Region'
-            {% for key, value in (config.nodes.workers.env | default({}) | dictsort) %}
-            - Name: {{ key }}
-              Value: '{{ value | string }}'
-            {% endfor %}
-          Memory: {{ config.nodes.workers.aws.memory }}
-          MemoryReservation: {{ (config.nodes.workers.aws.memory * 0.875) | int }}
-          Cpu: {{ config.nodes.workers.aws.cpu }}
-          LinuxParameters:
-            InitProcessEnabled: true
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
-              awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: worker
 
   WorkerService:
     Type: AWS::ECS::Service
