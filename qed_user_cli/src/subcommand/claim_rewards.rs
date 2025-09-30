@@ -101,7 +101,10 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
 
-    for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
+    // Apply limit to number of checkpoints to process
+    let end_checkpoint = max_claimable_checkpoint.min(start_checkpoint + args.limit as u64 - 1);
+
+    for checkpoint_id in start_checkpoint..=end_checkpoint {
         let mut job_infos = if !args.jobs.is_empty() {
             parse_job_specs(&args.jobs)?
         } else {
