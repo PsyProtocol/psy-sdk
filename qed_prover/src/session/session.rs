@@ -1,16 +1,13 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use crate::{
-    dpn::circuits::cfc::DapenContractFunctionCircuit,
-    local::{
-        args::{ContractCallArgs, SignType},
+    dpn::circuits::cfc::DapenContractFunctionCircuit, local::{
+        args::{ContractCallArgs, JobLocation, SignType},
         provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
-    },
-    ups::{
+    }, session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint, MINING_REWARDS_CONTRACT_ID}, ups::{
         circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
         session::UserProvingSessionManager,
-    },
-    wallet::{
+    }, wallet::{
         memory_wallet::QEDMemoryWallet,
         simple_sign::StateReader,
         software_defined_circuit::{
@@ -18,7 +15,7 @@ use crate::{
             QSoftwareDefinedSignatureWitnessInput, SoftwareDefinedSignature,
             SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureWitnessInput,
         },
-    },
+    }
 };
 use dashmap::DashMap;
 use plonky2::{
@@ -32,7 +29,7 @@ use plonky2::{
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{
     config::network_constants::{
-        MAX_CONTRACT_STATE_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT,
+        MAX_CONTRACT_STATE_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT
     },
     data::qhashout::QHashOut,
     traits::to_qfelts::ToQFelts,
@@ -953,17 +950,14 @@ impl WalletSession {
     pub async fn get_claim_rewards_call_args(
         &self,
         public_key: QHashOut<F>,
-        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>, u64)>
+        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>)>
     ) -> anyhow::Result<Vec<ContractCallArgs>> {
-        let mut all_proofs = Vec::new();
+        let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
 
-        for (checkpoint_id, job_infos, proposed_reward) in &proofs_with_checkpoints {
-            let mut job_proofs = Vec::new();
+        for (checkpoint_id, mut job_infos) in proofs_with_checkpoints {
 
-            for job_info in job_infos {
-                tracing::info!("Processing job: {:?}", job_info.job_id);
-
-                match job_info.job_id.circuit_type {
+            job_infos.retain(|job_info| {
+                matches!(job_info.job_id.circuit_type,
                     ProvingJobCircuitType::GUTAOnlyRegisterUsers
                     | ProvingJobCircuitType::GUTARegisterUsers
                     | ProvingJobCircuitType::GUTATwoEndCap
@@ -974,67 +968,110 @@ impl WalletSession {
                     | ProvingJobCircuitType::GUTAVerifyToCap
                     | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
                     | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTANoChange => {}
+                    | ProvingJobCircuitType::GUTANoChange
+                )
+            });
 
-                    _ => {
-                        tracing::info!("Skipping non-GUTA job type: {:?}", job_info.job_id.circuit_type);
-                        continue;
+            if job_infos.is_empty() {
+                continue;
+            }
+
+            tracing::info!("Checkpoint {} - Found {} valid jobs", checkpoint_id, job_infos.len());
+
+            for job_info in job_infos {
+
+                match get_job_proof(&self.st_provider, &job_info, checkpoint_id).await {
+                    Ok((actual_checkpoint_id, job_proof)) => {
+                        tracing::info!("Found job proof for checkpoint {}, job {:?}", actual_checkpoint_id, job_info.job_id);
+                        checkpoint_jobs.entry(actual_checkpoint_id)
+                            .or_insert_with(Vec::new)
+                            .push((job_info, job_proof));
                     }
-                };
-
-                if let Ok((actual_checkpoint_id, job_proof)) = get_job_proof(&self.st_provider, &job_info, *checkpoint_id).await {
-                    tracing::info!("Found GUTA proof for job {} (actual checkpoint: {})", job_info.job_id.to_hex_string(), actual_checkpoint_id);
-                    job_proofs.push((actual_checkpoint_id, job_proof));
-                } else {
-                    tracing::warn!("Skipping job {}: failed to get proof", job_info.job_id.to_hex_string());
+                    Err(e) => {
+                        tracing::warn!("Failed to get job proof for checkpoint {}, job {:?}: {}", checkpoint_id, job_info.job_id, e);
+                    }
                 }
             }
+        }
 
-            for (actual_checkpoint_id, proof) in job_proofs {
-                all_proofs.push((actual_checkpoint_id, proof, *proposed_reward));
+        if checkpoint_jobs.is_empty() {
+            tracing::info!("No valid checkpoints with rewards to claim");
+            return Ok(Vec::new());
+        }
+
+        let mut sorted_checkpoints: Vec<_> = checkpoint_jobs.keys().copied().collect();
+        sorted_checkpoints.sort();
+
+        let mut all_proofs_with_checkpoints = Vec::new();
+
+        for &checkpoint_id in &sorted_checkpoints {
+            let jobs = checkpoint_jobs.get(&checkpoint_id).unwrap();
+
+            let checkpoint_leaf = self.st_provider.get_checkpoint_leaf_data(checkpoint_id).await?;
+            let fees_collected = checkpoint_leaf.stats.fees_collected.to_canonical_u64();
+            let gutas_completed = checkpoint_leaf.stats.pm_jobs_completed.gutas_completed.to_canonical_u64();
+
+            let proposed_reward = if gutas_completed > 0 { fees_collected / gutas_completed } else { 0u64 };
+
+            if proposed_reward == 0 {
+                tracing::warn!("Skipping checkpoint {} due to zero reward (fees_collected={}, gutas_completed={})",
+                    checkpoint_id, fees_collected, gutas_completed);
+                continue;
+            }
+
+            tracing::info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, jobs.len());
+            for (job_info, _) in jobs {
+                tracing::info!("  - {} ({})", job_info.job_id.to_hex_string(), match &job_info.location {
+                    JobLocation::Coordinator => "coordinator".to_string(),
+                    JobLocation::Realm(id) => format!("realm:{}", id),
+                });
+            }
+
+            for (_, proof) in jobs {
+                all_proofs_with_checkpoints.push(ProofWithCheckpoint {
+                    checkpoint_id,
+                    proof: proof.clone(),
+                    proposed_reward,
+                });
             }
         }
 
-        if all_proofs.is_empty() {
-            return Err(anyhow::format_err!("No valid GUTA proofs found"));
+        if all_proofs_with_checkpoints.is_empty() {
+            tracing::info!("No checkpoints with valid rewards to claim");
+            return Ok(Vec::new());
         }
 
-        tracing::info!("Found {} GUTA proofs total across all checkpoints", all_proofs.len());
+        let mut all_contract_calls = build_claim_calls_for_multi_checkpoints(&all_proofs_with_checkpoints).await;
 
-        let mining_rewards_contract_id = 1;
-        let mut contract_call_args = Vec::new();
-
-        let mut remaining_proofs = all_proofs.clone();
-
-        while !remaining_proofs.is_empty() {
-            if remaining_proofs.len() >= 5 {
-                let batch: Vec<_> = remaining_proofs.drain(0..5).collect();
-                self.add_claim_call_for_batch(&mut contract_call_args, mining_rewards_contract_id, batch, "claim_guta_rewards_5")?;
-            } else if remaining_proofs.len() >= 2 {
-                let batch: Vec<_> = remaining_proofs.drain(0..2).collect();
-                self.add_claim_call_for_batch(&mut contract_call_args, mining_rewards_contract_id, batch, "claim_guta_rewards_2")?;
-            } else {
-                let batch: Vec<_> = remaining_proofs.drain(0..1).collect();
-                self.add_claim_call_for_batch(&mut contract_call_args, mining_rewards_contract_id, batch, "claim_guta_rewards_1")?;
-            }
+        if all_contract_calls.is_empty() {
+            tracing::info!("No checkpoints with valid rewards to claim");
+            return Ok(Vec::new());
         }
 
-        let last_checkpoint = proofs_with_checkpoints.last().unwrap().0;
-        contract_call_args.push(ContractCallArgs {
-            contract_id: mining_rewards_contract_id,
+        let last_checkpoint = all_proofs_with_checkpoints
+            .last()
+            .unwrap()
+            .checkpoint_id;
+
+        all_contract_calls.push(ContractCallArgs {
+            contract_id: MINING_REWARDS_CONTRACT_ID,
             method_name: "end_session".to_string(),
             inputs: vec![last_checkpoint],
         });
 
-        let token_contract_id = 0;
-        contract_call_args.push(ContractCallArgs {
-            contract_id: token_contract_id,
+        all_contract_calls.push(ContractCallArgs {
+            contract_id: TOKEN_CONTRACT_ID as u64,
             method_name: "simple_claim_pow_rewards".to_string(),
             inputs: vec![last_checkpoint],
         });
 
-        tracing::info!("Executing {} contract calls in single UPS transaction", contract_call_args.len());
-        Ok(contract_call_args)
+        if all_contract_calls.is_empty() {
+            tracing::info!("No rewards to claim");
+            return Ok(Vec::new());
+        }
+
+        tracing::info!("Executing {} contract calls in single transaction", all_contract_calls.len());
+        Ok(all_contract_calls)
     }
 
     fn add_claim_call_for_batch(
@@ -1105,7 +1142,7 @@ impl WalletSession {
     pub async fn claim_rewards(
         &self,
         user_pk_hash: QHashOut<F>,
-        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>, u64)>,
+        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>)>,
     ) -> anyhow::Result<()> {
         self.claim_rewards_with_sign_type(
             user_pk_hash,
@@ -1121,7 +1158,7 @@ impl WalletSession {
     pub async fn claim_rewards_with_sign_type(
         &self,
         user_pk_hash: QHashOut<F>,
-        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>, u64)>,
+        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>)>,
         sign_type: SignType,
         fingerprint: Option<QHashOut<F>>,
         sig_contract_id: Option<u64>,

@@ -69,7 +69,7 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
-        let job_infos: Vec<(u64, Vec<JobInfo>, u64)> = serde_json::from_str(job_infos_json)
+        let job_infos: Vec<(u64, Vec<JobInfo>)> = serde_json::from_str(job_infos_json)
             .map_err(|e| JsError::new(&format!("Parse job infos JSON error: {}", e)))?;
 
         let contract_call_args = self.wallet_session.get_claim_rewards_call_args(pk_hash, job_infos)
@@ -87,7 +87,7 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
-        let job_infos: Vec<(u64, Vec<JobInfo>, u64)> = serde_json::from_str(job_infos_json)
+        let job_infos: Vec<(u64, Vec<JobInfo>)> = serde_json::from_str(job_infos_json)
             .map_err(|e| JsError::new(&format!("Parse job infos JSON error: {}", e)))?;
 
         self.wallet_session.claim_rewards(pk_hash, job_infos)
