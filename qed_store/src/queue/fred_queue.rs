@@ -339,16 +339,23 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
 
     async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
         &self,
-        job_id: QProvingJobDataID
+        job_id: QProvingJobDataID,
+        timeout: Option<Duration>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
     where
         C::Hasher: plonky2::plonk::config::AlgebraicHasher<C::F>
     {
+        let now = Instant::now();
         loop {
             match self.get_proof_by_id::<C, D>(job_id.get_output_id()).await {
                 Ok(proof) => return Ok(proof),
                 Err(_) => {
                     sleep(Duration::from_millis(100)).await;
+                }
+            }
+            if let Some(timeout) = timeout{
+                if now.elapsed() > timeout {
+                    return Err(anyhow::anyhow!("timeout waiting for job"))
                 }
             }
         }

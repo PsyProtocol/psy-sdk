@@ -18,7 +18,8 @@ pub trait WorkerEventTransmitterAsyncImm: QProofStoreReaderAsync {
 
     async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
         &self,
-        job_id: QProvingJobDataID
+        job_id: QProvingJobDataID,
+        timeout: Option<Duration>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
     where
         C::Hasher: plonky2::plonk::config::AlgebraicHasher<C::F>;

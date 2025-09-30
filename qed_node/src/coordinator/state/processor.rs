@@ -1080,16 +1080,16 @@ impl<
             "Waiting for user registration aggregation job to complete for checkpoint {}",
             new_checkpoint_id
         );
-        let register_users_proof = self.prover_queue.wait_for_job_proof::<C, D>(*rooot_user_registration_job).await?;
+        let register_users_proof = self.prover_queue.wait_for_job_proof::<C, D>(*rooot_user_registration_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
 
         debug!(
             "Waiting for deploy contracts aggregation job to complete for checkpoint {}",
             new_checkpoint_id
         );
-        let deploy_contracts_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_deploy_job).await?;
+        let deploy_contracts_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_deploy_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
 
         debug!("Waiting for GUTA aggregation job to complete for checkpoint {}", new_checkpoint_id);
-        let guta_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_guta_job).await?;
+        let guta_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_guta_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
 
         let part_1_input = CircuitInputWithDependencies {
             input: QCAggUserRegistartionDeployContractsGUTAInput {
