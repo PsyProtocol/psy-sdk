@@ -97,28 +97,23 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
     }
 
     let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
+    let mut processed_count = 0;
 
-    // Apply limit to number of checkpoints to process
-    let end_checkpoint = max_claimable_checkpoint.min(start_checkpoint + args.limit as u64 - 1);
+    info!("Claiming rewards from checkpoint {} to {} (limit: {}, latest: {}, cooldown: {})",
+          start_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown);
 
-    info!("Claiming rewards from checkpoint {} to {} (max: {}, limit: {}, latest: {}, cooldown: {})",
-          start_checkpoint, end_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown);
-
-    for checkpoint_id in start_checkpoint..=end_checkpoint {
+    for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
+        if processed_count >= args.limit {
+            break;
+        }
         let mut job_infos = if !args.jobs.is_empty() {
             parse_job_specs(&args.jobs)?
         } else {
             load_jobs_from_tracker_file(&user_pk_hash, checkpoint_id)?
         };
 
-        if job_infos.is_empty() {
-            continue;
-        }
-
-        info!("Checkpoint {} - Found {} jobs", checkpoint_id, job_infos.len());
-
-        for job_info in job_infos {
-            match job_info.job_id.circuit_type {
+        job_infos.retain(|job_info| {
+            matches!(job_info.job_id.circuit_type,
                 ProvingJobCircuitType::GUTAOnlyRegisterUsers
                 | ProvingJobCircuitType::GUTARegisterUsers
                 | ProvingJobCircuitType::GUTATwoEndCap
@@ -129,12 +124,17 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
                 | ProvingJobCircuitType::GUTAVerifyToCap
                 | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
                 | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                | ProvingJobCircuitType::GUTANoChange => {}
+                | ProvingJobCircuitType::GUTANoChange
+            )
+        });
 
-                _ => {
-                    continue;
-                }
-            };
+        if job_infos.is_empty() {
+            continue;
+        }
+
+        info!("Checkpoint {} - Found {} valid jobs", checkpoint_id, job_infos.len());
+
+        for job_info in job_infos {
 
             match get_job_proof(&provider, &job_info, checkpoint_id) {
                 Ok((actual_checkpoint_id, job_proof)) => {
@@ -148,6 +148,8 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
                 }
             }
         }
+
+        processed_count += 1;
     }
 
     if checkpoint_jobs.is_empty() {
