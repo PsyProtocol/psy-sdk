@@ -20,7 +20,7 @@
         "rpc_url": ["http://127.0.0.1:8545"]
       }
     ],
-    "prove_proxy_url": "http:/192.168.1.68:9999",
+    "prove_proxy_url": "http:/127.0.0.1:9999",
     "native_currency": "0",
     "native_currency_decimal": 9,
     "native_currency_name": "PSY",
