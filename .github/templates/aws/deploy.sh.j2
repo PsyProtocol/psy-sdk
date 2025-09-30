@@ -13,6 +13,15 @@ ECR_REPOSITORY="{{ config.nodes.deployment.aws.ecr.repository_name }}"
 ENVIRONMENT="${ENVIRONMENT:-dev}"
 CLUSTER_NAME="${PROJECT_NAME}-${ENVIRONMENT}-main-ecs"  # Use consistent naming
 
+# Config file settings
+LOCAL_CONFIG_FILE="${LOCAL_CONFIG_FILE:-../config-deploy.json}"  # Local source file
+S3_CONFIG_KEY="config.json"  # Always upload as config.json to S3
+CONFIG_BUCKET_NAME="${PROJECT_NAME}-${ENVIRONMENT}-config"
+
+# Deployment settings
+MAX_WAIT_SECONDS=300
+INSTANCE_WARMUP_SECONDS=300
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -22,7 +31,9 @@ NC='\033[0m' # No Color
 
 # Functions
 log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+    local timestamp
+    timestamp=$(date "+%H:%M:%S")
+    echo -e "${GREEN}[INFO]${NC} [$timestamp] $1"
 }
 
 log_error() {
@@ -44,6 +55,8 @@ Usage: $0 [COMMAND] [OPTIONS]
 
 Commands:
     deploy              Deploy the full QED Protocol infrastructure
+    update              Update infrastructure and force instance refresh
+    update-instances    Force refresh EC2 instances only
     destroy             Destroy all infrastructure
     cleanup             Clean up orphaned resources
     status              Show deployment status
@@ -51,6 +64,8 @@ Commands:
     update-services     Update ECS services with new image
     monitor             Monitor deployment progress
     logs                Show CloudWatch logs
+    validate-template   Validate CloudFormation template (uploads to S3 if >51KB)
+
 
 Options:
     --force             Force operation without confirmation
@@ -67,6 +82,13 @@ Examples:
     $0 cleanup                   # Clean up orphaned resources
     $0 status                    # Check deployment status
     $0 logs coordinator-processor # Show logs for a specific service
+    $0 validate-template                              # Validate main.yaml
+    $0 validate-template cloudformation/main.yaml     # Validate specific template
+    $0 validate-template cloudformation/ecs-services.yaml
+
+Environment Variables:
+    LOCAL_CONFIG_FILE   Path to local config file (default: ../config-deploy.json)
+    ENVIRONMENT         Deployment environment (default: dev)
 
 EOF
 }
@@ -492,7 +514,7 @@ build_and_push_image() {
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY RUN] Would build Docker image: ${ECR_URI}:${tag}"
     else
-        if ! docker build -t "${ECR_URI}:${tag}" -f ../Dockerfile ..; then
+        if ! docker build --no-cache -t "${ECR_URI}:${tag}" -f ../Dockerfile ..; then
             log_error "Failed to build Docker image"
             return 1
         fi
@@ -654,6 +676,104 @@ deploy_with_template() {
     echo "$template_param"
     echo "$template_value"
 }
+# Function to validate CloudFormation template via S3
+validate_template() {
+    local template_file="${1:-cloudformation/main.yaml}"
+    
+    log_info "Validating CloudFormation template: $template_file"
+    
+    # Check if template file exists
+    if [ ! -f "$template_file" ]; then
+        log_error "Template file not found: $template_file"
+        return 1
+    fi
+    
+    # Check file size
+    local template_size=$(wc -c < "$template_file")
+    log_info "Template file size: $template_size bytes"
+    
+    if [ $template_size -le 51200 ]; then
+        # Small enough - validate directly
+        log_info "Template is within size limit, validating locally..."
+        if aws cloudformation validate-template \
+            --template-body "file://$template_file" \
+            --region "${REGION}" 2>&1 | tee /tmp/cf-validation.log; then
+            log_info "✓ Template validation successful"
+            return 0
+        else
+            log_error "✗ Template validation failed"
+            cat /tmp/cf-validation.log
+            return 1
+        fi
+    else
+        # Too large - upload to S3 for validation only
+        log_info "Template exceeds 51200 bytes, uploading to S3 for validation..."
+        
+        # Use the CF templates bucket instead of config bucket
+        local validation_bucket="${PROJECT_NAME}-cf-templates-${AWS_ACCOUNT_ID}-${REGION}"
+        local timestamp=$(date +%s)
+        local template_basename=$(basename "$template_file" .yaml)
+        local validation_key="validation/${template_basename}-${timestamp}.yaml"
+        
+        # Create bucket if needed (this is the CF templates bucket, not config bucket)
+        if ! aws s3 ls "s3://${validation_bucket}" --region "${REGION}" >/dev/null 2>&1; then
+            log_info "Creating validation bucket: $validation_bucket"
+            if [ "${REGION}" = "us-east-1" ]; then
+                aws s3api create-bucket \
+                    --bucket "$validation_bucket" \
+                    --region "${REGION}" >/dev/null 2>&1
+            else
+                aws s3api create-bucket \
+                    --bucket "$validation_bucket" \
+                    --region "${REGION}" \
+                    --create-bucket-configuration LocationConstraint="${REGION}" >/dev/null 2>&1
+            fi
+        fi
+        
+        # Upload template
+        local template_url="https://${validation_bucket}.s3.${REGION}.amazonaws.com/${validation_key}"
+        if ! aws s3 cp "$template_file" "s3://${validation_bucket}/${validation_key}" \
+            --region "${REGION}" \
+            --content-type "text/yaml" >/dev/null 2>&1; then
+            log_error "Failed to upload template to S3"
+            return 1
+        fi
+        
+        log_info "Template uploaded to: $template_url"
+        log_info "Validating template via S3 URL..."
+        
+        local validation_result=0
+        if aws cloudformation validate-template \
+            --template-url "$template_url" \
+            --region "${REGION}" 2>&1 | tee /tmp/cf-validation.log; then
+            log_info "✓ Template validation successful"
+            
+            echo ""
+            echo -e "${GREEN}=== Validation Summary ===${NC}"
+            echo "Template: $template_file"
+            echo "Size: $template_size bytes"
+            echo "Status: Valid"
+            echo ""
+            grep -E "Description|Parameters" /tmp/cf-validation.log | head -10 || true
+        else
+            log_error "✗ Template validation failed"
+            echo ""
+            echo -e "${RED}Validation Errors:${NC}"
+            cat /tmp/cf-validation.log
+            validation_result=1
+        fi
+        
+        # Clean up: Delete the uploaded template
+        log_info "Cleaning up validation template from S3..."
+        if aws s3 rm "s3://${validation_bucket}/${validation_key}" --region "${REGION}" 2>/dev/null; then
+            log_info "✓ Validation template deleted"
+        else
+            log_warning "Failed to delete validation template"
+        fi
+        
+        return $validation_result
+    fi
+}
 # Updated deploy_infrastructure function - always use S3 for large templates
 deploy_infrastructure() {
     log_info "Deploying infrastructure stack..."
@@ -799,6 +919,7 @@ deploy_ecs_services() {
         --output json \
         --region "${REGION}")
     
+
     # Get TiKV PD endpoints dynamically
     log_info "Discovering TiKV PD endpoints..."
     local PD_ENDPOINTS=""
@@ -859,11 +980,12 @@ deploy_ecs_services() {
         "TaskRoleArn"
         "ServiceDiscoveryNamespaceId"
         "ALBTargetGroupCoordinatorArn"
-        {% for realm in config.nodes.realms %}"ALBTargetGroupRealm{{ realm.id }}Arn" {% endfor %}
+        "ConfigBucketName"
         "RedisCoordinatorEndpoint"
+        {% for realm in config.nodes.realms %}"ALBTargetGroupRealm{{ realm.id }}Arn" {% endfor %}
         {% for realm in config.nodes.realms %}"RedisRealm{{ realm.id }}Endpoint" {% endfor %}
-        {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"TimescaleDBEndpoint"{% endif %}
-        {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"DBPasswordSecretArn"{% endif %}
+        {# {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"TimescaleDBEndpoint"{% endif %} #}
+        {# {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"DBPasswordSecretArn"{% endif %} #}
     )
     
     # Extract only the expected parameters
@@ -889,6 +1011,7 @@ deploy_ecs_services() {
         log_debug "Parameters JSON:"
         cat "$params_file"
     fi
+
     
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY RUN] Would deploy services stack with parameters:"
@@ -940,6 +1063,258 @@ deploy_ecs_services() {
         monitor_stack_progress "$stack_name" "Services deployment"
     fi
 }
+
+# Function to force update EC2 instances in Auto Scaling Groups
+force_update_instances() {
+    log_info "Force updating EC2 instances in Auto Scaling Groups..."
+    
+    # Get all ASGs for our project
+    local ASG_NAMES=$(aws autoscaling describe-auto-scaling-groups \
+        --query "AutoScalingGroups[?contains(AutoScalingGroupName, '${PROJECT_NAME}')].AutoScalingGroupName" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$ASG_NAMES" ]; then
+        log_warning "No Auto Scaling Groups found"
+        return 0
+    fi
+    
+    for asg_name in $ASG_NAMES; do
+        log_info "Updating ASG: $asg_name"
+        
+        # Get current configuration
+        local asg_info=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "$asg_name" \
+            --query "AutoScalingGroups[0]" \
+            --output json \
+            --region "${REGION}")
+        
+        local current_desired=$(echo "$asg_info" | jq -r '.DesiredCapacity')
+        local current_min=$(echo "$asg_info" | jq -r '.MinSize')
+        local current_max=$(echo "$asg_info" | jq -r '.MaxSize')
+        
+        # Check if it's a TiKV cluster (special handling)
+        if [[ "$asg_name" == *"tikv"* ]]; then
+            log_info "TiKV cluster detected, using rolling update..."
+            perform_rolling_update "$asg_name" "$current_desired"
+        else
+            log_info "Performing instance refresh for $asg_name..."
+            
+            # Start instance refresh
+            local refresh_id=$(aws autoscaling start-instance-refresh \
+                --auto-scaling-group-name "$asg_name" \
+                --preferences '{
+                    "MinHealthyPercentage": 50,
+                    "InstanceWarmup": 300,
+                    "CheckpointPercentages": [50],
+                    "CheckpointDelay": 600
+                }' \
+                --query 'InstanceRefreshId' \
+                --output text \
+                --region "${REGION}" 2>/dev/null)
+            
+            if [ -n "$refresh_id" ]; then
+                log_info "Started instance refresh: $refresh_id"
+                
+                # Monitor refresh progress
+                monitor_instance_refresh "$asg_name" "$refresh_id"
+            else
+                log_warning "Failed to start instance refresh for $asg_name, trying alternative method..."
+                force_replace_instances "$asg_name" "$current_desired"
+            fi
+        fi
+    done
+}
+
+# Function to perform rolling update for stateful services like TiKV
+perform_rolling_update() {
+    local asg_name=$1
+    local desired_capacity=$2
+    
+    log_info "Performing rolling update for stateful service: $asg_name"
+    
+    # Get instance IDs
+    local instance_ids=$(aws autoscaling describe-auto-scaling-groups \
+        --auto-scaling-group-names "$asg_name" \
+        --query "AutoScalingGroups[0].Instances[*].InstanceId" \
+        --output text \
+        --region "${REGION}")
+    
+    for instance_id in $instance_ids; do
+        log_info "Replacing instance: $instance_id"
+        
+        # Terminate instance with replacement
+        aws autoscaling terminate-instance-in-auto-scaling-group \
+            --instance-id "$instance_id" \
+            --should-decrement-desired-capacity false \
+            --region "${REGION}"
+        
+        # Wait for new instance to be healthy
+        log_info "Waiting for replacement instance to be healthy..."
+        sleep 60
+        
+        # Wait until ASG is back to desired capacity
+        local current_running=0
+        local max_wait=300  # 5 minutes
+        local waited=0
+        
+        while [ $current_running -lt $desired_capacity ] && [ $waited -lt $max_wait ]; do
+            current_running=$(aws autoscaling describe-auto-scaling-groups \
+                --auto-scaling-group-names "$asg_name" \
+                --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'] | length(@)" \
+                --output text \
+                --region "${REGION}")
+            
+            echo -ne "\rWaiting for instances: $current_running/$desired_capacity"
+            sleep 10
+            waited=$((waited + 10))
+        done
+        echo ""
+    done
+}
+
+# Function to monitor instance refresh progress
+monitor_instance_refresh() {
+    local asg_name=$1
+    local refresh_id=$2
+    
+    log_info "Monitoring instance refresh for $asg_name..."
+    
+    while true; do
+        local refresh_status=$(aws autoscaling describe-instance-refreshes \
+            --auto-scaling-group-name "$asg_name" \
+            --instance-refresh-ids "$refresh_id" \
+            --query "InstanceRefreshes[0].Status" \
+            --output text \
+            --region "${REGION}" 2>/dev/null)
+        
+        local percentage=$(aws autoscaling describe-instance-refreshes \
+            --auto-scaling-group-name "$asg_name" \
+            --instance-refresh-ids "$refresh_id" \
+            --query "InstanceRefreshes[0].PercentageComplete" \
+            --output text \
+            --region "${REGION}" 2>/dev/null)
+        
+        echo -ne "\rRefresh status: $refresh_status ($percentage%)"
+        
+        case "$refresh_status" in
+            "Successful")
+                echo -e "\n${GREEN}Instance refresh completed successfully${NC}"
+                return 0
+                ;;
+            "Failed"|"Cancelled")
+                echo -e "\n${RED}Instance refresh failed: $refresh_status${NC}"
+                return 1
+                ;;
+            "InProgress"|"Pending")
+                sleep 10
+                ;;
+            *)
+                echo -e "\n${YELLOW}Unknown refresh status: $refresh_status${NC}"
+                return 1
+                ;;
+        esac
+    done
+}
+
+# Alternative method to force replace instances
+force_replace_instances() {
+    local asg_name=$1
+    local desired=$2
+    
+    log_info "Force replacing instances in $asg_name..."
+    
+    # Scale down to 0
+    aws autoscaling update-auto-scaling-group \
+        --auto-scaling-group-name "$asg_name" \
+        --min-size 0 \
+        --desired-capacity 0 \
+        --region "${REGION}"
+    
+    # Wait for instances to terminate
+    log_info "Waiting for instances to terminate..."
+    sleep 60
+    
+    # Scale back up
+    aws autoscaling update-auto-scaling-group \
+        --auto-scaling-group-name "$asg_name" \
+        --min-size 1 \
+        --desired-capacity "$desired" \
+        --region "${REGION}"
+    
+    log_info "Scaling back up to $desired instances..."
+}
+
+# Main update function
+update() {
+    log_info "Starting infrastructure update..."
+    
+    # First update the infrastructure stack
+    log_info "=== Phase 1: Updating Infrastructure Stack ==="
+    if ! deploy_infrastructure; then
+        log_error "Infrastructure update failed"
+        return 1
+    fi
+    
+    # Force update EC2 instances to pick up new configurations
+    if [ "$ENVIRONMENT" = "dev" ] || [ "$FORCE" = true ]; then
+        log_info "=== Phase 2: Force Updating EC2 Instances ==="
+        force_update_instances
+    else
+        log_warning "Skipping instance refresh in production. Use --force to override."
+    fi
+    
+    # Update ECS services if needed
+    log_info "=== Phase 3: Updating ECS Services ==="
+    if ! deploy_ecs_services; then
+        log_error "Services update failed"
+        return 1
+    fi
+    
+    log_info "=== Update Completed Successfully! ==="
+    show_status
+}
+{# 
+# Function to check instance health after update
+check_instance_health() {
+    log_info "Checking instance health..."
+    
+    # Check EC2 instances
+    local instances=$(aws ec2 describe-instances \
+        --filters "Name=tag:Project,Values=${PROJECT_NAME}" \
+                  "Name=instance-state-name,Values=running" \
+        --query "Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,State.Name,Tags[?Key=='Name'].Value|[0]]" \
+        --output table \
+        --region "${REGION}")
+    
+    echo -e "\n${BLUE}EC2 Instances:${NC}"
+    echo "$instances"
+    
+    # Check if Docker containers are running on each instance
+    log_info "\nChecking Docker containers on instances..."
+    
+    local instance_ids=$(aws ec2 describe-instances \
+        --filters "Name=tag:Project,Values=${PROJECT_NAME}" \
+                  "Name=instance-state-name,Values=running" \
+        --query "Reservations[*].Instances[*].InstanceId" \
+        --output text \
+        --region "${REGION}")
+    
+    for instance_id in $instance_ids; do
+        log_info "Checking instance $instance_id..."
+        
+        # Use SSM to check Docker status - FIXED VERSION
+        aws ssm send-command \
+            --instance-ids "$instance_id" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["docker ps --format \"table {{.Names}}\\t{{.Status}}\""]' \
+            --output text \
+            --region "${REGION}" &>/dev/null || {
+                log_warning "Cannot access instance $instance_id via SSM"
+        }
+    done
+} #}
+
 # Helper function to show service endpoints after deployment
 show_service_endpoints() {
     local stack_name=$1
@@ -1068,53 +1443,490 @@ show_logs() {
         --region "${REGION}"
 }
 
+# Function to upload and manage config in S3
+manage_config() {
+    local action=$1
+    local config_bucket="${PROJECT_NAME}-${ENVIRONMENT}-config"
+    local base_config_key="base/config.json"
+    local service_configs_prefix="services/"
+    
+    case "$action" in
+        upload-base)
+            log_info "Uploading base config to S3..."
+            aws s3 cp ../config.json "s3://${config_bucket}/${base_config_key}" \
+                --content-type "application/json" \
+                --metadata "timestamp=$(date -u +%Y%m%d%H%M%S)" \
+                --region "${REGION}"
+            ;;
+            
+        generate-service-configs)
+            log_info "Generating service-specific configs..."
+            
+            # Get current infrastructure endpoints
+            local alb_dns=$(aws cloudformation describe-stacks \
+                --stack-name "${PROJECT_NAME}-main" \
+                --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+                --output text \
+                --region "${REGION}")
+            
+            # Download base config
+            aws s3 cp "s3://${config_bucket}/${base_config_key}" /tmp/base_config.json
+            
+            # Generate coordinator config
+            jq --arg alb "$alb_dns" \
+                '.network.coordinator_configs[0].rpc_url = ["http://\($alb):8545"]' \
+                /tmp/base_config.json > /tmp/coordinator_config.json
+            
+            aws s3 cp /tmp/coordinator_config.json \
+                "s3://${config_bucket}/${service_configs_prefix}coordinator.json" \
+                --content-type "application/json" \
+                --region "${REGION}"
+            
+            # Generate realm configs
+            for i in 0 1; do
+                jq --arg alb "$alb_dns" --arg realm_id "$i" \
+                    '.network.realm_configs[$realm_id | tonumber].rpc_url = ["http://\($alb):" + (8546 + ($realm_id | tonumber) | tostring)]' \
+                    /tmp/base_config.json > "/tmp/realm${i}_config.json"
+                
+                aws s3 cp "/tmp/realm${i}_config.json" \
+                    "s3://${config_bucket}/${service_configs_prefix}realm${i}.json" \
+                    --content-type "application/json" \
+                    --region "${REGION}"
+            done
+            
+            # Generate worker config with all endpoints
+            jq --arg alb "$alb_dns" '
+                .network.coordinator_configs[0].rpc_url = ["http://\($alb):8545"] |
+                .network.realm_configs[0].rpc_url = ["http://\($alb):8546"] |
+                .network.realm_configs[1].rpc_url = ["http://\($alb):8547"]
+            ' /tmp/base_config.json > /tmp/worker_config.json
+            
+            aws s3 cp /tmp/worker_config.json \
+                "s3://${config_bucket}/${service_configs_prefix}worker.json" \
+                --content-type "application/json" \
+                --region "${REGION}"
+            ;;
+            
+        get-url)
+            local service=${2:-base}
+            if [ "$service" = "base" ]; then
+                echo "https://${config_bucket}.s3.${REGION}.amazonaws.com/${base_config_key}"
+            else
+                echo "https://${config_bucket}.s3.${REGION}.amazonaws.com/${service_configs_prefix}${service}.json"
+            fi
+            ;;
+    esac
+}
+
 # Main deployment function
 deploy() {
     log_info "Starting QED Protocol deployment..."
     
-    # Build and push Docker image
+    # ========================================
+    # Phase 1: Build and Push Docker Image
+    # ========================================
     if [ "$SKIP_BUILD" != true ]; then
+        log_info "=== Phase 1: Building Docker Image ==="
         if ! build_and_push_image "$IMAGE_TAG"; then
             log_error "Failed to build and push Docker image"
             return 1
         fi
     else
-        log_info "Skipping Docker build as requested"
+        log_info "=== Phase 1: Skipping Docker build (--skip-build) ==="
     fi
     
-    # Deploy infrastructure first
-    log_info "=== Phase 1: Infrastructure Deployment ==="
+    # ========================================
+    # Phase 2: Deploy Infrastructure
+    # ========================================
+    log_info "=== Phase 2: Deploying Infrastructure ==="
     if ! deploy_infrastructure; then
         log_error "Infrastructure deployment failed"
         return 1
     fi
-
-    # Wait a moment for resources to stabilize
-    log_info "Waiting for infrastructure to stabilize..."
-    sleep 10
-
-    # Deploy ECS services
-    log_info "=== Phase 2: Services Deployment ==="
+    
+    # ========================================
+    # Phase 3: Wait for Infrastructure & Get Endpoints
+    # ========================================
+    log_info "=== Phase 3: Waiting for Infrastructure to be Ready ==="
+    local alb_dns=$(wait_for_alb_dns)
+    if [ -z "$alb_dns" ]; then
+        log_error "Failed to get ALB DNS"
+        return 1
+    fi
+    log_info "ALB DNS obtained: $alb_dns"
+    
+    # ========================================
+    # Phase 4: Setup Configuration Management
+    # ========================================
+    log_info "=== Phase 4: Setting up Configuration ==="
+    log_info "Local config file: ${LOCAL_CONFIG_FILE}"
+    if ! setup_config_management "$alb_dns"; then
+        log_error "Failed to setup configuration"
+        return 1
+    fi
+    
+    # ========================================
+    # Phase 5: Deploy ECS Services
+    # ========================================
+    log_info "=== Phase 5: Deploying ECS Services ==="
     if ! deploy_ecs_services; then
         log_error "Services deployment failed"
         return 1
     fi
-
-    # Wait for services stack to complete
-    log_info "Waiting for services deployment to complete..."
-    local services_status=$(get_stack_status "${PROJECT_NAME}-services")
-    local wait_count=0
-    while [[ "$services_status" == *"IN_PROGRESS"* ]] && [ $wait_count -lt 60 ]; do
-        sleep 5
-        services_status=$(get_stack_status "${PROJECT_NAME}-services")
-        wait_count=$((wait_count + 1))
-    done
-
+    
+    # ========================================
+    # Phase 6: Verify Deployment
+    # ========================================
+    log_info "=== Phase 6: Verifying Deployment ==="
+    verify_deployment
+    
     log_info "=== Deployment Completed Successfully! ==="
     show_status
-    
-    # Print ALB URLs and helpful commands
     print_deployment_info
+}
+
+# Helper function to wait for ALB DNS
+wait_for_alb_dns() {
+    local max_attempts=30
+    local attempt=0
+    local alb_dns=""
+    
+    while [ -z "$alb_dns" ] && [ $attempt -lt $max_attempts ]; do
+        alb_dns=$(aws cloudformation describe-stacks \
+            --stack-name "${PROJECT_NAME}-main" \
+            --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+            --output text \
+            --region "${REGION}" 2>/dev/null)
+        
+        if [ -z "$alb_dns" ]; then
+            echo -ne "\rWaiting for ALB DNS... attempt $((attempt+1))/$max_attempts"
+            sleep 5
+            attempt=$((attempt+1))
+        fi
+    done
+    echo ""
+    
+    echo "$alb_dns"
+}
+
+# Centralized config management setup
+setup_config_management() {
+    local alb_dns=$1
+    
+    # Clean the ALB DNS - remove any whitespace/newlines
+    alb_dns=$(echo "$alb_dns" | tr -d '[:space:]')
+
+    log_info "Using ALB DNS: $alb_dns"
+
+    # Validate the cleaned DNS
+    if [[ ! "$alb_dns" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+        log_error "Invalid ALB DNS after cleaning: '$alb_dns'"
+        return 1
+    fi
+    log_info "Using cleaned ALB DNS: $alb_dns"
+
+    # Ensure config bucket exists
+    if ! ensure_config_bucket; then
+        log_error "Failed to create config bucket"
+        return 1
+    fi
+
+    # Check if local config exists
+    if [ ! -f "$LOCAL_CONFIG_FILE" ]; then
+        log_error "Local config file not found: $LOCAL_CONFIG_FILE"
+        log_info "Please ensure ${LOCAL_CONFIG_FILE} exists in the project root"
+        return 1
+    fi
+
+    log_info "Using local config: $LOCAL_CONFIG_FILE"
+
+    
+    # Generate config with actual endpoints
+    log_info "Generating config with actual endpoints..."
+    local coord_url="http://${alb_dns}:8545"
+    local realm0_url="http://${alb_dns}:8546"
+    local realm1_url="http://${alb_dns}:8547"
+
+    jq \
+        --arg coord_url "$coord_url" \
+        --arg realm0_url "$realm0_url" \
+        --arg realm1_url "$realm1_url" \
+        '.network.coordinator_configs[0].rpc_url = [$coord_url] | 
+         .network.realm_configs[0].rpc_url = [$realm0_url] | 
+         .network.realm_configs[1].rpc_url = [$realm1_url]' \
+        "$LOCAL_CONFIG_FILE" > /tmp/config-deploy.json
+   
+    # Check if jq succeeded
+    if [ $? -ne 0 ]; then
+        log_error "jq command failed"
+        return 1
+    fi
+   
+    # Verify the file was created and is valid JSON
+    if [ ! -s /tmp/config-deploy.json ]; then
+        log_error "Generated config file is empty"
+        return 1
+    fi
+
+    if ! jq empty /tmp/config-deploy.json 2>/dev/null; then
+        log_error "Generated config is not valid JSON"
+        cat /tmp/config-deploy.json
+        return 1
+    fi
+
+    # Extract and verify URLs
+    log_info "Verifying generated URLs..."
+    local verify_coord=$(jq -r '.network.coordinator_configs[0].rpc_url[0] // empty' /tmp/config-deploy.json)
+    local verify_realm0=$(jq -r '.network.realm_configs[0].rpc_url[0] // empty' /tmp/config-deploy.json)
+    local verify_realm1=$(jq -r '.network.realm_configs[1].rpc_url[0] // empty' /tmp/config-deploy.json)
+    
+    # Check if extraction succeeded
+    if [ -z "$verify_coord" ] || [ -z "$verify_realm0" ] || [ -z "$verify_realm1" ]; then
+        log_error "Failed to extract URLs from generated config"
+        echo "Config structure:"
+        jq '.network' /tmp/config-deploy.json
+        return 1
+    fi
+    
+    # Simple validation - just check they start with http://
+    if [[ ! "$verify_coord" =~ ^http:// ]]; then
+        log_error "Coordinator URL invalid: $verify_coord"
+        return 1
+    fi
+    
+    if [[ ! "$verify_realm0" =~ ^http:// ]]; then
+        log_error "Realm 0 URL invalid: $verify_realm0"
+        return 1
+    fi
+    
+    if [[ ! "$verify_realm1" =~ ^http:// ]]; then
+        log_error "Realm 1 URL invalid: $verify_realm1"
+        return 1
+    fi
+
+    # Upload as config.json to S3 (single source of truth)
+    log_info "Uploading config to S3 as ${S3_CONFIG_KEY}..."
+    if ! aws s3 cp /tmp/config-deploy.json \
+        "s3://${CONFIG_BUCKET_NAME}/${S3_CONFIG_KEY}" \
+        --content-type "application/json" \
+        --metadata "source=${LOCAL_CONFIG_FILE},timestamp=$(date -u +%Y%m%d%H%M%S)" \
+        --region "${REGION}"; then
+        log_error "Failed to upload config to S3"
+        return 1
+    fi 
+
+    # Verify upload
+    if aws s3 ls "s3://${CONFIG_BUCKET_NAME}/${S3_CONFIG_KEY}" --region "${REGION}" >/dev/null 2>&1; then
+        log_info "Configuration uploaded successfully"
+        echo "  Config URL: https://${CONFIG_BUCKET_NAME}.s3.${REGION}.amazonaws.com/${S3_CONFIG_KEY}"
+    else
+        log_error "Failed to verify config upload"
+        return 1
+    fi
+
+    # Clean up temp file
+    rm -f /tmp/config-deploy.json
+    
+    return 0
+}
+
+# Ensure config S3 bucket exists
+ensure_config_bucket() {
+
+    # Check if bucket exists
+    if aws s3 ls "s3://${CONFIG_BUCKET_NAME}" --region "${REGION}" >/dev/null 2>&1; then
+        log_info "Config bucket already exists: ${CONFIG_BUCKET_NAME}"
+        return 0
+    fi
+
+    log_info "Creating config bucket: ${CONFIG_BUCKET_NAME}"
+
+    if [ "${REGION}" = "us-east-1" ]; then
+        aws s3api create-bucket \
+            --bucket "${CONFIG_BUCKET_NAME}" \
+            --region "${REGION}"
+    else
+        aws s3api create-bucket \
+            --bucket "${CONFIG_BUCKET_NAME}" \
+            --region "${REGION}" \
+            --create-bucket-configuration LocationConstraint="${REGION}"
+    fi
+    
+    
+    # Enable versioning for config history
+    aws s3api put-bucket-versioning \
+        --bucket "${CONFIG_BUCKET_NAME}" \
+        --versioning-configuration Status=Enabled \
+        --region "${REGION}"
+    
+    # Set public read policy for easy access by services
+    aws s3api put-bucket-policy \
+        --bucket "${CONFIG_BUCKET_NAME}" \
+        --policy '{
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "PublicReadGetObject",
+                    "Effect": "Allow",
+                    "Principal": "*",
+                    "Action": "s3:GetObject",
+                    "Resource": "arn:aws:s3:::'"${CONFIG_BUCKET_NAME}"'/*"
+                }
+            ]
+        }' \
+        --region "${REGION}"
+    
+    return 0
+}
+
+
+# Verify deployment is working
+verify_deployment() {
+    log_info "Verifying services are running..."
+    
+    # Get cluster name
+    local cluster_name=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='MainECSClusterName'].OutputValue" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$cluster_name" ]; then
+        cluster_name="${PROJECT_NAME}-${ENVIRONMENT}-main-ecs"
+    fi
+    
+    # Check ECS services
+    local services=$(aws ecs list-services \
+        --cluster "$cluster_name" \
+        --query "serviceArns[]" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -n "$services" ]; then
+        log_info "ECS Services deployed:"
+        for service_arn in $services; do
+            local service_name=$(echo "$service_arn" | awk -F'/' '{print $NF}')
+            local status=$(aws ecs describe-services \
+                --cluster "$cluster_name" \
+                --services "$service_arn" \
+                --query "services[0].status" \
+                --output text \
+                --region "${REGION}" 2>/dev/null)
+            echo "  - $service_name: $status"
+        done
+    fi
+    
+    # Test endpoints (optional)
+    local alb_dns=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -n "$alb_dns" ]; then
+        log_info "Testing endpoints..."
+        for port in 8545 8546 8547; do
+            if curl -s -f -m 5 "http://${alb_dns}:${port}/health" >/dev/null 2>&1; then
+                echo "  ✓ Port $port is responding"
+            else
+                echo "  ⚠ Port $port not responding yet (may still be starting)"
+            fi
+        done
+    fi
+}
+
+# Simplified update-services function
+update_services() {
+    log_info "Updating ECS services with new configuration..."
+    
+    # Get ALB DNS
+    local alb_dns=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='ALBDNSName'].OutputValue" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$alb_dns" ]; then
+        log_error "Could not get ALB DNS. Is infrastructure deployed?"
+        return 1
+    fi
+    
+    # Update single config file
+    log_info "Updating config.json in S3..."
+    setup_config_management "$alb_dns"
+
+    
+    # Force ECS services to pull new config
+    local cluster_name="${PROJECT_NAME}-${ENVIRONMENT}-main-ecs"
+    local services=$(aws ecs list-services \
+        --cluster "$cluster_name" \
+        --query "serviceArns[]" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$services" ]; then
+        log_warning "No ECS services found in cluster: $cluster_name"
+        return 0
+    fi
+
+    for service_arn in $services; do
+        local service_name=$(basename "$service_arn")
+        log_info "Forcing new deployment for: $service_name"
+        aws ecs update-service \
+            --cluster "$cluster_name" \
+            --service "$service_arn" \
+            --force-new-deployment \
+            --region "${REGION}" >/dev/null
+    done
+    
+    log_info "Services updated. They will restart and fetch new configs."
+}
+
+# Function to cleanup S3 buckets before stack deletion
+cleanup_s3_buckets() {
+    log_info "Cleaning up S3 buckets..."
+    
+    # List all buckets that match our naming pattern
+    local buckets=$(aws s3api list-buckets \
+        --query "Buckets[?contains(Name, '${PROJECT_NAME}')].Name" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    for bucket in $buckets; do
+        log_info "Processing bucket: $bucket"
+        
+        # Check if bucket exists and we can access it
+        if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
+            # Delete all objects in the bucket
+            log_info "Emptying bucket: $bucket"
+            aws s3 rm "s3://${bucket}" --recursive --region "${REGION}" 2>/dev/null || true
+            
+            # Delete all versions (if versioning is enabled)
+            log_info "Deleting object versions in bucket: $bucket"
+            aws s3api delete-objects \
+                --bucket "$bucket" \
+                --delete "$(aws s3api list-object-versions \
+                    --bucket "$bucket" \
+                    --output json \
+                    --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
+                    --region "${REGION}" 2>/dev/null | \
+                    jq -c 'select(.Objects != null)')" \
+                --region "${REGION}" 2>/dev/null || true
+            
+            # Delete all delete markers
+            aws s3api delete-objects \
+                --bucket "$bucket" \
+                --delete "$(aws s3api list-object-versions \
+                    --bucket "$bucket" \
+                    --output json \
+                    --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' \
+                    --region "${REGION}" 2>/dev/null | \
+                    jq -c 'select(.Objects != null)')" \
+                --region "${REGION}" 2>/dev/null || true
+        fi
+    done
+    
+    log_info "S3 cleanup completed"
 }
 
 # Function to print deployment information
@@ -1201,6 +2013,9 @@ destroy() {
     
     log_warning "Destroying all stacks..."
     
+    # IMPORTANT: Clean up S3 buckets BEFORE deleting stacks
+    cleanup_s3_buckets
+
     # Delete services stack first
     delete_stack "${PROJECT_NAME}-services"
     
@@ -1238,7 +2053,7 @@ ENVIRONMENT="dev"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        deploy|destroy|cleanup|status|build|update-services|monitor|logs)
+        deploy|update|update-instances|destroy|cleanup|status|build|update-services|monitor|logs|validate-template|validate)
             COMMAND=$1
             shift
             ;;
@@ -1319,6 +2134,18 @@ case "$COMMAND" in
             log_error "No active stacks found"
         fi
         ;;
+    update)
+        update
+        ;;
+    update-instances)
+        force_update_instances
+        ;;
+    validate-template|validate)
+        validate_template "$SERVICE_NAME"  # Optional template path
+        ;;
+    {# health|check-health)
+        check_instance_health
+        ;; #}
     logs)
         show_logs "$SERVICE_NAME"
         ;;

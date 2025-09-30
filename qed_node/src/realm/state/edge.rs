@@ -224,10 +224,10 @@ impl<
 
         let proof_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
-            checkpoint_id,
+            u64::MAX,
             self.realm_config.realm_id,
             user_id_u64 as u32,
-            0,
+            input.core.new_user_leaf.nonce.to_canonical_u64() as u32,
             ProvingJobCircuitType::UserEndCap,
             ProvingJobDataType::OutputProof,
             0,

@@ -643,38 +643,37 @@ impl SimpleInstanceSelector {
         }
     }
     fn build_independent_workers_requirements(
-        config: &crate::subcommand::generate::Config
+    config: &crate::subcommand::generate::Config
     ) -> Option<ServiceGroupRequirements> {
         if let Some(workers) = &config.nodes.workers {
             if workers.enabled {
-                let mut total_vcpus = 0;
-                let mut total_memory_gb = 0.0;
-                let mut instance_count = 0;
-
-                for pool in &workers.worker_pools {
-                    if let Some(aws_config) = &pool.aws {
-                        let task_count = match &aws_config.deployment_type {
-                            Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                                aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(pool.instances)
-                            },
-                            Some(crate::subcommand::generate::DeploymentType::EC2) => {
-                                aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(pool.instances)
-                            },
-                            _ => pool.instances
-                        };
-                        total_vcpus += aws_config.cpu * task_count / 1024;
-                        total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
-                        instance_count += task_count;
+                if let Some(aws_config) = &workers.aws {
+                    let task_count = match &aws_config.deployment_type {
+                        Some(crate::subcommand::generate::DeploymentType::ECS) => {
+                            aws_config.ecs.as_ref()
+                                .map(|ecs| ecs.task_count)
+                                .unwrap_or(3)
+                        },
+                        Some(crate::subcommand::generate::DeploymentType::EC2) => {
+                            aws_config.ec2.as_ref()
+                                .map(|ec2| ec2.desired_instances)
+                                .unwrap_or(3)
+                        },
+                        _ => 3  // Default to 3 tasks
+                    };
+                    
+                    let total_vcpus = aws_config.cpu * task_count / 1024;
+                    let total_memory_gb = aws_config.memory as f32 * task_count as f32 / 1024.0;
+                    
+                    if total_vcpus > 0 {
+                        return Some(ServiceGroupRequirements {
+                            name: "Workers".to_string(),
+                            service_type: ServiceType::Worker,
+                            total_vcpus,
+                            total_memory_gb,
+                            instance_count: task_count,
+                        });
                     }
-                }
-                if total_vcpus > 0 {
-                    return Some(ServiceGroupRequirements {
-                        name: "Independent-Workers".to_string(),
-                        service_type: ServiceType::Worker,
-                        total_vcpus,
-                        total_memory_gb,
-                        instance_count,
-                    });
                 }
             }
         }

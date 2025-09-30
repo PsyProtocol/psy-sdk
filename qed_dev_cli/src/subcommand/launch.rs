@@ -598,59 +598,59 @@ async fn start_independent_workers(
         if workers.enabled {
             let binary = get_binary_path()?;
 
-            info!("👷 Starting independent workers...");
+            info!("👷 Starting workers...");
 
             // First, ensure config.json exists with correct RPC URLs
             ensure_worker_config_file(config, work_dir)?;
 
-            for (pool_idx, pool) in workers.worker_pools.iter().enumerate() {
-                info!("Starting worker pool {} ({}) with {} instances",
-                    pool_idx + 1,
-                    pool.id,
-                    pool.instances
-                );
+            // Get task count from AWS config or default to 3
+            let task_count = workers.aws.as_ref()
+                .and_then(|aws| aws.ecs.as_ref())
+                .map(|ecs| ecs.task_count)
+                .unwrap_or(3);
 
-                for instance_idx in 0..pool.instances {
-                    let mut cmd = Command::new(&binary);
-                    cmd.arg("worker");
+            info!("Starting {} worker tasks", task_count);
 
-                    // Workers use config.json to discover nodes
-                    cmd.arg("--config").arg(work_dir.join("config.json"));
+            for instance_idx in 0..task_count {
+                let mut cmd = Command::new(&binary);
+                cmd.arg("worker");
 
-                    // Add pool-specific args (private-key, keystore-path, wallet-password)
-                    for (key, value) in &pool.args {
-                        // Skip config since we already set it above
-                        if key == "config" {
-                            continue;
-                        }
+                // Workers use config.json to discover nodes
+                cmd.arg("--config").arg(work_dir.join("config.json"));
 
-                        cmd.arg(format!("--{}", key.replace('_', "-")));
-
-                        match value {
-                            Value::String(s) => {
-                                cmd.arg(s);
-                            },
-                            Value::Number(n) => {
-                                cmd.arg(n.to_string());
-                            },
-                            Value::Bool(b) => {
-                                cmd.arg(b.to_string());
-                            },
-                            _ => {}
-                        }
+                // Add worker args (private-key, keystore-path, etc.)
+                for (key, value) in &workers.args {
+                    // Skip config since we already set it above
+                    if key == "config" {
+                        continue;
                     }
 
-                    // Set environment variables
-                    for (key, value) in &pool.env {
-                        cmd.env(key, value);
+                    cmd.arg(format!("--{}", key.replace('_', "-")));
+
+                    match value {
+                        Value::String(s) => {
+                            cmd.arg(s);
+                        },
+                        Value::Number(n) => {
+                            cmd.arg(n.to_string());
+                        },
+                        Value::Bool(b) => {
+                            cmd.arg(b.to_string());
+                        },
+                        _ => {}
                     }
-
-                    // Add API service URL to environment for worker reporting
-                    cmd.env("API_SERVICE_URL", "http://localhost:3000");
-
-                    let service_name = format!("worker-{}-{}", pool.id, instance_idx);
-                    manager.spawn(service_name, cmd, log_dir)?;
                 }
+
+                // Set environment variables
+                for (key, value) in &workers.env {
+                    cmd.env(key, value);
+                }
+
+                // Add API service URL to environment for worker reporting
+                cmd.env("API_SERVICE_URL", "http://localhost:3000");
+
+                let service_name = format!("worker-{}", instance_idx);
+                manager.spawn(service_name, cmd, log_dir)?;
             }
         }
     }
