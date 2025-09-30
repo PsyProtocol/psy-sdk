@@ -96,13 +96,13 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
         return Ok(());
     }
 
-    info!("Claiming rewards from checkpoint {} to {} (latest: {}, cooldown: {})",
-          start_checkpoint, max_claimable_checkpoint, latest_checkpoint_id, claim_rewards_cooldown);
-
     let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
 
     // Apply limit to number of checkpoints to process
     let end_checkpoint = max_claimable_checkpoint.min(start_checkpoint + args.limit as u64 - 1);
+
+    info!("Claiming rewards from checkpoint {} to {} (max: {}, limit: {}, latest: {}, cooldown: {})",
+          start_checkpoint, end_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown);
 
     for checkpoint_id in start_checkpoint..=end_checkpoint {
         let mut job_infos = if !args.jobs.is_empty() {
@@ -114,6 +114,8 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
         if job_infos.is_empty() {
             continue;
         }
+
+        info!("Checkpoint {} - Found {} jobs", checkpoint_id, job_infos.len());
 
         for job_info in job_infos {
             match job_info.job_id.circuit_type {
@@ -134,10 +136,16 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
                 }
             };
 
-            if let Ok((actual_checkpoint_id, job_proof)) = get_job_proof(&provider, &job_info, checkpoint_id) {
-                checkpoint_jobs.entry(actual_checkpoint_id)
-                    .or_insert_with(Vec::new)
-                    .push((job_info, job_proof));
+            match get_job_proof(&provider, &job_info, checkpoint_id) {
+                Ok((actual_checkpoint_id, job_proof)) => {
+                    info!("Found job proof for checkpoint {}, job {:?}", actual_checkpoint_id, job_info.job_id);
+                    checkpoint_jobs.entry(actual_checkpoint_id)
+                        .or_insert_with(Vec::new)
+                        .push((job_info, job_proof));
+                }
+                Err(e) => {
+                    warn!("Failed to get job proof for checkpoint {}, job {:?}: {}", checkpoint_id, job_info.job_id, e);
+                }
             }
         }
     }
