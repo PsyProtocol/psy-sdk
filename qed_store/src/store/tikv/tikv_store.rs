@@ -77,7 +77,10 @@ impl TiKVStore {
         end.extend_from_slice(&self.namespace_bytes);
         end.extend_from_slice(key);
         end.push(0x00);
-
+        if start >= end {
+            end = start.clone();
+            end.push(0x00);
+        }
         (Key::from(start), Key::from(end))
     }
 
@@ -96,7 +99,13 @@ impl TiKVStore {
         fuzzy_bytes: usize,
     ) -> Result<Option<tikv_client::KvPair>> {
         let (scan_start, mut scan_end) = self.make_leq_scan_range(key, fuzzy_bytes);
+        if scan_start >= scan_end {
+            return Ok(None);
+        }
         while scan_start < scan_end {
+            if scan_start >= scan_end {
+                break;
+            }    
             let scan_result = snapshot
                 .scan_reverse(scan_start.clone()..scan_end.clone(), MAX_SCAN_ENTRIES)
                 .await?
