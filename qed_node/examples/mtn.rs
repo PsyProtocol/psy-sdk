@@ -54,7 +54,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     q.enqueue_jobs_imm(&jobs[0]).await?;
     timer.lap("enqueued jobs");
     //worker_event_processor.job_queue.channel.close(reply_code, reply_text)
-    q.wait_for_block_proving_jobs_imm(checkpoint_id).await?;
+    q.wait_for_block_proving_jobs_imm(checkpoint_id, None).await?;
 
     timer.lap("finished jobs");
 

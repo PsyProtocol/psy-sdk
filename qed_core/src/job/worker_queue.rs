@@ -14,7 +14,7 @@ pub trait WorkerEventReceiverAsyncImm {
 #[async_trait]
 pub trait WorkerEventTransmitterAsyncImm: QProofStoreReaderAsync {
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()>;
-    async fn wait_for_block_proving_jobs_imm(&self, checkpoint_id: u64) -> anyhow::Result<QProvingJobDataID>;
+    async fn wait_for_block_proving_jobs_imm(&self, checkpoint_id: u64, timeout: Option<Duration>) -> anyhow::Result<QProvingJobDataID>;
 
     async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
         &self,

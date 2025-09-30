@@ -5,6 +5,7 @@ use qed_core::{
 };
 use qed_store::queue::ProofStoreFred;
 use std::time::Duration;
+use aws_sdk_s3::config::retry::ShouldAttempt::No;
 use qed_store::queue::new_fred_pool;
 
 fn gen_jobs_ids(checkpoint_id: u64, height: usize) -> Vec<Vec<QProvingJobDataID>> {
@@ -52,7 +53,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     q.enqueue_jobs_imm(&jobs[0]).await?;
     timer.lap("enqueued jobs");
     //worker_event_processor.job_queue.channel.close(reply_code, reply_text)
-    q.wait_for_block_proving_jobs_imm(checkpoint_id).await?;
+    q.wait_for_block_proving_jobs_imm(checkpoint_id, None).await?;
 
     timer.lap("finished jobs");
 

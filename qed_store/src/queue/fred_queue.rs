@@ -1,5 +1,5 @@
 use std::fmt;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::queue::{BizKey, QPendingUserStoreAsyncImm, QueuePrefixKey};
 use async_trait::async_trait;
@@ -302,7 +302,9 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
     async fn wait_for_block_proving_jobs_imm(
         &self,
         _checkpoint_id: u64,
+        timeout: Option<Duration>,
     ) -> anyhow::Result<QProvingJobDataID> {
+        let now = Instant::now();
         loop {
             let job_res = self
                 .pool
@@ -326,6 +328,11 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
                     e2
                 ),
             };
+            if let Some(timeout) = timeout{
+                if now.elapsed() > timeout {
+                    return Err(anyhow::anyhow!("timeout waiting for job"))
+                }
+            }
             sleep(Duration::from_millis(100)).await;
         }
     }
