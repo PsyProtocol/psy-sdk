@@ -47,6 +47,7 @@ pub async fn run(
     private_key: Option<String>,
     keystore_path: Option<String>,
     wallet_password: Option<String>,
+    recipient: Option<u64>,
 ) -> anyhow::Result<()> {
     print_banner();
     info!("Worker starting...");
@@ -85,7 +86,9 @@ pub async fn run(
         &config.network.coordinator_configs[0].rpc_url[0],
     ).await?;
     let user_id = worker_coordinator_client.get_user_id(&worker_public_key).await?;
-    let user_qhashout = user_id_to_qhashout(user_id);
+
+    let recipient_user_id = recipient.unwrap_or(user_id);
+    let user_qhashout = user_id_to_qhashout(recipient_user_id);
 
     let prover = Arc::new(QEDCoordinatorCircuitManager::<C, D>::new_with_library(
         &proof_verifier.library,

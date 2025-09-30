@@ -15,7 +15,7 @@ where
 {
     let serialized_library =
         serde_json::from_str::<SerializedGenericCircuitCommonDataLibraryInfo>(
-            r#"{"common_data_hashes":["12860115dfe70452b3f307ea1fe95b1bb5b307d48f5fc5f86a8ecc7001cb33b0","3b9a3c7259d1caf79e1cc42f1a04416b753b58cc85f4458ef8321dc3f3ad11b1","7ea492b556ffc919706ac50511cadc6c6b3b38afe4810c7b5ef3320652b50f0e","f565b4841e413ae2d56d01e977f1ec9c04ba1181437bf7be419f0db52fe3734f"],"common_circuit_list":[[7,11,226,9,14,56,10,12,8,13,15,55],[1,0,48,227,19,54,18,32],[6,228],[40,229]]}"#
+            r#"{"common_data_hashes":["12860115dfe70452b3f307ea1fe95b1bb5b307d48f5fc5f86a8ecc7001cb33b0","3b9a3c7259d1caf79e1cc42f1a04416b753b58cc85f4458ef8321dc3f3ad11b1","7ea492b556ffc919706ac50511cadc6c6b3b38afe4810c7b5ef3320652b50f0e","f565b4841e413ae2d56d01e977f1ec9c04ba1181437bf7be419f0db52fe3734f"],"common_circuit_list":[[11,14,226,56,9,12,8,13,15,7,10,55],[0,18,54,19,227,48,32,1],[228,6],[40,229]]}"#
         ).unwrap();
 
     GenericCircuitCommonDataLibrary::<C, D>::from_serialized(

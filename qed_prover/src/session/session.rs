@@ -1007,10 +1007,7 @@ impl WalletSession {
         let mut remaining_proofs = all_proofs.clone();
 
         while !remaining_proofs.is_empty() {
-            if remaining_proofs.len() >= 10 {
-                let batch: Vec<_> = remaining_proofs.drain(0..10).collect();
-                self.add_claim_call_for_batch(&mut contract_call_args, mining_rewards_contract_id, batch, "claim_guta_rewards_10")?;
-            } else if remaining_proofs.len() >= 5 {
+            if remaining_proofs.len() >= 5 {
                 let batch: Vec<_> = remaining_proofs.drain(0..5).collect();
                 self.add_claim_call_for_batch(&mut contract_call_args, mining_rewards_contract_id, batch, "claim_guta_rewards_5")?;
             } else if remaining_proofs.len() >= 2 {

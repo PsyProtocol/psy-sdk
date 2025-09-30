@@ -486,5 +486,9 @@ pub struct ClaimRewardsArgs {
     /// Optional fingerprint (defaults to standard circuit fingerprint)
     #[clap(long)]
     pub fingerprint: Option<String>,
+
+    /// Maximum number of checkpoints to process in one batch (optional, limits processing load)
+    #[clap(long, default_value = "5")]
+    pub limit: usize,
 }
 
