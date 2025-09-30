@@ -58,17 +58,21 @@ Parameters:
     Type: String
     Description: Application Load Balancer DNS name
 
-  # TimescaleDB Endpoint (if enabled)
+  {# # TimescaleDB Endpoint (if enabled)
   {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}
   TimescaleDBEndpoint:
     Type: String
     Description: TimescaleDB RDS endpoint
-  {% endif %}
+  {% endif %} #}
 
   TiKVPDEndpoints:
     Type: String
     Description: Comma-separated list of TiKV PD endpoints
     Default: "127.0.0.1:2379"
+
+  ConfigBucketName:
+    Type: String
+    Description: Name of the config S3 bucket
 
 Resources:
   # ============================================================================
@@ -92,32 +96,6 @@ Resources:
       ContainerDefinitions:
         - Name: coordinator-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
-          # REMOVE the complex EntryPoint/Command with bash script
-          # Use direct command instead
-          Command:
-            - /qed-rollup/target/release/qed_rollup_cli
-            - coordinator-edge
-            - --database
-            - tikv
-            - --tikv-pd-endpoints
-            - !Ref TiKVPDEndpoints  # Use parameter directly
-            - --tikv-namespace
-            - "{{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator"
-            - --redis-uri
-            - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
-            {% if config.nodes.coordinator.edge.args is defined and 'listen_addr' in config.nodes.coordinator.edge.args %}
-            - --listen-addr
-            - '{{ config.nodes.coordinator.edge.args["listen_addr"] }}'
-            {% else %}
-            - --listen-addr
-            - '0.0.0.0:8545'
-            {% endif %}
-            {% for key, value in (config.nodes.coordinator.edge.args | default({}) | dictsort) %}
-            {% if key != 'listen_addr' %}
-            - --{{ key | replace('_','-') }}
-            - '{{ value | string }}'
-            {% endif %}
-            {% endfor %}
           Environment:
             {% for key, value in (config.nodes.coordinator.edge.env | default({}) | dictsort) %}
             - Name: {{ key }}
@@ -129,6 +107,12 @@ Resources:
               Value: !Ref ProjectName
             - Name: Environment
               Value: !Ref Environment
+            - Name: TiKVPDEndpoints
+              Value: !Ref TiKVPDEndpoints
+            - Name: RedisCoordinatorEndpoint
+              Value: !Ref RedisCoordinatorEndpoint
+            - Name: CONFIG_BUCKET
+              Value: !Ref ConfigBucketName
           Memory: {{ config.nodes.coordinator.edge.aws.memory }}
           MemoryReservation: {{ (config.nodes.coordinator.edge.aws.memory * 0.75) | int }}
           Cpu: {{ config.nodes.coordinator.edge.aws.cpu }}
@@ -155,7 +139,91 @@ Resources:
               awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: coordinator-edge
-          Essential: true
+          Essential: false
+          EntryPoint:
+            - /bin/bash
+            - -c
+          Command:
+            - !Sub |
+              # Download configuration from S3
+              CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/config.json"
+
+              echo "Downloading config from: $CONFIG_URL"
+              if ! curl -o /qed-rollup/config.json "$CONFIG_URL"; then
+                echo "ERROR: Failed to download config from S3, trying base config..."
+                CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/config.json"
+                if ! curl -o /qed-rollup/config.json "$CONFIG_URL"; then
+                  echo "ERROR: Failed to download any config"
+                  exit 1
+                fi
+              fi
+              
+              echo "Config downloaded successfully"
+              # Show network section for debugging
+              if command -v jq &> /dev/null; then
+                echo "Network configuration:"
+                jq '.network.coordinator_configs, .network.realm_configs[].rpc_url' /qed-rollup/config.json 2>/dev/null || true
+              fi
+            
+              # Get TiKV PD endpoints dynamically
+              PD_ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
+              PD_ENDPOINTS=""
+
+              echo "Fetching TiKV PD endpoints..."
+              for attempt in {seq 1 120}; do
+                PD_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
+                  --auto-scaling-group-names $PD_ASG_NAME \
+                  --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`].InstanceId' \
+                  --output text \
+                  --region ${AWS::Region} 2>/dev/null || echo "")
+                
+                if [ -n "$PD_INSTANCES" ]; then
+                  for pd_id in $PD_INSTANCES; do
+                    PD_IP=$(aws ec2 describe-instances \
+                      --instance-ids $pd_id \
+                      --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                      --output text \
+                      --region ${AWS::Region} 2>/dev/null || echo "")
+                    
+                    if [ -n "$PD_IP" ] && [ "$PD_IP" != "None" ]; then
+                      if [ -z "$PD_ENDPOINTS" ]; then
+                        PD_ENDPOINTS="$PD_IP:2379"
+                      else
+                        PD_ENDPOINTS="$PD_ENDPOINTS,$PD_IP:2379"
+                      fi
+                    fi
+                  done
+                  if [ -n "$PD_ENDPOINTS" ]; then
+                    echo "Got PD endpoints: $PD_ENDPOINTS"
+                    break
+                  fi
+                fi
+                
+                echo "Waiting for TiKV PD endpoints... attempt $attempt/120"
+                sleep 5
+              done
+
+              if [ -z "$PD_ENDPOINTS" ]; then
+                echo "ERROR: Could not get TiKV PD endpoints, using parameter default"
+                PD_ENDPOINTS="${TiKVPDEndpoints}"
+              fi
+
+              # Start coordinator-edge
+              exec /qed-rollup/qed_rollup_cli coordinator-edge \
+                --database tikv \
+                --tikv-pd-endpoints "$PD_ENDPOINTS" \
+                --tikv-namespace "{{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator" \
+                --redis-uri "redis://${RedisCoordinatorEndpoint}:6379" \
+                {% if config.nodes.coordinator.edge.args is defined and 'listen_addr' in config.nodes.coordinator.edge.args %}
+                --listen-addr "{{ config.nodes.coordinator.edge.args['listen_addr'] }}" \
+                {% else %}
+                --listen-addr "0.0.0.0:8545" \
+                {% endif %}
+                {% for key, value in (config.nodes.coordinator.edge.args | default({}) | dictsort) %}
+                {% if key != 'listen_addr' %}
+                --{{ key | replace('_','-') }} "{{ value | string }}" \
+                {% endif %}
+                {% endfor %}
 
   CoordinatorEdgeService:
     Type: AWS::ECS::Service
@@ -165,6 +233,9 @@ Resources:
       TaskDefinition: !Ref CoordinatorEdgeTaskDefinition
       DesiredCount: {{ config.nodes.coordinator.edge.aws.ecs.task_count }}
       LaunchType: EC2
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:workload == general'
       LoadBalancers:
         - ContainerName: coordinator-edge
           ContainerPort: 8545
@@ -174,6 +245,7 @@ Resources:
         - RegistryArn: !GetAtt CoordinatorEdgeServiceDiscovery.Arn
           ContainerName: coordinator-edge
           ContainerPort: 8545
+
 
   CoordinatorEdgeServiceDiscovery:
     Type: AWS::ServiceDiscovery::Service
@@ -208,7 +280,8 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageMemoryUtilization
         TargetValue: 70.0
-  # Coordinator Watcher Service
+
+  {# # Coordinator Watcher Service
   {% if config.nodes.coordinator.watcher and config.nodes.coordinator.watcher.enabled %}
   CoordinatorWatcherTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -273,8 +346,211 @@ Resources:
       PlacementConstraints:
         - Type: memberOf
           Expression: 'attribute:workload == general'
-  {% endif %}
+  {% endif %} #}
 
+  # ============================================================================
+  # REALM PROCESSOR ECS SERVICES
+  # ============================================================================
+    
+  {% for realm in config.nodes.realms %}
+  # Realm {{ realm.id }} Processor Service
+  Realm{{ realm.id }}ProcessorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:workload == general'  
+      Volumes:
+        - Name: realm{{ realm.id }}-processor-data
+          Host:
+            SourcePath: /data/realm{{ realm.id }}-processor
+      ContainerDefinitions:
+        - Name: realm-{{ realm.id }}-processor
+          Image: !Sub '${ECRRepositoryURI}:latest'
+          Environment:
+            {% for key, value in (realm.processor.env | default({}) | dictsort) %}
+            - Name: {{ key }}
+              Value: '{{ value | string }}'
+            {% endfor %}
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref 'AWS::Region'
+            - Name: ProjectName
+              Value: !Ref ProjectName
+            - Name: Environment
+              Value: !Ref Environment
+            - Name: TiKVPDEndpoints
+              Value: !Ref TiKVPDEndpoints
+            {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
+            - Name: RedisRealm{{ realm.id }}Endpoint
+              Value: !Ref RedisRealm{{ realm.id }}Endpoint
+            {% else %}
+            - Name: RedisCoordinatorEndpoint
+              Value: !Ref RedisCoordinatorEndpoint
+            {% endif %}
+          Memory: {{ realm.processor.aws.memory }}
+          MemoryReservation: {{ (realm.processor.aws.memory * 0.75) | int }}
+          Cpu: {{ realm.processor.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
+          MountPoints:
+            - SourceVolume: realm{{ realm.id }}-processor-data
+              ContainerPath: /data
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'ps aux | grep -v grep | grep realm-processor || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 120
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-{{ realm.id }}-processor
+          Essential: true 
+          EntryPoint:
+            - /bin/bash
+            - -c
+          Command:
+            - |
+              # Get TiKV PD endpoints dynamically
+              PD_ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
+              PD_ENDPOINTS=""
+
+              echo "Fetching TiKV PD endpoints for Realm {{ realm.id }} Processor..."
+              for attempt in $(seq 1 30); do
+                PD_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
+                  --auto-scaling-group-names $PD_ASG_NAME \
+                  --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`].InstanceId' \
+                  --output text \
+                  --region ${AWS::Region} 2>/dev/null || echo "")
+                
+                if [ -n "$PD_INSTANCES" ]; then
+                  for pd_id in $PD_INSTANCES; do
+                    PD_IP=$(aws ec2 describe-instances \
+                      --instance-ids $pd_id \
+                      --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                      --output text \
+                      --region ${AWS::Region} 2>/dev/null || echo "")
+                    
+                    if [ -n "$PD_IP" ] && [ "$PD_IP" != "None" ]; then
+                      if [ -z "$PD_ENDPOINTS" ]; then
+                        PD_ENDPOINTS="$PD_IP:2379"
+                      else
+                        PD_ENDPOINTS="$PD_ENDPOINTS,$PD_IP:2379"
+                      fi
+                    fi
+                  done
+                  
+                  if [ -n "$PD_ENDPOINTS" ]; then
+                    echo "Got PD endpoints: $PD_ENDPOINTS"
+                    # Test connectivity to at least one endpoint
+                    for endpoint in $(echo $PD_ENDPOINTS | tr ',' ' '); do
+                      if nc -zv ${endpoint%:*} ${endpoint#*:} 2>/dev/null; then
+                        echo "Successfully connected to PD endpoint: $endpoint"
+                        break 2
+                      fi
+                    done
+                  fi
+                fi
+                
+                echo "Waiting for TiKV PD endpoints... attempt $attempt/30"
+                sleep 10
+              done
+
+              if [ -z "$PD_ENDPOINTS" ]; then
+                echo "ERROR: Could not get TiKV PD endpoints, using parameter default"
+                PD_ENDPOINTS="${TiKVPDEndpoints}"
+              fi
+
+              # Get Redis endpoint for this realm
+              {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
+              REDIS_ENDPOINT="${RedisRealm{{ realm.id }}Endpoint}"
+              {% else %}
+              # Use shared Redis if realm doesn't have dedicated one
+              REDIS_ENDPOINT="${RedisCoordinatorEndpoint}"
+              {% endif %}
+              
+              echo "Starting Realm {{ realm.id }} Processor with Redis: $REDIS_ENDPOINT and TiKV: $PD_ENDPOINTS"
+
+              # Start realm processor
+              exec /qed-rollup/qed_rollup_cli realm-processor \
+                --database tikv \
+                --tikv-pd-endpoints "$PD_ENDPOINTS" \
+                --tikv-namespace "{{ realm.backend.tikv.namespace }}" \
+                --redis-uri "redis://$REDIS_ENDPOINT:6379" \
+                --realm-id {{ realm.id }} \
+                {% if realm.processor.args is defined and realm.processor.args['queue-biz-key'] %}
+                --queue-biz-key "{{ realm.processor.args['queue-biz-key'] }}" \
+                {% endif %}
+                {% for key, value in (realm.processor.args | default({}) | dictsort) %}
+                {% if key not in ['realm-id', 'queue-biz-key', 'database', 'tikv-pd-endpoints', 'tikv-namespace', 'redis-uri'] %}
+                --{{ key | replace('_','-') }} "{{ value | string }}" \
+                {% endif %}
+                {% endfor %}
+
+
+  Realm{{ realm.id }}ProcessorService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor'
+      Cluster: !Ref MainECSClusterName
+      TaskDefinition: !Ref Realm{{ realm.id }}ProcessorTaskDefinition
+      DesiredCount: 1  # Only one processor per realm
+      LaunchType: EC2
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:workload == general'
+      PlacementStrategies:
+        - Type: spread
+          Field: attribute:ecs.availability-zone
+        - Type: spread
+          Field: instanceId
+      ServiceRegistries:
+        - RegistryArn: !GetAtt Realm{{ realm.id }}ProcessorServiceDiscovery.Arn
+          ContainerName: realm-{{ realm.id }}-processor
+
+  Realm{{ realm.id }}ProcessorServiceDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: realm-{{ realm.id }}-processor
+      DnsConfig:
+        DnsRecords:
+          - Type: A
+            TTL: 10
+        NamespaceId: !Ref ServiceDiscoveryNamespaceId
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+
+  # CloudWatch Alarm for Realm {{ realm.id }} Processor
+  Realm{{ realm.id }}ProcessorHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-processor-health'
+      AlarmDescription: !Sub 'Alert when Realm {{ realm.id }} processor is unhealthy'
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 90
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: !GetAtt Realm{{ realm.id }}ProcessorService.Name
+        - Name: ClusterName
+          Value: !Ref MainECSClusterName
+      TreatMissingData: breaching 
+
+  {% endfor %} 
   # ============================================================================
   # REALM ECS SERVICES (Edge & Watcher)
   # ============================================================================
@@ -288,59 +564,53 @@ Resources:
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
-      Cpu: '{{ realm.edge.aws.cpu }}'
-      Memory: '{{ realm.edge.aws.memory }}'
       ExecutionRoleArn: !Ref TaskExecutionRoleArn
       TaskRoleArn: !Ref TaskRoleArn
       Volumes:
-        - Name: realm{{ realm.id }}-data
+        - Name: realm{{ realm.id }}-edge-data
           Host:
-            SourcePath: /data/realm{{ realm.id }}
+            SourcePath: /data/realm{{ realm.id }}-edge
       ContainerDefinitions:
         - Name: realm-{{ realm.id }}-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
-          Command:
-            - realm-edge
-            - --database
-            - tikv
-            - --tikv-pd-endpoints
-            - "{{ realm.backend.tikv.pd_endpoints | join(',') }}"
-            - --tikv-namespace
-            - "{{ realm.backend.tikv.namespace }}-realm{{ realm.id }}"
-            - --redis-uri
-            - !Sub 'redis://${RedisRealm{{ realm.id }}Endpoint}:6379'
-            - --realm-id
-            - '{{ realm.id }}'
-            - --coordinator-addr
-            - 'http://coordinator-edge.qed.local:8545'
-            {% if realm.edge.args is defined and 'listen_addr' in realm.edge.args %}
-            - --listen-addr
-            - '{{ realm.edge.args["listen_addr"] }}'
-            {% else %}
-            - --listen-addr
-            - '0.0.0.0:{{ 8546 + realm.id }}'
-            {% endif %}
-            {% for key, value in (realm.edge.args | default({}) | dictsort) %}
-            {% if key not in ['coordinator_addr', 'listen_addr'] %}
-            - --{{ key | replace('_', '-') }}
-            - '{{ value }}'
-            {% endif %}
-            {% endfor %}
           Environment:
             {% for key, value in (realm.edge.env | default({}) | dictsort) %}
             - Name: {{ key }}
               Value: '{{ value | string }}'
             {% endfor %}
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref 'AWS::Region'
+            - Name: ProjectName
+              Value: !Ref ProjectName
+            - Name: Environment
+              Value: !Ref Environment
+            - Name: TiKVPDEndpoints
+              Value: !Ref TiKVPDEndpoints
+            - Name: MainECSClusterName
+              Value: !Ref MainECSClusterName
+            {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
+            - Name: RedisRealm{{ realm.id }}Endpoint
+              Value: !Ref RedisRealm{{ realm.id }}Endpoint
+            {% else %}
+            - Name: RedisCoordinatorEndpoint
+              Value: !Ref RedisCoordinatorEndpoint
+            {% endif %}
+          Memory: {{ realm.edge.aws.memory }}
+          MemoryReservation: {{ (realm.edge.aws.memory * 0.75) | int }}
+          Cpu: {{ realm.edge.aws.cpu }}
+          LinuxParameters:
+            InitProcessEnabled: true
           MountPoints:
-            - SourceVolume: realm{{ realm.id }}-data
+            - SourceVolume: realm{{ realm.id }}-edge-data
               ContainerPath: /data
           PortMappings:
             - ContainerPort: {{ 8546 + realm.id }}
+              HostPort: 0  # Dynamic port mapping
               Protocol: tcp
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'curl -f http://localhost:{{ 8546 + realm.id }}/health || exit 1'
+              - 'curl -f http://127.0.0.1:{{ 8546 + realm.id }}/health || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
@@ -351,27 +621,184 @@ Resources:
               awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: realm-{{ realm.id }}-edge
+          Essential: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-{{ realm.id }}-edge-init
+          DependsOn:
+            - ContainerName: wait-for-processor
+              Condition: SUCCESS
+          EntryPoint:
+            - /bin/bash
+            - -c
+          Command:
+            - |
+              # Get TiKV PD endpoints dynamically
+              PD_ASG_NAME="${ProjectName}-${Environment}-tikv-pd-asg"
+              PD_ENDPOINTS=""
+
+              echo "Fetching TiKV PD endpoints for Realm {{ realm.id }} Edge..."
+              for attempt in $(seq 1 30); do
+                PD_INSTANCES=$(aws autoscaling describe-auto-scaling-groups \
+                  --auto-scaling-group-names $PD_ASG_NAME \
+                  --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`].InstanceId' \
+                  --output text \
+                  --region ${AWS::Region} 2>/dev/null || echo "")
+                
+                if [ -n "$PD_INSTANCES" ]; then
+                  for pd_id in $PD_INSTANCES; do
+                    PD_IP=$(aws ec2 describe-instances \
+                      --instance-ids $pd_id \
+                      --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                      --output text \
+                      --region ${AWS::Region} 2>/dev/null || echo "")
+                    
+                    if [ -n "$PD_IP" ] && [ "$PD_IP" != "None" ]; then
+                      if [ -z "$PD_ENDPOINTS" ]; then
+                        PD_ENDPOINTS="$PD_IP:2379"
+                      else
+                        PD_ENDPOINTS="$PD_ENDPOINTS,$PD_IP:2379"
+                      fi
+                    fi
+                  done
+                  
+                  if [ -n "$PD_ENDPOINTS" ]; then
+                    echo "Got PD endpoints: $PD_ENDPOINTS"
+                    break
+                  fi
+                fi
+                
+                echo "Waiting for TiKV PD endpoints... attempt $attempt/30"
+                sleep 10
+              done
+
+              if [ -z "$PD_ENDPOINTS" ]; then
+                echo "ERROR: Could not get TiKV PD endpoints, using parameter default"
+                PD_ENDPOINTS="${TiKVPDEndpoints}"
+              fi
+
+              # Get Redis endpoint for this realm
+              {% if realm.redis and realm.redis.aws and realm.redis.aws.deployment_type == 'elasticache' %}
+              REDIS_ENDPOINT="${RedisRealm{{ realm.id }}Endpoint}"
+              {% else %}
+              # Use shared Redis if realm doesn't have dedicated one
+              REDIS_ENDPOINT="${RedisCoordinatorEndpoint}"
+              {% endif %}
+
+              echo "Starting Realm {{ realm.id }} Edge with Redis: $REDIS_ENDPOINT and TiKV: $PD_ENDPOINTS"
+
+              # Start realm edge
+              exec /qed-rollup/qed_rollup_cli realm-edge \
+                --database tikv \
+                --tikv-pd-endpoints "$PD_ENDPOINTS" \
+                --tikv-namespace "{{ realm.backend.tikv.namespace }}" \
+                --redis-uri "redis://$REDIS_ENDPOINT:6379" \
+                --realm-id {{ realm.id }} \
+                --coordinator-addr "http://coordinator-edge.qed.local:8545" \
+                {% if realm.edge.args is defined and 'listen_addr' in realm.edge.args %}
+                --listen-addr "{{ realm.edge.args['listen_addr'] }}" \
+                {% else %}
+                --listen-addr "0.0.0.0:{{ 8546 + realm.id }}" \
+                {% endif %}
+                {% if realm.edge.args is defined and realm.edge.args['queue_biz_key'] %}
+                --queue-biz-key "{{ realm.edge.args['queue_biz_key'] }}" \
+                {% endif %}
+                {% for key, value in (realm.edge.args | default({}) | dictsort) %}
+                {% if key not in ['coordinator_addr', 'listen_addr', 'realm-id', 'queue_biz_key', 'database', 'tikv-pd-endpoints', 'tikv-namespace', 'redis-uri'] %}
+                --{{ key | replace('_', '-') }} "{{ value }}" \
+                {% endif %}
+                {% endfor %}
+
+        - Name: wait-for-processor
+          Image: amazon/aws-cli:latest  # Has AWS CLI and dig
+          Command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Realm {{ realm.id }} Processor task..."
+              for i in $(seq 1 60); do
+                RUNNING_TASKS=$(aws ecs list-tasks \
+                  --cluster ${MainECSClusterName} \
+                  --service-name ${ProjectName}-${Environment}-realm-{{ realm.id }}-processor \
+                  --desired-status RUNNING \
+                  --region ${AWS::Region} \
+                  --query 'taskArns | length(@)' \
+                  --output text 2>/dev/null || echo "0")
+                
+                if [ "$RUNNING_TASKS" -ge "1" ]; then
+                  echo "Processor task is running!"
+                  exit 0
+                fi
+                echo "Attempt $i/60: Waiting for processor task..."
+                sleep 3
+              done
+              echo "Timeout waiting for processor, continuing anyway..."
+          Essential: false
+          Environment:
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref 'AWS::Region'
+            - Name: ProjectName
+              Value: !Ref ProjectName
+            - Name: Environment
+              Value: !Ref Environment
+            - Name: MainECSClusterName
+              Value: !Ref MainECSClusterName
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: realm-{{ realm.id }}-edge-init
+
 
   Realm{{ realm.id }}EdgeService:
     Type: AWS::ECS::Service
+    DependsOn: Realm{{ realm.id }}ProcessorService  # Ensure processor starts first
     Properties:
       ServiceName: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge'
       Cluster: !Ref MainECSClusterName
       TaskDefinition: !Ref Realm{{ realm.id }}EdgeTaskDefinition
-      DesiredCount: {{ realm.edge.aws.ecs.task_count | default(1) }}
+      DesiredCount: {{ realm.edge.aws.ecs.task_count | default(2) }}
       LaunchType: EC2
+      PlacementConstraints:
+        - Type: memberOf
+          Expression: 'attribute:workload == general'
+      PlacementStrategies:
+        - Type: spread
+          Field: attribute:ecs.availability-zone
+        - Type: spread
+          Field: instanceId
       LoadBalancers:
         - ContainerName: realm-{{ realm.id }}-edge
           ContainerPort: {{ 8546 + realm.id }}
           TargetGroupArn: !Ref ALBTargetGroupRealm{{ realm.id }}Arn
-      HealthCheckGracePeriodSeconds: 120
+      HealthCheckGracePeriodSeconds: 180
+      ServiceRegistries:
+        - RegistryArn: !GetAtt Realm{{ realm.id }}EdgeServiceDiscovery.Arn
+          ContainerName: realm-{{ realm.id }}-edge
+          ContainerPort: {{ 8546 + realm.id }}
+
+  Realm{{ realm.id }}EdgeServiceDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: realm-{{ realm.id }}-edge
+      DnsConfig:
+        DnsRecords:
+          - Type: SRV
+            TTL: 10
+        NamespaceId: !Ref ServiceDiscoveryNamespaceId
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
 
   # Auto Scaling for Realm {{ realm.id }} Edge
   Realm{{ realm.id }}EdgeScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
       MaxCapacity: 10
-      MinCapacity: {{ realm.edge.aws.ecs.task_count | default(1) }}
+      MinCapacity: {{ realm.edge.aws.ecs.task_count | default(2) }}
       ResourceId: !Sub 'service/${MainECSClusterName}/${Realm{{ realm.id }}EdgeService.Name}'
       RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
       ScalableDimension: ecs:service:DesiredCount
@@ -386,9 +813,9 @@ Resources:
       TargetTrackingScalingPolicyConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageMemoryUtilization
-        TargetValue: 70.0
-
-  # Realm {{ realm.id }} Watcher Service
+        TargetValue: 70.0  
+  {% endfor %}
+  {# #Realm {{ realm.id }} Watcher Service
   {% if realm.watcher and realm.watcher.enabled %}
   Realm{{ realm.id }}WatcherTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -453,82 +880,40 @@ Resources:
       PlacementConstraints:
         - Type: memberOf
           Expression: 'attribute:service == realm-{{ realm.id }}-processor'
-  {% endif %}
-  {% endfor %}
+  {% endif %} 
+  {% endfor %}  #}
 
   # ============================================================================
   # INDEPENDENT WORKER SERVICES
   # ============================================================================
   {% if config.nodes.workers and config.nodes.workers.enabled %}
-  {% for pool in config.nodes.workers.worker_pools %}
-  # Independent Worker Pool {{ loop.index }}
-  WorkerPool{{ loop.index }}TaskDefinition:
+
+  WorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}'
+      Family: !Sub '${ProjectName}-${Environment}-worker'
       NetworkMode: bridge
       RequiresCompatibilities:
         - EC2
-      Cpu: '{{ pool.aws.cpu | default(8192) }}'   
-      Memory: '{{ pool.aws.memory | default(8192) }}'  
+      Cpu: '{{ config.nodes.workers.aws.cpu }}'
+      Memory: '{{ config.nodes.workers.aws.memory }}'
       ExecutionRoleArn: !Ref TaskExecutionRoleArn
       TaskRoleArn: !Ref TaskRoleArn
-      Volumes:
-        - Name: config
-          Host:
-            SourcePath: /etc/qed
       ContainerDefinitions:
-        - Name: worker-pool-{{ loop.index }}
+        - Name: worker
           Image: !Sub '${ECRRepositoryURI}:latest'
-          EntryPoint:
-            - /bin/sh
-            - -c
-          Command:
-            - |
-              # Generate config.json dynamically with service discovery URLs
-              cat > /app/config.json << 'EOF'
-              {
-                "network": {
-                  "coordinator_configs": [
-                    {
-                      "id": 0,
-                      "rpc_url": ["http://coordinator-edge.qed.local:8545"]
-                    }
-                  ],
-                  "realm_configs": [
-                   {% for realm in config.nodes.realms %}
-                    {
-                      "id": {{ realm.id }},
-                      "rpc_url": ["http://realm-{{ realm.id }}-edge.qed.local:{{ 8546 + realm.id }}"]
-                    }{% if not loop.last %},{% endif %}
-                   {% endfor %}
-                  ]
-                }
-              }
-              EOF
-
-              # Start worker with generated config
-              exec /qed-rollup/target/release/qed_rollup_cli worker \
-                --config /app/config.json \
-                {% for key, value in (pool.args | default({}) | dictsort) %}
-                --{{ key | replace('_', '-') }} '{{ value }}' \
-                {% endfor %}
-
           Environment:
-           {% for key, value in (pool.env | default({}) | dictsort) %}
+            - Name: CONFIG_BUCKET
+              Value: !Ref ConfigBucketName
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref 'AWS::Region'
+            {% for key, value in (config.nodes.workers.env | default({}) | dictsort) %}
             - Name: {{ key }}
               Value: '{{ value | string }}'
-           {% endfor %}
-            # Add API service endpoint for worker reporting
-            - Name: API_SERVICE_URL
-              Value: 'http://api-service.qed.local:3000'
-          MountPoints:
-            - SourceVolume: config
-              ContainerPath: /app
-              ReadOnly: false
-          Memory: {{ pool.aws.memory | default(8192) }}
-          MemoryReservation: {{ (pool.aws.memory | default(8192) * 0.9) | int }}  # 90% reservation for workers
-          Cpu: {{ pool.aws.cpu | default(8192) }}
+            {% endfor %}
+          Memory: {{ config.nodes.workers.aws.memory }}
+          MemoryReservation: {{ (config.nodes.workers.aws.memory * 0.875) | int }}
+          Cpu: {{ config.nodes.workers.aws.cpu }}
           LinuxParameters:
             InitProcessEnabled: true
           LogConfiguration:
@@ -536,62 +921,124 @@ Resources:
             Options:
               awslogs-group: {{ config.nodes.deployment.aws.ecs.log_group }}
               awslogs-region: !Ref 'AWS::Region'
-              awslogs-stream-prefix: worker-pool-{{ loop.index }}
-          Essential: true
+              awslogs-stream-prefix: worker
+                 EntryPoint:
+            - /bin/bash
+            - -c
+          Command:
+            - !Sub |
+              # Enable verbose debugging
+              set -x
 
-  WorkerPool{{ loop.index }}Service:
+              # Create directory if it doesn't exist (shouldn't be needed since WORKDIR is set)
+              mkdir -p /qed-rollup
+              cd /qed-rollup
+
+              # Install jq if not available (it should be in your Docker image)
+              if ! command -v jq &> /dev/null; then
+                apt-get update && apt-get install -y jq
+              fi
+
+              # Download latest config from S3
+              CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/config.json"
+              echo "============================================"
+              echo "WORKER CONFIG DOWNLOAD DEBUG"
+              echo "============================================"
+              echo "Downloading config from: $CONFIG_URL"
+
+              # Download with verbose output
+              curl -v -f -o /qed-rollup/config.json "$CONFIG_URL" 2>&1
+              
+              if [ $? -ne 0 ]; then
+                echo "ERROR: Failed to download from primary URL"
+                # Try alternative path
+                CONFIG_URL="https://${ConfigBucketName}.s3.${AWS::Region}.amazonaws.com/config.json"
+                echo "Trying alternative: $CONFIG_URL"
+                curl -v -f -o /qed-rollup/config.json "$CONFIG_URL" 2>&1
+                
+                if [ $? -ne 0 ]; then
+                  echo "ERROR: Failed to download config from any location"
+                  exit 1
+                fi
+              fi
+  
+              # Verify config was downloaded
+              if [ ! -f /qed-rollup/config.json ]; then
+                echo "ERROR: Failed to download config"
+                exit 1
+              fi
+              echo "============================================"
+              echo "FULL CONFIG FILE CONTENT"
+              echo "============================================"
+              cat /qed-rollup/config.json
+              
+              echo "============================================"
+              echo "WORKER CONFIGURATION SECTION"
+              echo "============================================"
+              jq '.nodes.workers' /qed-rollup/config.json
+              
+              echo "============================================"
+              echo "EXTRACTING PRIVATE KEY"
+              echo "============================================"
+              
+              echo "Config downloaded successfully:"
+              cat /qed-rollup/config.json | jq '.network'
+
+              # Start worker with downloaded config
+              exec /qed-rollup/qed_rollup_cli worker \
+                --config /qed-rollup/config.json \
+                {% for key, value in (config.nodes.workers.args | default({}) | dictsort) %}
+                {% if key != 'config' %}
+                --{{ key | replace('_', '-') }} '{{ value }}' \
+                {% endif %}
+                {% endfor %}
+
+  WorkerService:
     Type: AWS::ECS::Service
     Properties:
-      ServiceName: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}'
+      ServiceName: !Sub '${ProjectName}-${Environment}-worker'
       Cluster: !Ref MainECSClusterName
-      TaskDefinition: !Ref WorkerPool{{ loop.index }}TaskDefinition
-      DesiredCount: {{ pool.aws.ecs.task_count | default(3) }}
+      TaskDefinition: !Ref WorkerTaskDefinition
+      DesiredCount: {{ config.nodes.workers.aws.ecs.task_count }}
       LaunchType: EC2
       PlacementConstraints:
         - Type: memberOf
-          Expression: 'attribute:worker_pool == {{ pool.id }}'  # Place on correct pool
+          Expression: 'attribute:workload == worker'
       PlacementStrategies:
         - Type: spread
-          Field: instanceId  # Spread across different instances
+          Field: instanceId  
       DeploymentConfiguration:
         MaximumPercent: 100      # Don't over-provision
         MinimumHealthyPercent: 66  # Allow rolling updates 
 
-      SchedulingStrategy: REPLICA
-
-  # Auto Scaling for Worker Pool {{ loop.index }}
-  WorkerPool{{ loop.index }}ScalableTarget:
+  # Auto Scaling for Worker
+  WorkerScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
-      MaxCapacity: 6  # Max 6 tasks for worker pools
-      {% if pool.aws and pool.aws.ecs %}
-      MinCapacity: {{ pool.aws.ecs.task_count | default(pool.instances) }}
-      {% else %}
-      MinCapacity: {{ pool.instances }}
-      {% endif %}
-      ResourceId: !Sub 'service/${MainECSClusterName}/${WorkerPool{{ loop.index }}Service.Name}'
+      MaxCapacity: 12  # Max 12 tasks 
+      MinCapacity: {{ config.nodes.workers.aws.ecs.task_count }}
+      ResourceId: !Sub 'service/${MainECSClusterName}/${WorkerService.Name}'
       RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
 
-  WorkerPool{{ loop.index }}ScalingPolicy:
+  WorkerScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties:
-      PolicyName: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}-scaling'
+      PolicyName: !Sub '${ProjectName}-${Environment}-worker-scaling'
       PolicyType: TargetTrackingScaling
-      ScalingTargetId: !Ref WorkerPool{{ loop.index }}ScalableTarget
+      ScalingTargetId: !Ref WorkerScalableTarget
       TargetTrackingScalingPolicyConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
         TargetValue: 70.0
-  {% endfor %}
   {% endif %}
 
 
   # ============================================================================
   # GLOBAL API SERVICE
   # ============================================================================
-  {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
+  {# {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
   ApiServiceTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -827,7 +1274,7 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
         TargetValue: 70.0
-  {% endif %}
+  {% endif %} #}
 
 Outputs:
   # Coordinator Service Outputs
@@ -836,12 +1283,12 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-edge-service'
 
-  {% if config.nodes.coordinator.watcher and config.nodes.coordinator.watcher.enabled %}
+  {# {% if config.nodes.coordinator.watcher and config.nodes.coordinator.watcher.enabled %}
   CoordinatorWatcherServiceName:
     Value: !Ref CoordinatorWatcherService
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-watcher-service'
-  {% endif %}
+  {% endif %} #}
 
   # Realm Service Outputs
   {% for realm in config.nodes.realms %}
@@ -850,26 +1297,31 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-edge-service'
 
-  {% if realm.watcher and realm.watcher.enabled %}
+  {# {% if realm.watcher and realm.watcher.enabled %}
   Realm{{ realm.id }}WatcherServiceName:
     Value: !Ref Realm{{ realm.id }}WatcherService
     Export:
       Name: !Sub '${ProjectName}-${Environment}-realm-{{ realm.id }}-watcher-service'
-  {% endif %}
+  {% endif %} #}
   {% endfor %}
 
   # Independent Worker Outputs
   {% if config.nodes.workers and config.nodes.workers.enabled %}
-  {% for pool in config.nodes.workers.worker_pools %}
-  WorkerPool{{ loop.index }}ServiceName:
-    Value: !Ref WorkerPool{{ loop.index }}Service
+  WorkerServiceName:
+    Value: !Ref WorkerService
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-worker-pool-{{ loop.index }}-service'
-  {% endfor %}
+      Name: !Sub '${ProjectName}-${Environment}-worker-service'
+    Description: Worker Service Name
+
+  WorkerServiceArn:
+    Value: !Ref WorkerService
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-worker-service-arn'
+    Description: Worker Service ARN
   {% endif %}
 
   # Global Service Outputs
-  {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
+  {# {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
   ApiServiceName:
     Value: !Ref ApiService
     Export:
@@ -879,7 +1331,7 @@ Outputs:
     Value: !GetAtt ApiServiceDiscovery.Arn
     Export:
       Name: !Sub '${ProjectName}-${Environment}-api-service-sd'
-  {% endif %}
+  {% endif %} #}
 
   # Service Discovery
   CoordinatorEdgeServiceDiscoveryArn:
@@ -887,7 +1339,7 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-${Environment}-coordinator-edge-sd'
 
-  {% if config.nodes.prover and config.nodes.prover.enabled %}
+  {# {% if config.nodes.prover and config.nodes.prover.enabled %}
   ProverServiceName:
     Value: !Ref ProverService
     Export:
@@ -897,5 +1349,7 @@ Outputs:
     Value: !GetAtt ProverServiceDiscovery.Arn
     Export:
       Name: !Sub '${ProjectName}-${Environment}-prover-sd'
-  {% endif %}
+  {% endif %} #}
+
+
   

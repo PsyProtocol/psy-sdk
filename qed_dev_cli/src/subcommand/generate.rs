@@ -33,24 +33,16 @@ pub struct NodesConfig {
     pub realms: Vec<RealmNode>,
     pub prover: Option<ServiceConfig>,
     pub deployment: DeploymentConfig,
-    pub workers: Option<IndependentWorkers>,
+    pub workers: Option<WorkerConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IndependentWorkers {
+pub struct WorkerConfig {
     pub enabled: bool,
-    pub worker_pools: Vec<WorkerPool>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkerPool {
-    pub id: String,
-    pub instances: u32,
     pub args: HashMap<String, Value>,
     pub env: HashMap<String, String>,
     pub aws: Option<AwsServiceConfig>,
 }
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerGlobalConfig {
     pub task_discovery_interval: u32,
@@ -785,37 +777,36 @@ fn start_realm_services(config: &Config, database: &str, args: &RunArgs) -> Resu
 fn start_independent_workers(config: &Config, _args: &RunArgs) -> Result<()> {
     if let Some(workers) = &config.nodes.workers {
         if workers.enabled {
-            info!("Starting independent worker pools...");
-            // Ensure config.json exists with correct RPC URLs for workers
-            // ensure_worker_config_file(config)?;
+            info!("Starting workers...");
 
-            for pool in &workers.worker_pools {
-                info!("Starting worker pool '{}' with {} instances", pool.id, pool.instances);
-                for i in 0..pool.instances {
-                    let service_name = format!("worker-{}-{}", pool.id, i);
-                    let command = build_worker_command(pool)?;
-                    // Add API service URL to environment
-                    let mut env = pool.env.clone();
-                    env.insert("API_SERVICE_URL".to_string(), "http://localhost:3000".to_string());
+            // Get task count from AWS config or default to 3
+            let task_count = workers.aws.as_ref()
+                .and_then(|aws| aws.ecs.as_ref())
+                .map(|ecs| ecs.task_count)
+                .unwrap_or(3);
 
-                    start_service(&service_name, command, &env)?;                }
+            for i in 0..task_count {
+                let service_name = format!("worker-{}", i);
+                let command = build_worker_command(workers)?;
+
+                // Add API service URL to environment
+                let mut env = workers.env.clone();
+                env.insert("API_SERVICE_URL".to_string(), "http://localhost:3000".to_string());
+
+                start_service(&service_name, command, &env)?;
             }
         }
     }
     Ok(())
 }
-fn build_worker_command(pool: &WorkerPool) -> Result<Vec<String>> {
+fn build_worker_command(workers: &WorkerConfig) -> Result<Vec<String>> {
     let mut cmd = vec![
         "./target/release/qed_rollup_cli".to_string(),
         "worker".to_string(),
     ];
-    // Add pool-specific args (private-key, keystore-path, wallet-password)
-    for (key, value) in &pool.args {
-        // Skip config if it's in args since we already added it
-        if key == "config" {
-            continue;
-        }
 
+    // Add worker args (config, private-key, etc.)
+    for (key, value) in &workers.args {
         cmd.push(format!("--{}", key.replace('_', "-")));
 
         match value {
@@ -1640,42 +1631,44 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
     // Add this section for independent workers:
     if let Some(workers) = &config.nodes.workers {
         if workers.enabled {
-            let mut total_worker_instances = 0;
-            let mut total_worker_cpu = 0;
-            let mut total_worker_memory = 0;
 
-            for pool in &workers.worker_pools {
-                total_worker_instances += pool.instances;
-                if let Some(aws) = &pool.aws {
-                    total_worker_cpu += aws.cpu * pool.instances;
-                    total_worker_memory += aws.memory * pool.instances;
-                }
-            }
+        // Get task count from AWS config
+            let task_count = workers.aws.as_ref()
+                .and_then(|aws| aws.ecs.as_ref())
+                .map(|ecs| ecs.task_count)
+                .unwrap_or(3); // Default to 3 if not specified
 
-            if total_worker_instances > 0 {
+            let total_worker_cpu = workers.aws.as_ref()
+                .map(|aws| aws.cpu * task_count)
+                .unwrap_or(0);
+        
+            let total_worker_memory = workers.aws.as_ref()
+                .map(|aws| aws.memory * task_count)
+                .unwrap_or(0);
+
+
+            if task_count > 0 {
                 info!("├─────────────────┼──────────────────────────────────┼──────────┼──────────────┼───────────────────────┼──────────────────────────┤");
                 info!("│ {:<15} │ {:<32} │ {:<8} │ {:<12} │ {:<21} │                          │",
                 "Workers",
-                format!("Independent({} pools)", workers.worker_pools.len()),
+                format!("Worker({})", task_count),
                 format!("{:.1}", total_worker_cpu as f32 / 1024.0),
                 format!("{:.0}GB", total_worker_memory as f32 / 1024.0),
-                format!("{} total", total_worker_instances)
+                format!("{} tasks", task_count)
             );
 
-                for (i, pool) in workers.worker_pools.iter().enumerate() {
-                    let rec = if let Some(aws) = &pool.aws {
-                        get_service_instance_recommendation(&ServiceConfig {
-                            enabled: true,
-                            instances: Some(pool.instances),
-                            args: HashMap::new(),
-                            env: HashMap::new(),
-                            aws: Some(aws.clone()),
-                        }, "worker")
-                    } else {
-                        "Local".to_string()
-                    };
-                    info!("│                 │                                  │          │              │                       │ Pool {}: {:<17} │", i+1, rec);
+           
+                if let Some(aws) = &workers.aws {
+                    let rec = get_service_instance_recommendation(&ServiceConfig {
+                        enabled: true,
+                        instances: Some(task_count),
+                        args: HashMap::new(),
+                        env: HashMap::new(),
+                        aws: Some(aws.clone()),
+                    }, "worker");
+                    info!("│                 │                                  │          │              │                       │ Worker: {:<24} │", rec);
                 }
+        
             }
         }
     }
@@ -1896,16 +1889,16 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
             // Check independent workers
             if let Some(workers) = &config.nodes.workers {
                 if workers.enabled {
-                    for pool in &workers.worker_pools {
-                        if let Some(aws) = &pool.aws {
-                            if let Some(DeploymentType::ECS) = &aws.deployment_type {
-                                let task_count = aws.ecs.as_ref().map(|e| e.task_count).unwrap_or(pool.instances);
-                                max_task_cpu = max_task_cpu.max(aws.cpu);
-                                max_task_memory = max_task_memory.max(aws.memory);
-                                total_task_cpu += aws.cpu * task_count;
-                                total_task_memory += aws.memory * task_count;
-                                total_task_count += task_count;
-                            }
+                    if let Some(aws) = &workers.aws {
+                        if let Some(DeploymentType::ECS) = &aws.deployment_type {
+                            let task_count = aws.ecs.as_ref()
+                                .map(|e| e.task_count)
+                                .unwrap_or(3);
+                            max_task_cpu = max_task_cpu.max(aws.cpu);
+                            max_task_memory = max_task_memory.max(aws.memory);
+                            total_task_cpu += aws.cpu * task_count;
+                            total_task_memory += aws.memory * task_count;
+                            total_task_count += task_count;
                         }
                     }
                 }
@@ -2038,14 +2031,15 @@ fn print_deployment_summary2(config: &Config, database: &str) {
             info!("    - Watcher: {}", if watcher.enabled { "✅" } else { "❌" });
         }
     }
-
     // Workers
     if let Some(workers) = &config.nodes.workers {
         if workers.enabled {
             info!("\n👷 Workers:");
-            for pool in &workers.worker_pools {
-                info!("  - Pool '{}': {} instances", pool.id, pool.instances);
-            }
+            let task_count = workers.aws.as_ref()
+                .and_then(|aws| aws.ecs.as_ref())
+                .map(|ecs| ecs.task_count)
+                .unwrap_or(3);
+            info!("  - Worker tasks: {}", task_count);
         }
     }
 
@@ -2305,9 +2299,11 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
     // Add independent workers
     if let Some(workers) = &config.nodes.workers {
         if workers.enabled {
-            for pool in &workers.worker_pools {
-                total_containers += pool.instances;
-            }
+            let task_count = workers.aws.as_ref()
+                .and_then(|aws| aws.ecs.as_ref())
+                .map(|ecs| ecs.task_count)
+                .unwrap_or(3);
+            total_containers += task_count;
         }
     }
 
@@ -2402,36 +2398,42 @@ fn print_docker_compose_summary(config: &Config) -> Result<()> {
         }
     }
 
-    // Worker pools summary
+    // Worker summary
     if let Some(workers) = &config.nodes.workers {
         if workers.enabled {
-            info!("\n👷 Worker Pools:");
-            for pool in &workers.worker_pools {
-                let total_instances = pool.instances;
-
-                info!("  • Pool '{}': {} instances",
-                    pool.id,
-                    total_instances
+            info!("\n👷 Workers:");
+            
+            let task_count = workers.aws.as_ref()
+                .and_then(|aws| aws.ecs.as_ref())
+                .map(|ecs| ecs.task_count)
+                .unwrap_or(3);
+            
+            info!("  • Worker tasks: {}", task_count);
+            
+            // Show worker configuration details
+            if let Some(aws) = &workers.aws {
+                info!("    Resources: {} CPU units, {} MB memory per task",
+                    aws.cpu,
+                    aws.memory
                 );
-
-                // Show worker configuration details
-                if let Some(aws) = &pool.aws {
-                    info!("    Resources: {} CPU units, {} MB memory",
-                        aws.cpu,
-                        aws.memory
-                    );
-                }
-
-                // Workers will auto-discover nodes from config
-                info!("    Node discovery: via config.json RPC endpoints");
-                info!("    API reporting: port 3000");
             }
-
-            // Show total worker count
-            let total_workers: u32 = workers.worker_pools.iter()
-                .map(|p| p.instances)
-                .sum();
-            info!("  Total workers: {}", total_workers);
+            
+            // Show private key (truncated for security)
+            if let Some(private_key) = workers.args.get("private-key") {
+                if let Value::String(key) = private_key {
+                    let truncated = if key.len() > 10 {
+                        format!("{}...", &key[..10])
+                    } else {
+                        key.clone()
+                    };
+                    info!("    Private key: {}", truncated);
+                }
+            }
+            
+            // Workers will auto-discover nodes from config
+            info!("    Node discovery: via config.json RPC endpoints");
+            info!("    API reporting: port 3000");
+            info!("  Total workers: {}", task_count);
         }
     }
 
