@@ -163,6 +163,12 @@ where
         builder.register_public_inputs(&deploy_contracts_root.elements);
         builder.register_public_inputs(&gutas_root.elements);
         builder.register_public_inputs(&verifier_gadget.combined_pm_jobs_completed.to_targets());
+
+        tracing::debug!("🔧 state_transition_hash targets: {:?}", state_transition_hash.elements);
+        tracing::debug!("🔧 register_users_root targets: {:?}", register_users_root.elements);
+        tracing::debug!("🔧 deploy_contracts_root targets: {:?}", deploy_contracts_root.elements);
+        tracing::debug!("🔧 gutas_root targets: {:?}", gutas_root.elements);
+
         let base_circuit_data = builder.build::<C>();
 
         let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(
@@ -208,8 +214,8 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
-        println!("r: {:?}", register_users_state_transition.get_combined_hash::<C::Hasher>());
-        println!("d: {:?}", deploy_contracts_state_transition.get_combined_hash::<C::Hasher>());
+        println!("r: {}", register_users_state_transition.get_combined_hash::<C::Hasher>());
+        println!("d: {}", deploy_contracts_state_transition.get_combined_hash::<C::Hasher>());
 
         self.verifier_gadget.set_witness_params(
             &mut pw,

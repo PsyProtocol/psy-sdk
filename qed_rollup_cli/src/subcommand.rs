@@ -42,6 +42,9 @@ pub enum Commands {
 
         #[arg(long = "wallet-password", env = "WALLET_PASSWORD", help = "Wallet password")]
         wallet_password: Option<String>,
+
+        #[arg(long = "recipient", help = "Recipient user ID for rewards (defaults to private key derived user ID)")]
+        recipient: Option<u64>,
     },
     #[command(about = "Run the watcher service for monitoring and reporting node status")]
     Watcher(qed_node::watcher::WatcherArgs),

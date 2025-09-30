@@ -96,12 +96,15 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
         return Ok(());
     }
 
-    info!("Claiming rewards from checkpoint {} to {} (latest: {}, cooldown: {})",
-          start_checkpoint, max_claimable_checkpoint, latest_checkpoint_id, claim_rewards_cooldown);
-
     let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
 
-    for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
+    // Apply limit to number of checkpoints to process
+    let end_checkpoint = max_claimable_checkpoint.min(start_checkpoint + args.limit as u64 - 1);
+
+    info!("Claiming rewards from checkpoint {} to {} (max: {}, limit: {}, latest: {}, cooldown: {})",
+          start_checkpoint, end_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown);
+
+    for checkpoint_id in start_checkpoint..=end_checkpoint {
         let mut job_infos = if !args.jobs.is_empty() {
             parse_job_specs(&args.jobs)?
         } else {
@@ -111,6 +114,8 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
         if job_infos.is_empty() {
             continue;
         }
+
+        info!("Checkpoint {} - Found {} jobs", checkpoint_id, job_infos.len());
 
         for job_info in job_infos {
             match job_info.job_id.circuit_type {
@@ -131,10 +136,16 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
                 }
             };
 
-            if let Ok((actual_checkpoint_id, job_proof)) = get_job_proof(&provider, &job_info, checkpoint_id) {
-                checkpoint_jobs.entry(actual_checkpoint_id)
-                    .or_insert_with(Vec::new)
-                    .push((job_info, job_proof));
+            match get_job_proof(&provider, &job_info, checkpoint_id) {
+                Ok((actual_checkpoint_id, job_proof)) => {
+                    info!("Found job proof for checkpoint {}, job {:?}", actual_checkpoint_id, job_info.job_id);
+                    checkpoint_jobs.entry(actual_checkpoint_id)
+                        .or_insert_with(Vec::new)
+                        .push((job_info, job_proof));
+                }
+                Err(e) => {
+                    warn!("Failed to get job proof for checkpoint {}, job {:?}: {}", checkpoint_id, job_info.job_id, e);
+                }
             }
         }
     }
@@ -250,36 +261,8 @@ fn build_claim_calls_for_multi_checkpoints(
     let total_proofs = all_proofs.len();
     let mut proof_index = 0;
 
-    let count_10s = total_proofs / 10;
-    let mut remaining = total_proofs % 10;
-
-    let count_5s = remaining / 5;
-    remaining = remaining % 5;
-
-    for _ in 0..count_10s {
-        let chunk = &all_proofs[proof_index..proof_index + 10];
-        let mut batch_inputs = Vec::new();
-
-        for proof_with_checkpoint in chunk {
-            batch_inputs.push(proof_with_checkpoint.checkpoint_id);
-        }
-
-        for proof_with_checkpoint in chunk {
-            serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut batch_inputs);
-        }
-
-        for proof_with_checkpoint in chunk {
-            batch_inputs.push(proof_with_checkpoint.proposed_reward);
-        }
-
-        contract_call_args.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID,
-            method_name: "claim_guta_rewards_10".to_string(),
-            inputs: batch_inputs,
-        });
-
-        proof_index += 10;
-    }
+    let count_5s = total_proofs / 5;
+    let mut remaining = total_proofs % 5;
 
     for _ in 0..count_5s {
         let chunk = &all_proofs[proof_index..proof_index + 5];
@@ -352,6 +335,8 @@ fn build_claim_calls_for_multi_checkpoints(
 }
 
 fn serialize_proof_to_inputs(proof: &VariableHeightRewardMerkleProof, inputs: &mut Vec<u64>) {
+    tracing::debug!("🔍 Serializing proof: {}", serde_json::to_string_pretty(proof).unwrap());
+
     for j in 0..GUTA_REWARDS_TREE_MAX_HEIGHT {
         if j < proof.top_siblings.len() {
             let sibling = &proof.top_siblings[j];

@@ -74,6 +74,10 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
             ],
         };
 
+        tracing::debug!("🎯 GUTA gadget - guta_proof_header_gadget: {:?}", guta_proof_header_gadget);
+        tracing::debug!("🎯 GUTA gadget - expected_proof_public_inputs_hash targets: {:?}", expected_proof_public_inputs_hash.elements);
+        tracing::debug!("🎯 GUTA gadget - proof_public_input_hash targets: {:?}", proof_public_input_hash.elements);
+
         // ensure the whitelist root and state transition is correct for the proof
         builder.connect_hashes(expected_proof_public_inputs_hash, proof_public_input_hash);
         // end: check child proof public inputs
