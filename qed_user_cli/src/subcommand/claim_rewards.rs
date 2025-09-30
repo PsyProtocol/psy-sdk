@@ -21,7 +21,7 @@ use qed_data::{
     config::store_config::QEDHasher,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
-use qed_node::worker::job_tracker::{JobInfo, JobLocation, WorkerJobTracker};
+use qed_prover::local::args::{JobInfo, JobLocation, WorkerJobTracker};
 use qed_prover::{
     local::{
         args::{ContractCallArgs, SignType},
@@ -461,4 +461,124 @@ fn parse_job_id_from_hex(hex_str: &str) -> Result<QProvingJobDataID> {
         anyhow::bail!("Invalid job ID length: expected 24 bytes, got {}", bytes.len());
     }
     QProvingJobDataID::try_from_byte_vec(&bytes)
+}
+
+
+pub fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Result<()> {
+    let config_str = std::fs::read_to_string(&args.rpc_config)?;
+    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let private_key = QHashOut::from(Hash256::from_hex_string(&args.private_key)?);
+
+    let provider = RpcProvider::new_with_config(&rpc_config)?;
+    let mut wallet_session = WalletSession::new(&rpc_config)?;
+    let fingerprint = if args.fingerprint.is_some() {
+        Some(QHashOut::<F>::from_str(&args.fingerprint.as_ref().unwrap()).map_err(|e| anyhow::format_err!("Failed to parse fingerprint: {}", e))?)
+    } else {
+        None
+    };
+
+    let user_pk_hash = wallet_session.add_user_with_type(private_key, args.sign_type.clone(), fingerprint)?;
+    let user_id = provider.get_user_id(user_pk_hash)?;
+
+    let latest_l2_block_state = provider.get_latest_l2_block_state()?;
+    let latest_checkpoint_id = latest_l2_block_state.checkpoint_id;
+
+    info!("Latest checkpoint: {}", latest_checkpoint_id);
+
+    let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id) {
+        Ok(checkpoint) => {
+            info!("Last claimed checkpoint: {}", checkpoint);
+            checkpoint
+        }
+        Err(e) => {
+            warn!("Failed to query last claimed checkpoint ({}), starting from checkpoint 1", e);
+            0
+        }
+    };
+
+    let start_checkpoint = last_claimed + 1;
+
+    let claim_rewards_cooldown = 0;
+    let max_claimable_checkpoint = if latest_checkpoint_id > claim_rewards_cooldown {
+        latest_checkpoint_id - claim_rewards_cooldown
+    } else {
+        0
+    };
+
+    if start_checkpoint > max_claimable_checkpoint {
+        info!("No new checkpoints to claim (latest: {}, cooldown: {}, max claimable: {})",
+              latest_checkpoint_id, claim_rewards_cooldown, max_claimable_checkpoint);
+        return Ok(());
+    }
+
+    // let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
+    let mut checked_job_infos = Vec::new();
+    let mut processed_count = 0;
+
+    info!("Claiming rewards from checkpoint {} to {} (limit: {}, latest: {}, cooldown: {})",
+          start_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown);
+
+    for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
+        if processed_count >= args.limit {
+            break;
+        }
+        let mut job_infos = if !args.jobs.is_empty() {
+            parse_job_specs(&args.jobs)?
+        } else {
+            load_jobs_from_tracker_file(&user_pk_hash, checkpoint_id)?
+        };
+
+        job_infos.retain(|job_info| {
+            matches!(job_info.job_id.circuit_type,
+                ProvingJobCircuitType::GUTAOnlyRegisterUsers
+                | ProvingJobCircuitType::GUTARegisterUsers
+                | ProvingJobCircuitType::GUTATwoEndCap
+                | ProvingJobCircuitType::GUTATwoGUTA
+                | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+                | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                | ProvingJobCircuitType::GUTASingleEndCap
+                | ProvingJobCircuitType::GUTAVerifyToCap
+                | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+                | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
+                | ProvingJobCircuitType::GUTANoChange
+            )
+        });
+
+        if job_infos.is_empty() {
+            continue;
+        }
+
+        info!("Checkpoint {} - Found {} valid jobs", checkpoint_id, job_infos.len());
+        checked_job_infos.push((checkpoint_id, job_infos));
+
+        processed_count += 1;
+    }
+
+    if checked_job_infos.is_empty() {
+        info!("No valid checkpoints with rewards to claim");
+        return Ok(());
+    }
+
+
+    info!("Executing {} contract calls in single transaction", checked_job_infos.len());
+    let all_contract_calls = wallet_session.get_claim_rewards_call_args(
+        user_pk_hash,
+        checked_job_infos,
+    )?;
+
+    println!("contract_call_args: {}", serde_json::to_string_pretty(&all_contract_calls)?);
+
+    wallet_session.exec_contract_call_with_sign_type(
+        user_pk_hash,
+        all_contract_calls,
+        args.sign_type.clone(),
+        fingerprint,
+        Some(MINING_REWARDS_CONTRACT_ID),
+        vec![],
+    )?;
+
+    info!("Successfully claimed rewards");
+
+    Ok(())
 }
