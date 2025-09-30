@@ -63,13 +63,12 @@ use plonky2::hash::hash_types::RichField;
 use tokio::time::{sleep_until, Instant};
 use tracing::{debug, error, info, warn};
 use serde_json;
-use qed_data::qdata::checkpoint::PendingCheckpointState;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
-use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue, PendingCheckPointAsync};
+use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue};
 use crate::common::clock::SlotTimer;
 use crate::common::retry::Retryable;
 use crate::common::slot;
-use crate::common::slot::{Clock, LocalClock, Parity, Slot, SLOT_SIZE};
+use crate::common::slot::{LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::realm::RealmProcessor;
 use super::backup::{CoordinatorS3BackupClient, try_backup_coordinator_checkpoint};
 use tokio::sync::mpsc;
@@ -88,7 +87,7 @@ pub struct CoordinatorProcessNode<
     JL: Journal,
     SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
     DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
-    HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification> + PendingCheckPointAsync<PendingCheckpointState>,
+    HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
     ER: WorkerEventReceiverAsyncImm,
@@ -109,7 +108,7 @@ impl<
         JL: Journal,
         SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
-        HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification> + PendingCheckPointAsync<PendingCheckpointState>,
+        HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm,
         ER: WorkerEventReceiverAsyncImm,
@@ -623,12 +622,6 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         }
 
         let slot = slot_timer_other.get_current_slot();
-        let slot_time_stamp = slot_timer_other.get_current_timestamp();
-        coordinator_processor.edge_command_queue.set_pending_checkpoint(Some(PendingCheckpointState {
-            pending_slot: slot,
-            slot_timestamp: slot_time_stamp,
-            pending_checkpoint_id: next_checkpoint_id,
-        })).await?;
         match coordinator_processor.build_block(next_checkpoint_id, slot).await {
             Ok(checkpoint_id) => {
                 info!("✅ Successfully built block for checkpoint {}, slot {}", checkpoint_id, slot);
@@ -637,7 +630,6 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 error!("❌Failed to build block checkpoint: {}, error: {:?}, slot: {}",next_checkpoint_id, err, slot);
             }
         }
-        coordinator_processor.edge_command_queue.set_pending_checkpoint(None::<PendingCheckpointState>).await?;
     }
 }
 
@@ -645,7 +637,7 @@ impl<
     JL: Journal,
     SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
     DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
-    HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification> + PendingCheckPointAsync<PendingCheckpointState>,
+    HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm,
     ER: WorkerEventReceiverAsyncImm,

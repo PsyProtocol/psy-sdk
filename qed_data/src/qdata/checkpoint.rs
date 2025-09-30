@@ -496,24 +496,6 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafCompactWithStateRoots<
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
-pub struct PendingCheckpointState {
-    pub pending_slot: u64,
-    pub slot_timestamp: u64,
-    pub pending_checkpoint_id: u64,
-}
-
-impl KVQSerializable for PendingCheckpointState
-{
-    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
-    }
-
-    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
-        bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
-    }
-}
-
 /// push the latest checkpoint sync info
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]

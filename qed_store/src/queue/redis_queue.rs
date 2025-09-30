@@ -9,7 +9,7 @@ use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
-use kvq::traits::{KVQPair, KVQSerializable};
+use kvq::traits::KVQPair;
 use plonky2::{hash::hash_types::RichField, plonk::{config::GenericConfig, proof::ProofWithPublicInputs}};
 use qed_core::job::{
     drain_queue::{
@@ -854,43 +854,5 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
               state.consumed_count, state.checkpoint_id);
 
         Ok(())
-    }
-}
-
-
-#[async_trait]
-#[auto_impl(Box, Arc)]
-pub trait PendingCheckPointAsync<T: KVQSerializable + Send + Sync> {
-    async fn set_pending_checkpoint(
-        &self,
-        item: Option<T>,
-    ) -> anyhow::Result<()> where T: 'async_trait;
-    async fn get_pending_checkpoint(&self) -> anyhow::Result<Option<T>>;
-}
-
-#[async_trait]
-impl<T: KVQSerializable + Send+ Sync> PendingCheckPointAsync<T> for ProofStoreRedisAsync {
-    async fn set_pending_checkpoint(
-        &self,
-        item: Option<T>,
-    ) -> anyhow::Result<()> where T: 'async_trait {
-        let mut conn = self.pool().get().await?;
-        let key = format!("{}-{}", self.checkpoint_list_key(), "PENDING_CHECKPOINT");
-        if let Some(item) =  item {
-            let bytes = item.to_bytes()?;
-            conn.set(key, bytes).await?;
-        } else {
-            conn.del(&key).await?;
-        }
-        Ok(())
-    }
-    async fn get_pending_checkpoint(&self) -> anyhow::Result<Option<T>> {
-        let mut conn = self.pool().get().await?;
-        let key = format!("{}-{}", self.checkpoint_list_key(), "PENDING_CHECKPOINT");
-        let bytes: Option<Vec<u8>> = conn.get(&key).await?;
-        match bytes {
-            Some(bytes) => Ok(Some(T::from_bytes(&bytes)?)),
-            None => Ok(None),
-        }
     }
 }

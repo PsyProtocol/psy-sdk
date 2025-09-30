@@ -21,7 +21,7 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_PROOF_SYNC_CHANNEL};
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_data::models::checkpoint::sync_info::CheckpointError;
-use qed_data::qdata::checkpoint::{CheckpointSyncInfo, PendingCheckpointState};
+use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_core::job::history_queue::{CheckpointHistoryQueueEmitterAsyncImm, CheckpointHistoryQueueConsumerAsyncImm};
 use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
 use qed_core::job::traits::QProofStoreAsyncImm;
@@ -29,9 +29,7 @@ use qed_data::config::store_config::{QEDFelt, QEDHasher};
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_rollup_utils::generate_jwt_token;
 use qed_store::queue::ProofStoreRedisAsync;
-use qed_store::queue::redis_queue::PendingCheckPointAsync;
 use crate::common::retry::{RetryConfig, Retryable};
-use crate::coordinator::edge::types::LatestCheckpointResponse;
 use crate::realm::state::edge::RealmEdgeContext;
 
 const SYNC_INTERVAL: Duration = Duration::from_millis(200);
@@ -39,7 +37,7 @@ const SYNC_INTERVAL: Duration = Duration::from_millis(200);
 pub struct CheckpointSyncManager<SR, IQ>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-    IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + PendingCheckPointAsync<PendingCheckpointState> + Sync + Send + 'static,
+    IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 {
     realm_id: u32,
     store_reader: Arc<SR>,
@@ -53,7 +51,7 @@ where
 impl<SR, IQ> CheckpointSyncManager<SR, IQ>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-    IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + PendingCheckPointAsync<PendingCheckpointState> + Sync + Send + 'static,
+    IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 {
     pub fn new(
         realm_id: u32,
@@ -131,9 +129,6 @@ where
         ).await {
             Ok(latest_checkpoint) => {
                 self.latest_checkpoint_id = latest_checkpoint.checkpoint_id;
-                if let Err(err) = self.sync_queue.set_pending_checkpoint(latest_checkpoint.pending_checkpoint_state.clone()).await {
-                    warn!("Failed to set pending checkpoint: {:?}", err);
-                }
                 if self.is_up_to_date() {
                     trace!(
                         "Local checkpoint {} is up-to-date with coordinator at checkpoint {}",
@@ -234,7 +229,7 @@ where
 
 pub async fn spawn_active_checkpoint_sync_task<
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-    IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + PendingCheckPointAsync<PendingCheckpointState> + Sync + Send + 'static,
+    IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 >(
     realm_id: u32,
     store_reader: Arc<SR>,
@@ -253,6 +248,11 @@ pub async fn spawn_active_checkpoint_sync_task<
         sync_manager.run_sync_loop().await;
     });
     Ok(())
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct LatestCheckpointResponse {
+    pub checkpoint_id: u64,
 }
 
 pub async fn spawn_realm_job_update_task<
