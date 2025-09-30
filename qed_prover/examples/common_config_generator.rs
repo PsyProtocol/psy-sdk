@@ -63,16 +63,14 @@ fn run_gen_config() -> anyhow::Result<()> {
         guta_circuits.verify_guta_to_cap.get_verifier_triplet(),
     );
 
-    // GUTA_CHECKPOINT_UPGRADE-TODO: Add the new circuits here
     gcv.register_circuit_triplet(
         ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade,
-        guta_circuits.verify_two_guta.get_verifier_triplet(), // replace with guta_circuits.verify_two_guta_with_checkpoint_upgrade when implemented
+        guta_circuits.verify_two_guta_upgrade_checkpoint.get_verifier_triplet(),
     );
 
-    // GUTA_CHECKPOINT_UPGRADE-TODO: Add the new circuits here
     gcv.register_circuit_triplet(
         ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade,
-        guta_circuits.verify_guta_to_cap.get_verifier_triplet(), // replace with guta_circuits.verify_guta_to_cap_with_checkpoint_upgrade when implemented
+        guta_circuits.verify_guta_to_cap_upgrade_checkpoint.get_verifier_triplet(),
     );
 
 
