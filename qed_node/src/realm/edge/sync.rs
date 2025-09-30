@@ -457,7 +457,13 @@ impl RealmProofSender {
                     info!("Successfully submitted job to coordinator, result: {}", result);
                     Ok(())
                 }
-                Err(err) => Err(err),
+                Err(err) => {
+                    error!("Failed to submit job to coordinator: {:?}", err);
+                    if err.to_string().contains("ServerError") {
+                        return Ok(());
+                    }
+                    Err(err)
+                },
             }
         }).await
     }
