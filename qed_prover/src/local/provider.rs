@@ -198,6 +198,7 @@ macro_rules! qed_rpc_call_back {
         $instance
             .client
             .post($rpc_url)
+            .timeout(std::time::Duration::from_secs(360))
             .json(&request)
             .send()?
             .json::<RpcResponse<$ret_ty>>()?
@@ -213,6 +214,7 @@ macro_rules! qed_rpc_call_back {
             $instance
                 .client
                 .post($rpc_url)
+                .timeout(std::time::Duration::from_secs(360))
                 .json(&RpcRequest {
                     jsonrpc: Version::V2,
                     request: $rpc_params,

@@ -23,8 +23,8 @@ async fn main() -> anyhow::Result<()> {
         Commands::RealmProcessor { config } => {
             realm_processor::run(config).await?;
         }
-        Commands::Worker { config, private_key, keystore_path, wallet_password } => {
-            worker::run(config, private_key, keystore_path, wallet_password).await?;
+        Commands::Worker { config, private_key, keystore_path, wallet_password, recipient } => {
+            worker::run(config, private_key, keystore_path, wallet_password, recipient).await?;
         }
         Commands::Watcher(args) => {
             watcher::run(args).await?;
