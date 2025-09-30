@@ -1,5 +1,5 @@
 use std::{marker::Sync, sync::Arc, time::Instant};
-
+use std::time::Duration;
 use chrono::Utc;
 use kvq::traits::KVQPair;
 use plonky2::{
@@ -76,8 +76,10 @@ use qed_store::{
 use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
+use tracing_subscriber::fmt::time;
 use qed_store::store::journal::{Journal, JournalStore};
 use qed_store::store::QEDStore;
+use crate::common::slot::SLOT_SIZE;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -1209,7 +1211,7 @@ impl<
 
         // Wait for final block proving jobs
         debug!("Waiting for block proving jobs for checkpoint {}", new_checkpoint_id);
-        self.prover_queue.wait_for_block_proving_jobs_imm(new_checkpoint_id).await?;
+        self.prover_queue.wait_for_block_proving_jobs_imm(new_checkpoint_id, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
         debug!("Block proving jobs completed for checkpoint {}", new_checkpoint_id);
 
         // Update L2 block state

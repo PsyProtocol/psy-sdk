@@ -1,5 +1,5 @@
 use std::{sync::Arc, time::Duration};
-
+use std::time::Instant;
 use auto_impl::auto_impl;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
@@ -434,7 +434,9 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
     async fn wait_for_block_proving_jobs_imm(
         &self,
         _checkpoint_id: u64,
+        timeout: Option<Duration>,
     ) -> anyhow::Result<QProvingJobDataID> {
+        let now = Instant::now();
         loop {
             let mut con = self.pool.get().await?;
             let job_res: Option<Vec<u8>> = con.lpop(&self.notifications_queue_key(), None).await?;
@@ -460,6 +462,11 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
                 }
                 None => {}
             };
+            if let Some(timeout) = timeout{
+                if now.elapsed() > timeout {
+                    return Err(anyhow::anyhow!("timeout waiting for job"))
+                }
+            }
             sleep(Duration::from_millis(100)).await;
         }
     }
