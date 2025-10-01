@@ -520,19 +520,62 @@ impl<
         tracing::debug!("sorted guta_queue_items: {}", serde_json::to_string_pretty(&guta_queue_items)?);
         guta_queue_items.dedup_by_key(|item| item.input.new_user_leaf.user_id.to_canonical_u64());
 
-        // updata checkpoint tree merkle proof
-        for guta_queue_item in guta_queue_items.iter_mut() {
+        let mut filtered_items = Vec::new();
+        for mut guta_queue_item in guta_queue_items {
             if guta_queue_item.checkpoint_tree_proof.root != checkpoint_tree_root {
-                tracing::warn!("Checkpoint tree root in GUTA queue item does not match checkpoint tree root in store, checkpoint_id: {}, guta_queue_item checkpoint tree root: {}, store checkpoint tree root: {}", checkpoint_id, guta_queue_item.checkpoint_tree_proof.root, checkpoint_tree_root);
-                let checkpoint_tree_proof = self.store.get_checkpoint_tree_merkle_proof(real_checkpoint_id, guta_queue_item.input.checkpoint_id.to_canonical_u64()).await?;
-
-                let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
-                ensure!(current_root == checkpoint_tree_proof.root);
-                ensure!(current_root == checkpoint_tree_root);
-                ensure!(historical_root == guta_queue_item.input.state_transition.checkpoint_tree_root_hash);
-                guta_queue_item.checkpoint_tree_proof = checkpoint_tree_proof;
+                tracing::warn!(
+                    "Checkpoint tree root mismatch, checkpoint_id: {}, item_root: {}, store_root: {}",
+                    checkpoint_id, 
+                    guta_queue_item.checkpoint_tree_proof.root, 
+                    checkpoint_tree_root
+                );
+                
+                match self.store.get_checkpoint_tree_merkle_proof(
+                    real_checkpoint_id, 
+                    guta_queue_item.input.checkpoint_id.to_canonical_u64()
+                ).await {
+                    Ok(checkpoint_tree_proof) => {
+                        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
+                        
+                        if current_root != checkpoint_tree_root || historical_root != guta_queue_item.input.state_transition.checkpoint_tree_root_hash {
+                            tracing::warn!("⚠️ Invalid endcap checkpoint tree proof");
+                            continue;
+                        }
+                        
+                        guta_queue_item.checkpoint_tree_proof = checkpoint_tree_proof;
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to get checkpoint tree proof: {}", e);
+                        continue;
+                    }
+                }
             }
+
+            match self.store.get_user_leaf_data(
+                real_checkpoint_id, 
+                guta_queue_item.input.new_user_leaf.user_id.to_canonical_u64()
+            ).await {
+                Ok(latest_user_leaf_data) => {
+                    let latest_user_leaf_hash = latest_user_leaf_data.qfhash::<QEDHasher>();
+                    if latest_user_leaf_hash != guta_queue_item.input.state_transition.start_user_leaf_hash {
+                        tracing::warn!(
+                            "Invalid latest user leaf hash, stored: {}, expected: {}",
+                            latest_user_leaf_hash, 
+                            guta_queue_item.input.state_transition.start_user_leaf_hash
+                        );
+                        continue;
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to get user leaf data: {}", e);
+                    continue;
+                }
+            }
+
+            filtered_items.push(guta_queue_item);
         }
+
+        let guta_queue_items = filtered_items;
 
         if guta_queue_items.len() == 0 {
             debug!("No GUTA queue items to aggregate");
