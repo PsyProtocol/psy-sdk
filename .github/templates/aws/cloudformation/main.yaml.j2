@@ -1990,9 +1990,10 @@ Resources:
             ports:
               - "3000:3000"
             environment:
-              DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@timescaledb:5432/qed
               RUST_LOG: ${RUST_LOG}
-            command: qed_api_services
+            command:
+              - api-services
+              - --database-url=postgresql://postgres:${DB_PASSWORD}@timescaledb:5432/qed
             logging:
               driver: json-file
               options:
@@ -2029,8 +2030,7 @@ Resources:
 
         # Run migrations (assumes your image has migrations)
         echo "Running database migrations..."
-        docker exec api-service /bin/bash -c "cd /qed-rollup/qed_api_services && sqlx database create || true && sqlx migrate run" || true
-        
+        docker exec api-service /bin/bash -c "cd /qed-rollup && export DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@timescaledb:5432/qed && /usr/local/bin/sqlx database create || true && /usr/local/bin/sqlx migrate run" || true
         echo "Setup completed at $(date)"
 
   # TimescaleDB Subnet Group
