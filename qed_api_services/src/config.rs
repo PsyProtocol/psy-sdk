@@ -32,15 +32,3 @@ impl Default for Config {
         }
     }
 }
-
-impl Config {
-    pub fn from_env() -> crate::Result<Self> {
-        dotenvy::dotenv().ok();
-
-        let config = config::Config::builder()
-            .add_source(config::Environment::default().separator("_"))
-            .build()?;
-
-        Ok(config.try_deserialize()?)
-    }
-}

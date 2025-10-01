@@ -6,6 +6,10 @@ version.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
+[[bin]]
+name = "qed_api_services"
+path = "src/main.rs"
+
 [dependencies]
 qed_core = { workspace = true }
 
@@ -24,10 +28,6 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 
 # Error handling
 anyhow = { workspace = true }
-
-# Configuration
-config = { version = "0.14" }
-dotenvy = { workspace = true }
 
 # Time handling
 chrono = { workspace = true, features = ["serde"] }
