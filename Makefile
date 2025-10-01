@@ -396,7 +396,7 @@ run-realm-edge1-tikv:
 		--realm-id=1 \
 		--queue-biz-key=rwq1
 
-run-all-tikv: shutdown-tikv init-tikv
+run-all-tikv: shutdown shutdown-tikv init init-tikv compile
 	@redis-cli -p 6379 FLUSHALL > /dev/null 2>&1 || true
 	@redis-cli -p 6380 FLUSHALL > /dev/null 2>&1 || true
 	@redis-cli -p 6381 FLUSHALL > /dev/null 2>&1 || true
