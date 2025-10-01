@@ -2,7 +2,7 @@ mod subcommand;
 
 use clap::Parser;
 
-use crate::subcommand::{coordinator_edge, coordinator_processor, realm_edge, realm_processor, watcher, worker, Cli, Commands};
+use crate::subcommand::{api_service, coordinator_edge, coordinator_processor, realm_edge, realm_processor, watcher, worker, Cli, Commands};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -25,6 +25,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Worker { config, private_key, keystore_path, wallet_password, recipient } => {
             worker::run(config, private_key, keystore_path, wallet_password, recipient).await?;
+        }
+        Commands::ApiServices { host, port, database_url, max_connections } => {
+            api_service::run_api_service(host, port, database_url, max_connections).await?;
         }
         Commands::Watcher(args) => {
             watcher::run(args).await?;
