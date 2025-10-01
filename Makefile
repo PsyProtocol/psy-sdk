@@ -167,26 +167,26 @@ init:
 	# Create main project directory
 	@mkdir -p ${PROJECT_DIR}
 	# Create token contract subdirectory
-	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/token
+	@rm -rf ${PROJECT_DIR}/token && ./target/${PROFILE}/dargo new ${PROJECT_DIR}/token
 	@cp qed_compiler/tests/new_token.qed ${PROJECT_DIR}/token/src/main.qed
-	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/rewards
+	@rm -rf ${PROJECT_DIR}/rewards && ./target/${PROFILE}/dargo new ${PROJECT_DIR}/rewards
 	@cp qed_compiler/tests/rewards.qed ${PROJECT_DIR}/rewards/src/main.qed
-	@./target/${PROFILE}/dargo new ${PROJECT_DIR}/mining_rewards
+	@rm -rf ${PROJECT_DIR}/mining_rewards &&./target/${PROFILE}/dargo new ${PROJECT_DIR}/mining_rewards
 	@cp qed_compiler/tests/mining_rewards.qed ${PROJECT_DIR}/mining_rewards/src/main.qed
 	@mkdir -p $(PWD)/db
-	@echo "Starting Redis containers..."
-	@docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
-	@docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
-	@docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
+	@echo "Waiting for databases to be ready..."
+	# @echo "Starting TimescaleDB container..."
+	# @docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
+	# @echo "Starting Redis containers..."
+	# @docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
+	# @docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
+	# @docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
+	@docker-compose -f ./scripts/docker-compose.db.yml up -d
 	@sleep 10
 	# @echo "Starting ScyllaDB containers..."
 	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
 	# @docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
 	# @docker run -d --name qed-scylla-realm1 -p 9044:9042 scylladb/scylla:latest
-	@echo "Waiting for databases to be ready..."
-	@echo "Starting TimescaleDB container..."
-	@docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
-	@sleep 5
 	@cd ./qed_api_services && export DATABASE_URL="postgres://postgres:password@localhost/postgres" && cargo sqlx database create && cargo sqlx migrate run
 	@sleep 5
 
@@ -198,13 +198,10 @@ init-api-services:
 .PHONY: shutdown
 shutdown:
 	@echo "Stopping and removing database containers..."
-	@docker rm -f qed-redis-coordinator timescaledb qed-redis-realm0 qed-redis-realm1 > /dev/null 2>&1 || true
-	@docker exec qed-redis-coordinator redis-cli FLUSHALL > /dev/null 2>&1 || true
-	@docker exec qed-redis-realm0 redis-cli FLUSHALL > /dev/null 2>&1 || true
-	@docker exec qed-redis-realm1 redis-cli FLUSHALL > /dev/null 2>&1 || true
 	@redis-cli -p 6379 FLUSHALL > /dev/null 2>&1 || true
 	@redis-cli -p 6380 FLUSHALL > /dev/null 2>&1 || true
 	@redis-cli -p 6381 FLUSHALL > /dev/null 2>&1 || true
+	@docker-compose -f ./scripts/docker-compose.db.yml down -v
 	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
 	@rm -fr ${PROJECT_DIR} ${PWD}/db logs > /dev/null 2>&1 || true
 	@echo "Removing user job tracker JSON files..."
@@ -338,14 +335,14 @@ run-worker2:
 
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 
-init-tikv:
+init-tikv: init
 	@echo "Starting TiKV cluster..."
 	@docker-compose -f ./scripts/docker-compose.tikv.yml up -d
 	@echo "Waiting for TiKV to be ready..."
 	@sleep 15
 	@echo "TiKV cluster is ready"
 
-shutdown-tikv:
+shutdown-tikv: shutdown
 	@echo "Stopping TiKV cluster..."
 	@docker-compose -f ./scripts/docker-compose.tikv.yml down -v
 	@echo "TiKV cluster stopped"
@@ -396,10 +393,7 @@ run-realm-edge1-tikv:
 		--realm-id=1 \
 		--queue-biz-key=rwq1
 
-run-all-tikv: shutdown shutdown-tikv init init-tikv compile
-	@redis-cli -p 6379 FLUSHALL > /dev/null 2>&1 || true
-	@redis-cli -p 6380 FLUSHALL > /dev/null 2>&1 || true
-	@redis-cli -p 6381 FLUSHALL > /dev/null 2>&1 || true
+run-all-tikv: shutdown-tikv init-tikv compile
 	@./scripts/run_all_tikv.sh
 
 run-user-prover:

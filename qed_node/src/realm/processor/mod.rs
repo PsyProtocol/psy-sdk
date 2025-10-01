@@ -254,7 +254,8 @@ impl RealmProcessor {
                     }
                 }
             }
-            if ret.latest_checkpoint_id < checkpoint || ret.checkpoint_id > checkpoint + 10 {
+            let checkpoint = self.pending_checkpoint_id.load(Ordering::Relaxed);
+            if ret.latest_checkpoint_id < checkpoint || (checkpoint > 0 && ret.checkpoint_id > checkpoint) {
                 warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, checkpoint: {}", ret.latest_checkpoint_id, checkpoint);
                 build_ctx.rollback(checkpoint).await?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
