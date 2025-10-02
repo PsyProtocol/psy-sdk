@@ -1,5 +1,6 @@
 use clap::{command, Parser, Subcommand};
 
+pub mod api_service;
 pub mod coordinator_edge;
 pub mod coordinator_processor;
 pub mod realm_edge;
@@ -45,6 +46,20 @@ pub enum Commands {
 
         #[arg(long = "recipient", help = "Recipient user ID for rewards (defaults to private key derived user ID)")]
         recipient: Option<u64>,
+    },
+    #[command(about = "Run the API service")]
+    ApiServices {
+        #[arg(long, default_value = "0.0.0.0", help = "Server host")]
+        host: String,
+
+        #[arg(long, default_value_t = 3000, help = "Server port")]
+        port: u16,
+
+        #[arg(long, default_value = "postgres://postgres:password@localhost:5432/postgres", help = "Database URL")]
+        database_url: String,
+
+        #[arg(long, default_value_t = 10, help = "Maximum database connections")]
+        max_connections: u32,
     },
     #[command(about = "Run the watcher service for monitoring and reporting node status")]
     Watcher(qed_node::watcher::WatcherArgs),

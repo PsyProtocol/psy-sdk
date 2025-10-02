@@ -223,7 +223,7 @@ compile:
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/mining_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward claim_guta_proof
 
 run-api-services:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_api_services
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli api-services
 
 run-coordinator-processor:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --database lmdbx --lmdbx-path ${PWD}/db/coordinator
