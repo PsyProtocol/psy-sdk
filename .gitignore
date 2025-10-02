@@ -30,5 +30,4 @@ target/
 *-key.pub
 
 # Generated deployment files
-docker-compose*.yml
 /aws*/
