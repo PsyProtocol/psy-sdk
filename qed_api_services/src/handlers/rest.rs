@@ -450,6 +450,7 @@ async fn stats_handler(
         Some(now),
         0,    // offset
         1000, // large limit to get count
+        false,
     )
     .await
     {
