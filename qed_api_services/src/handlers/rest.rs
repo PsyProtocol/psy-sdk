@@ -194,6 +194,8 @@ pub struct WorkerEventsQuery {
     pub circuit_type: Option<ProvingJobCircuitType>,
     pub from_checkpoint_id: Option<i64>,
     pub to_checkpoint_id: Option<i64>,
+    pub offset: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 async fn worker_events_handler(
@@ -202,6 +204,8 @@ async fn worker_events_handler(
 ) -> Result<Json<Vec<WorkerEvent>>, StatusCode> {
     tracing::info!("Worker events query: {:?}", query);
     let realm_id_i64 = query.realm_id.map(|id| id as i64);
+    let offset = query.offset.unwrap_or(0).max(0);
+    let limit = query.limit.unwrap_or(300).clamp(1, 1000);
 
     match WorkerEventRepository::list(
         &service.pool,
@@ -212,8 +216,8 @@ async fn worker_events_handler(
         query.circuit_type,
         query.from_checkpoint_id,
         query.to_checkpoint_id,
-        0,   // offset
-        100, // limit
+        offset,
+        limit,
     )
     .await
     {
@@ -234,6 +238,8 @@ pub struct UserEventsQuery {
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
     pub tx_type: Option<UserEventTxType>,
+    pub offset: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 async fn user_events_handler(
@@ -241,6 +247,9 @@ async fn user_events_handler(
     Query(query): Query<UserEventsQuery>,
 ) -> Result<Json<Vec<UserEvent>>, StatusCode> {
     tracing::info!("User events query: {:?}", query);
+    let offset = query.offset.unwrap_or(0).max(0);
+    let limit = query.limit.unwrap_or(300).clamp(1, 1000);
+
     match UserEventRepository::list(
         &service.pool,
         query.user_id.as_deref(),
@@ -248,8 +257,8 @@ async fn user_events_handler(
         query.tx_type,
         query.start_time,
         query.end_time,
-        0,   // offset
-        100, // limit
+        offset,
+        limit,
     )
     .await
     {
@@ -266,6 +275,8 @@ pub struct AggregationQuery {
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
     pub bucket: String, // e.g., "1h", "1d", "1w"
+    pub offset: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 async fn worker_events_aggregations_handler(
@@ -273,6 +284,9 @@ async fn worker_events_aggregations_handler(
     Query(query): Query<AggregationQuery>,
 ) -> Result<Json<Vec<WorkerEventAggregation>>, StatusCode> {
     tracing::info!("Worker events aggregations query: {:?}", query);
+    let offset = query.offset.unwrap_or(0).max(0);
+    let limit = query.limit.unwrap_or(300).clamp(1, 1000);
+
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
         "2min" => "worker_events_2min",
@@ -291,7 +305,8 @@ async fn worker_events_aggregations_handler(
         None, // source filter
         query.start_time,
         query.end_time,
-        100, // limit
+        offset,
+        limit,
     )
     .await
     {
@@ -308,6 +323,9 @@ async fn user_events_aggregations_handler(
     Query(query): Query<AggregationQuery>,
 ) -> Result<Json<Vec<UserEventAggregation>>, StatusCode> {
     tracing::info!("User events aggregations query: {:?}", query);
+    let offset = query.offset.unwrap_or(0).max(0);
+    let limit = query.limit.unwrap_or(300).clamp(1, 1000);
+
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
         "2min" => "user_events_2min",
@@ -324,7 +342,8 @@ async fn user_events_aggregations_handler(
         view_name,
         query.start_time,
         query.end_time,
-        100, // limit
+        offset,
+        limit,
     )
     .await
     {

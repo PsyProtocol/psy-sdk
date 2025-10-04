@@ -19,6 +19,7 @@ impl WorkerEventAggregationRepository {
         source: Option<WorkerEventSource>,
         start_time: Option<DateTime<Utc>>,
         end_time: Option<DateTime<Utc>>,
+        offset: i64,
         limit: i64,
     ) -> Result<Vec<WorkerEventAggregation>> {
         // Note: view_name should be validated against a whitelist in production
@@ -34,7 +35,7 @@ impl WorkerEventAggregationRepository {
                 AND ($3::TIMESTAMPTZ IS NULL OR bucket >= $3)
                 AND ($4::TIMESTAMPTZ IS NULL OR bucket <= $4)
             ORDER BY bucket DESC
-            LIMIT $5
+            LIMIT $5 OFFSET $6
             "#,
             view_name
         );
@@ -45,6 +46,7 @@ impl WorkerEventAggregationRepository {
             .bind(start_time)
             .bind(end_time)
             .bind(limit)
+            .bind(offset)
             .fetch_all(pool)
             .await?;
 
@@ -61,6 +63,7 @@ impl UserEventAggregationRepository {
         view_name: &str,
         start_time: Option<DateTime<Utc>>,
         end_time: Option<DateTime<Utc>>,
+        offset: i64,
         limit: i64,
     ) -> Result<Vec<UserEventAggregation>> {
         let query = format!(
@@ -71,7 +74,7 @@ impl UserEventAggregationRepository {
             WHERE ($1::TIMESTAMPTZ IS NULL OR bucket >= $1)
                 AND ($2::TIMESTAMPTZ IS NULL OR bucket <= $2)
             ORDER BY bucket DESC
-            LIMIT $3
+            LIMIT $3 OFFSET $4
             "#,
             view_name
         );
@@ -80,6 +83,7 @@ impl UserEventAggregationRepository {
             .bind(start_time)
             .bind(end_time)
             .bind(limit)
+            .bind(offset)
             .fetch_all(pool)
             .await?;
 
