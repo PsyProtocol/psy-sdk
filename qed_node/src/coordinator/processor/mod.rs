@@ -228,13 +228,10 @@ impl
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
-        let bb8_pool =
-            new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
-        info!("🐶 redis pool initialized");
         let task_store = Arc::new(QProvingTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
             .await?);
         let q = ProofStoreRedisAsync::new(
-            bb8_pool,
+            &cp_config.redis_uri,
             cp_config.queue_args.queue_biz_key.clone(),
         )
         .await?;

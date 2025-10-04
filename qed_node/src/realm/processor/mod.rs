@@ -90,17 +90,13 @@ pub async fn run_realm_processor(config: RealmNodeConfig, shutdown_requested: Ar
 impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig, shutdown_requested: Arc<AtomicBool>) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
-        let pool = new_redis_async_pool(
-            config.redis.redis_uri.as_str(),
-            config.redis.pool_size.unwrap_or(10)
-        ).await?;
         let task_store = QProvingTaskStoreImpl::new(
             &config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10),
         )
         .await?;
         let realm_qps = ProofStoreRedisAsync::new(
-            pool,
+            &config.redis.redis_uri,
             config.queue.queue_biz_key,
         ).await?;
         let store = QEDStore::new(&config.backend.to_backend()).await?;

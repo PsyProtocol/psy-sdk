@@ -60,6 +60,12 @@ pub async fn new_fred_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<
 ///
 /// * `redis_url` - Redis URL to connect to
 /// * `pool_size` - Number of connections in the pool
+use crate::queue::resilient_redis::ResilientRedisConnection;
+
+pub async fn new_resilient_redis_connection(redis_url: &str) -> anyhow::Result<ResilientRedisConnection> {
+    ResilientRedisConnection::new(redis_url).await
+}
+
 pub async fn new_redis_async_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<bb8::Pool<bb8_redis::RedisConnectionManager>> {
     // Create the connection manager
     let manager = bb8_redis::RedisConnectionManager::new(redis_url)?;
