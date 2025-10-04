@@ -55,12 +55,20 @@ impl WorkerEventRepository {
 
         let parsed_job_id = crate::models::job_id_from_json(row.job_id)?;
 
+        let status = row.status
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Failed to parse status: {}", e))?;
+
+        let source = row.source
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Failed to parse source: {}", e))?;
+
         Ok(WorkerEvent {
             id: Some(row.id),
             realm_id: row.realm_id,
             public_key: row.public_key,
-            status: row.status.parse().unwrap(),
-            source: row.source.parse().unwrap(),
+            status,
+            source,
             job_id: parsed_job_id,
             checkpoint_id: row.checkpoint_id,
             duration: row.duration,
@@ -129,18 +137,26 @@ impl WorkerEventRepository {
         // Create a default QProvingJobDataID in case of conversion failure
         let default_job_id = QProvingJobDataID::new_proof_job_id(0, 0, ProvingJobCircuitType::AddL1Deposit, 0, 0);
 
-        let events = rows
+        let events: Result<Vec<WorkerEvent>> = rows
             .into_iter()
             .map(|row| {
                 let job_id_json: serde_json::Value = row.get("job_id");
                 let parsed_job_id = job_id_from_json(job_id_json).unwrap_or(default_job_id.clone());
 
-                WorkerEvent {
+                let status = row.get::<String, _>("status")
+                    .parse()
+                    .map_err(|e| anyhow::anyhow!("Failed to parse status: {}", e))?;
+
+                let source = row.get::<String, _>("source")
+                    .parse()
+                    .map_err(|e| anyhow::anyhow!("Failed to parse source: {}", e))?;
+
+                Ok(WorkerEvent {
                     id: Some(row.get("id")),
                     realm_id: row.get("realm_id"),
                     public_key: row.get("public_key"),
-                    status: row.get::<String, _>("status").parse().unwrap(),
-                    source: row.get::<String, _>("source").parse().unwrap(),
+                    status,
+                    source,
                     job_id: parsed_job_id,
                     checkpoint_id: row.get("checkpoint_id"),
                     duration: row.get("duration"),
@@ -148,11 +164,11 @@ impl WorkerEventRepository {
                     timestamp: row.get("timestamp"),
                     created_at: row.get("created_at"),
                     updated_at: row.get("updated_at"),
-                }
+                })
             })
             .collect();
 
-        Ok(events)
+        events
     }
 
     /// Get worker events count with filtering
@@ -241,12 +257,21 @@ impl WorkerEventRepository {
         let mut events = Vec::new();
         for row in rows {
             let parsed_job_id = crate::models::job_id_from_json(row.job_id)?;
+
+            let status = row.status
+                .parse()
+                .map_err(|e| anyhow::anyhow!("Failed to parse status: {}", e))?;
+
+            let source = row.source
+                .parse()
+                .map_err(|e| anyhow::anyhow!("Failed to parse source: {}", e))?;
+
             events.push(WorkerEvent {
                 id: Some(row.id),
                 realm_id: row.realm_id,
                 public_key: row.public_key,
-                status: row.status.parse().unwrap(),
-                source: row.source.parse().unwrap(),
+                status,
+                source,
                 job_id: parsed_job_id,
                 checkpoint_id: row.checkpoint_id,
                 duration: row.duration,

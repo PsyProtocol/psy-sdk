@@ -141,10 +141,14 @@ impl UserEventRepository {
         .fetch_one(pool)
         .await?;
 
+        let tx_type = row.tx_type
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
+
         Ok(UserEvent {
             user_id: row.user_id,
             public_key: row.public_key,
-            tx_type: row.tx_type.parse().unwrap(),
+            tx_type,
             metadata: row.metadata,
             timestamp: row.timestamp,
             created_at: row.created_at,
@@ -196,20 +200,26 @@ impl UserEventRepository {
 
         use sqlx::Row;
 
-        let events = rows
+        let events: Result<Vec<UserEvent>> = rows
             .into_iter()
-            .map(|row| UserEvent {
-                user_id: row.get("user_id"),
-                public_key: row.get("public_key"),
-                tx_type: row.get::<String, _>("tx_type").parse().unwrap(),
-                metadata: row.get("metadata"),
-                timestamp: row.get("timestamp"),
-                created_at: row.get("created_at"),
-                updated_at: row.get("updated_at"),
+            .map(|row| {
+                let tx_type = row.get::<String, _>("tx_type")
+                    .parse()
+                    .map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
+
+                Ok(UserEvent {
+                    user_id: row.get("user_id"),
+                    public_key: row.get("public_key"),
+                    tx_type,
+                    metadata: row.get("metadata"),
+                    timestamp: row.get("timestamp"),
+                    created_at: row.get("created_at"),
+                    updated_at: row.get("updated_at"),
+                })
             })
             .collect();
 
-        Ok(events)
+        events
     }
 
     /// Get user events count with filtering
@@ -263,19 +273,25 @@ impl UserEventRepository {
         .fetch_all(pool)
         .await?;
 
-        let events = rows
+        let events: Result<Vec<UserEvent>> = rows
             .into_iter()
-            .map(|row| UserEvent {
-                user_id: row.user_id,
-                public_key: row.public_key,
-                tx_type: row.tx_type.parse().unwrap(),
-                metadata: row.metadata,
-                timestamp: row.timestamp,
-                created_at: row.created_at,
-                updated_at: row.updated_at,
+            .map(|row| {
+                let tx_type = row.tx_type
+                    .parse()
+                    .map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
+
+                Ok(UserEvent {
+                    user_id: row.user_id,
+                    public_key: row.public_key,
+                    tx_type,
+                    metadata: row.metadata,
+                    timestamp: row.timestamp,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                })
             })
             .collect();
 
-        Ok(events)
+        events
     }
 }
