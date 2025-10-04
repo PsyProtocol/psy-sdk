@@ -12,6 +12,20 @@ use std::collections::HashMap;
 
 use crate::{models::*, repositories::*, services::ApiService};
 
+/// Parse order parameter from query string
+/// Returns true for ASC, false for DESC (default)
+fn parse_order_param(order: Option<&str>) -> bool {
+    match order {
+        Some(s) if s.eq_ignore_ascii_case("asc") => true,
+        Some(s) if s.eq_ignore_ascii_case("desc") => false,
+        None => false, // default to DESC
+        Some(invalid) => {
+            tracing::warn!("Invalid order parameter: '{}', using default DESC", invalid);
+            false
+        }
+    }
+}
+
 pub fn create_router(api_service: ApiService) -> Router {
     Router::new()
         .route("/register", post(register_handler))
@@ -207,17 +221,7 @@ async fn worker_events_handler(
     let realm_id_i64 = query.realm_id.map(|id| id as i64);
     let offset = query.offset.unwrap_or(0).max(0);
     let limit = query.limit.unwrap_or(300).clamp(1, 1000);
-
-    // Parse and validate order parameter
-    let order_asc = match query.order.as_deref() {
-        Some("asc") | Some("ASC") => true,
-        Some("desc") | Some("DESC") => false,
-        None => false, // default to DESC
-        Some(invalid) => {
-            tracing::warn!("Invalid order parameter: {}, using default DESC", invalid);
-            false
-        }
-    };
+    let order_asc = parse_order_param(query.order.as_deref());
 
     match WorkerEventRepository::list(
         &service.pool,
@@ -263,17 +267,7 @@ async fn user_events_handler(
     tracing::info!("User events query: {:?}", query);
     let offset = query.offset.unwrap_or(0).max(0);
     let limit = query.limit.unwrap_or(300).clamp(1, 1000);
-
-    // Parse and validate order parameter
-    let order_asc = match query.order.as_deref() {
-        Some("asc") | Some("ASC") => true,
-        Some("desc") | Some("DESC") => false,
-        None => false, // default to DESC
-        Some(invalid) => {
-            tracing::warn!("Invalid order parameter: {}, using default DESC", invalid);
-            false
-        }
-    };
+    let order_asc = parse_order_param(query.order.as_deref());
 
     match UserEventRepository::list(
         &service.pool,
@@ -313,17 +307,7 @@ async fn worker_events_aggregations_handler(
     tracing::info!("Worker events aggregations query: {:?}", query);
     let offset = query.offset.unwrap_or(0).max(0);
     let limit = query.limit.unwrap_or(300).clamp(1, 1000);
-
-    // Parse and validate order parameter
-    let order_asc = match query.order.as_deref() {
-        Some("asc") | Some("ASC") => true,
-        Some("desc") | Some("DESC") => false,
-        None => false, // default to DESC
-        Some(invalid) => {
-            tracing::warn!("Invalid order parameter: {}, using default DESC", invalid);
-            false
-        }
-    };
+    let order_asc = parse_order_param(query.order.as_deref());
 
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
@@ -364,17 +348,7 @@ async fn user_events_aggregations_handler(
     tracing::info!("User events aggregations query: {:?}", query);
     let offset = query.offset.unwrap_or(0).max(0);
     let limit = query.limit.unwrap_or(300).clamp(1, 1000);
-
-    // Parse and validate order parameter
-    let order_asc = match query.order.as_deref() {
-        Some("asc") | Some("ASC") => true,
-        Some("desc") | Some("DESC") => false,
-        None => false, // default to DESC
-        Some(invalid) => {
-            tracing::warn!("Invalid order parameter: {}, using default DESC", invalid);
-            false
-        }
-    };
+    let order_asc = parse_order_param(query.order.as_deref());
 
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
