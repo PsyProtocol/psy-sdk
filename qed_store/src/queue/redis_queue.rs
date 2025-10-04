@@ -109,6 +109,7 @@ impl<T: BizKey> QueuePrefixKey for T {
 #[derive(Debug, Clone)]
 pub struct ProofStoreRedisAsync {
     redis: ResilientRedisConnection,
+    redis_blocking: ResilientRedisConnection,
     biz_key: String,
 }
 
@@ -121,19 +122,12 @@ impl BizKey for ProofStoreRedisAsync {
 impl ProofStoreRedisAsync {
     pub async fn new(redis_url: &str, biz_key: String) -> anyhow::Result<Self> {
         let redis = ResilientRedisConnection::new(redis_url).await?;
+        let redis_blocking = ResilientRedisConnection::new(redis_url).await?;
         Ok(Self {
             redis,
+            redis_blocking,
             biz_key,
         })
-    }
-
-    pub fn redis(&self) -> &ResilientRedisConnection {
-        &self.redis
-    }
-
-    #[deprecated(note = "bb8 pool is no longer used. Use redis() to access the connection.")]
-    pub fn pool(&self) -> &ResilientRedisConnection {
-        &self.redis
     }
 
     async fn add_checkpoint(&self, checkpoint_id: u64) -> anyhow::Result<()> {
@@ -234,7 +228,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
                 );
         }
 
-        builder.execute(&self.redis).await?;
+        builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
     async fn set_bytes_by_id(&self, id: QProvingJobDataID, data: &[u8]) -> anyhow::Result<()> {
@@ -297,7 +291,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
                     .srem(&checkpoint_list_key, &[*checkpoint_id]);
             }
 
-            builder.execute(&self.redis).await?;
+            builder.execute_atomic(&self.redis).await?;
         }
 
         Ok(())
@@ -378,7 +372,7 @@ pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueue
 #[async_trait]
 impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
     async fn wait_for_next_job_imm(&self) -> anyhow::Result<QProvingJobDataID> {
-        match self.redis.blpop(self.worker_queue_key(), 0).await? {
+        match self.redis_blocking.blpop(self.worker_queue_key(), 0).await? {
             Some((_, data)) => {
                 Ok(QProvingJobDataID::try_from_byte_vec(&data)?)
             }
@@ -426,7 +420,7 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
     ) -> anyhow::Result<QProvingJobDataID> {
         let timeout_secs = timeout.map(|d| d.as_secs() as usize).unwrap_or(0);
 
-        match self.redis.blpop(self.notifications_queue_key(), timeout_secs).await? {
+        match self.redis_blocking.blpop(self.notifications_queue_key(), timeout_secs).await? {
             Some((_, data)) => {
                 Ok(QProvingJobDataID::try_from_byte_vec(&data)?)
             }
@@ -581,7 +575,7 @@ impl<T: HQSerializable> NotificationQueue<T> for ProofStoreRedisAsync {
     async fn consume_item(&self, channel_id: u64) -> anyhow::Result<T> {
         let key = format!("{}-{}", self.notifications_queue_key(), channel_id);
         tracing::info!("🔍 Consuming from key: {}", key);
-        match self.redis.blpop(key, 0).await? {
+        match self.redis_blocking.blpop(key, 0).await? {
             Some((_, data)) => {
                 match T::from_bytes(&data) {
                     Ok(item) => Ok(item),
