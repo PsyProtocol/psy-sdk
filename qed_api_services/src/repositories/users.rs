@@ -212,6 +212,37 @@ impl UserEventRepository {
         Ok(events)
     }
 
+    /// Get user events count with filtering
+    pub async fn count(
+        pool: &PgPool,
+        user_id: Option<&str>,
+        public_key: Option<&str>,
+        tx_type: Option<UserEventTxType>,
+        start_time: Option<DateTime<Utc>>,
+        end_time: Option<DateTime<Utc>>,
+    ) -> Result<i64> {
+        let row = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as count
+            FROM user_events
+            WHERE ($1::VARCHAR IS NULL OR user_id = $1)
+                AND ($2::VARCHAR IS NULL OR public_key = $2)
+                AND ($3::VARCHAR IS NULL OR tx_type = $3)
+                AND ($4::TIMESTAMPTZ IS NULL OR timestamp >= $4)
+                AND ($5::TIMESTAMPTZ IS NULL OR timestamp <= $5)
+            "#,
+            user_id,
+            public_key,
+            tx_type.map(|t| t.to_string()),
+            start_time,
+            end_time
+        )
+        .fetch_one(pool)
+        .await?;
+
+        Ok(row.count.unwrap_or(0))
+    }
+
     /// Get GUTA user events for a specific checkpoint (for reward calculation)
     pub async fn get_guta_events_by_checkpoint(
         pool: &PgPool,

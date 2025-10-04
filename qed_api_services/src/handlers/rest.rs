@@ -441,26 +441,23 @@ async fn stats_handler(
     };
 
     // Count recent user events
-    let user_events = match UserEventRepository::list(
+    let user_events_count = match UserEventRepository::count(
         &service.pool,
         None, // user_id
         None, // public_key
         None, // tx_type
         Some(yesterday),
         Some(now),
-        0,    // offset
-        1000, // large limit to get count
-        false,
     )
     .await
     {
-        Ok(events) => {
-            tracing::info!("User events count (24h): len={}", events.len());
-            events
+        Ok(count) => {
+            tracing::info!("User events count (24h): {}", count);
+            count
         }
         Err(e) => {
-            tracing::error!("Failed to list user events: {}", e);
-            Vec::new()
+            tracing::error!("Failed to count user events: {}", e);
+            0
         }
     };
 
@@ -474,7 +471,7 @@ async fn stats_handler(
     );
     stats.insert(
         "user_events_24h".to_string(),
-        serde_json::Value::Number((user_events.len() as i64).into()),
+        serde_json::Value::Number(user_events_count.into()),
     );
     stats.insert(
         "timestamp".to_string(),
@@ -500,7 +497,7 @@ async fn stats_handler(
     tracing::info!(
         "Stats generated successfully: worker_events_24h={}, user_events_24h={}, block_height={}",
         worker_events_count,
-        user_events.len(),
+        user_events_count,
         block_height
     );
     tracing::debug!("Stats response: {:?}", stats);
