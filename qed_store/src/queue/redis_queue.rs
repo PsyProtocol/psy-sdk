@@ -150,7 +150,7 @@ impl QProofStoreReaderAsync for ProofStoreRedisAsync {
         &self,
         id: QProvingJobDataID,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let bytes = self.get_bytes_by_id(id).await?;
+        let bytes = self.get_bytes_by_id(id.get_output_id()).await?;
         let proof = bincode::deserialize(&bytes)?;
         Ok(proof)
     }
@@ -446,11 +446,9 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
                 return Err(anyhow::anyhow!("Timeout waiting for job proof"));
             }
 
-            match self.contains_id(job_id).await {
-                Ok(true) => {
-                    return self.get_proof_by_id(job_id).await;
-                }
-                Ok(false) => {
+            match self.get_proof_by_id(job_id).await {
+                Ok(proof) => {
+                    return Ok(proof);
                 }
                 Err(err) => {
                     tracing::warn!("Redis error while checking job {}, retrying: {:?}", job_id, err);
@@ -503,7 +501,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedisAsync {
             channel_id
         );
 
-        let cur_checkpoint_id_opt: Option<u64> = self.redis.get(current_checkpoint_key).await.ok();
+        let cur_checkpoint_id_opt: Option<u64> = self.redis.get::<_, Option<u64>>(current_checkpoint_key).await.ok().flatten();
 
         if let Some(current_id) = cur_checkpoint_id_opt {
             if current_id >= start_checkpoint_id {
@@ -542,7 +540,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedisAsync {
                 channel_id
             );
 
-            let cur_checkpoint_id_opt: Option<u64> = self.redis.get(current_checkpoint_key).await.ok();
+            let cur_checkpoint_id_opt: Option<u64> = self.redis.get::<_, Option<u64>>(current_checkpoint_key).await.ok().flatten();
 
             if let Some(current_id) = cur_checkpoint_id_opt {
                 if current_id >= start_checkpoint_id {
@@ -588,15 +586,22 @@ impl<T: HQSerializable> NotificationQueue<T> for ProofStoreRedisAsync {
     async fn consume_item(&self, channel_id: u64) -> anyhow::Result<T> {
         let key = format!("{}-{}", self.notifications_queue_key(), channel_id);
         tracing::info!("🔍 Consuming from key: {}", key);
-        match self.redis_blocking.blpop(key, 0).await? {
-            Some((_, data)) => {
-                match T::from_bytes(&data) {
-                    Ok(item) => Ok(item),
-                    Err(err) => Err(anyhow::anyhow!("Failed to parse item: {:?}", err)),
+
+        loop {
+            match self.redis.lpop::<_, Vec<u8>>(key.clone(), None).await {
+                Ok(Some(data)) => {
+                    match T::from_bytes(&data) {
+                        Ok(item) => return Ok(item),
+                        Err(err) => return Err(anyhow::anyhow!("Failed to parse item: {:?}", err)),
+                    }
                 }
-            }
-            None => {
-                Err(anyhow::anyhow!("BLPOP returned None with infinite timeout"))
+                Ok(None) => {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                }
+                Err(err) => {
+                    tracing::warn!("Redis lpop error, retrying: {:?}", err);
+                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                }
             }
         }
     }
@@ -622,7 +627,6 @@ pub trait QPendingUserStoreAsyncImm: Send + Sync {
     ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>>;
     async fn get_pending_users_count(&self) -> anyhow::Result<usize>;
 
-    // consume_users_with_position for position-based consumption
     async fn peek_with_position<F: RichField>(
         &self,
         count: usize,
@@ -651,7 +655,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
             builder = builder.rpush(key.clone(), user_bytes);
         }
 
-        builder.execute(&self.redis).await?;
+        builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
 
@@ -661,14 +665,13 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
     ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>> {
         let key = format!("{}-{}", self.realm_pending_user_key(), "PENDING_USERS");
 
+        let bytes_vec: Option<Vec<Vec<u8>>> = self.redis.lpop(key, Some(count)).await?;
+
         let mut users = Vec::new();
-        for _ in 0..count {
-            match self.redis.lpop::<_, Vec<u8>>(key.clone(), Some(1)).await? {
-                Some(bytes) => {
-                    let user = bincode::deserialize(&bytes).map_err(|e| anyhow::anyhow!(e))?;
-                    users.push(user);
-                }
-                None => break,
+        if let Some(bytes_list) = bytes_vec {
+            for bytes in bytes_list {
+                let user = bincode::deserialize(&bytes).map_err(|e| anyhow::anyhow!(e))?;
+                users.push(user);
             }
         }
 
@@ -767,8 +770,8 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
 
         let items: Vec<T> = members
             .into_iter()
-            .filter_map(|data| T::from_bytes(&data).ok())
-            .collect();
+            .map(|x| T::from_bytes(&x))
+            .collect::<anyhow::Result<Vec<T>>>()?;
 
         let end_position: i64 = if items.is_empty() {
             -1
@@ -821,7 +824,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         self.redis.cmd_builder()
             .ltrim(key, (state.end_position + 1) as isize, -1)
             .del(state_key)
-            .execute(&self.redis).await?;
+            .execute_atomic(&self.redis).await?;
 
         tracing::debug!("Consumed redis {} items for checkpoint {}",
               state.consumed_count, state.checkpoint_id);

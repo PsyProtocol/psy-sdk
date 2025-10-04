@@ -1062,7 +1062,7 @@ impl<
             .last()
             .and_then(|jobs| jobs.last())
             .ok_or_else(|| anyhow::anyhow!("No deploy contract jobs found"))?;
-        let rooot_user_registration_job = user_registration_jobs
+        let root_user_registration_job = user_registration_jobs
             .last()
             .and_then(|jobs| jobs.last())
             .ok_or_else(|| anyhow::anyhow!("No user registration jobs found"))?;
@@ -1080,7 +1080,7 @@ impl<
             "Waiting for user registration aggregation job to complete for checkpoint {}",
             new_checkpoint_id
         );
-        let register_users_proof = self.prover_queue.wait_for_job_proof::<C, D>(*rooot_user_registration_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
+        let register_users_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_user_registration_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
 
         debug!(
             "Waiting for deploy contracts aggregation job to complete for checkpoint {}",
@@ -1112,7 +1112,7 @@ impl<
                 guta_proof_header: guta_transition,
             },
             dependencies: vec![
-                rooot_user_registration_job.get_output_id(),
+                root_user_registration_job.get_output_id(),
                 root_deploy_job.get_output_id(),
                 root_guta_job.get_output_id(),
             ],

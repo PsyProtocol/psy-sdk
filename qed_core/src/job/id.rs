@@ -63,7 +63,7 @@ impl<T: QProofStoreAsyncImm> QJobRewardDataProvider for T {
     }
 }
 use crate::{
-    config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROOF_SYNC_CHANNEL},
+    config::network_constants::{QED_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROCESSOR_TO_EDGE_CHANNEL},
     data::qhashout::QHashOut,
     job::{
         drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},
@@ -1257,7 +1257,7 @@ impl ProvingJobDataId {
 impl HistoryQueueMetadataTagged for ProvingJobDataId {
     fn get_hq_metadata(&self) -> HistoryQueueMetadata {
         HistoryQueueMetadata {
-            channel_id: REALM_PROOF_SYNC_CHANNEL,
+            channel_id: REALM_PROCESSOR_TO_EDGE_CHANNEL,
             checkpoint_id: self.checkpoint_id,
             item_id: self.job_id.task_index as u64, // Use task_index as item_id
         }

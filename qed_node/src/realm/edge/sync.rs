@@ -18,7 +18,7 @@ use anyhow::{anyhow, Result};
 use http::{HeaderMap, HeaderValue};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
-use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_PROOF_SYNC_CHANNEL};
+use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_PROCESSOR_TO_EDGE_CHANNEL};
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_data::models::checkpoint::sync_info::CheckpointError;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
@@ -286,7 +286,7 @@ pub async fn spawn_realm_job_update_task<
             // Listen for new proof job IDs from the history queue
             match proof_store
                 .wait_for_next_item_imm::<ProvingJobDataId>(
-                    REALM_PROOF_SYNC_CHANNEL,
+                    REALM_PROCESSOR_TO_EDGE_CHANNEL,
                     last_checkpoint,
                 )
                 .await
@@ -367,7 +367,7 @@ impl RealmProofSender {
             checkpoint_tree_root: realm_result.checkpoint_tree_root,
             circuit_type: realm_result.proof_id.circuit_type,
         };
-        
+
         let real_checkpoint_id = input.checkpoint_id.saturating_sub(1);
         let realm_root_level = COORDINATOR_USER_TREE_HEIGHT;
         let old_root = ctx.store_reader

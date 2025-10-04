@@ -544,8 +544,8 @@ impl CommandBuilder {
         F: redis::ToRedisArgs,
         V: redis::ToRedisArgs,
     {
-        let mut cmd = redis::cmd("HSET");
-        cmd.arg(key).arg(field).arg(value).arg("NX");
+        let mut cmd = redis::cmd("HSETNX");
+        cmd.arg(key).arg(field).arg(value);
         self.commands.push(cmd);
         self
     }
