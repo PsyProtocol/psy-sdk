@@ -327,11 +327,11 @@ export class QedProverClient implements IQedUserProverProvider {
         return this.callServerMethod(QedUserProverRPCCommand.AddUser, [privateKey]);
     }
 
-    async getClaimRewardsCallArgs(pkHash: PublicKey, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]> {
+    async getClaimRewardsCallArgs(pkHash: PublicKey, jobInfos: string): Promise<ContractCallArgs[]> {
         throw new Error("Method not implemented.");
     }
 
-    async claimRewards(pkHash: PublicKey, checkpointId: bigint, jobInfos: JobInfo[]): Promise<string> {
+    async claimRewards(pkHash: PublicKey, jobInfos: string): Promise<string> {
         throw new Error("Method not implemented.");
     }
 
