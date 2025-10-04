@@ -585,7 +585,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for RsmqQueue {
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
-    async fn chq_listen_from_imm<T: HQSerializable>(
+    async fn chq_items_gte<T: HQSerializable>(
         &self,
         channel_id: u64,
         start_checkpoint_id: u64,

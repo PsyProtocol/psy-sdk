@@ -108,9 +108,9 @@ impl<T: BizKey> QueuePrefixKey for T {
 
 #[derive(Debug, Clone)]
 pub struct ProofStoreRedisAsync {
-    redis: ResilientRedisConnection,
-    redis_blocking: ResilientRedisConnection,
-    biz_key: String,
+    pub(crate) redis: ResilientRedisConnection,
+    pub(crate) redis_blocking: ResilientRedisConnection,
+    pub(crate) biz_key: String,
 }
 
 impl BizKey for ProofStoreRedisAsync {
@@ -477,7 +477,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreRedisAsync {
         self.redis.cmd_builder()
             .set(key, bytes)
             .set(current_checkpoint_key, metadata.checkpoint_id)
-            .execute(&self.redis).await?;
+            .execute_atomic(&self.redis).await?;
 
         Ok(())
     }
@@ -485,7 +485,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreRedisAsync {
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedisAsync {
-    async fn chq_listen_from_imm<T: HQSerializable>(
+    async fn chq_items_gte<T: HQSerializable>(
         &self,
         channel_id: u64,
         start_checkpoint_id: u64,
@@ -500,18 +500,24 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedisAsync {
 
         if let Some(current_id) = cur_checkpoint_id_opt {
             if current_id >= start_checkpoint_id {
-                let item_key = format!(
-                    "{}-{}_{}",
-                    self.checkpoint_history_queue_prefix_key(),
-                    channel_id,
-                    current_id
-                );
+                let mut results = Vec::with_capacity((current_id - start_checkpoint_id + 1) as usize);
 
-                if let Ok(result_bytes) = self.redis.get::<_, Vec<u8>>(item_key).await {
-                    if let Ok(item) = T::from_bytes(&result_bytes) {
-                        return Ok(vec![item]);
+                for i in start_checkpoint_id..=current_id {
+                    let item_key = format!(
+                        "{}-{}_{}",
+                        self.checkpoint_history_queue_prefix_key(),
+                        channel_id,
+                        i
+                    );
+
+                    if let Ok(result_bytes) = self.redis.get::<_, Vec<u8>>(item_key).await {
+                        if let Ok(item) = T::from_bytes(&result_bytes) {
+                            results.push(item);
+                        }
                     }
                 }
+
+                return Ok(results);
             }
         }
 

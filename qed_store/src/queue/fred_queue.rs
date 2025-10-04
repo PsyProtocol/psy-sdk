@@ -400,7 +400,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreFred {
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
-    async fn chq_listen_from_imm<T: HQSerializable>(
+    async fn chq_items_gte<T: HQSerializable>(
         &self,
         channel_id: u64,
         start_checkpoint_id: u64,

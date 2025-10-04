@@ -114,7 +114,7 @@ pub trait CheckpointHistoryQueueEmitterAsyncImm {
 
 #[async_trait]
 pub trait CheckpointHistoryQueueConsumerAsyncImm {
-    async fn chq_listen_from_imm<T: HQSerializable>(
+    async fn chq_items_gte<T: HQSerializable>(
         &self,
         channel_id: u64,
         start_checkpoint_id: u64,
@@ -144,7 +144,7 @@ pub trait CheckpointHistoryQueueEmitterAsyncMut {
 
 #[async_trait]
 pub trait CheckpointHistoryQueueConsumerAsyncMut {
-    async fn chq_listen_from_imm<T: HQSerializable>(
+    async fn chq_items_gte<T: HQSerializable>(
         &mut self,
         channel_id: u64,
         start_checkpoint_id: u64,

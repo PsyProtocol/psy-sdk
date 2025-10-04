@@ -349,6 +349,18 @@ impl ResilientRedisConnection {
         }).await
     }
 
+    pub async fn hexists<K, F>(&self, key: K, field: F) -> Result<bool>
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        F: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+    {
+        let key_clone = key.clone();
+        let field_clone = field.clone();
+        self.execute(move |mut conn| async move {
+            conn.hexists(key_clone, field_clone).await
+        }).await
+    }
+
     pub async fn sadd<K, V>(&self, key: K, member: V) -> Result<()>
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
@@ -469,6 +481,17 @@ impl ResilientRedisConnection {
     async fn execute_pipeline(&self, commands: Vec<redis::Cmd>) -> Result<Vec<redis::Value>> {
         self.execute(move |mut conn| async move {
             let mut pipeline = redis::pipe();
+            for cmd in commands {
+                pipeline.add_command(cmd);
+            }
+            pipeline.query_async(&mut conn).await
+        }).await
+    }
+
+    pub async fn execute_transaction(&self, commands: Vec<redis::Cmd>) -> Result<Vec<redis::Value>> {
+        self.execute(move |mut conn| async move {
+            let mut pipeline = redis::pipe();
+            pipeline.atomic();
             for cmd in commands {
                 pipeline.add_command(cmd);
             }
@@ -607,6 +630,10 @@ impl CommandBuilder {
 
     pub async fn execute(self, redis: &ResilientRedisConnection) -> Result<Vec<redis::Value>> {
         redis.execute_commands(self.commands).await
+    }
+
+    pub async fn execute_atomic(self, redis: &ResilientRedisConnection) -> Result<Vec<redis::Value>> {
+        redis.execute_transaction(self.commands).await
     }
 
     pub fn len(&self) -> usize {
