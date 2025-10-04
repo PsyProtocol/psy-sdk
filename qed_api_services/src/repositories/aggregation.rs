@@ -21,8 +21,11 @@ impl WorkerEventAggregationRepository {
         end_time: Option<DateTime<Utc>>,
         offset: i64,
         limit: i64,
+        order_asc: bool,
     ) -> Result<Vec<WorkerEventAggregation>> {
         // Note: view_name should be validated against a whitelist in production
+        let order_direction = if order_asc { "ASC" } else { "DESC" };
+
         let query = format!(
             r#"
             SELECT
@@ -34,10 +37,10 @@ impl WorkerEventAggregationRepository {
                 AND ($2::VARCHAR IS NULL OR source = $2)
                 AND ($3::TIMESTAMPTZ IS NULL OR bucket >= $3)
                 AND ($4::TIMESTAMPTZ IS NULL OR bucket <= $4)
-            ORDER BY bucket DESC
+            ORDER BY bucket {}
             LIMIT $5 OFFSET $6
             "#,
-            view_name
+            view_name, order_direction
         );
 
         let aggregations = sqlx::query_as::<_, WorkerEventAggregation>(&query)
@@ -65,7 +68,10 @@ impl UserEventAggregationRepository {
         end_time: Option<DateTime<Utc>>,
         offset: i64,
         limit: i64,
+        order_asc: bool,
     ) -> Result<Vec<UserEventAggregation>> {
+        let order_direction = if order_asc { "ASC" } else { "DESC" };
+
         let query = format!(
             r#"
             SELECT
@@ -73,10 +79,10 @@ impl UserEventAggregationRepository {
             FROM {}
             WHERE ($1::TIMESTAMPTZ IS NULL OR bucket >= $1)
                 AND ($2::TIMESTAMPTZ IS NULL OR bucket <= $2)
-            ORDER BY bucket DESC
+            ORDER BY bucket {}
             LIMIT $3 OFFSET $4
             "#,
-            view_name
+            view_name, order_direction
         );
 
         let aggregations = sqlx::query_as::<_, UserEventAggregation>(&query)

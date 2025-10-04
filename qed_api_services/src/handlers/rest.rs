@@ -196,6 +196,7 @@ pub struct WorkerEventsQuery {
     pub to_checkpoint_id: Option<i64>,
     pub offset: Option<i64>,
     pub limit: Option<i64>,
+    pub order: Option<String>, // "asc" or "desc", default "desc"
 }
 
 async fn worker_events_handler(
@@ -206,6 +207,17 @@ async fn worker_events_handler(
     let realm_id_i64 = query.realm_id.map(|id| id as i64);
     let offset = query.offset.unwrap_or(0).max(0);
     let limit = query.limit.unwrap_or(300).clamp(1, 1000);
+
+    // Parse and validate order parameter
+    let order_asc = match query.order.as_deref() {
+        Some("asc") | Some("ASC") => true,
+        Some("desc") | Some("DESC") => false,
+        None => false, // default to DESC
+        Some(invalid) => {
+            tracing::warn!("Invalid order parameter: {}, using default DESC", invalid);
+            false
+        }
+    };
 
     match WorkerEventRepository::list(
         &service.pool,
@@ -218,6 +230,7 @@ async fn worker_events_handler(
         query.to_checkpoint_id,
         offset,
         limit,
+        order_asc,
     )
     .await
     {
@@ -240,6 +253,7 @@ pub struct UserEventsQuery {
     pub tx_type: Option<UserEventTxType>,
     pub offset: Option<i64>,
     pub limit: Option<i64>,
+    pub order: Option<String>, // "asc" or "desc", default "desc"
 }
 
 async fn user_events_handler(
@@ -250,6 +264,17 @@ async fn user_events_handler(
     let offset = query.offset.unwrap_or(0).max(0);
     let limit = query.limit.unwrap_or(300).clamp(1, 1000);
 
+    // Parse and validate order parameter
+    let order_asc = match query.order.as_deref() {
+        Some("asc") | Some("ASC") => true,
+        Some("desc") | Some("DESC") => false,
+        None => false, // default to DESC
+        Some(invalid) => {
+            tracing::warn!("Invalid order parameter: {}, using default DESC", invalid);
+            false
+        }
+    };
+
     match UserEventRepository::list(
         &service.pool,
         query.user_id.as_deref(),
@@ -259,6 +284,7 @@ async fn user_events_handler(
         query.end_time,
         offset,
         limit,
+        order_asc,
     )
     .await
     {
@@ -277,6 +303,7 @@ pub struct AggregationQuery {
     pub bucket: String, // e.g., "1h", "1d", "1w"
     pub offset: Option<i64>,
     pub limit: Option<i64>,
+    pub order: Option<String>, // "asc" or "desc", default "desc"
 }
 
 async fn worker_events_aggregations_handler(
@@ -286,6 +313,17 @@ async fn worker_events_aggregations_handler(
     tracing::info!("Worker events aggregations query: {:?}", query);
     let offset = query.offset.unwrap_or(0).max(0);
     let limit = query.limit.unwrap_or(300).clamp(1, 1000);
+
+    // Parse and validate order parameter
+    let order_asc = match query.order.as_deref() {
+        Some("asc") | Some("ASC") => true,
+        Some("desc") | Some("DESC") => false,
+        None => false, // default to DESC
+        Some(invalid) => {
+            tracing::warn!("Invalid order parameter: {}, using default DESC", invalid);
+            false
+        }
+    };
 
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
@@ -307,6 +345,7 @@ async fn worker_events_aggregations_handler(
         query.end_time,
         offset,
         limit,
+        order_asc,
     )
     .await
     {
@@ -326,6 +365,17 @@ async fn user_events_aggregations_handler(
     let offset = query.offset.unwrap_or(0).max(0);
     let limit = query.limit.unwrap_or(300).clamp(1, 1000);
 
+    // Parse and validate order parameter
+    let order_asc = match query.order.as_deref() {
+        Some("asc") | Some("ASC") => true,
+        Some("desc") | Some("DESC") => false,
+        None => false, // default to DESC
+        Some(invalid) => {
+            tracing::warn!("Invalid order parameter: {}, using default DESC", invalid);
+            false
+        }
+    };
+
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
         "2min" => "user_events_2min",
@@ -344,6 +394,7 @@ async fn user_events_aggregations_handler(
         query.end_time,
         offset,
         limit,
+        order_asc,
     )
     .await
     {

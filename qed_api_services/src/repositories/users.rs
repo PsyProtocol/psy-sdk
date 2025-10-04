@@ -162,8 +162,11 @@ impl UserEventRepository {
         end_time: Option<DateTime<Utc>>,
         offset: i64,
         limit: i64,
+        order_asc: bool,
     ) -> Result<Vec<UserEvent>> {
-        let rows = sqlx::query!(
+        let order_direction = if order_asc { "ASC" } else { "DESC" };
+
+        let query_str = format!(
             r#"
             SELECT
                 user_id, public_key, tx_type,
@@ -174,30 +177,35 @@ impl UserEventRepository {
                 AND ($3::VARCHAR IS NULL OR tx_type = $3)
                 AND ($4::TIMESTAMPTZ IS NULL OR timestamp >= $4)
                 AND ($5::TIMESTAMPTZ IS NULL OR timestamp <= $5)
-            ORDER BY timestamp DESC
+            ORDER BY timestamp {}
             LIMIT $6 OFFSET $7
             "#,
-            user_id,
-            public_key,
-            tx_type.map(|t| t.to_string()),
-            start_time,
-            end_time,
-            limit,
-            offset
-        )
-        .fetch_all(pool)
-        .await?;
+            order_direction
+        );
+
+        let rows = sqlx::query(&query_str)
+            .bind(user_id)
+            .bind(public_key)
+            .bind(tx_type.map(|t| t.to_string()))
+            .bind(start_time)
+            .bind(end_time)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(pool)
+            .await?;
+
+        use sqlx::Row;
 
         let events = rows
             .into_iter()
             .map(|row| UserEvent {
-                user_id: row.user_id,
-                public_key: row.public_key,
-                tx_type: row.tx_type.parse().unwrap(),
-                metadata: row.metadata,
-                timestamp: row.timestamp,
-                created_at: row.created_at,
-                updated_at: row.updated_at,
+                user_id: row.get("user_id"),
+                public_key: row.get("public_key"),
+                tx_type: row.get::<String, _>("tx_type").parse().unwrap(),
+                metadata: row.get("metadata"),
+                timestamp: row.get("timestamp"),
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
             })
             .collect();
 

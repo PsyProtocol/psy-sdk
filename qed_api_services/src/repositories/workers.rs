@@ -84,10 +84,13 @@ impl WorkerEventRepository {
         to_checkpoint_id: Option<i64>,
         offset: i64,
         limit: i64,
+        order_asc: bool,
     ) -> Result<Vec<WorkerEvent>> {
         let topic = topic.map(|t| t.to_u8() as i16);
         let circuit_type = circuit_type.map(|t| t.to_u8() as i16);
-        let rows = sqlx::query!(
+        let order_direction = if order_asc { "ASC" } else { "DESC" };
+
+        let query_str = format!(
             r#"
             SELECT
                 id, realm_id, public_key, status, source,
@@ -100,25 +103,28 @@ impl WorkerEventRepository {
                 AND ($5::SMALLINT IS NULL OR circuit_type = $5)
                 AND ($6::BIGINT IS NULL OR checkpoint_id >= $6)
                 AND ($7::BIGINT IS NULL OR checkpoint_id <= $7)
-            ORDER BY checkpoint_id DESC, timestamp DESC
+            ORDER BY checkpoint_id {}, timestamp {}
             LIMIT $8 OFFSET $9
             "#,
-            realm_id,
-            status.map(|s| s.to_string()),
-            source.map(|s| s.to_string()),
-            topic,
-            circuit_type,
-            from_checkpoint_id,
-            to_checkpoint_id,
-            limit,
-            offset
-        )
-        .fetch_all(pool)
-        .await?;
+            order_direction, order_direction
+        );
+
+        let rows = sqlx::query(&query_str)
+            .bind(realm_id)
+            .bind(status.map(|s| s.to_string()))
+            .bind(source.map(|s| s.to_string()))
+            .bind(topic)
+            .bind(circuit_type)
+            .bind(from_checkpoint_id)
+            .bind(to_checkpoint_id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(pool)
+            .await?;
 
         use qed_core::job::id::ProvingJobCircuitType;
-
         use crate::models::job_id_from_json;
+        use sqlx::Row;
 
         // Create a default QProvingJobDataID in case of conversion failure
         let default_job_id = QProvingJobDataID::new_proof_job_id(0, 0, ProvingJobCircuitType::AddL1Deposit, 0, 0);
@@ -126,21 +132,22 @@ impl WorkerEventRepository {
         let events = rows
             .into_iter()
             .map(|row| {
-                let parsed_job_id = job_id_from_json(row.job_id).unwrap_or(default_job_id.clone());
+                let job_id_json: serde_json::Value = row.get("job_id");
+                let parsed_job_id = job_id_from_json(job_id_json).unwrap_or(default_job_id.clone());
 
                 WorkerEvent {
-                    id: Some(row.id),
-                    realm_id: row.realm_id,
-                    public_key: row.public_key,
-                    status: row.status.parse().unwrap(),
-                    source: row.source.parse().unwrap(),
+                    id: Some(row.get("id")),
+                    realm_id: row.get("realm_id"),
+                    public_key: row.get("public_key"),
+                    status: row.get::<String, _>("status").parse().unwrap(),
+                    source: row.get::<String, _>("source").parse().unwrap(),
                     job_id: parsed_job_id,
-                    checkpoint_id: row.checkpoint_id,
-                    duration: row.duration,
-                    metadata: row.metadata,
-                    timestamp: row.timestamp,
-                    created_at: row.created_at,
-                    updated_at: row.updated_at,
+                    checkpoint_id: row.get("checkpoint_id"),
+                    duration: row.get("duration"),
+                    metadata: row.get("metadata"),
+                    timestamp: row.get("timestamp"),
+                    created_at: row.get("created_at"),
+                    updated_at: row.get("updated_at"),
                 }
             })
             .collect();
