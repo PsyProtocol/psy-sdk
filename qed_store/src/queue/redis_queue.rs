@@ -446,8 +446,15 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
                 return Err(anyhow::anyhow!("Timeout waiting for job proof"));
             }
 
-            if self.contains_id(job_id).await? {
-                return self.get_proof_by_id(job_id).await;
+            match self.contains_id(job_id).await {
+                Ok(true) => {
+                    return self.get_proof_by_id(job_id).await;
+                }
+                Ok(false) => {
+                }
+                Err(err) => {
+                    tracing::warn!("Redis error while checking job {}, retrying: {:?}", job_id, err);
+                }
             }
 
             tokio::time::sleep(Duration::from_millis(100)).await;
