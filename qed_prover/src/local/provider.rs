@@ -487,7 +487,7 @@ pub struct RpcConfig {
     pub realm_user_tree_height: u8,
     pub realm_configs: Vec<RealmRpcConfig>,
     pub coordinator_configs: Vec<CoordinatorRpcConfig>,
-    pub prove_proxy_url: Option<String>,
+    pub prove_proxy_url: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -521,7 +521,7 @@ pub struct NetworkConfig {
     pub realm_configs: Vec<RealmConfig>,
     pub coordinator_configs: Vec<CoordinatorConfig>,
     pub prover_url: Option<String>,
-    pub prove_proxy_url: Option<String>,
+    pub prove_proxy_url: Vec<String>,
     pub native_currency: String,
 }
 

@@ -12,8 +12,8 @@ interface IQedTransactionSigner {
     getAbilities(): TQedTransactionSignerAbility[];
     registerUser(privateKeyHex: string): Promise<string>;
     addUser(privateKeyHex: string): Promise<string>;
-    getClaimRewardsCallArgs(pk_hash: string, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]>;
-    claimRewards(pk_hash: string,  checkpointId: bigint, jobInfos: JobInfo[]): Promise<string>;
+    getClaimRewardsCallArgs(pk_hash: string, jobInfos: string): Promise<ContractCallArgs[]>;
+    claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
 }
 
 interface IQedTransactionSignerProvider {
@@ -25,8 +25,8 @@ interface IQedTransactionSignerProvider {
     addRandomPrivateKey?(): Promise<IQedTransactionSigner>;
     registerUser(privateKeyHex: string): Promise<string>;
     addUser(privateKeyHex: string): Promise<string>;
-    getClaimRewardsCallArgs(pk_hash: string, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]>;
-    claimRewards(pk_hash: string,  checkpointId: bigint, jobInfos: JobInfo[]): Promise<string>;
+    getClaimRewardsCallArgs(pk_hash: string, jobInfos: string): Promise<ContractCallArgs[]>;
+    claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
 }
 
 export type {

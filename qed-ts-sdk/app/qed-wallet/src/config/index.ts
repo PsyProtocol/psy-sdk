@@ -19,12 +19,12 @@ export interface NetworkConfig {
   realm_configs: RealmConfig[];
   coordinator_configs: CoordinatorConfig[];
   prover_url?: string;
-  prove_proxy_url?: string; 
+  prove_proxy_url: string[]; 
   nativeCurrency?: string; // contractId of the native currency token
 }
 
 export const DEFAULT_PROVER_URL = "http://127.0.0.1:8888";
-export const DEFAULT_PROVE_PROXY_URL = "http://127.0.0.1:9999";
+export const DEFAULT_PROVE_PROXY_URL = ["http://127.0.0.1:9999"];
 export const DEFAULT_GLOBAL_USER_TREE_HEIGHT = 24;
 export const DEFAULT_REALM_USER_TREE_HEIGHT = 23;
 

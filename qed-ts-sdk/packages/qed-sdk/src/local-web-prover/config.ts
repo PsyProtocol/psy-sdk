@@ -5,7 +5,7 @@ export interface WebProverConfig {
     users_per_realm: number;
     realm_configs: RpcConfig[];
     coordinator_configs: RpcConfig[];
-    prove_proxy_url?: string;
+    prove_proxy_url: string[];
 }
 
 interface RpcConfig {
@@ -68,6 +68,9 @@ export function createDefaultRpcConfig(): WebProverConfig {
                     "http://127.0.0.1:8545"
                 ]
             }
+        ],
+        "prove_proxy_url": [
+            "http://127.0.0.1:9999"
         ]
     }
 }

@@ -66,7 +66,7 @@ const ExtensionHomeContent: React.FC = () => {
         config.network.realm_configs,
         config.network.users_per_realm,
         config.network.prover_url as string,
-        config.network.prove_proxy_url as string,
+        config.network.prove_proxy_url as string[],
     );
 
     if (isLoading) {
