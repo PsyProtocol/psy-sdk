@@ -27,6 +27,7 @@ use tokio::sync::Mutex;
 use tokio::time::timeout;
 use qed_prover::wallet::secp_wallet::Wallet;
 use crate::common::slot::SLOT_SIZE;
+use qed_core::utils::trace_timer::TraceTimer;
 
 pub async fn run_worker(
     edge_url: String,
@@ -56,6 +57,13 @@ pub async fn run_worker(
             }
         };
         let job_id = job.job_id;
+        let mut timer = TraceTimer::new("process_job");
+        timer.event(format!(
+            "STARTED job {} ({:?})",
+            job_id.to_hex_string(),
+            job_id
+        ));
+
         let timeout_duration = match location {
             JobLocation::Coordinator => Duration::from_millis(2 * SLOT_SIZE),
             JobLocation::Realm(_) => Duration::from_millis(SLOT_SIZE),
@@ -75,6 +83,11 @@ pub async fn run_worker(
                                         error!("Failed to save job tracker: {:?}", e);
                                     }
                                 }
+                                timer.event(format!(
+                                    "FINISHED job {} ({:?})",
+                                    job_id.to_hex_string(),
+                                    job_id
+                                ));
                             }
                             Err(e) => {
                                 error!(
