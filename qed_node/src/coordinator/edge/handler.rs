@@ -1805,11 +1805,11 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             }
         };
         match j {
-            Some(job) if job.job_id.is_notify_complete() => {
+            Some(job) if !job.job_id.is_provable() => {
                 self.acknowledge_job_completion(&job, &worker_id).await.map_err(RpcError::Anyhow)?;
                 Ok(None)
             }
-            Some(job) => {
+            Some(job) if self.ctx.proof_store.contains_id(job.job_id.get_input_witness_id()).await.is_ok_and(|x| x) => {
                 debug!("Pending job from current task: {:?}", job);
 
                 // Report job started event to watcher
@@ -1828,7 +1828,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
 
                 Ok(Some(job))
             }
-            None => {
+            _ => {
                 trace!("No pending job from current task");
                 Ok(None)
             }
@@ -1855,7 +1855,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
     async fn set_proof_by_id(
         &self,
         job: QJob,
-        proof: Option<QEDProof>,
+        proof: QEDProof,
         signed: SignedRequest<QEDHash>,
     ) -> RpcResult<()> {
         // Verify signature and whitelist
@@ -1923,27 +1923,25 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             }
         }
 
-        if let Some(proof) = proof {
-            info!("Setting proof by id: {:?}", job_id);
+        info!("Setting proof by id: {:?}", job_id);
 
-            crate::common::log_proof_details("Coordinator", job_id, &proof);
+        crate::common::log_proof_details("Coordinator", job_id, &proof);
 
-            verify_witness_and_proof(
-                &self.ctx.proof_verifier,
-                job_id,
-                self.ctx.proof_store.as_ref(),
-                &proof,
-            )
+        verify_witness_and_proof(
+            &self.ctx.proof_verifier,
+            job_id,
+            self.ctx.proof_store.as_ref(),
+            &proof,
+        )
+        .await
+        .map_err(|e| RpcError::Anyhow(e.into()))?;
+
+        let output_id = job_id.get_output_id();
+        self.proof_store
+            .set_proof_by_id(output_id, &proof)
             .await
-            .map_err(|e| RpcError::Anyhow(e.into()))?;
-
-            let output_id = job_id.get_output_id();
-            self.proof_store
-                .set_proof_by_id(output_id, &proof)
-                .await
-                .map_err(RpcError::Anyhow)?;
-            info!("✅ Proof stored successfully for job {:?}", job_id);
-        }
+            .map_err(RpcError::Anyhow)?;
+        info!("✅ Proof stored successfully for job {:?}", job_id);
 
         self.acknowledge_job_completion(&job, worker_id).await.map_err(RpcError::Anyhow)?;
         Ok(())

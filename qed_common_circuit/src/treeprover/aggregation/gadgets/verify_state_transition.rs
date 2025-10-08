@@ -91,6 +91,8 @@ impl<const D: usize> VerifyStateTransitionProofGadget<D> {
         let computed_state_transition_hash =
             state_transition.get_combined_hash::<C::Hasher, F, D>(builder);
 
+        tracing::debug!("expected_state_transition_hash={:#?}", expected_state_transition_hash);
+        tracing::debug!("computed_state_transition_hash={:#?}", computed_state_transition_hash);
         builder.connect_hashes(
             expected_state_transition_hash,
             computed_state_transition_hash,
@@ -112,6 +114,7 @@ impl<const D: usize> VerifyStateTransitionProofGadget<D> {
     where
         C::Hasher: AlgebraicHasher<F>,
     {
+        tracing::debug!("state_transition={}", serde_json::to_string_pretty(&state_transition).unwrap());
         self.state_transition
             .set_witness(witness, state_transition)?;
 

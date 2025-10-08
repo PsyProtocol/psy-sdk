@@ -296,6 +296,17 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
 
         Ok(())
     }
+
+    async fn clear(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        let mut builder = self.redis.cmd_builder();
+        let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
+        let checkpoint_list_key = self.checkpoint_list_key();
+        builder = builder
+            .del(checkpoint_proofs_key)
+            .srem(&checkpoint_list_key, &[checkpoint_id]);
+        builder.execute_atomic(&self.redis).await?;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -446,13 +457,8 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
                 return Err(anyhow::anyhow!("Timeout waiting for job proof"));
             }
 
-            match self.get_proof_by_id(job_id).await {
-                Ok(proof) => {
-                    return Ok(proof);
-                }
-                Err(err) => {
-                    tracing::warn!("Redis error while checking job {}, retrying: {:?}", job_id, err);
-                }
+            if let Ok(proof) = self.get_proof_by_id(job_id).await {
+                return Ok(proof);
             }
 
             tokio::time::sleep(Duration::from_millis(100)).await;

@@ -109,23 +109,25 @@ impl<const D: usize> VerifyAggUserRegistartionDeployContractsGUTAGadget<D> {
         guta_verifier_data_cap_height: usize,
         guta_circuit_whitelist_root: QHashOut<F>,
     ) -> Self  where C::Hasher: AlgebraicHasher<F> {
-        tracing::debug!("🏭 Agg User Registration Deploy Contracts GUTA - guta_circuit_whitelist_root: {:?}", guta_circuit_whitelist_root);
         let verify_register_users_gadget = VerifyStateTransitionProofGadget::<D>::add_virtual_to_with_config::<C,F>(
             builder,
             user_reg_proof_common_data,
             user_reg_transition_circuit_config,
         );
+        tracing::debug!("verify_register_users_gadget={:#?}", verify_register_users_gadget);
         let verify_deploy_contract_gadget = VerifyStateTransitionProofGadget::<D>::add_virtual_to_with_config::<C,F>(
             builder,
             deploy_contracts_proof_common_data,
             deploy_contracts_transition_circuit_config,
         );
+        tracing::debug!("verify_deploy_contract_gadget={:#?}", verify_deploy_contract_gadget);
 
         let verify_guta_gadget = VerifyGUTAProofGadget::<D>::add_virtual_to::<C,F>(
             builder,
             guta_proof_common_data,
             guta_verifier_data_cap_height,
         );
+        tracing::debug!("verify_guta_gadget={:#?}", verify_guta_gadget);
 
         let guta_circuit_whitelist_root_target = builder.constant_qhash(guta_circuit_whitelist_root);
         builder.connect_hashes(
@@ -192,16 +194,18 @@ impl<const D: usize> VerifyAggUserRegistartionDeployContractsGUTAGadget<D> {
             serde_json::to_string_pretty(&register_users_proof.public_inputs).unwrap(),
             serde_json::to_string_pretty(&deploy_contracts_proof.public_inputs).unwrap(),
             serde_json::to_string_pretty(&guta_proof.public_inputs).unwrap());
-        
+
         tracing::debug!("🏭 Agg User Registration Deploy Contracts GUTA set_witness - guta_proof_header: {}",
             serde_json::to_string_pretty(guta_proof_header).unwrap());
 
+        tracing::debug!("register_users_state_transition={}", serde_json::to_string_pretty(&register_users_state_transition).unwrap());
         self.verify_register_users_gadget.set_witness::<F,C>(
             witness,
             register_users_state_transition,
             register_users_proof,
             register_users_verifier_data,
         )?;
+        tracing::debug!("deploy_contracts_state_transition={}", serde_json::to_string_pretty(&deploy_contracts_state_transition).unwrap());
         self.verify_deploy_contract_gadget.set_witness::<F,C>(
             witness,
             deploy_contracts_state_transition,

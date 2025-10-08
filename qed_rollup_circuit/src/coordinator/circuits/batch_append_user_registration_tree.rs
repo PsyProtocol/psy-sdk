@@ -96,8 +96,8 @@ where
         register_users_circuit_whitelist: QHashOut<C::F>,
         worker_public_key: QHashOut<C::F>,
         spiderman_append_proofs: &[SpidermanUpdateProof<QHashOut<C::F>>],
-
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::debug!("spiderman_append_proofs: {}", serde_json::to_string_pretty(&spiderman_append_proofs).unwrap());
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.register_users_circuit_whitelist, register_users_circuit_whitelist.0)?;
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;

@@ -185,6 +185,10 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
     async fn cleanup_old_proofs(&self, _current_height: u64, _keep_blocks: u64) -> anyhow::Result<()> {
         Ok(())
     }
+
+    async fn clear(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[async_trait]

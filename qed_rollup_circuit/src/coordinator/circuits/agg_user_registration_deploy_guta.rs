@@ -100,6 +100,7 @@ where
                 guta_verifier_data_cap_height,
                 guta_circuit_whitelist_root,
             );
+        tracing::debug!("verifier_gadget={:#?}", verifier_gadget);
         let state_transition_hash = verifier_gadget
             .header
             .get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
@@ -214,8 +215,8 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
-        println!("r: {}", register_users_state_transition.get_combined_hash::<C::Hasher>());
-        println!("d: {}", deploy_contracts_state_transition.get_combined_hash::<C::Hasher>());
+        tracing::debug!("register_users_state_transition: {}", register_users_state_transition.get_combined_hash::<C::Hasher>());
+        tracing::debug!("deploy_contracts_state_transition: {}", deploy_contracts_state_transition.get_combined_hash::<C::Hasher>());
 
         self.verifier_gadget.set_witness_params(
             &mut pw,

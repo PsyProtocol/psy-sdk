@@ -198,10 +198,11 @@ impl<
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
 
         let last_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
+        tracing::debug!("last_contract_tree_root: {}", last_contract_tree_root);
         let (deploy_contract_items, _consumption_state) = self
             .checkpoint_queue
             .peek_with_position::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
-                None,
+                Some(64),
                 self.coordinator_config.deploy_contract_channel_id,
                 checkpoint_id,
             )
@@ -235,7 +236,7 @@ impl<
         }
         let next_contract_id = start_contract_id + new_contract_leaves.len() as u32;
         let mut psb = ProofStoreBuilder::new();
-        let wits = self
+        let res = self
             .store
             .batch_append_contract_tree_imm(
                 checkpoint_id,
@@ -243,7 +244,9 @@ impl<
                 self.coordinator_config.deploy_contracts_tree_batch_height,
                 &new_hashes,
             )
-            .await?
+            .await?;
+        tracing::debug!("deploy contracts: {}", serde_json::to_string_pretty(&res).unwrap());
+        let wits = res
             .into_iter()
             .zip(new_contract_leaves.chunks(1usize << (self.coordinator_config.deploy_contracts_tree_batch_height as usize)))
             .enumerate()
@@ -266,9 +269,11 @@ impl<
                 last_contract_tree_root,
                 self.coordinator_config.deploy_contracts_circuit_whitelist,
             )?;
+        tracing::debug!("root_transition_batch_deploy_contract_tree: {}", serde_json::to_string_pretty(&root_transition_batch_deploy_contract_tree).unwrap());
 
         self.proof_store.set_bytes_by_id_batch(&psb.kvs).await?;
         let new_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
+        tracing::debug!("new_contract_tree_root: {}", new_contract_tree_root);
 
         Ok((
             batch_deploy_contract_tree_job_ids,
@@ -294,9 +299,10 @@ impl<
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
 
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
+        tracing::debug!("last_user_registration_tree_root: {}", last_user_registration_tree_root);
         let (user_registrations, consumption_state) = self
             .checkpoint_queue
-            .peek_with_position::<ZKPublicKeyInfo<F>>(None, COORD_API_REGISTER_USER_CHANNEL_ID, checkpoint_id)
+            .peek_with_position::<ZKPublicKeyInfo<F>>(Some(256), COORD_API_REGISTER_USER_CHANNEL_ID, checkpoint_id)
             .await?;
 
         let start_registration_user_id = last_l2_blockstate.next_user_id;
@@ -326,7 +332,7 @@ impl<
         let new_public_keys = user_registrations.iter().map(|x| x.to_hash::<QEDHasher>()).collect::<Vec<_>>();
 
         let mut psb = ProofStoreBuilder::new();
-        let wits = self
+        let res = self
             .store
             .batch_append_user_registration_tree_imm(
                 checkpoint_id,
@@ -334,7 +340,9 @@ impl<
                 self.coordinator_config.register_user_tree_batch_height,
                 &new_public_keys,
             )
-            .await?
+            .await?;
+        tracing::debug!("user registrations spiderman proofs: {}", serde_json::to_string_pretty(&res).unwrap());
+        let wits = res
             .chunks(self.coordinator_config.register_user_tree_batch_size)
             .enumerate()
             .map(|(i, c)| self.push_user_registration_request(checkpoint_id, self.coordinator_config.coordinator_id, i as u32, &mut psb, c.to_vec()))
@@ -357,9 +365,11 @@ impl<
                 last_user_registration_tree_root,
                 self.coordinator_config.register_users_circuit_whitelist,
             )?;
+        tracing::debug!("root_transition_append_user_registration_tree: {}", serde_json::to_string_pretty(&root_transition_append_user_registration_tree).unwrap());
 
         self.proof_store.set_bytes_by_id_batch(&psb.kvs).await?;
         let new_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
+        tracing::debug!("new_user_registration_tree_root: {}", new_user_registration_tree_root);
 
         Ok((
             append_user_registration_tree_job_ids,
@@ -1294,7 +1304,8 @@ impl<
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
-        self.store.rollback(checkpoint_id)
+        self.store.rollback(checkpoint_id);
+        self.proof_store.clear(checkpoint_id).await
     }
 
     // commit redis queue

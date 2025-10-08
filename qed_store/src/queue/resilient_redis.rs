@@ -108,7 +108,7 @@ impl ResilientRedisConnection {
             Ok(result) => Ok(result),
             Err(e) => {
                 let is_conn_error = self.is_connection_error(&e);
-                
+
                 if is_conn_error {
                     self.mark_connection_invalid().await;
                 }
