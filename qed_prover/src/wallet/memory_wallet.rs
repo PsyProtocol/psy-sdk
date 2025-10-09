@@ -390,7 +390,7 @@ mod tests {
         let circuit_manager = crate::ups::circuit_manager::core::QCircuitManager::Local(
             crate::ups::circuit_manager::core::QEDUPSStepCircuitManager::new_with_config(0x1337)
         );
-        let wallet = QEDMemoryWallet::new(circuit_manager);
+        let wallet = QEDMemoryWallet::new(vec![circuit_manager]);
 
         println!("Created memory wallet");
 

@@ -911,6 +911,7 @@ impl<
         guta_jobs: &Vec<Vec<QProvingJobDataID>>,
         finished_job: QProvingJobDataID,
     ) -> anyhow::Result<()> {
+        tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let finished_job_task = QProvingTask::new(&[finished_job]);
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
