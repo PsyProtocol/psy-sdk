@@ -1304,8 +1304,7 @@ impl<
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
-        self.store.rollback(checkpoint_id);
-        self.proof_store.clear(checkpoint_id).await
+        self.store.rollback(checkpoint_id)
     }
 
     // commit redis queue
