@@ -36,6 +36,7 @@ maybe-async = { workspace = true }
 scylla = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 uuid = { workspace = true }
 kvq_store_lmdbx = { path = "src/store/lmdbx" }
 tikv-client = { workspace = true }
