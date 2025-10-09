@@ -1807,6 +1807,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         };
         match j {
             Some(job) if job.job_id.is_notify_complete() => {
+                debug!("got complete job, then acknowledge it ");
                 self.acknowledge_job_completion(&job, &worker_id).await.map_err(RpcError::Anyhow)?;
                 Ok(None)
             }

@@ -26,8 +26,13 @@ fn parse_order_param(order: Option<&str>) -> bool {
     }
 }
 
+async fn health_handler() -> Json<serde_json::Value> {
+    Json(serde_json::json!({"status": "ok"}))
+}
+
 pub fn create_router(api_service: ApiService) -> Router {
     Router::new()
+        .route("/health", get(health_handler))
         .route("/register", post(register_handler))
         .route("/user_info", get(user_info_handler))
         .route("/worker_events", get(worker_events_handler))

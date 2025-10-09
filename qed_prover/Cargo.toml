@@ -72,6 +72,7 @@ alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
 alloy-primitives = { workspace = true }
 parking_lot = { workspace = true}
+http = { workspace = true }
 
 
 # WASM-specific dependencies

@@ -59,12 +59,12 @@ class QedMemoryTransactionSigner implements IQedTransactionSigner {
         return this.prover.addUser(privateKeyHex);
     }
 
-    async getClaimRewardsCallArgs(pk_hash: string, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]> {
-        return this.prover.getClaimRewardsCallArgs(pk_hash, checkpointId, jobInfos);
+    async getClaimRewardsCallArgs(pk_hash: string, jobInfos: string): Promise<ContractCallArgs[]> {
+        return this.prover.getClaimRewardsCallArgs(pk_hash, jobInfos);
     }
 
-    async claimRewards(pk_hash: string,  checkpointId: bigint, jobInfos: JobInfo[]): Promise<string> {
-        return this.prover.claimRewards(pk_hash, checkpointId, jobInfos);
+    async claimRewards(pk_hash: string, jobInfos: string): Promise<string> {
+        return this.prover.claimRewards(pk_hash, jobInfos);
     }
 }
 

@@ -19,10 +19,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::HashOut;
 use tokio::sync::Mutex;
+use tokio::time::sleep;
 use tracing::{error, info};
+use tracing::log::warn;
 use qed_node::worker::client::WorkerCoordinatorClient;
 
 type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -74,7 +77,7 @@ pub async fn run(
             qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
         ));
 
-    let mut memory_wallet = qed_prover::wallet::memory_wallet::QEDMemoryWallet::new(main_circuits);
+    let mut memory_wallet = qed_prover::wallet::memory_wallet::QEDMemoryWallet::new(vec![main_circuits]);
 
     let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
     let public_key_info = memory_wallet.add_secp_private_key(private_key)?;
@@ -85,7 +88,36 @@ pub async fn run(
     let worker_coordinator_client = WorkerCoordinatorClient::new(
         &config.network.coordinator_configs[0].rpc_url[0],
     ).await?;
-    let user_id = worker_coordinator_client.get_user_id(&worker_public_key).await?;
+    // Retry mechanism for getting user ID
+    const MAX_RETRIES: u32 = 60;
+    const RETRY_DELAY_SECS: u64 = 10;
+
+    let user_id = {
+        let mut retry_count = 0;
+        loop {
+            match worker_coordinator_client.get_user_id(&worker_public_key).await {
+                Ok(id) => {
+                    info!("Successfully retrieved user ID: {}", id);
+                    break id;
+                }
+                Err(e) => {
+                    retry_count += 1;
+
+                    if retry_count > MAX_RETRIES {
+                        error!("Failed to get user ID after {} attempts", MAX_RETRIES);
+                        return Err(anyhow::anyhow!("Failed to retrieve user ID: {}", e));
+                    }
+
+                    warn!(
+                        "Failed to get user ID (attempt {}/{}): {}. Retrying in {} seconds...",
+                        retry_count, MAX_RETRIES, e, RETRY_DELAY_SECS
+                    );
+
+                    sleep(Duration::from_secs(RETRY_DELAY_SECS)).await;
+                }
+            }
+        }
+    };
 
     let recipient_user_id = recipient.unwrap_or(user_id);
     let user_qhashout = user_id_to_qhashout(recipient_user_id);

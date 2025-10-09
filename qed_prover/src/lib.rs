@@ -4,6 +4,9 @@ pub mod local;
 pub mod wallet;
 pub mod session;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod health;
+
 
 use qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
 #[cfg(target_arch = "wasm32")]
@@ -50,6 +53,7 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     use std::sync::Arc;
     use parking_lot::{RwLock, Mutex};
     use tower_http::cors::{Any, CorsLayer};
+    use crate::health::HealthLayer;
 
     use crate::local::native::{RpcServer, RpcServerImpl};
     use crate::local::common::enc::SimpleZeroPadEncryptionHelper;
@@ -64,7 +68,9 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
         ])
         .allow_origin(Any)
         .allow_headers(Any);
-    let cors = tower::ServiceBuilder::new().layer(cors_opts);
+    let cors = tower::ServiceBuilder::new()
+        .layer(HealthLayer)
+        .layer(cors_opts);
 
     let server_addr: SocketAddr = args.listen_addr.parse()?;
     tracing::info!("Starting user prover server at {}", server_addr);
@@ -92,6 +98,7 @@ pub async fn run_prove_proxy_server(
     args: crate::local::args::ProveProxyArgs,
 ) -> anyhow::Result<()> {
     use crate::local::native::prove_proxy::ProveProxyRpcServer;
+    use crate::health::HealthLayer;
     use hyper::Method;
     use jsonrpsee::server::Server;
     use std::net::SocketAddr;
@@ -102,7 +109,9 @@ pub async fn run_prove_proxy_server(
         .allow_methods([Method::POST, Method::OPTIONS])
         .allow_origin(Any)
         .allow_headers(Any);
-    let cors = tower::ServiceBuilder::new().layer(cors_opts);
+    let cors = tower::ServiceBuilder::new()
+        .layer(HealthLayer)
+        .layer(cors_opts);
     let server_addr: SocketAddr = args.listen_addr.parse()?;
     tracing::info!("Starting prove proxy server at {}", server_addr);
     let server = Server::builder()

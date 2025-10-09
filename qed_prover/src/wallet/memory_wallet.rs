@@ -49,7 +49,7 @@ pub struct QEDMemoryWallet {
     // figerprint, circuit
     pub software_defined_circuits:
         DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
-    pub circuit_manager: QCircuitManager<C, D>,
+    pub circuit_manager: Vec<QCircuitManager<C, D>>,
     pub zk_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
     pub secp_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
     pub software_defined_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
@@ -57,7 +57,7 @@ pub struct QEDMemoryWallet {
 
 #[maybe_async::maybe_async(?Send)]
 impl QEDMemoryWallet {
-    pub fn new(circuit_manager: QCircuitManager<C, D>) -> Self {
+    pub fn new(circuit_manager: Vec<QCircuitManager<C, D>>) -> Self {
         Self {
             zk_public_key_to_private_key_store: DashMap::new(),
             secp_public_key_to_private_key_store: DashMap::new(),
@@ -65,6 +65,11 @@ impl QEDMemoryWallet {
             circuit_manager,
             software_defined_circuits: DashMap::new(),
         }
+    }
+
+    pub fn random_circuit_manager(&self) -> &QCircuitManager<C, D> {
+        let index = rand::random::<usize>() % self.circuit_manager.len();
+        &self.circuit_manager[index]
     }
 
     pub async fn add_zk_private_key(
@@ -83,7 +88,7 @@ impl QEDMemoryWallet {
     ) -> anyhow::Result<ZKPublicKeyInfo<F>> {
         let private_key = SimpleQEDPrivateKey { private_key };
         let public_key_param = private_key.get_public_key_param::<PoseidonHash>();
-        let fingerprint = self.circuit_manager.zk_circuit_fingerprint().await?;
+        let fingerprint = self.random_circuit_manager().zk_circuit_fingerprint().await?;
 
         Ok(ZKPublicKeyInfo {
             fingerprint,
@@ -141,7 +146,7 @@ impl QEDMemoryWallet {
             hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(pub_compressed);
 
         Ok(ZKPublicKeyInfo {
-            fingerprint: self.circuit_manager.secp_circuit_fingerprint().await?,
+            fingerprint: self.random_circuit_manager().secp_circuit_fingerprint().await?,
             public_key_param: public_key_params,
         })
     }
@@ -155,7 +160,7 @@ impl QEDMemoryWallet {
             .zk_public_key_to_private_key_store
             .get(&public_key)
             .ok_or(anyhow::format_err!("tried to sign with a public key ({}) which does not match any private keys in the store", public_key.to_string()))?;
-        self.circuit_manager
+        self.random_circuit_manager()
             .prove_zk_sign(*private_key, sig_hash)
             .await
     }
@@ -165,7 +170,7 @@ impl QEDMemoryWallet {
         private_key: QHashOut<F>,
         sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        self.circuit_manager
+        self.random_circuit_manager()
             .prove_zk_sign(private_key, sig_hash)
             .await
     }
@@ -229,7 +234,7 @@ impl QEDMemoryWallet {
         &self,
         signature: &QEDCompressedSecp256K1Signature,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        self.circuit_manager.prove_secp_sign(*signature).await
+        self.random_circuit_manager().prove_secp_sign(*signature).await
     }
 
     pub async fn zk_sign_secp256k1(
@@ -238,7 +243,7 @@ impl QEDMemoryWallet {
         sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let ecc_sig = self.secp256k1_sign_with_public_key(public_key, sig_hash)?;
-        self.circuit_manager.prove_secp_sign(ecc_sig).await
+        self.random_circuit_manager().prove_secp_sign(ecc_sig).await
     }
 }
 
@@ -249,7 +254,7 @@ impl QEDMemoryWallet {
         &mut self,
         input: SoftwareDefinedSignatureInput,
     ) -> anyhow::Result<QHashOut<F>> {
-        if let QCircuitManager::Rpc(rpc_provider) = &self.circuit_manager {
+        if let QCircuitManager::Rpc(rpc_provider) = self.random_circuit_manager() {
             return rpc_provider.register_software_defined_circuit(input).await;
         };
         let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
