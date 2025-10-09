@@ -914,7 +914,7 @@ impl<
         let guta_tasks = guta_jobs.iter().map(|jobs| QProvingTask::new(jobs)).collect::<Vec<_>>();
         let finished_job_task = QProvingTask::new(&[finished_job]);
         self.task_store.write_multidimensional_tasks(&guta_tasks, &finished_job_task).await?;
-
+        debug!("plan_jobs for realm , checkpoint_id {}", new_checkpoint_id);
         self.task_store.finalize_and_save_topology().await?;
         self.task_store.save_job_dependency_graph(new_checkpoint_id).await?;
 

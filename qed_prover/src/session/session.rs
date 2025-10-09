@@ -259,31 +259,40 @@ impl WalletSession {
 
         tracing::info!("init wallet");
         tracing::info!("init ups step circuit manager");
-        let main_circuits = match &rpc_config.prove_proxy_url {
-            Some(url) => {
-                QCircuitManager::Rpc(ProveProxyRpcProvider::new_with_config(url.to_string()).await?)
+        let mut main_circuits = Vec::new();
+
+        for proxy_url in rpc_config.prove_proxy_url.iter() {
+            if let Ok(main_circuit) = ProveProxyRpcProvider::new_with_config(proxy_url.to_string()).await {
+                main_circuits.push(QCircuitManager::Rpc(main_circuit));
+            } else {
+                tracing::info!("prove proxy url `{}` is invalid, skip", proxy_url);
             }
-            None => QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(
+        }
+        if main_circuits.is_empty() {
+            tracing::warn!("no valid prove proxy url, use local circuit manager");
+            main_circuits.push(QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(
                 QED_NETWORK_MAGIC_REGTEST,
-            )),
-        };
+            )));
+        }
 
         let mut circuit_info = SessionCircuitInfoStore::new();
 
         tracing::info!("register ZKSignature circuit info");
         circuit_info.register_circuit(
             LocalCircuitType::SimpleZKSignature.into(),
-            main_circuits.zk_circuit_fingerprint().await?,
-            main_circuits.zk_circuit_verifier_config().await?.into(),
+            main_circuits[0].zk_circuit_fingerprint().await?,
+            main_circuits[0].zk_circuit_verifier_config().await?.into(),
         );
 
         circuit_info.register_circuit(
             LocalCircuitType::SimpleSecp256K1.into(),
-            main_circuits.secp_circuit_fingerprint().await?,
-            main_circuits.secp_circuit_verifier_config().await?.into(),
+            main_circuits[0].secp_circuit_fingerprint().await?,
+            main_circuits[0].secp_circuit_verifier_config().await?.into(),
         );
 
-        main_circuits.register_info(&mut circuit_info).await;
+        for main_circuit in main_circuits.iter() {
+            main_circuit.register_info(&mut circuit_info).await;
+        }
 
         let wallet = QEDMemoryWallet::new(main_circuits);
 
@@ -417,7 +426,7 @@ impl WalletSession {
                             checkpoint_id,
                             self.st_provider.clone(),
                             self.circuit_info.clone(),
-                            &self.wallet.circuit_manager,
+                            &self.wallet.random_circuit_manager(),
                         )
                         .await?,
                     );
@@ -556,7 +565,7 @@ impl WalletSession {
                         latest_l2_block_state.checkpoint_id,
                         self.st_provider.clone(),
                         self.circuit_info.clone(),
-                        &self.wallet.circuit_manager,
+                        &self.wallet.random_circuit_manager(),
                     )
                     .await?;
                 };
@@ -586,7 +595,7 @@ impl WalletSession {
                     checkpoint_id,
                     self.st_provider.clone(),
                     self.circuit_info.clone(),
-                    &self.wallet.circuit_manager,
+                    &self.wallet.random_circuit_manager(),
                 )
                 .await?;
             }
@@ -598,7 +607,7 @@ impl WalletSession {
 
         user_session_mgr
             .mgr
-            .prove_ups_start(&self.wallet.circuit_manager)
+            .prove_ups_start(&self.wallet.random_circuit_manager())
             .await?;
 
         Ok(())
@@ -620,7 +629,7 @@ impl WalletSession {
         );
         prove_func(
             &user_session_mgr.rpc_provider.clone(),
-            &self.wallet.circuit_manager,
+            &self.wallet.random_circuit_manager(),
             &mut user_session_mgr.mgr,
             contract_call_arg.contract_id,
             &contract_call_arg.method_name,
@@ -631,7 +640,7 @@ impl WalletSession {
                 .collect(),
         )
         .await?;
-        user_session_mgr.mgr.prove_burn_fee(&self.wallet.circuit_manager).await?;
+        user_session_mgr.mgr.prove_burn_fee(&self.wallet.random_circuit_manager()).await?;
         Ok(())
     }
 
@@ -652,7 +661,7 @@ impl WalletSession {
             );
             prove_func(
                 &user_session_mgr.rpc_provider.clone(),
-                &self.wallet.circuit_manager,
+                &self.wallet.random_circuit_manager(),
                 &mut user_session_mgr.mgr,
                 contract_call_arg.contract_id,
                 &contract_call_arg.method_name,
@@ -664,7 +673,7 @@ impl WalletSession {
             )
             .await?;
         }
-        user_session_mgr.mgr.prove_burn_fee(&self.wallet.circuit_manager).await?;
+        user_session_mgr.mgr.prove_burn_fee(&self.wallet.random_circuit_manager()).await?;
         Ok(())
     }
 
@@ -824,7 +833,7 @@ impl WalletSession {
         user_session_mgr
             .mgr
             .proof_tree_state
-            .finalize_tree(&self.wallet.circuit_manager)
+            .finalize_tree(self.wallet.random_circuit_manager())
             .await?;
 
         let public_key_param = self
@@ -838,19 +847,19 @@ impl WalletSession {
 
         let (circuit_fingerprint, circuit_verifier_config) = match sign_type {
             SignType::ZKSign => (
-                self.wallet.circuit_manager.zk_circuit_fingerprint().await?,
+                self.wallet.random_circuit_manager().zk_circuit_fingerprint().await?,
                 self.wallet
-                    .circuit_manager
+                    .random_circuit_manager()
                     .zk_circuit_verifier_config()
                     .await?,
             ),
             SignType::SECP256K1Sign => (
                 self.wallet
-                    .circuit_manager
+                    .random_circuit_manager()
                     .secp_circuit_fingerprint()
                     .await?,
                 self.wallet
-                    .circuit_manager
+                    .random_circuit_manager()
                     .secp_circuit_verifier_config()
                     .await?,
             ),
@@ -885,7 +894,7 @@ impl WalletSession {
         let end_cap_proof = user_session_mgr
             .mgr
             .prove_end_cap(
-                &self.wallet.circuit_manager,
+                &self.wallet.random_circuit_manager(),
                 QED_NETWORK_MAGIC_REGTEST,
                 nonce,
                 circuit_fingerprint,

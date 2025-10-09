@@ -260,7 +260,7 @@ run-watcher-coordinator:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 0 \
 	--node-type coordinator \
-	--redis-url redis://127.0.0.1:6379 \
+	--redis-uri redis://127.0.0.1:6379 \
 	--api-endpoint "http://localhost:3000" \
 	--database lmdbx \
 	--lmdbx-path ${PWD}/db/coordinator
@@ -269,7 +269,7 @@ run-watcher-coordinator-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 0 \
 	--node-type coordinator \
-	--redis-url redis://127.0.0.1:6379 \
+	--redis-uri redis://127.0.0.1:6379 \
 	--api-endpoint "http://localhost:3000" \
     --database tikv \
     --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -279,7 +279,7 @@ run-watcher-realm0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 0 \
 	--node-type realm \
-	--redis-url redis://127.0.0.1:6380 \
+	--redis-uri redis://127.0.0.1:6380 \
 	--api-endpoint "http://localhost:3000" \
 	--database lmdbx \
     --lmdbx-path ${PWD}/db/realm0
@@ -288,7 +288,7 @@ run-watcher-realm0-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 0 \
 	--node-type realm \
-	--redis-url redis://127.0.0.1:6380 \
+	--redis-uri redis://127.0.0.1:6380 \
 	--api-endpoint "http://localhost:3000" \
     --database tikv \
     --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -299,7 +299,7 @@ run-watcher-realm1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 1 \
 	--node-type realm \
-	--redis-url redis://127.0.0.1:6381 \
+	--redis-uri redis://127.0.0.1:6381 \
 	--api-endpoint "http://localhost:3000" \
 	--database lmdbx \
     --lmdbx-path ${PWD}/db/realm1
@@ -309,7 +309,7 @@ run-watcher-realm1-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 1 \
 	--node-type realm \
-	--redis-url redis://127.0.0.1:6381 \
+	--redis-uri redis://127.0.0.1:6381 \
 	--api-endpoint "http://localhost:3000" \
     --database tikv \
     --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \

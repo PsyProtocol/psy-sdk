@@ -48,7 +48,7 @@ pub fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
                     qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
                 ));
 
-            let mut memory_wallet = QEDMemoryWallet::new(main_circuits);
+            let mut memory_wallet = QEDMemoryWallet::new(vec![main_circuits]);
             let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
             let secp_pk_info = memory_wallet.add_secp_private_key(private_key)?;
             let public_key = secp_pk_info.qfhash::<QEDHasher>();

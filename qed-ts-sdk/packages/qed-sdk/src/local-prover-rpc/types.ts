@@ -115,8 +115,8 @@ interface IQedUserProverProvider {
     proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
     signAndSubmit(pk_hash: string): Promise<string>;
 
-    getClaimRewardsCallArgs(pk_hash: string, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]>;
-    claimRewards(pk_hash: string, checkpointId: bigint, jobInfos: JobInfo[]): Promise<string>;
+    getClaimRewardsCallArgs(pk_hash: string, jobInfos: string): Promise<ContractCallArgs[]>;
+    claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
 
     // User operations
     registerUser(privateKey: PrivateKey): Promise<PublicKey>;

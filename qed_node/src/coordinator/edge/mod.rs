@@ -5,6 +5,7 @@ pub mod rpc;
 pub mod error;
 
 use crate::common::jobs::JobSchedulerRpcServer;
+use crate::common::health::HealthLayer;
 
 use super::args::CoordinatorEdgeArgs;
 use self::rpc::CoordinatorEdgeRpcServer;
@@ -49,7 +50,10 @@ pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
         ])
         .allow_origin(Any)
         .allow_headers(Any);
-    let cors = tower::ServiceBuilder::new().layer(cors_opts).layer(ServerLayer(jwt_secret));
+    let cors = tower::ServiceBuilder::new()
+        .layer(HealthLayer)
+        .layer(cors_opts)
+        .layer(ServerLayer(jwt_secret));
 
     let server = Server::builder()
         .set_http_middleware(cors)

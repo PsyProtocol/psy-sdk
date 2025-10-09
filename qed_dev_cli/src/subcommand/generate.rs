@@ -1216,9 +1216,10 @@ async fn stop_deployment() -> Result<()> {
 async fn generate_docker_compose(config: &Config, args: GenerateDockerComposeArgs) -> Result<()> {
     info!("Generating docker-compose.yml...");
 
-    let template = include_str!("../../../.github/templates/docker/docker-compose.yml.j2");
+    let template = std::fs::read_to_string(".github/templates/docker/docker-compose.yml.j2")
+        .map_err(|e| anyhow::anyhow!("Failed to read docker-compose template: {}", e))?;
     let mut env = Environment::new();
-    env.add_template("docker-compose", template)?;
+    env.add_template("docker-compose", &template)?;
 
     // Use simplified instance selector to calculate recommendations
     let selector = SimpleInstanceSelector::new();
@@ -1794,24 +1795,31 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
         // Calculate instance recommendations (for ECS instance type selection)
         let recommendations = selector.calculate_multiple_recommendations(service_requirements)?;
 
-        // Template file generation
-        let templates = vec![
-            ("cloudformation/main.yaml", include_str!("../../../.github/templates/aws/cloudformation/main.yaml.j2")),
-            ("cloudformation/ecs-services.yaml", include_str!("../../../.github/templates/aws/cloudformation/ecs-services.yaml.j2")),
-            ("deploy.sh", include_str!("../../../.github/templates/aws/deploy.sh.j2")),
+        // Template file generation - read from filesystem at runtime
+        let template_files = vec![
+            ("cloudformation/main.yaml", ".github/templates/aws/cloudformation/main.yaml.j2"),
+            ("cloudformation/ecs-services.yaml", ".github/templates/aws/cloudformation/ecs-services.yaml.j2"),
+            ("deploy.sh", ".github/templates/aws/deploy.sh.j2"),
         ];
+
+        let mut templates = Vec::new();
+        for (output_name, template_path) in template_files {
+            let content = std::fs::read_to_string(template_path)
+                .map_err(|e| anyhow::anyhow!("Failed to read template file {}: {}", template_path, e))?;
+            templates.push((output_name, content));
+        }
 
         let mut env = Environment::new();
 
         // Generate template files
-        for (filename, template_content) in templates {
+        for (filename, template_content) in &templates {
             let output_path = Path::new(&args.output_dir).join(filename);
             if output_path.exists() && !args.force {
                 warn!("File {} already exists, skipping (use --force to overwrite)", output_path.display());
                 continue;
             }
 
-            env.add_template(filename, template_content)?;
+            env.add_template(filename, template_content.as_str())?;
             let tmpl = env.get_template(filename)?;
             // Calculate required ECS instance type based on total task requirements
             let mut max_task_cpu = 0u32;
@@ -1985,7 +1993,7 @@ fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRe
                 .with_context(|| format!("Failed to write file {}", output_path.display()))?;
 
             // Make deploy.sh executable
-            if filename == "deploy.sh" {
+            if *filename == "deploy.sh" {
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;

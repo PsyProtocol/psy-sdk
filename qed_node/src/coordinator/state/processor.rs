@@ -1041,6 +1041,7 @@ impl<
         self.task_store.write_multidimensional_tasks(&guta_tasks, &guta_agg_task).await?;
 
         // Finalize and save the task topology
+        debug!("plan_jobs for coordinator  , checkpoint_id {}", new_checkpoint_id);
         self.task_store.finalize_and_save_topology().await?;
 
         Ok((state_part_1_id, root_state_transition))

@@ -291,13 +291,16 @@ impl
     }
 
     pub async fn initialize_store(qed_store: &JournalStore<QEDStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>) -> anyhow::Result<u64> {
+
         let genesis_store_config = if let Some(ref config) = genesis_config {
+            info!("initialize_store Some()");
             let deploy_root = Self::process_genesis_contracts(qed_store, config).await?;
             let register_users_root = Self::process_genesis_user_registrations(qed_store, config).await?;
             let user_root = Self::process_genesis_user_states(qed_store, config).await?;
             let next_contract_id = config.get_precompile_configs().len() as u32;
             let next_user_id = config.get_genesis_users().len() as u64;
-
+            info!("next_user_id: {}", next_user_id);
+            info!("next_contract_id: {}", next_contract_id);
             Some(InitializeParams {
                 gutas_root: user_root,
                 deploy_contracts_root: deploy_root,
@@ -306,6 +309,7 @@ impl
                 next_user_id,
             })
         } else {
+            info!("initialize_store none");
             None
         };
         qed_store.initialize_store(genesis_store_config).await

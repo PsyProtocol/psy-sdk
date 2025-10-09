@@ -14,7 +14,6 @@ use crate::controllers::local::proving_session::QEDLocalProvingSessionStore;
 use qed_data::traits::qdatastore::qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync};
 use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use plonky2::field::types::Field;
-use qed_data::qdata::checkpoint::QEDL2BlockState;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
 pub async fn prepare_environment_with_real_contract(
