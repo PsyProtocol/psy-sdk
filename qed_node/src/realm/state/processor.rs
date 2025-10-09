@@ -40,7 +40,7 @@ use qed_data::{
 use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
 use qed_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-    queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm, redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition},
+    queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm, redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, MAX_CHECKPOINT_COUNT}},
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
@@ -205,6 +205,7 @@ impl<
     async fn handle_guta_from_users_ensure_no_topline(
         &self,
         checkpoint_id: u64,
+        slot_id: u64,
         pending_register_users: &[MerkleProofCore<QHashOut<F>>],
     ) -> anyhow::Result<(
         Vec<Vec<QProvingJobDataID>>,
@@ -214,7 +215,7 @@ impl<
     )> {
         self.handle_guta_state_updates_from_users(checkpoint_id).await?;
 
-        let (jobs, guta, proof, mut guta_graph) = self.handle_guta_from_users(checkpoint_id).await?;
+        let (jobs, guta, proof, mut guta_graph) = self.handle_guta_from_users(checkpoint_id, slot_id).await?;
         tracing::debug!(guta = %serde_json::to_string_pretty(&guta)?, guta_hash = %guta.qfhash::<QEDHasher>(), jobs = ?jobs, "Processing GUTA and jobs");
 
         let bp = self
@@ -290,6 +291,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
+                    slot_id,
                     self.realm_config.realm_id,
                     0,
                     0,
@@ -333,6 +335,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
+                    slot_id,
                     self.realm_config.realm_id,
                     0,
                     0,
@@ -370,6 +373,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
+                    slot_id,
                     self.realm_config.realm_id,
                     0,
                     0,
@@ -445,6 +449,7 @@ impl<
         let ww_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
+            slot_id,
             self.realm_config.realm_id,
             0,
             0,
@@ -499,6 +504,7 @@ impl<
     async fn handle_guta_from_users(
         &self,
         checkpoint_id: u64,
+        slot_id: u64,
     ) -> anyhow::Result<(
         Vec<Vec<QProvingJobDataID>>,
         GlobalUserTreeAggregatorHeader<F>,
@@ -665,6 +671,7 @@ impl<
             let id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 checkpoint_id,
+                slot_id,
                 self.realm_config.realm_id,
                 0,
                 0,
@@ -741,6 +748,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
+                    slot_id,
                     self.realm_config.realm_id,
                     p.nearest_common_ancestor_level as u32,
                     p.nearest_common_ancestor_index as u32,
@@ -771,6 +779,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
+                    slot_id,
                     self.realm_config.realm_id,
                     p.nearest_common_ancestor_level as u32,
                     p.nearest_common_ancestor_index as u32,
@@ -820,6 +829,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
+                    slot_id,
                     self.realm_config.realm_id,
                     p.nearest_common_ancestor_level as u32,
                     p.nearest_common_ancestor_index as u32,
@@ -856,6 +866,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
+                    slot_id,
                     self.realm_config.realm_id,
                     p.nearest_common_ancestor_level as u32,
                     p.nearest_common_ancestor_index as u32,
@@ -908,6 +919,7 @@ impl<
     async fn plan_jobs(
         &self,
         new_checkpoint_id: u64,
+        slot_id: u64,
         guta_jobs: &Vec<Vec<QProvingJobDataID>>,
         finished_job: QProvingJobDataID,
     ) -> anyhow::Result<()> {
@@ -922,20 +934,20 @@ impl<
         Ok(())
     }
 
-    pub async fn build_block(&self) -> anyhow::Result<QProvingJobDataID> {
+    pub async fn build_block(&self, slot: u64) -> anyhow::Result<QProvingJobDataID> {
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
-        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, 256).await?;
+        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64).await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
         // Pop up to 32 pending users from Redis queue
         // Use position-based consumption for pending users
         let (pending_users, _consumption_state) = self.sync_queue.peek_with_position(32, new_checkpoint_id).await?;
-        let (guta_jobs, guta_transition, guta_dmp, guta_graph) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
+        let (guta_jobs, guta_transition, guta_dmp, guta_graph) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, slot, &pending_users).await?;
 
         tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
-        let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
+        let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, slot, self.realm_config.realm_id);
         let res = GUTARealmCheckpointResult{
             checkpoint_id: new_checkpoint_id,
             guta_stats: guta_transition.stats,
@@ -947,7 +959,7 @@ impl<
 
         let empty_graph = BidirectionalGraph::new();
         self.task_store.set_job_dependency_graph(empty_graph.clone(), empty_graph, guta_graph).await?;
-        self.plan_jobs(new_checkpoint_id, &guta_jobs, finished_job).await?;
+        self.plan_jobs(new_checkpoint_id, slot, &guta_jobs, finished_job).await?;
 
         debug!("Processed {} pending users for checkpoint {}", pending_users.len(), new_checkpoint_id);
 
