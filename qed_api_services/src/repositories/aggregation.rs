@@ -19,9 +19,13 @@ impl WorkerEventAggregationRepository {
         source: Option<WorkerEventSource>,
         start_time: Option<DateTime<Utc>>,
         end_time: Option<DateTime<Utc>>,
+        offset: i64,
         limit: i64,
+        order_asc: bool,
     ) -> Result<Vec<WorkerEventAggregation>> {
         // Note: view_name should be validated against a whitelist in production
+        let order_direction = if order_asc { "ASC" } else { "DESC" };
+
         let query = format!(
             r#"
             SELECT
@@ -33,10 +37,10 @@ impl WorkerEventAggregationRepository {
                 AND ($2::VARCHAR IS NULL OR source = $2)
                 AND ($3::TIMESTAMPTZ IS NULL OR bucket >= $3)
                 AND ($4::TIMESTAMPTZ IS NULL OR bucket <= $4)
-            ORDER BY bucket DESC
-            LIMIT $5
+            ORDER BY bucket {}
+            LIMIT $5 OFFSET $6
             "#,
-            view_name
+            view_name, order_direction
         );
 
         let aggregations = sqlx::query_as::<_, WorkerEventAggregation>(&query)
@@ -45,6 +49,7 @@ impl WorkerEventAggregationRepository {
             .bind(start_time)
             .bind(end_time)
             .bind(limit)
+            .bind(offset)
             .fetch_all(pool)
             .await?;
 
@@ -61,8 +66,12 @@ impl UserEventAggregationRepository {
         view_name: &str,
         start_time: Option<DateTime<Utc>>,
         end_time: Option<DateTime<Utc>>,
+        offset: i64,
         limit: i64,
+        order_asc: bool,
     ) -> Result<Vec<UserEventAggregation>> {
+        let order_direction = if order_asc { "ASC" } else { "DESC" };
+
         let query = format!(
             r#"
             SELECT
@@ -70,16 +79,17 @@ impl UserEventAggregationRepository {
             FROM {}
             WHERE ($1::TIMESTAMPTZ IS NULL OR bucket >= $1)
                 AND ($2::TIMESTAMPTZ IS NULL OR bucket <= $2)
-            ORDER BY bucket DESC
-            LIMIT $3
+            ORDER BY bucket {}
+            LIMIT $3 OFFSET $4
             "#,
-            view_name
+            view_name, order_direction
         );
 
         let aggregations = sqlx::query_as::<_, UserEventAggregation>(&query)
             .bind(start_time)
             .bind(end_time)
             .bind(limit)
+            .bind(offset)
             .fetch_all(pool)
             .await?;
 

@@ -141,10 +141,14 @@ impl UserEventRepository {
         .fetch_one(pool)
         .await?;
 
+        let tx_type = row.tx_type
+            .parse()
+            .map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
+
         Ok(UserEvent {
             user_id: row.user_id,
             public_key: row.public_key,
-            tx_type: row.tx_type.parse().unwrap(),
+            tx_type,
             metadata: row.metadata,
             timestamp: row.timestamp,
             created_at: row.created_at,
@@ -162,8 +166,11 @@ impl UserEventRepository {
         end_time: Option<DateTime<Utc>>,
         offset: i64,
         limit: i64,
+        order_asc: bool,
     ) -> Result<Vec<UserEvent>> {
-        let rows = sqlx::query!(
+        let order_direction = if order_asc { "ASC" } else { "DESC" };
+
+        let query_str = format!(
             r#"
             SELECT
                 user_id, public_key, tx_type,
@@ -174,34 +181,76 @@ impl UserEventRepository {
                 AND ($3::VARCHAR IS NULL OR tx_type = $3)
                 AND ($4::TIMESTAMPTZ IS NULL OR timestamp >= $4)
                 AND ($5::TIMESTAMPTZ IS NULL OR timestamp <= $5)
-            ORDER BY timestamp DESC
+            ORDER BY timestamp {}
             LIMIT $6 OFFSET $7
+            "#,
+            order_direction
+        );
+
+        let rows = sqlx::query(&query_str)
+            .bind(user_id)
+            .bind(public_key)
+            .bind(tx_type.map(|t| t.to_string()))
+            .bind(start_time)
+            .bind(end_time)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(pool)
+            .await?;
+
+        use sqlx::Row;
+
+        let events: Result<Vec<UserEvent>> = rows
+            .into_iter()
+            .map(|row| {
+                let tx_type = row.get::<String, _>("tx_type")
+                    .parse()
+                    .map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
+
+                Ok(UserEvent {
+                    user_id: row.get("user_id"),
+                    public_key: row.get("public_key"),
+                    tx_type,
+                    metadata: row.get("metadata"),
+                    timestamp: row.get("timestamp"),
+                    created_at: row.get("created_at"),
+                    updated_at: row.get("updated_at"),
+                })
+            })
+            .collect();
+
+        events
+    }
+
+    /// Get user events count with filtering
+    pub async fn count(
+        pool: &PgPool,
+        user_id: Option<&str>,
+        public_key: Option<&str>,
+        tx_type: Option<UserEventTxType>,
+        start_time: Option<DateTime<Utc>>,
+        end_time: Option<DateTime<Utc>>,
+    ) -> Result<i64> {
+        let row = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as count
+            FROM user_events
+            WHERE ($1::VARCHAR IS NULL OR user_id = $1)
+                AND ($2::VARCHAR IS NULL OR public_key = $2)
+                AND ($3::VARCHAR IS NULL OR tx_type = $3)
+                AND ($4::TIMESTAMPTZ IS NULL OR timestamp >= $4)
+                AND ($5::TIMESTAMPTZ IS NULL OR timestamp <= $5)
             "#,
             user_id,
             public_key,
             tx_type.map(|t| t.to_string()),
             start_time,
-            end_time,
-            limit,
-            offset
+            end_time
         )
-        .fetch_all(pool)
+        .fetch_one(pool)
         .await?;
 
-        let events = rows
-            .into_iter()
-            .map(|row| UserEvent {
-                user_id: row.user_id,
-                public_key: row.public_key,
-                tx_type: row.tx_type.parse().unwrap(),
-                metadata: row.metadata,
-                timestamp: row.timestamp,
-                created_at: row.created_at,
-                updated_at: row.updated_at,
-            })
-            .collect();
-
-        Ok(events)
+        Ok(row.count.unwrap_or(0))
     }
 
     /// Get GUTA user events for a specific checkpoint (for reward calculation)
@@ -224,19 +273,25 @@ impl UserEventRepository {
         .fetch_all(pool)
         .await?;
 
-        let events = rows
+        let events: Result<Vec<UserEvent>> = rows
             .into_iter()
-            .map(|row| UserEvent {
-                user_id: row.user_id,
-                public_key: row.public_key,
-                tx_type: row.tx_type.parse().unwrap(),
-                metadata: row.metadata,
-                timestamp: row.timestamp,
-                created_at: row.created_at,
-                updated_at: row.updated_at,
+            .map(|row| {
+                let tx_type = row.tx_type
+                    .parse()
+                    .map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
+
+                Ok(UserEvent {
+                    user_id: row.user_id,
+                    public_key: row.public_key,
+                    tx_type,
+                    metadata: row.metadata,
+                    timestamp: row.timestamp,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                })
             })
             .collect();
 
-        Ok(events)
+        events
     }
 }
