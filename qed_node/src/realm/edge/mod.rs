@@ -27,14 +27,9 @@ use crate::common::whitelist::WhiteListCache;
 use crate::watcher::watcher_client::WatcherClient;
 
 pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedisAsync> {
-    let pool = new_redis_async_pool(
-        config.redis.redis_uri.as_str(),
-        config.redis.pool_size.unwrap_or(10),
-    )
-    .await?;
     // Create storage and queues
     let proof_store = ProofStoreRedisAsync::new(
-        pool,
+        &config.redis.redis_uri,
         config.queue.queue_biz_key.clone(),
     ).await?;
     debug!("created proof store successfully!");

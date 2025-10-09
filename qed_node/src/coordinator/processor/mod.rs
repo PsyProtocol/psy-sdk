@@ -35,7 +35,7 @@ use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::ProofStoreFred;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::queue::rsmq_queue::CEQueueNotification;
-use qed_core::config::network_constants::COORDINATOR_TO_REALM_CHANNEL;
+use qed_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
 use qed_store::store::QEDStore;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tracing::trace;
@@ -158,7 +158,7 @@ impl<
     pub async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
         // Get current checkpoint to listen from
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
-        let notify_message = self.edge_command_queue.consume_item(COORDINATOR_TO_REALM_CHANNEL).await?;
+        let notify_message = self.edge_command_queue.consume_item(COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL).await?;
 
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
 
@@ -228,13 +228,10 @@ impl
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
-        let bb8_pool =
-            new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
-        info!("🐶 redis pool initialized");
         let task_store = Arc::new(QProvingTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
             .await?);
         let q = ProofStoreRedisAsync::new(
-            bb8_pool,
+            &cp_config.redis_uri,
             cp_config.queue_args.queue_biz_key.clone(),
         )
         .await?;

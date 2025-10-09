@@ -45,8 +45,7 @@ impl RealmRecoveryManager {
         let store = JournalStore::new(qed_store.clone());
 
         // Initialize sync_queue using redis configuration
-        let pool = new_redis_async_pool(&redis_uri, 10).await?;
-        let sync_queue = std::sync::Arc::new(ProofStoreRedisAsync::new(pool, queue_biz_key).await?);
+        let sync_queue = std::sync::Arc::new(ProofStoreRedisAsync::new(&redis_uri, queue_biz_key).await?);
 
         Ok(Self {
             realm_id,

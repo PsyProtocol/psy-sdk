@@ -32,13 +32,9 @@ impl WorkerState {
         biz_key: String,
     ) -> anyhow::Result<Self> {
         use qed_core::config::network_constants::get_default_worker_public_key;
-        let pool = new_redis_async_pool(
-            redis_url.as_str(),
-            pool_size
-        ).await?;
         // Create storage and queues  
         let realm_qps = ProofStoreRedisAsync::new(
-            pool,
+            redis_url.as_str(),
             biz_key,
         ).await?;
         

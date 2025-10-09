@@ -267,6 +267,7 @@ pub trait QProofStoreWriterAsyncImm: Send + Sync {
     }
 
     async fn cleanup_old_proofs(&self, current_height: u64, keep_blocks: u64) -> anyhow::Result<()>;
+    async fn clear(&self, checkpoint_id: u64) -> anyhow::Result<()>;
 }
 
 

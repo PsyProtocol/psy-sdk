@@ -120,9 +120,9 @@ impl FullMerkleTreeAppendGadget {
         }
         if new_leaves.len() != self.new_leaves.len() {
             anyhow::bail!(
-                "invalid number of old leaves provided to set_witness: expected {}, got {}",
-                self.old_leaves.len(),
-                old_leaves.len()
+                "invalid number of new leaves provided to set_witness: expected {}, got {}",
+                self.new_leaves.len(),
+                new_leaves.len()
             );
         }
 

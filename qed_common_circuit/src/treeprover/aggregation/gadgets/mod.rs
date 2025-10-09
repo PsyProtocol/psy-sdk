@@ -274,12 +274,14 @@ impl AggStateTransitionProofValidityGadget {
             builder.constant_qhash(fingerprint.dummy_fingerprint),
         ];
         let actual_fingerprint = builder.get_circuit_fingerprint::<H>(verifier_data_target);
+        tracing::debug!("actual_fingerprint={:#?}", actual_fingerprint);
         builder.connect_hashes_enum(actual_fingerprint, &allowed_fingerprints);
         let allowed_circuit_hashes_root =
             builder.constant_qhash(fingerprint.allowed_circuit_hashes_root);
         let pub_gadget = AggStateTransitionProofPublicInputsGadget::from_public_inputs(
             &proof_target.public_inputs,
         );
+        tracing::debug!("pub_gadget={:#?}", pub_gadget);
         builder.connect_hashes(
             pub_gadget.allowed_circuit_hashes_root,
             allowed_circuit_hashes_root,

@@ -185,6 +185,10 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
     async fn cleanup_old_proofs(&self, _current_height: u64, _keep_blocks: u64) -> anyhow::Result<()> {
         Ok(())
     }
+
+    async fn clear(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -400,7 +404,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreFred {
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
-    async fn chq_listen_from_imm<T: HQSerializable>(
+    async fn chq_items_gte<T: HQSerializable>(
         &self,
         channel_id: u64,
         start_checkpoint_id: u64,

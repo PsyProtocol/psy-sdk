@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_common_circuit::hash::merkle::gadgets::spiderman_append_proof::SpidermanAppendProofGadget
-    
+
 ;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
@@ -67,14 +67,13 @@ impl BatchAppendUserRegistrationTreeGadget {
         let ap_length = spiderman_append_proofs.len();
         if ap_length == 0 {
             anyhow::bail!("cannot provide 0 append proofs");
-        }else if ap_length > self.spiderman_gadgets.len() {
+        } else if ap_length > self.spiderman_gadgets.len() {
             anyhow::bail!("cannot provide {} append proofs, max is {}",ap_length, self.spiderman_gadgets.len());
-
-        }else if ap_length == self.spiderman_gadgets.len() {
+        } else if ap_length == self.spiderman_gadgets.len() {
             for (g, p) in self.spiderman_gadgets.iter().zip(spiderman_append_proofs.iter()) {
                 g.set_witness(witness, p)?;
             }
-        }else{
+        } else {
             for i in 0..ap_length {
                 self.spiderman_gadgets[i].set_witness(witness, &spiderman_append_proofs[i])?;
             }

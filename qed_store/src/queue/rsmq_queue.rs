@@ -5,9 +5,7 @@ use crate::queue::{
 };
 use async_trait::async_trait;
 use kvq::traits::KVQSerializable;
-use qed_core::config::network_constants::{
-    COORDINATOR_TO_REALM_CHANNEL, REALM_TO_COORDINATOR_CHANNEL,
-};
+use qed_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
 use qed_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable,
 };
@@ -689,7 +687,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for RsmqQueue {
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
-    async fn chq_listen_from_imm<T: HQSerializable>(
+    async fn chq_items_gte<T: HQSerializable>(
         &self,
         channel_id: u64,
         start_checkpoint_id: u64,
@@ -825,15 +823,14 @@ impl KVQSerializable for CEQueueNotification {
     }
 }
 
-// Implement HistoryQueueMetadataTagged for CEQueueNotification
 impl HistoryQueueMetadataTagged for CEQueueNotification {
     fn get_hq_metadata(&self) -> HistoryQueueMetadata {
         match self {
             CEQueueNotification::StartProduceBlock { next_checkpoint } => {
                 HistoryQueueMetadata {
-                    channel_id: COORDINATOR_TO_REALM_CHANNEL,
+                    channel_id: COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL,
                     checkpoint_id: *next_checkpoint,
-                    item_id: *next_checkpoint, // Using checkpoint as item_id
+                    item_id: *next_checkpoint,
                 }
             }
         }
