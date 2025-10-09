@@ -186,6 +186,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let input: QCBatchDeployContractsCircuitInput<C::F> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
+        tracing::debug!("QCBatchDeployContractsCircuitInput: {}", serde_json::to_string_pretty(&input).unwrap());
 
         let result = self.prove_base(
             input.deploy_contract_circuit_whitelist,
