@@ -9,7 +9,9 @@ FROM docker.io/library/ubuntu:24.04
 ARG PROFILE=release
 
 RUN apt update -y \
-  && apt install -y ca-certificates libssl-dev tzdata jq wget curl docker.io vim net-tools
+  && apt install -y ca-certificates libssl-dev tzdata jq wget curl docker.io vim net-tools postgresql-client \
+  && apt clean \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/
 
@@ -19,11 +21,13 @@ COPY ./target/${PROFILE}/qed_rollup_cli /qed-rollup
 COPY ./target/${PROFILE}/qed_user_cli /qed-rollup
 COPY ./target/${PROFILE}/qed_dev_cli /qed-rollup
 COPY ./target/${PROFILE}/qed_api_services /qed-rollup
-COPY ./qed_api_services/migrations /qed-rollup
+COPY ./qed_api_services/migrations /qed-rollup/migrations
+COPY .env /qed-rollup/.env
 
-COPY ./qed_precompiles/token           /qed-rollup/precompiles/token
-COPY ./qed_precompiles/rewards         /qed-rollup/precompiles/rewards
-COPY ./qed_precompiles/mining_rewards  /qed-rollup/precompiles/mining_rewards
+# Copy precompiles
+COPY ./qed_precompiles/token           /qed-rollup/qed_precompiles/token
+COPY ./qed_precompiles/rewards         /qed-rollup/qed_precompiles/rewards
+COPY ./qed_precompiles/mining_rewards  /qed-rollup/qed_precompiles/mining_rewards
 
 
 RUN echo '#!/bin/bash\n/qed-rollup/qed_rollup_cli $@' > /qed-rollup/.entrypoint.sh

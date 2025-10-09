@@ -16,7 +16,7 @@ CLUSTER_NAME="${PROJECT_NAME}-${ENVIRONMENT}-main-ecs"  # Use consistent naming
 # Config file settings
 LOCAL_CONFIG_FILE="${LOCAL_CONFIG_FILE:-../config-deploy.json}"  # Local source file
 S3_CONFIG_KEY="config.json"  # Always upload as config.json to S3
-CONFIG_BUCKET_NAME="${PROJECT_NAME}-${ENVIRONMENT}-config"
+CONFIG_BUCKET_NAME="${PROJECT_NAME}-${ENVIRONMENT}-config-$(aws sts get-caller-identity --query Account --output text)-${REGION}"
 
 # Deployment settings
 MAX_WAIT_SECONDS=300
@@ -575,7 +575,8 @@ build_and_push_image() {
 upload_template_to_s3() {
     local template_file="$1"
     local template_size=$(wc -c < "$template_file")
-
+    local bucket_name="${PROJECT_NAME}-cf-templates-${AWS_ACCOUNT_ID}-${REGION}"
+    
     log_info "Template size: $template_size bytes. Uploading to S3..." >&2
 
     # Create S3 bucket for templates if it doesn't exist
@@ -622,6 +623,15 @@ upload_template_to_s3() {
                         \"Effect\": \"Allow\",
                         \"Principal\": {
                             \"Service\": \"cloudformation.amazonaws.com\"
+                        },
+                        \"Action\": \"s3:GetObject\",
+                        \"Resource\": \"arn:aws:s3:::${bucket_name}/*\"
+                    },
+                    {
+                        \"Sid\": \"AllowCurrentAccountRead\",
+                        \"Effect\": \"Allow\",
+                        \"Principal\": {
+                            \"AWS\": \"arn:aws:iam::${AWS_ACCOUNT_ID}:root\"
                         },
                         \"Action\": \"s3:GetObject\",
                         \"Resource\": \"arn:aws:s3:::${bucket_name}/*\"
@@ -980,12 +990,12 @@ deploy_ecs_services() {
         "TaskRoleArn"
         "ServiceDiscoveryNamespaceId"
         "ALBTargetGroupCoordinatorArn"
+        "ALBTargetGroupProverArn"
         "ConfigBucketName"
         "RedisCoordinatorEndpoint"
         {% for realm in config.nodes.realms %}"ALBTargetGroupRealm{{ realm.id }}Arn" {% endfor %}
         {% for realm in config.nodes.realms %}"RedisRealm{{ realm.id }}Endpoint" {% endfor %}
-        {# {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"TimescaleDBEndpoint"{% endif %} #}
-        {# {% if config.global_services and config.global_services.timescaledb and config.global_services.timescaledb.enabled %}"DBPasswordSecretArn"{% endif %} #}
+        {% if config.global_api_services and config.global_api_services.timescaledb and config.global_api_services.timescaledb.enabled %}"APIServiceEndpoint"{% endif %}
     )
     
     # Extract only the expected parameters
@@ -1002,7 +1012,6 @@ deploy_ecs_services() {
             log_warning "Expected parameter $param not found in main stack outputs"
         fi
     done
-    
     echo '' >> "$params_file"
     echo ']' >> "$params_file"
     
@@ -1148,10 +1157,10 @@ perform_rolling_update() {
             --instance-id "$instance_id" \
             --should-decrement-desired-capacity false \
             --region "${REGION}"
-        
+
         # Wait for new instance to be healthy
         log_info "Waiting for replacement instance to be healthy..."
-        sleep 60
+        sleep 30
         
         # Wait until ASG is back to desired capacity
         local current_running=0
@@ -1446,7 +1455,7 @@ show_logs() {
 # Function to upload and manage config in S3
 manage_config() {
     local action=$1
-    local config_bucket="${PROJECT_NAME}-${ENVIRONMENT}-config"
+    local config_bucket="${PROJECT_NAME}-${ENVIRONMENT}-config-$(aws sts get-caller-identity --query Account --output text)-${REGION}"
     local base_config_key="base/config.json"
     local service_configs_prefix="services/"
     
@@ -1534,7 +1543,7 @@ deploy() {
     else
         log_info "=== Phase 1: Skipping Docker build (--skip-build) ==="
     fi
-    
+
     # ========================================
     # Phase 2: Deploy Infrastructure
     # ========================================
@@ -1583,6 +1592,138 @@ deploy() {
     log_info "=== Deployment Completed Successfully! ==="
     show_status
     print_deployment_info
+}
+
+# Upload original config file (with placeholder/localhost endpoints)
+upload_original_config() {
+    log_info "Uploading original config to S3..."
+    
+    # Ensure config bucket exists
+    if ! ensure_config_bucket; then
+        log_error "Failed to create config bucket"
+        return 1
+    fi
+    
+    # Check if local config exists
+    if [ ! -f "$LOCAL_CONFIG_FILE" ]; then
+        log_error "Local config file not found: $LOCAL_CONFIG_FILE"
+        log_info "Please ensure ${LOCAL_CONFIG_FILE} exists"
+        return 1
+    fi
+    
+    # Validate it's valid JSON
+    if ! jq empty "$LOCAL_CONFIG_FILE" 2>/dev/null; then
+        log_error "Local config is not valid JSON"
+        return 1
+    fi
+    
+    log_info "Using local config: $LOCAL_CONFIG_FILE"
+    
+    # Upload ORIGINAL config as-is to S3
+    if ! aws s3 cp "$LOCAL_CONFIG_FILE" \
+        "s3://${CONFIG_BUCKET_NAME}/${S3_CONFIG_KEY}" \
+        --content-type "application/json" \
+        --metadata "version=original,timestamp=$(date -u +%Y%m%d%H%M%S)" \
+        --region "${REGION}"; then
+        log_error "Failed to upload original config to S3"
+        return 1
+    fi
+    
+    # Verify upload
+    if aws s3 ls "s3://${CONFIG_BUCKET_NAME}/${S3_CONFIG_KEY}" --region "${REGION}" >/dev/null 2>&1; then
+        log_info "✓ Original config uploaded successfully"
+        echo "  Config URL: https://${CONFIG_BUCKET_NAME}.s3.${REGION}.amazonaws.com/${S3_CONFIG_KEY}"
+    else
+        log_error "Failed to verify config upload"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Update config with real endpoints AFTER infrastructure is deployed
+update_config_with_endpoints() {
+    local alb_dns=$1
+    
+    # Clean the ALB DNS
+    alb_dns=$(echo "$alb_dns" | tr -d '[:space:]')
+    
+    log_info "Updating config with real endpoints..."
+    log_info "Using ALB DNS: $alb_dns"
+    
+    # Validate DNS
+    if [[ ! "$alb_dns" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+        log_error "Invalid ALB DNS: '$alb_dns'"
+        return 1
+    fi
+    
+    # Download current config from S3
+    if ! aws s3 cp "s3://${CONFIG_BUCKET_NAME}/${S3_CONFIG_KEY}" \
+        /tmp/config-current.json \
+        --region "${REGION}"; then
+        log_error "Failed to download current config from S3"
+        return 1
+    fi
+    
+    # Generate URLs
+    local coord_url="http://${alb_dns}:8545"
+    local realm0_url="http://${alb_dns}:8546"
+    local realm1_url="http://${alb_dns}:8547"
+    
+    log_info "Updating URLs:"
+    log_info "  Coordinator: $coord_url"
+    log_info "  Realm 0: $realm0_url"
+    log_info "  Realm 1: $realm1_url"
+    
+    # Update the config with real endpoints
+    jq \
+        --arg coord_url "$coord_url" \
+        --arg realm0_url "$realm0_url" \
+        --arg realm1_url "$realm1_url" \
+        '.network.coordinator_configs[0].rpc_url = [$coord_url] | 
+         .network.realm_configs[0].rpc_url = [$realm0_url] | 
+         .network.realm_configs[1].rpc_url = [$realm1_url]' \
+        /tmp/config-current.json > /tmp/config-updated.json
+    
+    # Verify jq succeeded
+    if [ $? -ne 0 ] || [ ! -s /tmp/config-updated.json ]; then
+        log_error "Failed to update config with jq"
+        return 1
+    fi
+    
+    # Validate updated config is valid JSON
+    if ! jq empty /tmp/config-updated.json 2>/dev/null; then
+        log_error "Updated config is not valid JSON"
+        cat /tmp/config-updated.json
+        return 1
+    fi
+    
+    # Verify URLs were actually updated
+    local verify_coord=$(jq -r '.network.coordinator_configs[0].rpc_url[0] // empty' /tmp/config-updated.json)
+    if [[ ! "$verify_coord" =~ ^http://${alb_dns} ]]; then
+        log_error "Config update verification failed"
+        log_error "Expected: http://${alb_dns}:8545"
+        log_error "Got: $verify_coord"
+        return 1
+    fi
+    
+    # Upload updated config back to S3 (OVERWRITE)
+    log_info "Uploading updated config to S3..."
+    if ! aws s3 cp /tmp/config-updated.json \
+        "s3://${CONFIG_BUCKET_NAME}/${S3_CONFIG_KEY}" \
+        --content-type "application/json" \
+        --metadata "version=updated,timestamp=$(date -u +%Y%m%d%H%M%S),alb=${alb_dns}" \
+        --region "${REGION}"; then
+        log_error "Failed to upload updated config to S3"
+        return 1
+    fi
+    
+    log_info "✓ Config updated with real endpoints"
+    
+    # Clean up temp files
+    rm -f /tmp/config-current.json /tmp/config-updated.json
+    
+    return 0
 }
 
 # Helper function to wait for ALB DNS
@@ -1881,12 +2022,58 @@ update_services() {
     
     log_info "Services updated. They will restart and fetch new configs."
 }
-
-# Function to cleanup S3 buckets before stack deletion
+# Force ECS services to redeploy with new configuration
+force_service_redeploy() {
+    log_info "Forcing ECS services to redeploy..."
+    
+    # Get cluster name from CloudFormation outputs
+    local cluster_name=$(aws cloudformation describe-stacks \
+        --stack-name "${PROJECT_NAME}-main" \
+        --query "Stacks[0].Outputs[?OutputKey=='MainECSClusterName'].OutputValue" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$cluster_name" ]; then
+        log_error "Could not find ECS cluster name"
+        return 1
+    fi
+    
+    # Get all services in the cluster
+    local services=$(aws ecs list-services \
+        --cluster "$cluster_name" \
+        --query "serviceArns[]" \
+        --output text \
+        --region "${REGION}" 2>/dev/null)
+    
+    if [ -z "$services" ]; then
+        log_warning "No ECS services found in cluster: $cluster_name"
+        return 0
+    fi
+    
+    # Force new deployment for each service
+    for service_arn in $services; do
+        local service_name=$(basename "$service_arn")
+        log_info "Forcing new deployment for: $service_name"
+        
+        aws ecs update-service \
+            --cluster "$cluster_name" \
+            --service "$service_arn" \
+            --force-new-deployment \
+            --region "${REGION}" >/dev/null 2>&1
+        
+        if [ $? -eq 0 ]; then
+            echo "  ✓ Triggered redeployment for $service_name"
+        else
+            echo "  ✗ Failed to trigger redeployment for $service_name"
+        fi
+    done
+    
+    log_info "All services have been triggered for redeployment"
+    log_info "Services will pull the latest config from S3 on restart"
+}
 cleanup_s3_buckets() {
     log_info "Cleaning up S3 buckets..."
     
-    # List all buckets that match our naming pattern
     local buckets=$(aws s3api list-buckets \
         --query "Buckets[?contains(Name, '${PROJECT_NAME}')].Name" \
         --output text \
@@ -1895,40 +2082,48 @@ cleanup_s3_buckets() {
     for bucket in $buckets; do
         log_info "Processing bucket: $bucket"
         
-        # Check if bucket exists and we can access it
         if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
-            # Delete all objects in the bucket
+            # Empty bucket
             log_info "Emptying bucket: $bucket"
-            aws s3 rm "s3://${bucket}" --recursive --region "${REGION}" 2>/dev/null || true
+            aws s3 rm "s3://${bucket}" --recursive --region "${REGION}" >/dev/null 2>&1 || true
             
-            # Delete all versions (if versioning is enabled)
+            # Delete versions - ADD OUTPUT REDIRECTION
             log_info "Deleting object versions in bucket: $bucket"
-            aws s3api delete-objects \
+            local versions=$(aws s3api list-object-versions \
                 --bucket "$bucket" \
-                --delete "$(aws s3api list-object-versions \
-                    --bucket "$bucket" \
-                    --output json \
-                    --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
-                    --region "${REGION}" 2>/dev/null | \
-                    jq -c 'select(.Objects != null)')" \
-                --region "${REGION}" 2>/dev/null || true
+                --output json \
+                --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
+                --region "${REGION}" 2>/dev/null)
             
-            # Delete all delete markers
-            aws s3api delete-objects \
+            if [ "$versions" != "null" ] && [ -n "$versions" ]; then
+                echo "$versions" | jq -c 'select(.Objects != null)' | \
+                    xargs -I {} aws s3api delete-objects \
+                        --bucket "$bucket" \
+                        --delete '{}' \
+                        --region "${REGION}" \
+                        --output text >/dev/null 2>&1 || true  # Redirect output
+            fi
+            
+            # Delete delete markers - ADD OUTPUT REDIRECTION
+            local markers=$(aws s3api list-object-versions \
                 --bucket "$bucket" \
-                --delete "$(aws s3api list-object-versions \
-                    --bucket "$bucket" \
-                    --output json \
-                    --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' \
-                    --region "${REGION}" 2>/dev/null | \
-                    jq -c 'select(.Objects != null)')" \
-                --region "${REGION}" 2>/dev/null || true
+                --output json \
+                --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' \
+                --region "${REGION}" 2>/dev/null)
+            
+            if [ "$markers" != "null" ] && [ -n "$markers" ]; then
+                echo "$markers" | jq -c 'select(.Objects != null)' | \
+                    xargs -I {} aws s3api delete-objects \
+                        --bucket "$bucket" \
+                        --delete '{}' \
+                        --region "${REGION}" \
+                        --output text >/dev/null 2>&1 || true  # Redirect output
+            fi
         fi
     done
     
     log_info "S3 cleanup completed"
 }
-
 # Function to print deployment information
 print_deployment_info() {
     echo -e "\n${GREEN}=== Deployment Information ===${NC}"
@@ -2124,6 +2319,8 @@ case "$COMMAND" in
     update-services)
         SKIP_BUILD=true
         deploy_ecs_services
+        # Then force services to redeploy regardless
+        force_service_redeploy
         ;;
     monitor)
         if check_stack_exists "${PROJECT_NAME}-main"; then

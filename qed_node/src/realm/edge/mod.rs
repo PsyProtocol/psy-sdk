@@ -7,6 +7,7 @@ use crate::realm::edge::sync::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
 use super::{config::RealmEdgeConfig, C, D};
 use crate::common::jobs::JobSchedulerRpcServer;
+use crate::common::health::HealthLayer;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::realm::handler::RealmEdgeHandler;
 use crate::realm::state::edge::RealmEdgeContext;
@@ -91,7 +92,9 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         .allow_methods([Method::POST, Method::OPTIONS])
         .allow_origin(Any)
         .allow_headers(Any);
-    let cors = tower::ServiceBuilder::new().layer(cors_opts);
+    let cors = tower::ServiceBuilder::new()
+        .layer(HealthLayer)
+        .layer(cors_opts);
 
     // Start RPC server
     let server_handle = ServerBuilder::default()

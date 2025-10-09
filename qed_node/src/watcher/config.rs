@@ -30,12 +30,12 @@ pub struct WatcherArgs {
     pub api_endpoint: String,
 
     #[clap(
-        long = "redis-url",
+        long = "redis-uri",
         env = "WATCHER_REDIS_URL",
         help = "Redis connection URL",
         default_value = "redis://127.0.0.1:6379"
     )]
-    pub redis_url: String,
+    pub redis_uri: String,
 
     #[clap(
         long = "redis-pool-size",
@@ -70,7 +70,7 @@ pub struct WatcherConfig {
     pub node_id: String,
     pub node_type: NodeType,
     pub api_endpoint: String,
-    pub redis_url: String,
+    pub redis_uri: String,
     pub redis_pool_size: usize,
     pub block_sync_interval: u64,
     pub backend: BackendConfig,
@@ -85,7 +85,7 @@ impl WatcherConfig {
             node_id: args.node_id,
             node_type,
             api_endpoint: args.api_endpoint,
-            redis_url: args.redis_url,
+            redis_uri: args.redis_uri,
             redis_pool_size: args.redis_pool_size,
             block_sync_interval: args.block_sync_interval,
             backend: args.backend,
