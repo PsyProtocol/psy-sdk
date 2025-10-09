@@ -1080,11 +1080,11 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn get_block_aggregate_jobs_group(checkpoint_id: u64, group_id: u32, task_index: u32) -> Self {
+    pub fn get_block_aggregate_jobs_group(checkpoint_id: u64, slot_id: u64, group_id: u32, task_index: u32) -> Self {
         Self {
             topic: QJobTopic::AggregateJobs,
             goal_id: checkpoint_id,
-            slot_id: 0,
+            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::Unknown,
             sub_group_id: 0,
@@ -1093,11 +1093,11 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn block_agg_state_part_1_input_witness(checkpoint_id: u64, group_id: u32) -> Self {
+    pub fn block_agg_state_part_1_input_witness(checkpoint_id: u64, slot_id: u64, group_id: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: checkpoint_id,
-            slot_id: 0,
+            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA,
             sub_group_id: 0,
@@ -1106,11 +1106,11 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn block_agg_state_part_2_input_witness(checkpoint_id: u64, group_id: u32) -> Self {
+    pub fn block_agg_state_part_2_input_witness(checkpoint_id: u64, slot_id: u64, group_id: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: checkpoint_id,
-            slot_id: 0,
+            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::AggAddProcessL1WithdrawalAddL1Deposit,
             sub_group_id: 0,
@@ -1119,11 +1119,11 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn block_state_transition_input_witness(checkpoint_id: u64, group_id: u32) -> Self {
+    pub fn block_state_transition_input_witness(checkpoint_id: u64, slot_id: u64, group_id: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: checkpoint_id,
-            slot_id: 0,
+            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::GenerateRollupStateTransitionProof,
             sub_group_id: 0,

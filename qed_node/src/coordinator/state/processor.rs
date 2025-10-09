@@ -1016,15 +1016,15 @@ impl<
         tracing::debug!("Generated Deploy jobs: {:#?}", deploy_jobs);
         tracing::debug!("Generated registration jobs: {:#?}", user_registration_jobs);
         let notify_block_complete = QProvingJobDataID::notify_block_complete(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
-        let root_state_transition = QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id, self.coordinator_config.coordinator_id);
+        let root_state_transition = QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
         let root_state_transition_task = QProvingTask::new(&[root_state_transition]);
         let notify_block_complete_task = QProvingTask::new(&[notify_block_complete]);
         self.task_store
             .write_next_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
 
-        let state_part_1_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, self.coordinator_config.coordinator_id, 0);
-        let state_part_1_id = QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id, self.coordinator_config.coordinator_id);
+        let state_part_1_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 0);
+        let state_part_1_id = QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
         let state_part_1_task = QProvingTask::new(&[state_part_1_id]);
         let state_part_1_common_task = QProvingTask::new(&[state_part_1_common_id]);
         self.task_store
@@ -1032,9 +1032,9 @@ impl<
             .await?;
         self.task_store.write_next_tasks(&state_part_1_task, &state_part_1_common_task).await?;
 
-        let register_users_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, self.coordinator_config.coordinator_id, 1);
-        let deploy_contracts_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, self.coordinator_config.coordinator_id, 2);
-        let guta_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, self.coordinator_config.coordinator_id, 3);
+        let register_users_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 1);
+        let deploy_contracts_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 2);
+        let guta_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 3);
         let register_users_agg_task = QProvingTask::new(&[register_users_agg_job_id]);
         let deploy_contracts_agg_task = QProvingTask::new(&[deploy_contracts_agg_job_id]);
         let guta_agg_task = QProvingTask::new(&[guta_agg_job_id]);
