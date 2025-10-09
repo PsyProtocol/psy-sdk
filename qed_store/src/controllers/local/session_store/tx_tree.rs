@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use kvq::{adapters::standard::KVQStandardAdapter, memory::simple::KVQSimpleMemoryBackingStore, traits::{KVQBinaryStore, KVQSerializable, KVQStoreAdapter}};
+use kvq::{adapters::standard::KVQStandardAdapter, traits::{ KVQSerializable, KVQStoreAdapter}};
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
