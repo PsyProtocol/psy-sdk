@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::ops::Bound::Included;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use parking_lot::RwLock; 
 
 use crate::traits::KVQBinaryStore;
 use crate::traits::KVQPair;
@@ -16,13 +17,13 @@ impl KVQSimpleMemoryBackingStore {
         }
     }
     pub fn clear(&self) {
-        self.map.write().unwrap().clear();
+        self.map.write().clear();
     }
 }
 
 impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
     fn get_exact(&self, key: &Vec<u8>) -> anyhow::Result<Vec<u8>> {
-        match self.map.read().unwrap().get(key) {
+        match self.map.read().get(key) {
             Some(v) => Ok(v.to_owned()),
             None => anyhow::bail!("Key {} not found", hex::encode(&key)),
         }
@@ -44,7 +45,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
             ));
         }
 
-        let map = self.map.read().unwrap();
+        let map = self.map.read();
 
         if fuzzy_bytes == 0 {
             let result = map.range(..=key.clone()).next_back();
@@ -82,7 +83,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
             ));
         }
 
-        let map = self.map.read().unwrap();
+        let map = self.map.read();
 
         if fuzzy_bytes == 0 {
             let result = map.range(..=key.clone()).next_back();
@@ -142,7 +143,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
     }
 
     fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
-        let result = self.map.read().unwrap().get(key).cloned();
+        let result = self.map.read().get(key).cloned();
         if result.is_some() {
             Ok(Some(result.unwrap()))
         } else {
@@ -206,7 +207,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
             base_key[key_len - i - 1] = 0;
         }
 
-        let map = self.map.read().unwrap();
+        let map = self.map.read();
         Ok(map
             .range((Included(base_key), Included(key_end)))
             .map(|(k, v)| KVQPair {
@@ -218,12 +219,12 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
 
     // Write operations
     fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()> {
-        self.map.write().unwrap().insert(key, value);
+        self.map.write().insert(key, value);
         Ok(())
     }
 
     fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()> {
-        self.map.write().unwrap().insert(key.clone(), value.clone());
+        self.map.write().insert(key.clone(), value.clone());
         Ok(())
     }
 
@@ -231,7 +232,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         &self,
         items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
     ) -> anyhow::Result<()> {
-        let mut map = self.map.write().unwrap();
+        let mut map = self.map.write();
         for item in items {
             map.insert(item.key.clone(), item.value.clone());
         }
@@ -239,7 +240,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
     }
 
     fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()> {
-        let mut map = self.map.write().unwrap();
+        let mut map = self.map.write();
         for item in items {
             map.insert(item.key, item.value);
         }
@@ -247,7 +248,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
     }
 
     fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool> {
-        match self.map.write().unwrap().remove(key) {
+        match self.map.write().remove(key) {
             Some(_) => Ok(true),
             None => Ok(false),
         }
@@ -255,7 +256,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
 
     fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {
         let mut result = Vec::with_capacity(keys.len());
-        let mut map = self.map.write().unwrap();
+        let mut map = self.map.write();
         for key in keys {
             let r = match map.remove(key) {
                 Some(_) => true,
@@ -270,7 +271,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         if keys.len() != values.len() {
             anyhow::bail!("Keys and values must have the same length");
         } else {
-            let mut map = self.map.write().unwrap();
+            let mut map = self.map.write();
             for i in 0..keys.len() {
                 map.insert(keys[i].clone(), values[i].clone());
             }

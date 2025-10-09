@@ -82,7 +82,7 @@ bytes = "1"
 byteorder = "1.5"
 derive_more = { version = "2", default-features = false, features = ["full"] }
 indexmap = { version = "2.9", features = ["serde"] }
-parking_lot = "0.12"
+parking_lot = { version = "0.12", features = ["nightly"] }
 smallvec = "1.15"
 thiserror = "2.0"
 dashmap = "6.1"
