@@ -157,8 +157,8 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField> {
 
 #[async_trait]
 pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
-    async fn batch_append_user_registration_tree_imm(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>;
-    async fn batch_append_user_registration_tree_f_imm(&self, checkpoint_id: F, start_leaf_index: F, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
+    async fn batch_append_user_registration_tree_imm(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)>;
+    async fn batch_append_user_registration_tree_f_imm(&self, checkpoint_id: F, start_leaf_index: F, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)> {
         <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::batch_append_user_registration_tree_imm(self, checkpoint_id.to_canonical_u64(), start_leaf_index.to_canonical_u64(), sub_tree_height, leaf_hashes).await
     }
 
@@ -181,7 +181,7 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
         <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::set_contract_function_whitelist_imm(self, checkpoint_id.to_canonical_u64(), contract_id.to_canonical_u64(), leaves).await
     }
 
-    async fn batch_append_contract_tree_imm(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>;
+    async fn batch_append_contract_tree_imm(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)>;
 
     async fn set_contract_tree_leaf_hash_imm(&self, checkpoint_id: u64, contract_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
     async fn set_contract_tree_leaf_hash_f_imm(&self, checkpoint_id: F, contract_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {

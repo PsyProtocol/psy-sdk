@@ -260,8 +260,8 @@ pub trait QTreeDataStoreReaderSync<F: RichField> {
 
 
 pub trait QTreeDataStoreWriterSync<F: RichField> {
-    fn batch_append_user_registration_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>;
-    fn batch_append_user_registration_tree_f(&self, checkpoint_id: F, start_leaf_index: F, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
+    fn batch_append_user_registration_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)>;
+    fn batch_append_user_registration_tree_f(&self, checkpoint_id: F, start_leaf_index: F, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)> {
         <Self as QTreeDataStoreWriterSync<F>>::batch_append_user_registration_tree(
             self,
             checkpoint_id.to_canonical_u64(),
@@ -337,7 +337,7 @@ pub trait QTreeDataStoreWriterSync<F: RichField> {
         )
     }
 
-    fn batch_append_contract_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>;
+    fn batch_append_contract_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)>;
 
     fn set_contract_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u64, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>>;
     fn set_contract_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, leaf_hash: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {

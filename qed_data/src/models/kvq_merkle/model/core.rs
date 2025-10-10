@@ -762,7 +762,7 @@ pub trait KVQMerkleTreeModelCore<
         first_empty_leaf_key: &KVQMerkleNodeKey<TABLE_TYPE>,
         sub_tree_height: u8,
         leaves: &[Hash],
-    ) -> anyhow::Result<Vec<SpidermanUpdateProof<Hash>>> {
+    ) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<Hash>>)> {
         let leaves_per_subtree = 1usize << sub_tree_height;
         let max_leaves = 1u64 << tree_height;
         let append_index = first_empty_leaf_key.index;
@@ -778,8 +778,9 @@ pub trait KVQMerkleTreeModelCore<
                 - (cur_sub_tree_id as usize);
 
         let mut results = Vec::with_capacity(subtree_count);
+        let mut start_indexes = Vec::with_capacity(subtree_count);
         if subtree_count == 0 {
-            return Ok(results);
+            return Ok((start_indexes, results));
         }
 
         let mut old_leaves = Vec::with_capacity(leaves_per_subtree);
@@ -802,7 +803,6 @@ pub trait KVQMerkleTreeModelCore<
         let zero_hash = Hasher::get_zero_hash(0);
         let mut leaves_used = leaves_per_subtree - (cur_sub_tree_leaf_index as usize);
 
-        // Fill old_leaves with zeros for the remaining slots
         let old_leaves_zeros = leaves_per_subtree - old_leaves.len();
         for _ in 0..old_leaves_zeros {
             old_leaves.push(zero_hash);
@@ -823,6 +823,7 @@ pub trait KVQMerkleTreeModelCore<
         Self::set_nodes(store, &node_updates)?;
         let dmp = Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.n_th_ancestor(sub_tree_height))?;
 
+        start_indexes.push(0);
         results.push(SpidermanUpdateProof {
             top_line_proof: dmp,
             web_proof_old_leaves: old_leaves,
@@ -852,6 +853,7 @@ pub trait KVQMerkleTreeModelCore<
 
                 Self::set_nodes(store, &node_updates)?;
 
+                start_indexes.push(base_ind);
                 results.push(SpidermanUpdateProof {
                     top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height))?,
                     web_proof_old_leaves: old_leaves.clone(),
@@ -884,6 +886,7 @@ pub trait KVQMerkleTreeModelCore<
 
             Self::set_nodes(store, &node_updates)?;
 
+            start_indexes.push(base_ind);
             results.push(SpidermanUpdateProof {
                 top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height))?,
                 web_proof_old_leaves: old_leaves,
@@ -918,6 +921,7 @@ pub trait KVQMerkleTreeModelCore<
 
             Self::set_nodes(store, &node_updates)?;
 
+            start_indexes.push(leaves_used);
             results.push(SpidermanUpdateProof {
                 top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.at_index(bb1).n_th_ancestor(sub_tree_height))?,
                 web_proof_old_leaves: old_leaves,
@@ -925,7 +929,7 @@ pub trait KVQMerkleTreeModelCore<
             });
         }
 
-        Ok(results)
+        Ok((start_indexes, results))
     }
 
     fn rehash_sub_tree(

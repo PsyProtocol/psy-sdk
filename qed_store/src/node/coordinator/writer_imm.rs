@@ -43,7 +43,7 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         start_leaf_index: u64,
         sub_tree_height: u8,
         leaf_hashes: &[QHashOut<F>],
-    ) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
+    ) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)> {
         <Self as QTreeDataStoreWriterSync<F>>::batch_append_contract_tree(
             self,
             checkpoint_id,
@@ -58,7 +58,7 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         start_leaf_index: u64,
         sub_tree_height: u8,
         leaf_hashes: &[QHashOut<F>],
-    ) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>> {
+    ) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)> {
         <Self as QTreeDataStoreWriterSync<F>>::batch_append_user_registration_tree(
             self,
             checkpoint_id,

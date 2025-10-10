@@ -80,7 +80,6 @@ impl WorkerEventRepository {
         })
     }
 
-
     /// Get worker events with filtering and pagination by checkpoint range
     /// Note: Uses dynamic query due to complex optional filtering
     pub async fn list(
