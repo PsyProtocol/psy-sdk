@@ -290,7 +290,7 @@ impl RealmProcessor {
         // Build block based on slot timing
         self.pending_checkpoint_id.store(0, Ordering::Relaxed);
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
-        let has_tasks = build_ctx.has_pending_tasks(next_checkpoint_id).await?;
+        let has_tasks = build_ctx.has_pending_guta_tasks(next_checkpoint_id).await? || build_ctx.has_pending_user_tasks().await?;
         if !has_tasks {
             trace!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
             return Ok(());

@@ -511,6 +511,8 @@ impl<
         DeltaMerkleProofCore<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
     )> {
+        self.handle_guta_state_updates_from_users(checkpoint_id).await?;
+
         // Use position-based consumption for GUTA queue items
         let (mut guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
             self.max_processed_end_caps_per_block,
@@ -531,23 +533,23 @@ impl<
             if guta_queue_item.checkpoint_tree_proof.root != checkpoint_tree_root {
                 tracing::warn!(
                     "Checkpoint tree root mismatch, checkpoint_id: {}, item_root: {}, store_root: {}",
-                    checkpoint_id, 
-                    guta_queue_item.checkpoint_tree_proof.root, 
+                    checkpoint_id,
+                    guta_queue_item.checkpoint_tree_proof.root,
                     checkpoint_tree_root
                 );
-                
+
                 match self.store.get_checkpoint_tree_merkle_proof(
-                    real_checkpoint_id, 
+                    real_checkpoint_id,
                     guta_queue_item.input.checkpoint_id.to_canonical_u64()
                 ).await {
                     Ok(checkpoint_tree_proof) => {
                         let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
-                        
+
                         if current_root != checkpoint_tree_root || historical_root != guta_queue_item.input.state_transition.checkpoint_tree_root_hash {
                             tracing::warn!("⚠️ Invalid endcap checkpoint tree proof");
                             continue;
                         }
-                        
+
                         guta_queue_item.checkpoint_tree_proof = checkpoint_tree_proof;
                     }
                     Err(e) => {
@@ -558,7 +560,7 @@ impl<
             }
 
             match self.store.get_user_leaf_data(
-                real_checkpoint_id, 
+                real_checkpoint_id,
                 guta_queue_item.input.new_user_leaf.user_id.to_canonical_u64()
             ).await {
                 Ok(latest_user_leaf_data) => {
@@ -566,7 +568,7 @@ impl<
                     if latest_user_leaf_hash != guta_queue_item.input.state_transition.start_user_leaf_hash {
                         tracing::warn!(
                             "Invalid latest user leaf hash, stored: {}, expected: {}",
-                            latest_user_leaf_hash, 
+                            latest_user_leaf_hash,
                             guta_queue_item.input.state_transition.start_user_leaf_hash
                         );
                         continue;
@@ -941,10 +943,11 @@ impl<
         self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64).await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
-        // Pop up to 32 pending users from Redis queue
-        // Use position-based consumption for pending users
-        let (pending_users, _consumption_state) = self.sync_queue.peek_with_position(32, new_checkpoint_id).await?;
-        let (guta_jobs, guta_transition, guta_dmp, guta_graph) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, slot, &pending_users).await?;
+
+        let has_guta = self.has_pending_guta_tasks(new_checkpoint_id).await?;
+
+        let (mut pending_users, _consumption_state) = self.sync_queue.peek_with_position(if has_guta { 32 } else { 64 }, new_checkpoint_id).await?;
+        let (guta_jobs, guta_transition, guta_dmp, guta_graph) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, slot, &mut pending_users).await?;
 
         tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
         let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, slot, self.realm_config.realm_id);
@@ -972,45 +975,29 @@ impl<
         Ok(realm_worker_output_job_id)
     }
 
-    /// Check if there are pending tasks for the given checkpoint
-    pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
-        // Check if there are pending user registrations in Redis queue
+    pub async fn has_pending_guta_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
+        let guta_count = self
+            .checkpoint_queue
+            .cdq_len_imm(self.realm_config.guta_channel_id)
+            .await?;
+        if guta_count > 0 {
+            debug!("Found {} pending GUTA queue items", guta_count);
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    pub async fn has_pending_user_tasks(&self) -> anyhow::Result<bool> {
         let pending_users_count = self.sync_queue.get_pending_users_count().await?;
         if pending_users_count > 0 {
             debug!("Found {} pending user registrations in Redis queue", pending_users_count);
-            return Ok(true);
-        }
-
-        // Check if there are user operations in the GUTA queue
-        let guta_queue_items = self
-            .checkpoint_queue
-            .cdq_peek_imm::<UserEndCapNonProofCoreInputQueueItem<F>>(
-                self.realm_config.guta_channel_id,
-            )
-            .await?;
-
-        if !guta_queue_items.is_empty() {
-            debug!("Found {} pending GUTA queue items", guta_queue_items.len());
-            return Ok(true);
-        }
-
-        // Check for contract state updates
-        let cst_updates = self
-            .checkpoint_queue
-            .cdq_peek_imm::<CSTUserUpdate<QHashOut<F>>>(
-                CST_USER_UPDATE_CHANNEL_ID,
-            )
-            .await?;
-
-        if !cst_updates.is_empty() {
-            info!("Found {} pending contract state updates", cst_updates.len());
             return Ok(true);
         }
         Ok(false)
     }
 
 
-    // commit redis queue
     async fn commit_offset(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         if let Some(state) = self.sync_queue.get_last_peek_offset().await? {
             self.sync_queue.commit_offset(&state).await?;
