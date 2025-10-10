@@ -216,6 +216,7 @@ pub struct WorkerEventsQuery {
     pub offset: Option<i64>,
     pub limit: Option<i64>,
     pub order: Option<String>, // "asc" or "desc", default "desc"
+    pub category: Option<JobFilterCategory>,
 }
 
 async fn worker_events_handler(
@@ -228,6 +229,9 @@ async fn worker_events_handler(
     let limit = query.limit.unwrap_or(300).clamp(1, 1000);
     let order_asc = parse_order_param(query.order.as_deref());
 
+    let filter_category = query.category.unwrap_or_default();
+    tracing::info!("Using filter category: {:?}", filter_category);
+
     match WorkerEventRepository::list(
         &service.pool,
         realm_id_i64,
@@ -238,6 +242,7 @@ async fn worker_events_handler(
         query.circuit_type,
         query.from_checkpoint_id,
         query.to_checkpoint_id,
+        filter_category,
         offset,
         limit,
         order_asc,

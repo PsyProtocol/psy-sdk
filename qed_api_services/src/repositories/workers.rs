@@ -6,6 +6,7 @@ use crate::{
     models::{job_id_to_json, WorkerEvent, WorkerEventSource, WorkerEventStatus},
     Result,
 };
+use crate::models::JobFilterCategory;
 
 pub struct WorkerEventRepository;
 
@@ -79,6 +80,7 @@ impl WorkerEventRepository {
         })
     }
 
+
     /// Get worker events with filtering and pagination by checkpoint range
     /// Note: Uses dynamic query due to complex optional filtering
     pub async fn list(
@@ -91,6 +93,7 @@ impl WorkerEventRepository {
         circuit_type: Option<ProvingJobCircuitType>,
         from_checkpoint_id: Option<i64>,
         to_checkpoint_id: Option<i64>,
+        filter_category: JobFilterCategory,
         offset: i64,
         limit: i64,
         order_asc: bool,
@@ -99,6 +102,24 @@ impl WorkerEventRepository {
         let circuit_type = circuit_type.map(|t| t.to_u8() as i16);
         let order_direction = if order_asc { "ASC" } else { "DESC" };
 
+        // Build filter conditions based on category
+        let (additional_conditions, extra_params): (String, Option<Vec<i16>>) = match filter_category {
+            JobFilterCategory::All => {
+                // No additional filtering
+                (String::new(), None)
+            },
+            JobFilterCategory::RewardOnly => {
+                // Filter for reward-eligible circuit types and completed status
+                let conditions = r#"
+                AND circuit_type = ANY($11::SMALLINT[])
+                AND status = 'COMPLETED'
+            "#.to_string();
+                let params = Some(Self::get_reward_circuit_types());
+                (conditions, params)
+            },
+        };
+
+        // Build the complete query with additional conditions
         let query_str = format!(
             r#"
             SELECT
@@ -113,25 +134,46 @@ impl WorkerEventRepository {
                 AND ($6::BIGINT IS NULL OR checkpoint_id >= $6)
                 AND ($7::BIGINT IS NULL OR checkpoint_id <= $7)
                 AND ($8::VARCHAR IS NULL OR public_key = $8)
+            {}
             ORDER BY checkpoint_id {}, timestamp {}
             LIMIT $9 OFFSET $10
             "#,
-            order_direction, order_direction
+            additional_conditions, order_direction, order_direction
         );
 
-        let rows = sqlx::query(&query_str)
-            .bind(realm_id)
-            .bind(status.map(|s| s.to_string()))
-            .bind(source.map(|s| s.to_string()))
-            .bind(topic)
-            .bind(circuit_type)
-            .bind(from_checkpoint_id)
-            .bind(to_checkpoint_id)
-            .bind(public_key)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(pool)
-            .await?;
+        // Execute query with appropriate bindings
+        let rows = if let Some(circuit_types) = extra_params {
+            // Query with extra circuit type filter parameter
+            sqlx::query(&query_str)
+                .bind(realm_id)
+                .bind(status.map(|s| s.to_string()))
+                .bind(source.map(|s| s.to_string()))
+                .bind(topic)
+                .bind(circuit_type)
+                .bind(from_checkpoint_id)
+                .bind(to_checkpoint_id)
+                .bind(public_key)
+                .bind(limit)
+                .bind(offset)
+                .bind(&circuit_types)  // Bind the extra circuit types array
+                .fetch_all(pool)
+                .await?
+        } else {
+            // Query without extra parameter
+            sqlx::query(&query_str)
+                .bind(realm_id)
+                .bind(status.map(|s| s.to_string()))
+                .bind(source.map(|s| s.to_string()))
+                .bind(topic)
+                .bind(circuit_type)
+                .bind(from_checkpoint_id)
+                .bind(to_checkpoint_id)
+                .bind(public_key)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(pool)
+                .await?
+        };
 
         use qed_core::job::id::ProvingJobCircuitType;
         use crate::models::job_id_from_json;
@@ -300,5 +342,32 @@ impl WorkerEventRepository {
         .await?;
 
         Ok(result.max_checkpoint)
+    }
+    /// Get reward-eligible circuit types
+    pub fn get_reward_circuit_types() -> Vec<i16> {
+        vec![
+            // User Registration jobs (topic 0)
+            ProvingJobCircuitType::AppendUserRegistrationTree.to_u8() as i16,                    // 0
+            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate.to_u8() as i16,          // 1
+            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate.to_u8() as i16,     // 2
+
+            // GUTA jobs (topic 1)
+            ProvingJobCircuitType::GUTAOnlyRegisterUsers.to_u8() as i16,                        // 3
+            ProvingJobCircuitType::GUTARegisterUsers.to_u8() as i16,                            // 4
+            ProvingJobCircuitType::GUTATwoEndCap.to_u8() as i16,                                // 7
+            ProvingJobCircuitType::GUTATwoGUTA.to_u8() as i16,                                  // 8
+            ProvingJobCircuitType::GUTALeftEndCapRightGUTA.to_u8() as i16,                      // 9
+            ProvingJobCircuitType::GUTALeftGUTARightEndCap.to_u8() as i16,                      // 10
+            ProvingJobCircuitType::GUTASingleEndCap.to_u8() as i16,                             // 11
+            ProvingJobCircuitType::GUTAVerifyToCap.to_u8() as i16,                              // 13
+            ProvingJobCircuitType::GUTANoChange.to_u8() as i16,                                 // 15
+            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade.to_u8() as i16,             // 16
+            ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade.to_u8() as i16,         // 17
+
+            // Contract Deploy jobs (topic 2)
+            ProvingJobCircuitType::BatchDeployContracts.to_u8() as i16,                         // 52
+            ProvingJobCircuitType::BatchDeployContractsAggregate.to_u8() as i16,                // 53
+            ProvingJobCircuitType::DummyBatchDeployContractsAggregate.to_u8() as i16,           // 54
+        ]
     }
 }
