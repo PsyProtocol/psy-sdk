@@ -35,7 +35,7 @@ use qed_crypto::{
             },
             utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey},
         },
-        traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
+        traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable},
     },
     signature::zk::data::ZKPublicKeyInfo,
 };
@@ -236,7 +236,7 @@ impl<
         }
         let next_contract_id = start_contract_id + new_contract_leaves.len() as u32;
         let mut psb = ProofStoreBuilder::new();
-        let res = self
+        let (start_indexes, spiderman_append_proofs) = self
             .store
             .batch_append_contract_tree_imm(
                 checkpoint_id,
@@ -245,19 +245,37 @@ impl<
                 &new_hashes,
             )
             .await?;
-        tracing::debug!("deploy contracts: {}", serde_json::to_string_pretty(&res).unwrap());
-        let wits = res
+        tracing::debug!("deploy contracts spiderman proofs: {}", serde_json::to_string_pretty(&spiderman_append_proofs).unwrap());
+        let wits = spiderman_append_proofs
             .into_iter()
-            .zip(new_contract_leaves.chunks(1usize << (self.coordinator_config.deploy_contracts_tree_batch_height as usize)))
+            .zip(start_indexes)
             .enumerate()
-            .map(|(i, (c, l))| {
-                let start_contract_id_inner =
-                    (start_contract_id as usize) % (1 << self.coordinator_config.deploy_contracts_tree_batch_height as usize);
-                let contract_leaves = vec![QEDContractLeaf::default(); start_contract_id_inner]
-                    .into_iter()
-                    .chain(l.iter().cloned())
-                    .collect::<Vec<_>>();
-                self.push_deploy_contracts_request(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, i as u32, &mut psb, c, contract_leaves)
+            .map(|(i, (spiderman_proof, start_idx))| {
+                let leaves_per_subtree = 1 << self.coordinator_config.deploy_contracts_tree_batch_height;
+                let zero_hash = QEDHasher::get_zero_hash(0);
+                let mut contract_leaves = Vec::with_capacity(leaves_per_subtree);
+
+                let mut new_contract_idx = start_idx;
+
+                for j in 0..spiderman_proof.web_proof_new_leaves.len() {
+                    let new_leaf_hash = spiderman_proof.web_proof_new_leaves[j];
+                    let old_leaf_hash = spiderman_proof.web_proof_old_leaves[j];
+
+                    let is_added = old_leaf_hash == zero_hash && new_leaf_hash != zero_hash;
+
+                    if is_added && new_contract_idx < new_contract_leaves.len() {
+                        contract_leaves.push(new_contract_leaves[new_contract_idx]);
+                        new_contract_idx += 1;
+                    } else {
+                        contract_leaves.push(QEDContractLeaf::default());
+                    }
+                }
+
+                while contract_leaves.len() < leaves_per_subtree {
+                    contract_leaves.push(QEDContractLeaf::default());
+                }
+
+                self.push_deploy_contracts_request(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, i as u32, &mut psb, spiderman_proof, contract_leaves)
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
@@ -343,7 +361,8 @@ impl<
             )
             .await?;
         tracing::debug!("user registrations spiderman proofs: {}", serde_json::to_string_pretty(&res).unwrap());
-        let wits = res
+        let (start_indexes, spiderman_proofs) = res;
+        let wits = spiderman_proofs
             .chunks(self.coordinator_config.register_user_tree_batch_size)
             .enumerate()
             .map(|(i, c)| self.push_user_registration_request(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, i as u32, &mut psb, c.to_vec()))
