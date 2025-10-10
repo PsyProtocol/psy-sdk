@@ -231,6 +231,7 @@ async fn worker_events_handler(
     match WorkerEventRepository::list(
         &service.pool,
         realm_id_i64,
+        query.public_key,
         query.status,
         None, // source filter not provided in query params yet
         query.topic,
