@@ -288,7 +288,7 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D> + 'static, const D: usize> QEDUPSStepCircuitManager<C, D>
 where
     C::Hasher:
@@ -540,7 +540,7 @@ where
     Rpc(ProveProxyRpcProvider<C, D>),
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> QCircuitManager<C, D>
 where
     C::Hasher:
@@ -554,7 +554,7 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> ProveProxyRpcTrait<C, D>
     for QCircuitManager<C, D>
 where
@@ -872,7 +872,7 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D>
     for QCircuitManager<C, D>
 where
@@ -1008,7 +1008,7 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
     for QCircuitManager<C, D>
 where
@@ -1242,7 +1242,7 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
     for QCircuitManager<C, D>
 where

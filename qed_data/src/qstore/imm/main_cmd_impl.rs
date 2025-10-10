@@ -19,7 +19,7 @@ use super::{
     },
 };
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<F: RichField, R: QEDComboDataStoreReaderSync<F> + Sync> QEDReadCommandProcessorSync<F> for R {
     async fn resolve_batch(
         &self,

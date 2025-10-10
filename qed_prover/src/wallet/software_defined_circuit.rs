@@ -41,7 +41,7 @@ use crate::{
     wallet::simple_sign::{SoftwareDefinedSignTrait, StateReader, StateReaderGadget},
 };
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 pub trait SoftwareDefinedSignature<C: GenericConfig<D>, const D: usize> {
     type Input;
     type WitnessInput;
@@ -73,7 +73,7 @@ pub struct SoftwareDefinedSignatureCircuit<
     pub minifier_chain: QEDProofMinifierChain<D, C::F, C>,
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>> SoftwareDefinedSignatureCircuit<C, D, S>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
@@ -83,7 +83,7 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>>
     SoftwareDefinedSignatureCircuit<C, D, S>
 where
@@ -222,7 +222,7 @@ pub struct PSoftwareDefinedSignatureInput {
     pub sign_circuit: Box<dyn SoftwareDefinedSignTrait>,
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl SoftwareDefinedSignature<C, D> for QSoftwareDefinedSignatureGadget {
     type Input = QSoftwareDefinedSignatureInput;
     type WitnessInput = QSoftwareDefinedSignatureWitnessInput;
@@ -289,7 +289,7 @@ pub struct PSoftwareDefinedSignatureGadget {
     pub circuit_inputs: Vec<Target>,
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl SoftwareDefinedSignature<C, D> for PSoftwareDefinedSignatureGadget {
     type Input = PSoftwareDefinedSignatureInput;
     type WitnessInput = PSoftwareDefinedSignatureWitnessInput;
@@ -338,7 +338,7 @@ impl SoftwareDefinedSignature<C, D> for PSoftwareDefinedSignatureGadget {
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl SoftwareDefinedSignature<C, D> for SoftwareDefinedSignatureGadget {
     type Input = SoftwareDefinedSignatureInput;
 

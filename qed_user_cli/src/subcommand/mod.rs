@@ -10,7 +10,7 @@ pub mod prove_proxy;
 pub mod local_prover;
 
 cfg_if::cfg_if! {
-    if #[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))] {
+    if #[cfg(not(target_arch = "wasm32"))] {
         pub mod get_public_key;
         pub mod random_wallet;
         pub mod wallet;

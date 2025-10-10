@@ -44,7 +44,7 @@ pub struct PortableQTreeRecursionManager<C: GenericConfig<D>, const D: usize>
     q_recursion_tree_height: usize,
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionManager<C, D>
 where
     C::Hasher:

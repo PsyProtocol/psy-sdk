@@ -24,7 +24,7 @@ use qed_data::qdata::{
 
 type F = GoldilocksField;
 
-#[cfg(feature = "is_sync")]
+// #[cfg(feature = "is_sync")]
 #[async_trait]
 impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
     async fn get_first_user_id(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
@@ -38,7 +38,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<QEDCheckpointLeaf<F>> {
-        <Self as QMetaDataStoreReaderSync<F>>::get_checkpoint_leaf_data(self, checkpoint_id)
+        <Self as QMetaDataStoreReaderSync<F>>::get_checkpoint_leaf_data(self, checkpoint_id).await
     }
     async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
         Ok(
@@ -73,10 +73,10 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
         )
     }
     async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreReaderSync<F>>::get_latest_checkpoint_tree_root(self)
+        <Self as QTreeDataStoreReaderSync<F>>::get_latest_checkpoint_tree_root(self).await
     }
     async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_root(self, checkpoint_id)
+        <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_root(self, checkpoint_id).await
     }
     async fn get_checkpoint_tree_leaf_hash(
         &self,
@@ -87,7 +87,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
             self,
             checkpoint_id,
             leaf_checkpoint_id,
-        )
+        ).await
     }
     async fn get_checkpoint_tree_merkle_proof(
         &self,
@@ -98,7 +98,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
             self,
             checkpoint_id,
             leaf_checkpoint_id,
-        )
+        ).await
     }
 
     async fn get_checkpoint_global_state_roots(
@@ -118,7 +118,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
         checkpoint_id: u64,
         user_id: u64,
     ) -> anyhow::Result<QEDUserLeaf<F>> {
-        <Self as QMetaDataStoreReaderSync<F>>::get_user_leaf_data(self, checkpoint_id, user_id)
+        <Self as QMetaDataStoreReaderSync<F>>::get_user_leaf_data(self, checkpoint_id, user_id).await
     }
     async fn get_user_contract_state_tree_root(
         &self,
@@ -131,7 +131,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
             checkpoint_id,
             user_id,
             contract_id,
-        )
+        ).await
     }
     async fn get_user_contract_state_tree_leaf_hash(
         &self,
@@ -148,7 +148,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
             contract_id,
             height,
             leaf_id,
-        )
+        ).await
     }
     async fn get_user_contract_state_tree_merkle_proof(
         &self,
@@ -165,7 +165,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
             contract_id,
             height,
             leaf_id,
-        )
+        ).await
     }
     async fn get_user_contract_tree_root(
         &self,
@@ -176,7 +176,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
             self,
             checkpoint_id,
             user_id,
-        )
+        ).await
     }
     async fn get_user_contract_tree_leaf_hash(
         &self,
@@ -189,7 +189,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
             checkpoint_id,
             user_id,
             contract_id,
-        )
+        ).await
     }
     async fn get_user_contract_tree_merkle_proof(
         &self,
@@ -202,7 +202,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
             checkpoint_id,
             user_id,
             contract_id,
-        )
+        ).await
     }
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
         Ok(
@@ -219,7 +219,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
         checkpoint_id: u64,
         user_id: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_leaf_hash(self, checkpoint_id, user_id)
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_leaf_hash(self, checkpoint_id, user_id).await
     }
     async fn get_user_bottom_tree_merkle_proof(
         &self,
@@ -260,6 +260,6 @@ impl<T: KVQBinaryStore> QEDRealmStoreReaderAsync<F> for T {
             self,
             checkpoint_id,
             user_id,
-        )
+        ).await
     }
 }

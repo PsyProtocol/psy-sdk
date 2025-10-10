@@ -26,8 +26,8 @@ use qed_prover::local::{
 
 use super::args::DeployContractArgs;
 
-#[cfg(feature = "is_sync")]
-pub fn run(args: DeployContractArgs) -> anyhow::Result<()> {
+// #[cfg(feature = "is_sync")]
+pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     tracing::info!("user cli deploying contract");
     use qed_data::config::store_config::{C, D};
     use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
@@ -57,7 +57,7 @@ pub fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     tracing::info!("deploying contract");
     provider.deploy_contract(QDeployContractRPCRequest {
         deploy_contract: deploy_cmd,
-    })?;
+    }).await?;
     tracing::info!("contract deployed");
 
     Ok(())

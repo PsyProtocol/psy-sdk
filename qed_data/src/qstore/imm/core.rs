@@ -39,7 +39,7 @@ use crate::{
 
 type F = QEDFelt;
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<T: KVQBinaryStore> QMetaDataStoreReaderSync<F> for T {
     async fn get_user_leaf_data(
         &self,
@@ -114,7 +114,7 @@ impl<T: KVQBinaryStore> QMetaDataStoreWriterSync<F> for T {
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<T: KVQBinaryStore> QTreeDataStoreReaderSync<F> for T {
     async fn get_user_contract_state_tree_root(
         &self,

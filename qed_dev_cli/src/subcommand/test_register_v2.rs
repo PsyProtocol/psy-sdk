@@ -248,8 +248,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut mgr = UserProvingSessionManager::<GoldilocksField,QEDHasher,_,C,D>::new(
         lps,
         circuit_info,
-        main_circuits.ups_circuit_whitelist_root()?
-    )?;
+        main_circuits.ups_circuit_whitelist_root().await?
+    ).await?;
 
     timer.lap("setup mgr");
 
@@ -258,7 +258,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("START USER PROVING SESSION");
 
-    mgr.prove_ups_start(&main_circuits)?;
+    mgr.prove_ups_start(&main_circuits).await?;
     timer.lap("proved ups_start");
 
     contract_helper.prove_func(
@@ -269,7 +269,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         vec![
             GoldilocksField::from_noncanonical_u64(1000),
         ]
-    )?;
+    ).await?;
     timer.lap("proved token.simple_mint_debug(amount: 1000)");
 
 
@@ -282,7 +282,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(1),
             GoldilocksField::from_noncanonical_u64(100),
         ]
-    )?;
+    ).await?;
     timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
@@ -293,10 +293,10 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     match &main_circuits {
         QCircuitManager::Local(manager) => mgr
             .proof_tree_state
-            .finalize_tree(&manager.proof_tree_agg_circuits)?,
+            .finalize_tree(&manager.proof_tree_agg_circuits).await?,
         QCircuitManager::Rpc(provider) => mgr
             .proof_tree_state
-            .finalize_tree(provider)?,
+            .finalize_tree(provider).await?,
     };
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param =SimpleQEDPrivateKey::new(priv_key_user_0).get_public_key_param::<QEDHasher>();
@@ -308,7 +308,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
          public_key_param,
         signature_proof,
          wallet.circuit.get_verifier_config_ref().to_owned()
-    )?;
+    ).await?;
     timer.lap("Proved End Cap for UPS Session 🎉");
 
     // the end cap proof the proof that we send off to the network 🎉
@@ -323,7 +323,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     };*/
 
     realm_edge_node.handle_recv_end_cap_from_user(
-        mgr.get_api_input()?,
+        mgr.get_api_input().await?,
         &end_cap_proof
     ).await?;
 

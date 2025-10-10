@@ -11,7 +11,7 @@ pub mod request;
 pub mod provider;
 // #[cfg(not(target_arch = "wasm32"))]
 pub mod lps;
-#[cfg(feature = "is_sync")]
+// #[cfg(feature = "is_sync")]
 pub mod simple;
 
 #[cfg(not(target_arch = "wasm32"))]

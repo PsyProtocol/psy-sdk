@@ -80,7 +80,7 @@ pub async fn run(
     let mut memory_wallet = qed_prover::wallet::memory_wallet::QEDMemoryWallet::new(vec![main_circuits]);
 
     let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
-    let public_key_info = memory_wallet.add_secp_private_key(private_key)?;
+    let public_key_info = memory_wallet.add_secp_private_key(private_key).await?;
     let worker_public_key = public_key_info.qfhash::<QEDHasher>();
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());

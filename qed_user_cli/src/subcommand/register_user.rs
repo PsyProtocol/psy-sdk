@@ -28,7 +28,7 @@ const ZK_FINGERPRINT: &str = "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c
 const SECP256K1_FINGERPRINT: &str =
     "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c";
 
-pub fn run(args: RegisterUserArgs) -> Result<()> {
+pub async fn run(args: RegisterUserArgs) -> Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
@@ -38,6 +38,7 @@ pub fn run(args: RegisterUserArgs) -> Result<()> {
 
     let contract_state_tree_height = provider
         .get_contract_code_definition(0)
+        .await
         .map(|cfc| cfc.state_tree_height as u8)
         .unwrap_or(MAX_CONTRACT_STATE_TREE_HEIGHT);
 
@@ -102,7 +103,7 @@ pub fn run(args: RegisterUserArgs) -> Result<()> {
 
             let sdc = SoftwareDefinedSignatureCircuit::<C, D, SoftwareDefinedSignatureGadget>::new(
                 &sdc_input,
-            );
+            ).await;
             sdc.get_fingerprint()
         }
     };
@@ -115,7 +116,7 @@ pub fn run(args: RegisterUserArgs) -> Result<()> {
     // Register user
     provider.register_user(QRegisterUserRPCRequest {
         public_key: public_key_info,
-    })?;
+    }).await?;
 
     // Output the result
     let public_key_hash = public_key_info.qfhash::<QEDHasher>();

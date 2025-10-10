@@ -1219,8 +1219,8 @@ pub struct WalletKeyPair {
     pub public_key: ZKPublicKeyInfo<F>,
 }
 
-#[cfg(feature = "is_sync")]
-pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
+// #[cfg(feature = "is_sync")]
+pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let config_str = std::fs::read_to_string(&args.rpc_config)?;
     let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
     let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
@@ -1229,10 +1229,10 @@ pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let contract_call_args: Vec<ContractCallArgs> =
         serde_json::from_str(&std::fs::read_to_string(args.contract_calls)?)?;
 
-    let mut wallet_session = WalletSession::new(&rpc_config)?;
-    let public_key = wallet_session.add_user(private_key)?;
+    let mut wallet_session = WalletSession::new(&rpc_config).await?;
+    let public_key = wallet_session.add_user(private_key).await?;
 
-    wallet_session.exec_contract_call(public_key, contract_call_args)?;
+    wallet_session.exec_contract_call(public_key, contract_call_args).await?;
 
     Ok(())
 }

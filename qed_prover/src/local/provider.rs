@@ -229,7 +229,7 @@ macro_rules! qed_rpc_call_back {
     }};
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 pub trait QUserRpcProvider {
     async fn register_user<F: RichField>(
         &self,
@@ -260,7 +260,7 @@ pub trait QUserRpcProvider {
     ) -> anyhow::Result<()>;
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl QUserRpcProvider for RpcProvider {
     async fn register_user<F: RichField>(
         &self,
@@ -541,7 +541,7 @@ pub struct CoordinatorConfig {
 // const D: usize = 2;
 // type F = <C as GenericConfig<D>>::F;
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 pub trait ProveProxyRpcTrait<C: GenericConfig<D>, const D: usize> {
     async fn prove_ups_start(
         &self,
@@ -696,7 +696,7 @@ pub struct LocalCommonCircuitsData<F: RichField> {
     pub circuit_inclusion_proofs: SimpleQTreeRecursionManagerInclusionProofs<F>,
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
     pub async fn new_with_config(proof_proxy_url: String) -> anyhow::Result<Self> {
         let client = Client::new();
@@ -883,7 +883,7 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcTrait<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
@@ -1318,7 +1318,7 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where
@@ -1381,7 +1381,7 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where
@@ -1616,7 +1616,7 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where

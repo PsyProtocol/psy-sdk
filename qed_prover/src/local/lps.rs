@@ -24,7 +24,7 @@ use tracing::{debug, error, info, instrument};
 
 type F = GoldilocksField;
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl QTreeDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(checkpoint_id, user_id, contract_id))]
     async fn get_user_contract_state_tree_root(
@@ -1272,7 +1272,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl QMetaDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
     async fn get_user_leaf_data(

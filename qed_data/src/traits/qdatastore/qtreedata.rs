@@ -26,8 +26,8 @@ pub trait ActiveCheckpointWriterSync<F: RichField> {
     fn set_active_writing_checkpoint_f_mut(&mut self, checkpoint_id: F) -> anyhow::Result<F>;
 }
 
-#[maybe_async::maybe_async(?Send)]
-pub trait QTreeDataStoreReaderSync<F: RichField> {
+#[maybe_async::maybe_async]
+pub trait QTreeDataStoreReaderSync<F: RichField>: Send + Sync {
     async fn get_user_contract_state_tree_root(&self, checkpoint_id: u64, user_id: u64, contract_id: u32) -> anyhow::Result<QHashOut<F>>;
     async fn get_user_contract_state_tree_root_f(&self, checkpoint_id: F, user_id: F, contract_id: F) -> anyhow::Result<QHashOut<F>> {
         <Self as QTreeDataStoreReaderSync<F>>::get_user_contract_state_tree_root(
@@ -360,10 +360,10 @@ pub trait QTreeDataStoreWriterSync<F: RichField> {
 }
 
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 pub trait QEDComboDataStoreReaderSync<F: RichField>: QMetaDataStoreReaderSync<F> + QTreeDataStoreReaderSync<F> {}
 pub trait QEDComboDataStoreWriterSync<F: RichField>: QMetaDataStoreWriterSync<F> + QTreeDataStoreWriterSync<F> {}
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 pub trait QEDComboDataStoreReaderWriterSync<F: RichField>: QEDComboDataStoreReaderSync<F> + QEDComboDataStoreWriterSync<F> {
 }

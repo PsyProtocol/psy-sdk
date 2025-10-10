@@ -544,7 +544,7 @@ pub struct StateReader<
     pub state_cmds: Vec<DPNStateCmd<F>>,
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl<
         F: RichField + Extendable<D>,
         const D: usize,
@@ -988,7 +988,7 @@ impl<
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 pub trait SoftwareDefinedSignTrait: Debug + Send + Sync {
     async fn custom_sign_option_f(
         &mut self,
@@ -1016,7 +1016,7 @@ type GF = GoldilocksField;
 #[derive(Debug, Clone)]
 pub struct SoftwareDefinedSignGadget {}
 
-#[maybe_async::maybe_async(?Send)]
+#[maybe_async::maybe_async]
 impl SoftwareDefinedSignTrait for SoftwareDefinedSignGadget {
     async fn custom_sign_option_f(
         &mut self,

@@ -35,13 +35,13 @@ async fn main() -> anyhow::Result<()> {
             subcommand::generate_token::run(args).await?;
         }
         Commands::ProduceBlock(args) => {
-            subcommand::produce_block::run(args)?;
+            subcommand::produce_block::run(args).await?;
         }
         Commands::RegisterUser(args) => {
-            subcommand::register_user::run(args)?;
+            subcommand::register_user::run(args).await?;
         }
         Commands::RandomRegisterUserBatch(args) => {
-            subcommand::register_user::run_random(args)?;
+            subcommand::register_user::run_random(args).await?;
         }
         Commands::GetUserIdFromRegistrationId(args) => {
             subcommand::get_user_id_from_registration_id::run(args).await?;
@@ -66,6 +66,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Job(args) => {
             subcommand::job::run(args).await?;
+        }
+        Commands::CheckRegisteredUsers(args) => {
+            subcommand::check_registered_users::run(args).await?;
         }
     }
     
