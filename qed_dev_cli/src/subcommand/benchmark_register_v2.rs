@@ -109,6 +109,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         qps.clone(),
         task_store.clone(),
         Arc::clone(&proof_verifier),
+        None,
+        None,
     )
     .await?;
     timer.lap("created coordinator nodes");

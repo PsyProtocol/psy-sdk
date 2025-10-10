@@ -33,6 +33,10 @@ pub struct CoordinatorProcessorArgs {
     pub queue_args: CoordinatorQueueArgs,
     #[arg(long, help = "Path to configuration file", default_value = "config.json")]
     pub config_path: String,
+    #[arg(long, env = "PROCESSED_CONTRACTS_MAX_SIZE", default_value = "64")]
+    pub max_processed_contracts_per_block: Option<isize>,
+    #[arg(long, env = "PROCESSED_USERS_MAX_SIZE", default_value = "256")]
+    pub max_processed_users_per_block: Option<isize>,
 }
 
 #[derive(Clone, Debug, Args)]

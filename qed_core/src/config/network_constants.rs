@@ -119,6 +119,20 @@ pub const COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL: u64 = 0xCC544F5245414C4D;
 
 pub const REALM_PROCESSOR_TO_EDGE_CHANNEL: u64 = 0x524C4D50524F4F46;
 
+
+// move cil parameter
+pub const MAX_PROCESSED_END_CAPS_PER_BLOCK: u64 = 16;
+pub const MAX_PROCESSED_CONTRACTS_PER_BLOCK: u64 = 64;
+pub const MAX_PROCESSED_USERS_PER_BLOCK: u64 = 256;
+
+// slot constants
+pub const SLOT0: u64 = 0;
+pub const SLOT_SIZE: u64 = 6000; // 6s
+pub const REALM_SLOT_SIZE_MS: u64 = SLOT_SIZE/4;// 3s
+pub const SLOT0_TIMESTAMP: u64 = 1753891200000; // 2025-07-31 00:00:00
+pub const NETWORK_COST_TIME_MS: u64 = 1000; // 1s
+
+
 use plonky2::{field::types::Field, hash::hash_types::RichField};
 
 pub fn get_default_worker_public_key<F: RichField>() -> QHashOut<F> {

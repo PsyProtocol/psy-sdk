@@ -271,6 +271,8 @@ impl
             qps.clone(),
             task_store.clone(),
             Arc::clone(&proof_verifier),
+            cp_config.max_processed_contracts_per_block,
+            cp_config.max_processed_users_per_block
         )
         .await?;
 
