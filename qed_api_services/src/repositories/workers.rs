@@ -84,6 +84,7 @@ impl WorkerEventRepository {
     pub async fn list(
         pool: &PgPool,
         realm_id: Option<i64>,
+        public_key: Option<String>,
         status: Option<WorkerEventStatus>,
         source: Option<WorkerEventSource>,
         topic: Option<QJobTopic>,
@@ -111,8 +112,9 @@ impl WorkerEventRepository {
                 AND ($5::SMALLINT IS NULL OR circuit_type = $5)
                 AND ($6::BIGINT IS NULL OR checkpoint_id >= $6)
                 AND ($7::BIGINT IS NULL OR checkpoint_id <= $7)
+                AND ($8::VARCHAR IS NULL OR public_key = $8)
             ORDER BY checkpoint_id {}, timestamp {}
-            LIMIT $8 OFFSET $9
+            LIMIT $9 OFFSET $10
             "#,
             order_direction, order_direction
         );
@@ -125,6 +127,7 @@ impl WorkerEventRepository {
             .bind(circuit_type)
             .bind(from_checkpoint_id)
             .bind(to_checkpoint_id)
+            .bind(public_key)
             .bind(limit)
             .bind(offset)
             .fetch_all(pool)
