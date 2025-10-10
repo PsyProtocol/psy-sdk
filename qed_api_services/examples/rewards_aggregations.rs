@@ -362,6 +362,7 @@ fn create_guta_job_id(_job_name: &str, circuit_type_name: &str) -> serde_json::V
     let job = QProvingJobDataID {
         topic: QJobTopic::GenerateStandardProof,
         goal_id: 0,
+        slot_id: 0,
         circuit_type, // Only GUTA circuit types count for rewards
         group_id: 0,
         sub_group_id: 0,
