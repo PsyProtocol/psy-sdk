@@ -121,6 +121,11 @@ pub trait CheckpointDrainQueueConsumerAsyncImm {
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Vec<T>>;
+
+    async fn cdq_len_imm(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<usize>;
 }
 
 #[async_trait]

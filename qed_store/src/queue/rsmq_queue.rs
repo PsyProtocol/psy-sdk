@@ -666,6 +666,19 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
 
         Ok(members)
     }
+
+    async fn cdq_len_imm(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<usize> {
+        let queue_id = QueueId::CheckpointDrain {
+            queue_biz_key: self.worker_queue_key().clone(),
+            channel_id,
+            checkpoint_id: 0, // Not used for length check
+        };
+        let count = self.get_queue_stats(&queue_id).await?.total_messages;
+        Ok(count as usize)
+    }
 }
 
 #[async_trait]
