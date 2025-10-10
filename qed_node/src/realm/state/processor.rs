@@ -933,8 +933,8 @@ impl<
         let has_guta = self.has_pending_guta_tasks(new_checkpoint_id).await?;
 
         // Use position-based consumption for pending users
-        let (mut pending_users, _consumption_state) = self.sync_queue.peek_with_position(if has_guta { 32 } else { 64 }, new_checkpoint_id).await?;
-        let (guta_jobs, guta_transition, guta_dmp, guta_graph) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &mut pending_users).await?;
+        let (pending_users, _consumption_state) = self.sync_queue.peek_with_position(if has_guta { 32 } else { 64 }, new_checkpoint_id).await?;
+        let (guta_jobs, guta_transition, guta_dmp, guta_graph) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, &pending_users).await?;
 
         tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
         let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, self.realm_config.realm_id);
