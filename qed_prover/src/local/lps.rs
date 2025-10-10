@@ -1,7 +1,7 @@
 use super::provider::RpcProvider;
 use super::request::*;
 use crate::qed_rpc_call_back;
-use anyhow::Ok;
+use std::result::Result::Ok;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::{
     config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT},

@@ -58,7 +58,7 @@ use super::request::{
 };
 use serde_json;
 
-use anyhow::Ok;
+use std::result::Result::Ok;
 // #[cfg(not(target_arch = "wasm32"))]
 use rand::Rng;
 
@@ -154,7 +154,7 @@ impl RpcProvider {
 //     }};
 // }
 
-// #[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
+#[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
 macro_rules! qed_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
@@ -185,6 +185,54 @@ macro_rules! qed_rpc_call {
     }};
 }
 
+#[cfg(target_arch = "wasm32")]
+#[macro_export]
+macro_rules! qed_rpc_call {
+    ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
+        use std::sync::mpsc;
+        use std::sync::mpsc::{Sender, Receiver};
+        use wasm_bindgen_futures::spawn_local;
+        use anyhow::Result;
+
+        let (tx, rx) = mpsc::channel::<Result<()>>();
+
+        let client = $instance.client.clone();
+        let rpc_url = $rpc_url.to_string();
+        let rpc_params = $rpc_params;
+
+        spawn_local(async move {
+            let result: Result<()> = {
+                tracing::info!("qed rpc call (wasm): {}", rpc_url);
+                let response = client
+                    .post(&rpc_url)
+                    .timeout(std::time::Duration::from_secs(360))
+                    .json(&RpcRequest {
+                        jsonrpc: Version::V2,
+                        request: rpc_params,
+                        id: Id::Number(1),
+                    })
+                    .send()
+                    .await
+                    .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}", e));
+
+                match response {
+                    Ok(response) => {
+                        match response.json::<RpcResponse<String>>().await {
+                            Ok(json_response) => Ok(()),
+                            Err(e) => Err(anyhow::anyhow!("parse reponse failed: {}", e)),
+                        }
+                    }
+                    Err(e) => Err(anyhow::anyhow!("qed rpc call failed: {}", e)),
+                }
+            };
+
+            let _ = tx.send(result);
+        });
+
+        rx.recv().map_err(|e| anyhow::anyhow!("channel reception failed: {}", e))?
+    }};
+}
+
 // #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
 // #[macro_export]
 // macro_rules! qed_rpc_call_back {
@@ -205,7 +253,7 @@ macro_rules! qed_rpc_call {
 //     }};
 // }
 
-// #[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
+#[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
@@ -226,6 +274,58 @@ macro_rules! qed_rpc_call_back {
                 .await
         }
         .await?
+    }};
+}
+
+#[cfg(target_arch = "wasm32")]
+#[macro_export]
+macro_rules! qed_rpc_call_back {
+    ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
+        use std::sync::mpsc;
+        use std::sync::mpsc::{Sender, Receiver};
+        use wasm_bindgen_futures::spawn_local;
+        use anyhow::Result;
+
+        let (tx, rx) = mpsc::channel::<Result<RpcResponse<$ret_ty>>>();
+
+        let client = $instance.client.clone();
+        let rpc_url = $rpc_url.to_string();
+        let rpc_params = $rpc_params;
+
+        spawn_local(async move {
+            let result: Result<RpcResponse<$ret_ty>> = {
+                tracing::info!("qed rpc call (wasm): {}", rpc_url);
+                let response = client
+                    .post(&rpc_url)
+                    .timeout(std::time::Duration::from_secs(360))
+                    .json(&RpcRequest {
+                        jsonrpc: Version::V2,
+                        request: rpc_params,
+                        id: Id::Number(1),
+                    })
+                    .send()
+                    .await
+                    .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}", e));
+
+                match response {
+                    Ok(response) => {
+                        match response.json::<RpcResponse<$ret_ty>>().await {
+                            Ok(json_response) => Ok(json_response),
+                            Err(e) => Err(anyhow::anyhow!("parse reponse failed: {}", e)),
+                        }
+                    }
+                    Err(e) => Err(anyhow::anyhow!("qed rpc call failed: {}", e)),
+                }
+            };
+
+            let _ = tx.send(result);
+        });
+
+        let rpc_result = rx.recv()
+            .map_err(|e| anyhow::anyhow!("通道接收失败: {}", e))?;
+
+        rpc_result
+            .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}", e))?
     }};
 }
 
@@ -884,7 +984,7 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
 }
 
 #[maybe_async::maybe_async]
-impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcTrait<C, D> for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> ProveProxyRpcTrait<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -1382,7 +1482,7 @@ where
 }
 
 #[maybe_async::maybe_async]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where
     C::Hasher:
@@ -1617,7 +1717,7 @@ where
 }
 
 #[maybe_async::maybe_async]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where
     C::Hasher:
