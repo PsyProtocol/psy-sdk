@@ -167,7 +167,7 @@ wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1"
 wasm-logger = "0.2"
 wasm-tracing = "2.0"
-rsmq = { git = "https://github.com/jimzk/rsmq-async-rs", package = "rsmq_async", features = ["break-js-comp", "sync", "tokio"] }
+rsmq = { git = "https://github.com/QEDProtocol/rsmq-async-rs", package = "rsmq_async", features = ["break-js-comp", "sync", "tokio"], rev = "49b317094585e75dcdb619d204b6cf19010049fb" }
 
 num-traits = "0.2"
 num-bigint = { version = "0.4" }

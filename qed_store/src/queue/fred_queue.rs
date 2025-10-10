@@ -252,6 +252,20 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
             .map(|x| T::from_bytes(&x))
             .collect()
     }
+
+    async fn cdq_len_imm(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<usize> {
+        let checkpoint_queue_prefix =
+            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!(
+            "{}-{}",
+            checkpoint_queue_prefix, channel_id
+        );
+        let count: usize = self.pool.llen(key).await?;
+        Ok(count)
+    }
 }
 
 #[async_trait]
@@ -538,6 +552,15 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
             .into_iter()
             .map(|x| T::from_bytes(&x))
             .collect()
+    }
+
+    async fn cdq_len_imm(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<usize> {
+        let key = format!("{}_{}", self.checkpoint_drain_queue_key(), channel_id);
+        let count: usize = self.pool.llen(key).await?;
+        Ok(count)
     }
 }
 

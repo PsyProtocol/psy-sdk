@@ -361,6 +361,17 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
 
         Ok(items)
     }
+
+    async fn cdq_len_imm(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<usize> {
+        let checkpoint_queue_prefix =
+            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!("{}-{}", checkpoint_queue_prefix, channel_id);
+        let count: usize = self.redis.llen(key).await?;
+        Ok(count)
+    }
 }
 
 #[async_trait]
