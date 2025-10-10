@@ -33,11 +33,14 @@ impl<S: QProofStoreReaderAsync> RetryableStore<S> {
         }
     }
 
-    /// Validate that data is not empty
-    fn validate_data(data: &[u8], id: &str) -> anyhow::Result<()> {
+    /// Validate that data is not empty and has minimum expected size
+    fn validate_data(data: &[u8], id: &str, min_size: usize) -> anyhow::Result<()> {
         if data.is_empty() {
             warn!("Retrieved empty data for ID: {}", id);
             Err(anyhow::anyhow!("Empty data returned from RPC"))
+        } else if data.len() < min_size {
+            warn!("Retrieved suspiciously small data ({} bytes) for ID: {}", data.len(), id);
+            Err(anyhow::anyhow!("Incomplete data returned from RPC (only {} bytes)", data.len()))
         } else {
             debug!("Retrieved {} bytes for ID: {}", data.len(), id);
             Ok(())
@@ -70,8 +73,8 @@ impl<S: QProofStoreReaderAsync + Send + Sync> QProofStoreReaderAsync for Retryab
             &format!("get_bytes_by_id for {}", id_hex),
             || async {
                 let data = self.inner_store.get_bytes_by_id(id).await?;
-                Self::validate_data(&data, &id_hex)?;
-                Ok(data)
+                Self::validate_data(&data, &id_hex, 4)?;
+                Ok::<Vec<u8>, anyhow::Error>(data)  // Explicitly specify the error type
             }
         ).await
             .map_err(|e| {
@@ -91,13 +94,13 @@ impl<S: QProofStoreReaderAsync + Send + Sync> QProofStoreReaderAsync for Retryab
             &format!("get_proof_by_id for {}", id_hex),
             || async {
                 let proof_bytes = self.inner_store.get_bytes_by_id(id).await?;
-                Self::validate_data(&proof_bytes, &id_hex)?;
+                Self::validate_data(&proof_bytes, &id_hex, 4)?;
 
                 // Try to deserialize to validate it's valid proof data
                 let proof: ProofWithPublicInputs<C::F, C, D> =
                     bincode::deserialize(&proof_bytes)
                         .map_err(|e| anyhow::anyhow!("Invalid proof data: {}", e))?;
-                Ok(proof)
+                Ok::<ProofWithPublicInputs<C::F, C, D>, anyhow::Error>(proof)  // Explicitly specify the error type
             }
         ).await
             .map_err(|e| {
