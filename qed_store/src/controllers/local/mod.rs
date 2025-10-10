@@ -15,7 +15,7 @@ use qed_data::traits::qdatastore::qmetadata::{QMetaDataStoreReaderSync, QMetaDat
 use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use plonky2::field::types::Field;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
+#[cfg(all(not(target_arch = "wasm32")))]
 pub async fn prepare_environment_with_real_contract(
     register_users: Vec<QBCRegisterUser<QEDFelt>>,
     deploy_contracts: Vec<QBCDeployContract<QEDFelt>>,

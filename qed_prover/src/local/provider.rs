@@ -62,10 +62,10 @@ use anyhow::Ok;
 // #[cfg(not(target_arch = "wasm32"))]
 use rand::Rng;
 
-#[cfg(not(target_arch = "wasm32"))]
-use reqwest::blocking::Client;
+// #[cfg(not(target_arch = "wasm32"))]
+// use reqwest::blocking::Client;
 
-#[cfg(target_arch = "wasm32")]
+// #[cfg(target_arch = "wasm32")]
 use reqwest::Client;
 
 use super::request::{
@@ -129,32 +129,32 @@ impl RpcProvider {
     }
 }
 
-#[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
-#[macro_export]
-macro_rules! qed_rpc_call {
-    ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
-        let response = $instance
-            .client
-            .post($rpc_url)
-            .json(&RpcRequest {
-                jsonrpc: Version::V2,
-                request: $rpc_params,
-                id: Id::Number(1),
-            })
-            .send()?
-            .json::<RpcResponse<String>>()?;
+// #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
+// #[macro_export]
+// macro_rules! qed_rpc_call {
+//     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
+//         let response = $instance
+//             .client
+//             .post($rpc_url)
+//             .json(&RpcRequest {
+//                 jsonrpc: Version::V2,
+//                 request: $rpc_params,
+//                 id: Id::Number(1),
+//             })
+//             .send()?
+//             .json::<RpcResponse<String>>()?;
 
-        match response.result {
-            ResponseResult::Success(s) => {
-                tracing::info!("{:?}", s);
-                Ok(())
-            }
-            ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
-        }
-    }};
-}
+//         match response.result {
+//             ResponseResult::Success(s) => {
+//                 tracing::info!("{:?}", s);
+//                 Ok(())
+//             }
+//             ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
+//         }
+//     }};
+// }
 
-#[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
+// #[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
 #[macro_export]
 macro_rules! qed_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
@@ -185,27 +185,27 @@ macro_rules! qed_rpc_call {
     }};
 }
 
-#[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
-#[macro_export]
-macro_rules! qed_rpc_call_back {
-    ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
-        tracing::info!("qed rpc call: {}", $rpc_url);
-        let request = RpcRequest {
-            jsonrpc: Version::V2,
-            request: $rpc_params,
-            id: Id::Number(1),
-        };
-        $instance
-            .client
-            .post($rpc_url)
-            .timeout(std::time::Duration::from_secs(360))
-            .json(&request)
-            .send()?
-            .json::<RpcResponse<$ret_ty>>()?
-    }};
-}
+// #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
+// #[macro_export]
+// macro_rules! qed_rpc_call_back {
+//     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
+//         tracing::info!("qed rpc call: {}", $rpc_url);
+//         let request = RpcRequest {
+//             jsonrpc: Version::V2,
+//             request: $rpc_params,
+//             id: Id::Number(1),
+//         };
+//         $instance
+//             .client
+//             .post($rpc_url)
+//             .timeout(std::time::Duration::from_millis(1000))
+//             .json(&request)
+//             .send()?
+//             .json::<RpcResponse<$ret_ty>>()?
+//     }};
+// }
 
-#[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
+// #[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
 #[macro_export]
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
@@ -702,7 +702,7 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
         let client = Client::new();
 
         // todo fix bug
-        #[cfg(target_arch = "wasm32")]
+        // #[cfg(target_arch = "wasm32")]
         let response = client
             .post(&proof_proxy_url)
             .json(&RpcRequest {
@@ -714,16 +714,16 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
             .await?
             .json::<RpcResponse<String>>()
             .await?;
-        #[cfg(not(target_arch = "wasm32"))]
-        let response = client
-            .post(&proof_proxy_url)
-            .json(&RpcRequest {
-                jsonrpc: Version::V2,
-                request: RequestParams::<C::F>::GetCircuitsData(),
-                id: Id::Number(1),
-            })
-            .send()?
-            .json::<RpcResponse<String>>()?;
+        // #[cfg(not(target_arch = "wasm32"))]
+        // let response = client
+        //     .post(&proof_proxy_url)
+        //     .json(&RpcRequest {
+        //         jsonrpc: Version::V2,
+        //         request: RequestParams::<C::F>::GetCircuitsData(),
+        //         id: Id::Number(1),
+        //     })
+        //     .send()?
+        //     .json::<RpcResponse<String>>()?;
         let common_circuits_data = match response.result {
             ResponseResult::Success(common_circuits_data) => {
                 tracing::info!("get common_circuits_data");

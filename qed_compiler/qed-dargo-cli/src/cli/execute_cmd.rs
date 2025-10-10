@@ -79,7 +79,7 @@ pub(crate) async fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate
                 .into_iter()
                 .map(GoldilocksField::from_noncanonical_u64)
                 .collect(),
-        )?;
+        ).await?;
         println!("result_vm: {:?}", cfc_input.outputs);
 
         let proof = circuit.prove_base(&cfc_input).unwrap();

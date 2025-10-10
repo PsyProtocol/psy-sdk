@@ -63,7 +63,7 @@ pub(crate) async fn run(args: TestCommand) -> crate::errors::Result<()> {
 
     for (def, circuit) in compile_results.into_iter().zip(circuits.into_iter()) {
         let cfc_input =
-            QEDEvalSessionResult::new().exec_contract_call(&mut lps, contract_id, &def, vec![])?;
+            QEDEvalSessionResult::new().exec_contract_call(&mut lps, contract_id, &def, vec![]).await?;
         println!("result_vm: {:?}", cfc_input.outputs);
 
         let proof = circuit.prove_base(&cfc_input).unwrap();

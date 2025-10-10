@@ -344,7 +344,7 @@ pub(crate) async fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate
                 GoldilocksField::from_canonical_u64(2),
                 &def,
                 param.clone(),
-            )?;
+            ).await?;
             if let Some(output_param) = comment_output_parameters.get(&def.name).cloned() {
                 if !output_param.is_empty() {
                     assert_eq!(
