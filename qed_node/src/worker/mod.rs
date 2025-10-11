@@ -51,8 +51,7 @@ pub async fn run_worker(
         let job = match job_receiver.get_next_job(wallet.clone(), &worker_pk_str).await {
             Ok(job) => job,
             Err(e) => {
-                warn!("Error getting next ready job: {:?}", e);
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                warn!("Error getting next ready job: {}", e);
                 continue;
             }
         };

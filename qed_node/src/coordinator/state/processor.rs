@@ -157,6 +157,8 @@ pub struct CoordinatorProcessorContext<
     pub task_store: Arc<TS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_config: CoordinatorConfig,
+    pub max_processed_contracts_per_block: Option<isize>,
+    pub max_processed_users_per_block: Option<isize>,
 }
 
 impl<
@@ -177,6 +179,8 @@ impl<
         proof_store: Arc<PS>,
         task_store: Arc<TS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+        max_processed_contracts_per_block: Option<isize>,
+        max_processed_users_per_block: Option<isize>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             coordinator_config,
@@ -187,6 +191,8 @@ impl<
             proof_store,
             task_store,
             proof_verifier,
+            max_processed_contracts_per_block,
+            max_processed_users_per_block,
         })
     }
 
@@ -202,7 +208,7 @@ impl<
         let (deploy_contract_items, _consumption_state) = self
             .checkpoint_queue
             .peek_with_position::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
-                Some(64),
+                self.max_processed_contracts_per_block,
                 self.coordinator_config.deploy_contract_channel_id,
                 checkpoint_id,
             )
@@ -321,7 +327,7 @@ impl<
         tracing::debug!("last_user_registration_tree_root: {}", last_user_registration_tree_root);
         let (user_registrations, consumption_state) = self
             .checkpoint_queue
-            .peek_with_position::<ZKPublicKeyInfo<F>>(Some(256), COORD_API_REGISTER_USER_CHANNEL_ID, checkpoint_id)
+            .peek_with_position::<ZKPublicKeyInfo<F>>(self.max_processed_users_per_block, COORD_API_REGISTER_USER_CHANNEL_ID, checkpoint_id)
             .await?;
 
         let start_registration_user_id = last_l2_blockstate.next_user_id;

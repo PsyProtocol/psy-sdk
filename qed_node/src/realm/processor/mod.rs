@@ -229,8 +229,8 @@ impl RealmProcessor {
                 COORDINATOR_USER_TREE_HEIGHT,
                 self.realm_config.realm_id as u64,
             ).await?;
-            trace!("pending checkpoint id: {}, latest checkpoint id: {}, realm_root: {}, expected realm_root: {}",
-                checkpoint, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
+            trace!("pending checkpoint id: {}, synced checkpoint id：{}, latest checkpoint id: {}, local realm root: {}, remote realm root: {}",
+                checkpoint, ret.checkpoint_id, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
 
             if ret.checkpoint_id == checkpoint && realm_root.value == ret.realm_root {
                 let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id).await?;
@@ -249,10 +249,8 @@ impl RealmProcessor {
                         error!("❌ Failed to send realm backup request for checkpoint {}: {}", checkpoint, e);
                     }
                 }
-            }
-            let checkpoint = self.pending_checkpoint_id.load(Ordering::Relaxed);
-            if ret.latest_checkpoint_id < checkpoint || (checkpoint > 0 && ret.checkpoint_id > checkpoint) {
-                warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, checkpoint: {}", ret.latest_checkpoint_id, checkpoint);
+            } else {
+                warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, pending checkpoint id: {}, synced checkpoint id：{}", ret.latest_checkpoint_id, checkpoint, ret.checkpoint_id);
                 build_ctx.rollback(checkpoint).await?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
             }
@@ -323,7 +321,6 @@ impl RealmProcessor {
         &self,
         build_ctx: &ConcreteRealmProcessorContext
     ) -> anyhow::Result<SyncCheckpointResult> {
-        let sync_ctx = &self.context().await?;
         loop {
             let (expected_checkpoint,local_checkpoint_id) = if let Ok(local_checkpoint_id) = self.get_local_latest_checkpoint_id().await {
                 // Get the next expected checkpoint
@@ -331,7 +328,7 @@ impl RealmProcessor {
             } else {
                 (0, 0)
             };
-            match self.sync_checkpoint(sync_ctx, expected_checkpoint, local_checkpoint_id).await {
+            match self.sync_checkpoint(&self.context().await?, expected_checkpoint, local_checkpoint_id).await {
                 Ok(ret) => {
                     self.is_synced.store(ret.is_synced, atomic::Ordering::Relaxed);
                     self.confirm_pending_checkpoint(build_ctx, ret.clone()).await?;

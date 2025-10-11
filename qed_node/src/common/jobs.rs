@@ -63,8 +63,8 @@ impl JobReceiver for JobClient {
             if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client, signed_request).await? {
                 return Ok(job);
             }
-            trace!("No pending job found, sleeping for 1 second");
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            trace!("No pending job found, sleeping for 500 millis");
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
     }
     async fn submit_job_proof(&self, job: QJob, proof: QEDProof, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<()> {
