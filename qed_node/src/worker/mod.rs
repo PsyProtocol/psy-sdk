@@ -139,8 +139,8 @@ async fn process_job_with_retry<S, R>(
     timer: &mut TraceTimer,
 ) -> anyhow::Result<()>
 where
-    S: QProofStoreReaderAsync,
-    R: JobReceiver,
+    S: QProofStoreReaderAsync + Send + Sync,
+    R: JobReceiver + Send + Sync,
 {
     let job_id = job.job_id;
 
