@@ -12,8 +12,27 @@ use std::collections::HashMap;
 
 use crate::{models::*, repositories::*, services::ApiService};
 
+/// Parse order parameter from query string
+/// Returns true for ASC, false for DESC (default)
+fn parse_order_param(order: Option<&str>) -> bool {
+    match order {
+        Some(s) if s.eq_ignore_ascii_case("asc") => true,
+        Some(s) if s.eq_ignore_ascii_case("desc") => false,
+        None => false, // default to DESC
+        Some(invalid) => {
+            tracing::warn!("Invalid order parameter: '{}', using default DESC", invalid);
+            false
+        }
+    }
+}
+
+async fn health_handler() -> Json<serde_json::Value> {
+    Json(serde_json::json!({"status": "ok"}))
+}
+
 pub fn create_router(api_service: ApiService) -> Router {
     Router::new()
+        .route("/health", get(health_handler))
         .route("/register", post(register_handler))
         .route("/user_info", get(user_info_handler))
         .route("/worker_events", get(worker_events_handler))
@@ -194,6 +213,10 @@ pub struct WorkerEventsQuery {
     pub circuit_type: Option<ProvingJobCircuitType>,
     pub from_checkpoint_id: Option<i64>,
     pub to_checkpoint_id: Option<i64>,
+    pub offset: Option<i64>,
+    pub limit: Option<i64>,
+    pub order: Option<String>, // "asc" or "desc", default "desc"
+    pub category: Option<JobFilterCategory>,
 }
 
 async fn worker_events_handler(
@@ -202,18 +225,27 @@ async fn worker_events_handler(
 ) -> Result<Json<Vec<WorkerEvent>>, StatusCode> {
     tracing::info!("Worker events query: {:?}", query);
     let realm_id_i64 = query.realm_id.map(|id| id as i64);
+    let offset = query.offset.unwrap_or(0).max(0);
+    let limit = query.limit.unwrap_or(300).clamp(1, 1000);
+    let order_asc = parse_order_param(query.order.as_deref());
+
+    let filter_category = query.category.unwrap_or_default();
+    tracing::info!("Using filter category: {:?}", filter_category);
 
     match WorkerEventRepository::list(
         &service.pool,
         realm_id_i64,
+        query.public_key,
         query.status,
         None, // source filter not provided in query params yet
         query.topic,
         query.circuit_type,
         query.from_checkpoint_id,
         query.to_checkpoint_id,
-        0,   // offset
-        100, // limit
+        filter_category,
+        offset,
+        limit,
+        order_asc,
     )
     .await
     {
@@ -234,6 +266,9 @@ pub struct UserEventsQuery {
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
     pub tx_type: Option<UserEventTxType>,
+    pub offset: Option<i64>,
+    pub limit: Option<i64>,
+    pub order: Option<String>, // "asc" or "desc", default "desc"
 }
 
 async fn user_events_handler(
@@ -241,6 +276,10 @@ async fn user_events_handler(
     Query(query): Query<UserEventsQuery>,
 ) -> Result<Json<Vec<UserEvent>>, StatusCode> {
     tracing::info!("User events query: {:?}", query);
+    let offset = query.offset.unwrap_or(0).max(0);
+    let limit = query.limit.unwrap_or(300).clamp(1, 1000);
+    let order_asc = parse_order_param(query.order.as_deref());
+
     match UserEventRepository::list(
         &service.pool,
         query.user_id.as_deref(),
@@ -248,8 +287,9 @@ async fn user_events_handler(
         query.tx_type,
         query.start_time,
         query.end_time,
-        0,   // offset
-        100, // limit
+        offset,
+        limit,
+        order_asc,
     )
     .await
     {
@@ -266,6 +306,9 @@ pub struct AggregationQuery {
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
     pub bucket: String, // e.g., "1h", "1d", "1w"
+    pub offset: Option<i64>,
+    pub limit: Option<i64>,
+    pub order: Option<String>, // "asc" or "desc", default "desc"
 }
 
 async fn worker_events_aggregations_handler(
@@ -273,6 +316,10 @@ async fn worker_events_aggregations_handler(
     Query(query): Query<AggregationQuery>,
 ) -> Result<Json<Vec<WorkerEventAggregation>>, StatusCode> {
     tracing::info!("Worker events aggregations query: {:?}", query);
+    let offset = query.offset.unwrap_or(0).max(0);
+    let limit = query.limit.unwrap_or(300).clamp(1, 1000);
+    let order_asc = parse_order_param(query.order.as_deref());
+
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
         "2min" => "worker_events_2min",
@@ -291,7 +338,9 @@ async fn worker_events_aggregations_handler(
         None, // source filter
         query.start_time,
         query.end_time,
-        100, // limit
+        offset,
+        limit,
+        order_asc,
     )
     .await
     {
@@ -308,6 +357,10 @@ async fn user_events_aggregations_handler(
     Query(query): Query<AggregationQuery>,
 ) -> Result<Json<Vec<UserEventAggregation>>, StatusCode> {
     tracing::info!("User events aggregations query: {:?}", query);
+    let offset = query.offset.unwrap_or(0).max(0);
+    let limit = query.limit.unwrap_or(300).clamp(1, 1000);
+    let order_asc = parse_order_param(query.order.as_deref());
+
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
         "2min" => "user_events_2min",
@@ -324,7 +377,9 @@ async fn user_events_aggregations_handler(
         view_name,
         query.start_time,
         query.end_time,
-        100, // limit
+        offset,
+        limit,
+        order_asc,
     )
     .await
     {
@@ -371,25 +426,23 @@ async fn stats_handler(
     };
 
     // Count recent user events
-    let user_events = match UserEventRepository::list(
+    let user_events_count = match UserEventRepository::count(
         &service.pool,
         None, // user_id
         None, // public_key
         None, // tx_type
         Some(yesterday),
         Some(now),
-        0,    // offset
-        1000, // large limit to get count
     )
     .await
     {
-        Ok(events) => {
-            tracing::info!("User events count (24h): len={}", events.len());
-            events
+        Ok(count) => {
+            tracing::info!("User events count (24h): {}", count);
+            count
         }
         Err(e) => {
-            tracing::error!("Failed to list user events: {}", e);
-            Vec::new()
+            tracing::error!("Failed to count user events: {}", e);
+            0
         }
     };
 
@@ -403,7 +456,7 @@ async fn stats_handler(
     );
     stats.insert(
         "user_events_24h".to_string(),
-        serde_json::Value::Number((user_events.len() as i64).into()),
+        serde_json::Value::Number(user_events_count.into()),
     );
     stats.insert(
         "timestamp".to_string(),
@@ -429,7 +482,7 @@ async fn stats_handler(
     tracing::info!(
         "Stats generated successfully: worker_events_24h={}, user_events_24h={}, block_height={}",
         worker_events_count,
-        user_events.len(),
+        user_events_count,
         block_height
     );
     tracing::debug!("Stats response: {:?}", stats);

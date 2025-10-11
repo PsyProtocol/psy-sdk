@@ -36,7 +36,7 @@ use qed_crypto::{
             },
             utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey},
         },
-        traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
+        traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable},
     },
     signature::zk::data::ZKPublicKeyInfo,
 };
@@ -70,7 +70,7 @@ use qed_rollup_circuit::guta::gadgets::guta_header;
 use qed_store::{
     node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
     queue::{
-        redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState},
+        redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState, MAX_CHECKPOINT_COUNT},
         task_queue::QProvingTaskStore,
     },
 };
@@ -157,6 +157,8 @@ pub struct CoordinatorProcessorContext<
     pub task_store: Arc<TS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_config: CoordinatorConfig,
+    pub max_processed_contracts_per_block: Option<isize>,
+    pub max_processed_users_per_block: Option<isize>,
 }
 
 impl<
@@ -177,6 +179,8 @@ impl<
         proof_store: Arc<PS>,
         task_store: Arc<TS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+        max_processed_contracts_per_block: Option<isize>,
+        max_processed_users_per_block: Option<isize>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             coordinator_config,
@@ -187,6 +191,8 @@ impl<
             proof_store,
             task_store,
             proof_verifier,
+            max_processed_contracts_per_block,
+            max_processed_users_per_block,
         })
     }
 
@@ -194,14 +200,15 @@ impl<
         self.proof_verifier.verify_proof_of_type(circuit_type, proof)
     }
 
-    pub async fn handle_deploy_contracts(&self, checkpoint_id: u64) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, AggStateTransition<F>, u32, BidirectionalGraph<QProvingJobDataID>)> {
+    pub async fn handle_deploy_contracts(&self, checkpoint_id: u64, slot_id: u64) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, AggStateTransition<F>, u32, BidirectionalGraph<QProvingJobDataID>)> {
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
 
         let last_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
+        tracing::debug!("last_contract_tree_root: {}", last_contract_tree_root);
         let (deploy_contract_items, _consumption_state) = self
             .checkpoint_queue
             .peek_with_position::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
-                None,
+                self.max_processed_contracts_per_block,
                 self.coordinator_config.deploy_contract_channel_id,
                 checkpoint_id,
             )
@@ -235,7 +242,7 @@ impl<
         }
         let next_contract_id = start_contract_id + new_contract_leaves.len() as u32;
         let mut psb = ProofStoreBuilder::new();
-        let wits = self
+        let (start_indexes, spiderman_append_proofs) = self
             .store
             .batch_append_contract_tree_imm(
                 checkpoint_id,
@@ -243,18 +250,38 @@ impl<
                 self.coordinator_config.deploy_contracts_tree_batch_height,
                 &new_hashes,
             )
-            .await?
+            .await?;
+        tracing::debug!("deploy contracts spiderman proofs: {}", serde_json::to_string_pretty(&spiderman_append_proofs).unwrap());
+        let wits = spiderman_append_proofs
             .into_iter()
-            .zip(new_contract_leaves.chunks(1usize << (self.coordinator_config.deploy_contracts_tree_batch_height as usize)))
+            .zip(start_indexes)
             .enumerate()
-            .map(|(i, (c, l))| {
-                let start_contract_id_inner =
-                    (start_contract_id as usize) % (1 << self.coordinator_config.deploy_contracts_tree_batch_height as usize);
-                let contract_leaves = vec![QEDContractLeaf::default(); start_contract_id_inner]
-                    .into_iter()
-                    .chain(l.iter().cloned())
-                    .collect::<Vec<_>>();
-                self.push_deploy_contracts_request(checkpoint_id, self.coordinator_config.coordinator_id, i as u32, &mut psb, c, contract_leaves)
+            .map(|(i, (spiderman_proof, start_idx))| {
+                let leaves_per_subtree = 1 << self.coordinator_config.deploy_contracts_tree_batch_height;
+                let zero_hash = QEDHasher::get_zero_hash(0);
+                let mut contract_leaves = Vec::with_capacity(leaves_per_subtree);
+
+                let mut new_contract_idx = start_idx;
+
+                for j in 0..spiderman_proof.web_proof_new_leaves.len() {
+                    let new_leaf_hash = spiderman_proof.web_proof_new_leaves[j];
+                    let old_leaf_hash = spiderman_proof.web_proof_old_leaves[j];
+
+                    let is_added = old_leaf_hash == zero_hash && new_leaf_hash != zero_hash;
+
+                    if is_added && new_contract_idx < new_contract_leaves.len() {
+                        contract_leaves.push(new_contract_leaves[new_contract_idx]);
+                        new_contract_idx += 1;
+                    } else {
+                        contract_leaves.push(QEDContractLeaf::default());
+                    }
+                }
+
+                while contract_leaves.len() < leaves_per_subtree {
+                    contract_leaves.push(QEDContractLeaf::default());
+                }
+
+                self.push_deploy_contracts_request(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, i as u32, &mut psb, spiderman_proof, contract_leaves)
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
@@ -262,13 +289,15 @@ impl<
             plan_tree_prover_from_leaves::<F, ProofStoreBuilder, AggWTLeafAggregator, _, AggStateTransitionInput<F>>(
                 &wits,
                 &mut psb,
-                QProvingJobDataID::new_proof_job_id(checkpoint_id, self.coordinator_config.coordinator_id, ProvingJobCircuitType::DummyBatchDeployContractsAggregate, 0, 0),
+                QProvingJobDataID::new_proof_job_id(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, ProvingJobCircuitType::DummyBatchDeployContractsAggregate, 0, 0),
                 last_contract_tree_root,
                 self.coordinator_config.deploy_contracts_circuit_whitelist,
             )?;
+        tracing::debug!("root_transition_batch_deploy_contract_tree: {}", serde_json::to_string_pretty(&root_transition_batch_deploy_contract_tree).unwrap());
 
         self.proof_store.set_bytes_by_id_batch(&psb.kvs).await?;
         let new_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
+        tracing::debug!("new_contract_tree_root: {}", new_contract_tree_root);
 
         Ok((
             batch_deploy_contract_tree_job_ids,
@@ -284,6 +313,7 @@ impl<
     pub async fn handle_user_registrations(
         &self,
         checkpoint_id: u64,
+        slot_id: u64,
     ) -> anyhow::Result<(
         Vec<Vec<QProvingJobDataID>>,
         AggStateTransition<F>,
@@ -294,9 +324,10 @@ impl<
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
 
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
+        tracing::debug!("last_user_registration_tree_root: {}", last_user_registration_tree_root);
         let (user_registrations, consumption_state) = self
             .checkpoint_queue
-            .peek_with_position::<ZKPublicKeyInfo<F>>(None, COORD_API_REGISTER_USER_CHANNEL_ID, checkpoint_id)
+            .peek_with_position::<ZKPublicKeyInfo<F>>(self.max_processed_users_per_block, COORD_API_REGISTER_USER_CHANNEL_ID, checkpoint_id)
             .await?;
 
         let start_registration_user_id = last_l2_blockstate.next_user_id;
@@ -326,7 +357,7 @@ impl<
         let new_public_keys = user_registrations.iter().map(|x| x.to_hash::<QEDHasher>()).collect::<Vec<_>>();
 
         let mut psb = ProofStoreBuilder::new();
-        let wits = self
+        let res = self
             .store
             .batch_append_user_registration_tree_imm(
                 checkpoint_id,
@@ -334,10 +365,13 @@ impl<
                 self.coordinator_config.register_user_tree_batch_height,
                 &new_public_keys,
             )
-            .await?
+            .await?;
+        tracing::debug!("user registrations spiderman proofs: {}", serde_json::to_string_pretty(&res).unwrap());
+        let (start_indexes, spiderman_proofs) = res;
+        let wits = spiderman_proofs
             .chunks(self.coordinator_config.register_user_tree_batch_size)
             .enumerate()
-            .map(|(i, c)| self.push_user_registration_request(checkpoint_id, self.coordinator_config.coordinator_id, i as u32, &mut psb, c.to_vec()))
+            .map(|(i, c)| self.push_user_registration_request(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, i as u32, &mut psb, c.to_vec()))
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         let siblings = if wits.len() != 0 {
@@ -353,13 +387,15 @@ impl<
             plan_tree_prover_from_leaves::<F, ProofStoreBuilder, AggWTLeafAggregator, _, AggStateTransitionInput<F>>(
                 &wits,
                 &mut psb,
-                QProvingJobDataID::new_proof_job_id(checkpoint_id, self.coordinator_config.coordinator_id, ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate, 0, 0),
+                QProvingJobDataID::new_proof_job_id(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate, 0, 0),
                 last_user_registration_tree_root,
                 self.coordinator_config.register_users_circuit_whitelist,
             )?;
+        tracing::debug!("root_transition_append_user_registration_tree: {}", serde_json::to_string_pretty(&root_transition_append_user_registration_tree).unwrap());
 
         self.proof_store.set_bytes_by_id_batch(&psb.kvs).await?;
         let new_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
+        tracing::debug!("new_user_registration_tree_root: {}", new_user_registration_tree_root);
 
         Ok((
             append_user_registration_tree_job_ids,
@@ -376,6 +412,7 @@ impl<
     pub async fn handle_guta_from_realms(
         &self,
         checkpoint_id: u64,
+        slot_id: u64,
     ) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, GlobalUserTreeAggregatorHeader<F>, BidirectionalGraph<QProvingJobDataID>)> {
         tracing::debug!(checkpoint_id = checkpoint_id, "Processing checkpoint");
         let (mut guta_queue_items, consumption_state) = self
@@ -422,6 +459,7 @@ impl<
             let id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 checkpoint_id,
+                slot_id,
                 self.coordinator_config.coordinator_id,
                 0,
                 0,
@@ -482,6 +520,7 @@ impl<
                 let id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
+                    slot_id,
                     self.coordinator_config.coordinator_id,
                     0,
                     0,
@@ -552,6 +591,7 @@ impl<
             let id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 checkpoint_id,
+                slot_id,
                 self.coordinator_config.coordinator_id,
                 0,
                 0,
@@ -650,6 +690,7 @@ impl<
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         checkpoint_id,
+                        slot_id,
                         self.coordinator_config.coordinator_id,
                         p.nearest_common_ancestor_level as u32,
                         p.nearest_common_ancestor_index as u32,
@@ -687,6 +728,7 @@ impl<
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         checkpoint_id,
+                        slot_id,
                         self.coordinator_config.coordinator_id,
                         p.nearest_common_ancestor_level as u32,
                         p.nearest_common_ancestor_index as u32,
@@ -726,6 +768,7 @@ impl<
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     checkpoint_id,
+                    slot_id,
                     self.coordinator_config.coordinator_id,
                     p.nearest_common_ancestor_level as u32,
                     p.nearest_common_ancestor_index as u32,
@@ -771,6 +814,7 @@ impl<
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         checkpoint_id,
+                        slot_id,
                         self.coordinator_config.coordinator_id,
                         p.nearest_common_ancestor_level as u32,
                         p.nearest_common_ancestor_index as u32,
@@ -809,6 +853,7 @@ impl<
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         checkpoint_id,
+                        slot_id,
                         self.coordinator_config.coordinator_id,
                         p.nearest_common_ancestor_level as u32,
                         p.nearest_common_ancestor_index as u32,
@@ -855,6 +900,7 @@ impl<
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         checkpoint_id,
+                        slot_id,
                         self.coordinator_config.coordinator_id,
                         p.nearest_common_ancestor_level as u32,
                         p.nearest_common_ancestor_index as u32,
@@ -892,6 +938,7 @@ impl<
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         checkpoint_id,
+                        slot_id,
                         self.coordinator_config.coordinator_id,
                         p.nearest_common_ancestor_level as u32,
                         p.nearest_common_ancestor_index as u32,
@@ -946,6 +993,7 @@ impl<
             let w_id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 checkpoint_id,
+                slot_id,
                 self.coordinator_config.coordinator_id,
                 0,
                 0,
@@ -981,6 +1029,7 @@ impl<
     pub async fn plan_jobs(
         &self,
         new_checkpoint_id: u64,
+        slot_id: u64,
         user_registration_jobs: &Vec<Vec<QProvingJobDataID>>,
         deploy_jobs: &Vec<Vec<QProvingJobDataID>>,
         guta_jobs: &Vec<Vec<QProvingJobDataID>>,
@@ -988,16 +1037,16 @@ impl<
         tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
         tracing::debug!("Generated Deploy jobs: {:#?}", deploy_jobs);
         tracing::debug!("Generated registration jobs: {:#?}", user_registration_jobs);
-        let notify_block_complete = QProvingJobDataID::notify_block_complete(new_checkpoint_id, self.coordinator_config.coordinator_id);
-        let root_state_transition = QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id, self.coordinator_config.coordinator_id);
+        let notify_block_complete = QProvingJobDataID::notify_block_complete(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
+        let root_state_transition = QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
         let root_state_transition_task = QProvingTask::new(&[root_state_transition]);
         let notify_block_complete_task = QProvingTask::new(&[notify_block_complete]);
         self.task_store
             .write_next_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
 
-        let state_part_1_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, self.coordinator_config.coordinator_id, 0);
-        let state_part_1_id = QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id, self.coordinator_config.coordinator_id);
+        let state_part_1_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 0);
+        let state_part_1_id = QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
         let state_part_1_task = QProvingTask::new(&[state_part_1_id]);
         let state_part_1_common_task = QProvingTask::new(&[state_part_1_common_id]);
         self.task_store
@@ -1005,9 +1054,9 @@ impl<
             .await?;
         self.task_store.write_next_tasks(&state_part_1_task, &state_part_1_common_task).await?;
 
-        let register_users_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, self.coordinator_config.coordinator_id, 1);
-        let deploy_contracts_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, self.coordinator_config.coordinator_id, 2);
-        let guta_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, self.coordinator_config.coordinator_id, 3);
+        let register_users_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 1);
+        let deploy_contracts_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 2);
+        let guta_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 3);
         let register_users_agg_task = QProvingTask::new(&[register_users_agg_job_id]);
         let deploy_contracts_agg_task = QProvingTask::new(&[deploy_contracts_agg_job_id]);
         let guta_agg_task = QProvingTask::new(&[guta_agg_job_id]);
@@ -1028,6 +1077,7 @@ impl<
         self.task_store.write_multidimensional_tasks(&guta_tasks, &guta_agg_task).await?;
 
         // Finalize and save the task topology
+        debug!("plan_jobs for coordinator  , checkpoint_id {}", new_checkpoint_id);
         self.task_store.finalize_and_save_topology().await?;
 
         Ok((state_part_1_id, root_state_transition))
@@ -1040,17 +1090,17 @@ impl<
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
-        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, 256).await?;
+        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64).await?;
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
         info!("💥 coordinator processor build block checkpoint_id: {}", new_checkpoint_id);
-        let (deploy_jobs, deploy_transition, next_contract_id, deploy_graph) = self.handle_deploy_contracts(new_checkpoint_id).await?;
+        let (deploy_jobs, deploy_transition, next_contract_id, deploy_graph) = self.handle_deploy_contracts(new_checkpoint_id, slot).await?;
         let (user_registration_jobs, user_registration_transition, new_accounts, regsitered_users_start_pivot_siblings, user_reg_graph) =
-            self.handle_user_registrations(new_checkpoint_id).await?;
+            self.handle_user_registrations(new_checkpoint_id, slot).await?;
 
-        let (guta_jobs, guta_transition, guta_graph) = self.handle_guta_from_realms(new_checkpoint_id).await?;
+        let (guta_jobs, guta_transition, guta_graph) = self.handle_guta_from_realms(new_checkpoint_id, slot).await?;
 
         // Set the job dependency graphs
         self.task_store.set_job_dependency_graph(deploy_graph, user_reg_graph, guta_graph).await?;
@@ -1059,7 +1109,7 @@ impl<
             .last()
             .and_then(|jobs| jobs.last())
             .ok_or_else(|| anyhow::anyhow!("No deploy contract jobs found"))?;
-        let rooot_user_registration_job = user_registration_jobs
+        let root_user_registration_job = user_registration_jobs
             .last()
             .and_then(|jobs| jobs.last())
             .ok_or_else(|| anyhow::anyhow!("No user registration jobs found"))?;
@@ -1070,23 +1120,23 @@ impl<
 
         tracing::info!(new_checkpoint_id = new_checkpoint_id, "Building new checkpoint");
         let (state_part_1_id, root_state_transition) = self
-            .plan_jobs(new_checkpoint_id, &user_registration_jobs, &deploy_jobs, &guta_jobs)
+            .plan_jobs(new_checkpoint_id, slot, &user_registration_jobs, &deploy_jobs, &guta_jobs)
             .await?;
 
         debug!(
             "Waiting for user registration aggregation job to complete for checkpoint {}",
             new_checkpoint_id
         );
-        let register_users_proof = self.prover_queue.wait_for_job_proof::<C, D>(*rooot_user_registration_job).await?;
+        let register_users_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_user_registration_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
 
         debug!(
             "Waiting for deploy contracts aggregation job to complete for checkpoint {}",
             new_checkpoint_id
         );
-        let deploy_contracts_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_deploy_job).await?;
+        let deploy_contracts_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_deploy_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
 
         debug!("Waiting for GUTA aggregation job to complete for checkpoint {}", new_checkpoint_id);
-        let guta_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_guta_job).await?;
+        let guta_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_guta_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
 
         let part_1_input = CircuitInputWithDependencies {
             input: QCAggUserRegistartionDeployContractsGUTAInput {
@@ -1109,7 +1159,7 @@ impl<
                 guta_proof_header: guta_transition,
             },
             dependencies: vec![
-                rooot_user_registration_job.get_output_id(),
+                root_user_registration_job.get_output_id(),
                 root_deploy_job.get_output_id(),
                 root_guta_job.get_output_id(),
             ],

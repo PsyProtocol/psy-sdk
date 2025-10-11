@@ -35,7 +35,7 @@ use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::ProofStoreFred;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::queue::rsmq_queue::CEQueueNotification;
-use qed_core::config::network_constants::COORDINATOR_TO_REALM_CHANNEL;
+use qed_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
 use qed_store::store::QEDStore;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tracing::trace;
@@ -158,7 +158,7 @@ impl<
     pub async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
         // Get current checkpoint to listen from
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
-        let notify_message = self.edge_command_queue.consume_item(COORDINATOR_TO_REALM_CHANNEL).await?;
+        let notify_message = self.edge_command_queue.consume_item(COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL).await?;
 
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
 
@@ -228,13 +228,10 @@ impl
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
-        let bb8_pool =
-            new_redis_async_pool(&cp_config.redis_uri, cp_config.redis_pool_size as usize).await?;
-        info!("🐶 redis pool initialized");
         let task_store = Arc::new(QProvingTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size as usize)
             .await?);
         let q = ProofStoreRedisAsync::new(
-            bb8_pool,
+            &cp_config.redis_uri,
             cp_config.queue_args.queue_biz_key.clone(),
         )
         .await?;
@@ -274,6 +271,8 @@ impl
             qps.clone(),
             task_store.clone(),
             Arc::clone(&proof_verifier),
+            cp_config.max_processed_contracts_per_block,
+            cp_config.max_processed_users_per_block
         )
         .await?;
 
@@ -294,13 +293,16 @@ impl
     }
 
     pub async fn initialize_store(qed_store: &JournalStore<QEDStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>) -> anyhow::Result<u64> {
+
         let genesis_store_config = if let Some(ref config) = genesis_config {
+            info!("initialize_store Some()");
             let deploy_root = Self::process_genesis_contracts(qed_store, config).await?;
             let register_users_root = Self::process_genesis_user_registrations(qed_store, config).await?;
             let user_root = Self::process_genesis_user_states(qed_store, config).await?;
             let next_contract_id = config.get_precompile_configs().len() as u32;
             let next_user_id = config.get_genesis_users().len() as u64;
-
+            info!("next_user_id: {}", next_user_id);
+            info!("next_contract_id: {}", next_contract_id);
             Some(InitializeParams {
                 gutas_root: user_root,
                 deploy_contracts_root: deploy_root,
@@ -309,6 +311,7 @@ impl
                 next_user_id,
             })
         } else {
+            info!("initialize_store none");
             None
         };
         qed_store.initialize_store(genesis_store_config).await

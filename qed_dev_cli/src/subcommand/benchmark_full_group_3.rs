@@ -197,7 +197,7 @@ impl<
     }
 
     pub async fn produce_block(&mut self) -> anyhow::Result<()> {
-        self.realm_proc.build_block().await?;
+        self.realm_proc.build_block(0).await?;
         let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
             _,
             _,
@@ -350,6 +350,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         qps.clone(),
         task_store.clone(),
         Arc::clone(&proof_verifier),
+        None,
+        None,
     )
     .await?;
     timer.lap("finished building wallet/zksig/helper circuits");
@@ -371,7 +373,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         &proof_verifier.library,
     ).await?;
     /*
-    coordinator_processor_node.build_block().await?;
+    coordinator_processor_node.build_block(0).await?;
 
     SimpleAsyncCoordinatorWorker::run_worker_until_done::<
         _,

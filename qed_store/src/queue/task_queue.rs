@@ -924,21 +924,6 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         // Store the job graph
         conn.set(graph_key, serialized).await?;
 
-        // Add checkpoint_id to the history list (newest first)
-        let history_key = self.job_graph_history_key();
-        conn.lpush(&history_key, checkpoint_id).await?;
-
-        // Check if we need to remove old entries
-        let list_len: usize = conn.llen(&history_key).await?;
-        if list_len > MAX_JOB_GRAPHS {
-            // Remove the oldest checkpoint_id and its corresponding graph
-            if let Some(old_checkpoint_id) = conn.rpop::<_, Option<u64>>(&history_key, None).await? {
-                let old_graph_key = self.graph_key(old_checkpoint_id);
-                conn.del(old_graph_key).await?;
-                debug!("Removed old job graph for checkpoint_id: {}", old_checkpoint_id);
-            }
-        }
-
         debug!("Job graph saved for checkpoint_id: {}", checkpoint_id);
         Ok(())
     }

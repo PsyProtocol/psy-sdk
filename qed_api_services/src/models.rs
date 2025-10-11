@@ -250,3 +250,27 @@ impl UserEvent {
         }
     }
 }
+
+
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum JobFilterCategory {
+    All,            // All jobs
+    RewardOnly,     // Only reward-eligible jobs
+}
+
+impl Default for JobFilterCategory {
+    fn default() -> Self {
+        JobFilterCategory::All
+    }
+}
+
+impl JobFilterCategory {
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "reward_only" => JobFilterCategory::RewardOnly,
+            "all" | _ => JobFilterCategory::All,
+        }
+    }
+}

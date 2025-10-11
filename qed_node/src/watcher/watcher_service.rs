@@ -64,13 +64,13 @@ impl WatcherService {
         );
 
         let redis_pool = Arc::new(
-            new_redis_async_pool(&config.redis_url, config.redis_pool_size)
+            new_redis_async_pool(&config.redis_uri, config.redis_pool_size)
                 .await
                 .map_err(|e| anyhow!("Failed to create Redis pool: {}", e))?,
         );
 
         let rsmq_queue = Arc::new(
-            RsmqQueue::new(&config.redis_url, config.redis_pool_size, WATCHER_RSMQ)
+            RsmqQueue::new(&config.redis_uri, config.redis_pool_size, WATCHER_RSMQ)
                 .await
                 .map_err(|e| anyhow!("Failed to create RSMQ queue: {}", e))?,
         );
@@ -108,7 +108,7 @@ impl WatcherService {
 
         let timeout_watcher = Arc::new(TimeoutWatcher::new(
             redis_pool.clone(),
-            config.redis_url.clone(),
+            config.redis_uri.clone(),
             rsmq_queue.clone(),
             node_info.clone(),
             WATCHER_RSMQ.to_string(),

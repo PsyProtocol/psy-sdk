@@ -128,6 +128,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         qps.clone(),
         task_store.clone(),
         Arc::clone(&proof_verifier),
+        None,
+        None,
     )
     .await?;
     timer.lap("created coordinator nodes");
@@ -201,7 +203,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .get_checkpoint_sync_info_compact(1)
         .await?;
     realm_processor_node.handle_checkpoint_sync(sync1).await?;
-    realm_processor_node.build_block().await?;
+    realm_processor_node.build_block(0).await?;
     let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
         _,
         _,
@@ -400,7 +402,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     //     &end_cap_proof
     // ).await?;
 
-    realm_processor_node.build_block().await?;
+    realm_processor_node.build_block(0).await?;
     let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
         _,
         _,

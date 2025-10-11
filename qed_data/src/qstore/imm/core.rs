@@ -451,7 +451,7 @@ impl<T: KVQBinaryStore> QTreeDataStoreWriterSync<F> for T {
         CheckpointTreeStore::<T>::set_leaf_fc(self, checkpoint_id, checkpoint_id, leaf_hash)
     }
 
-    fn batch_append_user_registration_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>{
+    fn batch_append_user_registration_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)>{
         UserRegistrationTreeStore::<T>::append_leaves_spider_man(
             self,
             GLOBAL_USER_TREE_HEIGHT as usize,
@@ -461,7 +461,7 @@ impl<T: KVQBinaryStore> QTreeDataStoreWriterSync<F> for T {
         )
     }
 
-    fn batch_append_contract_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<Vec<SpidermanUpdateProof<QHashOut<F>>>>{
+    fn batch_append_contract_tree(&self, checkpoint_id: u64, start_leaf_index: u64, sub_tree_height: u8, leaf_hashes: &[QHashOut<F>]) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)>{
         ContractTreeStore::<T>::append_leaves_spider_man(
             self,
             GLOBAL_CONTRACT_TREE_HEIGHT as usize,

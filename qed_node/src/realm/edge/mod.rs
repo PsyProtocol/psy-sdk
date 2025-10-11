@@ -7,6 +7,7 @@ use crate::realm::edge::sync::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
 use super::{config::RealmEdgeConfig, C, D};
 use crate::common::jobs::JobSchedulerRpcServer;
+use crate::common::health::HealthLayer;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::realm::handler::RealmEdgeHandler;
 use crate::realm::state::edge::RealmEdgeContext;
@@ -26,14 +27,9 @@ use crate::common::whitelist::WhiteListCache;
 use crate::watcher::watcher_client::WatcherClient;
 
 pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedisAsync> {
-    let pool = new_redis_async_pool(
-        config.redis.redis_uri.as_str(),
-        config.redis.pool_size.unwrap_or(10),
-    )
-    .await?;
     // Create storage and queues
     let proof_store = ProofStoreRedisAsync::new(
-        pool,
+        &config.redis.redis_uri,
         config.queue.queue_biz_key.clone(),
     ).await?;
     debug!("created proof store successfully!");
@@ -91,7 +87,9 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         .allow_methods([Method::POST, Method::OPTIONS])
         .allow_origin(Any)
         .allow_headers(Any);
-    let cors = tower::ServiceBuilder::new().layer(cors_opts);
+    let cors = tower::ServiceBuilder::new()
+        .layer(HealthLayer)
+        .layer(cors_opts);
 
     // Start RPC server
     let server_handle = ServerBuilder::default()

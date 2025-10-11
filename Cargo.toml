@@ -82,7 +82,7 @@ bytes = "1"
 byteorder = "1.5"
 derive_more = { version = "2", default-features = false, features = ["full"] }
 indexmap = { version = "2.9", features = ["serde"] }
-parking_lot = "0.12"
+parking_lot = { version = "0.12", features = ["nightly"] }
 smallvec = "1.15"
 thiserror = "2.0"
 dashmap = "6.1"
@@ -119,6 +119,7 @@ env_logger = { version = "0.11", default-features = false }
 dotenvy = "0.15.0"
 
 tokio = { version = "1.47.0", features = ["full"] }
+tokio-util = "0.7"
 
 futures = "0.3.0"
 redis = { version = "0.30.0", default-features = false, features = [
@@ -159,14 +160,14 @@ quote = "1.0"
 # Additional common dependencies
 uuid = { version = "1.0", features = ["serde", "v4", "js"] }
 scylla = { version = "0.15.1" }
-tikv-client = { git = "https://github.com/tikv/client-rust", branch = "cse" }
+tikv-client = { git = "https://github.com/clint-long/client-rust", branch = "qed_node" }
 http = "1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1"
 wasm-logger = "0.2"
 wasm-tracing = "2.0"
-rsmq = { git = "https://github.com/jimzk/rsmq-async-rs", package = "rsmq_async", features = ["break-js-comp", "sync", "tokio"] }
+rsmq = { git = "https://github.com/QEDProtocol/rsmq-async-rs", package = "rsmq_async", features = ["break-js-comp", "sync", "tokio"], rev = "49b317094585e75dcdb619d204b6cf19010049fb" }
 
 num-traits = "0.2"
 num-bigint = { version = "0.4" }

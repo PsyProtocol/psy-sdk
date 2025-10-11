@@ -10,6 +10,7 @@ import {
 } from "../local-prover-rpc/types";
 import { JobInfo, ZKPublicKeyInfo } from "../types";
 import { QedJSON } from "../utils";
+import { json } from "stream/consumers";
 
 export class QedWasmUserProverProvider implements IQedUserProverProvider {
     private wasmServer: WasmRpcServer;
@@ -24,15 +25,15 @@ export class QedWasmUserProverProvider implements IQedUserProverProvider {
         return this.wasmServer.exec_contract_call_json(pkHash, json);
     }
 
-    async getClaimRewardsCallArgs(pkHash: PublicKey, checkpointId: bigint, jobInfos: JobInfo[]): Promise<ContractCallArgs[]> {
-        const json = QedJSON.stringify(jobInfos);
-        const contractCallArgs = await this.wasmServer.get_claim_rewards_call_args_json(pkHash, checkpointId, json);
+    async getClaimRewardsCallArgs(pkHash: PublicKey, jobInfos: string): Promise<ContractCallArgs[]> {
+        // const json = QedJSON.stringify(jobInfos);
+        const contractCallArgs = await this.wasmServer.get_claim_rewards_call_args_json(pkHash, jobInfos);
         return QedJSON.parse(contractCallArgs) as ContractCallArgs[];
     }
 
-    async claimRewards(pkHash: PublicKey, checkpointId: bigint, jobInfos: JobInfo[]): Promise<string> {
-        const json = QedJSON.stringify(jobInfos);
-        return this.wasmServer.claim_rewards_json(pkHash, checkpointId, json);
+    async claimRewards(pkHash: PublicKey, jobInfos: string): Promise<string> {
+        // const json = QedJSON.stringify(jobInfos);
+        return this.wasmServer.claim_rewards_json(pkHash, jobInfos);
     }
 
     // Local proving operations

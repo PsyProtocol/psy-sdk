@@ -96,7 +96,6 @@ where
         register_users_circuit_whitelist: QHashOut<C::F>,
         worker_public_key: QHashOut<C::F>,
         spiderman_append_proofs: &[SpidermanUpdateProof<QHashOut<C::F>>],
-
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.register_users_circuit_whitelist, register_users_circuit_whitelist.0)?;
@@ -188,6 +187,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let input: QCAppendUserRegistrationTreeCircuitInput<C::F> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
                 .map_err(|e| anyhow::anyhow!(e))?;
+        tracing::debug!("QCAppendUserRegistrationTreeCircuitInput: {}", serde_json::to_string_pretty(&input).unwrap());
 
         let result = self.prove_base(
             input.register_users_circuit_whitelist,

@@ -3,8 +3,10 @@ pub mod pool;
 pub mod fred_queue;
 pub mod redis_queue;
 pub mod task_queue;
+pub mod resilient_redis;
 
-pub use pool::{new_fred_pool, new_redis_async_pool};
+pub use pool::{new_fred_pool, new_redis_async_pool, new_resilient_redis_connection};
+pub use resilient_redis::{ResilientRedisConnection, ConnectionStats, CommandBuilder};
 pub use rsmq_queue::*;
 pub use fred_queue::{DrainQueueFred, ProofStoreFred};
 pub use redis_queue::{ProofStoreRedisAsync, BizKey, QueuePrefixKey, QPendingUserStoreAsyncImm};

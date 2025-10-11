@@ -185,6 +185,10 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
     async fn cleanup_old_proofs(&self, _current_height: u64, _keep_blocks: u64) -> anyhow::Result<()> {
         Ok(())
     }
+
+    async fn clear(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -247,6 +251,20 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
             .into_iter()
             .map(|x| T::from_bytes(&x))
             .collect()
+    }
+
+    async fn cdq_len_imm(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<usize> {
+        let checkpoint_queue_prefix =
+            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!(
+            "{}-{}",
+            checkpoint_queue_prefix, channel_id
+        );
+        let count: usize = self.pool.llen(key).await?;
+        Ok(count)
     }
 }
 
@@ -339,16 +357,23 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
 
     async fn wait_for_job_proof<C: GenericConfig<D> + 'static, const D: usize>(
         &self,
-        job_id: QProvingJobDataID
+        job_id: QProvingJobDataID,
+        timeout: Option<Duration>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
     where
         C::Hasher: plonky2::plonk::config::AlgebraicHasher<C::F>
     {
+        let now = Instant::now();
         loop {
             match self.get_proof_by_id::<C, D>(job_id.get_output_id()).await {
                 Ok(proof) => return Ok(proof),
                 Err(_) => {
                     sleep(Duration::from_millis(100)).await;
+                }
+            }
+            if let Some(timeout) = timeout{
+                if now.elapsed() > timeout {
+                    return Err(anyhow::anyhow!("timeout waiting for job"))
                 }
             }
         }
@@ -393,7 +418,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreFred {
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
-    async fn chq_listen_from_imm<T: HQSerializable>(
+    async fn chq_items_gte<T: HQSerializable>(
         &self,
         channel_id: u64,
         start_checkpoint_id: u64,
@@ -527,6 +552,15 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
             .into_iter()
             .map(|x| T::from_bytes(&x))
             .collect()
+    }
+
+    async fn cdq_len_imm(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<usize> {
+        let key = format!("{}_{}", self.checkpoint_drain_queue_key(), channel_id);
+        let count: usize = self.pool.llen(key).await?;
+        Ok(count)
     }
 }
 

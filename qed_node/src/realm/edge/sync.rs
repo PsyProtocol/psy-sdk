@@ -18,7 +18,7 @@ use anyhow::{anyhow, Result};
 use http::{HeaderMap, HeaderValue};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
-use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_PROOF_SYNC_CHANNEL};
+use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_PROCESSOR_TO_EDGE_CHANNEL};
 use qed_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
 use qed_data::models::checkpoint::sync_info::CheckpointError;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
@@ -286,7 +286,7 @@ pub async fn spawn_realm_job_update_task<
             // Listen for new proof job IDs from the history queue
             match proof_store
                 .wait_for_next_item_imm::<ProvingJobDataId>(
-                    REALM_PROOF_SYNC_CHANNEL,
+                    REALM_PROCESSOR_TO_EDGE_CHANNEL,
                     last_checkpoint,
                 )
                 .await
@@ -367,19 +367,19 @@ impl RealmProofSender {
             checkpoint_tree_root: realm_result.checkpoint_tree_root,
             circuit_type: realm_result.proof_id.circuit_type,
         };
-        
-        let latest_checkpoint_id = ctx.get_checkpoint_id_async().await?;
+
+        let real_checkpoint_id = input.checkpoint_id.saturating_sub(1);
         let realm_root_level = COORDINATOR_USER_TREE_HEIGHT;
-        let latest_realm_root = ctx.store_reader
-            .get_user_sub_tree_merkle_proof(latest_checkpoint_id, realm_root_level, realm_root_level, self.realm_id)
+        let old_root = ctx.store_reader
+            .get_user_sub_tree_merkle_proof(real_checkpoint_id, realm_root_level, realm_root_level, self.realm_id)
             .await?.root;
-        if latest_realm_root != input.top_line_proof.old_root {
-            error!("invalid top line proof old root, expect: {}, got: {}", input.top_line_proof.old_root, latest_realm_root);
+        if old_root != input.top_line_proof.old_root {
+            error!("invalid top line proof old root, expect: {}, got: {}", input.top_line_proof.old_root, old_root);
             anyhow::bail!("invalid top line proof old root");
         }
         if input.top_line_proof.old_root != input.top_line_proof.old_value
             || input.top_line_proof.new_root != input.top_line_proof.new_value
-            || input.top_line_proof.siblings.len() != 0
+            || !input.top_line_proof.verify::<QEDHasher>()
         {
             error!("invalid top line proof, expect: {}", serde_json::to_string_pretty(&input.top_line_proof)?);
             anyhow::bail!("invalid top line proof");
@@ -393,7 +393,7 @@ impl RealmProofSender {
                 old_node_value: input.top_line_proof.old_root,
                 new_node_value: input.top_line_proof.new_root,
                 node_index: F::from_noncanonical_u64(input.top_line_proof.index),
-                node_level: F::from_canonical_u8(realm_root_level),
+                node_level: F::from_canonical_u64((realm_root_level as usize + input.top_line_proof.siblings.len()) as u64),
             },
             stats: input.guta_stats,
         };
@@ -457,7 +457,13 @@ impl RealmProofSender {
                     info!("Successfully submitted job to coordinator, result: {}", result);
                     Ok(())
                 }
-                Err(err) => Err(err),
+                Err(err) => {
+                    error!("Failed to submit job to coordinator: {:?}", err);
+                    if err.to_string().contains("ServerError") {
+                        return Ok(());
+                    }
+                    Err(err)
+                },
             }
         }).await
     }

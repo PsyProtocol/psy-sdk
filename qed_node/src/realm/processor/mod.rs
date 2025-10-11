@@ -90,17 +90,13 @@ pub async fn run_realm_processor(config: RealmNodeConfig, shutdown_requested: Ar
 impl RealmProcessor {
     pub async fn new(config: RealmNodeConfig, shutdown_requested: Arc<AtomicBool>) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
-        let pool = new_redis_async_pool(
-            config.redis.redis_uri.as_str(),
-            config.redis.pool_size.unwrap_or(10)
-        ).await?;
         let task_store = QProvingTaskStoreImpl::new(
             &config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10),
         )
         .await?;
         let realm_qps = ProofStoreRedisAsync::new(
-            pool,
+            &config.redis.redis_uri,
             config.queue.queue_biz_key,
         ).await?;
         let store = QEDStore::new(&config.backend.to_backend()).await?;
@@ -233,8 +229,8 @@ impl RealmProcessor {
                 COORDINATOR_USER_TREE_HEIGHT,
                 self.realm_config.realm_id as u64,
             ).await?;
-            trace!("pending checkpoint id: {}, latest checkpoint id: {}, realm_root: {}, expected realm_root: {}",
-                checkpoint, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
+            trace!("pending checkpoint id: {}, synced checkpoint id：{}, latest checkpoint id: {}, local realm root: {}, remote realm root: {}",
+                checkpoint, ret.checkpoint_id, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
 
             if ret.checkpoint_id >= checkpoint && realm_root.value == ret.realm_root {
                 let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id).await?;
@@ -253,9 +249,8 @@ impl RealmProcessor {
                         error!("❌ Failed to send realm backup request for checkpoint {}: {}", checkpoint, e);
                     }
                 }
-            }
-            if ret.latest_checkpoint_id < checkpoint || ret.checkpoint_id > checkpoint + 10 {
-                warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, checkpoint: {}", ret.latest_checkpoint_id, checkpoint);
+            } else {
+                warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, pending checkpoint id: {}, synced checkpoint id：{}", ret.latest_checkpoint_id, checkpoint, ret.checkpoint_id);
                 build_ctx.rollback(checkpoint).await?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
             }
@@ -293,7 +288,7 @@ impl RealmProcessor {
         // Build block based on slot timing
         self.pending_checkpoint_id.store(0, Ordering::Relaxed);
         let next_checkpoint_id = local_latest_checkpoint_id + 1;
-        let has_tasks = build_ctx.has_pending_tasks(next_checkpoint_id).await?;
+        let has_tasks = build_ctx.has_pending_guta_tasks(next_checkpoint_id).await? || build_ctx.has_pending_user_tasks().await?;
         if !has_tasks {
             trace!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
             return Ok(());
@@ -320,7 +315,6 @@ impl RealmProcessor {
         &self,
         build_ctx: &ConcreteRealmProcessorContext
     ) -> anyhow::Result<SyncCheckpointResult> {
-        let sync_ctx = &self.context().await?;
         loop {
             let (expected_checkpoint,local_checkpoint_id) = if let Ok(local_checkpoint_id) = self.get_local_latest_checkpoint_id().await {
                 // Get the next expected checkpoint
@@ -328,7 +322,7 @@ impl RealmProcessor {
             } else {
                 (0, 0)
             };
-            match self.sync_checkpoint(sync_ctx, expected_checkpoint, local_checkpoint_id).await {
+            match self.sync_checkpoint(&self.context().await?, expected_checkpoint, local_checkpoint_id).await {
                 Ok(ret) => {
                     self.is_synced.store(ret.is_synced, atomic::Ordering::Relaxed);
                     self.confirm_pending_checkpoint(build_ctx, ret.clone()).await?;
@@ -438,7 +432,8 @@ impl RealmProcessor {
         build_ctx: &ConcreteRealmProcessorContext,
         next_checkpoint_id: u64,
     ) -> anyhow::Result<ProvingJobDataId> {
-        build_ctx.build_block().await.map(|job_id|ProvingJobDataId::new(next_checkpoint_id, job_id))
+        let slot = self.slot_timer.get_current_slot();
+        build_ctx.build_block(slot).await.map(|job_id|ProvingJobDataId::new(next_checkpoint_id, job_id))
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {

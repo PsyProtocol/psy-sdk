@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use std::{fmt::Debug, sync::Arc};
 use std::time::Duration;
-use tikv_client::proto::kvrpcpb::{Mutation, Op};
 use tikv_client::{CheckLevel, Key, Snapshot, Transaction, TransactionClient, TransactionOptions, Value};
+use tikv_client::transaction::Mutation;
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
 
@@ -77,7 +77,10 @@ impl TiKVStore {
         end.extend_from_slice(&self.namespace_bytes);
         end.extend_from_slice(key);
         end.push(0x00);
-
+        if start >= end {
+            end = start.clone();
+            end.push(0x00);
+        }
         (Key::from(start), Key::from(end))
     }
 
@@ -96,7 +99,13 @@ impl TiKVStore {
         fuzzy_bytes: usize,
     ) -> Result<Option<tikv_client::KvPair>> {
         let (scan_start, mut scan_end) = self.make_leq_scan_range(key, fuzzy_bytes);
+        if scan_start >= scan_end {
+            return Ok(None);
+        }
         while scan_start < scan_end {
+            if scan_start >= scan_end {
+                break;
+            }    
             let scan_result = snapshot
                 .scan_reverse(scan_start.clone()..scan_end.clone(), MAX_SCAN_ENTRIES)
                 .await?
@@ -440,12 +449,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         self.with_optimistic_txn(|mut txn| async move {
             let mutations: Vec<Mutation> = items
                 .iter()
-                .map(|item| Mutation {
-                    op: Op::Put.into(),
-                    key: prefix_key(&namespace_bytes, item.key).into(),
-                    value: item.value.to_vec(),
-                    ..Default::default()
-                })
+                .map(|item| Mutation::Put(prefix_key(&namespace_bytes, item.key).into(), item.value.to_vec()))
                 .collect();
 
             txn.batch_mutate(mutations).await?;
@@ -460,12 +464,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         self.with_optimistic_txn(|mut txn| async move {
             let mutations: Vec<Mutation> = items
                 .into_iter()
-                .map(|item| Mutation {
-                    op: Op::Put.into(),
-                    key: prefix_key(&namespace_bytes, &item.key).into(),
-                    value: item.value,
-                    ..Default::default()
-                })
+                .map(|item| Mutation::Put(prefix_key(&namespace_bytes, &item.key).into(), item.value))
                 .collect();
             txn.batch_mutate(mutations).await?;
             Ok(txn)
@@ -484,12 +483,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
             let mutations: Vec<Mutation> = keys
                 .iter()
                 .zip(values.iter())
-                .map(|(key, value)| Mutation {
-                    op: Op::Put.into(),
-                    key: prefix_key(&namespace_bytes, key).into(),
-                    value: value.clone(),
-                    ..Default::default()
-                })
+                .map(|(key, value)| Mutation::Put(prefix_key(&namespace_bytes, key).into(), value.clone()))
                 .collect();
             txn.batch_mutate(mutations).await?;
             Ok(txn)
@@ -513,12 +507,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         self.with_optimistic_txn(|mut txn| async move {
             let mutations: Vec<Mutation> = keys
                 .iter()
-                .map(|key| Mutation {
-                    op: Op::Del.into(),
-                    key: prefix_key(&namespace_bytes, key).into(),
-                    value: vec![],
-                    ..Default::default()
-                })
+                .map(|key| Mutation::Delete(prefix_key(&namespace_bytes, key).into()))
                 .collect();
             txn.batch_mutate(mutations).await?;
             Ok(txn)
@@ -537,21 +526,11 @@ impl KVQBinaryStoreAsync for TiKVStore {
         self.with_pessimistic_txn(|mut txn| async move {
             let mut mutations = Vec::new();
             for item in keys_to_set {
-                mutations.push(Mutation {
-                    op: Op::Put.into(),
-                    key: prefix_key(&namespace_bytes, item.key).into(),
-                    value: item.value.to_vec(),
-                    ..Default::default()
-                });
+                mutations.push(Mutation::Put(prefix_key(&namespace_bytes, item.key).into(), item.value.to_vec()));
             }
 
             for key in keys_to_delete {
-                mutations.push(Mutation {
-                    op: Op::Del.into(),
-                    key: prefix_key(&namespace_bytes, key).into(),
-                    value: vec![],
-                    ..Default::default()
-                });
+                mutations.push(Mutation::Delete(prefix_key(&namespace_bytes, key).into()));
             }
 
             if !mutations.is_empty() {

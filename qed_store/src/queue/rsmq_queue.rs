@@ -5,9 +5,7 @@ use crate::queue::{
 };
 use async_trait::async_trait;
 use kvq::traits::KVQSerializable;
-use qed_core::config::network_constants::{
-    COORDINATOR_TO_REALM_CHANNEL, REALM_TO_COORDINATOR_CHANNEL,
-};
+use qed_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
 use qed_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable,
 };
@@ -27,11 +25,13 @@ use rsmq::{
 };
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use tokio::time::sleep;
+use tokio::time::{interval, sleep};
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info};
 use anyhow::{anyhow, Result};
 
@@ -139,6 +139,8 @@ pub async fn create_rsmq_pool(redis_url: &str, pool_size: usize) -> Result<Poole
 pub struct RsmqQueue {
     pub pool: PooledRsmq,
     pub biz_key: String,
+    tracked_queues: Arc<RwLock<HashSet<String>>>,
+    cancellation_token: CancellationToken,
 }
 
 impl BizKey for RsmqQueue {
@@ -151,7 +153,14 @@ impl Debug for RsmqQueue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RsmqQueue")
             .field("biz_key", &self.biz_key)
+            .field("tracked_queues_count", &self.tracked_queues.read().map(|q| q.len()).unwrap_or(0))
             .finish()
+    }
+}
+
+impl Drop for RsmqQueue {
+    fn drop(&mut self) {
+        self.cancellation_token.cancel();
     }
 }
 
@@ -162,15 +171,103 @@ impl RsmqQueue {
         biz_key: impl ToString,
     ) -> Result<Self> {
         let pool = create_rsmq_pool(redis_url, pool_size).await?;
+        let tracked_queues = Arc::new(RwLock::new(HashSet::new()));
+        let cancellation_token = CancellationToken::new();
+
+        // Start background cleanup task
+        let pool_clone = pool.clone();
+        let tracked_queues_clone = tracked_queues.clone();
+        let cancellation_token_clone = cancellation_token.clone();
+
+        tokio::spawn(async move {
+            Self::cleanup_idle_queues(pool_clone, tracked_queues_clone, cancellation_token_clone).await;
+        });
+
         Ok(Self {
             pool,
             biz_key: biz_key.to_string(),
+            tracked_queues,
+            cancellation_token,
         })
+    }
+
+    /// Core logic for cleaning up idle queues
+    async fn cleanup_idle_queues(
+        pool: PooledRsmq,
+        tracked_queues: Arc<RwLock<HashSet<String>>>,
+        cancellation_token: CancellationToken,
+    ) {
+        const CLEANUP_INTERVAL: Duration = Duration::from_secs(5 * 60); // 5 minutes
+        const IDLE_THRESHOLD: u64 = 60 * 60; // 1 hour in seconds
+
+        let mut interval = interval(CLEANUP_INTERVAL);
+        interval.tick().await; // Skip the first immediate tick
+
+        loop {
+            tokio::select! {
+                _ = cancellation_token.cancelled() => {
+                    info!("Cleanup task received cancellation signal, exiting");
+                    break;
+                }
+                _ = interval.tick() => {
+                    let queue_names = {
+                        let queues = tracked_queues.read().unwrap();
+                        queues.iter().cloned().collect::<Vec<_>>()
+                    };
+
+                    debug!("Starting idle queue cleanup, tracking {} queues", queue_names.len());
+
+                    let current_time = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+
+                    for queue_name in queue_names {
+                        match pool.get_queue_attributes(&queue_name).await {
+                            Ok(attr) => {
+                                // Check if queue is empty and hasn't been modified for over 1 hour
+                                if attr.msgs == 0 && attr.hiddenmsgs == 0 {
+                                    let idle_duration = current_time.saturating_sub(attr.modified);
+
+                                    if idle_duration >= IDLE_THRESHOLD {
+                                        debug!(
+                                            "Queue {} is empty and idle for {} seconds, preparing to delete",
+                                            queue_name, idle_duration
+                                        );
+
+                                        match pool.delete_queue(&queue_name).await {
+                                            Ok(_) => {
+                                                info!("🗑️ Deleted idle queue: {}", queue_name);
+                                                // Remove from tracking list
+                                                let mut queues = tracked_queues.write().unwrap();
+                                                queues.remove(&queue_name);
+                                            }
+                                            Err(e) => {
+                                                error!("Failed to delete queue {}: {:?}", queue_name, e);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Err(RsmqError::QueueNotFound) => {
+                                // Queue no longer exists, remove from tracking list
+                                debug!("Queue {} does not exist, removing from tracking list", queue_name);
+                                let mut queues = tracked_queues.write().unwrap();
+                                queues.remove(&queue_name);
+                            }
+                            Err(e) => {
+                                error!("Failed to get queue {} attributes: {:?}", queue_name, e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     pub async fn create_queue_if_not_exists(&self, queue: &QueueId) -> Result<()> {
         let queue_id = queue.get_queue_id();
-        match self.pool.get_queue_attributes(&queue_id).await {
+        let ret = match self.pool.get_queue_attributes(&queue_id).await {
             Ok(_) => Ok(()),
             Err(RsmqError::QueueNotFound) => {
                 match self.pool.create_queue(&queue_id, None, None, None).await {
@@ -179,7 +276,12 @@ impl RsmqQueue {
                 }
             }
             Err(err) => Err(err.into()),
+        };
+        if ret.is_ok() {
+            let mut queues = self.tracked_queues.write().unwrap();
+            queues.insert(queue_id);
         }
+        ret
     }
 
     pub async fn send_message<E: Into<RedisBytes> + Send>(
@@ -564,6 +666,19 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
 
         Ok(members)
     }
+
+    async fn cdq_len_imm(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<usize> {
+        let queue_id = QueueId::CheckpointDrain {
+            queue_biz_key: self.worker_queue_key().clone(),
+            channel_id,
+            checkpoint_id: 0, // Not used for length check
+        };
+        let count = self.get_queue_stats(&queue_id).await?.total_messages;
+        Ok(count as usize)
+    }
 }
 
 #[async_trait]
@@ -585,7 +700,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for RsmqQueue {
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
-    async fn chq_listen_from_imm<T: HQSerializable>(
+    async fn chq_items_gte<T: HQSerializable>(
         &self,
         channel_id: u64,
         start_checkpoint_id: u64,
@@ -721,15 +836,14 @@ impl KVQSerializable for CEQueueNotification {
     }
 }
 
-// Implement HistoryQueueMetadataTagged for CEQueueNotification
 impl HistoryQueueMetadataTagged for CEQueueNotification {
     fn get_hq_metadata(&self) -> HistoryQueueMetadata {
         match self {
             CEQueueNotification::StartProduceBlock { next_checkpoint } => {
                 HistoryQueueMetadata {
-                    channel_id: COORDINATOR_TO_REALM_CHANNEL,
+                    channel_id: COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL,
                     checkpoint_id: *next_checkpoint,
-                    item_id: *next_checkpoint, // Using checkpoint as item_id
+                    item_id: *next_checkpoint,
                 }
             }
         }

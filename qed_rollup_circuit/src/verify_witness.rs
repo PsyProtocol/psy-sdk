@@ -166,7 +166,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 "verify batch deploy contracts aggregate: {:?}",
                 proof.public_inputs
             );
-            if proof.public_inputs.len() != 8 {
+            if proof.public_inputs.len() != 19 {
                 anyhow::bail!("invalid public input length");
             }
 
@@ -185,11 +185,11 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 .get_fingerprint(job_id.circuit_type.get_agg_leaf_circuit_type_or_err()?)?;
             let agg_fingerprint = proof_verifier
                 .library
-                .get_fingerprint(ProvingJobCircuitType::AppendUserRegistrationTreeAggregate)?;
+                .get_fingerprint(ProvingJobCircuitType::BatchDeployContractsAggregate)?;
             let allowed_circuit_hashes_root =
                 QEDHasher::two_to_one(&leaf_fingerprint, &agg_fingerprint);
 
-            if proof.public_inputs[0..4] != allowed_circuit_hashes_root.0.elements {
+            if proof.public_inputs[11..15] != allowed_circuit_hashes_root.0.elements {
                 anyhow::bail!("invalid allowed circuit hashes root");
             }
 
@@ -197,7 +197,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let right_state_transition_end = r.input.right_input.state_transition_end;
             let state_transition_hash =
                 QEDHasher::two_to_one(&left_state_transition_start, &right_state_transition_end);
-            if proof.public_inputs[4..8] != state_transition_hash.0.elements {
+            if proof.public_inputs[15..19] != state_transition_hash.0.elements {
                 anyhow::bail!("invalid state transition hash");
             }
         }
