@@ -125,7 +125,8 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
     st: &R,
     circuit_mgr: &QCircuitManager<C, D>,
@@ -173,7 +174,8 @@ pub struct UserSessionStateManager {
     pub current_checkpoint_id: u64,
 }
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl UserSessionStateManager {
     pub async fn new(
         user_id: u64,
@@ -251,7 +253,8 @@ pub struct WalletSession {
     pub user_session_mgrs: DashMap<QHashOut<F>, UserSessionStateManager>,
 }
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl WalletSession {
     pub async fn new(rpc_config: &RpcConfig) -> anyhow::Result<Self> {
         tracing::info!("init rpc provider");

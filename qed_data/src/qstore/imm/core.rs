@@ -39,7 +39,8 @@ use crate::{
 
 type F = QEDFelt;
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<T: KVQBinaryStore> QMetaDataStoreReaderSync<F> for T {
     async fn get_user_leaf_data(
         &self,
@@ -114,7 +115,8 @@ impl<T: KVQBinaryStore> QMetaDataStoreWriterSync<F> for T {
     }
 }
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<T: KVQBinaryStore> QTreeDataStoreReaderSync<F> for T {
     async fn get_user_contract_state_tree_root(
         &self,
@@ -474,8 +476,10 @@ impl<T: KVQBinaryStore> QTreeDataStoreWriterSync<F> for T {
 
 impl<T: KVQBinaryStore> QEDComboDataStoreWriterSync<F> for T {}
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<T: KVQBinaryStore> QEDComboDataStoreReaderSync<F> for T {}
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<T: KVQBinaryStore> QEDComboDataStoreReaderWriterSync<F> for T {}
