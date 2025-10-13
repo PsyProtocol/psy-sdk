@@ -86,19 +86,19 @@ impl PsyTokenContractRef {
         c.balance.set(c.balance.get() + reward_diff);
     }
 
-    pub fn batch_simple_transfer(recipients: [Felt; 128], amounts: [Felt; 128]) {
+    pub fn batch_simple_transfer(recipients: [Felt; 5], amounts: [Felt; 5]) {
         let c = PsyTokenContractRef::new(ContractMetadata::current());
         let current_balance = c.balance.get();
 
         let mut total_amount = 0;
-        for i in 0u32..128u32 {
+        for i in 0u32..5u32 {
             total_amount = total_amount + amounts[i as Felt];
             assert(total_amount >= amounts[i as Felt], "total amount overflow");
         }
 
         assert(current_balance >= total_amount, "insufficient balance for batch transfer");
 
-        for i in 0u32..128u32 {
+        for i in 0u32..5u32 {
             let recipient = recipients[i as Felt];
             let amount = amounts[i as Felt];
 
