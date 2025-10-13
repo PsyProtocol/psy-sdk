@@ -4,6 +4,7 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use tracing::{error, info, trace};
 use qed_data::{config::store_config::QEDFelt, guta::api::SubmitGUTARealmResultAPINoProofInput, qdata::checkpoint::CheckpointSyncInfo};
 
 use crate::{
@@ -99,7 +100,19 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
 
     async fn submit_realm_result(&self, realm_result: &RealmDataForCoordinator<F>) -> anyhow::Result<()> {
         self.retry_with_backoff("submit_realm_result", || async {
-            self.rpc_client.submit_realm_result(realm_result).await
+            match self.rpc_client.submit_realm_result(realm_result).await {
+                Ok(result) => {
+                    trace!("Successfully submitted job to coordinator, result: {}", result);
+                    Ok(())
+                }
+                Err(err) => {
+                    error!("Failed to submit job to coordinator: {:?}", err);
+                    if err.to_string().contains("ServerError") {
+                        return Ok(());
+                    }
+                    Err(err)
+                },
+            }
         })
         .await
     }
@@ -122,7 +135,19 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
         realm_id: u64,
     ) -> anyhow::Result<()> {
         self.retry_with_backoff("submit_guta_v1", || async {
-            self.rpc_client.submit_guta_v1(input, proof, realm_id).await
+            match self.rpc_client.submit_guta_v1(input, proof, realm_id).await {
+                Ok(result) => {
+                    trace!("Successfully submitted job to coordinator, result: {}", result);
+                    Ok(())
+                }
+                Err(err) => {
+                    error!("Failed to submit job to coordinator: {:?}", err);
+                    if err.to_string().contains("ServerError") {
+                        return Ok(());
+                    }
+                    Err(err)
+                },
+            }
         })
         .await
     }
