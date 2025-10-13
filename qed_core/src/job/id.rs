@@ -358,7 +358,7 @@ impl From<ProvingJobCircuitType> for u8 {
     }
 }
 
-pub type QProvingJobDataIDSerialized = [u8; 32];
+pub type QProvingJobDataIDSerialized = [u8; 24];
 
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Copy, Eq, Hash, Clone, Debug)]
@@ -367,8 +367,8 @@ pub struct QProvingJobDataIDSerializedWrapped(#[serde_as(as = "serde_with::hex::
 impl QProvingJobDataIDSerializedWrapped {
     pub fn from_hex_string(s: &str) -> Result<Self, FromHexError> {
         let bytes = hex::decode(s)?;
-        assert_eq!(bytes.len(), 32);
-        let mut array = [0u8; 32];
+        assert_eq!(bytes.len(), 24);
+        let mut array = [0u8; 24];
         array.copy_from_slice(&bytes);
         Ok(Self(array))
     }
@@ -746,7 +746,6 @@ impl QProvingTaskGraph {
 pub struct QProvingJobDataID {
     pub topic: QJobTopic,
     pub goal_id: u64,
-    pub slot_id: u64,
     pub circuit_type: ProvingJobCircuitType,
     pub group_id: u32,
     pub sub_group_id: u32,
@@ -755,11 +754,10 @@ pub struct QProvingJobDataID {
     pub data_index: u8,
 }
 impl QProvingJobDataID {
-    pub fn notify_realm_complete(checkpoint_id: u64, slot_id: u64, realm_id: u32) -> Self {
+    pub fn notify_realm_complete(checkpoint_id: u64, realm_id: u32) -> Self {
         Self {
             topic: QJobTopic::NotifyRealmComplete,
             goal_id: checkpoint_id,
-            slot_id,
             group_id: realm_id,
             circuit_type: ProvingJobCircuitType::Unknown,
             sub_group_id: 0,
@@ -768,11 +766,10 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn notify_block_complete(checkpoint_id: u64, slot_id: u64, coordinator_id: u32) -> Self {
+    pub fn notify_block_complete(checkpoint_id: u64, coordinator_id: u32) -> Self {
         Self {
             topic: QJobTopic::NotifyCoordinatorComplete,
             goal_id: checkpoint_id,
-            slot_id,
             group_id: coordinator_id,
             circuit_type: ProvingJobCircuitType::Unknown,
             sub_group_id: 0,
@@ -796,22 +793,20 @@ impl QProvingJobDataID {
     }
 
     pub fn try_from_byte_vec(value: &[u8]) -> anyhow::Result<Self> {
-        if value.len() != 32 {
+        if value.len() != 24 {
             anyhow::bail!("invalid byte length for proving job data id");
         }
         let topic: QJobTopic = value[0].try_into()?;
         let goal_id = u64::from_le_bytes(value[1..9].try_into()?);
-        let slot_id = u64::from_le_bytes(value[9..17].try_into()?);
-        let circuit_type = ProvingJobCircuitType::try_from(value[17])?;
-        let group_id = u32::from_le_bytes(value[18..22].try_into()?);
-        let sub_group_id = u32::from_le_bytes(value[22..26].try_into()?);
-        let task_index = u32::from_le_bytes(value[26..30].try_into()?);
-        let data_type = ProvingJobDataType::try_from(value[30])?;
-        let data_index = value[31];
+        let circuit_type = ProvingJobCircuitType::try_from(value[9])?;
+        let group_id = u32::from_le_bytes(value[10..14].try_into()?);
+        let sub_group_id = u32::from_le_bytes(value[14..18].try_into()?);
+        let task_index = u32::from_le_bytes(value[18..22].try_into()?);
+        let data_type = ProvingJobDataType::try_from(value[22])?;
+        let data_index = value[23];
         Ok(QProvingJobDataID {
             topic,
             goal_id,
-            slot_id,
             circuit_type,
             group_id,
             sub_group_id,
@@ -831,11 +826,10 @@ impl fmt::Display for QProvingJobDataID {
 
         write!(
             f,
-            "QJob[topic={:?}(0x{:02X}), goal={} (0x{:016X}), slot={} (0x{:016X}), circuit={:?}(0x{:02X}, gid=0x{:08X}), \
+            "QJob[topic={:?}(0x{:02X}), goal={} (0x{:016X}), circuit={:?}(0x{:02X}, gid=0x{:08X}), \
 group=0x{:08X}, subgroup=0x{:08X}, task=0x{:08X}, dtype={:?}(0x{:02X}), didx=0x{:02X}]",
             self.topic,                       self.topic.to_u8(),
             self.goal_id,                     self.goal_id,
-            self.slot_id,                     self.slot_id,
             self.circuit_type,                self.circuit_type.to_u8(), self.circuit_type.to_circuit_group_id(),
             self.group_id,
             self.sub_group_id,
@@ -845,37 +839,34 @@ group=0x{:08X}, subgroup=0x{:08X}, task=0x{:08X}, dtype={:?}(0x{:02X}), didx=0x{
         )
     }
 }
-impl From<&QProvingJobDataID> for [u8; 32] {
+impl From<&QProvingJobDataID> for [u8; 24] {
     fn from(value: &QProvingJobDataID) -> Self {
-        let mut result = [0u8; 32];
+        let mut result = [0u8; 24];
         result[0] = value.topic.to_u8();
         result[1..9].copy_from_slice(&value.goal_id.to_le_bytes());
-        result[9..17].copy_from_slice(&value.slot_id.to_le_bytes());
-        result[17] = value.circuit_type.to_u8();
-        result[18..22].copy_from_slice(&value.group_id.to_le_bytes());
-        result[22..26].copy_from_slice(&value.sub_group_id.to_le_bytes());
-        result[26..30].copy_from_slice(&value.task_index.to_le_bytes());
-        result[30] = value.data_type.to_u8();
-        result[31] = value.data_index;
+        result[9] = value.circuit_type.to_u8();
+        result[10..14].copy_from_slice(&value.group_id.to_le_bytes());
+        result[14..18].copy_from_slice(&value.sub_group_id.to_le_bytes());
+        result[18..22].copy_from_slice(&value.task_index.to_le_bytes());
+        result[22] = value.data_type.to_u8();
+        result[23] = value.data_index;
         result
     }
 }
-impl TryFrom<[u8; 32]> for QProvingJobDataID {
+impl TryFrom<[u8; 24]> for QProvingJobDataID {
     type Error = anyhow::Error;
-    fn try_from(value: [u8; 32]) -> Result<Self, Self::Error> {
+    fn try_from(value: [u8; 24]) -> Result<Self, Self::Error> {
         let topic: QJobTopic = value[0].try_into()?;
         let goal_id = u64::from_le_bytes(value[1..9].try_into()?);
-        let slot_id = u64::from_le_bytes(value[9..17].try_into()?);
-        let circuit_type = ProvingJobCircuitType::try_from(value[17])?;
-        let group_id = u32::from_le_bytes(value[18..22].try_into()?);
-        let sub_group_id = u32::from_le_bytes(value[22..26].try_into()?);
-        let task_index = u32::from_le_bytes(value[26..30].try_into()?);
-        let data_type = ProvingJobDataType::try_from(value[30])?;
-        let data_index = value[31];
+        let circuit_type = ProvingJobCircuitType::try_from(value[9])?;
+        let group_id = u32::from_le_bytes(value[10..14].try_into()?);
+        let sub_group_id = u32::from_le_bytes(value[14..18].try_into()?);
+        let task_index = u32::from_le_bytes(value[18..22].try_into()?);
+        let data_type = ProvingJobDataType::try_from(value[22])?;
+        let data_index = value[23];
         Ok(QProvingJobDataID {
             topic,
             goal_id,
-            slot_id,
             circuit_type,
             group_id,
             sub_group_id,
@@ -890,7 +881,6 @@ impl QProvingJobDataID {
     pub fn new(
         topic: QJobTopic,
         goal_id: u64,
-        slot_id: u64,
         group_id: u32,
         sub_group_id: u32,
         task_index: u32,
@@ -901,7 +891,6 @@ impl QProvingJobDataID {
         Self {
             topic,
             goal_id,
-            slot_id,
             circuit_type,
             group_id,
             sub_group_id,
@@ -910,11 +899,10 @@ impl QProvingJobDataID {
             data_index,
         }
     }
-    pub fn guta_two_end_cap_witness(checkpoint_id: u64, slot_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
+    pub fn guta_two_end_cap_witness(checkpoint_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
-            slot_id,
             group_id,
             sub_group_id,
             task_index,
@@ -923,11 +911,10 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn guta_two_agg_witness(checkpoint_id: u64, slot_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
+    pub fn guta_two_agg_witness(checkpoint_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
-            slot_id,
             group_id,
             sub_group_id,
             task_index,
@@ -936,11 +923,10 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn guta_two_agg_witness_with_checkpoint_upgrade(checkpoint_id: u64, slot_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
+    pub fn guta_two_agg_witness_with_checkpoint_upgrade(checkpoint_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
-            slot_id,
             group_id,
             sub_group_id,
             task_index,
@@ -949,11 +935,10 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn guta_left_end_cap_right_guta_witness(checkpoint_id: u64, slot_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
+    pub fn guta_left_end_cap_right_guta_witness(checkpoint_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
-            slot_id,
             group_id,
             sub_group_id,
             task_index,
@@ -962,11 +947,10 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn guta_left_guta_right_end_cap_witness(checkpoint_id: u64, slot_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
+    pub fn guta_left_guta_right_end_cap_witness(checkpoint_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
-            slot_id,
             group_id,
             sub_group_id,
             task_index,
@@ -975,11 +959,10 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn guta_single_end_cap_witness(checkpoint_id: u64, slot_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
+    pub fn guta_single_end_cap_witness(checkpoint_id: u64, group_id: u32, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
-            slot_id,
             group_id,
             sub_group_id,
             task_index,
@@ -988,11 +971,10 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn core_op_witness(checkpoint_id: u64, slot_id: u64, group_id: u32, circuit_type: ProvingJobCircuitType, sub_group_id: u32, task_index: u32) -> Self {
+    pub fn core_op_witness(checkpoint_id: u64, group_id: u32, circuit_type: ProvingJobCircuitType, sub_group_id: u32, task_index: u32) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
-            slot_id,
             group_id,
             sub_group_id,
             task_index,
@@ -1001,11 +983,10 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn transfer_signature_proof(checkpoint_id: u64, slot_id: u64, group_id: u32, transfer_id: u32) -> Self {
+    pub fn transfer_signature_proof(checkpoint_id: u64, group_id: u32, transfer_id: u32) -> Self {
         Self {
             topic: QJobTopic::BlockUserSignatureProof,
             goal_id: checkpoint_id,
-            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::WrappedSignatureProof,
             sub_group_id: 0,
@@ -1014,11 +995,10 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn end_cap_proof(checkpoint_id: u64, slot_id: u64, group_id: u32, user_id: u32) -> Self {
+    pub fn end_cap_proof(checkpoint_id: u64, group_id: u32, user_id: u32) -> Self {
         Self {
             topic: QJobTopic::BlockUserSignatureProof,
             goal_id: checkpoint_id,
-            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::UserEndCap,
             sub_group_id: 1,
@@ -1027,11 +1007,10 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn withdrawal_signature_proof(checkpoint_id: u64, slot_id: u64, group_id: u32, withdrawal_id: u32) -> Self {
+    pub fn withdrawal_signature_proof(checkpoint_id: u64, group_id: u32, withdrawal_id: u32) -> Self {
         Self {
             topic: QJobTopic::BlockUserSignatureProof,
             goal_id: checkpoint_id,
-            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::WrappedSignatureProof,
             sub_group_id: 2,
@@ -1040,11 +1019,10 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn claim_deposit_l1_signature_proof(checkpoint_id: u64, slot_id: u64, group_id: u32, deposit_id: u32) -> Self {
+    pub fn claim_deposit_l1_signature_proof(checkpoint_id: u64, group_id: u32, deposit_id: u32) -> Self {
         Self {
             topic: QJobTopic::BlockUserSignatureProof,
             goal_id: checkpoint_id,
-            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::Secp256K1SignatureProof,
             sub_group_id: 3,
@@ -1053,11 +1031,10 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn new_proof_job_id(goal_id: u64, slot_id: u64, group_id: u32, circuit_type: ProvingJobCircuitType, sub_group_id: u32, task_index: u32) -> Self {
+    pub fn new_proof_job_id(goal_id: u64, group_id: u32, circuit_type: ProvingJobCircuitType, sub_group_id: u32, task_index: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id,
-            slot_id,
             group_id,
             circuit_type,
             sub_group_id,
@@ -1066,12 +1043,10 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    
     pub fn new_groth16_proof_job_id(goal_id: u64, group_id: u32, circuit_type: ProvingJobCircuitType, sub_group_id: u32, task_index: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateGroth16Proof,
             goal_id,
-            slot_id: 0,
             circuit_type,
             group_id,
             sub_group_id,
@@ -1080,11 +1055,10 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn get_block_aggregate_jobs_group(checkpoint_id: u64, slot_id: u64, group_id: u32, task_index: u32) -> Self {
+    pub fn get_block_aggregate_jobs_group(checkpoint_id: u64, group_id: u32, task_index: u32) -> Self {
         Self {
             topic: QJobTopic::AggregateJobs,
             goal_id: checkpoint_id,
-            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::Unknown,
             sub_group_id: 0,
@@ -1093,11 +1067,10 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn block_agg_state_part_1_input_witness(checkpoint_id: u64, slot_id: u64, group_id: u32) -> Self {
+    pub fn block_agg_state_part_1_input_witness(checkpoint_id: u64, group_id: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: checkpoint_id,
-            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA,
             sub_group_id: 0,
@@ -1106,11 +1079,10 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn block_agg_state_part_2_input_witness(checkpoint_id: u64, slot_id: u64, group_id: u32) -> Self {
+    pub fn block_agg_state_part_2_input_witness(checkpoint_id: u64, group_id: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: checkpoint_id,
-            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::AggAddProcessL1WithdrawalAddL1Deposit,
             sub_group_id: 0,
@@ -1119,11 +1091,10 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn block_state_transition_input_witness(checkpoint_id: u64, slot_id: u64, group_id: u32) -> Self {
+    pub fn block_state_transition_input_witness(checkpoint_id: u64, group_id: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: checkpoint_id,
-            slot_id,
             group_id,
             circuit_type: ProvingJobCircuitType::GenerateRollupStateTransitionProof,
             sub_group_id: 0,
@@ -1136,7 +1107,6 @@ impl QProvingJobDataID {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: checkpoint_id,
-            slot_id: 0,
             group_id,
             circuit_type: ProvingJobCircuitType::GenerateSigHashIntrospectionProof,
             sub_group_id: 0,
@@ -1149,7 +1119,6 @@ impl QProvingJobDataID {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: checkpoint_id,
-            slot_id: 0,
             group_id,
             circuit_type: ProvingJobCircuitType::GenerateFinalSigHashProof,
             sub_group_id: input_id as u32,
@@ -1162,7 +1131,6 @@ impl QProvingJobDataID {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id: checkpoint_id,
-            slot_id: 0,
             group_id,
             circuit_type: ProvingJobCircuitType::WrapFinalSigHashProofBLS12381,
             sub_group_id: input_id as u32,
@@ -1438,7 +1406,6 @@ mod tests {
             .get_dependencies(&QProvingJobDataID::new_proof_job_id(
                 1,
                 0,
-                0,
                 ProvingJobCircuitType::BatchDeployContracts,
                 0,
                 0
@@ -1450,9 +1417,9 @@ mod tests {
     fn test_get_graph_for_job_selection() {
         let graph = QProvingJobGraph::new();
 
-        let deploy_job = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::BatchDeployContracts, 0, 0);
-        let user_reg_job = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 0);
-        let guta_job = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTAOnlyRegisterUsers, 0, 0);
+        let deploy_job = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::BatchDeployContracts, 0, 0);
+        let user_reg_job = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 0);
+        let guta_job = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTAOnlyRegisterUsers, 0, 0);
 
         assert!(std::ptr::eq(graph.get_graph_for_job(&deploy_job).unwrap(), &graph.deploy_contracts_graph));
         assert!(std::ptr::eq(
@@ -1535,27 +1502,27 @@ mod tests {
         let graph = QProvingJobGraph::new();
 
         let deploy_jobs = vec![
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::BatchDeployContracts, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::BatchDeployContractsAggregate, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::DummyBatchDeployContractsAggregate, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::BatchDeployContracts, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::BatchDeployContractsAggregate, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::DummyBatchDeployContractsAggregate, 0, 0),
         ];
 
         let user_reg_jobs = vec![
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::AppendUserRegistrationTreeAggregate, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::AppendUserRegistrationTreeAggregate, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate, 0, 0),
         ];
 
         let guta_jobs = vec![
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTAOnlyRegisterUsers, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTARegisterUsers, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTALeftEndCapRightGUTA, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTALeftGUTARightEndCap, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTASingleEndCap, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTAVerifyToCap, 0, 0),
-            QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTANoChange, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTAOnlyRegisterUsers, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTARegisterUsers, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTALeftEndCapRightGUTA, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTALeftGUTARightEndCap, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTASingleEndCap, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTAVerifyToCap, 0, 0),
+            QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTANoChange, 0, 0),
         ];
 
         for job in deploy_jobs {
@@ -1611,7 +1578,7 @@ mod tests {
 
     #[test]
     fn test_job_data_id_serialization() {
-        let job_id = QProvingJobDataID::new_proof_job_id(12345, 0, 100, ProvingJobCircuitType::BatchDeployContracts, 200, 300);
+        let job_id = QProvingJobDataID::new_proof_job_id(12345, 100, ProvingJobCircuitType::BatchDeployContracts, 200, 300);
 
         let bytes = job_id.to_fixed_bytes();
         let recovered = QProvingJobDataID::try_from(bytes).unwrap();
@@ -1628,7 +1595,6 @@ mod tests {
     fn test_job_data_id_hex_conversion() {
         let job_id = QProvingJobDataID::new_proof_job_id(
             0x1234567890ABCDEF,
-            0, // slot_id
             0x12345678,
             ProvingJobCircuitType::GUTAOnlyRegisterUsers,
             0x87654321,
@@ -1681,7 +1647,7 @@ mod tests {
     fn test_job_reward_data_provider_trait() {
         use std::collections::HashMap;
 
-        let job_a = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 100);
+        let job_a = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 100);
 
         let mut commitments = HashMap::new();
         let mut public_keys = HashMap::new();
@@ -1694,8 +1660,8 @@ mod tests {
 
     #[test]
     fn test_job_graph_dependency_structure() {
-        let job_a = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 100);
-        let job_b = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::AppendUserRegistrationTreeAggregate, 0, 200);
+        let job_a = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 100);
+        let job_b = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::AppendUserRegistrationTreeAggregate, 0, 200);
 
         let mut graph = QProvingJobGraph::new();
         graph.user_registrations_graph.add_node(job_a);
@@ -1705,8 +1671,8 @@ mod tests {
         assert!(graph.user_registrations_graph.get_dependents(&job_a).unwrap().contains(&job_b));
         assert!(graph.user_registrations_graph.get_dependencies(&job_b).unwrap().contains(&job_a));
 
-        let job_c = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 300);
-        let job_d = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::AppendUserRegistrationTreeAggregate, 0, 400);
+        let job_c = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::AppendUserRegistrationTree, 0, 300);
+        let job_d = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::AppendUserRegistrationTreeAggregate, 0, 400);
 
         graph.user_registrations_graph.add_node(job_c);
         graph.user_registrations_graph.add_node(job_d);
@@ -1746,9 +1712,9 @@ mod tests {
         use std::collections::HashMap;
 
         // Create test job IDs - create a proper hierarchy: root <- parent <- child
-        let child_job = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 100);
-        let parent_job = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 200);
-        let root_job = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 300);
+        let child_job = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 100);
+        let parent_job = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 200);
+        let root_job = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 300);
 
         // Set up mock provider with test data
         let mut commitments = HashMap::new();
@@ -1798,9 +1764,9 @@ mod tests {
         use std::collections::HashMap;
 
         // Create test jobs: job_c depends on job_a and job_b
-        let job_a = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 100);
-        let job_b = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 200);
-        let job_c = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 300);
+        let job_a = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 100);
+        let job_b = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 200);
+        let job_c = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 300);
 
         let mut commitments = HashMap::new();
         let mut public_keys = HashMap::new();
@@ -1842,11 +1808,11 @@ mod tests {
         use std::collections::{HashMap, HashSet};
 
         // Create multiple jobs in a complex graph to test nullifier uniqueness
-        let job1 = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 100);
-        let job2 = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 200);
-        let job3 = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 300);
-        let job4 = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 400);
-        let root_job = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 500);
+        let job1 = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 100);
+        let job2 = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 200);
+        let job3 = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 300);
+        let job4 = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 400);
+        let root_job = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 500);
 
         // Setup mock provider
         let mut commitments = HashMap::new();
@@ -1911,11 +1877,11 @@ mod tests {
 
         // Test potential edge cases for nullifier collisions
         // Case 1: Jobs with same height but different positions
-        let leaf1 = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 100);
-        let leaf2 = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 200);
-        let parent1 = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 300);
-        let parent2 = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 400);
-        let root = QProvingJobDataID::new_proof_job_id(1, 0, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 500);
+        let leaf1 = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 100);
+        let leaf2 = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoEndCap, 0, 200);
+        let parent1 = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 300);
+        let parent2 = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 400);
+        let root = QProvingJobDataID::new_proof_job_id(1, 0, ProvingJobCircuitType::GUTATwoGUTA, 0, 500);
 
         let mut commitments = HashMap::new();
         let mut public_keys = HashMap::new();
@@ -2100,7 +2066,7 @@ mod tests {
     #[test]
     fn test_single_node_graphviz() {
         let mut graph = QProvingJobGraph::new();
-        let guta_job = QProvingJobDataID::new_proof_job_id(100, 0, 1, ProvingJobCircuitType::GUTATwoEndCap, 2, 3);
+        let guta_job = QProvingJobDataID::new_proof_job_id(100, 1, ProvingJobCircuitType::GUTATwoEndCap, 2, 3);
 
         graph.guta_graph.add_node(guta_job);
 
@@ -2117,9 +2083,9 @@ mod tests {
     fn test_multiple_nodes_with_dependencies_graphviz() {
         let mut graph = QProvingJobGraph::new();
 
-        let guta_job1 = QProvingJobDataID::new_proof_job_id(100, 0, 1, ProvingJobCircuitType::GUTATwoEndCap, 1, 1);
-        let guta_job2 = QProvingJobDataID::new_proof_job_id(100, 0, 1, ProvingJobCircuitType::GUTATwoGUTA, 1, 2);
-        let deploy_job = QProvingJobDataID::new_proof_job_id(100, 0, 2, ProvingJobCircuitType::BatchDeployContracts, 1, 1);
+        let guta_job1 = QProvingJobDataID::new_proof_job_id(100, 1, ProvingJobCircuitType::GUTATwoEndCap, 1, 1);
+        let guta_job2 = QProvingJobDataID::new_proof_job_id(100, 1, ProvingJobCircuitType::GUTATwoGUTA, 1, 2);
+        let deploy_job = QProvingJobDataID::new_proof_job_id(100, 2, ProvingJobCircuitType::BatchDeployContracts, 1, 1);
 
         graph.guta_graph.add_node(guta_job1);
         graph.guta_graph.add_node(guta_job2);
@@ -2141,7 +2107,7 @@ mod tests {
     #[test]
     fn test_user_registration_graph_graphviz() {
         let mut graph = QProvingJobGraph::new();
-        let user_job = QProvingJobDataID::new_proof_job_id(200, 0, 3, ProvingJobCircuitType::AppendUserRegistrationTree, 4, 5);
+        let user_job = QProvingJobDataID::new_proof_job_id(200, 3, ProvingJobCircuitType::AppendUserRegistrationTree, 4, 5);
 
         graph.user_registrations_graph.add_node(user_job);
 
@@ -2156,7 +2122,7 @@ mod tests {
     #[test]
     fn test_graphviz_node_formatting() {
         let mut graph = QProvingJobGraph::new();
-        let job = QProvingJobDataID::new_proof_job_id(0x123, 0, 0x456, ProvingJobCircuitType::GUTASingleEndCap, 0x789, 0xABC);
+        let job = QProvingJobDataID::new_proof_job_id(0x123, 0x456, ProvingJobCircuitType::GUTASingleEndCap, 0x789, 0xABC);
 
         graph.guta_graph.add_node(job);
 

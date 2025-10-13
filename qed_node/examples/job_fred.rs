@@ -17,12 +17,12 @@ fn gen_jobs_ids(checkpoint_id: u64, height: usize) -> Vec<Vec<QProvingJobDataID>
         let mut level_jobs = Vec::with_capacity(num_nodes);
         if h == 0 {
             for i in 0..num_nodes {
-                let id = QProvingJobDataID::guta_two_end_cap_witness(checkpoint_id, 0, ProvingJobCircuitType::GUTATwoEndCap.to_circuit_group_id(), h as u32, i as u32);
+                let id = QProvingJobDataID::guta_two_end_cap_witness(checkpoint_id, ProvingJobCircuitType::GUTATwoEndCap.to_circuit_group_id(), h as u32, i as u32);
                 level_jobs.push(id);
             }
         }else{
             for i in 0..num_nodes {
-                let id = QProvingJobDataID::guta_two_agg_witness(checkpoint_id, 0, ProvingJobCircuitType::GUTATwoGUTA.to_circuit_group_id(), h as u32, i as u32);
+                let id = QProvingJobDataID::guta_two_agg_witness(checkpoint_id, ProvingJobCircuitType::GUTATwoGUTA.to_circuit_group_id(), h as u32, i as u32);
                 level_jobs.push(id);
             }
         }
@@ -47,7 +47,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let checkpoint_id: u64 = 13;
     let jobs = gen_jobs_ids(checkpoint_id, 15);
     timer.lap("generated jobs");
-    q.write_multidimensional_jobs(&jobs, &[QProvingJobDataID::notify_block_complete(checkpoint_id, 0, 0)]).await?;
+    q.write_multidimensional_jobs(&jobs, &[QProvingJobDataID::notify_block_complete(checkpoint_id, 0)]).await?;
     timer.lap("wrote to proof store");
     //println!("jobs: {:?}",jobs);
     q.enqueue_jobs_imm(&jobs[0]).await?;
