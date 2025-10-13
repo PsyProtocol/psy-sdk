@@ -1,7 +1,8 @@
 pub mod error;
 pub mod handler;
 pub mod rpc;
-mod sync;
+pub mod sync;
+pub(crate) use sync::spawn_active_checkpoint_sync_task;
 pub mod edge_v2;
 pub use edge_v2::run_realm_edge_v2;
 
@@ -22,7 +23,6 @@ use qed_store::queue::task_queue::QProvingTaskStoreImpl;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::QEDStore;
 use std::sync::Arc;
-use sync::spawn_active_checkpoint_sync_task;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
 use crate::common::whitelist::WhiteListCache;
@@ -148,8 +148,8 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     //     None,
     // )
     // .await?;
-    spawn_active_checkpoint_sync_task(realm_config.realm_id, store_reader, sync_queue, config.rpc.coordinator_addr)
-        .await?;
+    // spawn_active_checkpoint_sync_task(realm_config.realm_id, store_reader, sync_queue, config.rpc.coordinator_addr)
+    //     .await?;
 
     // Keep server running¶
     handle.stopped().await;

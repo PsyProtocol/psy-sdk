@@ -9,7 +9,7 @@ use crate::common_v2::traits::realm::CoordinatorClient;
 use crate::coordinator::client_v2::ConcreteCoordinatorClient;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
-use crate::realm::{C, D, F};
+use crate::realm::{edge, C, D, F};
 use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use qed_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
@@ -132,12 +132,19 @@ impl RealmProcessor {
             }
         };
 
-        let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(config.coordinator_addr)?);
+        let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(config.coordinator_addr.clone())?);
         let queue_helper = QueueFactory::create_rsmq_helper::<F>(
             &config.redis.redis_uri,
             config.redis.pool_size.unwrap_or(10),
             config.realm.realm_id,
             Arc::new(store.clone()),
+        ).await?;
+
+        edge::spawn_active_checkpoint_sync_task(
+            config.realm.realm_id,
+            Arc::new(store.clone()),
+            sync_checkpoint.clone(),
+            config.coordinator_addr.clone(),
         ).await?;
 
         let processor = RealmProcessor {
