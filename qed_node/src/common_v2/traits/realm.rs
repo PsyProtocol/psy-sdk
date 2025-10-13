@@ -6,7 +6,7 @@ use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichFi
 use qed_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
 use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID, QProvingTask, QProvingJobGraph}, utils::graph::BidirectionalGraph};
 use qed_crypto::hash::{merkle::{utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}, core::{compute_root_merkle_proof_generic, DeltaMerkleProofCore, MerkleProofCore}, treeprover::{data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition}, utils::common::SimpleMerkleNodeKey}, traits::hasher::{FieldQHasher, MerkleHasher}};
-use qed_data::{config::store_config::{QEDHash, QEDProof}, guta::{header::GlobalUserTreeAggregatorHeader, proof_input::{VerifyEndCapSimpleStandardInput, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput}, stats::GUTAStats}, models::checkpoint::block_state::L2BlockStatesModel, qdata::{checkpoint::{CheckpointSyncInfo, QEDL2BlockState}, staging_checkpoint_info::StagingCheckpointInfo, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf}};
+use qed_data::{config::store_config::{QEDHash, QEDProof}, guta::{api::SubmitGUTARealmResultAPINoProofInput, header::GlobalUserTreeAggregatorHeader, proof_input::{VerifyEndCapSimpleStandardInput, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput}, stats::GUTAStats}, models::checkpoint::block_state::L2BlockStatesModel, qdata::{checkpoint::{CheckpointSyncInfo, QEDL2BlockState}, staging_checkpoint_info::StagingCheckpointInfo, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf}};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
@@ -474,6 +474,18 @@ pub trait CoordinatorClient<F: RichField> {
 
     async fn submit_realm_result(&self, realm_result: &RealmDataForCoordinator<F>) -> anyhow::Result<()>;
 
+    async fn get_checkpoint_sync_info(
+        &self,
+        realm_id: u32,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<CheckpointSyncInfo<F>>;
+
+    async fn submit_guta_v1(
+        &self,
+        input: &SubmitGUTARealmResultAPINoProofInput<F>,
+        proof: &[u8],
+        realm_id: u64,
+    ) -> anyhow::Result<()>;
 }
 
 pub trait RealmProcessorStateClient<F: RichField>: GlobalUserTreeMerkleReader<F> {

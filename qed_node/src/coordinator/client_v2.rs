@@ -3,7 +3,8 @@ use jsonrpsee::{
     http_client::{HttpClient, HttpClientBuilder},
     proc_macros::rpc,
 };
-use qed_data::config::store_config::QEDFelt;
+use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use qed_data::{config::store_config::QEDFelt, guta::api::SubmitGUTARealmResultAPINoProofInput, qdata::checkpoint::CheckpointSyncInfo};
 
 use crate::{
     common::retry::{RetryConfig, Retryable},
@@ -11,6 +12,8 @@ use crate::{
 };
 
 type F = QEDFelt;
+type C = PoseidonGoldilocksConfig;
+const D: usize = 2;
 
 #[rpc(client, namespace = "qed")]
 pub trait CoordinatorRpcV2 {
@@ -29,6 +32,21 @@ pub trait CoordinatorRpcV2 {
     ) -> RpcResult<Vec<GlobalBlockUpdateFromCoordinator<F>>>;
     #[method(name = "submit_realm_result")]
     async fn submit_realm_result(&self, realm_result: &RealmDataForCoordinator<F>) -> RpcResult<()>;
+
+    #[method(name = "get_checkpoint_sync_info")]
+    async fn get_checkpoint_sync_info(
+        &self,
+        realm_id: u32,
+        checkpoint_id: u64,
+    ) -> RpcResult<CheckpointSyncInfo<F>> ;
+
+    #[method(name = "submit_guta_v1")]
+    async fn submit_guta_v1(
+        &self,
+        input: &SubmitGUTARealmResultAPINoProofInput<F>,
+        proof: &[u8],
+        realm_id: u64,
+    ) -> RpcResult<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +100,29 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
     async fn submit_realm_result(&self, realm_result: &RealmDataForCoordinator<F>) -> anyhow::Result<()> {
         self.retry_with_backoff("submit_realm_result", || async {
             self.rpc_client.submit_realm_result(realm_result).await
+        })
+        .await
+    }
+
+    async fn get_checkpoint_sync_info(
+        &self,
+        realm_id: u32,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<CheckpointSyncInfo<F>> {
+        self.retry_with_backoff("get_checkpoint_sync_info", || async {
+            self.rpc_client.get_checkpoint_sync_info(realm_id, checkpoint_id).await
+        })
+        .await
+    }
+
+    async fn submit_guta_v1(
+        &self,
+        input: &SubmitGUTARealmResultAPINoProofInput<F>,
+        proof: &[u8],
+        realm_id: u64,
+    ) -> anyhow::Result<()> {
+        self.retry_with_backoff("submit_guta_v1", || async {
+            self.rpc_client.submit_guta_v1(input, proof, realm_id).await
         })
         .await
     }

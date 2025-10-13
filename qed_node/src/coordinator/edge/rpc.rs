@@ -48,6 +48,14 @@ pub trait CoordinatorEdgeRpc {
         realm_id: u64,
     ) -> RpcResult<String>;
 
+    #[method(name = "submit_guta_v1")]
+    async fn submit_guta_v1(
+        &self,
+        input: SubmitGUTARealmResultAPINoProofInput<F>,
+        proof: Vec<u8>,
+        realm_id: u64,
+    ) -> RpcResult<()>;
+
     #[method(name = "submit_realm_result")]
     async fn submit_realm_result(&self, realm_result: RealmDataForCoordinator<F>) -> RpcResult<()>;
 

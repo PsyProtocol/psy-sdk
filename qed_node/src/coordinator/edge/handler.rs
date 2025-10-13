@@ -1098,6 +1098,18 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .map_err(RpcError::Anyhow)
     }
 
+    async fn submit_guta_v1(
+        &self,
+        input: SubmitGUTARealmResultAPINoProofInput<F>,
+        proof: Vec<u8>,
+        realm_id: u64,
+    ) -> RpcResult<()> {
+        let proof = bincode::deserialize::<ProofWithPublicInputs<F, C, D>>(&proof)
+            .map_err(|err| RpcError::Anyhow(anyhow::format_err!(err.to_string())))?;
+        self.submit_guta(input, proof, realm_id).await.map_err(RpcError::Anyhow)?;
+        Ok(())
+    }
+
    async fn submit_realm_result(&self, realm_result: RealmDataForCoordinator<F>) -> RpcResult<()> {
         let checkpoint_id = realm_result.header.checkpoint_id;
         let current_checkpoint_id = self.get_current_checkpoint_id().await?;
