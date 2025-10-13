@@ -1,8 +1,11 @@
 pub mod processor_v2;
+use plonky2::plonk::proof::ProofWithPublicInputs;
 pub use processor_v2::*;
+use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 
 use std::ops::Deref;
 use crate::common::verifier::get_cached_generic_verifier;
+use crate::common_v2::traits::realm::CoordinatorClient;
 use crate::coordinator::client_v2::ConcreteCoordinatorClient;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
@@ -316,7 +319,34 @@ impl RealmProcessor {
         info!("Start building block checkpoint: {}, slot: {}", next_checkpoint_id, slot);
         match self.build_block(build_ctx, next_checkpoint_id).await {
             Ok(job_id) => {
-                self.sync_proof.chq_push_imm(job_id).await?;
+                // self.sync_proof.chq_push_imm(job_id).await?;
+                // submit guta task to coordinator
+                {
+                    use qed_core::job::traits::QProofStoreReaderAsync;
+                    let bytes = build_ctx.proof_store.get_bytes_by_id(job_id.job_id).await?;
+                    // Deserialize realm result
+                    let realm_result: GUTARealmCheckpointResult<F> = bincode::deserialize(&bytes)?;
+                    // Get proof with retry
+                    let proof: ProofWithPublicInputs<F, C, D> =  build_ctx.proof_store.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
+                    // let proof = self.get_proof_with_retry(proof_store, realm_result.proof_id.get_output_id()).await?;
+                    let input = SubmitGUTARealmResultAPINoProofInput::<F> {
+                        realm_id: self.realm_config.realm_id as u64,
+                        checkpoint_id: realm_result.checkpoint_id,
+                        guta_stats: realm_result.guta_stats,
+                        top_line_proof: realm_result.top_line_proof,
+                        checkpoint_tree_root: realm_result.checkpoint_tree_root,
+                        circuit_type: realm_result.proof_id.circuit_type,
+                    };
+
+                    match self.coordinator_client.submit_guta_v1(&input, &bincode::serialize(&proof)?, input.realm_id).await {
+                        Ok(_) => info!("✅ GUTA task submitted successfully for checkpoint {}", next_checkpoint_id),
+                        Err(err) => {
+                            build_ctx.rollback(next_checkpoint_id).await?;
+                            error!("Rollback: build block failed for checkpoint {}: {:?}", next_checkpoint_id, err);
+                        }
+                    }
+                }
+
                 self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
                 build_ctx.store.save_snapshot(next_checkpoint_id)?;
                 info!("build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
