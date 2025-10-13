@@ -51,7 +51,7 @@ chrono = {workspace = true}
 rand = { workspace = true }
 
 [features]
-default = ["is_sync"]
+# default = ["is_sync"]
 is_sync = ["maybe-async/is_sync", "qed_data/is_sync"]
 
 [dev-dependencies]

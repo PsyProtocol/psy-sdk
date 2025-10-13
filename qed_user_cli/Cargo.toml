@@ -64,5 +64,5 @@ shadow-rs = { workspace = true }
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
 
 [features]
-default = ["is_sync"]
+# default = ["is_sync"]
 is_sync = ["qed_prover/is_sync", "qed_store/is_sync"]

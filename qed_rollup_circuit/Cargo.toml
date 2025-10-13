@@ -20,5 +20,5 @@ qed_crypto = { workspace = true }
 
 
 [features]
-default = ["is_sync"]
+# default = ["is_sync"]
 is_sync = ["qed_data/is_sync","qed_common_circuit/is_sync"]

@@ -265,8 +265,8 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut mgr = UserProvingSessionManager::<GoldilocksField,QEDHasher,_,C,D>::new(
         lps,
         circuit_info,
-        main_circuits.ups_circuit_whitelist_root()?,
-    )?;
+        main_circuits.ups_circuit_whitelist_root().await?,
+    ).await?;
 
     timer.lap("setup mgr");
 
@@ -284,7 +284,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
             ],
 
         ),
-    ])?;
+    ]).await?;
 
     timer.lap("proved group");
 

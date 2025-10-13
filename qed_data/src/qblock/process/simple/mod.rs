@@ -33,7 +33,8 @@ use crate::{
 
 pub struct SimpleBlockProcessor {}
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl SimpleBlockProcessor {
     pub async fn process_block<S: KVQBinaryStore>(
         store: &S,

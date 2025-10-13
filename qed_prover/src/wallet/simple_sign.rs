@@ -544,7 +544,8 @@ pub struct StateReader<
     pub state_cmds: Vec<DPNStateCmd<F>>,
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<
         F: RichField + Extendable<D>,
         const D: usize,
@@ -988,7 +989,8 @@ impl<
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait SoftwareDefinedSignTrait: Debug + Send + Sync {
     async fn custom_sign_option_f(
         &mut self,
@@ -1016,7 +1018,8 @@ type GF = GoldilocksField;
 #[derive(Debug, Clone)]
 pub struct SoftwareDefinedSignGadget {}
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl SoftwareDefinedSignTrait for SoftwareDefinedSignGadget {
     async fn custom_sign_option_f(
         &mut self,

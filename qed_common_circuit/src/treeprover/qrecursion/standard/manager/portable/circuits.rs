@@ -112,7 +112,8 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait PortableQTreeRecursionCircuitsTrait<C: GenericConfig<D>, const D: usize>:
     PortableQTreeRecursionCircuitsDataTrait<C, D> + PortableQTreeRecursionCircuitsProveTrait<C, D>
 where
@@ -122,7 +123,8 @@ where
     async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F>;
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait PortableQTreeRecursionCircuitsDataTrait<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher:
@@ -140,7 +142,8 @@ where
     async fn left_agg_right_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D>;
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D>
     for PortableQTreeRecursionCircuits<C, D>
 where
@@ -203,7 +206,8 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait PortableQTreeRecursionCircuitsProveTrait<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher:
@@ -263,7 +267,8 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
     for PortableQTreeRecursionCircuits<C, D>
 where
@@ -396,7 +401,8 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
     for PortableQTreeRecursionCircuits<C, D>
 where

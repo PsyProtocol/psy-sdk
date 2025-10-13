@@ -18,6 +18,7 @@ pub mod get_job_proof;
 pub mod qhash;
 pub mod stress_test;
 pub mod job;
+pub mod check_registered_users;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -80,6 +81,9 @@ pub enum Commands {
 
     #[command(about = "Job utility commands")]
     Job(JobArgs),
+
+    #[command(about = "Check registered users")]
+    CheckRegisteredUsers(check_registered_users::CheckRegisteredUsersArgs),
 }
 
 #[derive(Parser)]

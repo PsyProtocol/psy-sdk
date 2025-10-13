@@ -19,7 +19,8 @@ use super::{
     },
 };
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<F: RichField, R: QEDComboDataStoreReaderSync<F> + Sync> QEDReadCommandProcessorSync<F> for R {
     async fn resolve_batch(
         &self,

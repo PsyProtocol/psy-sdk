@@ -55,7 +55,8 @@ pub struct QEDMemoryWallet {
     pub software_defined_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl QEDMemoryWallet {
     pub fn new(circuit_manager: Vec<QCircuitManager<C, D>>) -> Self {
         Self {
@@ -248,7 +249,8 @@ impl QEDMemoryWallet {
 }
 
 /// software defined circuit
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl QEDMemoryWallet {
     pub async fn register_software_defined_circuit(
         &mut self,

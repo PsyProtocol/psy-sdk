@@ -60,7 +60,7 @@ impl ExampleDemoUserInfoStore {
 
 }
 
-    pub fn run_tx_for_current_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn run_tx_for_current_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C,D>,
@@ -69,9 +69,9 @@ impl ExampleDemoUserInfoStore {
         fn_name: &str,
         inputs: Vec<F>,
     ) -> anyhow::Result<()>{
-        contract.prove_func(circuit_mgr, mgr, contract_id, fn_name, inputs)
+        contract.prove_func(circuit_mgr, mgr, contract_id, fn_name, inputs).await
     }
-    pub fn run_txs_for_current_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn run_txs_for_current_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C,D>,
@@ -80,12 +80,12 @@ impl ExampleDemoUserInfoStore {
         calls: Vec<(&str,Vec<F>)>
     ) -> anyhow::Result<()>{
         for (fn_name, inputs) in calls {
-            contract.prove_func(circuit_mgr, mgr, contract_id, fn_name, inputs)?;
+            contract.prove_func(circuit_mgr, mgr, contract_id, fn_name, inputs).await?;
         }
         Ok(())
     }
 
-    pub fn new_run_txs_for_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn new_run_txs_for_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
@@ -97,12 +97,12 @@ impl ExampleDemoUserInfoStore {
     ) -> anyhow::Result<(UserProvingSessionManager<F, PoseidonHash, R, C, D>, SubmitUserEndCapNonProofInput<F>, ProofWithPublicInputs<F,C,D>)>{
 
         let mut timer = DebugTimer::new("run_txs_for_users");
-        let mut mgr = mgr.into_clean_for_user(F::from_noncanonical_u64(user_id_u64))?;
+        let mut mgr = mgr.into_clean_for_user(F::from_noncanonical_u64(user_id_u64)).await?;
         //.into_clean_for_user(F::from_noncanonical_u64(user_id_u64))?;
-            mgr.prove_ups_start(circuit_mgr)?;
+            mgr.prove_ups_start(circuit_mgr).await?;
 
             for (fn_name, inputs) in calls {
-                contract.prove_func(circuit_mgr, &mut mgr, contract_id, fn_name, inputs)?;
+                contract.prove_func(circuit_mgr, &mut mgr, contract_id, fn_name, inputs).await?;
             }
 
             let old_nonce = match self.nonce_map.get(&user_id_u64) {
@@ -116,7 +116,7 @@ impl ExampleDemoUserInfoStore {
 
             let signature_proof = self.wallet.zk_sign_for_private_key_value(*self.user_private_keys.get(&user_id_u64).unwrap(), sighash)?;
             timer.lap("generated zk signature for UPS transaction batch");
-            mgr.proof_tree_state.finalize_tree(circuit_mgr)?;
+            mgr.proof_tree_state.finalize_tree(circuit_mgr).await?;
             timer.lap("aggregated all UPS proofs into a single proof");
             let public_key_param =SimpleQEDPrivateKey::new(*self.user_private_keys.get(&user_id_u64).unwrap()).get_public_key_param::<QEDHasher>();
             let end_cap_proof = mgr.prove_end_cap(
@@ -127,7 +127,7 @@ impl ExampleDemoUserInfoStore {
                  public_key_param,
                 signature_proof,
                  self.wallet.circuit.get_verifier_config_ref().to_owned()
-            )?;
+            ).await?;
             timer.lap("Proved End Cap for UPS Session 🎉");
 
             // the end cap proof the proof that we send off to the network 🎉
@@ -140,14 +140,14 @@ impl ExampleDemoUserInfoStore {
                 input: mgr.get_api_input()?,
                 proof: end_cap_proof,
             };*/
-            let api_input = mgr.get_api_input()?;
+            let api_input = mgr.get_api_input().await?;
             Ok((
                 mgr,
                 api_input,
                 end_cap_proof
             ))
     }
-    pub fn run_txs_for_users<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn run_txs_for_users<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
@@ -163,12 +163,12 @@ impl ExampleDemoUserInfoStore {
             if !self.user_private_keys.contains_key(&user_id_u64) {
                 anyhow::bail!("missing private key for user id {}",user_id_u64);
             }
-            let nmgr = mgr.into_clean_for_user(F::from_noncanonical_u64(user_id_u64))?;
+            let nmgr = mgr.into_clean_for_user(F::from_noncanonical_u64(user_id_u64)).await?;
             mgr = nmgr;
-            mgr.prove_ups_start(circuit_mgr)?;
+            mgr.prove_ups_start(circuit_mgr).await?;
 
             for (fn_name, inputs) in calls {
-                contract.prove_func(circuit_mgr, &mut mgr, contract_id, fn_name, inputs)?;
+                contract.prove_func(circuit_mgr, &mut mgr, contract_id, fn_name, inputs).await?;
             }
 
             let old_nonce = match self.nonce_map.get(&user_id_u64) {
@@ -182,7 +182,7 @@ impl ExampleDemoUserInfoStore {
 
             let signature_proof = self.wallet.zk_sign_for_private_key_value(*self.user_private_keys.get(&user_id_u64).unwrap(), sighash)?;
             timer.lap("generated zk signature for UPS transaction batch");
-            mgr.proof_tree_state.finalize_tree(circuit_mgr)?;
+            mgr.proof_tree_state.finalize_tree(circuit_mgr).await?;
             timer.lap("aggregated all UPS proofs into a single proof");
             let public_key_param =SimpleQEDPrivateKey::new(*self.user_private_keys.get(&user_id_u64).unwrap()).get_public_key_param::<QEDHasher>();
             let end_cap_proof = mgr.prove_end_cap(
@@ -193,7 +193,7 @@ impl ExampleDemoUserInfoStore {
                  public_key_param,
                 signature_proof,
                  self.wallet.circuit.get_verifier_config_ref().to_owned()
-            )?;
+            ).await?;
             timer.lap("Proved End Cap for UPS Session 🎉");
 
             // the end cap proof the proof that we send off to the network 🎉
@@ -208,13 +208,13 @@ impl ExampleDemoUserInfoStore {
             };*/
 
             results.push((
-                mgr.get_api_input()?,
+                mgr.get_api_input().await?,
                 end_cap_proof
             ));
         }
         Ok((mgr, results))
     }
-    pub fn run_txs_for_users_prep<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn run_txs_for_users_prep<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
@@ -224,7 +224,7 @@ impl ExampleDemoUserInfoStore {
         user_calls: Vec<(u64, Vec<(&str,Vec<F>)>)>
     ) -> anyhow::Result<(UserProvingSessionManager<F, PoseidonHash, R, C, D>)>{
 
-        let (new_mgr, mut results) = self.run_txs_for_users(mgr, contract, circuit_mgr, contract_id, user_calls)?;
+        let (new_mgr, mut results) = self.run_txs_for_users(mgr, contract, circuit_mgr, contract_id, user_calls).await?;
         self.awaiting_send_end_caps.append(&mut results);
         Ok(new_mgr)
     }

@@ -34,7 +34,7 @@ pub struct ExecContractCallArgs {
     pub sign_inputs: Vec<u64>,
 }
 
-pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
+pub async fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
     tracing::info!(
         "local proving start with {}",
         serde_json::to_string_pretty(&args)?
@@ -60,11 +60,11 @@ pub fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         sign_inputs: args.sign_inputs,
     };
 
-    run_inner(exec_contract_call_args)?;
+    run_inner(exec_contract_call_args).await?;
     Ok(())
 }
 
-pub fn run_multi(args: WalletSessionArgs) -> anyhow::Result<()> {
+pub async fn run_multi(args: WalletSessionArgs) -> anyhow::Result<()> {
     tracing::info!(
         "local proving start with {}",
         serde_json::to_string_pretty(&args)?
@@ -87,12 +87,12 @@ pub fn run_multi(args: WalletSessionArgs) -> anyhow::Result<()> {
         sign_inputs: args.sign_inputs,
     };
 
-    run_inner(exec_contract_call_args)?;
+    run_inner(exec_contract_call_args).await?;
     Ok(())
 }
 
-pub fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
-    let mut wallet_session = WalletSession::new(&args.rpc_config)?;
+pub async fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
+    let mut wallet_session = WalletSession::new(&args.rpc_config).await?;
     let fingerprint = if args.sign_type == SignType::SoftwareDefinedSign {
         let user_sdc: DPNFunctionCircuitDefinition =
             serde_json::from_str(&std::fs::read_to_string("sdc.json")?)?;
@@ -100,6 +100,7 @@ pub fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
         let contract_state_tree_height = wallet_session
             .st_provider
             .get_contract_code_definition(args.contract_id)
+            .await
             .map(|cfc| cfc.state_tree_height as u8)
             .unwrap_or(MAX_CONTRACT_STATE_TREE_HEIGHT);
 
@@ -120,13 +121,13 @@ pub fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
         Some(
             wallet_session
                 .wallet
-                .register_software_defined_circuit(sdc_input)?,
+                .register_software_defined_circuit(sdc_input).await?,
         )
     } else {
         None
     };
     let user_pk_hash =
-        wallet_session.add_user_with_type(args.private_key, args.sign_type.clone(), fingerprint)?;
+        wallet_session.add_user_with_type(args.private_key, args.sign_type.clone(), fingerprint).await?;
 
     wallet_session.exec_contract_call_with_sign_type(
         user_pk_hash,
@@ -135,7 +136,7 @@ pub fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
         fingerprint,
         Some(args.contract_id),
         vec![],
-    )?;
+    ).await?;
 
     tracing::info!("local proving end");
 

@@ -96,7 +96,8 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
 }
 
 // read helpers
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProvingSessionStore<F, R> {
     pub fn get_current_contract_id(&self) -> F {
         self.active_transaction_record
@@ -160,7 +161,8 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProv
     }
 }
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProvingSessionStore<F, R> {
     pub fn new_at(
         read_store: R,
@@ -278,7 +280,8 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProv
 
 type GF = GoldilocksField;
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
     QEDLocalProvingSessionStore<GoldilocksField, R>
 {

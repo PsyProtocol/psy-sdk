@@ -29,7 +29,7 @@ pub mod reader_async;
 pub mod writer_imm;
 
 #[async_trait]
-pub trait QEDCoordinatorStoreReaderAsync<F: RichField> {
+pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
     async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
     async fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<QEDContractLeaf<F>> {
         <Self as QEDCoordinatorStoreReaderAsync<F>>::get_contract_leaf_data(self, contract_id.to_canonical_u64()).await

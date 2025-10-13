@@ -36,32 +36,36 @@ const USER1_SECP_ZK_PUBLIC_KEY: &str = "ac85e11f5c8a53241502c4519567aa3f02d30b16
 
 pub async fn run(args: StressTestArgs) -> Result<()> {
     let rpc_config = load_rpc_config(&args.config)?;
-    let multicall = Multicast::new(rpc_config)?;
+    let multicall = Multicast::new(rpc_config).await?;
     let pool = ScheduledThreadPool::new(num_cpus::get());
     // let mut handlers = vec![];
     let handle = pool.execute(move || {
-        for repeat in 0..args.repeat {
-            info!("🎯 Registering batch user - User count: {}, repeat: {}", args.concurrent_tasks, repeat);
-            if args.only_user {
-                let _ = multicall.register_batch_user(args.concurrent_tasks as u64).unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async move {
+            for repeat in 0..args.repeat {
+                info!("🎯 Registering batch user - User count: {}, repeat: {}", args.concurrent_tasks, repeat);
+                if args.only_user {
+                    let _ = multicall.register_batch_user(args.concurrent_tasks as u64).await.unwrap();
+                }
+                if args.only_flow {
+                    let user_info = multicall.register_batch_user(args.concurrent_tasks as u64).await.unwrap();
+                    multicall.batch_flow(user_info).await.unwrap();
+                }
+                if args.only_multi_transfer {
+                    multicall.batch_multi_transfer(args.concurrent_tasks as u64).await.unwrap();
+                }
+                if args.only_multi_user_transfer {
+                    multicall.multi_user_transfer(args.concurrent_tasks as u64).await.unwrap();
+                }
+                if args.only_mint {
+                    multicall.multi_user_mint(args.concurrent_tasks as u64).await.unwrap();
+                }
+                if args.only_deploy_contract {
+                    multicall.deploy_contract(args.concurrent_tasks as u64, args.contract_path.clone()).await.unwrap();
+                }
             }
-            if args.only_flow {
-                let user_info = multicall.register_batch_user(args.concurrent_tasks as u64).unwrap();
-                multicall.batch_flow(user_info).unwrap();
-            }
-            if args.only_multi_transfer {
-                multicall.batch_multi_transfer(args.concurrent_tasks as u64).unwrap();
-            }
-            if args.only_multi_user_transfer {
-                multicall.multi_user_transfer(args.concurrent_tasks as u64).unwrap();
-            }
-            if args.only_mint {
-                multicall.multi_user_mint(args.concurrent_tasks as u64).unwrap();
-            }
-            if args.only_deploy_contract {
-                multicall.deploy_contract(args.concurrent_tasks as u64, args.contract_path.clone()).unwrap();
-            }
-        }
+        });
+        ()
     });
 
     tokio::signal::ctrl_c().await?;
@@ -83,8 +87,8 @@ pub struct Multicast {
 }
 
 impl Multicast {
-    pub fn new(rpc_config: RpcConfig) -> Result<Self> {
-        let wallet_session = Arc::new(RwLock::new(WalletSession::new(&rpc_config)?));
+    pub async fn new(rpc_config: RpcConfig) -> Result<Self> {
+        let wallet_session = Arc::new(RwLock::new(WalletSession::new(&rpc_config).await?));
         let pool = ScheduledThreadPool::new(num_cpus::get());
         Ok(Self {
             wallet_session,
@@ -93,23 +97,23 @@ impl Multicast {
         })
     }
 
-    pub fn exec_contract_call(
+    pub async fn exec_contract_call(
         &self,
         public_key: QHashOut<GoldilocksField>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<()> {
         self.wallet_session
             .write()
-            .exec_contract_call(public_key, contract_call_args)
+            .exec_contract_call(public_key, contract_call_args).await
     }
 
-    pub fn register_batch_user(&self, user_count: u64) -> Result<Vec<UserInfo>> {
+    pub async fn register_batch_user(&self, user_count: u64) -> Result<Vec<UserInfo>> {
         let user_pk = (0..user_count)
             .map(|_| QHashOut::<GoldilocksField>::rand())
             .collect::<Vec<_>>();
         let start = Instant::now();
         for pk in &user_pk {
-            self.wallet_session.write().register_user(pk.clone())?;
+            self.wallet_session.write().register_user(pk.clone()).await?;
         }
         let duration = start.elapsed().as_millis() as u64;
         info!(
@@ -120,16 +124,16 @@ impl Multicast {
         let now = Instant::now();
         let user_info = loop {
             let mut user_info = Vec::new();
-            if let Err(err) = wait_for_new_block(&self.wallet_session.read().st_provider, 4) {
+            if let Err(err) = wait_for_new_block(&self.wallet_session.read().st_provider, 4).await {
                 error!("register_batch_user: Wait for new block error: {}", err);
                 continue
             }
             for pk in &user_pk {
-                let ret = {self.wallet_session.read().get_secp_public_key(pk.clone())};
+                let ret = {self.wallet_session.read().get_secp_public_key(pk.clone()).await};
                 match ret {
                     Ok(pk_info) => {
                         let public_key = pk_info.qfhash::<QEDHasher>();
-                        let ret = {self.wallet_session.read().st_provider.get_user_id(public_key)};
+                        let ret = {self.wallet_session.read().st_provider.get_user_id(public_key).await};
                         match ret {
                             Ok(user_id) => {
                                 user_info.push(UserInfo {
@@ -159,11 +163,11 @@ impl Multicast {
         Ok(user_info)
     }
 
-    pub fn batch_flow(&self, user_info: Vec<UserInfo>) -> Result<()> {
+    pub async fn batch_flow(&self, user_info: Vec<UserInfo>) -> Result<()> {
         let mut contract_call_args = vec![];
         let mint_amount = 250000000000u64;
         let transfer_amount = 50000000000u64;
-        let (from_user_id, public_key0) = self.init_user0(mint_amount * 2 * user_info.len() as u64)?;
+        let (from_user_id, public_key0) = self.init_user0(mint_amount * 2 * user_info.len() as u64).await?;
         for i in 0..user_info.len() {
             let to_user_id = user_info[i].user_id;
             contract_call_args.push(ContractCallArgs {
@@ -171,7 +175,7 @@ impl Multicast {
                 method_name: "simple_transfer".to_string(),
                 inputs: vec![to_user_id, transfer_amount],
             });
-            {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
+            {self.wallet_session.write().add_user(user_info[i].pk.clone()).await?;}
         }
 
         let count = 10;
@@ -185,10 +189,10 @@ impl Multicast {
         }
 
         let start = Instant::now();
-        self.exec_contract_call(public_key0, contract_call_args)?;
+        self.exec_contract_call(public_key0, contract_call_args).await?;
         let duration = start.elapsed().as_millis() as u64;
         info!("batch_flow: Batch transfer flow duration: {} ms", duration);
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 4)? {
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 4).await? {
             return Err(anyhow::format_err!("mint timeout waiting for checkpoint"));
         }
         
@@ -205,7 +209,7 @@ impl Multicast {
             );
             let start = Instant::now();
             for _ in 0..3 {
-                if let Err(err) = self.exec_contract_call(user_info[i].pub_key, claim_contract_call_args.clone())
+                if let Err(err) = self.exec_contract_call(user_info[i].pub_key, claim_contract_call_args.clone()).await
                     .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err)){
                     error!("❌ Task {} - Claim contract call error: {}",i, err);
                     continue;
@@ -219,7 +223,7 @@ impl Multicast {
         }
 
         info!("batch_flow: claim contract call finished, start to wait for checkpoint");
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 1)? {
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 1).await? {
             return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
         }
 
@@ -227,12 +231,12 @@ impl Multicast {
         Ok(())
     }
 
-    pub fn batch_multi_transfer(&self, transfer_count: u64) -> Result<()> {
-        let user_info = self.register_batch_user(3)?;
+    pub async fn batch_multi_transfer(&self, transfer_count: u64) -> Result<()> {
+        let user_info = self.register_batch_user(3).await?;
         let mut contract_call_args = vec![];
         let mint_amount = 250000000000u64;
         let transfer_amount = 50000000000u64;
-        let (from_user_id, public_key0) = self.init_user0(mint_amount * transfer_count)?;
+        let (from_user_id, public_key0) = self.init_user0(mint_amount * transfer_count).await?;
         for i in 0..user_info.len() {
             for _ in 0..transfer_count {
                 let to_user_id = user_info[i].user_id;
@@ -242,13 +246,13 @@ impl Multicast {
                     inputs: vec![to_user_id, transfer_amount],
                 });
             }
-            {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
+            {self.wallet_session.write().add_user(user_info[i].pk.clone()).await?;}
         }
         let start = Instant::now();
-        self.exec_contract_call(public_key0, contract_call_args)?;
+        self.exec_contract_call(public_key0, contract_call_args).await?;
         let duration = start.elapsed().as_millis() as u64;
         info!("batch_flow: Batch transfer flow duration: {} ms", duration);
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 4)? {
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 4).await? {
             return Err(anyhow::format_err!("mint timeout waiting for checkpoint"));
         }
 
@@ -265,7 +269,7 @@ impl Multicast {
             );
             let start = Instant::now();
             for _ in 0..3 {
-                if let Err(err) = self.exec_contract_call(user_info[i].pub_key, claim_contract_call_args.clone())
+                if let Err(err) = self.exec_contract_call(user_info[i].pub_key, claim_contract_call_args.clone()).await
                     .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err)){
                     error!("❌ Task {} - Claim contract call error: {}",i, err);
                     continue;
@@ -279,7 +283,7 @@ impl Multicast {
         }
 
         info!("batch_flow: claim contract call finished, start to wait for checkpoint");
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 1)? {
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 1).await? {
             return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
         }
 
@@ -287,17 +291,17 @@ impl Multicast {
         Ok(())
     }
 
-    pub fn multi_user_mint(&self, count: u64) -> Result<()> {
-        let user_info = self.register_batch_user(count)?;
+    pub async fn multi_user_mint(&self, count: u64) -> Result<()> {
+        let user_info = self.register_batch_user(count).await?;
         let mint_amount = 250000000000u64;
         for i in 0..user_info.len() {
-            {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
+            {self.wallet_session.write().add_user(user_info[i].pk.clone()).await?;}
             let public_key = user_info[i].pub_key.clone();
             match self.exec_contract_call(public_key, vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_mint".to_string(),
                 inputs: vec![mint_amount],
-            }]){
+            }]).await {
                 Ok(_) => {
                     info!("✅ Task {} - Mint contract call success",i);
                 },
@@ -306,16 +310,16 @@ impl Multicast {
                 }
             }
         }
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2).await? {
             return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
         }
         info!("multi_user_mint: end call");
         Ok(())
     }
 
-    pub fn deploy_contract(&self, count: u64, mut contract_path: String) -> Result<()> {
+    pub async fn deploy_contract(&self, count: u64, mut contract_path: String) -> Result<()> {
         let mint_amount = 250000000000u64;
-        let (from_user_id, public_key0) = self.init_user0(mint_amount)?;
+        let (from_user_id, public_key0) = self.init_user0(mint_amount).await?;
         if contract_path.is_empty() {
             contract_path = "./qed_precompiles/token/target/token.json".to_string();
         }
@@ -324,49 +328,49 @@ impl Multicast {
             serde_json::from_str(&fs::read_to_string(contract_path)?)?;
         for i in 0..count {
             tracing::info!("deploying contract for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
-            self.wallet_session.read().deploy_contract(public_key0, defs_array.clone())?;
+            self.wallet_session.read().deploy_contract(public_key0, defs_array.clone()).await?;
             tracing::info!("contract deployed for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
         }
         info!("user_deploy_contract: end call");
         Ok(())
     }
 
-    fn init_user0(&self, mint_amount: u64) -> Result<(u64, QHashOut<GoldilocksField>)> {
+    async fn init_user0(&self, mint_amount: u64) -> Result<(u64, QHashOut<GoldilocksField>)> {
         let pk0 = QHashOut::from_string_or_panic(USER0_PRIVATE_KEY);
         let public_key0 = QHashOut::from_string_or_panic(USER0_SECP_ZK_PUBLIC_KEY);
-        let from_user_id = {self.wallet_session.read().st_provider.get_user_id(public_key0)?};
-        {self.wallet_session.write().add_user(pk0)?;}
+        let from_user_id = {self.wallet_session.read().st_provider.get_user_id(public_key0).await?};
+        {self.wallet_session.write().add_user(pk0).await?;}
         info!("Start to execute mint contract call");
         self.exec_contract_call(public_key0, vec![ContractCallArgs {
             contract_id: 0,
             method_name: "simple_mint".to_string(),
             inputs: vec![mint_amount],
         }]);
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2).await? {
             return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
         }
         Ok((from_user_id, public_key0))
     }
 
-    pub fn multi_user_transfer(&self, count: u64) -> Result<()> {
-        let user_info = self.register_batch_user(count)?;
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+    pub async fn multi_user_transfer(&self, count: u64) -> Result<()> {
+        let user_info = self.register_batch_user(count).await?;
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2).await? {
             return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
         }
         let mut contract_call_args = vec![];
         let transfer_amount = 250000000000u64; //1000 000000000
-        let (from_user_id, public_key0) = self.init_user0(transfer_amount * 2 * count)?;
+        let (from_user_id, public_key0) = self.init_user0(transfer_amount * 2 * count).await?;
         for i in 0..user_info.len() {
             contract_call_args.push(ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
                 inputs: vec![user_info[i].user_id, transfer_amount],
             });
-            {self.wallet_session.write().add_user(user_info[i].pk.clone())?;}
+            {self.wallet_session.write().add_user(user_info[i].pk.clone()).await?;}
         }
         info!("Start to execute transfer contract call");
-        self.exec_contract_call(public_key0, contract_call_args)?;
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 4)? {
+        self.exec_contract_call(public_key0, contract_call_args).await?;
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 4).await? {
             return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
         }
         for i in 0..user_info.len() {
@@ -375,32 +379,32 @@ impl Multicast {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
                 inputs: vec![from_user_id],
-            }])?;
+            }]).await?;
         }
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2).await? {
             return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
         }
         info!("multi_user_transfer: end call");
         Ok(())
     }
 
-    pub fn transfer(&self, to_user_id: u64, to_user_public_key: QHashOut<GoldilocksField>, amount: u64) -> Result<()> {
-        let (from_user_id, public_key0) = self.init_user0(amount)?;
+    pub async fn transfer(&self, to_user_id: u64, to_user_public_key: QHashOut<GoldilocksField>, amount: u64) -> Result<()> {
+        let (from_user_id, public_key0) = self.init_user0(amount).await?;
         self.exec_contract_call(public_key0, vec![ContractCallArgs {
             contract_id: 0,
             method_name: "simple_transfer".to_string(),
             inputs: vec![to_user_id, amount],
-        }])?;
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+        }]).await?;
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2).await? {
             return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
         }
         self.exec_contract_call(to_user_public_key, vec![ContractCallArgs {
             contract_id: 0,
             method_name: "simple_claim".to_string(),
             inputs: vec![from_user_id],
-        }])?;
+        }]).await?;
 
-        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2)? {
+        if !wait_for_new_block(&self.wallet_session.read().st_provider, 2).await? {
             return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
         }
         info!("transfer: end call");

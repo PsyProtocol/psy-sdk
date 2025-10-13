@@ -125,7 +125,8 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
     st: &R,
     circuit_mgr: &QCircuitManager<C, D>,
@@ -173,7 +174,8 @@ pub struct UserSessionStateManager {
     pub current_checkpoint_id: u64,
 }
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl UserSessionStateManager {
     pub async fn new(
         user_id: u64,
@@ -251,7 +253,8 @@ pub struct WalletSession {
     pub user_session_mgrs: DashMap<QHashOut<F>, UserSessionStateManager>,
 }
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl WalletSession {
     pub async fn new(rpc_config: &RpcConfig) -> anyhow::Result<Self> {
         tracing::info!("init rpc provider");
@@ -1219,8 +1222,8 @@ pub struct WalletKeyPair {
     pub public_key: ZKPublicKeyInfo<F>,
 }
 
-#[cfg(feature = "is_sync")]
-pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
+// #[cfg(feature = "is_sync")]
+pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let config_str = std::fs::read_to_string(&args.rpc_config)?;
     let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
     let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
@@ -1229,10 +1232,10 @@ pub fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let contract_call_args: Vec<ContractCallArgs> =
         serde_json::from_str(&std::fs::read_to_string(args.contract_calls)?)?;
 
-    let mut wallet_session = WalletSession::new(&rpc_config)?;
-    let public_key = wallet_session.add_user(private_key)?;
+    let mut wallet_session = WalletSession::new(&rpc_config).await?;
+    let public_key = wallet_session.add_user(private_key).await?;
 
-    wallet_session.exec_contract_call(public_key, contract_call_args)?;
+    wallet_session.exec_contract_call(public_key, contract_call_args).await?;
 
     Ok(())
 }
