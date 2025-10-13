@@ -422,8 +422,11 @@ impl<
         let last_checkpoint_tree_root = self.store.get_checkpoint_tree_root(last_checkpoint_id).await?;
         tracing::debug!("last_checkpoint_tree_root: {}", last_checkpoint_tree_root);
         let mut guta_queue_items = guta_queue_items.into_iter().filter(|x| {
-            warn!("Filtering GUTA queue items for checkpoint_id: {}, current item checkpoint_id: {}", checkpoint_id, x.checkpoint_id);
-            x.checkpoint_id < checkpoint_id
+            let is = x.checkpoint_id <= checkpoint_id && x.checkpoint_id >= checkpoint_id - 2;
+            if !is {
+                warn!("Filtering GUTA queue items for checkpoint_id: {}, current guta checkpoint_id: {}", checkpoint_id, x.checkpoint_id);
+            }
+            is
         }).collect::<Vec<_>>();
 
         if guta_queue_items.len() == 0 {
