@@ -220,7 +220,6 @@ fn create_sample_job_id(_job_name: &str) -> serde_json::Value {
     let job = QProvingJobDataID {
         topic: QJobTopic::GenerateStandardProof,
         goal_id: 0,
-        slot_id: 0,
         circuit_type: ProvingJobCircuitType::UserEndCap,
         group_id: 0,
         sub_group_id: 0,
