@@ -349,14 +349,14 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
         end_cap_proof_common_data,
-        main_circuits.ups_end_cap_circuit_verifier_config()?.constants_sigmas_cap.height(),
-        main_circuits.ups_end_cap_circuit_fingerprint()?,
+        main_circuits.ups_end_cap_circuit_verifier_config().await?.constants_sigmas_cap.height(),
+        main_circuits.ups_end_cap_circuit_fingerprint().await?,
         get_default_worker_public_key::<GoldilocksField>(),
     );
     timer.lap("built guta circuits");
     let proof_store = SimpleProofStoreMemory::new();
 
-    let mut api = SimpleAPI::<_,_,GoldilocksField,C,D>::new(proof_store, lps.cmd_store.read_store.clone(), guta_circuits)?;
+    let mut api = SimpleAPI::<_,_,GoldilocksField,C,D>::new(proof_store, lps.cmd_store.read_store.clone(), guta_circuits).await?;
     //main_circuits.print_common_config();
     api.guta_circuits.print_common_config();
 
@@ -399,12 +399,12 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     let mut mgr = UserProvingSessionManager::<GoldilocksField,QEDHasher,_,C,D>::new(
         lps,
         circuit_info,
-        main_circuits.ups_circuit_whitelist_root()?
-    )?;
+        main_circuits.ups_circuit_whitelist_root().await?,
+    ).await?;
 
     timer.lap("START USER PROVING SESSION");
 
-    mgr.prove_ups_start(&main_circuits)?;
+    mgr.prove_ups_start(&main_circuits).await?;
     timer.lap("proved ups_start");
 
     mgr.prove_contract_call(
@@ -415,7 +415,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         vec![
             GoldilocksField::from_noncanonical_u64(1000)
         ]
-    )?;
+    ).await?;
     timer.lap("proved token.simple_mint_debug(amount: 1000)");
 
 
@@ -429,7 +429,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(2),
             GoldilocksField::from_noncanonical_u64(100),
         ]
-    )?;
+    ).await?;
     timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
@@ -437,7 +437,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits)?;
+    mgr.proof_tree_state.finalize_tree(&main_circuits).await?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param =SimpleQEDPrivateKey::new(priv_key_0).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(
@@ -448,7 +448,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
          public_key_param,
         signature_proof,
          wallet.circuit.get_verifier_config_ref().to_owned()
-    )?;
+    ).await?;
     timer.lap("Proved End Cap for UPS Session 🎉");
 
     // the end cap proof the proof that we send off to the network 🎉
@@ -458,17 +458,17 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
 
     let user_a_api_input = SubmitUserEndCapProofAPIInput{
-        input: mgr.get_api_input()?,
+        input: mgr.get_api_input().await?,
         proof: end_cap_proof,
     };
 
-    let mut mgr = mgr.into_clean_for_user(GoldilocksField::from_canonical_u32(6))?;
+    let mut mgr = mgr.into_clean_for_user(GoldilocksField::from_canonical_u32(6)).await?;
 
 
 
     timer.lap("START USER PROVING SESSION");
 
-    mgr.prove_ups_start(&main_circuits)?;
+    mgr.prove_ups_start(&main_circuits).await?;
     timer.lap("proved ups_start");
 
     mgr.prove_contract_call(
@@ -479,7 +479,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         vec![
             GoldilocksField::from_noncanonical_u64(10000)
         ]
-    )?;
+    ).await?;
     timer.lap("proved token.simple_mint_debug(amount: 10000)");
 
 
@@ -493,7 +493,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(3),
             GoldilocksField::from_noncanonical_u64(1337),
         ]
-    )?;
+    ).await?;
     timer.lap("proved token.simple_transfer(recipient: 3, amount: 1337)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
@@ -501,7 +501,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_1, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits)?;
+    mgr.proof_tree_state.finalize_tree(&main_circuits).await?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param =SimpleQEDPrivateKey::new(priv_key_1).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(
@@ -512,7 +512,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
          public_key_param,
         signature_proof,
          wallet.circuit.get_verifier_config_ref().to_owned()
-    )?;
+    ).await?;
     timer.lap("Proved End Cap for UPS Session 🎉");
 
     // the end cap proof the proof that we send off to the network 🎉
@@ -522,7 +522,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
 
     let user_b_api_input = SubmitUserEndCapProofAPIInput{
-        input: mgr.get_api_input()?,
+        input: mgr.get_api_input().await?,
         proof: end_cap_proof,
     };
 
@@ -530,10 +530,10 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     api.submit_proof(user_b_api_input)?;
     timer.lap("start generating start witnesses");
 
-    let (pairs, left_over) = api.get_start_witnesses()?;
+    let (pairs, left_over) = api.get_start_witnesses().await?;
     timer.lap("finished generating start witnesses");
     for p in pairs.into_iter() {
-        let _proof = api.proof_start_dbg(p, &main_circuits.ups_end_cap_circuit_verifier_config()?)?;
+        let _proof = api.proof_start_dbg(p, &main_circuits.ups_end_cap_circuit_verifier_config().await?)?;
         timer.lap("Proved Recursive Global User Tree Aggregation");
 
     }

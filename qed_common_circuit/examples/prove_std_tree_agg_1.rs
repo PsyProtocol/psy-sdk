@@ -72,7 +72,7 @@ where
 }
 
 
-fn run_prove_agg_example_2() -> anyhow::Result<()> {
+async fn run_prove_agg_example_2() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("run_prove_agg_example_2");
     timer.lap("start");
 
@@ -96,9 +96,9 @@ fn run_prove_agg_example_2() -> anyhow::Result<()> {
     );
     let mut recursion_mgr = PortableQTreeRecursionManager::new(
         proof_tree_height,
-    );
+    ).await;
     timer.lap("created SimpleQTreeRecursionManager");
-    let start_proof_tree_root = recursion_mgr.get_proof_tree_root();
+    let start_proof_tree_root = recursion_mgr.get_proof_tree_root().await;
 
     timer.lap("start: printing_recursion_mgr_common_data");
     println!("\n\n\nleaf_circuit_common_data:\n\n{:?}\n\n\n",wallet.circuit.get_common_circuit_data_ref());
@@ -117,14 +117,14 @@ fn run_prove_agg_example_2() -> anyhow::Result<()> {
         })
         .collect::<Vec<_>>();
     timer.lap("proved input leaf items");
-    let _leaf_mgr_inds = recursion_mgr.add_leaf_proofs(input_leaf_items);
+    let _leaf_mgr_inds = recursion_mgr.add_leaf_proofs(input_leaf_items).await;
     timer.lap("added leaf proofs");
     /*
     recursion_mgr.prove_one_step_simple_serial();
     recursion_mgr.prove_one_step_simple_serial();
     recursion_mgr.prove_one_step_simple_serial();
     recursion_mgr.prove_one_step_simple_serial();*/
-    recursion_mgr.finalize_tree(&circuits)?;
+    recursion_mgr.finalize_tree(&circuits).await?;
     timer.lap("finalized tree");
     println!(
         "recursion_mgr.leaf_proofs.len() = {}",
@@ -137,7 +137,7 @@ fn run_prove_agg_example_2() -> anyhow::Result<()> {
 
     let final_proof = &recursion_mgr.agg_proofs[0];
     println!("final_proof.agg_header: {:?}", &final_proof.agg_header);
-    let final_proof_tree_root = recursion_mgr.get_proof_tree_root();
+    let final_proof_tree_root = recursion_mgr.get_proof_tree_root().await;
 
     assert_eq!(
         final_proof.agg_header.state_transition_start, start_proof_tree_root,
@@ -151,7 +151,7 @@ fn run_prove_agg_example_2() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_prove_agg_example_1() -> anyhow::Result<()> {
+async fn run_prove_agg_example_1() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("run_prove_agg_example_1");
     timer.lap("start");
 
@@ -187,9 +187,9 @@ fn run_prove_agg_example_1() -> anyhow::Result<()> {
     );
     let mut recursion_mgr = PortableQTreeRecursionManager::new(
         proof_tree_height,
-    );
+    ).await;
     timer.lap("created SimpleQTreeRecursionManager");
-    let start_proof_tree_root = recursion_mgr.get_proof_tree_root();
+    let start_proof_tree_root = recursion_mgr.get_proof_tree_root().await;
 
     timer.lap("start: printing_recursion_mgr_common_data");
     println!("\n\n\nleaf_circuit_common_data:\n\n{:?}\n\n\n",&ex_leaf_circuit.base_circuit_data.common);
@@ -209,14 +209,14 @@ fn run_prove_agg_example_1() -> anyhow::Result<()> {
         })
         .collect::<Vec<_>>();
     timer.lap("proved input leaf items");
-    let _leaf_mgr_inds = recursion_mgr.add_leaf_proofs(input_leaf_items);
+    let _leaf_mgr_inds = recursion_mgr.add_leaf_proofs(input_leaf_items).await;
     timer.lap("added leaf proofs");
     /*
     recursion_mgr.prove_one_step_simple_serial();
     recursion_mgr.prove_one_step_simple_serial();
     recursion_mgr.prove_one_step_simple_serial();
     recursion_mgr.prove_one_step_simple_serial();*/
-    recursion_mgr.finalize_tree(&circuits)?;
+    recursion_mgr.finalize_tree(&circuits).await?;
     timer.lap("finalized tree");
     println!(
         "recursion_mgr.leaf_proofs.len() = {}",
@@ -229,7 +229,7 @@ fn run_prove_agg_example_1() -> anyhow::Result<()> {
 
     let final_proof = &recursion_mgr.agg_proofs[0];
     println!("final_proof.agg_header: {:?}", &final_proof.agg_header);
-    let final_proof_tree_root = recursion_mgr.get_proof_tree_root();
+    let final_proof_tree_root = recursion_mgr.get_proof_tree_root().await;
 
     assert_eq!(
         final_proof.agg_header.state_transition_start, start_proof_tree_root,
@@ -243,7 +243,8 @@ fn run_prove_agg_example_1() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn main() {
-    run_prove_agg_example_1().unwrap();
-    run_prove_agg_example_2().unwrap();
+#[tokio::main]
+async fn main() {
+    run_prove_agg_example_1().await.unwrap();
+    run_prove_agg_example_2().await.unwrap();
 }

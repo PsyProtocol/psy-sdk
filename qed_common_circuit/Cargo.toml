@@ -24,6 +24,7 @@ qed_data = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
 maybe-async = { workspace = true }
+tokio = { workspace = true }
 
 k256 = { workspace = true }
 

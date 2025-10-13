@@ -359,7 +359,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
         wallet.circuit.get_verifier_config_ref().into(),
     );
 
-    main_circuits.register_info(&mut circuit_info);
+    main_circuits.register_info(&mut circuit_info).await;
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(
             contract_id.to_canonical_u64() as u32,
@@ -388,12 +388,12 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     let mut mgr = UserProvingSessionManager::<GoldilocksField,QEDHasher,_,C,D>::new(
         lps,
         circuit_info,
-        main_circuits.ups_circuit_whitelist_root()?
-    )?;
+        main_circuits.ups_circuit_whitelist_root().await?,
+    ).await?;
 
     timer.lap("START USER PROVING SESSION");
 
-    mgr.prove_ups_start(&main_circuits)?;
+    mgr.prove_ups_start(&main_circuits).await?;
     timer.lap("proved ups_start");
 
     mgr.prove_contract_call(
@@ -404,7 +404,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
         vec![
             GoldilocksField::from_noncanonical_u64(1000)
         ]
-    )?;
+    ).await?;
     timer.lap("proved ups_cfc_standard_tx");
 
 
@@ -418,7 +418,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(2),
             GoldilocksField::from_noncanonical_u64(100),
         ]
-    )?;
+    ).await?;
     timer.lap("proved ups_cfc_standard_tx");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
@@ -426,7 +426,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits)?;
+    mgr.proof_tree_state.finalize_tree(&main_circuits).await?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param =SimpleQEDPrivateKey::new(priv_key).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(
@@ -437,7 +437,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
          public_key_param,
         signature_proof,
          wallet.circuit.get_verifier_config_ref().to_owned()
-    )?;
+    ).await?;
     timer.lap("Proved End Cap for UPS Session 🎉");
 
     // the end cap proof the proof that we send off to the network 🎉
