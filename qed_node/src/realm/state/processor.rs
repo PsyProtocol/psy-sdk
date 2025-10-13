@@ -38,6 +38,7 @@ use qed_data::{
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
 use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
+use qed_store::queue::redis_queue::MAX_CHECKPOINT_COUNT;
 use qed_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
     queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm, redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition},
@@ -926,7 +927,7 @@ impl<
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
-        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, 256).await?;
+        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64).await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
 
