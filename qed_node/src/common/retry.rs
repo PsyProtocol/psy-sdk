@@ -2,9 +2,9 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::time::Duration;
 use anyhow::anyhow;
-use tracing::error;
+use tracing::{error, debug};
 
-/// Configuration for retry mechanisms in RealmProofSender
+/// Configuration for retry mechanisms
 #[derive(Clone, Debug)]
 pub struct RetryConfig {
     pub max_retries: u32,
@@ -22,38 +22,63 @@ impl Default for RetryConfig {
     }
 }
 
+/// Public standalone retry function for any async operation
+pub async fn retry_with_backoff<T, F, Fut, E>(
+    config: &RetryConfig,
+    operation_name: &str,
+    mut operation: F,
+) -> anyhow::Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, E>>,
+    E: Debug,
+{
+    for attempt in 0..config.max_retries {
+        match operation().await {
+            Ok(result) => {
+                if attempt > 0 {
+                    debug!("{} succeeded on attempt {}", operation_name, attempt + 1);
+                }
+                return Ok(result);
+            }
+            Err(err) => {
+                error!(
+                    "{} failed: {:?}, attempt {}/{}",
+                    operation_name, err, attempt + 1, config.max_retries
+                );
 
+                if attempt < config.max_retries - 1 {
+                    let delay = if config.exponential_backoff {
+                        Duration::from_millis(config.base_delay_ms * 2_u64.pow(attempt))
+                    } else {
+                        Duration::from_millis(config.base_delay_ms)
+                    };
+
+                    debug!("Retrying {} after {:?}", operation_name, delay);
+                    tokio::time::sleep(delay).await;
+                }
+            }
+        }
+    }
+
+    Err(anyhow!(
+        "{} failed after {} attempts",
+        operation_name, config.max_retries
+    ))
+}
+
+// Optional: Keep the trait if you want backwards compatibility or might use it elsewhere
 pub trait Retryable {
     fn retry_config(&self) -> RetryConfig {
         RetryConfig::default()
     }
 
-    /// Generic retry function for any async operation
     async fn retry_with_backoff<T, F, Fut, E>(&self, operation_name: &str, mut operation: F) -> anyhow::Result<T>
     where
-        F: Fn() -> Fut,
-        Fut: Future<Output =Result<T, E>>,
+        F: FnMut() -> Fut,
+        Fut: Future<Output = Result<T, E>>,
         E: Debug,
     {
-        for attempt in 0..self.retry_config().max_retries {
-            match operation().await {
-                Ok(result) => return Ok(result),
-                Err(err) => {
-                    error!("{} failed: {:?}, attempt {}/{}", operation_name, err, attempt + 1, self.retry_config().max_retries);
-
-                    if attempt < self.retry_config().max_retries - 1 {
-                        let delay = if self.retry_config().exponential_backoff {
-                            Duration::from_millis(self.retry_config().base_delay_ms * 2_u64.pow(attempt))
-                        } else {
-                            Duration::from_millis(self.retry_config().base_delay_ms)
-                        };
-                        tokio::time::sleep(delay).await;
-                    }
-                }
-            }
-        }
-
-        Err(anyhow!("{} failed after {} attempts", operation_name, self.retry_config().max_retries))
+        retry_with_backoff(&self.retry_config(), operation_name, operation).await
     }
 }
-

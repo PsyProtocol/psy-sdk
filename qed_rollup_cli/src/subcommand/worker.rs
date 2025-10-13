@@ -7,6 +7,7 @@ use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_data::config::store_config::{QEDFelt, QEDHash, QEDHasher};
 use qed_node::common::verifier::get_cached_generic_verifier;
+use qed_node::common::retry::{RetryConfig, retry_with_backoff};
 use qed_node::worker::{
     job_tracker::{JobLocation, WorkerJobTracker},
     run_worker,
@@ -88,36 +89,27 @@ pub async fn run(
     let worker_coordinator_client = WorkerCoordinatorClient::new(
         &config.network.coordinator_configs[0].rpc_url[0],
     ).await?;
-    // Retry mechanism for getting user ID
-    const MAX_RETRIES: u32 = 60;
-    const RETRY_DELAY_SECS: u64 = 10;
 
-    let user_id = {
-        let mut retry_count = 0;
-        loop {
-            match worker_coordinator_client.get_user_id(&worker_public_key).await {
-                Ok(id) => {
-                    info!("Successfully retrieved user ID: {}", id);
-                    break id;
-                }
-                Err(e) => {
-                    retry_count += 1;
-
-                    if retry_count > MAX_RETRIES {
-                        error!("Failed to get user ID after {} attempts", MAX_RETRIES);
-                        return Err(anyhow::anyhow!("Failed to retrieve user ID: {}", e));
-                    }
-
-                    warn!(
-                        "Failed to get user ID (attempt {}/{}): {}. Retrying in {} seconds...",
-                        retry_count, MAX_RETRIES, e, RETRY_DELAY_SECS
-                    );
-
-                    sleep(Duration::from_secs(RETRY_DELAY_SECS)).await;
-                }
-            }
-        }
+    // Use retry_with_backoff from retry.rs
+    let retry_config = RetryConfig {
+        max_retries: 60,
+        base_delay_ms: 10000,  // 10 seconds
+        exponential_backoff: false,  // Keep constant delay like original
     };
+
+    let user_id = retry_with_backoff(
+        &retry_config,
+        &format!("get user ID for {}", worker_public_key),
+        || async {
+            worker_coordinator_client.get_user_id(&worker_public_key).await
+        },
+    ).await
+        .map_err(|e| {
+            error!("Failed to get user ID after all retries");
+            anyhow::anyhow!("Failed to retrieve user ID: {}", e)
+        })?;
+
+    info!("Successfully retrieved user ID: {}", user_id);
 
     let recipient_user_id = recipient.unwrap_or(user_id);
     let user_qhashout = user_id_to_qhashout(recipient_user_id);
@@ -187,7 +179,6 @@ pub async fn run(
     info!("Worker exit.");
     Ok(())
 }
-
 
 pub fn user_id_to_qhashout(user_id: u64) -> QHashOut<F> {
     let elements = [
