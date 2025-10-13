@@ -1,5 +1,9 @@
+pub mod processor_v2;
+pub use processor_v2::*;
+
 use std::ops::Deref;
 use crate::common::verifier::get_cached_generic_verifier;
+use crate::coordinator::client_v2::ConcreteCoordinatorClient;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use crate::realm::{C, D, F};
@@ -43,7 +47,7 @@ use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_store::node::realm::QEDRealmStoreWriterAsyncImm;
 use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use plonky2::field::types::Field;
-use qed_data::traits::qdatastore::{qtreedata::{QTreeDataStoreWriterSync}, qmetadata::QMetaDataStoreWriterSync};
+use qed_data::traits::qdatastore::{qtreedata::QTreeDataStoreWriterSync, qmetadata::QMetaDataStoreWriterSync};
 use std::{str::FromStr, collections::HashMap};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use super::backup::{RealmS3BackupClient, try_backup_realm_checkpoint};
@@ -54,6 +58,8 @@ struct RealmBackupRequest {
     pair_to_set: Vec<(Vec<u8>, Vec<u8>)>,
     removed_keys: Vec<Vec<u8>>,
 }
+use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
+use crate::realm::state::queue_factory::QueueFactory;
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<QEDStore>,
@@ -79,6 +85,8 @@ pub struct RealmProcessor {
     pub pending_checkpoint_id: AtomicU64,
     pub shutdown_requested: Arc<AtomicBool>,
     pub backup_tx: Option<mpsc::UnboundedSender<RealmBackupRequest>>,
+    pub queue_helper: Arc<RealmEdgeQueueHelper<F>>,
+    pub coordinator_client: Arc<ConcreteCoordinatorClient>,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig, shutdown_requested: Arc<AtomicBool>) -> anyhow::Result<()> {
@@ -121,6 +129,14 @@ impl RealmProcessor {
             }
         };
 
+        let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(config.coordinator_addr)?);
+        let queue_helper = QueueFactory::create_rsmq_helper::<F>(
+            &config.redis.redis_uri,
+            config.redis.pool_size.unwrap_or(10),
+            config.realm.realm_id,
+            Arc::new(store.clone()),
+        ).await?;
+
         let processor = RealmProcessor {
             realm_config,
             max_processed_end_caps_per_block: config.realm.max_processed_end_caps_per_block.clone(),
@@ -136,6 +152,8 @@ impl RealmProcessor {
             pending_checkpoint_id: AtomicU64::new(0),
             shutdown_requested,
             backup_tx,
+            queue_helper: Arc::new(queue_helper),
+            coordinator_client,
         };
         Ok(processor)
     }

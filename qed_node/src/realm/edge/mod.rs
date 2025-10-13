@@ -2,10 +2,12 @@ pub mod error;
 pub mod handler;
 pub mod rpc;
 mod sync;
+pub mod edge_v2;
+pub use edge_v2::run_realm_edge_v2;
 
 use crate::realm::edge::sync::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
-use super::{config::RealmEdgeConfig, C, D};
+use super::{config::RealmEdgeConfig, C, D, F};
 use crate::common::jobs::JobSchedulerRpcServer;
 use crate::common::health::HealthLayer;
 use crate::common::verifier::get_cached_generic_verifier;
@@ -24,6 +26,8 @@ use sync::spawn_active_checkpoint_sync_task;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
 use crate::common::whitelist::WhiteListCache;
+use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
+use crate::realm::state::queue_factory::QueueFactory;
 use crate::watcher::watcher_client::WatcherClient;
 
 pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedisAsync> {
@@ -53,6 +57,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         config.redis.pool_size.unwrap_or(20),
     )
     .await?;
+
     // Create proof storage
     let proof_store = Arc::new(proof_store);
     let checkpoint_queue = proof_store.clone();
@@ -60,6 +65,13 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     // Create storage reader based on backend configuration
     let store = QEDStore::new(&config.backend.to_backend()).await?;
     let store_reader = Arc::new(store);
+
+    let queue_helper = QueueFactory::create_rsmq_helper::<F>(
+        &config.redis.redis_uri,
+        config.redis.pool_size.unwrap_or(10),
+        config.realm.realm_id,
+        store_reader.clone(),
+    ).await?;
 
     debug!("created store reader successfully!");
     // Create proof verifier
@@ -107,7 +119,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let watcher_client = Arc::new(w);
     info!("✅ Watcher client initialized successfully");
 
-
     let handler = RealmEdgeHandler::new(
         edge_ctx.clone(),
         job_notify_queue,
@@ -115,7 +126,9 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         whitelist_cache,
         watcher_client,
         &config.rpc.coordinator_addr,
+        Arc::new(queue_helper),
     )?;
+
     let mut rpc_module = RealmEdgeRpcServer::into_rpc(handler.clone());
     let job_rpc_module = JobSchedulerRpcServer::into_rpc(handler);
     rpc_module.merge(job_rpc_module)?;

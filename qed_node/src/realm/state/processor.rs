@@ -54,6 +54,7 @@ const D: usize = 2;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct RealmConfig {
     pub realm_id: u32,
+    pub realm_manager_id: u64,
     pub users_per_realm: usize,
     pub realm_root_level: u8,
 
@@ -84,6 +85,7 @@ impl RealmConfig {
                 .unwrap()
                 .root,
             realm_id,
+            realm_manager_id: 0,
             default_user_state_tree_root: DEFAULT_USER_STATE_TREE_ROOT,
             contract_state_tree_update_channel_id: REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID,
         }

@@ -210,6 +210,9 @@ shutdown:
 run-all: shutdown init compile
 	@./scripts/run_all.sh
 
+run-all-v2: shutdown init compile
+	@./scripts/run_all_v2.sh
+
 run-scenario0:
 	@./scripts/run_scenario0.sh
 
@@ -248,6 +251,40 @@ run-realm-processor1:
 
 run-realm-edge1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+      --listen-addr=0.0.0.0:8547 \
+      --redis-uri=redis://127.0.0.1:6381 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm1 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=1 \
+      --queue-biz-key=rwq1
+
+run-realm-processor-v2:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor-v2 \
+      --redis-uri=redis://127.0.0.1:6380 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm0 \
+      --coordinator-addr=http://127.0.0.1:8545
+
+run-realm-processor1-v2:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor-v2 \
+      --redis-uri=redis://127.0.0.1:6381 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm1 \
+      --node-id=2 \
+      --realm-id=1 \
+      --queue-biz-key=rwq1 \
+      --coordinator-addr=http://127.0.0.1:8545
+
+run-realm-edge-v2:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge-v2 \
+      --redis-uri=redis://127.0.0.1:6380 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm0 \
+      --coordinator-addr=http://127.0.0.1:8545
+
+run-realm-edge1-v2:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge-v2 \
       --listen-addr=0.0.0.0:8547 \
       --redis-uri=redis://127.0.0.1:6381 \
       --database lmdbx \
@@ -610,6 +647,9 @@ sync-store-realm-processor:
 
 sync-store-realm-processor1:
 	@./target/${PROFILE}/qed_rollup_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm1 --realm-id 1 --queue-biz-key rwq1 --redis-uri redis://127.0.0.1:6381
+
+get-realm-status:
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_current_realm_status_on_coordinator", "params": {"realm_id": ${REALM_ID}}, "id": 1}' | jq .
 
 # Check if user exists in realm
 check-user-id:

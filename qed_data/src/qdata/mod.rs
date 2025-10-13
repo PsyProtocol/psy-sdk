@@ -13,3 +13,8 @@ pub mod hash_key;
 pub mod hash_cache_result;
 pub mod hash_key_with_id;
 pub mod user_public_key;
+pub mod staging_checkpoint_key;
+pub mod staging_checkpoint_info;
+pub mod staging_delta_record_key;
+pub mod realm_status;
+pub mod realm_id_key;

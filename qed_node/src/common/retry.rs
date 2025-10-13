@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::time::Duration;
 use anyhow::anyhow;
-use tracing::error;
+use tracing::warn;
 
 /// Configuration for retry mechanisms in RealmProofSender
 #[derive(Clone, Debug)]
@@ -39,7 +39,7 @@ pub trait Retryable {
             match operation().await {
                 Ok(result) => return Ok(result),
                 Err(err) => {
-                    error!("{} failed: {:?}, attempt {}/{}", operation_name, err, attempt + 1, self.retry_config().max_retries);
+                    warn!("{} failed: {:?}, attempt {}/{}", operation_name, err, attempt + 1, self.retry_config().max_retries);
 
                     if attempt < self.retry_config().max_retries - 1 {
                         let delay = if self.retry_config().exponential_backoff {

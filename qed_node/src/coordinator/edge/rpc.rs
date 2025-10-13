@@ -14,6 +14,7 @@ use qed_data::qdata::user::QEDUserLeaf;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_data::config::store_config::QCheckpointSyncInfoCompact;
+use crate::common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator, RealmDataForCoordinator};
 
 // Import the request types from qed_prover
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
@@ -46,6 +47,9 @@ pub trait CoordinatorEdgeRpc {
         proof: ProofWithPublicInputs<F, C, D>,
         realm_id: u64,
     ) -> RpcResult<String>;
+
+    #[method(name = "submit_realm_result")]
+    async fn submit_realm_result(&self, realm_result: RealmDataForCoordinator<F>) -> RpcResult<()>;
 
     #[method(name = "get_latest_checkpoint")]
     async fn get_latest_checkpoint(&self) -> RpcResult<LatestCheckpointResponse>;
@@ -246,4 +250,16 @@ pub trait CoordinatorEdgeRpc {
 
     #[method(name = "get_graphviz")]
     async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String>;
+
+    #[method(name = "get_current_realm_status_on_coordinator")]
+    async fn get_current_realm_status_on_coordinator(&self, realm_id: u64) -> RpcResult<BasicRealmStatusOnCoordinator<F>>;
+
+    #[method(name = "get_current_checkpoint_id")]
+    async fn get_current_checkpoint_id(&self) -> RpcResult<u64>;
+
+    #[method(name = "get_latest_block_updates_from_coordinator")]
+    async fn get_latest_block_updates_from_coordinator(&self, realm_id: u32, from_checkpoint: u64, to_checkpoint: u64) -> RpcResult<Vec<GlobalBlockUpdateFromCoordinator<F>>>;
+
+    #[method(name = "wait_until_coordinator_completed")]
+    async fn wait_until_coordinator_completed(&self, realm_id: u64, checkpoint_id: u64) -> RpcResult<GlobalBlockUpdateFromCoordinator<F>>;
 }

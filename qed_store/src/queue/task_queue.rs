@@ -1037,6 +1037,10 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
 // Implementation-specific methods
 impl QProvingTaskStoreImpl {
+    pub async fn get_job_graph_mut(&self) -> Arc<Mutex<QProvingJobGraph>> {
+        self.job_graph.clone()
+    }
+
     async fn layer_exists(&self, layer_id: &LayerId) -> Result<bool> {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layers_key();

@@ -75,16 +75,17 @@ use qed_store::{
     },
 };
 use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
+use crate::common_v2::traits::realm::BasicRealmStatusOnCoordinator;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
 use qed_store::store::journal::{Journal, JournalStore};
 use qed_store::store::QEDStore;
 use crate::common::slot::SLOT_SIZE;
+use qed_data::qdata::realm_status::BasicRealmStatus;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
-
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct CoordinatorConfig {
     pub users_per_realm: usize,
@@ -428,6 +429,20 @@ impl<
             }
             is
         }).collect::<Vec<_>>();
+
+        let (realm_ids, realm_statuses): (Vec<u64>, Vec<BasicRealmStatus<F>>) = guta_queue_items
+            .iter()
+            .map(|x| {
+                (
+                    x.realm_id,
+                    BasicRealmStatus {
+                        checkpoint_id,
+                        realm_root_hash: x.top_line_proof.new_root,
+                    },
+                )
+            })
+            .unzip();
+        self.store.set_realm_statuses(&realm_ids, &realm_statuses).await?;
 
         if guta_queue_items.len() == 0 {
             tracing::debug!("No GUTA queue items");

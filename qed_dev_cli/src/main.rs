@@ -67,6 +67,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::Job(args) => {
             subcommand::job::run(args).await?;
         }
+        Commands::RealmStatus => {
+            subcommand::realm_status::run().await?;
+        }
     }
     
     Ok(())
