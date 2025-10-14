@@ -649,6 +649,30 @@ impl QProvingTaskStoreImpl {
         self.rsmq.change_message_visibility(&queue_id, &job.msg_id, Duration::from_secs(0)).await?;
         Ok(())
     }
+
+    /// Set custom visibility timeout for a job
+    /// This allows you to control when the job becomes available for other workers to claim
+    pub async fn set_job_visibility(&self, job: &QJob, visibility_seconds: u64) -> Result<()> {
+        let queue_id = self.layer_queue_id(&job.layer_id);
+        let visibility = Duration::from_secs(visibility_seconds);
+
+        self.rsmq
+            .change_message_visibility(&queue_id, &job.msg_id, visibility)
+            .await
+            .context(format!(
+                "Failed to set visibility to {} seconds for job {}",
+                visibility_seconds, job
+            ))?;
+
+        info!(
+            "Set visibility to {} seconds for job {} (msg_id: {})",
+            visibility_seconds, job, job.msg_id
+        );
+
+        Ok(())
+    }
+
+
 }
 
 #[derive(Debug, PartialEq, Clone)]

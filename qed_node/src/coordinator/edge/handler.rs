@@ -1860,6 +1860,11 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                         "🚫 Job {:?} skipped: proof_store does NOT contain witness_id={:?}",
                         job.job_id, witness_id
                     );
+                    // set_job_visibility
+                    self.task_store
+                        .set_job_visibility(&job, 1)
+                        .await
+                        .map_err(RpcError::Anyhow)?;
                     Ok(None)
                 }
             }
