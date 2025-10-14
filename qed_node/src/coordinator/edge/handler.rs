@@ -1809,24 +1809,59 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                 self.acknowledge_job_completion(&job, &worker_id).await.map_err(RpcError::Anyhow)?;
                 Ok(None)
             }
-            Some(job) if self.ctx.proof_store.contains_id(job.job_id.get_input_witness_id()).await.is_ok_and(|x| x) => {
-                debug!("Pending job from current task: {:?}", job);
+            // Some(job) if self.ctx.proof_store.contains_id(job.job_id.get_input_witness_id()).await.is_ok_and(|x| x) => {
+            //     debug!("Pending job from current task: {:?}", job);
+            //
+            //     // Report job started event to watcher
+            //     let start_event = JobStartedEvent {
+            //         job_id: job.job_id,
+            //         worker_id,
+            //         start_time: current_timestamp_mills(),
+            //         layer_id: job.layer_id,
+            //     };
+            //
+            //     // Send to watcher queue
+            //     let message = WatcherMessage::JobStarted(start_event);
+            //     if let Err(e) = self.watcher_client.send_event(message).await {
+            //         warn!("⚠️ Failed to report job started to watcher: {}", e);
+            //     }
+            //
+            //     Ok(Some(job))
+            // }
+            Some(job) => {
+                let witness_id = job.job_id.get_input_witness_id();
+                let contains = self
+                    .ctx
+                    .proof_store
+                    .contains_id(witness_id)
+                    .await
+                    .unwrap_or(false);
 
-                // Report job started event to watcher
-                let start_event = JobStartedEvent {
-                    job_id: job.job_id,
-                    worker_id,
-                    start_time: current_timestamp_mills(),
-                    layer_id: job.layer_id,
-                };
+                if contains {
+                    debug!("✅ Pending job from current task: {:?}", job);
 
-                // Send to watcher queue
-                let message = WatcherMessage::JobStarted(start_event);
-                if let Err(e) = self.watcher_client.send_event(message).await {
-                    warn!("⚠️ Failed to report job started to watcher: {}", e);
+                    // Report job started event to watcher
+                    let start_event = JobStartedEvent {
+                        job_id: job.job_id,
+                        worker_id,
+                        start_time: current_timestamp_mills(),
+                        layer_id: job.layer_id,
+                    };
+
+                    // Send to watcher queue
+                    let message = WatcherMessage::JobStarted(start_event);
+                    if let Err(e) = self.watcher_client.send_event(message).await {
+                        warn!("⚠️ Failed to report job started to watcher: {}", e);
+                    }
+
+                    Ok(Some(job))
+                } else {
+                    warn!(
+                        "🚫 Job {:?} skipped: proof_store does NOT contain witness_id={:?}",
+                        job.job_id, witness_id
+                    );
+                    Ok(None)
                 }
-
-                Ok(Some(job))
             }
             _ => {
                 trace!("No pending job from current task");
