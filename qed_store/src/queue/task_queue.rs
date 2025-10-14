@@ -758,6 +758,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
     }
 
     async fn claim_job_from_current_layer(&self, worker_id: &str) -> Result<Option<QJob>> {
+
         // Peek at the current layer (head of the list)
         let current_layer = match self.peek_current_layer().await? {
             Some(layer) => layer,
@@ -769,7 +770,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
         let queue_id = self.layer_queue_id(&current_layer);
 
-        // Try to claim a job from the current layer's merged queue
+        // Try to claim a job from the current layer
         match self.rsmq.receive_object_with_id::<QJob>(&queue_id, Some(VISIBILITY_TIMEOUT)).await? {
             Some((mut job, msg_id)) => {
                 job = job.with_msg_id(msg_id);
