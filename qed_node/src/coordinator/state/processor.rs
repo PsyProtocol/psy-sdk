@@ -79,7 +79,7 @@ use tracing::{debug, error, info, trace, warn};
 use tracing_subscriber::fmt::time;
 use qed_store::store::journal::{Journal, JournalStore};
 use qed_store::store::QEDStore;
-use crate::common::slot::SLOT_SIZE;
+use crate::common::slot::{LocalClock, Slot, SLOT_SIZE};
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -1116,16 +1116,23 @@ impl<
             "Waiting for user registration aggregation job to complete for checkpoint {}",
             new_checkpoint_id
         );
-        let register_users_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_user_registration_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
-
         debug!(
             "Waiting for deploy contracts aggregation job to complete for checkpoint {}",
             new_checkpoint_id
         );
-        let deploy_contracts_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_deploy_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
-
         debug!("Waiting for GUTA aggregation job to complete for checkpoint {}", new_checkpoint_id);
-        let guta_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_guta_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
+        // let remaining_time = Some(Duration::from_millis(LocalClock.get_current_slot_remaining_time()));
+        let remaining_time = Some(Duration::from_millis(5*SLOT_SIZE));
+        let (register_users_proof, deploy_contracts_proof, guta_proof) = match tokio::join!(
+            self.prover_queue.wait_for_job_proof::<C, D>(*root_user_registration_job, remaining_time),
+            self.prover_queue.wait_for_job_proof::<C, D>(*root_deploy_job, remaining_time),
+            self.prover_queue.wait_for_job_proof::<C, D>(*root_guta_job, remaining_time),
+        ) {
+            (Ok(register_users_proof), Ok(deploy_contracts_proof), Ok(guta_proof)) => (register_users_proof, deploy_contracts_proof, guta_proof),
+            (Err(e), _, _) => anyhow::bail!("Failed to wait for register users job proofs: {}", e),
+            (_, Err(e), _) => anyhow::bail!("Failed to wait for deploy contracts job proofs: {}", e),
+            (_, _, Err(e)) => anyhow::bail!("Failed to wait for GUTA job proofs: {}", e),
+        };
 
         let part_1_input = CircuitInputWithDependencies {
             input: QCAggUserRegistartionDeployContractsGUTAInput {
