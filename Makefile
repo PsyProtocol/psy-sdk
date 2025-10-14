@@ -523,9 +523,9 @@ mint:
 
 transfer:
 	@echo "USER0 transferring 250 to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name batch_simple_transfer --inputs 1048576 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 250000000000 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --sign-type $(SIGN_TYPE)
 	@echo "USER1 transferring 250 to USER0..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name batch_simple_transfer --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 250000000000 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --sign-type $(SIGN_TYPE)
 
 claim:
 	@echo "USER1 claiming transfer..."
