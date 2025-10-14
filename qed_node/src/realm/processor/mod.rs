@@ -140,12 +140,12 @@ impl RealmProcessor {
             Arc::new(store.clone()),
         ).await?;
 
-        edge::spawn_active_checkpoint_sync_task(
-            config.realm.realm_id,
-            Arc::new(store.clone()),
-            sync_checkpoint.clone(),
-            config.coordinator_addr.clone(),
-        ).await?;
+        // edge::spawn_active_checkpoint_sync_task(
+        //     config.realm.realm_id,
+        //     Arc::new(store.clone()),
+        //     sync_checkpoint.clone(),
+        //     config.coordinator_addr.clone(),
+        // ).await?;
 
         let processor = RealmProcessor {
             realm_config,
@@ -399,6 +399,16 @@ impl RealmProcessor {
             expected_checkpoint
         ).await
     }
+
+    pub async fn wait_expected_checkpoint(&self, expected_checkpoint: u64) -> anyhow::Result<CheckpointSyncInfo<F>>{
+        loop {
+            if let Ok(block) = self.coordinator_client.get_checkpoint_sync_info(self.realm_config.realm_id, expected_checkpoint).await {
+                return Ok(block);
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+    }
+
     pub async fn sync_checkpoint(
         &self,
         sync_ctx: &ConcreteRealmProcessorContext,
@@ -406,7 +416,8 @@ impl RealmProcessor {
         local_checkpoint_id: u64,
     ) -> anyhow::Result<SyncCheckpointResult> {
         trace!("local_checkpoint_id {}, expected_checkpoint {}",local_checkpoint_id, expected_checkpoint);
-        let block = self.sync_wait_expected_checkpoint(expected_checkpoint).await;
+        // let block = self.sync_wait_expected_checkpoint(expected_checkpoint).await;
+        let block = self.wait_expected_checkpoint(expected_checkpoint).await;
         match block {
             Ok(block) => {
                 // checkpoint.l2_block_state

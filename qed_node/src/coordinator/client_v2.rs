@@ -101,8 +101,8 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
     async fn submit_realm_result(&self, realm_result: &RealmDataForCoordinator<F>) -> anyhow::Result<()> {
         self.retry_with_backoff("submit_realm_result", || async {
             match self.rpc_client.submit_realm_result(realm_result).await {
-                Ok(result) => {
-                    trace!("Successfully submitted job to coordinator, result: {}", result);
+                Ok(_) => {
+                    trace!("Successfully submitted job to coordinator");
                     Ok(())
                 }
                 Err(err) => {
@@ -122,10 +122,7 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
         realm_id: u32,
         checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo<F>> {
-        self.retry_with_backoff("get_checkpoint_sync_info", || async {
-            self.rpc_client.get_checkpoint_sync_info(realm_id, checkpoint_id).await
-        })
-        .await
+        self.rpc_client.get_checkpoint_sync_info(realm_id, checkpoint_id).await.map_err(|e| anyhow::anyhow!(e))
     }
 
     async fn submit_guta_v1(
@@ -136,8 +133,8 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
     ) -> anyhow::Result<()> {
         self.retry_with_backoff("submit_guta_v1", || async {
             match self.rpc_client.submit_guta_v1(input, proof, realm_id).await {
-                Ok(result) => {
-                    trace!("Successfully submitted job to coordinator, result: {}", result);
+                Ok(_) => {
+                    trace!("Successfully submitted job to coordinator");
                     Ok(())
                 }
                 Err(err) => {
