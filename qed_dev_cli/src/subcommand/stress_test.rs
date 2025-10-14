@@ -63,9 +63,9 @@ pub(crate) fn load_rpc_config(config_path: &str) -> Result<RpcConfig> {
     Ok(rpc_config)
 }
 
-pub(crate) fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -> Result<bool> {
+pub(crate) async fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -> Result<bool> {
     let mut start_checkpoint = st_provider
-        .get_latest_l2_block_state()?
+        .get_latest_l2_block_state().await?
         .checkpoint_id;
     info!("current checkpoint: {}", start_checkpoint);
     let local_clock = LocalClock{};
@@ -77,7 +77,7 @@ pub(crate) fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -> Resu
         let slot = local_clock.get_current_slot();
         thread::sleep(interval);
         let last_checkpoint = st_provider
-            .get_latest_l2_block_state()?
+            .get_latest_l2_block_state().await?
             .checkpoint_id;
         info!("get latest checkpoint: {}", last_checkpoint);
         let duration = start_time.elapsed();
@@ -90,7 +90,7 @@ pub(crate) fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -> Resu
         }
         let latest_slot = local_clock.get_current_slot();
         if pre_checkpoint == last_checkpoint && latest_slot > slot {
-            st_provider.produce_block::<F>()?;
+            st_provider.produce_block::<F>().await?;
         }
         pre_checkpoint = last_checkpoint;
         if duration > timeout_duration {

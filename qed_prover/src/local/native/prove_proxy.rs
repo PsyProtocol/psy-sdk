@@ -592,23 +592,17 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
     }
 
     async fn register_software_defined_circuit(&self, input: QSoftwareDefinedSignatureInput) -> Result<QHashOut<F>, ErrorObjectOwned> {
-        let input = SoftwareDefinedSignatureInput::QED(input);
-        let sdc = tokio::task::spawn_blocking(move || SoftwareDefinedSignatureCircuit::new(&input))
-            .await
-            .map_err(|join_err| {
-                ErrorObjectOwned::owned(
-                    1,
-                    "register_software_defined_circuit: task schedule failed",
-                    Some(format!("Thread pool task execution failed: {}", join_err)),
-                )
-            })?;
+        todo!("register_software_defined_circuit");
+        // let input = SoftwareDefinedSignatureInput::QED(input);
+        // let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
 
-        let fingerprint = sdc.get_fingerprint();
-        tracing::info!("register software defined circuit: {}", fingerprint.to_string());
-        if let Some(_) = self.software_defined_circuits.insert(fingerprint, sdc) {
-            tracing::warn!("software defined circuit `{}` is already registered", fingerprint.to_string());
-        };
-        Ok(fingerprint)
+        // let fingerprint = sdc.get_fingerprint();
+        // tracing::info!("register software defined circuit: {}",
+        // fingerprint.to_string()); if let Some(_) =
+        // self.software_defined_circuits.insert(fingerprint, sdc) {
+        //     tracing::warn!("software defined circuit `{}` is already
+        // registered", fingerprint.to_string()); };
+        // Ok(fingerprint)
     }
 
     async fn prove_software_defined_sign(
@@ -619,30 +613,20 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         sig_hash: QHashOut<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_software_defined_sign");
-        let input = SoftwareDefinedSignatureWitnessInput::QED(input);
+        todo!("prove_software_defined_sign");
+        // let input = SoftwareDefinedSignatureWitnessInput::QED(input);
 
-        if let Some(sdc) = self.software_defined_circuits.get(&fingerprint) {
-            let mut sdc_clone = sdc.clone();
-            tokio::task::spawn_blocking(move || {
-                sdc_clone
-                    .prove(private_key, &input, sig_hash)
-                    .map_err(|err| ErrorObjectOwned::owned(1, "software defined signature proving error", Some(err.to_string())))
-            })
-            .await
-            .map_err(|join_err| {
-                ErrorObjectOwned::owned(
-                    1,
-                    "prove_software_defined_sign: task schedule failed",
-                    Some(format!("Thread pool task execution failed: {}", join_err)),
-                )
-            })?
-        } else {
-            Err(ErrorObjectOwned::owned(
-                1,
-                format!("software defined circuit {} is not found", fingerprint.to_string()),
-                Some(format!("fingerprint: {}", fingerprint.to_string())),
-            ))
-        }
+        // if let Some(mut sdc) =
+        // self.software_defined_circuits.get_mut(&fingerprint) {
+        //     sdc.prove(private_key, &input, sig_hash).await
+        //         .map_err(|err| ErrorObjectOwned::owned(1, "software defined
+        // signature proving error", Some(err.to_string()))) } else {
+        //     Err(ErrorObjectOwned::owned(
+        //         1,
+        //         format!("software defined circuit {} is not found",
+        // fingerprint.to_string()),         Some(format!("fingerprint:
+        // {}", fingerprint.to_string())),     ))
+        // }
     }
 
     async fn prove_ups_end_cap(

@@ -165,7 +165,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
-fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
+async fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
     contract_id: GoldilocksField,
     fn_circuit_def: &DPNFunctionCircuitDefinition,
     lps: &mut QEDLocalProvingSessionStore<GoldilocksField, R>,
@@ -176,7 +176,7 @@ fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send +
         contract_id,
         fn_circuit_def,
         inputs.to_vec(),
-    )
+    ).await
 }
 
 fn compile_simple_mint_debug() -> anyhow::Result<DPNFunctionCircuitDefinition> {
@@ -296,7 +296,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
         &simple_mint_debug_def,
         &mut lps,
         &[GoldilocksField::from_noncanonical_u64(133700)],
-    )?;
+    ).await?;
 
     timer.lap("generated witness input");
     println!("witnesss_json:\n{:?}", &cfc_input);
@@ -323,7 +323,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(2),
             GoldilocksField::from_noncanonical_u64(1000),
         ],
-    )?;
+    ).await?;
 
     timer.lap("generated witness input");
     println!("witnesss_json:\n{:?}", &cfc_input);

@@ -26,7 +26,7 @@ pub struct KeyPair {
     pub public_key: ZKPublicKeyInfo<GoldilocksField>,
 }
 
-pub fn run(args: super::RegisterUserArgs) -> anyhow::Result<()> {
+pub async fn run(args: super::RegisterUserArgs) -> anyhow::Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
     if args.private_key.is_empty() {
         anyhow::bail!("you must provide --private-key");
@@ -41,14 +41,14 @@ pub fn run(args: super::RegisterUserArgs) -> anyhow::Result<()> {
     println!("{:?}", public_key.qfhash::<QEDHasher>().to_string());
     provider.register_user(QRegisterUserRPCRequest {
         public_key: public_key,
-    })?;
+    }).await?;
 
     println!("{}", serde_json::to_string_pretty(&public_key).unwrap());
 
     Ok(())
 }
 
-pub fn run_random(args: super::RandomArgs) -> anyhow::Result<()> {
+pub async fn run_random(args: super::RandomArgs) -> anyhow::Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
 
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
@@ -59,7 +59,7 @@ pub fn run_random(args: super::RandomArgs) -> anyhow::Result<()> {
 
         provider.register_user(QRegisterUserRPCRequest {
             public_key: public_key,
-        })?;
+        }).await?;
 
         let keypair = KeyPair {
             public_key,
@@ -71,14 +71,14 @@ pub fn run_random(args: super::RandomArgs) -> anyhow::Result<()> {
         std::thread::sleep(time::Duration::from_millis(100));
 
         if i % args.user_per_block == 0 && i != 0 {
-            provider.produce_block::<GoldilocksField>()?;
+            provider.produce_block::<GoldilocksField>().await?;
             #[cfg(not(target_arch = "wasm32"))]
             std::thread::sleep(time::Duration::from_secs(args.interval));
         }
     }
 
     if args.total_user % args.user_per_block != 0 {
-        provider.produce_block::<GoldilocksField>()?;
+        provider.produce_block::<GoldilocksField>().await?;
         #[cfg(not(target_arch = "wasm32"))]
         std::thread::sleep(time::Duration::from_secs(args.interval));
     }

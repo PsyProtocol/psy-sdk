@@ -99,19 +99,11 @@ impl RpcServer for RpcServerImpl {
         public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .exec_contract_call(public_key, contract_call_args)
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
-        Ok("exec contract call".to_string())
+        todo!("exec_contract_call");
     }
 
     async fn start_session(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .start_session(public_key)
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
-        Ok("start session".to_string())
+        todo!("start_session")
     }
 
     async fn prove_contract_call(
@@ -119,11 +111,7 @@ impl RpcServer for RpcServerImpl {
         public_key: QHashOut<F>,
         contract_call_arg: ContractCallArgs,
     ) -> Result<String, ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .prove_contract_call(public_key, contract_call_arg)
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
-        Ok("prove contract call".to_string())
+        todo!("prove contract call")
     }
 
     async fn prove_contract_calls(
@@ -131,66 +119,27 @@ impl RpcServer for RpcServerImpl {
         public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<String, ErrorObjectOwned> {
-        let wallet_session = self.wallet_session.clone();
-        match timeout(
-            Duration::from_secs(60),
-            tokio::task::spawn_blocking(move || {
-                wallet_session
-                    .write()
-                    .prove_contract_calls(public_key, contract_call_args)
-            })
-        ).await {
-            Ok(join_result) => {
-                match join_result {
-                    Ok(result) => {
-                        result.map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
-                        Ok("prove contract calls".to_string())
-                    }
-                    Err(join_err) => {
-                        Err(ErrorObject::owned(1, join_err.to_string(), None::<()>))
-                    }
-                }
-            }
-            Err(_timeout_err) => {
-                Err(ErrorObject::owned(1, "Timeout: prove_contract_calls took longer than 60 seconds".to_string(), None::<()>))
-            }
-        }
+        todo!("prove contract calls")
     }
 
     async fn sign_and_submit(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .sign_and_submit(public_key)
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
-        Ok("sign and submit".to_string())
+        todo!("sign_and_submit")
     }
 
     async fn register_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .register_user(private_key)
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
+        todo!("register_user")
     }
 
     async fn add_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .add_user(private_key)
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
+        todo!("add_user")
     }
 
     async fn get_zk_public_key(&self, private_key: QHashOut<F>) -> Result<ZKPublicKeyInfo<F>, ErrorObjectOwned> {
-        self.wallet_session
-            .read()
-            .get_zk_public_key(private_key)
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
+        todo!("get_zk_public_key")
     }
 
     async fn get_random_keypair(&self) -> Result<WalletKeyPair, ErrorObjectOwned> {
-        self.wallet_session
-            .read()
-            .get_random_keypair()
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
+        todo!("get_random_keypair") 
     }
 
     async fn deploy_contract(
@@ -198,11 +147,7 @@ impl RpcServer for RpcServerImpl {
         deployer: QHashOut<F>,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> Result<String, ErrorObjectOwned> {
-        self.wallet_session
-            .write()
-            .deploy_contract(deployer, circuit_defs)
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
-        Ok("deploy contract".to_string())
+        todo!("deploy_contract")
     }
 
     async fn get_deploy_contract_cmd(
@@ -210,9 +155,6 @@ impl RpcServer for RpcServerImpl {
         deployer: QHashOut<F>,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> Result<QBCDeployContract<F>, ErrorObjectOwned> {
-        self.wallet_session
-            .read()
-            .get_deploy_contract_cmd(deployer, circuit_defs)
-            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
+       todo!("get_deploy_contract_cmd")
     }
 }

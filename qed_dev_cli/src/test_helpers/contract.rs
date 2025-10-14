@@ -267,7 +267,7 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 impl SimpleTestContract<C, D> {
-    pub fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         circuit_mgr: &QCircuitManager<C, D>,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
@@ -284,7 +284,7 @@ impl SimpleTestContract<C, D> {
                     // &f.circuit,
                     &f.def,
                     inputs,
-                )?;
+                ).await?;
                 return Ok(());
             }
         }

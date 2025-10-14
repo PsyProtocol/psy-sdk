@@ -1001,7 +1001,7 @@ impl CoordinatorEdgeHandler {
         checkpoint_id: u64,
         user_id: u64,
     ) -> anyhow::Result<QEDUserLeaf<QEDFelt>> {
-        self.store.get_user_leaf_data(checkpoint_id, user_id)
+        self.store.get_user_leaf_data(checkpoint_id, user_id).await
     }
     pub async fn get_user_tree_merkle_proof(
         &self,
@@ -1009,7 +1009,7 @@ impl CoordinatorEdgeHandler {
         user_id: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<QEDFelt>>> {
         self.store
-            .get_user_tree_merkle_proof(checkpoint_id, user_id)
+            .get_user_tree_merkle_proof(checkpoint_id, user_id).await
     }
 
     pub async fn get_user_tree_merkle_proof_f(
@@ -1018,7 +1018,7 @@ impl CoordinatorEdgeHandler {
         user_id: F,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<QEDFelt>>> {
         self.store
-            .get_user_tree_merkle_proof_f(checkpoint_id, user_id)
+            .get_user_tree_merkle_proof_f(checkpoint_id, user_id).await
     }
 
     async fn log_suspicious_activity(&self, job: &QJob, reason: &str) {

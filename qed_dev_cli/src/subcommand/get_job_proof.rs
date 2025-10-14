@@ -34,9 +34,9 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
 
     let provider = RpcProvider::new_with_config(&rpc_config)?;
 
-    let mut wallet_session = WalletSession::new(&rpc_config)?;
+    let mut wallet_session = WalletSession::new(&rpc_config).await?;
     let user_pk_hash =
-        wallet_session.add_user_with_type(private_key, args.sign_type.clone(), None)?;
+        wallet_session.add_user_with_type(private_key, args.sign_type.clone(), None).await?;
 
     let job_infos = if let Some(job_id_hex) = &args.job_id {
         let job_id = parse_job_id_from_hex(job_id_hex)?;
@@ -74,7 +74,7 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
 
         info!("Processing job: {:?}", job_info.job_id);
 
-        match get_job_proof(&provider, &job_info, args.checkpoint_id) {
+        match get_job_proof(&provider, &job_info, args.checkpoint_id).await {
             Ok(job_proof) => {
                 info!("Successfully got proof for job: {}", job_info.job_id.to_hex_string());
 
@@ -128,15 +128,15 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
     Ok(())
 }
 
-fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64) -> Result<qed_core::job::id::VariableHeightRewardMerkleProof> {
+async fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64) -> Result<qed_core::job::id::VariableHeightRewardMerkleProof> {
     let job_proof = match &job_info.location {
         JobLocation::Realm(realm_id) => {
-            let (realm_proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id())?;
+            let (realm_proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id()).await?;
             info!("Got realm {} proof: {}", realm_id, serde_json::to_string_pretty(&realm_proof).unwrap());
             realm_proof
         }
         JobLocation::Coordinator => {
-            let (coordinator_proof, _) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id())?;
+            let (coordinator_proof, _) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id()).await?;
             info!("Got coordinator proof: {}", serde_json::to_string_pretty(&coordinator_proof).unwrap());
             coordinator_proof
         }

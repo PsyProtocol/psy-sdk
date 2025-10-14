@@ -21,7 +21,7 @@ use super::args::GetPublicKeyArgs;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
-pub fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
+pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
     match args.sign_type {
         SignType::ZKSign => {
             let private_key_base = QHashOut::<GoldilocksField>::from_str(&args.private_key)
@@ -50,7 +50,7 @@ pub fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
 
             let mut memory_wallet = QEDMemoryWallet::new(vec![main_circuits]);
             let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
-            let secp_pk_info = memory_wallet.add_secp_private_key(private_key)?;
+            let secp_pk_info = memory_wallet.add_secp_private_key(private_key).await?;
             let public_key = secp_pk_info.qfhash::<QEDHasher>();
 
             println!("Secp256k1 Signature Public Key:");

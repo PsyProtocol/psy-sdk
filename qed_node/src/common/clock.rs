@@ -1,6 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
+use qed_core::config::network_constants::REALM_SLOT_SIZE_MS;
 use crate::common::slot::{Clock, Slot};
 
 #[derive(Clone)]
@@ -18,6 +19,16 @@ impl<T: Clock> SlotTimer<T> {
    pub async fn wait_for_next_slot(&self) -> u64 {
         let remain_time = self.clock.get_remain_time_to_next_slot();
         sleep(Duration::from_millis(remain_time)).await;// todo optimize sleep
+        self.clock.get_current_slot()
+    }
+
+    pub async fn wait_for_next_slot_with_realm(&self) -> u64 {
+        self.wait_for_next_slot().await
+    }
+
+    pub async fn wait_for_next_slot_with_coordinator(&self) -> u64 {
+        let remain_time = self.clock.get_remain_time_to_next_slot();
+        sleep(Duration::from_millis(remain_time + REALM_SLOT_SIZE_MS)).await;
         self.clock.get_current_slot()
     }
 

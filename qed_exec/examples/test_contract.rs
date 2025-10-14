@@ -78,14 +78,15 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
 }
 
 
-fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
+async fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
     contract_id: GoldilocksField,
     fn_circuit_def: &DPNFunctionCircuitDefinition,
     lps: &mut QEDLocalProvingSessionStore<GoldilocksField, R>,
     inputs: &[GoldilocksField],
 ) -> anyhow::Result<Vec<GoldilocksField>> {
     let outputs = QEDEvalSessionResult::new()
-        .exec_contract_call( lps, contract_id,&fn_circuit_def, inputs.to_vec())?
+        .exec_contract_call( lps, contract_id,&fn_circuit_def, inputs.to_vec())
+        .await?
         .outputs;
 
     //fn_circuit_def.
@@ -161,6 +162,7 @@ async fn main() {
             GoldilocksField::from_canonical_u64(123), // write value
         ],
     )
+    .await
     .unwrap();
     let result2 = test_run_contract_fn(
         contract_id,
@@ -172,6 +174,7 @@ async fn main() {
             GoldilocksField::from_canonical_u64(1337), // write value
         ],
     )
+    .await
     .unwrap();
     println!("outputs: {:?}", result);
     println!("outputs: {:?}", result2);

@@ -24,6 +24,7 @@ qed_data = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
 maybe-async = { workspace = true }
+tokio = { workspace = true }
 
 k256 = { workspace = true }
 
@@ -34,5 +35,5 @@ hex-literal = { workspace = true }
 
 
 [features]
-default = ["is_sync"]
+# default = ["is_sync"]
 is_sync = ["maybe-async/is_sync"]

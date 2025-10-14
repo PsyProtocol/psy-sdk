@@ -32,7 +32,7 @@ qed_store = { workspace = true, default-features = false }
 qed_prover = { workspace = true, default-features = false }
 
 [features]
-default = ["is_sync"]
+# default = ["is_sync"]
 is_sync = [
     "qed_data/is_sync",
     "qed_store/is_sync",

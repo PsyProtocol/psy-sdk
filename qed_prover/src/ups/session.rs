@@ -49,7 +49,8 @@ pub struct UserProvingSessionManager<
 type F = GoldilocksField;
 const D: usize = 2;
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<
         H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F>,
         R: QEDReadCommandProcessorSync<F> + Send + Sync,

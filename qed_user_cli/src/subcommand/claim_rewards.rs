@@ -48,29 +48,29 @@ const D: usize = 2;
 const MINING_REWARDS_CONTRACT_ID: u64 = 1;
 const LAST_CLAIMED_CHECKPOINT_SLOT: u64 = 0;
 
-pub fn run(args: ClaimRewardsArgs) -> Result<()> {
+pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     let config_str = std::fs::read_to_string(&args.rpc_config)?;
     let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
     let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
     let private_key = QHashOut::from(Hash256::from_hex_string(&args.private_key)?);
 
     let provider = RpcProvider::new_with_config(&rpc_config)?;
-    let mut wallet_session = WalletSession::new(&rpc_config)?;
+    let mut wallet_session = WalletSession::new(&rpc_config).await?;
     let fingerprint = if args.fingerprint.is_some() {
         Some(QHashOut::<F>::from_str(&args.fingerprint.as_ref().unwrap()).map_err(|e| anyhow::format_err!("Failed to parse fingerprint: {}", e))?)
     } else {
         None
     };
 
-    let user_pk_hash = wallet_session.add_user_with_type(private_key, args.sign_type.clone(), fingerprint)?;
-    let user_id = provider.get_user_id(user_pk_hash)?;
+    let user_pk_hash = wallet_session.add_user_with_type(private_key, args.sign_type.clone(), fingerprint).await?;
+    let user_id = provider.get_user_id(user_pk_hash).await?;
 
-    let latest_l2_block_state = provider.get_latest_l2_block_state()?;
+    let latest_l2_block_state = provider.get_latest_l2_block_state().await?;
     let latest_checkpoint_id = latest_l2_block_state.checkpoint_id;
 
     info!("Latest checkpoint: {}", latest_checkpoint_id);
 
-    let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id) {
+    let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id).await {
         Ok(checkpoint) => {
             info!("Last claimed checkpoint: {}", checkpoint);
             checkpoint
@@ -136,7 +136,7 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
 
         for job_info in job_infos {
 
-            match get_job_proof(&provider, &job_info, checkpoint_id) {
+            match get_job_proof(&provider, &job_info, checkpoint_id).await {
                 Ok((actual_checkpoint_id, job_proof)) => {
                     info!("Found job proof for checkpoint {}, job {:?}", actual_checkpoint_id, job_info.job_id);
                     checkpoint_jobs.entry(actual_checkpoint_id)
@@ -165,7 +165,7 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
     for &checkpoint_id in &sorted_checkpoints {
         let jobs = checkpoint_jobs.get(&checkpoint_id).unwrap();
 
-        let checkpoint_leaf = provider.get_checkpoint_leaf_data(checkpoint_id)?;
+        let checkpoint_leaf = provider.get_checkpoint_leaf_data(checkpoint_id).await?;
         let fees_collected = checkpoint_leaf.stats.fees_collected.to_canonical_u64();
         let gutas_completed = checkpoint_leaf.stats.pm_jobs_completed.gutas_completed.to_canonical_u64();
 
@@ -236,21 +236,25 @@ pub fn run(args: ClaimRewardsArgs) -> Result<()> {
         fingerprint,
         Some(MINING_REWARDS_CONTRACT_ID),
         vec![],
-    )?;
+    ).await?;
+
+
 
     info!("Successfully claimed rewards");
 
     Ok(())
 }
 
-fn get_last_claimed_checkpoint_id(provider: &RpcProvider, user_id: u64, latest_checkpoint_id: u64) -> Result<u64> {
+
+
+async fn get_last_claimed_checkpoint_id(provider: &RpcProvider, user_id: u64, latest_checkpoint_id: u64) -> Result<u64> {
     let proof = provider.get_user_contract_state_tree_merkle_proof(
         latest_checkpoint_id,
         user_id,
         TOKEN_CONTRACT_ID,
         MAX_CONTRACT_STATE_TREE_HEIGHT,
         LAST_CLAIMED_CHECKPOINT_SLOT,
-    )?;
+    ).await?;
 
     Ok(proof.value.0.elements[1].0)
 }
@@ -371,18 +375,18 @@ fn serialize_proof_to_inputs(proof: &VariableHeightRewardMerkleProof, inputs: &m
     inputs.extend(vec![proof.proof_height.0, proof.index.0]);
 }
 
-fn get_job_proof(
+async fn get_job_proof(
     provider: &RpcProvider,
     job_info: &JobInfo,
     checkpoint_id: u64,
 ) -> anyhow::Result<(u64, qed_core::job::id::VariableHeightRewardMerkleProof)> {
     let (job_proof, actual_checkpoint_id) = match &job_info.location {
         JobLocation::Realm(realm_id) => {
-            let (proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id())?;
+            let (proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id()).await?;
             (proof, root_job_id.goal_id)
         }
         JobLocation::Coordinator => {
-            let (proof, root_job_id) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id())?;
+            let (proof, root_job_id) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id()).await?;
             (proof, root_job_id.goal_id)
         }
     };
@@ -464,29 +468,29 @@ fn parse_job_id_from_hex(hex_str: &str) -> Result<QProvingJobDataID> {
 }
 
 
-pub fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Result<()> {
+pub async fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Result<()> {
     let config_str = std::fs::read_to_string(&args.rpc_config)?;
     let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
     let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
     let private_key = QHashOut::from(Hash256::from_hex_string(&args.private_key)?);
 
     let provider = RpcProvider::new_with_config(&rpc_config)?;
-    let mut wallet_session = WalletSession::new(&rpc_config)?;
+    let mut wallet_session = WalletSession::new(&rpc_config).await?;
     let fingerprint = if args.fingerprint.is_some() {
         Some(QHashOut::<F>::from_str(&args.fingerprint.as_ref().unwrap()).map_err(|e| anyhow::format_err!("Failed to parse fingerprint: {}", e))?)
     } else {
         None
     };
 
-    let user_pk_hash = wallet_session.add_user_with_type(private_key, args.sign_type.clone(), fingerprint)?;
-    let user_id = provider.get_user_id(user_pk_hash)?;
+    let user_pk_hash = wallet_session.add_user_with_type(private_key, args.sign_type.clone(), fingerprint).await?;
+    let user_id = provider.get_user_id(user_pk_hash).await?;
 
-    let latest_l2_block_state = provider.get_latest_l2_block_state()?;
+    let latest_l2_block_state = provider.get_latest_l2_block_state().await?;
     let latest_checkpoint_id = latest_l2_block_state.checkpoint_id;
 
     info!("Latest checkpoint: {}", latest_checkpoint_id);
 
-    let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id) {
+    let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id).await {
         Ok(checkpoint) => {
             info!("Last claimed checkpoint: {}", checkpoint);
             checkpoint
@@ -565,7 +569,7 @@ pub fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Result<(
     let all_contract_calls = wallet_session.get_claim_rewards_call_args(
         user_pk_hash,
         checked_job_infos,
-    )?;
+    ).await?;
 
     println!("contract_call_args: {}", serde_json::to_string_pretty(&all_contract_calls)?);
 
@@ -576,7 +580,7 @@ pub fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Result<(
         fingerprint,
         Some(MINING_REWARDS_CONTRACT_ID),
         vec![],
-    )?;
+    ).await?;
 
     info!("Successfully claimed rewards");
 

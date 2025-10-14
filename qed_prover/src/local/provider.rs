@@ -58,14 +58,14 @@ use super::request::{
 };
 use serde_json;
 
-use anyhow::Ok;
+use std::result::Result::Ok;
 // #[cfg(not(target_arch = "wasm32"))]
 use rand::Rng;
 
-#[cfg(not(target_arch = "wasm32"))]
-use reqwest::blocking::Client;
+// #[cfg(not(target_arch = "wasm32"))]
+// use reqwest::blocking::Client;
 
-#[cfg(target_arch = "wasm32")]
+// #[cfg(target_arch = "wasm32")]
 use reqwest::Client;
 
 use super::request::{
@@ -129,32 +129,32 @@ impl RpcProvider {
     }
 }
 
-#[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
-#[macro_export]
-macro_rules! qed_rpc_call {
-    ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
-        let response = $instance
-            .client
-            .post($rpc_url)
-            .json(&RpcRequest {
-                jsonrpc: Version::V2,
-                request: $rpc_params,
-                id: Id::Number(1),
-            })
-            .send()?
-            .json::<RpcResponse<String>>()?;
+// #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
+// #[macro_export]
+// macro_rules! qed_rpc_call {
+//     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
+//         let response = $instance
+//             .client
+//             .post($rpc_url)
+//             .json(&RpcRequest {
+//                 jsonrpc: Version::V2,
+//                 request: $rpc_params,
+//                 id: Id::Number(1),
+//             })
+//             .send()?
+//             .json::<RpcResponse<String>>()?;
 
-        match response.result {
-            ResponseResult::Success(s) => {
-                tracing::info!("{:?}", s);
-                Ok(())
-            }
-            ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
-        }
-    }};
-}
+//         match response.result {
+//             ResponseResult::Success(s) => {
+//                 tracing::info!("{:?}", s);
+//                 Ok(())
+//             }
+//             ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
+//         }
+//     }};
+// }
 
-#[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
+// #[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
 macro_rules! qed_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
@@ -185,27 +185,75 @@ macro_rules! qed_rpc_call {
     }};
 }
 
-#[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
-#[macro_export]
-macro_rules! qed_rpc_call_back {
-    ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
-        tracing::info!("qed rpc call: {}", $rpc_url);
-        let request = RpcRequest {
-            jsonrpc: Version::V2,
-            request: $rpc_params,
-            id: Id::Number(1),
-        };
-        $instance
-            .client
-            .post($rpc_url)
-            .timeout(std::time::Duration::from_secs(360))
-            .json(&request)
-            .send()?
-            .json::<RpcResponse<$ret_ty>>()?
-    }};
-}
+// #[cfg(target_arch = "wasm32")]
+// #[macro_export]
+// macro_rules! qed_rpc_call {
+//     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
+//         use std::sync::mpsc;
+//         use std::sync::mpsc::{Sender, Receiver};
+//         use wasm_bindgen_futures::spawn_local;
+//         use anyhow::Result;
 
-#[cfg(all(target_arch = "wasm32", not(feature = "is_sync")))]
+//         let (tx, rx) = mpsc::channel::<Result<()>>();
+
+//         let client = $instance.client.clone();
+//         let rpc_url = $rpc_url.to_string();
+//         let rpc_params = $rpc_params;
+
+//         spawn_local(async move {
+//             let result: Result<()> = {
+//                 tracing::info!("qed rpc call (wasm): {}", rpc_url);
+//                 let response = client
+//                     .post(&rpc_url)
+//                     .timeout(std::time::Duration::from_secs(360))
+//                     .json(&RpcRequest {
+//                         jsonrpc: Version::V2,
+//                         request: rpc_params,
+//                         id: Id::Number(1),
+//                     })
+//                     .send()
+//                     .await
+//                     .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}", e));
+
+//                 match response {
+//                     Ok(response) => {
+//                         match response.json::<RpcResponse<String>>().await {
+//                             Ok(json_response) => Ok(()),
+//                             Err(e) => Err(anyhow::anyhow!("parse reponse failed: {}", e)),
+//                         }
+//                     }
+//                     Err(e) => Err(anyhow::anyhow!("qed rpc call failed: {}", e)),
+//                 }
+//             };
+
+//             let _ = tx.send(result);
+//         });
+
+//         rx.recv().map_err(|e| anyhow::anyhow!("channel reception failed: {}", e))?
+//     }};
+// }
+
+// #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
+// #[macro_export]
+// macro_rules! qed_rpc_call_back {
+//     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
+//         tracing::info!("qed rpc call: {}", $rpc_url);
+//         let request = RpcRequest {
+//             jsonrpc: Version::V2,
+//             request: $rpc_params,
+//             id: Id::Number(1),
+//         };
+//         $instance
+//             .client
+//             .post($rpc_url)
+//             .timeout(std::time::Duration::from_millis(1000))
+//             .json(&request)
+//             .send()?
+//             .json::<RpcResponse<$ret_ty>>()?
+//     }};
+// }
+
+// #[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
 macro_rules! qed_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
@@ -229,7 +277,60 @@ macro_rules! qed_rpc_call_back {
     }};
 }
 
-#[maybe_async::maybe_async(?Send)]
+// #[cfg(target_arch = "wasm32")]
+// #[macro_export]
+// macro_rules! qed_rpc_call_back {
+//     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
+//         use std::sync::mpsc;
+//         use std::sync::mpsc::{Sender, Receiver};
+//         use wasm_bindgen_futures::spawn_local;
+//         use anyhow::Result;
+
+//         let (tx, rx) = mpsc::channel::<Result<RpcResponse<$ret_ty>>>();
+
+//         let client = $instance.client.clone();
+//         let rpc_url = $rpc_url.to_string();
+//         let rpc_params = $rpc_params;
+
+//         spawn_local(async move {
+//             let result: Result<RpcResponse<$ret_ty>> = {
+//                 tracing::info!("qed rpc call (wasm): {}", rpc_url);
+//                 let response = client
+//                     .post(&rpc_url)
+//                     .timeout(std::time::Duration::from_secs(360))
+//                     .json(&RpcRequest {
+//                         jsonrpc: Version::V2,
+//                         request: rpc_params,
+//                         id: Id::Number(1),
+//                     })
+//                     .send()
+//                     .await
+//                     .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}", e));
+
+//                 match response {
+//                     Ok(response) => {
+//                         match response.json::<RpcResponse<$ret_ty>>().await {
+//                             Ok(json_response) => Ok(json_response),
+//                             Err(e) => Err(anyhow::anyhow!("parse reponse failed: {}", e)),
+//                         }
+//                     }
+//                     Err(e) => Err(anyhow::anyhow!("qed rpc call failed: {}", e)),
+//                 }
+//             };
+
+//             let _ = tx.send(result);
+//         });
+
+//         let rpc_result = rx.recv()
+//             .map_err(|e| anyhow::anyhow!("通道接收失败: {}", e))?;
+
+//         rpc_result
+//             .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}", e))?
+//     }};
+// }
+
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait QUserRpcProvider {
     async fn register_user<F: RichField>(
         &self,
@@ -260,7 +361,8 @@ pub trait QUserRpcProvider {
     ) -> anyhow::Result<()>;
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl QUserRpcProvider for RpcProvider {
     async fn register_user<F: RichField>(
         &self,
@@ -313,7 +415,8 @@ impl QUserRpcProvider for RpcProvider {
     }
 }
 
-#[maybe_async::maybe_async]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl RpcProvider {
     pub async fn get_user_id<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
         tracing::info!("user: {}", public_key);
@@ -541,7 +644,8 @@ pub struct CoordinatorConfig {
 // const D: usize = 2;
 // type F = <C as GenericConfig<D>>::F;
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait ProveProxyRpcTrait<C: GenericConfig<D>, const D: usize> {
     async fn prove_ups_start(
         &self,
@@ -696,13 +800,14 @@ pub struct LocalCommonCircuitsData<F: RichField> {
     pub circuit_inclusion_proofs: SimpleQTreeRecursionManagerInclusionProofs<F>,
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
     pub async fn new_with_config(proof_proxy_url: String) -> anyhow::Result<Self> {
         let client = Client::new();
 
         // todo fix bug
-        #[cfg(target_arch = "wasm32")]
+        // #[cfg(target_arch = "wasm32")]
         let response = client
             .post(&proof_proxy_url)
             .json(&RpcRequest {
@@ -714,16 +819,16 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
             .await?
             .json::<RpcResponse<String>>()
             .await?;
-        #[cfg(not(target_arch = "wasm32"))]
-        let response = client
-            .post(&proof_proxy_url)
-            .json(&RpcRequest {
-                jsonrpc: Version::V2,
-                request: RequestParams::<C::F>::GetCircuitsData(),
-                id: Id::Number(1),
-            })
-            .send()?
-            .json::<RpcResponse<String>>()?;
+        // #[cfg(not(target_arch = "wasm32"))]
+        // let response = client
+        //     .post(&proof_proxy_url)
+        //     .json(&RpcRequest {
+        //         jsonrpc: Version::V2,
+        //         request: RequestParams::<C::F>::GetCircuitsData(),
+        //         id: Id::Number(1),
+        //     })
+        //     .send()?
+        //     .json::<RpcResponse<String>>()?;
         let common_circuits_data = match response.result {
             ResponseResult::Success(common_circuits_data) => {
                 tracing::info!("get common_circuits_data");
@@ -883,8 +988,9 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
-impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcTrait<C, D> for ProveProxyRpcProvider<C, D>
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl<C: GenericConfig<D> + 'static, const D: usize> ProveProxyRpcTrait<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -1318,7 +1424,8 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where
@@ -1381,8 +1488,9 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where
     C::Hasher:
@@ -1616,8 +1724,9 @@ where
     }
 }
 
-#[maybe_async::maybe_async(?Send)]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
     for ProveProxyRpcProvider<C, D>
 where
     C::Hasher:

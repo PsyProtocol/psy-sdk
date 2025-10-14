@@ -46,8 +46,8 @@ where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    pub fn new(proof_store: PS, state_store: SS, guta_circuits: QEDGUTACircuitManager<C,D>) -> anyhow::Result<Self> {
-        let latest_l2_block_state = state_store.get_latest_l2_block_state()?;
+    pub async fn new(proof_store: PS, state_store: SS, guta_circuits: QEDGUTACircuitManager<C,D>) -> anyhow::Result<Self> {
+        let latest_l2_block_state = state_store.get_latest_l2_block_state().await?;
 
         Ok(Self {
             proof_store,
@@ -95,7 +95,7 @@ C::Hasher:
         self.next_block_mempool_updates.insert(user_id, update);
         Ok(())
     }
-    pub fn get_start_witnesses(&mut self) -> anyhow::Result<(Vec<VerifyTwoEndCapCircuitWithIdsInput<F>>,Option<SubmitUserEndCapProofIDAPIInput<F>>)>  {
+    pub async fn get_start_witnesses(&mut self) -> anyhow::Result<(Vec<VerifyTwoEndCapCircuitWithIdsInput<F>>,Option<SubmitUserEndCapProofIDAPIInput<F>>)>  {
 
         let mut results = self.next_block_mempool_updates.drain().map(|(_, v)|{
             v
@@ -104,7 +104,7 @@ C::Hasher:
         let good_pairs = results.len()/2;
         let mut verify_two_end_cap_inputs = Vec::with_capacity(good_pairs);
         for i in 0..good_pairs {
-            let checkpoint_proof = self.state_store.get_checkpoint_tree_merkle_proof(self.latest_l2_block_state.checkpoint_id, results[i*2].input.core.checkpoint_id.to_canonical_u64())?;
+            let checkpoint_proof = self.state_store.get_checkpoint_tree_merkle_proof(self.latest_l2_block_state.checkpoint_id, results[i*2].input.core.checkpoint_id.to_canonical_u64()).await?;
 
             let a_end_cap = VerifyEndCapSimpleStandardInput{
                 guta_stats: results[i*2].input.core.stats,
@@ -117,7 +117,7 @@ C::Hasher:
                 results[i*2].input.core.state_transition.end_user_leaf_hash,
             )?;
 
-            let checkpoint_proof = self.state_store.get_checkpoint_tree_merkle_proof(self.latest_l2_block_state.checkpoint_id, results[i*2+1].input.core.checkpoint_id.to_canonical_u64())?;
+            let checkpoint_proof = self.state_store.get_checkpoint_tree_merkle_proof(self.latest_l2_block_state.checkpoint_id, results[i*2+1].input.core.checkpoint_id.to_canonical_u64()).await?;
 
             let b_end_cap = VerifyEndCapSimpleStandardInput{
                 guta_stats: results[i*2+1].input.core.stats,

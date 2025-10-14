@@ -549,6 +549,7 @@ impl<
                 let new_nodes = guta_queue_items
                     .iter()
                     .map(|x| {
+                        assert_eq!(x.top_line_proof.index, x.realm_id, "right now guta proofs with top line are not allowed");
                         SimpleMerkleNode {
                             key: SimpleMerkleNodeKey {
                                 level: self.coordinator_config.realm_root_level,
@@ -563,7 +564,7 @@ impl<
                 tracing::debug!(res = %serde_json::to_string_pretty(&res).unwrap(), "GUTA result");
                 let good_old = self
                     .store
-                    .get_user_top_tree_cap_root(last_checkpoint_id, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index)
+                    .get_user_top_tree_cap_root(checkpoint_id - 1, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index)
                     .await?;
                 tracing::debug!(good_old = %good_old, "Good old value");
 
@@ -619,6 +620,7 @@ impl<
             let new_nodes = guta_queue_items
                 .iter()
                 .map(|x| {
+                    assert_eq!(x.top_line_proof.index, x.realm_id, "right now guta proofs with top line are not allowed");
                     SimpleMerkleNode {
                         key: SimpleMerkleNodeKey {
                             level: self.coordinator_config.realm_root_level,
@@ -633,7 +635,7 @@ impl<
             tracing::debug!(res = %serde_json::to_string_pretty(&res).unwrap(), "GUTA result");
             let good_old = self
                 .store
-                .get_user_top_tree_cap_root(last_checkpoint_id, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index)
+                .get_user_top_tree_cap_root(checkpoint_id - 1, res.nearest_common_ancestor_level, res.nearest_common_ancestor_index)
                 .await?;
             tracing::debug!(good_old = %good_old, "Good old value");
 
@@ -661,6 +663,7 @@ impl<
         let new_nodes = guta_queue_items
             .iter()
             .map(|x| {
+                assert_eq!(x.top_line_proof.index, x.realm_id, "right now guta proofs with top line are not allowed");
                 SimpleMerkleNode {
                     key: SimpleMerkleNodeKey {
                         level: self.coordinator_config.realm_root_level,
@@ -1134,16 +1137,23 @@ impl<
             "Waiting for user registration aggregation job to complete for checkpoint {}",
             new_checkpoint_id
         );
-        let register_users_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_user_registration_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
-
         debug!(
             "Waiting for deploy contracts aggregation job to complete for checkpoint {}",
             new_checkpoint_id
         );
-        let deploy_contracts_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_deploy_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
-
         debug!("Waiting for GUTA aggregation job to complete for checkpoint {}", new_checkpoint_id);
-        let guta_proof = self.prover_queue.wait_for_job_proof::<C, D>(*root_guta_job, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
+        // let remaining_time = Some(Duration::from_millis(LocalClock.get_current_slot_remaining_time()));
+        let remaining_time = Some(Duration::from_millis(5*SLOT_SIZE));
+        let (register_users_proof, deploy_contracts_proof, guta_proof) = match tokio::join!(
+            self.prover_queue.wait_for_job_proof::<C, D>(*root_user_registration_job, remaining_time),
+            self.prover_queue.wait_for_job_proof::<C, D>(*root_deploy_job, remaining_time),
+            self.prover_queue.wait_for_job_proof::<C, D>(*root_guta_job, remaining_time),
+        ) {
+            (Ok(register_users_proof), Ok(deploy_contracts_proof), Ok(guta_proof)) => (register_users_proof, deploy_contracts_proof, guta_proof),
+            (Err(e), _, _) => anyhow::bail!("Failed to wait for register users job proofs: {}", e),
+            (_, Err(e), _) => anyhow::bail!("Failed to wait for deploy contracts job proofs: {}", e),
+            (_, _, Err(e)) => anyhow::bail!("Failed to wait for GUTA job proofs: {}", e),
+        };
 
         let part_1_input = CircuitInputWithDependencies {
             input: QCAggUserRegistartionDeployContractsGUTAInput {

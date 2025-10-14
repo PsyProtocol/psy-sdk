@@ -2010,9 +2010,15 @@ mod tests {
                 .unwrap();
                 let contract_id = GoldilocksField::from_canonical_u64(2);
 
-                let cfc_input = QEDEvalSessionResult::new()
-                    .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
-                    .unwrap();
+                let cfc_input = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current()
+                        .block_on(async {
+                            QEDEvalSessionResult::new()
+                                .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
+                                .await
+                        })
+                }).unwrap();
+
                 println!("result_vm: {:?}", cfc_input.outputs);
                 #[allow(static_mut_refs)]
                 unsafe {

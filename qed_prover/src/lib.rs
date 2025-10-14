@@ -85,7 +85,7 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 
     // let store = Arc::new(Mutex::new(UserProverWorkerStore::new()));
-    let wallet_session = Arc::new(RwLock::new(WalletSession::new(&rpc_config)?));
+    let wallet_session = Arc::new(RwLock::new(WalletSession::new(&rpc_config).await?));
     let rpc_server_impl = RpcServerImpl::new(wallet_session);
     let handle = server.start(rpc_server_impl.into_rpc());
     handle.stopped().await;

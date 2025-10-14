@@ -85,14 +85,14 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
 }
 
 
-fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
+async fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
     contract_id: GoldilocksField,
     fn_circuit_def: &DPNFunctionCircuitDefinition,
     lps: &mut QEDLocalProvingSessionStore<GoldilocksField, R>,
     inputs: &[GoldilocksField],
 ) -> anyhow::Result<DapenContractFunctionCircuitInput<GoldilocksField>> {
     QEDEvalSessionResult::new()
-        .exec_contract_call( lps,contract_id, fn_circuit_def, inputs.to_vec())
+        .exec_contract_call( lps,contract_id, fn_circuit_def, inputs.to_vec()).await
 }
 fn test_compile_contract() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let mut ctx = QExecContext::new();
@@ -177,7 +177,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
             GoldilocksField::from_canonical_u64(2),   // write index
             GoldilocksField::from_canonical_u64(123), // write value
         ],
-    )?;
+    ).await?;
     timer.lap("generated witness input");
     println!("witnesss_json:\n{:?}",&result);
     //println!("witnesss_json:\n{}",serde_json::to_string(&result).unwrap());

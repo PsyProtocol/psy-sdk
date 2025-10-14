@@ -34,44 +34,44 @@ use qed_data::{
 };
 type F = GoldilocksField;
 
-#[cfg(feature = "is_sync")]
+// #[cfg(feature = "is_sync")]
 #[async_trait]
 impl<T: KVQBinaryStore>
     QEDCoordinatorStoreReaderAsync<F> for T
 {
     async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>> {
-        <Self as QMetaDataStoreReaderSync<F>>::get_contract_leaf_data(self, contract_id)
+        <Self as QMetaDataStoreReaderSync<F>>::get_contract_leaf_data(self, contract_id).await
     }
 
     async fn get_checkpoint_leaf_data(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<QEDCheckpointLeaf<F>> {
-        <Self as QMetaDataStoreReaderSync<F>>::get_checkpoint_leaf_data(self, checkpoint_id)
+        <Self as QMetaDataStoreReaderSync<F>>::get_checkpoint_leaf_data(self, checkpoint_id).await
     }
 
     async fn get_contract_code_definition(
         &self,
         contract_id: u64,
     ) -> anyhow::Result<ContractCodeDefinition> {
-        <Self as QMetaDataStoreReaderSync<F>>::get_contract_code_definition(self, contract_id)
+        <Self as QMetaDataStoreReaderSync<F>>::get_contract_code_definition(self, contract_id).await
     }
     async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
-        let latest_l2_block_state = <Self as QMetaDataStoreReaderSync<F>>::get_latest_l2_block_state(self)?;
+        let latest_l2_block_state = <Self as QMetaDataStoreReaderSync<F>>::get_latest_l2_block_state(self).await?;
 
         // println!("got latest_l2_block_state.checkpoint_id: {}",latest_l2_block_state.checkpoint_id);
         Ok(latest_l2_block_state)
     }
 
     async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
-        <Self as QMetaDataStoreReaderSync<F>>::get_l2_block_state(self, checkpoint_id)
+        <Self as QMetaDataStoreReaderSync<F>>::get_l2_block_state(self, checkpoint_id).await
     }
 
     async fn get_user_registration_tree_root(
         &self,
         checkpoint_id: u64,
     ) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_root(self, checkpoint_id)
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_root(self, checkpoint_id).await
     }
     async fn get_user_registration_tree_leaf_hash(
         &self,
@@ -82,7 +82,7 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             leaf_index,
-        )
+        ).await
     }
     async fn get_user_registration_tree_merkle_proof(
         &self,
@@ -93,10 +93,10 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             leaf_index,
-        )
+        ).await
     }
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_root(self, checkpoint_id)
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_root(self, checkpoint_id).await
     }
     async fn get_user_sub_tree_merkle_proof(
         &self,
@@ -111,7 +111,7 @@ impl<T: KVQBinaryStore>
             root_level,
             leaf_level,
             leaf_index,
-        )
+        ).await
     }
     async fn get_user_top_tree_merkle_proof(
         &self,
@@ -149,7 +149,7 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             contract_id,
-        )
+        ).await
     }
     async fn get_contract_function_tree_leaf_hash(
         &self,
@@ -162,7 +162,7 @@ impl<T: KVQBinaryStore>
             checkpoint_id,
             contract_id,
             function_id,
-        )
+        ).await
     }
     async fn get_contract_function_tree_merkle_proof(
         &self,
@@ -175,10 +175,10 @@ impl<T: KVQBinaryStore>
             checkpoint_id,
             contract_id,
             function_id,
-        )
+        ).await
     }
     async fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_root(self, checkpoint_id)
+        <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_root(self, checkpoint_id).await
     }
     async fn get_contract_tree_leaf_hash(
         &self,
@@ -189,7 +189,7 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             contract_id,
-        )
+        ).await
     }
     async fn get_contract_tree_merkle_proof(
         &self,
@@ -200,10 +200,10 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             contract_id,
-        )
+        ).await
     }
     async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_root(self, checkpoint_id)
+        <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_root(self, checkpoint_id).await
     }
     async fn get_deposit_tree_leaf_hash(
         &self,
@@ -214,7 +214,7 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             deposit_id,
-        )
+        ).await
     }
     async fn get_deposit_tree_merkle_proof(
         &self,
@@ -225,10 +225,10 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             deposit_id,
-        )
+        ).await
     }
     async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_root(self, checkpoint_id)
+        <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_root(self, checkpoint_id).await
     }
     async fn get_withdrawal_tree_leaf_hash(
         &self,
@@ -239,7 +239,7 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             withdrawal_id,
-        )
+        ).await
     }
     async fn get_withdrawal_tree_merkle_proof(
         &self,
@@ -250,13 +250,13 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             withdrawal_id,
-        )
+        ).await
     }
     async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreReaderSync<F>>::get_latest_checkpoint_tree_root(self)
+        <Self as QTreeDataStoreReaderSync<F>>::get_latest_checkpoint_tree_root(self).await
     }
     async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_root(self, checkpoint_id)
+        <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_root(self, checkpoint_id).await
     }
     async fn get_checkpoint_tree_leaf_hash(
         &self,
@@ -267,7 +267,7 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             leaf_checkpoint_id,
-        )
+        ).await
     }
     async fn get_checkpoint_tree_merkle_proof(
         &self,
@@ -278,14 +278,14 @@ impl<T: KVQBinaryStore>
             self,
             checkpoint_id,
             leaf_checkpoint_id,
-        )
+        ).await
     }
     async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>>{
-        let contract_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_root(self, checkpoint_id)?;
-        let deposit_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_root(self, checkpoint_id)?;
-        let user_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_root(self, checkpoint_id)?;
-        let withdrawal_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_root(self, checkpoint_id)?;
-        let user_registration_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_root(self, checkpoint_id)?;
+        let contract_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_root(self, checkpoint_id).await?;
+        let deposit_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_root(self, checkpoint_id).await?;
+        let user_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_root(self, checkpoint_id).await?;
+        let withdrawal_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_root(self, checkpoint_id).await?;
+        let user_registration_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_root(self, checkpoint_id).await?;
         Ok(QEDCheckpointGlobalStateRoots{
             contract_tree_root,
             deposit_tree_root,

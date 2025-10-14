@@ -190,14 +190,14 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
 
         info!("🔄 Starting task {}", task_id);
         let task_counter = tasks_counter.clone();
-        let handle = thread::spawn(move || {
+        let handle = thread::spawn(async move || {
             let result = run_transfer_task_sync(
                 task_id,
                 rpc_config_clone,
                 stats_clone,
                 should_stop_clone,
                 task_counter,
-            );
+            ).await;
 
             // Send completion signal
             let _ = tx_clone.send((task_id, result));
@@ -314,7 +314,7 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
     Ok(())
 }
 
-fn run_transfer_task_sync(
+async fn run_transfer_task_sync(
     task_id: usize,
     rpc_config: RpcConfig,
     stats: Arc<StressTestStats>,
@@ -324,7 +324,7 @@ fn run_transfer_task_sync(
     info!("🎯 Starting transfer task {}", task_id);
 
     // Create wallet session, handle errors
-    let mut wallet_session = match WalletSession::new(&rpc_config) {
+    let mut wallet_session = match WalletSession::new(&rpc_config).await {
         Ok(ws) => ws,
         Err(e) => {
             error!(
@@ -345,7 +345,7 @@ fn run_transfer_task_sync(
             &mut wallet_session,
             task_id,
             transaction_count,
-        ) {
+        ).await {
             Ok(_) => {
                 info!(
                     "✅ Task {} transaction {} completed",
@@ -374,7 +374,7 @@ fn run_transfer_task_sync(
     Ok(())
 }
 
-fn execute_transfer_transaction_sync(
+async fn execute_transfer_transaction_sync(
     wallet_session: &mut WalletSession,
     task_id: usize,
     transaction_count: u64,
@@ -388,30 +388,30 @@ fn execute_transfer_transaction_sync(
     let private_key_to = QHashOut::<GoldilocksField>::rand();
 
     info!("🔑 Task {} - Registering user_from and user_to", task_id);
-    let pk_hash_from = wallet_session.register_user(private_key_from)?;
-    let pk_hash_to = wallet_session.register_user(private_key_to)?;
+    let pk_hash_from = wallet_session.register_user(private_key_from).await?;
+    let pk_hash_to = wallet_session.register_user(private_key_to).await?;
     println!("pk_hash_from: {}", pk_hash_from);
     println!("pk_hash_to: {}", pk_hash_to);
 
-    if !wait_for_new_block(&wallet_session.st_provider, 2)? {
+    if !wait_for_new_block(&wallet_session.st_provider, 2).await? {
         return Err(anyhow::format_err!(
             "register user timeout waiting for checkpoint"
         ));
     }
     info!("🔑 Task {} - Registered user_from and user_to", task_id);
 
-    wallet_session.add_user(private_key_from)?;
-    wallet_session.add_user(private_key_to)?;
+    wallet_session.add_user(private_key_from).await?;
+    wallet_session.add_user(private_key_to).await?;
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;
-    let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from)?;
+    let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from).await?;
     let pk_hash_from = pk_info_from.qfhash::<QEDHasher>();
     // println!("pk_hash_from: {}", pk_hash_from);
-    let user_id_from = wallet_session.st_provider.get_user_id(pk_hash_from)?;
+    let user_id_from = wallet_session.st_provider.get_user_id(pk_hash_from).await?;
     info!("👥 Task {} - User_id_from: {}", task_id, user_id_from);
-    let pk_info_to = wallet_session.wallet.get_secp_pk_info(private_key_to)?;
+    let pk_info_to = wallet_session.wallet.get_secp_pk_info(private_key_to).await?;
     let pk_hash_to = pk_info_to.qfhash::<QEDHasher>();
-    let user_id_to = wallet_session.st_provider.get_user_id(pk_hash_to)?;
+    let user_id_to = wallet_session.st_provider.get_user_id(pk_hash_to).await?;
     info!("👥 Task {} - User_id_to: {}", task_id, user_id_to);
 
     let mint_amount = 1000u64;
@@ -426,9 +426,9 @@ fn execute_transfer_transaction_sync(
             method_name: "simple_mint".to_string(),
             inputs: vec![mint_amount],
         }],
-    )?;
+    ).await?;
     info!("🪙 Task {} - Waiting for new block after mint", task_id);
-    if !wait_for_new_block(&wallet_session.st_provider, 1)? {
+    if !wait_for_new_block(&wallet_session.st_provider, 1).await? {
         return Err(anyhow::format_err!("mint timeout waiting for checkpoint"));
     }
 
@@ -445,10 +445,12 @@ fn execute_transfer_transaction_sync(
             method_name: "simple_transfer".to_string(),
             inputs: vec![user_id_to, transfer_amount],
         }],
-    )?;
+    ).await?;
+
+
 
     info!("💸 Task {} - Waiting for new block after transfer", task_id);
-    if !wait_for_new_block(&wallet_session.st_provider, 1)? {
+    if !wait_for_new_block(&wallet_session.st_provider, 1).await? {
         return Err(anyhow::format_err!(
             "transfer timeout waiting for checkpoint"
         ));
@@ -465,9 +467,9 @@ fn execute_transfer_transaction_sync(
             method_name: "simple_claim".to_string(),
             inputs: vec![user_id_from],
         }],
-    )?;
+    ).await?;
     info!("🎁 Task {} - Waiting for new block after claim", task_id);
-    if !wait_for_new_block(&wallet_session.st_provider, 1)? {
+    if !wait_for_new_block(&wallet_session.st_provider, 1).await? {
         return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
     }
 
