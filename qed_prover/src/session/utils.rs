@@ -221,7 +221,8 @@ pub async fn build_claim_calls_for_multi_checkpoints(
         proof_index += 5;
     }
 
-    if remaining >= 2 {
+    let count_2s = remaining / 2;
+    for _ in 0..count_2s {
         let chunk = &all_proofs[proof_index..proof_index + 2];
         let mut batch_inputs = Vec::new();
 
@@ -245,8 +246,9 @@ pub async fn build_claim_calls_for_multi_checkpoints(
 
         proof_index += 2;
     }
+    remaining = remaining % 2;
 
-    if proof_index < total_proofs {
+    if remaining > 0 {
         let proof_with_checkpoint = &all_proofs[proof_index];
         let mut proof_inputs = Vec::new();
 
