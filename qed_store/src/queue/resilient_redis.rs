@@ -361,6 +361,7 @@ impl ResilientRedisConnection {
         }).await
     }
 
+
     pub async fn sadd<K, V>(&self, key: K, member: V) -> Result<()>
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
@@ -603,6 +604,20 @@ impl CommandBuilder {
     {
         let mut cmd = redis::cmd("HINCR");
         cmd.arg(key).arg(field).arg(delta);
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn hdel<K, F>(mut self, key: K, fields: &[F]) -> Self
+    where
+        K: redis::ToRedisArgs,
+        F: redis::ToRedisArgs + Clone,
+    {
+        let mut cmd = redis::cmd("HDEL");
+        cmd.arg(key);
+        for field in fields {
+            cmd.arg(field.clone());
+        }
         self.commands.push(cmd);
         self
     }

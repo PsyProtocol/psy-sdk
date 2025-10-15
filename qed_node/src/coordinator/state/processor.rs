@@ -1315,33 +1315,33 @@ impl<
     }
 
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
-        let deploy_items = self
+        let deploy_count = self
             .checkpoint_queue
-            .cdq_peek_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(self.coordinator_config.deploy_contract_channel_id)
+            .cdq_len_imm(self.coordinator_config.deploy_contract_channel_id)
             .await?;
 
-        trace!("Checking deploy contracts queue: {} items, checkpoint: {}", deploy_items.len(), checkpoint_id);
-        if !deploy_items.is_empty() {
+        trace!("Checking deploy contracts queue: {} items, checkpoint: {}", deploy_count, checkpoint_id);
+        if deploy_count > 0 {
             return Ok(true);
         }
 
-        let user_reg_items = self
+        let user_reg_count = self
             .checkpoint_queue
-            .cdq_peek_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID)
+            .cdq_len_imm(COORD_API_REGISTER_USER_CHANNEL_ID)
             .await?;
 
-        trace!("Checking user registration queue: {} items, checkpoint: {}", user_reg_items.len(), checkpoint_id);
-        if !user_reg_items.is_empty() {
+        trace!("Checking user registration queue: {} items, checkpoint: {}", user_reg_count, checkpoint_id);
+        if user_reg_count > 0 {
             return Ok(true);
         }
 
-        let guta_items = self
+        let guta_count = self
             .checkpoint_queue
-            .cdq_peek_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(self.coordinator_config.guta_channel_id)
+            .cdq_len_imm(self.coordinator_config.guta_channel_id)
             .await?;
 
-        trace!("Checking GUTA queue: {} items, checkpoint: {}", guta_items.len(), checkpoint_id);
-        if !guta_items.is_empty() {
+        trace!("Checking GUTA queue: {} items, checkpoint: {}", guta_count, checkpoint_id);
+        if guta_count > 0 {
             return Ok(true);
         }
         Ok(false)

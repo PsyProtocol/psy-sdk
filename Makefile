@@ -381,7 +381,7 @@ init-tikv: init
 
 shutdown-tikv: shutdown
 	@echo "Stopping TiKV cluster..."
-	@docker-compose -f ./scripts/docker-compose.tikv.yml down -v
+	@docker-compose -f ./scripts/docker-compose.tikv.yml down -v --remove-orphans
 	@echo "TiKV cluster stopped"
 
 run-coordinator-processor-tikv:
@@ -449,7 +449,7 @@ run-benchmark-user:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-user --concurrent-tasks 1000
 
 run-benchmark-register:
-	@RUST_LOG=${LOG_LEVEL} cargo run --example register_user
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/examples/register_user
 
 run-benchmark-mint:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100
