@@ -208,7 +208,7 @@ impl RealmProcessor {
             info!("🔄 Found incomplete consumption state for checkpoint {} on startup", last_state.checkpoint_id);
         }
 
-        let (sync_tx, mut sync_rx) = mpsc::channel(1);
+        let (sync_tx, mut sync_rx) = mpsc::channel(100);
         let build_ctx = self.context().await?;
         if let Ok(local_latest_l2_block_state) = self.store.get_latest_l2_block_state().await {
             info!(
@@ -241,12 +241,15 @@ impl RealmProcessor {
                     info!("Shutdown requested, exiting");
                     break;
                 }
+                let _ = sync_rx.recv().await;
+                let mut buffer = vec![];
+                let _ = sync_rx.recv_many(&mut buffer, sync_rx.len()).await;
+                trace!("Block handle buffer: {:?}", buffer);
                 if let Err(err) =  self.block_handle(&build_ctx).await {
                     let checkpoint = self.pending_checkpoint_id.load(Ordering::Relaxed);
                     error!("Rollback: block handle error: {:?}, pending_checkpoint_id: {}", err, checkpoint);
                     let _ = build_ctx.rollback(checkpoint).await;
                 }
-                let _ = sync_rx.recv().await;
             }}
         );
         Ok(())
