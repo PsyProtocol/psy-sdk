@@ -55,14 +55,22 @@ use std::{str::FromStr, collections::HashMap};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use super::backup::{RealmS3BackupClient, try_backup_realm_checkpoint};
 use tokio::sync::mpsc;
+use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
+use crate::realm::state::queue_factory::QueueFactory;
+
+#[derive(Debug, Clone)]
+pub enum SyncState {
+    Syncing,
+    Synced,
+    Confirmed,
+    ConfirmedFailed,
+}
 
 struct RealmBackupRequest {
     checkpoint_id: u64,
     pair_to_set: Vec<(Vec<u8>, Vec<u8>)>,
     removed_keys: Vec<Vec<u8>>,
 }
-use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
-use crate::realm::state::queue_factory::QueueFactory;
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<QEDStore>,
@@ -244,13 +252,13 @@ impl RealmProcessor {
         Ok(())
     }
 
-    async fn sync_handle(&self, build_ctx: &ConcreteRealmProcessorContext, sync_tx: mpsc::Sender<bool>) -> anyhow::Result<()> {
+    async fn sync_handle(&self, build_ctx: &ConcreteRealmProcessorContext, sync_tx: mpsc::Sender<SyncState>) -> anyhow::Result<()> {
         let ret = self.ensure_checkpoint_sync(build_ctx, sync_tx).await?;
         trace!("Checkpoint sync completed");
         Ok(())
     }
 
-    async fn confirm_pending_checkpoint(&self, build_ctx: &ConcreteRealmProcessorContext, sync_tx: mpsc::Sender<bool>, ret: SyncCheckpointResult) -> anyhow::Result<()> {
+    async fn confirm_pending_checkpoint(&self, build_ctx: &ConcreteRealmProcessorContext, sync_tx: mpsc::Sender<SyncState>, ret: SyncCheckpointResult) -> anyhow::Result<()> {
         let checkpoint = self.pending_checkpoint_id.load(Ordering::Relaxed);
         if checkpoint > 0 {
             let realm_root = build_ctx.store.get_user_sub_tree_merkle_proof(
@@ -266,7 +274,7 @@ impl RealmProcessor {
                 let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id).await?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
                 info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint, ret.latest_checkpoint_id);
-                sync_tx.send(true).await?;
+                sync_tx.send(SyncState::Confirmed).await?;
 
                 // Auto backup after successful commit
                 if let Some(backup_tx) = &self.backup_tx {
@@ -285,7 +293,7 @@ impl RealmProcessor {
                 warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, pending checkpoint id: {}, synced checkpoint id: {}", ret.latest_checkpoint_id, checkpoint, ret.checkpoint_id);
                 build_ctx.rollback(checkpoint).await?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
-                sync_tx.send(false).await?;
+                sync_tx.send(SyncState::ConfirmedFailed).await?;
             }
         }
         Ok(())
@@ -372,7 +380,7 @@ impl RealmProcessor {
     async fn ensure_checkpoint_sync(
         &self,
         build_ctx: &ConcreteRealmProcessorContext,
-        sync_tx: mpsc::Sender<bool>,
+        sync_tx: mpsc::Sender<SyncState>,
     ) -> anyhow::Result<SyncCheckpointResult> {
         loop {
             let (expected_checkpoint,local_checkpoint_id) = if let Ok(local_checkpoint_id) = self.get_local_latest_checkpoint_id().await {
@@ -387,6 +395,7 @@ impl RealmProcessor {
                     self.confirm_pending_checkpoint(build_ctx, sync_tx.clone(), ret.clone()).await?;
                     if ret.is_synced {
                         // Sync completed
+                        sync_tx.send(SyncState::Synced).await?;
                         return Ok(ret)
                     }
                 },
