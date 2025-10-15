@@ -88,6 +88,10 @@ run_make_command "make return-back" "return-back"
 echo "wait for block 7 to be committed"
 sleep 30s
 
+run_make_command "make claim-rewards" "claim-rewards"
+echo "wait for block 8 to be committed"
+sleep 30s
+
 get_user_token_info
 
 log_message "Scenario 0 completed successfully."
