@@ -205,7 +205,7 @@ pub async fn build_claim_calls_for_multi_checkpoints(
         }
 
         for proof_with_checkpoint in chunk {
-            serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut batch_inputs);
+            serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut batch_inputs).await;
         }
 
         for proof_with_checkpoint in chunk {
@@ -230,7 +230,7 @@ pub async fn build_claim_calls_for_multi_checkpoints(
         }
 
         for proof_with_checkpoint in chunk {
-            serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut batch_inputs);
+            serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut batch_inputs).await;
         }
 
         for proof_with_checkpoint in chunk {
@@ -250,7 +250,7 @@ pub async fn build_claim_calls_for_multi_checkpoints(
         let proof_with_checkpoint = &all_proofs[proof_index];
         let mut proof_inputs = Vec::new();
 
-        serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut proof_inputs);
+        serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut proof_inputs).await;
 
         let mut batch_inputs = vec![proof_with_checkpoint.checkpoint_id];
         batch_inputs.extend(proof_inputs);
