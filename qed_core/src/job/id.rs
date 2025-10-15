@@ -418,6 +418,20 @@ impl TaskId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
+
+    #[inline]
+    pub fn to_bytes(&self) -> [u8; 16] {
+        *self.0.as_bytes()
+    }
+
+    #[inline]
+    pub fn from_bytes(bytes: [u8; 16]) -> Self {
+        Self(Uuid::from_bytes(bytes))
+    }
+    #[inline]
+    pub fn from_slice(bytes: &[u8]) -> Result<Self> {
+        Ok(Self(Uuid::from_slice(bytes)?))
+    }
 }
 
 impl std::fmt::Display for TaskId {
