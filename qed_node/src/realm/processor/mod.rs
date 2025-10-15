@@ -55,6 +55,7 @@ use std::{str::FromStr, collections::HashMap};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use super::backup::{RealmS3BackupClient, try_backup_realm_checkpoint};
 use tokio::sync::mpsc;
+use tokio::time;
 use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
 use crate::realm::state::queue_factory::QueueFactory;
 
@@ -241,11 +242,7 @@ impl RealmProcessor {
                     info!("Shutdown requested, exiting");
                     break;
                 }
-                let _ = sync_rx.recv().await;
-                let mut buffer = vec![];
-                let _ = sync_rx.recv_many(&mut buffer, sync_rx.len()).await;
-                trace!("Block handle buffer: {:?}", buffer);
-                if let Err(err) =  self.block_handle(&build_ctx).await {
+                if let Err(err) =  self.block_handle(&build_ctx, &mut sync_rx).await {
                     let checkpoint = self.pending_checkpoint_id.load(Ordering::Relaxed);
                     error!("Rollback: block handle error: {:?}, pending_checkpoint_id: {}", err, checkpoint);
                     let _ = build_ctx.rollback(checkpoint).await;
@@ -302,11 +299,17 @@ impl RealmProcessor {
         Ok(())
     }
 
-    async fn block_handle(&self, build_ctx: &ConcreteRealmProcessorContext) -> anyhow::Result<()> {
+    async fn block_handle(&self, build_ctx: &ConcreteRealmProcessorContext, sync_rx: &mut mpsc::Receiver<SyncState>) -> anyhow::Result<()> {
         // let slot = self.slot_timer.wait_for_next_slot().await;
         // if slot.is_even() {
         //     return Ok(());
         // }
+        let mut buffer = vec![];
+        // recv synced、confirmed、confirmed failed state from sync processor
+        let _ = sync_rx.recv_many(&mut buffer, sync_rx.len()).await;
+        trace!("Block handle buffer: {:?}", buffer);
+        time::sleep(Duration::from_secs(1)).await;
+        
         let slot = self.slot_timer.get_current_slot();
         trace!("Next slot: {}", slot);
         let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
