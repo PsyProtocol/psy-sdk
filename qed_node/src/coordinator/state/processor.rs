@@ -244,6 +244,7 @@ impl<
         }
         let next_contract_id = start_contract_id + new_contract_leaves.len() as u32;
         let mut psb = ProofStoreBuilder::new();
+        let now = Instant::now();
         let (start_indexes, spiderman_append_proofs) = self
             .store
             .batch_append_contract_tree_imm(
@@ -253,6 +254,7 @@ impl<
                 &new_hashes,
             )
             .await?;
+        tracing::debug!("batch_append_contract_tree_imm cost time: {:?}", now.elapsed());
         tracing::debug!("deploy contracts spiderman proofs: {}", serde_json::to_string_pretty(&spiderman_append_proofs).unwrap());
         let wits = spiderman_append_proofs
             .into_iter()
@@ -358,6 +360,7 @@ impl<
         let new_public_keys = user_registrations.iter().map(|x| x.to_hash::<QEDHasher>()).collect::<Vec<_>>();
 
         let mut psb = ProofStoreBuilder::new();
+        let now = Instant::now();
         let res = self
             .store
             .batch_append_user_registration_tree_imm(
@@ -367,6 +370,7 @@ impl<
                 &new_public_keys,
             )
             .await?;
+        tracing::debug!("batch_append_user_registration_tree_imm cost time: {:?}", now.elapsed());
         tracing::debug!("user registrations spiderman proofs: {}", serde_json::to_string_pretty(&res).unwrap());
         let (start_indexes, spiderman_proofs) = res;
         let wits = spiderman_proofs
