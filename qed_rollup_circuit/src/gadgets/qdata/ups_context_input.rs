@@ -39,7 +39,7 @@ impl UserProvingSessionStartContextGadget {
         let checkpoint_leaf_hash = builder.add_virtual_hash();
         let start_session_user_leaf = QEDUserLeafGadget::create_virtual(builder);
         let start_session_user_leaf_hash = start_session_user_leaf.to_hash::<H, F, D>(builder);
-        
+
 
         Self {
             checkpoint_id,
@@ -144,7 +144,7 @@ impl<F: RichField> WitnessValueFor<UserProvingSessionStartContextGadget, F, fals
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UserProvingSessionCurrentStateGadget {
     pub user_leaf: QEDUserLeafGadget,
-    
+
     pub deferred_tx_debt_tree_root: HashOutTarget,
     pub inline_tx_debt_tree_root: HashOutTarget,
 
@@ -280,14 +280,14 @@ impl UserProvingSessionHeaderGadget {
 
         let session_start_context_hash = session_start_context.to_hash::<H, F, D>(builder);
         let current_state_hash = current_state.to_hash::<H, F, D>(builder);
-        
+
 
 
         Self {
             ups_step_circuit_whitelist_root,
             session_start_context,
             current_state,
-            
+
             session_start_context_hash,
             current_state_hash,
         }
@@ -312,14 +312,14 @@ impl UserProvingSessionHeaderGadget {
 
         let session_start_context_hash = session_start_context.to_hash::<H, F, D>(builder);
         let current_state_hash = current_state.to_hash::<H, F, D>(builder);
-        
+
 
 
         Self {
             ups_step_circuit_whitelist_root,
             session_start_context,
             current_state,
-            
+
             session_start_context_hash,
             current_state_hash,
         }
@@ -330,7 +330,7 @@ impl UserProvingSessionHeaderGadget {
         target: &UserProvingSessionHeader<F>,
     ) -> anyhow::Result<()> {
         witness.set_hash_target(
-            self.ups_step_circuit_whitelist_root, 
+            self.ups_step_circuit_whitelist_root,
             target.ups_step_circuit_whitelist_root.0,
         )?;
         self.session_start_context.set_witness(witness, &target.session_start_context)?;

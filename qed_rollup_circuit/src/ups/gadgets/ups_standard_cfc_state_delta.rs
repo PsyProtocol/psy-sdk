@@ -79,6 +79,8 @@ impl UPSCFCStandardStateDeltaGadget {
         let cfc_method_id = cfc_transaction_input_context.transaction_call_start_ctx.call_data.method_id;
         let cfc_num_inputs = cfc_transaction_input_context.transaction_call_start_ctx.call_data.inputs_length;
         let cfc_num_outputs = cfc_transaction_input_context.transaction_end_ctx.outputs_length;
+        tracing::debug!("📊 CFC Transaction Context - method_id: {:?}, num_inputs: {:?}, num_outputs: {:?}, inner_hash: {:?}",
+            cfc_method_id, cfc_num_inputs, cfc_num_outputs, cfc_inner_public_inputs_hash);
         // -- end list assumptions from cfc_transaction_input_context
 
 
@@ -99,6 +101,10 @@ impl UPSCFCStandardStateDeltaGadget {
         let previous_step_tx_hash_stack = previous_step_header_gadget.current_state.tx_hash_stack;
         let previous_step_user_balance= previous_step_header_gadget.current_state.user_leaf.balance;
         let previous_step_user_event_index= previous_step_header_gadget.current_state.user_leaf.event_index;
+        tracing::debug!("📊 Previous Step State - user_tree_root: {:?}, tx_count: {:?}, user_balance: {:?}, event_index: {:?}",
+            previous_step_user_state_tree_root, previous_step_tx_count, previous_step_user_balance, previous_step_user_event_index);
+        tracing::debug!("📊 Previous Step Debt Trees - deferred: {:?}, inline: {:?}",
+            previous_step_deferred_tx_debt_tree_root, previous_step_inline_tx_debt_tree_root);
         // -- end get useful info from the previous step
 
         // -- start list all the info we are going to check in the cfc_transaction_input
@@ -116,6 +122,12 @@ impl UPSCFCStandardStateDeltaGadget {
         let tx_in_end_deferred_tx_debt_tree_root = cfc_transaction_input_context.transaction_end_ctx.end_deferred_tx_debt_tree_root;
         let tx_in_total_balance_spent = cfc_transaction_input_context.transaction_end_ctx.total_balance_spent;
         let tx_in_total_events_emitted = cfc_transaction_input_context.transaction_end_ctx.total_events_emitted;
+        tracing::debug!("📊 Transaction Input Start State - contract_id: {:?}, user_contract_tree: {:?}, contract_state_tree: {:?}",
+            tx_in_contract_id, tx_in_start_user_contract_tree_root, tx_in_start_contract_state_tree_root);
+        tracing::debug!("📊 Transaction Input Start Values - user_balance: {:?}, event_index: {:?}, deferred_debt: {:?}",
+            tx_in_start_user_balance, tx_in_start_event_index, tx_in_start_deferred_tx_debt_tree_root);
+        tracing::debug!("📊 Transaction Input End State - contract_state_tree: {:?}, deferred_debt: {:?}, balance_spent: {:?}, events_emitted: {:?}",
+            tx_in_end_contract_state_tree_root, tx_in_end_deferred_tx_debt_tree_root, tx_in_total_balance_spent, tx_in_total_events_emitted);
 
         // TODO: support inline tx debt, for now just use the merkle proof start value
         let tx_in_start_inline_tx_debt_tree_root = inline_tx_debt_pivot_proof.historical_root;
@@ -161,6 +173,10 @@ impl UPSCFCStandardStateDeltaGadget {
         let default_contract_state_root = builder.select_in_hash_array(&default_zero_hashes, contract_state_tree_height);
 
         let is_first_cst_update = builder.is_zero_hash(user_contract_tree_update_proof.old_value);
+        tracing::debug!("📊 Contract State Tree Update - height: {:?}, old_value: {:?}, new_value: {:?}, is_first_update: {:?}",
+            contract_state_tree_height, user_contract_tree_update_proof.old_value, user_contract_tree_update_proof.new_value, is_first_cst_update);
+        tracing::debug!("📊 Contract State Tree Update - default_root: {:?}, index: {:?}",
+            default_contract_state_root, user_contract_tree_update_proof.index);
 
         // if the user_contract_tree_update_proof.old_value is zero, ensure tx_in_start_contract_state_tree_root is the contract's default state root
         // if the user_contract_tree_update_proof.old_value is NOT zero, ensure tx_in_start_contract_state_tree_root is the previous value of the user contract tree leaf
@@ -268,7 +284,8 @@ impl UPSCFCStandardStateDeltaGadget {
             previous_step_tx_count,
             one_target,
         );
-
+        tracing::debug!("📊 Transaction Count Update - previous: {:?}, new: {:?}",
+            previous_step_tx_count, new_step_tx_count);
 
         // generate the tx stack item hash for the tx
         let tx_stack_item = TransactionLogStackItemGadget{
@@ -279,6 +296,8 @@ impl UPSCFCStandardStateDeltaGadget {
         tx_hash_stack.push_hashable::<H,F,D,_>(builder, tx_stack_item);
 
         let new_step_tx_hash_stack = tx_hash_stack.get_tip();
+        tracing::debug!("📊 Transaction Hash Stack - previous: {:?}, new: {:?}",
+            previous_step_tx_hash_stack, new_step_tx_hash_stack);
 
         let new_step_user_leaf = QEDUserLeafGadget{
             public_key: previous_step_header_gadget.current_state.user_leaf.public_key,
@@ -297,6 +316,11 @@ impl UPSCFCStandardStateDeltaGadget {
             tx_hash_stack: new_step_tx_hash_stack,
             tx_count: new_step_tx_count,
         };
+        tracing::debug!("📊 New Step State - user_tree_root: {:?}, tx_count: {:?}, user_balance: {:?}",
+            new_step_user_state_tree_root, new_step_tx_count, new_step_user_balance);
+        tracing::debug!("📊 New Step Debt Trees - deferred: {:?}, inline: {:?}",
+            new_step_deferred_tx_debt_tree_root, new_step_inline_tx_debt_tree_root);
+
         let new_header_gadget = UserProvingSessionHeaderGadget::new_from_existing_ups_context::<H,F,D>(
             builder,
             previous_step_header_gadget.ups_step_circuit_whitelist_root,
@@ -309,7 +333,8 @@ impl UPSCFCStandardStateDeltaGadget {
 
         let cfc_contract_id = tx_in_contract_id;
         // -- end list key proven results
-
+        tracing::debug!("📊 Final Gadget State - contract_id: {:?}, method_id: {:?}, num_inputs: {:?}, num_outputs: {:?}",
+            cfc_contract_id, cfc_method_id, cfc_num_inputs, cfc_num_outputs);
 
         let gadget= Self {
             cfc_transaction_input_context,
@@ -337,7 +362,7 @@ impl UPSCFCStandardStateDeltaGadget {
             serde_json::to_string_pretty(&input.cfc_transaction_input_context.transaction_call_start_ctx.call_data.contract_id).unwrap(),
             serde_json::to_string_pretty(&input.cfc_transaction_input_context.transaction_call_start_ctx.start_contract_state_tree_root).unwrap(),
             serde_json::to_string_pretty(&input.cfc_transaction_input_context.transaction_end_ctx.end_contract_state_tree_root).unwrap());
-        
+
         self.cfc_transaction_input_context.set_witness_params(
             witness,
             &input.cfc_transaction_input_context.transaction_call_start_ctx,

@@ -196,7 +196,7 @@ impl UserSessionStateManager {
             UPS_SESSION_PROOF_TREE_HEIGHT as usize,
         );
 
-        tracing::info!("create ups manager");
+        tracing::info!("create ups manager, user_id: {}, nonce: {}, checkpoint_id: {}", user_id, nonce, checkpoint_id);
         let mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new(
             lps,
             circuit_info,
@@ -481,8 +481,7 @@ impl WalletSession {
             None,
             None,
             vec![],
-        )
-            .await
+        ).await
     }
 
     pub async fn exec_contract_call_with_sign_type(
@@ -512,8 +511,7 @@ impl WalletSession {
             fingerprint,
             sig_contract_id,
             sign_inputs,
-        )
-            .await?;
+        ).await?;
         Ok(())
     }
 
@@ -525,7 +523,7 @@ impl WalletSession {
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
-        
+
         let latest_l2_block_state = user_session_mgr.rpc_provider.get_realm_latest_l2_block_state().await?;
         let global_latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
 
@@ -708,7 +706,7 @@ impl WalletSession {
         sig_contract_id: Option<u64>,
         sign_inputs: Vec<u64>,
     ) -> anyhow::Result<()> {
-        tracing::info!("🔔sign and submit with sign type: {:?}", sign_type);
+        tracing::info!("sign and submit with sign type: {:?}", sign_type);
 
         let mut user_session_mgr = self
             .user_session_mgrs

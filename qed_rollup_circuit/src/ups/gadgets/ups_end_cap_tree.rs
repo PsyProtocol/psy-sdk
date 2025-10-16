@@ -62,6 +62,8 @@ impl UPSEndCapFromProofTreeGadget {
             ups_session_proof_tree_height,
         );
 
+        tracing::debug!("🏁 UPSEndCapFromProofTree - current_proof_tree_root: {:?}, attested_proof_tree_root: {:?}",
+            current_proof_tree_root, verify_zk_signature_proof_gadget.attested_proof_tree_root);
         // ensure our zk signature is in the same proof tree as our previous ups step
         builder.connect_hashes(
             verify_zk_signature_proof_gadget.attested_proof_tree_root,
@@ -74,6 +76,12 @@ impl UPSEndCapFromProofTreeGadget {
 
 
         let tx_count = verify_previous_ups_step_gadget.previous_step_header_gadget.current_state.tx_count;
+        tracing::debug!("🏁 UPSEndCapFromProofTree - tx_count: {:?}, nonce: {:?}, slots_modified: {:?}",
+            tx_count, nonce, slots_modified);
+        tracing::debug!("🏁 UPSEndCapFromProofTree - user_public_key: {:?}, network_magic: {}",
+            user_public_key_param, network_magic);
+        tracing::debug!("🏁 UPSEndCapFromProofTree - zk_signature: public_inputs={:?}, fingerprint={:?}",
+            verify_zk_signature_proof_gadget.public_inputs_hash, verify_zk_signature_proof_gadget.fingerprint);
 
         let end_cap_core_gadget = UPSEndCapCoreGadget::enforce_signature_constraints::<H,F,D>(
             builder,

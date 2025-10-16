@@ -47,6 +47,8 @@ impl HistoricalRootMerkleProofGadget {
             &siblings,
             zero_hash
         );
+        tracing::debug!("🔍 Historical Merkle Proof GTE - computed roots: current={:?}, historical={:?}, index={:?}, height={}",
+            current_root, historical_root, index, height);
         Self {
             current_root,
             current_value,
@@ -77,6 +79,8 @@ impl HistoricalRootMerkleProofGadget {
             &siblings,
             current_value
         );
+        tracing::debug!("🔍 Historical Merkle Proof GT - computed roots: current={:?}, historical={:?}, index={:?}, height={}",
+            current_root, historical_root, index, height);
         Self {
             current_root,
             current_value,
@@ -124,9 +128,6 @@ impl HistoricalRootMerkleProofGadget {
         let mut state: HashOutTarget = value;
         let mut historical_state: HashOutTarget = start_historical_state;
         //debug_assert_eq!(state.elements.len(), NUM_HASH_OUT_ELEMENTS);
-
-        tracing::debug!("🔍 Historical Merkle Proof - initial state: {:?}, historical_state: {:?}, value: {:?}",
-            state, historical_state, value);
 
         let mut level = 0;
 
@@ -281,5 +282,4 @@ mod tests {
             assert_eq!(historical_root, computed_historical_root, "historical_root != computed_historical_root");
         }
     }
-
 }
