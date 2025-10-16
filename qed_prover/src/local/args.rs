@@ -42,7 +42,7 @@ pub struct WalletSessionArgs {
     pub private_key: String,
     #[clap(env, long, default_value = "contract_call.json", env)]
     pub contract_calls: String,
-    #[clap(env, long, default_value = "secp256k1", env)]
+    #[clap(env, long, default_value = "zk", env)]
     pub sign_type: SignType,
     #[arg(long, default_value = "0", env)]
     pub contract_id: u64,
