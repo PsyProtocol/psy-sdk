@@ -259,6 +259,10 @@ pub enum RequestParams<F: RichField> {
     UpsCfcDeferredTx(QUpsCfcDeferredTxRPCRequest<F>),
     #[serde(rename = "qed_prove_zk_sign")]
     ZKSignatureProof(QSignatureProofRPCRequest<F>),
+    #[serde(rename = "qed_prove_zk_sign_inner")]
+    ZKSignatureInnerProof(QSignatureInnerProofRPCRequest<F>),
+    #[serde(rename = "qed_prove_zk_sign_minifier")]
+    ZKSignatureMinifierProof(QSignatureMinifierProofRPCRequest),
     #[serde(rename = "qed_prove_secp_sign")]
     SECPSignatureProof(QSecpSignatureProofRPCRequest),
     #[serde(rename = "qed_register_software_defined_circuit")]
@@ -1151,6 +1155,20 @@ pub struct QUpsCfcDeferredTxRPCRequest<F: RichField> {
 pub struct QSignatureProofRPCRequest<F: RichField> {
     pub private_key: QHashOut<F>,
     pub sig_hash: QHashOut<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct QSignatureInnerProofRPCRequest<F: RichField> {
+    pub private_key: QHashOut<F>,
+    pub sig_hash: QHashOut<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+pub struct QSignatureMinifierProofRPCRequest {
+    pub inner_proof: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

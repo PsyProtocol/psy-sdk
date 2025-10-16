@@ -5,10 +5,10 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::circuits::{
+use qed_common_circuit::{circuits::zk_signature3::core::QEDBasicZKSignatureInnerCircuit, treeprover::qrecursion::standard::manager::portable::circuits::{
     PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
     PortableQTreeRecursionCircuitsTrait,
-};
+}};
 use qed_core::job::id::{VariableHeightRewardMerkleProof, QProvingJobDataID};
 use qed_crypto::{
     common::witnesses::qrecursion::proof_data::{
@@ -41,13 +41,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, marker::PhantomData, sync::Arc};
 
 use crate::local::request::{
-    QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QLeftAggRightLeafRpcRequestV2,
-    QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest,
-    QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest,
-    QSecpSignatureProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2,
-    QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2,
-    QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
-    QLatestL2BlockStateRPCRequest, RequestParamsV2,
+    QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QLatestL2BlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, RequestParamsV2
 };
 use crate::wallet::software_defined_circuit::{
     SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
@@ -758,10 +752,14 @@ pub trait ProveProxyRpcTrait<C: GenericConfig<D>, const D: usize> {
 }
 
 #[derive(Clone, Debug)]
-pub struct ProveProxyRpcProvider<C: GenericConfig<D>, const D: usize> {
+pub struct ProveProxyRpcProvider<C: GenericConfig<D> + 'static, const D: usize> 
+where
+    C::Hasher:AlgebraicHasher<C::F>,
+{
     pub client: Arc<Client>,
     pub proof_proxy_url: String,
     pub common_circuits_data: LocalCommonCircuitsData<C::F>,
+    pub zk_sign_inner_circuit: QEDBasicZKSignatureInnerCircuit<C, D>,
     pub _marker: PhantomData<C>,
 }
 
@@ -802,7 +800,10 @@ pub struct LocalCommonCircuitsData<F: RichField> {
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
+impl<C: GenericConfig<D> + 'static, const D: usize> ProveProxyRpcProvider<C, D> 
+where
+    C::Hasher:AlgebraicHasher<C::F>,
+{
     pub async fn new_with_config(proof_proxy_url: String) -> anyhow::Result<Self> {
         let client = Client::new();
 
@@ -844,6 +845,7 @@ impl<C: GenericConfig<D>, const D: usize> ProveProxyRpcProvider<C, D> {
         Ok(Self {
             client: Arc::new(client),
             common_circuits_data,
+            zk_sign_inner_circuit: QEDBasicZKSignatureInnerCircuit::new(),
             proof_proxy_url,
             _marker: PhantomData,
         })
@@ -1190,12 +1192,14 @@ where
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove_zk_sign: {}", sig_hash.to_string());
+        let inner_proof = self.zk_sign_inner_circuit.prove_base(private_key, sig_hash)?;
+        let inner_proof_str = serde_json::to_string(&inner_proof)?;
+
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
-            RequestParams::<C::F>::ZKSignatureProof(QSignatureProofRPCRequest {
-                private_key,
-                sig_hash,
+            RequestParams::<C::F>::ZKSignatureMinifierProof(QSignatureMinifierProofRPCRequest {
+                inner_proof: inner_proof_str,
             }),
             ProofWithPublicInputs<C::F, C, D>
         );
