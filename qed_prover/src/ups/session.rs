@@ -91,8 +91,6 @@ impl<
 
         let mut new_user = session_start_context.start_session_user_leaf.clone();
 
-        //let l2_bstate = lps.cmd_store.resolve_get_latest_l2_block_state_mut()?;
-
         let latest_checkpoint_id_u64 = lps.get_current_start_checkpoint_id_u64();
         let latest_checkpoint_id_f = lps.get_current_start_checkpoint_id();
 
@@ -223,14 +221,6 @@ impl<
         timer.lap("start");
         tracing::info!("get_ups_start_witness");
         let input = self.get_ups_start_witness().await?;
-        //println!("witness:\n{:?}",input);
-        //println!("\n\n\nwitness json:\n{}\n\n\n\n\n\n",serde_json::to_string_pretty(&input).unwrap());
-        /*let st_roots = input.state_roots.qfhash::<QEDHasher>();
-
-            println!("[prove_ups_start] current_state_roots: {}",serde_json::to_string_pretty(&input.state_roots).unwrap());
-        if st_roots != input.checkpoint_leaf.global_chain_root {
-            println!("input.checkpoint_leaf.global_chain_root != st_roots\n{:?} != {:?}",input.checkpoint_leaf.global_chain_root, st_roots);
-        }*/
 
         timer.lap("gen_witness");
         if !input.checkpoint_tree_proof.verify::<QEDHasher>() {
@@ -249,7 +239,7 @@ impl<
             anyhow::bail!("invalid user tree proof");
         }
 
-        if input.ups_header.session_start_context.start_session_user_leaf.qfhash::<QEDHasher>() != input.user_tree_proof.value{
+        if input.ups_header.session_start_context.start_session_user_leaf.qfhash::<QEDHasher>() != input.user_tree_proof.value {
             tracing::error!(
                 "input.ups_header.session_start_context.start_session_user_leaf.qfhash::<QEDHasher>()!= input.user_tree_proof.value\n{:?}!= {:?}",
                 input.ups_header.session_start_context.start_session_user_leaf.qfhash::<QEDHasher>().to_string(),
@@ -259,7 +249,6 @@ impl<
         }
 
         tracing::info!("circuit_mgr.ups_start.prove_base start");
-        // let proof = circuit_mgr.ups_start.prove_base(&input)?;
         let proof = circuit_mgr.prove_ups_start(&input).await?;
         timer.lap("circuit_mgr.ups_start.prove_base");
 
@@ -555,7 +544,7 @@ impl<
         signature_proof: ProofWithPublicInputs<F, C, D>,
         verifier_data: VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F,C,D>> {
-        if signature_proof.public_inputs.len() != 4{
+        if signature_proof.public_inputs.len() != 4 {
             anyhow::bail!("signature proof must have 4 public inputs");
         }
 

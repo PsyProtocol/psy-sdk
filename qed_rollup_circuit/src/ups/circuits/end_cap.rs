@@ -234,20 +234,6 @@ where
         agg_root_proof: &ProofWithPublicInputs<C::F, C, D>,
         agg_root_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        // testing
-
-        /*
-        let dbg_input: DebugEndCapPerfInputSer<C, D> = DebugEndCapPerfInputReady{
-            core: DebugEndCapPerfInputCore{
-                end_cap_from_proof_tree_input: end_cap_from_proof_tree_input.to_owned(),
-                agg_whitelist_merkle_proof: agg_whitelist_merkle_proof.to_owned(),
-                agg_proof_header: agg_proof_header.to_owned(),
-                agg_root_proof:agg_root_proof.to_owned(),
-            },
-            agg_root_verifier_data: agg_root_verifier_data.to_owned(),
-        }.into_ser();
-        println!("dbg_input:\n\n{}\n\n",serde_json::to_string::<DebugEndCapPerfInputSer<C,D>>(&dbg_input).unwrap());*/
-        // end testing
         if self.is_minifier_enabled() {
             let base_proof = self.prove_base_inner(
                 end_cap_from_proof_tree_input,
