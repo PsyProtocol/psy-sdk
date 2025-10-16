@@ -39,7 +39,7 @@ where
     C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
-        let config = CircuitConfig::standard_recursion_zk_config();
+        let config = CircuitConfig::standard_recursion_config();
 
         let mut timer = DebugTimer::new("new zk sign circuit");
         timer.lap("build inner circuit");
@@ -284,7 +284,7 @@ where
     C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
-        let config = CircuitConfig::standard_recursion_zk_config();
+        let config = CircuitConfig::standard_recursion_config();
 
         let mut timer = DebugTimer::new("new zk sign circuit");
         timer.lap("build inner circuit");
