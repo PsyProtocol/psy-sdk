@@ -147,6 +147,9 @@ where
         );
 
         // ensure the proof tree proof's root matches the ups gadget's root
+        tracing::debug!("🏗️ EndCap Circuit Constraint 1 - proof tree root match: agg_end={:?}, current={:?}",
+            verify_proof_tree_root_gadget.agg_proof_header_gadget.state_transition_end,
+            end_cap_from_proof_tree_gadget.current_proof_tree_root);
         builder.connect_hashes(
             verify_proof_tree_root_gadget
                 .agg_proof_header_gadget
@@ -163,8 +166,13 @@ where
             .guta_stats
             .to_hash::<C::Hasher, C::F, D>(&mut builder);
 
+        tracing::debug!("🏗️ EndCap Circuit Public Inputs - state_transition_hash={:?}, guta_stats_hash={:?}",
+            state_transition_pi_hash, guta_stats_pi_hash);
+
         let public_inputs_hash =
             builder.hash_two_to_one::<C::Hasher>(state_transition_pi_hash, guta_stats_pi_hash);
+
+        tracing::debug!("🏗️ EndCap Circuit Final Public Inputs Hash: {:?}", public_inputs_hash);
 
         builder.register_public_inputs(&public_inputs_hash.elements);
 

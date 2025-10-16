@@ -95,8 +95,17 @@ impl<
 
         let latest_checkpoint_id_u64 = lps.get_current_start_checkpoint_id_u64();
         let latest_checkpoint_id_f = lps.get_current_start_checkpoint_id();
+
+        if latest_checkpoint_id_u64 != 0 && latest_checkpoint_id_u64 <= new_user.last_checkpoint_id.to_canonical_u64() {
+            anyhow::bail!(
+                "Invalid checkpoint: new checkpoint {} must be > last user_leaf checkpoint {}",
+                latest_checkpoint_id_u64,
+                new_user.last_checkpoint_id.to_canonical_u64()
+            );
+        }
+
         new_user.last_checkpoint_id = latest_checkpoint_id_f;
-        println!("checkpoint_id: {}",latest_checkpoint_id_u64);
+        tracing::debug!("ups_start_checkpoint_id: {}",latest_checkpoint_id_u64);
 
         let current_checkpoint_leaf = lps
             .cmd_store
@@ -104,7 +113,7 @@ impl<
 
         let current_global_state_roots = lps.get_global_state_tree_roots(latest_checkpoint_id_u64).await?;
 
-        println!("current_state_roots: {}",serde_json::to_string_pretty(&current_global_state_roots).unwrap());
+        tracing::debug!("ups_start_global_state_roots: {}",serde_json::to_string_pretty(&current_global_state_roots).unwrap());
 
 
         let current_state = UserProvingSessionCurrentState{
@@ -178,14 +187,13 @@ impl<
             start_checkpoint_id,
             self.lps.get_current_user_id_64(),
         );
-        let user_tree_proof =
-            self.lps.cmd_store
-                .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserTreeMerkleProof(
-                    QSRMerkleCmdGetUserTreeMerkleProof {
-                        checkpoint_id: start_checkpoint_id,
-                        user_id: self.lps.get_current_user_id_64(),
-                    },
-                )).await?;
+        let user_tree_proof = self.lps.cmd_store
+            .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserTreeMerkleProof(
+                QSRMerkleCmdGetUserTreeMerkleProof {
+                    checkpoint_id: start_checkpoint_id,
+                    user_id: self.lps.get_current_user_id_64(),
+                },
+            )).await?;
 
 
         let input = UPSStartStepInput {
@@ -259,14 +267,13 @@ impl<
         let known_proof_tree_root = self.proof_tree_state.get_proof_tree_root().await;
         let inner_public_inputs_hash = input.ups_header.qfhash::<H>();
 
-        let last_ups_step_proof_index =
-            self.proof_tree_state
-                .injest_single_leaf_proof(InputLeafProof {
-                    leaf_circuit_type: UPS_STEP_LEAF_TYPE,
-                    fingerprint: circuit_mgr.ups_start_circuit_fingerprint().await?,
-                    verifier_data: circuit_mgr.ups_start_circuit_verifier_config().await?,
-                    proof,
-                }).await;
+        let last_ups_step_proof_index = self.proof_tree_state
+            .injest_single_leaf_proof(InputLeafProof {
+                leaf_circuit_type: UPS_STEP_LEAF_TYPE,
+                fingerprint: circuit_mgr.ups_start_circuit_fingerprint().await?,
+                verifier_data: circuit_mgr.ups_start_circuit_verifier_config().await?,
+                proof,
+            }).await;
         self.last_ups_step_proof_info = TreeAwareTreeProofRecord {
             circuit_id: LocalCircuitType::UPSStart.into(),
             inner_public_inputs_hash,
@@ -279,16 +286,6 @@ impl<
 
         Ok(())
     }
-
-    /*
-    pub fn get_verify_previous_ups_step_proof_input_std_cfc(&self, ups_circuit_whitelist_merkle_proof: MerkleProofCore<QHashOut<F>>) -> anyhow::Result<VerifyPreviousUPSStepProofInProofTreeInput<F>> {
-        let x = VerifyPreviousUPSStepProofInProofTreeInput {
-            proof_attestation_witness: todo!(),
-            previous_step_header: self.current_ups_header.clone(),
-            ups_circuit_whitelist_merkle_proof,
-        };
-        Ok(x)
-    }*/
 
     pub async fn get_verify_previous_ups_step_proof(&mut self) -> anyhow::Result<VerifyPreviousUPSStepProofInProofTreeInput<F>> {
         let previous_step_header = self.current_ups_header.clone();
@@ -307,6 +304,11 @@ impl<
             historical_root_proof,
             inclusion_proof,
         };
+
+        // if !proof_attestation_witness.verify::<H>() {
+        //     anyhow::bail!("AttestTreeAwareProofInTreeInput verification failed for previous UPS step");
+        // }
+
         Ok(VerifyPreviousUPSStepProofInProofTreeInput{
             proof_attestation_witness,
             previous_step_header,
@@ -406,6 +408,11 @@ impl<
             historical_root_proof,
             inclusion_proof: proof_tree_inclusion_proof,
         };
+
+        // if !verify_cfc_proof_input.verify::<H>() {
+        //     anyhow::bail!("AttestTreeAwareProofInTreeInput verification failed for CFC standard step");
+        // }
+
         let process_cfc_state_delta_input = UPSCFCStandardStateDeltaInput {
             cfc_transaction_input_context: cfc_proof_input.tx_input_ctx,
             user_contract_tree_update_proof,
@@ -600,14 +607,6 @@ impl<
         tracing::info!("compress all proofs into a sign tree proof");
         self.proof_tree_state.finalize_tree(circuit_mgr).await?;
 
-        // let user_contract_state = UserContractState {
-        //     checkpoint_tree_root: self.current_ups_header.session_start_context.checkpoint_tree_root,
-        //     user_leaf: self.current_ups_header.current_state.user_leaf,
-        //     start_contract_state_root: self.current_ups_header.session_start_context.start_session_user_leaf.user_state_tree_root,
-        //     contract_id: F::ZERO,
-        //     checkpoint_id: self.current_ups_header.session_start_context.checkpoint_id,
-        // };
-
         let zk_sig_leaf_proof = self.proof_tree_state.get_leaf_merkle_proof(zk_sig_proof_index).await;
         let end_cap_from_proof_tree_input = UPSEndCapFromProofTreeGadgetInput{
             verify_previous_ups_step_input: self.get_verify_previous_ups_step_proof().await?,
@@ -622,35 +621,14 @@ impl<
             second_to_last_tx_hash_stack: self.previous_ups_header.current_state.tx_hash_stack,
         };
 
-        //println!("endcap_from_proof_tree: {:?}",end_cap_from_proof_tree_input);
-
         let finalized_proof_tree_record =
             self.proof_tree_state.get_finalized_proot_tree_record().await?;
-
-        // let agg_whitelist_merkle_proof = circuit_mgr
-        //     .proof_tree_agg_circuits
-        //     .circuit_inclusion_proofs
-        //     .get_inclusion_proof_for_type(finalized_proof_tree_record.circuit_type);
-        // let agg_root_verifier_data = self
-        //     .circuit_info
-        //     .get_circuit_info_by_fingerprint(finalized_proof_tree_record.fingerprint)?
-        //     .verifier_data
-        //     .to_verifier_data::<C, D>();
 
         let proof = circuit_mgr.prove_ups_end_cap(
             &self.circuit_info,
             &end_cap_from_proof_tree_input,
             &finalized_proof_tree_record,
         ).await?;
-
-        /*
-        let root_proof = self.proof_tree_state.get_root_verified_proof(&circuit_mgr.proof_tree_agg_circuits)?;
-
-
-        let proof = circuit_mgr.ups_end_cap.prove_base(
-            &end_cap_from_proof_tree_input,
-            &root_proof,
-        )?;*/
 
         // update the user's nonce
         self.current_ups_header.current_state.user_leaf.nonce = nonce;
@@ -741,6 +719,11 @@ impl<
             historical_root_proof,
             inclusion_proof: proof_tree_inclusion_proof,
         };
+
+        // if !verify_cfc_proof_input.verify::<H>() {
+        //     anyhow::bail!("AttestTreeAwareProofInTreeInput verification failed for CFC deferred transaction step");
+        // }
+
         let process_cfc_state_delta_input = UPSCFCStandardStateDeltaInput {
             cfc_transaction_input_context: cfc_proof_input.tx_input_ctx,
             user_contract_tree_update_proof,

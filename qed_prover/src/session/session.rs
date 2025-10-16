@@ -693,7 +693,7 @@ impl WalletSession {
         sig_contract_id: Option<u64>,
         sign_inputs: Vec<u64>,
     ) -> anyhow::Result<()> {
-        tracing::info!("🔔sign and submit with sign type: {:?}", sign_type);
+        tracing::info!("sign and submit with sign type: {:?}", sign_type);
 
         let mut user_session_mgr = self
             .user_session_mgrs
