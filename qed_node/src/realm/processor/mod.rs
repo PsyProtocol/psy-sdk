@@ -300,15 +300,15 @@ impl RealmProcessor {
     }
 
     async fn block_handle(&self, build_ctx: &ConcreteRealmProcessorContext, sync_rx: &mut mpsc::Receiver<SyncState>) -> anyhow::Result<()> {
-        // let slot = self.slot_timer.wait_for_next_slot().await;
-        // if slot.is_even() {
-        //     return Ok(());
-        // }
+        let slot = self.slot_timer.wait_for_next_slot().await;
+        if slot.is_even() {
+            return Ok(());
+        }
         let mut buffer = vec![];
         // recv synced、confirmed、confirmed failed state from sync processor
         let _ = sync_rx.recv_many(&mut buffer, sync_rx.len()).await;
         trace!("Block handle buffer: {:?}", buffer);
-        time::sleep(Duration::from_secs(1)).await;
+        // time::sleep(Duration::from_secs(1)).await;
         
         let slot = self.slot_timer.get_current_slot();
         trace!("Next slot: {}", slot);
