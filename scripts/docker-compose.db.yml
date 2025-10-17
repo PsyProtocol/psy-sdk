@@ -1,5 +1,5 @@
 services:
-  redis-coordinator:
+  redis-all:
     image: redis:alpine
     container_name: qed-redis-coordinator
     network_mode: host
@@ -7,32 +7,20 @@ services:
       - redis-server
       - --port
       - "6379"
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - "everysec"
+      - --auto-aof-rewrite-percentage
+      - "100"
+      - --auto-aof-rewrite-min-size
+      - "64mb"
       - --save
-      - ""
-    restart: unless-stopped
-
-  redis-realm0:
-    image: redis:alpine
-    container_name: qed-redis-realm0
-    network_mode: host
-    command:
-      - redis-server
-      - --port
-      - "6380"
-      - --save
-      - ""
-    restart: unless-stopped
-
-  redis-realm1:
-    image: redis:alpine
-    container_name: qed-redis-realm1
-    network_mode: host
-    command:
-      - redis-server
-      - --port
-      - "6381"
-      - --save
-      - ""
+      - "60 1"
+      - --dir
+      - "/data"
+    volumes:
+      - ./target/redis-all:/data
     restart: unless-stopped
 
   timescaledb:

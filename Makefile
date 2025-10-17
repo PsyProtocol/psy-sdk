@@ -175,8 +175,6 @@ init:
 	@cp qed_compiler/tests/mining_rewards.qed ${PROJECT_DIR}/mining_rewards/src/main.qed
 	@mkdir -p $(PWD)/db
 	@echo "Waiting for databases to be ready..."
-	# @echo "Starting TimescaleDB container..."
-	# @docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
 	# @echo "Starting Redis containers..."
 	# @docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
 	# @docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
@@ -190,18 +188,12 @@ init:
 	@cd ./qed_api_services && export DATABASE_URL="postgres://postgres:password@localhost/postgres" && cargo sqlx database create && cargo sqlx migrate run
 	@sleep 5
 
-init-api-services:
-	@docker start timescaledb || docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
-	@sleep 5
-	@cd ./qed_api_services && export DATABASE_URL="postgres://postgres:password@localhost/postgres" && cargo sqlx database create && cargo sqlx migrate run
-
 .PHONY: shutdown
 shutdown:
 	@echo "Stopping and removing database containers..."
 	@redis-cli -p 6379 FLUSHALL > /dev/null 2>&1 || true
-	@redis-cli -p 6380 FLUSHALL > /dev/null 2>&1 || true
-	@redis-cli -p 6381 FLUSHALL > /dev/null 2>&1 || true
 	@docker-compose -f ./scripts/docker-compose.db.yml down -v --remove-orphans
+	@rm -rf ./target/redis-all > /dev/null 2>&1 || true
 	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
 	@rm -fr ${PROJECT_DIR} ${PWD}/db logs > /dev/null 2>&1 || true
 	@echo "Removing user job tracker JSON files..."
@@ -226,35 +218,49 @@ run-api-services:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli api-services
 
 run-coordinator-processor:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor --database lmdbx --lmdbx-path ${PWD}/db/coordinator
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/coordinator \
+      --queue-biz-key coordinator
 
 run-coordinator-edge:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge --database lmdbx --lmdbx-path ${PWD}/db/coordinator
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge \
+	  --database lmdbx \
+	  --lmdbx-path ${PWD}/db/coordinator \
+      --queue-biz-key coordinator
 
 run-realm-processor:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor --redis-uri=redis://127.0.0.1:6380 --database lmdbx --lmdbx-path ${PWD}/db/realm0
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+	  --redis-uri=redis://127.0.0.1:6379 \
+	  --database lmdbx\
+	  --lmdbx-path ${PWD}/db/realm0 \
+	  --queue-biz-key realm0
 
 run-realm-edge:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge --redis-uri=redis://127.0.0.1:6380 --database lmdbx --lmdbx-path ${PWD}/db/realm0
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+	  --redis-uri=redis://127.0.0.1:6379 \
+	  --database lmdbx \
+	  --lmdbx-path ${PWD}/db/realm0 \
+	  --queue-biz-key realm0
 
 run-realm-processor1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
-      --redis-uri=redis://127.0.0.1:6381 \
+      --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm1 \
       --node-id=2 \
       --realm-id=1 \
-      --queue-biz-key=rwq1
+	  --queue-biz-key realm1
 
 run-realm-edge1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
       --listen-addr=0.0.0.0:8547 \
-      --redis-uri=redis://127.0.0.1:6381 \
+      --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm1 \
       --coordinator-addr=http://127.0.0.1:8545 \
       --realm-id=1 \
-      --queue-biz-key=rwq1
+	  --queue-biz-key realm1
 
 run-watcher-coordinator:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
@@ -263,57 +269,28 @@ run-watcher-coordinator:
 	--redis-uri redis://127.0.0.1:6379 \
 	--api-endpoint "http://localhost:3000" \
 	--database lmdbx \
-	--lmdbx-path ${PWD}/db/coordinator
-
-run-watcher-coordinator-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
-	--node-id 0 \
-	--node-type coordinator \
-	--redis-uri redis://127.0.0.1:6379 \
-	--api-endpoint "http://localhost:3000" \
-    --database tikv \
-    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-    --tikv-namespace coordinator
+	--lmdbx-path ${PWD}/db/coordinator \
+    --queue-biz-key coordinator
 
 run-watcher-realm0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 0 \
 	--node-type realm \
-	--redis-uri redis://127.0.0.1:6380 \
+	--redis-uri redis://127.0.0.1:6379 \
 	--api-endpoint "http://localhost:3000" \
 	--database lmdbx \
-    --lmdbx-path ${PWD}/db/realm0
-
-run-watcher-realm0-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
-	--node-id 0 \
-	--node-type realm \
-	--redis-uri redis://127.0.0.1:6380 \
-	--api-endpoint "http://localhost:3000" \
-    --database tikv \
-    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-    --tikv-namespace realm0
-
+    --lmdbx-path ${PWD}/db/realm0 \
+    --queue-biz-key realm0
 
 run-watcher-realm1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
 	--node-id 1 \
 	--node-type realm \
-	--redis-uri redis://127.0.0.1:6381 \
+	--redis-uri redis://127.0.0.1:6379 \
 	--api-endpoint "http://localhost:3000" \
 	--database lmdbx \
-    --lmdbx-path ${PWD}/db/realm1
-
-
-run-watcher-realm1-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
-	--node-id 1 \
-	--node-type realm \
-	--redis-uri redis://127.0.0.1:6381 \
-	--api-endpoint "http://localhost:3000" \
-    --database tikv \
-    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-    --tikv-namespace realm1
+    --lmdbx-path ${PWD}/db/realm1 \
+    --queue-biz-key realm1
 
 run-api-service:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_api_services
@@ -351,47 +328,84 @@ run-coordinator-processor-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-		--tikv-namespace coordinator
+		--tikv-namespace coordinator \
+	    --queue-biz-key coordinator
 
 run-coordinator-edge-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-		--tikv-namespace coordinator
+		--tikv-namespace coordinator \
+		--queue-biz-key coordinator
 
 run-realm-processor-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
-		--redis-uri=redis://127.0.0.1:6380 \
+		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-		--tikv-namespace realm0
+		--tikv-namespace realm0 \
+		--queue-biz-key realm0
 
 run-realm-edge-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
-		--redis-uri=redis://127.0.0.1:6380 \
+		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
-		--tikv-namespace realm0
+		--tikv-namespace realm0 \
+		--queue-biz-key realm0
 
 run-realm-processor1-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
-		--redis-uri=redis://127.0.0.1:6381 \
+		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace realm1 \
 		--realm-id=1 \
-		--queue-biz-key=rwq1
+		--queue-biz-key realm1
 
 run-realm-edge1-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
 		--listen-addr=0.0.0.0:8547 \
-        --redis-uri=redis://127.0.0.1:6381 \
+        --redis-uri=redis://127.0.0.1:6379 \
         --database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace realm1 \
         --coordinator-addr=http://127.0.0.1:8545 \
 		--realm-id=1 \
-		--queue-biz-key=rwq1
+		--queue-biz-key realm1
+
+run-watcher-coordinator-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 0 \
+	--node-type coordinator \
+	--redis-uri redis://127.0.0.1:6379 \
+	--api-endpoint "http://localhost:3000" \
+    --database tikv \
+    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+    --tikv-namespace coordinator \
+    --queue-biz-key coordinator
+
+run-watcher-realm0-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 0 \
+	--node-type realm \
+	--redis-uri redis://127.0.0.1:6379 \
+	--api-endpoint "http://localhost:3000" \
+    --database tikv \
+    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+    --tikv-namespace realm0 \
+    --queue-biz-key realm0
+
+run-watcher-realm1-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	--node-id 1 \
+	--node-type realm \
+	--redis-uri redis://127.0.0.1:6379 \
+	--api-endpoint "http://localhost:3000" \
+    --database tikv \
+    --tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+    --tikv-namespace realm1 \
+    --queue-biz-key realm1
 
 run-all-tikv: shutdown-tikv init-tikv compile
 	@./scripts/run_all_tikv.sh
@@ -606,10 +620,10 @@ sync-store-coordinator-processor:
 	@./target/${PROFILE}/qed_rollup_cli coordinator-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/coordinator
 
 sync-store-realm-processor:
-	@./target/${PROFILE}/qed_rollup_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm0 --realm-id 0 --queue-biz-key rwq0 --redis-uri redis://127.0.0.1:6380
+	@./target/${PROFILE}/qed_rollup_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm0 --realm-id 0 --queue-biz-key rwq0 --redis-uri redis://127.0.0.1:6379
 
 sync-store-realm-processor1:
-	@./target/${PROFILE}/qed_rollup_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm1 --realm-id 1 --queue-biz-key rwq1 --redis-uri redis://127.0.0.1:6381
+	@./target/${PROFILE}/qed_rollup_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm1 --realm-id 1 --queue-biz-key rwq1 --redis-uri redis://127.0.0.1:6379
 
 # Check if user exists in realm
 check-user-id:
@@ -641,3 +655,9 @@ wallet-build: wasm-build
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort
+
+init-timescaledb:
+	@echo "Starting TimescaleDB container..."
+	@docker start timescaledb || docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
+	@sleep 5
+	@cd ./qed_api_services && export DATABASE_URL="postgres://postgres:password@localhost/postgres" && cargo sqlx database create && cargo sqlx migrate run

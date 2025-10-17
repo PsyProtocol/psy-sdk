@@ -48,12 +48,12 @@ pub struct WatcherArgs {
     pub redis_pool_size: usize,
 
     #[clap(
-        long = "queue",
+        long = "queue-biz-key",
         env = "WATCHER_QUEUE",
         help = "Name of the RSMQ queue",
         default_value = "watcher:queue"
     )]
-    pub queue: String,
+    pub queue_biz_key: String,
 
     #[clap(
         long = "block-sync-interval",
@@ -83,7 +83,7 @@ impl WatcherConfig {
     /// Create config from command line arguments
     pub fn from_args(args: WatcherArgs) -> Result<Self> {
         let node_type = NodeType::from_str(&args.node_type)?;
-        let queue_id = QueueConfig::from_str(&args.queue)?;
+        let queue_id = QueueConfig::from_str(&args.queue_biz_key)?;
 
         Ok(Self {
             node_id: args.node_id,
