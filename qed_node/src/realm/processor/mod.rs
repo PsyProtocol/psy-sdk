@@ -271,7 +271,7 @@ impl RealmProcessor {
                 checkpoint, ret.checkpoint_id, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
 
             if ret.checkpoint_id >= checkpoint && realm_root.value == ret.realm_root {
-                let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id).await?;
+                let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id).await.map_err(|e| anyhow!("Failed to commit checkpoint {}: {}", ret.checkpoint_id, e))?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
                 info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint, ret.latest_checkpoint_id);
                 sync_tx.send(SyncState::Confirmed).await?;

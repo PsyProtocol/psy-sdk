@@ -668,7 +668,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         let mut builder = self.redis.cmd_builder();
 
         for user in pending_users.iter() {
-            let user_bytes = bincode::serialize(user).map_err(|e| anyhow::anyhow!(e))?;
+            let user_bytes = bincode::serialize(user).map_err(|e| anyhow::anyhow!("Failed to serialize user: {}", e))?;
             builder = builder.rpush(key.clone(), user_bytes);
         }
 
@@ -687,7 +687,8 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         let mut users = Vec::new();
         if let Some(bytes_list) = bytes_vec {
             for bytes in bytes_list {
-                let user = bincode::deserialize(&bytes).map_err(|e| anyhow::anyhow!(e))?;
+                let user = bincode::deserialize::<MerkleProofCore<QHashOut<F>>>(&bytes)
+                    .map_err(|e| anyhow::anyhow!("Deserialization failed for pending user: {}", e))?;
                 users.push(user);
             }
         }
@@ -713,7 +714,8 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 
         let mut users = Vec::with_capacity(items.len());
         for item_bytes in items {
-            let user = bincode::deserialize(&item_bytes).map_err(|e| anyhow::anyhow!(e))?;
+            let user = bincode::deserialize::<MerkleProofCore<QHashOut<F>>>(&item_bytes)
+                .map_err(|e| anyhow::anyhow!("Deserialization failed for pending user: {}", e))?;
             users.push(user);
         }
         let end_position = if users.is_empty() { -1 } else { users.len() as i64 - 1 };
@@ -726,7 +728,8 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         };
 
         let state_key = format!("{}-{}", self.realm_pending_user_key(), "CONSUMPTION_STATE");
-        let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!(e))?;
+        let state_data = bincode::serialize(&state)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
         self.redis.set_ex(state_key, state_data, 3600).await?;
 
         tracing::debug!("Consumed {} users from positions {}-{} for checkpoint {}",
@@ -757,7 +760,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 
         let state_data: Option<Vec<u8>> = self.redis.get(state_key).await.ok();
         if let Some(data) = state_data {
-            let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!(e))?;
+            let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!("Failed to deserialize state: {}", e))?;
             Ok(Some(state))
         } else {
             Ok(None)
@@ -804,8 +807,8 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         };
 
         let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
-        let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!(e))?;
-        self.redis.set_ex(state_key, state_data, 3600).await?;
+        let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
+        self.redis.set(state_key, state_data).await?;
 
         tracing::debug!("Consumed redis {} items from drain queue {} for checkpoint {}",
               items.len(), channel_id, checkpoint_id);
@@ -820,11 +823,12 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
         let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
         let state_data: Option<Vec<u8>> = self.redis.get(state_key).await.ok();
         if let Some(data) = state_data {
-            let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!(e))?;
-            Ok(Some(state))
-        } else {
-            Ok(None)
+            if !data.is_empty() {
+                let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!("Failed to deserialize state: {}", e))?;
+                return Ok(Some(state))
+            }
         }
+        Ok(None)
     }
 
     async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()> {
