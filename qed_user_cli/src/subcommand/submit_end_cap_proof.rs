@@ -130,16 +130,16 @@ pub async fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
     let user_pk_hash =
         wallet_session.add_user_with_type(args.private_key, args.sign_type.clone(), fingerprint).await?;
 
-    wallet_session.exec_contract_call_with_sign_type(
+    let tx_hash = wallet_session.exec_contract_call_with_sign_type(
         user_pk_hash,
         args.contract_call_args,
         args.sign_type.clone(),
         fingerprint,
         Some(args.contract_id),
-        vec![],
+        args.sign_inputs,
     ).await?;
 
-    tracing::info!("local proving end");
+    tracing::info!("local proving end with tx hash: {}", tx_hash);
 
     Ok(())
 }

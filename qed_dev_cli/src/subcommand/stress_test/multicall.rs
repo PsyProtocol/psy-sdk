@@ -101,7 +101,7 @@ impl Multicast {
         &self,
         public_key: QHashOut<GoldilocksField>,
         contract_call_args: Vec<ContractCallArgs>,
-    ) -> Result<()> {
+    ) -> Result<QHashOut<GoldilocksField>> {
         self.wallet_session
             .write()
             .exec_contract_call(public_key, contract_call_args).await

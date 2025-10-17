@@ -233,7 +233,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     }
 
     info!("Executing {} contract calls in single transaction", all_contract_calls.len());
-    wallet_session.exec_contract_call_with_sign_type(
+    let tx_hash = wallet_session.exec_contract_call_with_sign_type(
         user_pk_hash,
         all_contract_calls,
         args.sign_type.clone(),
@@ -244,7 +244,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
 
 
-    info!("Successfully claimed rewards");
+    info!("Successfully claimed rewards with tx hash: {}", tx_hash);
 
     Ok(())
 }
@@ -583,7 +583,7 @@ pub async fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Re
 
     println!("contract_call_args: {}", serde_json::to_string_pretty(&all_contract_calls)?);
 
-    wallet_session.exec_contract_call_with_sign_type(
+    let tx_hash = wallet_session.exec_contract_call_with_sign_type(
         user_pk_hash,
         all_contract_calls,
         args.sign_type.clone(),
@@ -592,7 +592,7 @@ pub async fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Re
         vec![],
     ).await?;
 
-    info!("Successfully claimed rewards");
+    info!("Successfully claimed rewards with tx hash: {}", tx_hash);
 
     Ok(())
 }

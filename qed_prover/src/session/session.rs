@@ -473,7 +473,7 @@ impl WalletSession {
         &self,
         public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<QHashOut<F>> {
         self.exec_contract_call_with_sign_type(
             public_key,
             contract_call_args,
@@ -492,7 +492,7 @@ impl WalletSession {
         fingerprint: Option<QHashOut<F>>,
         sig_contract_id: Option<u64>,
         sign_inputs: Vec<u64>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<QHashOut<F>> {
         tracing::info!(
             "exec contract call: {}",
             serde_json::to_string_pretty(&contract_call_args)?
@@ -504,16 +504,20 @@ impl WalletSession {
         self.prove_contract_calls(public_key, contract_call_args)
             .await?;
         tracing::info!("sign and submit on global checkpoint: {}", result.checkpoint_id);
-        self.sign_and_submit_with_sign_type(
+        let end_user_leaf_hash = self.sign_and_submit_with_sign_type(
             public_key,
             sign_type,
             fingerprint,
             sig_contract_id,
             sign_inputs,
         ).await?;
-        Ok(())
+        Ok(end_user_leaf_hash)
     }
 
+    pub async fn check_tx_is_confirmed(&self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<F>) -> anyhow::Result<bool> {
+        let user_leaf_data = self.st_provider.get_user_leaf_data(checkpoint_id, user_id).await?;
+        Ok(user_leaf_data.qfhash::<QEDHasher>() == tx_hash)
+    }
 
     pub async fn start_session(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
         tracing::info!("start new user proving session");
@@ -692,7 +696,7 @@ impl WalletSession {
         Ok(())
     }
 
-    pub async fn sign_and_submit(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
+    pub async fn sign_and_submit(&self, public_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
         self.sign_and_submit_with_sign_type(public_key, SignType::SECP256K1Sign, None, None, vec![])
             .await
     }
@@ -704,7 +708,7 @@ impl WalletSession {
         fingerprint: Option<QHashOut<F>>,
         sig_contract_id: Option<u64>,
         sign_inputs: Vec<u64>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<QHashOut<F>> {
         tracing::info!("sign and submit with sign type: {:?}", sign_type);
 
         let mut user_session_mgr = self
@@ -840,7 +844,7 @@ impl WalletSession {
 
                     sdc.prove(*private_key, &input, sighash).await?
                 } else {
-                    return anyhow::bail!("software defined sign need fingerprint");
+                    anyhow::bail!("software defined sign need fingerprint");
                 }
             }
         };
@@ -924,6 +928,13 @@ impl WalletSession {
             "get user ec input: {}",
             serde_json::to_string_pretty(&user_ec_input)?
         );
+
+        let end_user_leaf_hash = user_ec_input.core.state_transition.end_user_leaf_hash;
+        let new_user_leaf = user_ec_input.core.new_user_leaf;
+        if end_user_leaf_hash != new_user_leaf.qfhash::<QEDHasher>() {
+            anyhow::bail!("end user leaf hash not match");
+        }
+
         let req = QSubmitEndCapRPCRequest {
             user_ec_input,
             proof: end_cap_proof,
@@ -938,7 +949,7 @@ impl WalletSession {
         // update nonce
         // user_session_mgr.nonce = nonce + F::from_noncanonical_u64(1);
 
-        Ok(())
+        Ok(end_user_leaf_hash)
     }
 
     pub fn get_deploy_contract_cmd(
@@ -1248,7 +1259,9 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
     let public_key = wallet_session.add_user(private_key).await?;
 
-    wallet_session.exec_contract_call(public_key, contract_call_args).await?;
+    let tx_hash = wallet_session.exec_contract_call(public_key, contract_call_args).await?;
+
+    tracing::info!("wallet session multi contract call with tx hash: {}", tx_hash);
 
     Ok(())
 }

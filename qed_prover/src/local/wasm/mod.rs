@@ -54,10 +54,10 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
-        self.wallet_session.exec_contract_call(pk_hash, contract_call_args)
+        let end_user_leaf_hash = self.wallet_session.exec_contract_call(pk_hash, contract_call_args)
             .await
             .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
-        Ok("start session".to_string())
+        Ok(end_user_leaf_hash.to_string())
     }
 
     #[wasm_bindgen]
@@ -139,10 +139,10 @@ impl WasmRpcServer {
     pub async fn sign_and_submit(&self, pk_hash: &str) -> Result<String, JsError> {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-        self.wallet_session.sign_and_submit(pk_hash)
+        let end_user_leaf_hash = self.wallet_session.sign_and_submit(pk_hash)
             .await
             .map_err(|e| JsError::new(&format!("Sign and submit error: {}", e)))?;
-        Ok("sign and submit".to_string())
+        Ok(end_user_leaf_hash.to_string())
     }
 
     // User operations
