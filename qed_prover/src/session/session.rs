@@ -196,7 +196,7 @@ impl UserSessionStateManager {
             UPS_SESSION_PROOF_TREE_HEIGHT as usize,
         );
 
-        tracing::info!("create ups manager");
+        tracing::info!("create ups manager, user_id: {}, nonce: {}, checkpoint_id: {}", user_id, nonce, checkpoint_id);
         let mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new(
             lps,
             circuit_info,
@@ -240,6 +240,17 @@ impl UserSessionStateManager {
             nonce: F::from_canonical_u64(0),
             current_checkpoint_id: 0,
         })
+    }
+
+    pub async fn check_user_state(&self) -> anyhow::Result<()> {
+        let latest_checkpoint_id = self.rpc_provider.get_latest_l2_block_state().await?.checkpoint_id;
+        let user_leaf = self.rpc_provider.get_user_leaf_data(latest_checkpoint_id, self.user_id).await?;
+        if user_leaf.nonce + F::ONE != self.nonce {
+            tracing::error!("user nonce {} must be equal to onchain nonce {} + 1", self.nonce, user_leaf.nonce);
+            anyhow::bail!("user lps nonce {} must be equal to onchain nonce {} + 1", self.nonce, user_leaf.nonce);
+        }
+
+        Ok(())
     }
 }
 
@@ -470,8 +481,7 @@ impl WalletSession {
             None,
             None,
             vec![],
-        )
-            .await
+        ).await
     }
 
     pub async fn exec_contract_call_with_sign_type(
@@ -501,8 +511,7 @@ impl WalletSession {
             fingerprint,
             sig_contract_id,
             sign_inputs,
-        )
-            .await?;
+        ).await?;
         Ok(())
     }
 
@@ -514,7 +523,7 @@ impl WalletSession {
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
-        
+
         let latest_l2_block_state = user_session_mgr.rpc_provider.get_realm_latest_l2_block_state().await?;
         let global_latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
 
@@ -613,6 +622,8 @@ impl WalletSession {
             .prove_ups_start(&self.wallet.random_circuit_manager())
             .await?;
 
+        user_session_mgr.check_user_state().await?;
+
         Ok(())
     }
 
@@ -677,6 +688,8 @@ impl WalletSession {
             .await?;
         }
         user_session_mgr.mgr.prove_burn_fee(&self.wallet.random_circuit_manager()).await?;
+        user_session_mgr.check_user_state().await?;
+        
         Ok(())
     }
 
@@ -693,7 +706,7 @@ impl WalletSession {
         sig_contract_id: Option<u64>,
         sign_inputs: Vec<u64>,
     ) -> anyhow::Result<()> {
-        tracing::info!("🔔sign and submit with sign type: {:?}", sign_type);
+        tracing::info!("sign and submit with sign type: {:?}", sign_type);
 
         let mut user_session_mgr = self
             .user_session_mgrs
@@ -922,8 +935,9 @@ impl WalletSession {
             .submit_end_cap_proof::<F>(req)
             .await?;
 
+        user_session_mgr.check_user_state().await?;
         // update nonce
-        user_session_mgr.nonce = nonce + F::from_noncanonical_u64(1);
+        // user_session_mgr.nonce = nonce + F::from_noncanonical_u64(1);
 
         Ok(())
     }

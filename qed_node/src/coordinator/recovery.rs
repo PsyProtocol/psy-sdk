@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use aws_sdk_s3::config::retry::ShouldAttempt::No;
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_data::config::genesis_config::GenesisConfig;
@@ -54,7 +55,7 @@ impl CoordinatorRecoveryManager {
         self.current_checkpoint_id = CoordinatorProcessNode::initialize_store(&self.store, genesis_config).await?;
         if self.current_checkpoint_id == 0 {
             info!("Initialized store to genesis state, commit checkpoint 0");
-            self.store.commit(0)?;
+            self.store.commit(None)?;
         }
 
         let start_checkpoint = self.current_checkpoint_id + 1;
@@ -72,7 +73,7 @@ impl CoordinatorRecoveryManager {
             match self.recover_checkpoint(checkpoint_id).await {
                 Ok(()) => {
                     info!("✅ Successfully recovered checkpoint {}", checkpoint_id);
-                    self.store.commit(checkpoint_id)?;
+                    self.store.commit(None)?;
                     self.current_checkpoint_id = checkpoint_id; // Update current checkpoint
                 }
                 Err(e) => {

@@ -38,6 +38,7 @@ use qed_data::{
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
 use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
+use qed_store::queue::redis_queue::MAX_CHECKPOINT_COUNT;
 use qed_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
     queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm, redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition},
@@ -54,6 +55,7 @@ const D: usize = 2;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct RealmConfig {
     pub realm_id: u32,
+    pub realm_manager_id: u64,
     pub users_per_realm: usize,
     pub realm_root_level: u8,
 
@@ -84,6 +86,7 @@ impl RealmConfig {
                 .unwrap()
                 .root,
             realm_id,
+            realm_manager_id: 0,
             default_user_state_tree_root: DEFAULT_USER_STATE_TREE_ROOT,
             contract_state_tree_update_channel_id: REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID,
         }
@@ -926,7 +929,7 @@ impl<
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
-        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, 256).await?;
+        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64).await?;
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
 
@@ -999,7 +1002,7 @@ impl<
     }
 
     pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
-        let (pair_to_set, remove_keys) = self.store.commit(checkpoint_id)?;
+        let (pair_to_set, remove_keys) = self.store.commit(Some(checkpoint_id))?;
         self.commit_offset(checkpoint_id).await?;
         self.task_store.save_job_dependency_graph(checkpoint_id).await?;
         Ok((pair_to_set, remove_keys))

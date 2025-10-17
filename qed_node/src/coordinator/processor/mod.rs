@@ -40,7 +40,7 @@ use qed_store::store::QEDStore;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tracing::trace;
 use std::time::Duration;
-
+use qed_data::qdata::realm_status::BasicRealmStatus;
 use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
 use qed_crypto::hash::merkle::utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey};
@@ -72,6 +72,7 @@ use crate::common::slot::{LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::realm::RealmProcessor;
 use super::backup::{CoordinatorS3BackupClient, try_backup_coordinator_checkpoint};
 use tokio::sync::mpsc;
+use crate::common_v2::traits::realm::BasicRealmStatusOnCoordinator;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -244,7 +245,7 @@ impl
         match Self::initialize_store(&qed_store, genesis_config).await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
                 info!("Initialized store to genesis state");
-                qed_store.commit(0)?;
+                qed_store.commit(None)?;
             }
             Ok(checkpoint_id) => {
                 info!("Store already initialized, current checkpoint {}", checkpoint_id);
@@ -534,8 +535,16 @@ impl
         }
 
         let mut coordinator_updates = Vec::new();
+        let mut realm_ids = Vec::new();
+        let mut realm_statuses = Vec::new();
+
         for (realm_id, realm_tree) in realm_user_trees {
             let realm_root = realm_tree.get_node_value(&SimpleMerkleNodeKey { level: COORDINATOR_USER_TREE_HEIGHT, index: realm_id });
+            realm_ids.push(realm_id);
+            realm_statuses.push(BasicRealmStatus {
+                checkpoint_id: 0,
+                realm_root_hash: realm_root,
+            });
 
             let coordinator_update = QMerkleNode {
                 key: SimpleMerkleNodeKey {
@@ -549,6 +558,7 @@ impl
 
         if !coordinator_updates.is_empty() {
             store.injest_user_tree_nodes_imm(0, 0, &coordinator_updates).await?;
+            store.set_realm_statuses(&realm_ids, &realm_statuses).await?;
         }
 
         let final_root = store.get_user_tree_root(0).await?;

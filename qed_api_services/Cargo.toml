@@ -16,7 +16,7 @@ qed_core = { workspace = true }
 # Web framework
 axum = { workspace = true, features = ["ws"] }
 tower-http = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["signal"]}
 
 # Serialization
 serde = { workspace = true }

@@ -8,9 +8,11 @@ use qed_core::{
     data::qhashout::QHashOut,
 };
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use crate::{qdata::{
-    checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, checkpoint_id_key::CheckpointTableIdKey, contract::{ContractCodeDefinition, QEDContractLeaf}, hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key, hash_key_with_id::Hash4x64KeyWithId, u64_key::U64TableKey, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
+use crate::{models::staging::{staging_checkpoint_info::StagingCheckpointInfoModel, staging_delta_record::StagingDeltaRecordModelCore}, qdata::{
+    checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, checkpoint_id_key::CheckpointTableIdKey, contract::{ContractCodeDefinition, QEDContractLeaf}, hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key, hash_key_with_id::Hash4x64KeyWithId, staging_checkpoint_info::StagingCheckpointInfo, staging_checkpoint_key::StagingCheckpointKey, staging_delta_record_key::StagingDeltaRecordKey, u64_key::U64TableKey, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
 }, qsync::coordinator::QEDCheckpointSyncInfoCompact};
+use crate::qdata::realm_status::BasicRealmStatus;
+use crate::qdata::realm_id_key::RealmTableIdKey;
 
 use crate::models::{
     checkpoint::{block_state::L2BlockStatesModel, checkpoint_hash::QEDCheckpointHashHelperModel, checkpoint_leaf::QEDCheckpointLeafModel, sync_info::QEDCheckpointSyncInfoModel, user_public_keys::QEDUserPublicKeyHelperModel},
@@ -21,6 +23,7 @@ use crate::models::{
             KVQFixedConfigMerkleTreeModel, KVQMerkleTreeModel, KVQSemiFixedConfigMerkleTreeModel,
         },
     },
+    realm_status::RealmStatusModel,
     user::user_leaf::UserLeafModel,
 };
 pub const MAX_CHECKPOINT: u64 = 0xfffffffffffffff1u64;
@@ -34,7 +37,6 @@ pub const USER_CONTRACT_TREE_ID: u8 = 7u8;
 pub const CONTRACT_STATE_TREE_ID: u8 = 8u8;
 pub const USER_REGISTRATION_TREE_ID: u8 = 9u8;
 
-// Protocol tree table types - separated for better data management
 pub const CHECKPOINT_TREE_TABLE_TYPE: u16 = 1;
 pub const USER_TREE_TABLE_TYPE: u16 = 2;
 pub const CONTRACT_TREE_TABLE_TYPE: u16 = 3;
@@ -43,7 +45,6 @@ pub const DEPOSIT_TREE_TABLE_TYPE: u16 = 5;
 pub const WITHDRAWAL_TREE_TABLE_TYPE: u16 = 6;
 pub const USER_REGISTRATION_TREE_TABLE_TYPE: u16 = 7;
 
-// User contract tree table types
 pub const USER_CONTRACT_TREE_TABLE_TYPE: u16 = 8;
 pub const USER_CONTRACT_STATE_TREE_TABLE_TYPE: u16 = 9;
 
@@ -58,6 +59,13 @@ pub const CONTRACT_CODE_TABLE_TYPE: u16 = 14;
 pub const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16 = 15;
 pub const CHECKPOINT_HASH_HELPER_TABLE_TYPE: u16 = 16;
 pub const USER_PUBLIC_KEY_HELPER_TABLE_TYPE: u16 = 17;
+
+// Staging table types for dirty data
+pub const STAGING_CHECKPOINT_INFO_TABLE_TYPE: u16 = 18;
+pub const STAGING_DELTA_RECORD_TABLE_TYPE: u16 = 19;
+
+// Realm status table type
+pub const REALM_STATUS_TABLE_TYPE: u16 = 20;
 
 // Legacy - kept for backward compatibility, should not be used for new trees
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 100;
@@ -117,6 +125,26 @@ pub type CheckpointHashHelperTableStore<S, IDKVA = KVQStandardAdapter<S, Hash4x6
 
 pub type UserPublicKeyTableStore<S, IDKVA = KVQStandardAdapter<S, Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>, QUserPublicKeyRecord>> = QEDUserPublicKeyHelperModel<
     USER_PUBLIC_KEY_HELPER_TABLE_TYPE,
+    S,
+    IDKVA,
+>;
+
+// Staging stores for dirty data
+pub type StagingCheckpointInfoStore<S, IDKVA = KVQStandardAdapter<S, StagingCheckpointKey<STAGING_CHECKPOINT_INFO_TABLE_TYPE>, StagingCheckpointInfo>> = StagingCheckpointInfoModel<
+    STAGING_CHECKPOINT_INFO_TABLE_TYPE,
+    S,
+    IDKVA,
+>;
+
+pub type StagingDeltaRecordStore<S, IDKVA = KVQStandardAdapter<S, StagingDeltaRecordKey<QEDFelt, STAGING_DELTA_RECORD_TABLE_TYPE>, Vec<u8>>> = StagingDeltaRecordModelCore<
+    STAGING_DELTA_RECORD_TABLE_TYPE,
+    S,
+    IDKVA,
+>;
+
+pub type RealmStatusTableStore<F, S, IDKVA = KVQStandardAdapter<S, RealmTableIdKey<REALM_STATUS_TABLE_TYPE>, BasicRealmStatus<F>>> = RealmStatusModel<
+    REALM_STATUS_TABLE_TYPE,
+    F,
     S,
     IDKVA,
 >;

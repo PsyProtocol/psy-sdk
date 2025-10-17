@@ -12,6 +12,7 @@ use qed_data::config::store_config::{
     CONTRACT_TREE_TABLE_TYPE, DEPOSIT_TREE_TABLE_TYPE, USER_CONTRACT_STATE_TREE_TABLE_TYPE,
     USER_CONTRACT_TREE_TABLE_TYPE, USER_LEAF_TABLE_TYPE, USER_PUBLIC_KEY_HELPER_TABLE_TYPE,
     USER_REGISTRATION_TREE_TABLE_TYPE, USER_TREE_TABLE_TYPE, WITHDRAWAL_TREE_TABLE_TYPE,
+    STAGING_CHECKPOINT_INFO_TABLE_TYPE, STAGING_DELTA_RECORD_TABLE_TYPE, REALM_STATUS_TABLE_TYPE,
 };
 
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
@@ -193,6 +194,27 @@ impl ScyllaStore {
         )
         .await?;
 
+        self.register_kvq_table(
+            STAGING_CHECKPOINT_INFO_TABLE_TYPE,
+            keyspace,
+            "staging_checkpoint_info",
+        )
+        .await?;
+
+        self.register_kvq_table(
+            STAGING_DELTA_RECORD_TABLE_TYPE,
+            keyspace,
+            "staging_delta_records",
+        )
+        .await?;
+
+        self.register_kvq_table(
+            REALM_STATUS_TABLE_TYPE,
+            keyspace,
+            "realm_status",
+        )
+        .await?;
+
         Ok(())
     }
 
@@ -276,6 +298,9 @@ impl ScyllaStore {
             CHECKPOINT_SYNC_INFO_TABLE_TYPE => "Checkpoint Sync Info",
             CHECKPOINT_HASH_HELPER_TABLE_TYPE => "Checkpoint Hash Helper",
             USER_PUBLIC_KEY_HELPER_TABLE_TYPE => "User Public Key Helper",
+            STAGING_CHECKPOINT_INFO_TABLE_TYPE => "Staging Checkpoint Info",
+            STAGING_DELTA_RECORD_TABLE_TYPE => "Staging Delta Records",
+            REALM_STATUS_TABLE_TYPE => "Realm Status",
             _ => "Unknown Table Type",
         }
     }

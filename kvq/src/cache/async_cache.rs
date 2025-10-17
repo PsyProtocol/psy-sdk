@@ -134,7 +134,7 @@ impl<S: KVQBinaryStoreAsync + Sync + Send> KVQBinaryStoreCachedTraitAsync for KV
         self.map.write().await.clear();
     }
 
-    async fn flush_simple(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
+    async fn flush_simple(&self, checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (keys_to_set, removed_keys) = {
             let mut map = self.map.write().await;
             let keys_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>> = map.iter().filter(|(_, vt)|{
@@ -143,9 +143,14 @@ impl<S: KVQBinaryStoreAsync + Sync + Send> KVQBinaryStoreCachedTraitAsync for KV
                     CacheValueType::Removed => false,
                 }
             }).map(|(k, vt)|{
+                let mut k = k.clone();
+                if let Some(checkpoint_id) = checkpoint_id {
+                    let len = k.len();
+                    k[len-8..].copy_from_slice(&checkpoint_id.to_be_bytes())
+                }
                 match vt {
                     CacheValueType::Bytes(b) => Ok(KVQPair{
-                        key: k.clone(),
+                        key: k,
                         value: b.clone(),
                     }),
                     CacheValueType::Removed => Err(anyhow::anyhow!("Cannot flush changes with removed keys")),
@@ -158,7 +163,14 @@ impl<S: KVQBinaryStoreAsync + Sync + Send> KVQBinaryStoreCachedTraitAsync for KV
                     CacheValueType::Bytes(_) => false,
                     CacheValueType::Removed => true,
                 })
-                .map(|x| x.0.to_owned())
+                .map(|x| {
+                    let mut k = x.0.to_owned();
+                    if let Some(checkpoint_id) = checkpoint_id {
+                        let len = k.len();
+                        k[len-8..].copy_from_slice(&checkpoint_id.to_be_bytes())
+                    }
+                    k
+                })
                 .collect::<Vec<_>>();
 
             (keys_to_set, removed_keys)
@@ -171,9 +183,7 @@ impl<S: KVQBinaryStoreAsync + Sync + Send> KVQBinaryStoreCachedTraitAsync for KV
                 value: &kv.value,
             })
             .collect();
-
-        self.store.set_many_ref(&keys_to_set_ref).await?;
-        self.store.delete_many(&removed_keys).await?;
+        self.store.set_and_delete_many(&keys_to_set_ref, &removed_keys).await?;
 
         self.map.write().await.clear();
         Ok((keys_to_set, removed_keys))

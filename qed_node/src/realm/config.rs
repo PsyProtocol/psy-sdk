@@ -101,6 +101,13 @@ pub struct RealmNodeConfig {
     #[command(flatten)]
     pub realm: RealmConfig,
 
+    #[arg(
+        long,
+        env = "COORDINATOR_EDGE_ADDR",
+        default_value = "http://127.0.0.1:8545"
+    )]
+    pub coordinator_addr: String,
+
     /// Store backend configuration
     #[command(flatten)]
     pub backend: BackendConfig,

@@ -14,13 +14,11 @@ const ZK_FINGERPRINT: &str = "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c
 // Generate a random public key using thread_rng for better performance
 #[inline(always)]
 fn generate_random_public_key() -> ZKPublicKeyInfo<GoldilocksField> {
-
-
     let mut rng = rand::thread_rng();
     let fingerprint = QHashOut::<GoldilocksField>::from_str(&ZK_FINGERPRINT).unwrap();
 
     let u64v = [rng.r#gen::<u64>(), rng.r#gen::<u64>(), rng.r#gen::<u64>(), rng.r#gen::<u64>()];
-    let public_key_param =  QHashOut::<GoldilocksField>::from_values(
+    let public_key_param = QHashOut::<GoldilocksField>::from_values(
         u64v[0],
         u64v[1],
         u64v[2],
@@ -34,9 +32,7 @@ fn generate_random_public_key() -> ZKPublicKeyInfo<GoldilocksField> {
     public_key_info
 }
 
-
 async fn register_user(idx: u64, url: &str, client: &Client) -> Result<()> {
-
     let test_public_key = generate_random_public_key();
 
     let test_request = RpcRequest {
@@ -46,11 +42,6 @@ async fn register_user(idx: u64, url: &str, client: &Client) -> Result<()> {
         }),
         id: Id::Number(0),
     };
-
-    // match serde_json::to_string_pretty(&test_request) {
-    //     Ok(json) => println!("{}", json),
-    //     Err(e) => println!("   Failed to serialize: {}", e),
-    // }
 
     println!("\n🚀 {} Sending test request...", idx);
     let start = Instant::now();
@@ -80,7 +71,6 @@ async fn register_user(idx: u64, url: &str, client: &Client) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-
     let rpc_url = "http://127.0.0.1:8545".to_string();
     let mut counter = 0;
 
@@ -90,7 +80,21 @@ async fn main() -> Result<()> {
 
     loop {
         tokio::time::sleep(Duration::from_millis(500)).await;
-        register_user(counter, &rpc_url, &test_client).await?;
-        counter += 1;
+
+        // Handle the result without exiting on failure
+        match register_user(counter, &rpc_url, &test_client).await {
+            Ok(_) => {
+                // Success - continue normally
+                counter += 1;
+            }
+            Err(e) => {
+                // Failure - log the error, wait 5 seconds, then continue
+                println!("⚠️  Error occurred: {}", e);
+                println!("⏳ Waiting 5 seconds before retrying...\n");
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                // Note: counter is NOT incremented on failure, so it will retry with the same index
+                // If you want to increment counter even on failure, move counter += 1 here
+            }
+        }
     }
 }

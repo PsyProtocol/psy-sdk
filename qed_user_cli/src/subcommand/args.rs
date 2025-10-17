@@ -490,5 +490,9 @@ pub struct ClaimRewardsArgs {
     /// Maximum number of checkpoints to process in one batch (optional, limits processing load)
     #[clap(long, default_value = "5")]
     pub limit: usize,
+
+    /// Starting checkpoint ID (optional, if not provided will start from last claimed + 1)
+    #[clap(long)]
+    pub start_checkpoint_id: Option<u64>,
 }
 

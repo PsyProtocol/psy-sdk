@@ -41,7 +41,7 @@ use qed_data::qdata::checkpoint::{
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_data::qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact};
-
+use crate::common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator};
 use crate::common::jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB};
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::coordinator::args::CoordinatorEdgeArgs;
@@ -58,11 +58,14 @@ use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
+use qed_data::models::checkpoint::sync_info::QEDCheckpointSyncInfoModelReaderCore;
 use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::rsmq_queue::CEQueueNotification;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::{Backend, QEDStore};
 use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use crate::common_v2::traits::realm::RealmDataForCoordinator;
+use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -239,7 +242,7 @@ impl CoordinatorEdgeHandler {
     ) -> anyhow::Result<()> {
         debug!(
             "submit_guta input: {}",
-            serde_json::to_string_pretty(&input).unwrap()
+            serde_json::to_string_pretty(&input)?
         );
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
         if input.checkpoint_id.saturating_sub(1) < checkpoint_id {
@@ -256,11 +259,7 @@ impl CoordinatorEdgeHandler {
         let config = self.ctx.coordinator_config.clone();
         let verifier = self.ctx.proof_verifier.clone();
         // verify top line proof
-        if !input.top_line_proof.verify::<QEDHasher>() {
-            anyhow::bail!("invalid top line proof from realm");
-        }
-
-        if input.top_line_proof.old_root != input.top_line_proof.old_value || input.top_line_proof.new_root != input.top_line_proof.new_value {
+        if input.top_line_proof.old_root != input.top_line_proof.old_value || input.top_line_proof.new_root != input.top_line_proof.new_value || input.top_line_proof.siblings.len() != 0 {
             anyhow::bail!("top line not currently supported for guta proofs");
         }
 
@@ -274,15 +273,15 @@ impl CoordinatorEdgeHandler {
         }
 
         // verify state consistency
-        let old_root = self
+        let latest_realm_root = self
             .store
             .get_user_top_tree_cap_root(checkpoint_id, config.realm_root_level, input.realm_id)
             .await?;
 
-        info!("old root from db: {}", old_root);
+        info!("old root from db: {}", latest_realm_root);
         info!("old root from realm: {}", input.top_line_proof.old_root);
-        if old_root != input.top_line_proof.old_root {
-            tracing::error!("invalid top line proof old value {} from realm, expected {}", input.top_line_proof.old_root, old_root);
+        if latest_realm_root != input.top_line_proof.old_root {
+            tracing::error!("invalid top line proof old value {} from realm, expected {}", input.top_line_proof.old_root, latest_realm_root);
             anyhow::bail!("invalid top line proof old value from realm");
         }
         let top_line_proof_data = TopLineProofData {
@@ -305,7 +304,7 @@ impl CoordinatorEdgeHandler {
                 old_node_value: input.top_line_proof.old_root,
                 new_node_value: input.top_line_proof.new_root,
                 node_index: F::from_noncanonical_u64(input.top_line_proof.index),
-                node_level: F::from_canonical_u64((config.realm_root_level as usize + input.top_line_proof.siblings.len()) as u64),
+                node_level: F::from_canonical_u8(config.realm_root_level),
             },
             stats: input.guta_stats,
         };
@@ -330,7 +329,7 @@ impl CoordinatorEdgeHandler {
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = checkpoint_id + 1;
 
-        if input.checkpoint_id  != next_checkpoint_id {
+        if input.checkpoint_id  > next_checkpoint_id {
             warn!("❌ Invalid checkpoint id from realm: {}, latest checkpoint id {}", input.checkpoint_id, checkpoint_id);
             anyhow::bail!("invalid checkpoint id from realm");
         }
@@ -1029,6 +1028,15 @@ impl CoordinatorEdgeHandler {
             reason, job.job_id, job.layer_id, job.msg_id
         );
     }
+    
+    pub async fn get_current_realm_status_on_coordinator(&self, realm_id: u64) -> anyhow::Result<BasicRealmStatusOnCoordinator<F>> {
+        let realm_status = self.store.get_realm_status(realm_id).await?;
+        Ok(BasicRealmStatusOnCoordinator {
+            realm_id,
+            checkpoint_id: realm_status.checkpoint_id,
+            realm_root_hash: realm_status.realm_root_hash,
+        })
+    }
 }
 
 use super::error::RpcError;
@@ -1088,6 +1096,54 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             .await
             .map(|_| "ok".to_string())
             .map_err(RpcError::Anyhow)
+    }
+
+    async fn submit_guta_v1(
+        &self,
+        input: SubmitGUTARealmResultAPINoProofInput<F>,
+        proof: Vec<u8>,
+        realm_id: u64,
+    ) -> RpcResult<()> {
+        let proof = bincode::deserialize::<ProofWithPublicInputs<F, C, D>>(&proof)
+            .map_err(|err| RpcError::Anyhow(anyhow::format_err!(err.to_string())))?;
+        self.submit_guta(input, proof, realm_id).await.map_err(RpcError::Anyhow)?;
+        Ok(())
+    }
+
+   async fn submit_realm_result(&self, realm_result: RealmDataForCoordinator<F>) -> RpcResult<()> {
+        let checkpoint_id = realm_result.header.checkpoint_id;
+        let current_checkpoint_id = self.get_current_checkpoint_id().await?;
+       debug!("submit realm result , realm checkpoint id: {}, current coordinator checkpoint id: {}", checkpoint_id, current_checkpoint_id);
+        if checkpoint_id > current_checkpoint_id + 1 {
+            return Err(RpcError::Anyhow(anyhow::format_err!(
+                "checkpoint id {} is greater than current checkpoint id {}",
+                checkpoint_id,
+                current_checkpoint_id
+            )));
+        }
+        let realm_id = realm_result.header.realm_id;
+
+        let top_line_proof = DeltaMerkleProofCore {
+            index: realm_id,
+            old_value: realm_result.header.start_realm_root,
+            old_root: realm_result.header.start_realm_root,
+            new_value: realm_result.header.end_realm_root,
+            new_root: realm_result.header.end_realm_root,
+            siblings: vec![],
+        };
+        let checkpoint_tree_root = self.get_checkpoint_tree_root(checkpoint_id).await.map_err(RpcError::Anyhow)?;
+        let input = SubmitGUTARealmResultAPINoProofInput {
+            realm_id,
+            checkpoint_id: realm_result.header.checkpoint_id + 1,
+            guta_stats: realm_result.header.guta_stats,
+            top_line_proof,
+            checkpoint_tree_root,
+            circuit_type: realm_result.header.root_job_id.circuit_type,
+        };
+        let proof = bincode::deserialize::<ProofWithPublicInputs<F, C, D>>(&realm_result.proof)
+            .map_err(|err| RpcError::Anyhow(anyhow::format_err!(err.to_string())))?;
+        self.submit_guta(input, proof, realm_id).await.map_err(RpcError::Anyhow)?;
+        Ok(())
     }
 
     async fn get_latest_checkpoint(&self) -> RpcResult<LatestCheckpointResponse> {
@@ -1783,6 +1839,49 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         let graphviz_content = graph.get_graphviz();
         Ok(graphviz_content)
     }
+
+    async fn get_current_realm_status_on_coordinator(&self, realm_id: u64) -> RpcResult<BasicRealmStatusOnCoordinator<F>> {
+        self.get_current_realm_status_on_coordinator(realm_id).await.map_err(RpcError::Anyhow)
+    }
+
+    async fn get_current_checkpoint_id(&self) -> RpcResult<u64> {
+        self.get_latest_checkpoint_id().await.map_err(RpcError::Anyhow)
+    }
+
+    async fn get_latest_block_updates_from_coordinator(
+        &self,
+        realm_id: u32,
+        from_checkpoint: u64,
+        to_checkpoint: u64,
+    ) -> RpcResult<Vec<GlobalBlockUpdateFromCoordinator<F>>> {
+        if from_checkpoint >= to_checkpoint {
+            return Err(RpcError::Anyhow(anyhow::format_err!(
+                "from_checkpoint >= to_checkpoint: {} >= {}",
+                from_checkpoint,
+                to_checkpoint
+            )));
+        }
+        let current_checpoint_id = self.get_current_checkpoint_id().await?;
+        if from_checkpoint > current_checpoint_id {
+            return Err(RpcError::Anyhow(anyhow::format_err!(
+                "from_checkpoint > current_checpoint_id: {} > {}",
+                from_checkpoint,
+                current_checpoint_id
+            )));
+        }
+        let effective_to_checkpoint = std::cmp::min(to_checkpoint, current_checpoint_id);
+        let mut block_updates = Vec::new();
+        for checkpoint_id in from_checkpoint..=effective_to_checkpoint {
+            let sync_info = self.get_checkpoint_sync_info(realm_id, checkpoint_id).await.map_err(RpcError::Anyhow)?;
+            block_updates.push(sync_info);
+        }
+        Ok(block_updates)
+    }
+
+    async fn wait_until_coordinator_completed(&self, realm_id: u64, checkpoint_id: u64) -> RpcResult<GlobalBlockUpdateFromCoordinator<F>> {
+        self.get_checkpoint_sync_info(realm_id as u32, checkpoint_id).await.map_err(RpcError::Anyhow)
+    }
+
 }
 
 #[async_trait]
@@ -1809,24 +1908,64 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                 self.acknowledge_job_completion(&job, &worker_id).await.map_err(RpcError::Anyhow)?;
                 Ok(None)
             }
-            Some(job) if self.ctx.proof_store.contains_id(job.job_id.get_input_witness_id()).await.is_ok_and(|x| x) => {
-                debug!("Pending job from current task: {:?}", job);
+            // Some(job) if self.ctx.proof_store.contains_id(job.job_id.get_input_witness_id()).await.is_ok_and(|x| x) => {
+            //     debug!("Pending job from current task: {:?}", job);
+            //
+            //     // Report job started event to watcher
+            //     let start_event = JobStartedEvent {
+            //         job_id: job.job_id,
+            //         worker_id,
+            //         start_time: current_timestamp_mills(),
+            //         layer_id: job.layer_id,
+            //     };
+            //
+            //     // Send to watcher queue
+            //     let message = WatcherMessage::JobStarted(start_event);
+            //     if let Err(e) = self.watcher_client.send_event(message).await {
+            //         warn!("⚠️ Failed to report job started to watcher: {}", e);
+            //     }
+            //
+            //     Ok(Some(job))
+            // }
+            Some(job) => {
+                let witness_id = job.job_id.get_input_witness_id();
+                let contains = self
+                    .ctx
+                    .proof_store
+                    .contains_id(witness_id)
+                    .await
+                    .unwrap_or(false);
 
-                // Report job started event to watcher
-                let start_event = JobStartedEvent {
-                    job_id: job.job_id,
-                    worker_id,
-                    start_time: current_timestamp_mills(),
-                    layer_id: job.layer_id,
-                };
+                if contains {
+                    debug!("✅ Pending job from current task: {:?}", job);
 
-                // Send to watcher queue
-                let message = WatcherMessage::JobStarted(start_event);
-                if let Err(e) = self.watcher_client.send_event(message).await {
-                    warn!("⚠️ Failed to report job started to watcher: {}", e);
+                    // Report job started event to watcher
+                    let start_event = JobStartedEvent {
+                        job_id: job.job_id,
+                        worker_id,
+                        start_time: current_timestamp_mills(),
+                        layer_id: job.layer_id,
+                    };
+
+                    // Send to watcher queue
+                    let message = WatcherMessage::JobStarted(start_event);
+                    if let Err(e) = self.watcher_client.send_event(message).await {
+                        warn!("⚠️ Failed to report job started to watcher: {}", e);
+                    }
+
+                    Ok(Some(job))
+                } else {
+                    warn!(
+                        "🚫 Job {:?} skipped: proof_store does NOT contain witness_id={:?}",
+                        job.job_id, witness_id
+                    );
+                    // set_job_visibility
+                    self.task_store
+                        .set_job_visibility(&job, 1)
+                        .await
+                        .map_err(RpcError::Anyhow)?;
+                    Ok(None)
                 }
-
-                Ok(Some(job))
             }
             _ => {
                 trace!("No pending job from current task");

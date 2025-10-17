@@ -47,11 +47,11 @@ impl<F: RichField> GenesisConfig<F> {
     pub fn from_path(config_path: &str) -> anyhow::Result<Option<Self>> {
         match std::fs::read_to_string(config_path) {
             Ok(config_content) => {
-                let config_value: serde_json::Value = serde_json::from_str(&config_content)?;
-                if let Some(genesis_obj) = config_value.get("genesis") {
-                    let genesis_config = Self::from_json(&serde_json::to_string(genesis_obj)?)?;
+        let config_value: serde_json::Value = serde_json::from_str(&config_content)?;
+        if let Some(genesis_obj) = config_value.get("genesis") {
+            let genesis_config = Self::from_json(&serde_json::to_string(genesis_obj)?)?;
                     Ok(Some(genesis_config))
-                } else {
+        } else {
                     Ok(None)
                 }
             }

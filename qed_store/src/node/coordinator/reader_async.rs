@@ -1,6 +1,6 @@
 use kvq::traits::KVQBinaryStore;
 use qed_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore, UserPublicKeyTableStore},
+    config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore, UserPublicKeyTableStore, RealmStatusTableStore},
     models::{
         checkpoint::{
             sync_info::QEDCheckpointSyncInfoModelReaderCore,
@@ -16,6 +16,8 @@ use qed_data::{
     },
 };
 use crate::node::coordinator::QEDCoordinatorStoreReaderAsync;
+use qed_data::qdata::realm_status::BasicRealmStatus;
+use qed_data::models::realm_status::RealmStatusModelReaderCore;
 
 
 use async_trait::async_trait;
@@ -305,5 +307,9 @@ impl<T: KVQBinaryStore>
                 .ok_or(anyhow::anyhow!("User not found"))?
                 .user_id,
         )
+    }
+
+    async fn get_realm_statuses(&self, realm_ids: &[u64]) -> anyhow::Result<Vec<BasicRealmStatus<F>>> {
+        Ok(RealmStatusTableStore::<F, Self>::get_realm_statuses_by_id(self, realm_ids)?)
     }
 }

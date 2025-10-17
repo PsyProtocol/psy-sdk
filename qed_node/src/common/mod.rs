@@ -22,8 +22,7 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
         // 19 public inputs: [commitment(4), worker_public_key(4), pm_jobs_completed(3), circuit_whitelist(4), state_transition_hash(4)]
         ProvingJobCircuitType::AppendUserRegistrationTree |
         ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate |
-        ProvingJobCircuitType::BatchDeployContracts |
-        ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => {
+        ProvingJobCircuitType::BatchDeployContracts => {
             if proof.public_inputs.len() >= 19 {
                 let commitment = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[0..4]);
                 let worker_public_key = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[4..8]);
@@ -44,9 +43,6 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
                     }
                     ProvingJobCircuitType::BatchDeployContracts => {
                         info!("{} - Type: Deploy Contracts Leaf Circuit", prefix);
-                    }
-                    ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => {
-                        info!("{} - Type: Aggregated User Registration + Deploy Contracts + GUTA", prefix);
                     }
                     _ => {}
                 }
@@ -84,21 +80,33 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
                 info!("{} - Type: Deploy Contracts Aggregation Circuit", prefix);
                 info!("{} - [0..4] Commitment: {}", prefix, commitment);
                 info!("{} - [4..8] Worker public key: {}", prefix, worker_public_key);
-                info!("{} - [8..11] PM jobs completed: [{}, {}, {}]", prefix, 
+                info!("{} - [8..11] PM jobs completed: [{}, {}, {}]", prefix,
                     pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]);
                 info!("{} - [11..15] Allowed circuit hashes root: {}", prefix, allowed_circuit_hashes_root);
                 info!("{} - [15..19] State transition hash: {}", prefix, state_transition_hash);
-            } else if proof.public_inputs.len() >= 8 {
-                // Fallback for old/different version with 8 inputs
-                let allowed_circuit_hashes_root = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[0..4]);
-                let state_transition_hash = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[4..8]);
-                info!("{} - Type: Deploy Contracts Aggregation Circuit (Legacy 8-input version)", prefix);
-                info!("{} - [0..4] Allowed circuit hashes root: {}", prefix, allowed_circuit_hashes_root);
-                info!("{} - [4..8] State transition hash: {}", prefix, state_transition_hash);
             }
         }
 
-        // 12 public inputs for GUTA circuits: [allowed_circuit_hashes_root(4), state_transition_hash(4), events_hash(4)]
+        // Special 19 public inputs for AggUserRegisterDeployContractsGUTA: [state_transition_hash(4), user_registration_final(4), deploy_contracts_final(4), guta_final(4), pm_jobs_completed(3)]
+        ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => {
+            if proof.public_inputs.len() >= 19 {
+                let state_transition_hash = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[0..4]);
+                let user_registration_final = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[4..8]);
+                let deploy_contracts_final = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[8..12]);
+                let guta_final = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[12..16]);
+                let pm_jobs_completed = &proof.public_inputs[16..19];
+
+                info!("{} - Type: Aggregated User Registration + Deploy Contracts + GUTA", prefix);
+                info!("{} - [0..4] State transition hash: {}", prefix, state_transition_hash);
+                info!("{} - [4..8] User registration final: {}", prefix, user_registration_final);
+                info!("{} - [8..12] Deploy contracts final: {}", prefix, deploy_contracts_final);
+                info!("{} - [12..16] GUTA final: {}", prefix, guta_final);
+                info!("{} - [16..19] PM jobs completed: [{}, {}, {}]", prefix,
+                    pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]);
+            }
+        }
+
+        // 15 public inputs for GUTA circuits: [commitment(4), worker_public_key(4), pm_jobs_completed(3), guta_header_hash(4)]
         ProvingJobCircuitType::GUTATwoGUTA |
         ProvingJobCircuitType::GUTATwoEndCap |
         ProvingJobCircuitType::GUTALeftGUTARightEndCap |
@@ -110,30 +118,22 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
         ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade |
         ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade |
         ProvingJobCircuitType::GUTARegisterUsers => {
-            if proof.public_inputs.len() >= 12 {
-                let allowed_circuit_hashes_root = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[0..4]);
-                let state_transition_hash = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[4..8]);
-                let events_hash = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[8..12]);
+            if proof.public_inputs.len() >= 15 {
+                let commitment = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[0..4]);
+                let worker_public_key = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[4..8]);
+                let pm_jobs_completed = &proof.public_inputs[8..11];
+                let guta_header_hash = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[11..15]);
 
                 info!("{} - Type: GUTA Circuit", prefix);
-                info!("{} - [0..4] Allowed circuit hashes root: {}", prefix, allowed_circuit_hashes_root);
-                info!("{} - [4..8] State transition hash: {}", prefix, state_transition_hash);
-                info!("{} - [8..12] Events hash: {}", prefix, events_hash);
+                info!("{} - [0..4] Commitment: {}", prefix, commitment);
+                info!("{} - [4..8] Worker public key: {}", prefix, worker_public_key);
+                info!("{} - [8..11] PM jobs completed: [{}, {}, {}]", prefix,
+                    pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]);
+                info!("{} - [11..15] GUTA header hash: {}", prefix, guta_header_hash);
             }
         }
 
-        _ => {
-            // Fallback for unknown circuit types
-            if proof.public_inputs.len() >= 4 {
-                let first_hash = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[0..4]);
-                info!("{} - [0..4] First hash: {}", prefix, first_hash);
-            }
-            if proof.public_inputs.len() >= 8 {
-                let second_hash = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[4..8]);
-                info!("{} - [4..8] Second hash: {}", prefix, second_hash);
-            }
-            info!("{} - Type: Unknown circuit type", prefix);
-        }
+        _ => {}
     }
 }
 

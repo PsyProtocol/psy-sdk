@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use plonky2::hash::hash_types::{HashOut, RichField};
 use qed_core::data::qhashout::QHashOut;
+use qed_data::qdata::realm_status::BasicRealmStatus;
 
 #[derive(Debug, Clone)]
 pub struct InitializeParams<F: RichField> {
@@ -152,6 +153,15 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
     async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>>;
 
     async fn get_first_user_id(&self, public_key: QHashOut<F>) -> anyhow::Result<u64>;
+
+    async fn get_realm_status(&self, realm_id: u64) -> anyhow::Result<BasicRealmStatus<F>> {
+        let realm_statuses = self.get_realm_statuses(&[realm_id]).await?;
+        if realm_statuses.len() != 1 {
+            return Err(anyhow::anyhow!("get_realm_status should return only 1, but return {} realm status", realm_statuses.len()));
+        }
+        Ok(realm_statuses[0])
+    }
+    async fn get_realm_statuses(&self, realm_ids: &[u64]) -> anyhow::Result<Vec<BasicRealmStatus<F>>>;
 }
 
 
@@ -216,4 +226,9 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
 
     async fn set_user_public_key_records(&self, records: &[QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()>;
 
+    async fn set_realm_status(&self, realm_id: u64, realm_status: &BasicRealmStatus<F>) -> anyhow::Result<()> {
+        self.set_realm_statuses(&[realm_id], &[realm_status.clone()]).await
+    }
+
+    async fn set_realm_statuses(&self, realm_ids: &[u64], realm_statuses: &[BasicRealmStatus<F>]) -> anyhow::Result<()>;
 }
