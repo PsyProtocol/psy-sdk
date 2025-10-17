@@ -68,6 +68,7 @@ type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
+const WATCHER_NODE_ID_FOR_COORDINATOR_EDGE: &str = "coordinator-edge-node";
 #[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
     history_queue: Arc<ProofStore>,
@@ -87,7 +88,7 @@ impl CoordinatorEdgeHandler {
         info!("🗄️ Initializing storage backend...");
         let qed_store = QEDStore::from_backend(args.backend.to_backend()).await?;
         let store_reader = Arc::new(qed_store);
-        let task_store = QProvingTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size).await?;
+        let task_store = QProvingTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size, &args.queue_args.queue_biz_key).await?;
         let qe_args = &args.queue_args;
 
         let proof_store = Arc::new(
@@ -114,7 +115,7 @@ impl CoordinatorEdgeHandler {
         // Initialize watcher
         info!("📡 Initializing watcher client...");
         let watcher_client = Arc::new(
-            WatcherClient::new(&args.redis_uri).await?
+            WatcherClient::new(&args.redis_uri, args.redis_pool_size, &args.queue_args.queue_biz_key, Some(WATCHER_NODE_ID_FOR_COORDINATOR_EDGE)).await?
         );
         info!("✅ Watcher client initialized successfully");
 
@@ -1047,7 +1048,7 @@ use qed_store::queue::task_queue::{current_timestamp_millis, JobValidationStatus
 use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserDeployContractMetadata, UserGutaSubmissionMetadata, WatcherMessage};
 use crate::watcher::watcher::NodeType;
 use crate::watcher::watcher_client::WatcherClient;
-use crate::watcher::watcher_service::{current_timestamp, current_timestamp_mills, WATCHER_RSMQ};
+use crate::watcher::watcher_service::{current_timestamp, current_timestamp_mills};
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {

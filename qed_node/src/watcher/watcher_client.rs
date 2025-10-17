@@ -2,39 +2,34 @@ use std::sync::Arc;
 use anyhow::Result;
 use qed_core::job::id::{LayerId, QProvingJobDataID};
 use qed_store::queue::{QueueId, RsmqQueue};
+use crate::watcher::common::get_queue_name;
 use crate::watcher::events::{BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobStartedEvent, JobTimeoutEvent, UserDeployContractEvent, UserDeployContractMetadata, UserGutaSubmissionEvent, UserGutaSubmissionMetadata, UserRegistrationEvent, WatcherMessage};
-use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills, WATCHER_RSMQ};
-
-const DEFAULT_JOB_STATUS_CLEANUP_BLOCKS: u64 = 256;
+use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
 
 pub struct WatcherClient {
     rsmq: Arc<RsmqQueue>,
-    queue_id: QueueId, //we use fixed queue id
+    queue_id: QueueId,
     node_id: Option<String>,
 }
 
 impl WatcherClient {
-    pub async fn new(redis_url: &str) -> Result<Self> {
+    pub async fn new(redis_url: &str, pool_size: usize, biz_key: &str, node_id: Option<&str>) -> Result<Self> {
+        let queue_name = get_queue_name(biz_key);
         let rsmq = Arc::new(
-            RsmqQueue::new(redis_url, 10, WATCHER_RSMQ).await?
+            RsmqQueue::new(redis_url, pool_size, &queue_name).await?
         );
 
-        let queue_id = QueueId::WorkerEvent {
-            queue_biz_key: WATCHER_RSMQ.to_string(),
+        let queue_id = QueueId::WatcherEvent {
+            queue_biz_key: queue_name,
         };
-        // Ensure queue exists
+
         rsmq.create_queue_if_not_exists(&queue_id).await?;
 
         Ok(Self {
             rsmq,
             queue_id,
-            node_id: None,
-
+            node_id: node_id.map(|s| s.to_string()),
         })
-    }
-
-    pub async fn set_node_id(&mut self, node_id: String) {
-        self.node_id = Some(node_id);
     }
 
     pub async fn get_node_id(&self) -> Option<String> {
@@ -71,6 +66,7 @@ impl WatcherClient {
         })).await
     }
 
+    //note: when job is started, it means the job have been requested to a worker
     pub async fn report_job_started(
         &self,
         job_id: QProvingJobDataID,
@@ -116,31 +112,4 @@ impl WatcherClient {
         })).await
     }
 
-    pub async fn backup_proof_with_deletion(
-        &self,
-        job_id: QProvingJobDataID,
-        proof_data: Vec<u8>,
-        delete_after_blocks: u64,
-    ) -> Result<()> {
-        self.send_event(WatcherMessage::BackupProof(BackupProofEvent {
-            job_id,
-            proof_data,
-            timestamp: current_timestamp(),
-            delete_after_blocks,
-        })).await
-    }
-
-    pub async fn backup_witness_with_deletion(
-        &self,
-        job_id: QProvingJobDataID,
-        witness_data: Vec<u8>,
-        delete_after_blocks: u64,
-    ) -> Result<()> {
-        self.send_event(WatcherMessage::BackupWitness(BackupWitnessEvent {
-            job_id,
-            witness_data,
-            timestamp: current_timestamp(),
-            delete_after_blocks,
-        })).await
-    }
 }

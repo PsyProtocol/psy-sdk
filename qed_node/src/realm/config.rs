@@ -1,3 +1,5 @@
+use std::str::FromStr;
+use anyhow::anyhow;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use qed_store::store::backend::BackendConfig;
@@ -67,6 +69,19 @@ impl Default for QueueConfig {
     }
 }
 
+impl FromStr for QueueConfig {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Err(anyhow!("Queue name cannot be empty"));
+        }
+
+        Ok(Self {
+            queue_biz_key: s.to_string(),
+        })
+    }
+}
 
 
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]

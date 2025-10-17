@@ -345,14 +345,8 @@ impl WorkerEventRepository {
     /// Get reward-eligible circuit types
     pub fn get_reward_circuit_types() -> Vec<i16> {
         vec![
-            // User Registration jobs (topic 0)
-            ProvingJobCircuitType::AppendUserRegistrationTree.to_u8() as i16,                    // 0
-            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate.to_u8() as i16,          // 1
-            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate.to_u8() as i16,     // 2
-
-            // GUTA jobs (topic 1)
-            ProvingJobCircuitType::GUTAOnlyRegisterUsers.to_u8() as i16,                        // 3
-            ProvingJobCircuitType::GUTARegisterUsers.to_u8() as i16,                            // 4
+            ProvingJobCircuitType::GUTAOnlyRegisterUsers.to_u8() as i16,                        // 14
+            ProvingJobCircuitType::GUTARegisterUsers.to_u8() as i16,                            // 12
             ProvingJobCircuitType::GUTATwoEndCap.to_u8() as i16,                                // 7
             ProvingJobCircuitType::GUTATwoGUTA.to_u8() as i16,                                  // 8
             ProvingJobCircuitType::GUTALeftEndCapRightGUTA.to_u8() as i16,                      // 9
@@ -360,13 +354,8 @@ impl WorkerEventRepository {
             ProvingJobCircuitType::GUTASingleEndCap.to_u8() as i16,                             // 11
             ProvingJobCircuitType::GUTAVerifyToCap.to_u8() as i16,                              // 13
             ProvingJobCircuitType::GUTANoChange.to_u8() as i16,                                 // 15
-            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade.to_u8() as i16,             // 16
-            ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade.to_u8() as i16,         // 17
-
-            // Contract Deploy jobs (topic 2)
-            ProvingJobCircuitType::BatchDeployContracts.to_u8() as i16,                         // 52
-            ProvingJobCircuitType::BatchDeployContractsAggregate.to_u8() as i16,                // 53
-            ProvingJobCircuitType::DummyBatchDeployContractsAggregate.to_u8() as i16,           // 54
+            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade.to_u8() as i16,             // 55
+            ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade.to_u8() as i16,         // 56
         ]
     }
 }

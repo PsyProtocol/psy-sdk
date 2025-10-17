@@ -62,13 +62,13 @@ impl TimeoutWatcher {
         redis_url: String,
         rsmq_queue: Arc<RsmqQueue>,
         node_info: Arc<NodeInfo>,
-        queue_name: String,
+        queue_name: &str,
     ) -> Self {
         Self {
             redis_pool,
             redis_url,
             rsmq_queue,
-            queue_name,
+            queue_name: queue_name.to_string(),
             node_instance_id: format!("{}_{}", node_info.node_id, Uuid::new_v4()),
             node_info,
         }

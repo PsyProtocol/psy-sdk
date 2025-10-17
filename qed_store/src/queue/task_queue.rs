@@ -29,11 +29,6 @@ pub const JOB_EXECUTION_TIMEOUT_SECONDS: u64 =  30;
 
 const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(30);
 
-// Job dependency graph LRU cache constants
-const MAX_JOB_GRAPHS: usize = 256;
-
-// it should be the same with VISIBILITY_TIMEOUT
-
 
 /// Represents a single proving job with task assignment
 #[derive(Serialize, Deserialize, Debug, Clone)]

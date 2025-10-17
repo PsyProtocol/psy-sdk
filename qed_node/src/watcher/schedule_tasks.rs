@@ -26,8 +26,6 @@ pub struct ScheduledTask {
 pub enum TaskType {
     DeleteProof,
     DeleteWitness,
-    CleanupJob,
-    CleanupJobStatus,
     Custom(String),
 }
 
@@ -83,36 +81,6 @@ impl ScheduledTaskManager {
         Ok(())
     }
 
-    /// Schedules a job status cleanup task to execute after specified blocks
-    pub async fn schedule_job_status_cleanup(
-        &self,
-        job_id: QProvingJobDataID,
-        blocks_to_wait: u64,
-        current_height: u64,
-    ) -> Result<()> {
-        let target_height = current_height + blocks_to_wait;
-
-        let task = ScheduledTask {
-            task_id: format!("cleanup_job_status_{}", job_id.to_hex_string()),
-            task_type: TaskType::CleanupJobStatus,
-            execute_at: ExecutionTrigger::AfterBlocks { target_height },
-            payload: serde_json::json!({
-                "job_id": job_id,
-                "scheduled_at_height": current_height,
-                "target_height": target_height,
-            }),
-            created_at: current_timestamp(),
-            retry_count: 0,
-        };
-
-        self.schedule_task(task).await?;
-        debug!(
-            "Scheduled job status cleanup for job {:?} at block height {} (current: {})",
-            job_id, target_height, current_height
-        );
-        Ok(())
-    }
-
     pub async fn get_ready_tasks(&self, current_height: u64, current_time: u64) -> Result<Vec<ScheduledTask>> {
         let tasks = self.tasks.read().await;
 
@@ -145,28 +113,6 @@ impl ScheduledTaskManager {
         self.update_task(task).await
     }
 
-    pub async fn list_tasks(&self) -> Vec<ScheduledTask> {
-        self.tasks.read().await.values().cloned().collect()
-    }
-
-    pub async fn get_task_stats(&self) -> TaskStats {
-        let tasks = self.tasks.read().await;
-        let mut stats = TaskStats::default();
-
-        stats.total_tasks = tasks.len();
-
-        for task in tasks.values() {
-            match task.task_type {
-                TaskType::DeleteProof => stats.proof_deletions += 1,
-                TaskType::DeleteWitness => stats.witness_deletions += 1,
-                TaskType::CleanupJob => stats.job_cleanups += 1,
-                TaskType::CleanupJobStatus => stats.job_status_cleanups += 1,
-                TaskType::Custom(_) => stats.custom_tasks += 1,
-            }
-        }
-
-        stats
-    }
 
     fn is_task_ready(&self, task: &ScheduledTask, current_height: u64, current_time: u64) -> bool {
         match task.execute_at {

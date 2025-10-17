@@ -26,6 +26,7 @@ use tracing::{debug, info};
 use crate::common::whitelist::WhiteListCache;
 use crate::watcher::watcher_client::WatcherClient;
 
+const WATCHER_NODE_ID_PREFIX: &str = "realm_edge_node_";
 pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedisAsync> {
     // Create storage and queues
     let proof_store = ProofStoreRedisAsync::new(
@@ -51,6 +52,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let task_store = QProvingTaskStoreImpl::new(
         config.redis.redis_uri.as_str(),
         config.redis.pool_size.unwrap_or(20),
+        &config.queue.queue_biz_key
     )
     .await?;
     // Create proof storage
@@ -102,9 +104,13 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
 
     // Initialize watcher
     info!("📡 Initializing watcher client...");
-    let mut w = WatcherClient::new(&config.redis.redis_uri).await?;
-    w.set_node_id(config.realm.realm_id.to_string()).await;
-    let watcher_client = Arc::new(w);
+    let watcher = WatcherClient::new(
+        &config.redis.redis_uri,
+        config.redis.pool_size.unwrap_or(20),
+        &config.queue.queue_biz_key,
+        Some(&format!("{}{}", WATCHER_NODE_ID_PREFIX, config.realm.realm_id))
+    ).await?;
+    let watcher_client = Arc::new(watcher);
     info!("✅ Watcher client initialized successfully");
 
 
