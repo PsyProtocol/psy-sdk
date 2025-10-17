@@ -21,7 +21,7 @@ use qed_data::{
     config::store_config::QEDHasher,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
-use qed_prover::local::args::{JobInfo, JobLocation, WorkerJobTracker};
+use qed_prover::local::args::{JobInfo, JobLocation, SignData, WorkerJobTracker};
 use qed_prover::{
     local::{
         args::{ContractCallArgs, SignType},
@@ -233,13 +233,15 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     }
 
     info!("Executing {} contract calls in single transaction", all_contract_calls.len());
-    let tx_hash = wallet_session.exec_contract_call_with_sign_type(
+    let sign_data = fingerprint.map(|fp| SignData {
+        fingerprint: fp,
+        sign_contract_id: MINING_REWARDS_CONTRACT_ID,
+        sign_inputs: vec![],
+    });
+    let tx_hash = wallet_session.exec_contract_call_with_sign_data(
         user_pk_hash,
         all_contract_calls,
-        args.sign_type.clone(),
-        fingerprint,
-        Some(MINING_REWARDS_CONTRACT_ID),
-        vec![],
+        sign_data,
     ).await?;
 
 
@@ -580,16 +582,15 @@ pub async fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Re
         user_pk_hash,
         checked_job_infos,
     ).await?;
-
-    println!("contract_call_args: {}", serde_json::to_string_pretty(&all_contract_calls)?);
-
-    let tx_hash = wallet_session.exec_contract_call_with_sign_type(
+    let sign_data = fingerprint.map(|fp| SignData {
+        fingerprint: fp,
+        sign_contract_id: MINING_REWARDS_CONTRACT_ID,
+        sign_inputs: vec![],
+    });
+    let tx_hash = wallet_session.exec_contract_call_with_sign_data(
         user_pk_hash,
         all_contract_calls,
-        args.sign_type.clone(),
-        fingerprint,
-        Some(MINING_REWARDS_CONTRACT_ID),
-        vec![],
+        sign_data,
     ).await?;
 
     info!("Successfully claimed rewards with tx hash: {}", tx_hash);

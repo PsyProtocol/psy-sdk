@@ -2,7 +2,7 @@ use std::{collections::HashMap, str::FromStr};
 
 use crate::{
     dpn::circuits::cfc::DapenContractFunctionCircuit, local::{
-        args::{ContractCallArgs, JobLocation, SignType},
+        args::{ContractCallArgs, JobLocation, SignData, SignType},
         provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
     }, session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint, MINING_REWARDS_CONTRACT_ID}, ups::{
         circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
@@ -474,29 +474,26 @@ impl WalletSession {
         public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> anyhow::Result<QHashOut<F>> {
-        self.exec_contract_call_with_sign_type(
+        self.exec_contract_call_with_sign_data(
             public_key,
             contract_call_args,
-            SignType::SECP256K1Sign,
             None,
-            None,
-            vec![],
         ).await
     }
 
-    pub async fn exec_contract_call_with_sign_type(
+    pub async fn exec_contract_call_with_sign_data(
         &self,
         public_key: QHashOut<F>,
         contract_call_args: Vec<ContractCallArgs>,
-        sign_type: SignType,
-        fingerprint: Option<QHashOut<F>>,
-        sig_contract_id: Option<u64>,
-        sign_inputs: Vec<u64>,
+        // sign_type: SignType,
+        sign_data: Option<SignData<F>>,
     ) -> anyhow::Result<QHashOut<F>> {
         tracing::info!(
             "exec contract call: {}",
             serde_json::to_string_pretty(&contract_call_args)?
         );
+        let sign_type = self.wallet.get_sign_type(public_key).await?;
+        tracing::info!("exec contract call with sign type: {:?}", sign_type);
         let result = self.st_provider.get_latest_l2_block_state().await?;
         tracing::info!("start session on global checkpoint: {}", result.checkpoint_id);
         self.start_session(public_key).await?;
@@ -504,12 +501,9 @@ impl WalletSession {
         self.prove_contract_calls(public_key, contract_call_args)
             .await?;
         tracing::info!("sign and submit on global checkpoint: {}", result.checkpoint_id);
-        let end_user_leaf_hash = self.sign_and_submit_with_sign_type(
+        let end_user_leaf_hash = self.sign_and_submit_with_sign_data(
             public_key,
-            sign_type,
-            fingerprint,
-            sig_contract_id,
-            sign_inputs,
+            sign_data,
         ).await?;
         Ok(end_user_leaf_hash)
     }
@@ -697,18 +691,17 @@ impl WalletSession {
     }
 
     pub async fn sign_and_submit(&self, public_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        self.sign_and_submit_with_sign_type(public_key, SignType::SECP256K1Sign, None, None, vec![])
+        self.sign_and_submit_with_sign_data(public_key, None)
             .await
     }
 
-     pub async fn sign_and_submit_with_sign_type(
+     pub async fn sign_and_submit_with_sign_data(
         &self,
         public_key: QHashOut<F>,
-        sign_type: SignType,
-        fingerprint: Option<QHashOut<F>>,
-        sig_contract_id: Option<u64>,
-        sign_inputs: Vec<u64>,
+        // sign_type: SignType,
+        sign_data: Option<SignData<F>>,
     ) -> anyhow::Result<QHashOut<F>> {
+        let sign_type = self.wallet.get_sign_type(public_key).await?;
         tracing::info!("sign and submit with sign type: {:?}", sign_type);
 
         let mut user_session_mgr = self
@@ -720,34 +713,30 @@ impl WalletSession {
             .mgr
             .get_sighash(QED_NETWORK_MAGIC_REGTEST, user_session_mgr.nonce);
 
-        let pk_info = self
-            .wallet_keys_store
-            .get(&public_key)
-            .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
         tracing::info!("zk sign for signhash: {}", sighash.to_string());
         let signature_proof = match sign_type {
             SignType::ZKSign => {
                 self.wallet
-                    .zk_sign_for_public_key(pk_info.public_key_param, sighash)
+                    .zk_sign_for_public_key(public_key, sighash)
                     .await?
             }
             SignType::SECP256K1Sign => {
                 self.wallet
-                    .zk_sign_secp256k1(pk_info.public_key_param, sighash)
+                    .zk_sign_secp256k1(public_key, sighash)
                     .await?
             }
             SignType::SoftwareDefinedSign => {
-                if let Some(fingerprint) = fingerprint {
+                if let Some(ref sign_data) = sign_data {
                     let mut sdc = self
                         .wallet
                         .software_defined_circuits
-                        .get_mut(&fingerprint)
+                        .get_mut(&sign_data.fingerprint)
                         .ok_or(anyhow::format_err!(
                             "software defined circuit `{}` not found",
-                            fingerprint.to_string()
+                            sign_data.fingerprint.to_string()
                         ))?;
 
-                    let cfc_call_inputs = sign_inputs
+                    let cfc_call_inputs = sign_data.sign_inputs
                         .iter()
                         .map(|x| F::from_noncanonical_u64(*x))
                         .collect::<Vec<_>>();
@@ -757,7 +746,7 @@ impl WalletSession {
                             let cfc_proof_input = user_session_mgr
                                 .mgr
                                 .exec_contract_call(
-                                    F::from_noncanonical_u64(sig_contract_id.unwrap_or_default()),
+                                    F::from_noncanonical_u64(sign_data.sign_contract_id),
                                     &q_gadget.input.fn_def,
                                     cfc_call_inputs,
                                 )
@@ -800,7 +789,7 @@ impl WalletSession {
                                 checkpoint_tree_root,
                                 user_leaf,
                                 transaction_record.end_contract_state_tree_root,
-                                F::from_canonical_u64(sig_contract_id.unwrap_or_default()),
+                                F::from_canonical_u64(sign_data.sign_contract_id),
                                 F::from_canonical_u64(user_session_mgr.current_checkpoint_id),
                             );
 
@@ -836,15 +825,15 @@ impl WalletSession {
                     let private_key = self
                         .wallet
                         .software_defined_public_key_to_private_key_store
-                        .get(&pk_info.public_key_param)
+                        .get(&public_key)
                         .ok_or(anyhow::format_err!(
                             "public key `{}` does not exist in the store",
-                            pk_info.public_key_param.to_string()
+                            public_key.to_string()
                         ))?;
 
                     sdc.prove(*private_key, &input, sighash).await?
                 } else {
-                    anyhow::bail!("software defined sign need fingerprint");
+                    anyhow::bail!("software defined sign need sign data");
                 }
             }
         };
@@ -883,9 +872,9 @@ impl WalletSession {
                     .await?,
             ),
             SignType::SoftwareDefinedSign => {
-                let fingerprint = fingerprint.ok_or(anyhow::format_err!(
-                    "software defined sign need fingerprint"
-                ))?;
+                let fingerprint = sign_data.ok_or(anyhow::format_err!(
+                    "software defined sign need sign data"
+                ))?.fingerprint;
                 let sdc = self
                     .wallet
                     .software_defined_circuits
@@ -1183,10 +1172,7 @@ impl WalletSession {
         self.claim_rewards_with_sign_type(
             user_pk_hash,
             proofs_with_checkpoints,
-            SignType::SECP256K1Sign,
             None,
-            None,
-            vec![],
         ).await?;
         Ok(())
     }
@@ -1195,23 +1181,18 @@ impl WalletSession {
         &self,
         user_pk_hash: QHashOut<F>,
         proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>)>,
-        sign_type: SignType,
-        fingerprint: Option<QHashOut<F>>,
-        sig_contract_id: Option<u64>,
-        sign_inputs: Vec<u64>,
+        // sign_type: SignType,
+        sign_data: Option<SignData<F>>,
     ) -> anyhow::Result<()> {
         let contract_call_args = self.get_claim_rewards_call_args(
             user_pk_hash,
             proofs_with_checkpoints,
         ).await?;
 
-        self.exec_contract_call_with_sign_type(
+        self.exec_contract_call_with_sign_data(
             user_pk_hash,
             contract_call_args,
-            sign_type,
-            fingerprint,
-            sig_contract_id,
-            sign_inputs,
+            sign_data,
         ).await?;
         Ok(())
     }

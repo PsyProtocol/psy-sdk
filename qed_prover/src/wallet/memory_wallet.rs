@@ -16,14 +16,17 @@ use qed_core::data::{
     base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey,
 };
 use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use qed_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_crypto::signature::{
     secp256k1::core::QEDCompressedSecp256K1Signature,
     zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
+use qed_data::config::store_config::QEDHasher;
 use qed_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
+use crate::local::args::SignType;
 use crate::local::provider::ProveProxyRpcTrait;
 use crate::ups::circuit_manager;
 use crate::ups::circuit_manager::core::QCircuitManager;
@@ -79,7 +82,7 @@ impl QEDMemoryWallet {
     ) -> anyhow::Result<ZKPublicKeyInfo<F>> {
         let pk_info = self.get_zk_pk_info(private_key).await?;
         self.zk_public_key_to_private_key_store
-            .insert(pk_info.public_key_param, private_key);
+            .insert(pk_info.qfhash::<QEDHasher>(), private_key);
         Ok(pk_info)
     }
 
@@ -97,6 +100,18 @@ impl QEDMemoryWallet {
         })
     }
 
+    pub async fn get_sign_type(&self, pk_hash: QHashOut<F>) -> anyhow::Result<SignType> {
+        if self.zk_public_key_to_private_key_store.contains_key(&pk_hash) {
+            Ok(SignType::ZKSign)
+        } else if self.secp_public_key_to_private_key_store.contains_key(&pk_hash) {
+            Ok(SignType::SECP256K1Sign)
+        } else if self.software_defined_public_key_to_private_key_store.contains_key(&pk_hash) {
+            Ok(SignType::SoftwareDefinedSign)
+        } else {
+            Err(anyhow::format_err!("pk_hash `{}` not found", pk_hash))
+        }
+    }
+
     pub async fn add_secp_private_key(
         &mut self,
         private_key: QHashOut<F>,
@@ -105,7 +120,7 @@ impl QEDMemoryWallet {
         tracing::info!("add secp user {}", serde_json::to_string_pretty(&pk_info)?);
 
         self.secp_public_key_to_private_key_store
-            .insert(pk_info.public_key_param, private_key);
+            .insert(pk_info.qfhash::<QEDHasher>(), private_key);
         Ok(pk_info)
     }
 
@@ -125,7 +140,7 @@ impl QEDMemoryWallet {
         );
 
         self.software_defined_public_key_to_private_key_store
-            .insert(pk_info.public_key_param, private_key);
+            .insert(pk_info.qfhash::<QEDHasher>(), private_key);
         Ok(pk_info)
     }
 
