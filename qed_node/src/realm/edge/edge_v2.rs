@@ -1,6 +1,6 @@
 use crate::realm::edge::sync::spawn_realm_job_update_task;
 use super::rpc::RealmEdgeRpcServer;
-use super::{C, D};
+use super::{C, D, WATCHER_NODE_ID_PREFIX};
 use crate::common::jobs::JobSchedulerRpcServer;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::realm::handler::RealmEdgeHandler;
@@ -38,8 +38,9 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
     let task_store = QProvingTaskStoreImpl::new(
         config.redis.redis_uri.as_str(),
         config.redis.pool_size.unwrap_or(20),
+        &config.queue.queue_biz_key
     )
-        .await?;
+    .await?;
 
     // Create proof storage
     let proof_store = Arc::new(proof_store);
@@ -96,9 +97,13 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
 
     // Initialize watcher
     info!("📡 Initializing watcher client...");
-    let mut w = WatcherClient::new(&config.redis.redis_uri).await?;
-    w.set_node_id(config.realm.realm_id.to_string()).await;
-    let watcher_client = Arc::new(w);
+    let watcher = WatcherClient::new(
+        &config.redis.redis_uri,
+        config.redis.pool_size.unwrap_or(20),
+        &config.queue.queue_biz_key,
+        Some(&format!("{}{}", WATCHER_NODE_ID_PREFIX, config.realm.realm_id))
+    ).await?;
+    let watcher_client = Arc::new(watcher);
     info!("✅ Watcher client initialized successfully");
 
 
