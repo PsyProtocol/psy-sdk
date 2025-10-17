@@ -243,7 +243,7 @@ impl UserSessionStateManager {
     }
 
     pub async fn check_user_state(&self) -> anyhow::Result<()> {
-        let latest_checkpoint_id = self.rpc_provider.get_latest_l2_block_state().await?.checkpoint_id;
+        let latest_checkpoint_id = self.rpc_provider.get_realm_latest_l2_block_state().await?.checkpoint_id;
         let user_leaf = self.rpc_provider.get_user_leaf_data(latest_checkpoint_id, self.user_id).await?;
         if user_leaf.nonce + F::ONE != self.nonce {
             tracing::error!("user nonce {} must be equal to onchain nonce {} + 1", self.nonce, user_leaf.nonce);
@@ -498,13 +498,12 @@ impl WalletSession {
             serde_json::to_string_pretty(&contract_call_args)?
         );
         let result = self.st_provider.get_latest_l2_block_state().await?;
-        tracing::info!("start session on checkpoint: {}", result.checkpoint_id);
+        tracing::info!("start session on global checkpoint: {}", result.checkpoint_id);
         self.start_session(public_key).await?;
         tracing::info!("prove contract calls");
         self.prove_contract_calls(public_key, contract_call_args)
             .await?;
-        let result = self.st_provider.get_latest_l2_block_state().await?;
-        tracing::info!("sign and submit on checkpoint: {}", result.checkpoint_id);
+        tracing::info!("sign and submit on global checkpoint: {}", result.checkpoint_id);
         self.sign_and_submit_with_sign_type(
             public_key,
             sign_type,
@@ -573,7 +572,7 @@ impl WalletSession {
                     tracing::info!("create new user session manager");
                     *user_session_mgr = UserSessionStateManager::new(
                         user_session_mgr.user_id,
-                        user_session_mgr.nonce,
+                        latest_nonce,
                         latest_l2_block_state.checkpoint_id,
                         self.st_provider.clone(),
                         self.circuit_info.clone(),
