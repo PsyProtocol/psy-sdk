@@ -730,7 +730,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
         let state_key = format!("{}-{}", self.realm_pending_user_key(), "CONSUMPTION_STATE");
         let state_data = bincode::serialize(&state)
             .map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
-        self.redis.set_ex(state_key, state_data, 3600).await?;
+        self.redis.set(state_key, state_data).await?;
 
         tracing::debug!("Consumed {} users from positions {}-{} for checkpoint {}",
               users.len(), start_position, end_position, checkpoint_id);
@@ -760,11 +760,12 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 
         let state_data: Option<Vec<u8>> = self.redis.get(state_key).await.ok();
         if let Some(data) = state_data {
-            let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!("Failed to deserialize state: {}", e))?;
-            Ok(Some(state))
-        } else {
-            Ok(None)
+            if !data.is_empty() {
+                let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!("Failed to deserialize state: {}", e))?;
+                return Ok(Some(state))
+            }
         }
+        Ok(None)
     }
 }
 
