@@ -6,6 +6,7 @@ import {
     DPNFunctionCircuitDefinition,
     IQedUserProverProvider,
     QBCDeployContract,
+    SignData,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
 import { JobInfo, ZKPublicKeyInfo } from "../types";
@@ -23,6 +24,12 @@ export class QedWasmUserProverProvider implements IQedUserProverProvider {
     async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
         const json = QedJSON.stringify(contractCallArg);
         return this.wasmServer.exec_contract_call_json(pkHash, json);
+    }
+
+    async execContractCallWithSignData(pkHash: string, contractCallArg: ContractCallArgs[], signData: SignData|null|undefined): Promise<QHashOut> {
+        const json = QedJSON.stringify(contractCallArg);
+        const signDataJson = signData ? QedJSON.stringify(signData) : null;
+        return this.wasmServer.exec_contract_call_with_sign_data_json(pkHash, json, signDataJson);
     }
 
     async getClaimRewardsCallArgs(pkHash: PublicKey, jobInfos: string): Promise<ContractCallArgs[]> {
@@ -55,13 +62,26 @@ export class QedWasmUserProverProvider implements IQedUserProverProvider {
         return this.wasmServer.sign_and_submit(pkHash);
     }
 
+    async signAndSubmitWithData(pkHash: PublicKey, signData: SignData|null|undefined): Promise<QHashOut> {
+        const signDataJson = signData ? QedJSON.stringify(signData) : null;
+        return this.wasmServer.sign_and_submit_with_sign_data(pkHash, signDataJson);
+    }
+
     // User operations
     async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
         return this.wasmServer.register_user(privateKey.toString());
     }
 
+    async registerUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
+        return this.wasmServer.register_user_with_type(privateKey.toString(), signType, fingerprint);
+    }
+
     async addUser(privateKey: PrivateKey): Promise<PublicKey> {
         return this.wasmServer.add_user(privateKey.toString());
+    }
+
+    async addUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
+        return this.wasmServer.add_user_with_type(privateKey.toString(), signType, fingerprint);
     }
 
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {
