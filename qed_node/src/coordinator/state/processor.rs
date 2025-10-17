@@ -1,5 +1,6 @@
 use std::{marker::Sync, sync::Arc, time::Instant};
 use std::time::Duration;
+use anyhow::ensure;
 use chrono::Utc;
 use kvq::traits::KVQPair;
 use plonky2::{
@@ -66,6 +67,7 @@ use qed_data::{
     },
 };
 use qed_rollup_circuit::guta::gadgets::guta_header;
+use qed_store::queue::redis_queue::MAX_CHECKPOINT_COUNT;
 use qed_store::{
     node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
     queue::{
@@ -74,17 +76,17 @@ use qed_store::{
     },
 };
 use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
+use crate::common_v2::traits::realm::BasicRealmStatusOnCoordinator;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
-use tracing_subscriber::fmt::time;
 use qed_store::store::journal::{Journal, JournalStore};
 use qed_store::store::QEDStore;
-use crate::common::slot::{LocalClock, Slot, SLOT_SIZE};
+use crate::common::slot::SLOT_SIZE;
+use qed_data::qdata::realm_status::BasicRealmStatus;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
-
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct CoordinatorConfig {
     pub users_per_realm: usize,
@@ -242,6 +244,7 @@ impl<
         }
         let next_contract_id = start_contract_id + new_contract_leaves.len() as u32;
         let mut psb = ProofStoreBuilder::new();
+        let now = Instant::now();
         let (start_indexes, spiderman_append_proofs) = self
             .store
             .batch_append_contract_tree_imm(
@@ -251,6 +254,7 @@ impl<
                 &new_hashes,
             )
             .await?;
+        tracing::debug!("batch_append_contract_tree_imm cost time: {:?}", now.elapsed());
         tracing::debug!("deploy contracts spiderman proofs: {}", serde_json::to_string_pretty(&spiderman_append_proofs).unwrap());
         let wits = spiderman_append_proofs
             .into_iter()
@@ -356,6 +360,7 @@ impl<
         let new_public_keys = user_registrations.iter().map(|x| x.to_hash::<QEDHasher>()).collect::<Vec<_>>();
 
         let mut psb = ProofStoreBuilder::new();
+        let now = Instant::now();
         let res = self
             .store
             .batch_append_user_registration_tree_imm(
@@ -365,6 +370,7 @@ impl<
                 &new_public_keys,
             )
             .await?;
+        tracing::debug!("batch_append_user_registration_tree_imm cost time: {:?}", now.elapsed());
         tracing::debug!("user registrations spiderman proofs: {}", serde_json::to_string_pretty(&res).unwrap());
         let (start_indexes, spiderman_proofs) = res;
         let wits = spiderman_proofs
@@ -421,7 +427,27 @@ impl<
         let last_checkpoint_id = checkpoint_id.saturating_sub(1);
         let last_checkpoint_tree_root = self.store.get_checkpoint_tree_root(last_checkpoint_id).await?;
         tracing::debug!("last_checkpoint_tree_root: {}", last_checkpoint_tree_root);
-        let mut guta_queue_items = guta_queue_items.into_iter().filter(|x| x.checkpoint_id == checkpoint_id).collect::<Vec<_>>();
+        let mut guta_queue_items = guta_queue_items.into_iter().filter(|x| {
+            let is = x.checkpoint_id <= checkpoint_id && x.checkpoint_id >= checkpoint_id.saturating_sub(2);
+            if !is {
+                warn!("Filtering GUTA queue items for checkpoint_id: {}, current guta checkpoint_id: {}", checkpoint_id, x.checkpoint_id);
+            }
+            is
+        }).collect::<Vec<_>>();
+
+        let (realm_ids, realm_statuses): (Vec<u64>, Vec<BasicRealmStatus<F>>) = guta_queue_items
+            .iter()
+            .map(|x| {
+                (
+                    x.realm_id,
+                    BasicRealmStatus {
+                        checkpoint_id,
+                        realm_root_hash: x.top_line_proof.new_root,
+                    },
+                )
+            })
+            .unzip();
+        self.store.set_realm_statuses(&realm_ids, &realm_statuses).await?;
 
         if guta_queue_items.len() == 0 {
             tracing::debug!("No GUTA queue items");
@@ -485,11 +511,11 @@ impl<
                 tracing::warn!("Checkpoint tree root in GUTA queue item does not match last checkpoint tree root");
                 let real_guta_checkpoint_id = guta_queue_items[0].checkpoint_id.saturating_sub(1);
                 let historical_checkpoint_proof = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_guta_checkpoint_id).await?;
-                assert!(historical_checkpoint_proof.root == last_checkpoint_tree_root);
+                ensure!(historical_checkpoint_proof.root == last_checkpoint_tree_root);
                 let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&historical_checkpoint_proof);
-                assert!(current_root == historical_checkpoint_proof.root);
-                assert!(current_root == last_checkpoint_tree_root);
-                assert!(historical_root == guta_queue_items[0].checkpoint_tree_root);
+                ensure!(current_root == historical_checkpoint_proof.root);
+                ensure!(current_root == last_checkpoint_tree_root);
+                ensure!(historical_root == guta_queue_items[0].checkpoint_tree_root);
                 let rw = VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple {
                     historical_checkpoint_proof,
                     guta_proof_header: GlobalUserTreeAggregatorHeader {
@@ -1079,7 +1105,7 @@ impl<
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
-        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, 256).await?;
+        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64).await?;
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
@@ -1254,7 +1280,7 @@ impl<
 
         // Wait for final block proving jobs
         debug!("Waiting for block proving jobs for checkpoint {}", new_checkpoint_id);
-        self.prover_queue.wait_for_block_proving_jobs_imm(new_checkpoint_id, Some(Duration::from_millis(5*SLOT_SIZE))).await?;
+        self.prover_queue.wait_for_block_proving_jobs_imm(new_checkpoint_id, Some(Duration::from_millis(5 * SLOT_SIZE))).await?;
         debug!("Block proving jobs completed for checkpoint {}", new_checkpoint_id);
 
         // Update L2 block state
@@ -1293,40 +1319,40 @@ impl<
     }
 
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
-        let deploy_items = self
+        let deploy_count = self
             .checkpoint_queue
-            .cdq_peek_imm::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(self.coordinator_config.deploy_contract_channel_id)
+            .cdq_len_imm(self.coordinator_config.deploy_contract_channel_id)
             .await?;
 
-        trace!("Checking deploy contracts queue: {} items, checkpoint: {}", deploy_items.len(), checkpoint_id);
-        if !deploy_items.is_empty() {
+        trace!("Checking deploy contracts queue: {} items, checkpoint: {}", deploy_count, checkpoint_id);
+        if deploy_count > 0 {
             return Ok(true);
         }
 
-        let user_reg_items = self
+        let user_reg_count = self
             .checkpoint_queue
-            .cdq_peek_imm::<ZKPublicKeyInfo<F>>(COORD_API_REGISTER_USER_CHANNEL_ID)
+            .cdq_len_imm(COORD_API_REGISTER_USER_CHANNEL_ID)
             .await?;
 
-        trace!("Checking user registration queue: {} items, checkpoint: {}", user_reg_items.len(), checkpoint_id);
-        if !user_reg_items.is_empty() {
+        trace!("Checking user registration queue: {} items, checkpoint: {}", user_reg_count, checkpoint_id);
+        if user_reg_count > 0 {
             return Ok(true);
         }
 
-        let guta_items = self
+        let guta_count = self
             .checkpoint_queue
-            .cdq_peek_imm::<SubmitGUTARealmResultAPIQueueItem<F>>(self.coordinator_config.guta_channel_id)
+            .cdq_len_imm(self.coordinator_config.guta_channel_id)
             .await?;
 
-        trace!("Checking GUTA queue: {} items, checkpoint: {}", guta_items.len(), checkpoint_id);
-        if !guta_items.is_empty() {
+        trace!("Checking GUTA queue: {} items, checkpoint: {}", guta_count, checkpoint_id);
+        if guta_count > 0 {
             return Ok(true);
         }
         Ok(false)
     }
 
     pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
-        let (pair_to_set, remove_keys) = self.store.commit(checkpoint_id)?;
+        let (pair_to_set, remove_keys) = self.store.commit(None)?;
         self.commit_offset().await?;
         self.task_store
             .save_job_dependency_graph(checkpoint_id)

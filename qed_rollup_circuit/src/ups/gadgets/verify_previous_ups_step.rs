@@ -68,6 +68,9 @@ impl VerifyPreviousUPSStepProofInProofTreeGadget {
         // ensure the previous proof header matches the public inputs of the proof we are verifying
         let expected_inner_public_inputs_hash =
             previous_step_header_gadget.to_hash::<H, F, D>(builder);
+        tracing::debug!("🔗 VerifyPreviousUPSStep - expected_inner_public_inputs_hash: {:?}, actual_inner_hash: {:?}",
+            expected_inner_public_inputs_hash, proof_attestation_gadget.inner_public_inputs_hash);
+
         builder.connect_hashes(
             proof_attestation_gadget.inner_public_inputs_hash,
             expected_inner_public_inputs_hash,

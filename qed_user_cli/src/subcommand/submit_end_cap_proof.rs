@@ -111,6 +111,7 @@ pub async fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
         //     session_proof_tree_height: UPS_SESSION_PROOF_TREE_HEIGHT,
         //     force_four_align: false,
         // });
+
         let sign_circuit = Box::new(SoftwareDefinedSignGadget {});
         let sdc_input = SoftwareDefinedSignatureInput::PLONKY2(PSoftwareDefinedSignatureInput {
             contract_state_tree_height,

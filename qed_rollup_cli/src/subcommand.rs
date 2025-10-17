@@ -4,9 +4,12 @@ pub mod api_service;
 pub mod coordinator_edge;
 pub mod coordinator_processor;
 pub mod realm_edge;
+pub mod realm_edge_v2;
 pub mod realm_processor;
+pub mod realm_processor_v2;
 pub mod watcher;
 pub mod worker;
+
 
 #[derive(Parser)]
 pub struct Cli {
@@ -25,8 +28,18 @@ pub enum Commands {
         #[command(flatten)]
         config: qed_node::realm::RealmEdgeConfig,
     },
+    #[command(about = "Run the realm edge node v2")]
+    RealmEdgeV2 {
+        #[command(flatten)]
+        config: qed_node::realm::RealmEdgeConfig,
+    },
     #[command(about = "Run the realm processor node")]
     RealmProcessor {
+        #[command(flatten)]
+        config: qed_node::realm::RealmNodeConfig,
+    },
+    #[command(about = "Run the realm processor node v2")]
+    RealmProcessorV2 {
         #[command(flatten)]
         config: qed_node::realm::RealmNodeConfig,
     },

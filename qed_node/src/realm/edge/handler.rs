@@ -2,7 +2,7 @@ use super::error::RpcError;
 use super::rpc::RealmEdgeRpcServer;
 use crate::common::jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB};
 use crate::realm::state::edge::RealmEdgeContext;
-use crate::realm::{C, D, F};
+use crate::realm::{C, D, F, H};
 use crate::watcher::current_timestamp_mills;
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
@@ -19,8 +19,8 @@ use qed_core::job::{
     id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, VariableHeightRewardMerkleProof},
     traits::QProofStoreAsyncImm,
 };
-use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_data::config::store_config::{QEDFelt, QEDHash, QEDProof};
+use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore, compute_historical_and_current_merkle_roots_core_gt};
+use qed_data::config::store_config::{QEDFelt, QEDHash, QEDHasher, QEDProof};
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
@@ -30,15 +30,23 @@ use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
 use std::sync::Arc;
 use std::time::Duration;
-use anyhow::anyhow;
+use anyhow::{anyhow, bail, ensure};
 use jsonrpsee::types::{ErrorCode, ErrorObject};
-
+use plonky2::field::goldilocks_field::GoldilocksField;
 use tracing::{debug, error, info, warn};
+use qed_core::config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
+use qed_core::job::id::ProvingJobDataType;
+use qed_crypto::hash::traits::hasher::{MerkleHasher, MerkleZeroHasher, PoseidonHasher};
+use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use qed_data::guta::api::{QEDContractStateUpdateHistory, SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem};
+use qed_data::guta::proof_input::VerifyEndCapSimpleStandardInput;
 use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob, current_timestamp_millis};
 use crate::coordinator::edge::ProofStore;
 use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
 use crate::common::whitelist::{WhiteList, WhiteListCache};
+use crate::common_v2::traits::realm::{RealmEdgeContractStateTreeUpdate, RealmEdgeStateHelper, RealmEdgeUserContractTreeUpdate, RealmEdgeUserUpdateSubmission, SimpleTreeUpdateBuilder, UniqueQueueId};
+use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
 use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, WatcherMessage};
 use crate::watcher::watcher_client::WatcherClient;
 
@@ -54,6 +62,7 @@ pub struct RealmEdgeHandler<
     whitelist_cache: WhiteListCache,
     watcher_client: Arc<WatcherClient>,
     coordinator_client: HttpClient,
+    queue_helper: Arc<RealmEdgeQueueHelper<F>>,
 }
 
 impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
@@ -69,6 +78,7 @@ where
         whitelist_cache: WhiteListCache,
         watcher_client: Arc<WatcherClient>,
         coordinator_addr: &str,
+        edge_queue_helper: Arc<RealmEdgeQueueHelper<F>>,
     ) -> Result<Self, anyhow::Error> {
         let coordinator_client = HttpClientBuilder::default()
             .build(coordinator_addr)?;
@@ -79,6 +89,7 @@ where
             whitelist_cache,
             watcher_client,
             coordinator_client,
+            queue_helper: edge_queue_helper,
         })
     }
 
@@ -89,6 +100,257 @@ where
             reason, job.job_id, job.layer_id, job.msg_id
         );
     }
+
+    fn validate_contract_updates(
+        &self,
+        contract_updates: &[QEDContractStateUpdateHistory<F>],
+        old_user_leaf: &QEDUserLeaf<F>,
+        new_user_leaf: &QEDUserLeaf<F>,
+    ) -> anyhow::Result<()> {
+        if contract_updates.is_empty() {
+            return Ok(());
+        }
+
+        let first = &contract_updates[0].user_contract_tree_update_proof;
+        let last = &contract_updates[contract_updates.len() - 1].user_contract_tree_update_proof;
+
+        ensure!(
+            first.old_root == old_user_leaf.user_state_tree_root,
+            "Contract update chain broken: first old_root mismatch"
+        );
+
+        ensure!(
+            last.new_root == new_user_leaf.user_state_tree_root,
+            "Contract update chain broken: last new_root mismatch"
+        );
+
+        contract_updates.windows(2).enumerate().try_for_each(|(i, pair)| {
+            ensure!(
+                pair[0].user_contract_tree_update_proof.new_root ==
+                pair[1].user_contract_tree_update_proof.old_root,
+                "Contract update chain broken at index {}: discontinuous roots", i + 1
+            );
+            Ok(())
+        })
+    }
+
+    async fn build_submission_from_end_cap(
+        &self,
+        user_ec_input: &SubmitUserEndCapNonProofInput<F>,
+        checkpoint_id: u64,
+        user_id: u64
+    ) -> anyhow::Result<RealmEdgeUserUpdateSubmission<F>> {
+        // ensure!(
+        //     user_ec_input.core.checkpoint_id.to_canonical_u64() == checkpoint_id,
+        //     "Checkpoint mismatch: {} != {}",
+        //     user_ec_input.core.checkpoint_id.to_canonical_u64(),
+        //     checkpoint_id
+        // );
+        let endcap_checkpoint_id = user_ec_input.core.checkpoint_id.to_canonical_u64();
+        if endcap_checkpoint_id != checkpoint_id {
+            tracing::warn!("user cap checkpoint is behind current checkpoint: {} != {}", endcap_checkpoint_id, checkpoint_id);
+        }
+
+        let old_user_leaf = self.ctx.store_reader
+            .get_user_leaf_data(checkpoint_id, user_id)
+            .await?;
+
+        let old_leaf_hash = old_user_leaf.qfhash::<QEDHasher>();
+        ensure!(
+            old_leaf_hash == user_ec_input.core.state_transition.start_user_leaf_hash,
+            "Start leaf hash mismatch"
+        );
+
+        let new_user_leaf = user_ec_input.core.new_user_leaf;
+        let new_leaf_hash = new_user_leaf.qfhash::<QEDHasher>();
+
+        ensure!(
+            new_leaf_hash == user_ec_input.core.state_transition.end_user_leaf_hash,
+            "End leaf hash mismatch"
+        );
+
+        ensure!(
+            new_user_leaf.user_id == user_ec_input.core.state_transition.user_id,
+            "User ID mismatch in new leaf"
+        );
+
+        //note: The checkpoint_id here is not used by the outside world and can be passed in any value
+        let cst_update = user_ec_input
+            .verify_and_generate_cst_updates::<QEDHasher>(
+                checkpoint_id,
+                old_user_leaf.user_state_tree_root
+            )?;
+
+        let contract_state_updates = cst_update.updates
+            .iter()
+            .map(|delta| RealmEdgeContractStateTreeUpdate {
+                user_id,
+                contract_id: delta.key.contract_id,
+                index: delta.key.index,
+                level: delta.key.level,
+                new_value: delta.value,
+            })
+            .collect();
+
+        let user_contract_updates = cst_update.uct_updates
+            .iter()
+            .map(|update| RealmEdgeUserContractTreeUpdate {
+                user_id,
+                index: update.key.index as u32,
+                level: update.key.level,
+                new_value: update.value,
+            })
+            .collect();
+
+        let checkpoint_proof = self.ctx.store_reader
+            .get_checkpoint_tree_merkle_proof(checkpoint_id, endcap_checkpoint_id)
+            .await?;
+
+        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_proof);
+        ensure!(current_root == checkpoint_proof.root);
+        ensure!(historical_root == user_ec_input.core.state_transition.checkpoint_tree_root_hash);
+
+        if checkpoint_proof.root != user_ec_input.core.state_transition.checkpoint_tree_root_hash {
+            tracing::warn!(
+                "ensure checkpoint_proof: {} == user_ec_input.core.state_transition.checkpoint_tree_root_hash {}",
+                checkpoint_proof.root,
+                user_ec_input.core.state_transition.checkpoint_tree_root_hash,
+            );
+            // anyhow::bail!("invalid checkpoint_root_hash");
+        }
+
+        Ok(RealmEdgeUserUpdateSubmission {
+            proof_id: QProvingJobDataID::new(
+                QJobTopic::GenerateStandardProof,
+                checkpoint_id,
+                self.ctx.realm_config.realm_id as u32,
+                GLOBAL_USER_TREE_HEIGHT as u32,
+                user_id as u32,
+                ProvingJobCircuitType::UserEndCap,
+                ProvingJobDataType::OutputProof,
+                0,
+            ),
+            contract_state_tree_updates: contract_state_updates,
+            user_contract_tree_updates: user_contract_updates,
+            old_user_leaf,
+            new_user_leaf,
+            misc_data: VerifyEndCapSimpleStandardInput {
+                guta_stats: user_ec_input.core.stats,
+                checkpoint_root: historical_root,
+                checkpoint_historical_merkle_proof: checkpoint_proof,
+            },
+        })
+    }
+
+    async fn handle_end_cap_with_queue(
+        &self,
+        user_ec_input: SubmitUserEndCapNonProofInput<F>,
+        proof: ProofWithPublicInputs<F, C, D>,
+    ) -> anyhow::Result<String> {
+        let user_id = user_ec_input.core.state_transition.user_id.to_canonical_u64();
+
+        //Step1: The realm edge fetches the unique shared checkpoint id which includes a checkpoint_id AND a 128bit uuid
+        let unique_checkpoint = self.get_shared_checkpoint_id().await?;
+        debug!("checkpoint={:?} user={}", unique_checkpoint, user_id);
+
+        //Step2: The realm edge checks if the user has submitted a proof for this UNIQUE checkpoint id before,
+        // if not, it stores a random number for the UNIQUE checkpoint id in redis or similar
+        ensure!(
+            !self.queue_helper.has_user_submitted(unique_checkpoint, user_id).await?,
+            "User {} already submitted for checkpoint {:?}", user_id, unique_checkpoint
+        );
+
+        let random_lock = rand::random::<u128>();
+        self.put_submitted_end_cap_for_checkpoint(random_lock, user_id).await?;
+
+        //Step3: The realm edge checks the proof, and validity of inputs,
+        // generating the RealmEdgeUserUpdateSubmission ALONG THE WAY
+        // (no need to waste compute on processor that has already been completed)
+        let validation_result = (|| async {
+            ensure!(proof.public_inputs.len() == 4, "Invalid proof inputs");
+            ensure!(!user_ec_input.contract_state_updates.is_empty(), "No contract updates");
+            ensure!(self.ctx.includes_user_id(user_id), "User not in realm");
+
+            let mut contracts = SimpleContractHeightCache::<F>::new();
+            for (id, height) in user_ec_input.get_needed_contract_zero_hashes() {
+                contracts.add_contract(id, height as u8, PoseidonHasher::get_zero_hash(height));
+            }
+
+            let proof_hash = QHashOut::from_felt_slice(&proof.public_inputs);
+            user_ec_input.ensure_simple_self_consistent::<QEDHasher>(proof_hash, &contracts)?;
+
+            let current_checkpoint = self.ctx.get_checkpoint_id_async().await?;
+            let end_cap_checkpoint = user_ec_input.core.checkpoint_id.to_canonical_u64();
+            ensure!(
+                end_cap_checkpoint <= current_checkpoint,
+                "Future checkpoint: {} > {}", end_cap_checkpoint, current_checkpoint
+            );
+
+            let user_leaf = self.ctx.store_reader
+                .get_user_leaf_data(current_checkpoint, user_id)
+                .await?;
+
+            ensure!(
+                user_leaf.qfhash::<QEDHasher>() == user_ec_input.core.state_transition.start_user_leaf_hash,
+                "User state mismatch"
+            );
+
+            ensure!(
+                user_leaf.last_checkpoint_id.to_canonical_u64() <= end_cap_checkpoint &&
+                user_leaf.nonce.to_canonical_u64() <= user_ec_input.core.new_user_leaf.nonce.to_canonical_u64(),
+                "Invalid state progression"
+            );
+
+            self.ctx.verify_proof_of_type(ProvingJobCircuitType::UserEndCap, &proof)?;
+
+            let submission = self.build_submission_from_end_cap(
+                &user_ec_input,
+                current_checkpoint,
+                user_id,
+            ).await?;
+
+            self.validate_contract_updates(
+                &user_ec_input.contract_state_updates,
+                &submission.old_user_leaf,
+                &submission.new_user_leaf,
+            )?;
+
+            Ok::<_, anyhow::Error>((submission, end_cap_checkpoint, current_checkpoint))
+        })().await;
+
+        let (submission, end_cap_checkpoint, current_checkpoint) = validation_result?;
+
+        //Step4: The realm edge fetches the random number for the UNIQUE checkpoint id and user,
+        // and makes sure it equals the previous random number generated (to ensure no weird race conditions with multiple submissions)
+        ensure!(
+            self.has_submitted_end_cap_for_checkpoint(random_lock, user_id).await?,
+            "Random lock verification failed"
+        );
+
+        //Step5: The realm edge stores the proof in proof store
+        let proof_id = submission.proof_id;
+        self.put_proof_id(proof_id, proof.into()).await?;
+
+        //Step6: The realm edge pushes the RealmEdgeUserUpdateSubmission to a queue or similar that is tied to the UniqueCheckpointId (both checkpoint_id and uuid)
+        self.queue_helper
+            .enqueue_submission(unique_checkpoint, submission)
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!("Failed to enqueue submission: {}", e)
+            })?;
+
+        self.queue_helper
+            .mark_user_submitted(unique_checkpoint, user_id)
+            .await?;
+
+        info!("✅ User {} proof accepted for checkpoint {:?}", user_id, unique_checkpoint);
+
+        Ok(format!(
+            "Proof submitted successfully for checkpoint {:?} (user: {}, lock: {})",
+            unique_checkpoint, user_id, random_lock
+        ))
+    }
+
 }
 
 #[async_trait]
@@ -996,3 +1258,49 @@ where
         Ok(())
     }
 }
+
+impl<SR, DQ, PS> RealmEdgeStateHelper for RealmEdgeHandler<SR, DQ, PS>
+where
+    SR: QEDRealmStoreReaderAsync<F> + Sync,
+    DQ: CheckpointDrainQueueEmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
+{
+    async fn get_shared_checkpoint_id(&self) -> anyhow::Result<UniqueQueueId> {
+        self.queue_helper.get_shared_checkpoint_id().await
+    }
+
+    async fn has_submitted_end_cap_for_checkpoint(&self, queue_uuid: u128, user_id: u64) -> anyhow::Result<bool> {
+        let shared_checkpoint = self.get_shared_checkpoint_id().await?;
+        let key = format!("{}_{}", shared_checkpoint.uuid, user_id);
+        let value = self.queue_helper.get_key(&key).await;
+        if let Ok(stored_queue_uuid) = value {
+            return if stored_queue_uuid == queue_uuid {
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+
+        Ok(false)
+    }
+
+    async fn put_submitted_end_cap_for_checkpoint(&self, queue_uuid: u128, user_id: u64) -> anyhow::Result<()> {
+        let shared_checkpoint = self.get_shared_checkpoint_id().await?;
+        let key = format!("{}_{}", shared_checkpoint.uuid, user_id);
+        self.queue_helper.set_key(&key, queue_uuid).await?;
+
+        Ok(())
+    }
+
+    async fn put_proof_id(&self, job_id: QProvingJobDataID, proof: QEDProof) -> anyhow::Result<()> {
+        self.ctx.proof_store.set_proof_by_id(job_id, &proof).await?;
+
+        debug!("Stored proof for job {} in realm {}",
+            job_id.to_hex_string(),
+            self.ctx.realm_config.realm_id
+        );
+
+        Ok(())
+    }
+}
+

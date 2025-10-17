@@ -36,7 +36,7 @@
         "name": "token",
         "path": "qed_precompiles/token",
         "contract_name": "PsyTokenContractRef",
-        "method_names": ["simple_mint", "simple_burn", "simple_transfer", "simple_claim", "simple_claim_pow_rewards"],
+        "method_names": ["simple_mint", "simple_burn", "simple_transfer", "batch_simple_transfer", "simple_claim", "simple_claim_pow_rewards"],
         "deployer": "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5"
       },
       {

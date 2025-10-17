@@ -88,7 +88,7 @@ impl RealmRecoveryManager {
             match self.recover_checkpoint(checkpoint_id).await {
                 Ok(()) => {
                     info!("✅ Successfully recovered realm {} checkpoint {}", self.realm_id, checkpoint_id);
-                    self.store.commit(checkpoint_id)?; // Commit journal store
+                    self.store.commit(None)?; // Commit journal store
                 }
                 Err(e) => {
                     error!("❌ Failed to recover realm {} checkpoint {}: {}", self.realm_id, checkpoint_id, e);

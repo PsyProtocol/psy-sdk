@@ -468,6 +468,28 @@ impl QProvingTaskStoreImpl {
             _ => Ok(false),
         }
     }
+    /// Set custom visibility timeout for a job
+    /// This allows you to control when the job becomes available for other workers to claim
+    pub async fn set_job_visibility(&self, job: &QJob, visibility_seconds: u64) -> Result<()> {
+        let queue_id = self.layer_queue_id(&job.layer_id);
+        let visibility = Duration::from_secs(visibility_seconds);
+
+        self.rsmq
+            .change_message_visibility(&queue_id, &job.msg_id, visibility)
+            .await
+            .context(format!(
+                "Failed to set visibility to {} seconds for job {}",
+                visibility_seconds, job
+            ))?;
+
+        info!(
+            "Set visibility to {} seconds for job {} (msg_id: {})",
+            visibility_seconds, job, job.msg_id
+        );
+
+        Ok(())
+    }
+
 }
 
 fn classify_visibility_error(job: &QJob, error: anyhow::Error) -> Result<JobValidationStatus> {
@@ -796,6 +818,10 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
 // Implementation-specific methods
 impl QProvingTaskStoreImpl {
+    pub async fn get_job_graph_mut(&self) -> Arc<Mutex<QProvingJobGraph>> {
+        self.job_graph.clone()
+    }
+
     async fn layer_exists(&self, layer_id: &LayerId) -> Result<bool> {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layer_zset_key();

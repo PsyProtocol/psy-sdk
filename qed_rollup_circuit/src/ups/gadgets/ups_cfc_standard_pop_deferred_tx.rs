@@ -43,6 +43,8 @@ impl UPSVerifyPopDeferredTxStepGadget {
         let expected_deferred_tx_leaf_hash = ups_pop_deferred_tx_proof.old_value;
 
         // ensure ups_pop_deferred_tx_proof's old root is the same as previous_step_header_gadget's deferred_tx_debt_tree_root
+        tracing::debug!("🔄 UPS Pop Deferred TX Constraint 1 - old root equality: deferred_tx_proof_old_root={:?}, header_deferred_root={:?}",
+            ups_pop_deferred_tx_proof.old_root, previous_step_header_gadget.current_state.deferred_tx_debt_tree_root);
         builder.connect_hashes(
             ups_pop_deferred_tx_proof.old_root,
             previous_step_header_gadget.current_state.deferred_tx_debt_tree_root,
@@ -50,6 +52,8 @@ impl UPSVerifyPopDeferredTxStepGadget {
 
         // ensure that the ups_pop_deferred_tx_proof removes an element from the tree (set the leaf to zero)
         let zero_hash = builder.constant_hash(HashOut::ZERO);
+        tracing::debug!("🔄 UPS Pop Deferred TX Constraint 2 - new value is zero: new_value={:?}, zero_hash={:?}",
+            ups_pop_deferred_tx_proof.new_value, zero_hash);
         builder.connect_hashes(
             ups_pop_deferred_tx_proof.new_value,
             zero_hash,
@@ -61,6 +65,8 @@ impl UPSVerifyPopDeferredTxStepGadget {
         // CREATE CORRECTION: modify the previous step's deferred_tx_debt_tree_root to be ups_pop_deferred_tx_proof.new_root
         // ie. start the deferred debt tree in the tx as it is AFTER removing remove the current transaction
         corrections.previous_step_deferred_tx_debt_tree_root = ups_pop_deferred_tx_proof.new_root;
+        tracing::debug!("🔄 UPS Pop Deferred TX Correction - updated previous_step_deferred_root: old={:?}, new={:?}",
+            previous_step_header_gadget.current_state.deferred_tx_debt_tree_root, ups_pop_deferred_tx_proof.new_root);
 
 
 
@@ -81,6 +87,10 @@ impl UPSVerifyPopDeferredTxStepGadget {
         let computed_deferred_tx_leaf_hash = computed_deferred_tx_stack_item.to_hash::<H,F,D>(builder);
 
         // ensure that the trasnaction we just proved matches/fulfills the deferred transaction debt item we removed from the tree
+        tracing::debug!("🔄 UPS Pop Deferred TX Constraint 3 - deferred tx hash equality: expected={:?}, computed={:?}",
+            expected_deferred_tx_leaf_hash, computed_deferred_tx_leaf_hash);
+        tracing::debug!("🔄 UPS Pop Deferred TX Values - old_value={:?}, call_data={:?}",
+            ups_pop_deferred_tx_proof.old_value, standard_cfc_verify_gadget.process_cfc_state_delta_gadget.cfc_transaction_input_context.transaction_call_start_ctx.call_data);
         builder.connect_hashes(
             expected_deferred_tx_leaf_hash,
             computed_deferred_tx_leaf_hash,
@@ -100,7 +110,7 @@ impl UPSVerifyPopDeferredTxStepGadget {
         tracing::debug!("🔄 UPS Pop Deferred TX set_witness - deferred_tx_proof old_root: {}, new_root: {}",
             serde_json::to_string_pretty(&target.ups_pop_deferred_tx_proof.old_root).unwrap(),
             serde_json::to_string_pretty(&target.ups_pop_deferred_tx_proof.new_root).unwrap());
-        
+
         self.standard_cfc_verify_gadget.set_witness(
             witness,
             &target.standard_cfc_verify_input

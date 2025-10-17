@@ -70,18 +70,22 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     info!("Latest checkpoint: {}", latest_checkpoint_id);
 
-    let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id).await {
-        Ok(checkpoint) => {
-            info!("Last claimed checkpoint: {}", checkpoint);
-            checkpoint
-        }
-        Err(e) => {
-            warn!("Failed to query last claimed checkpoint ({}), starting from checkpoint 1", e);
-            0
-        }
+    let start_checkpoint = if let Some(start_id) = args.start_checkpoint_id {
+        info!("Using manually specified start checkpoint: {}", start_id);
+        start_id
+    } else {
+        let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id).await {
+            Ok(checkpoint) => {
+                info!("Last claimed checkpoint: {}", checkpoint);
+                checkpoint
+            }
+            Err(e) => {
+                warn!("Failed to query last claimed checkpoint ({}), starting from checkpoint 1", e);
+                0
+            }
+        };
+        last_claimed + 1
     };
-
-    let start_checkpoint = last_claimed + 1;
 
     let claim_rewards_cooldown = 0;
     let max_claimable_checkpoint = if latest_checkpoint_id > claim_rewards_cooldown {
@@ -295,7 +299,8 @@ fn build_claim_calls_for_multi_checkpoints(
         proof_index += 5;
     }
 
-    if remaining >= 2 {
+    let count_2s = remaining / 2;
+    for _ in 0..count_2s {
         let chunk = &all_proofs[proof_index..proof_index + 2];
         let mut batch_inputs = Vec::new();
 
@@ -319,8 +324,9 @@ fn build_claim_calls_for_multi_checkpoints(
 
         proof_index += 2;
     }
+    remaining = remaining % 2;
 
-    if proof_index < total_proofs {
+    if remaining > 0 {
         let proof_with_checkpoint = &all_proofs[proof_index];
         let mut proof_inputs = Vec::new();
 
@@ -490,18 +496,22 @@ pub async fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Re
 
     info!("Latest checkpoint: {}", latest_checkpoint_id);
 
-    let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id).await {
-        Ok(checkpoint) => {
-            info!("Last claimed checkpoint: {}", checkpoint);
-            checkpoint
-        }
-        Err(e) => {
-            warn!("Failed to query last claimed checkpoint ({}), starting from checkpoint 1", e);
-            0
-        }
+    let start_checkpoint = if let Some(start_id) = args.start_checkpoint_id {
+        info!("Using manually specified start checkpoint: {}", start_id);
+        start_id
+    } else {
+        let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id).await {
+            Ok(checkpoint) => {
+                info!("Last claimed checkpoint: {}", checkpoint);
+                checkpoint
+            }
+            Err(e) => {
+                warn!("Failed to query last claimed checkpoint ({}), starting from checkpoint 1", e);
+                0
+            }
+        };
+        last_claimed + 1
     };
-
-    let start_checkpoint = last_claimed + 1;
 
     let claim_rewards_cooldown = 0;
     let max_claimable_checkpoint = if latest_checkpoint_id > claim_rewards_cooldown {
