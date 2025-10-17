@@ -37,4 +37,18 @@ export class RpcProvider {
     console.log("getPsyBalance, leafHash: " + leafHash);
     return parseInt(leafHash?.substring(48, 64), 16);
   }
+
+  async checkTxIsConfirmed(checkpointId: Felt, pkHash: string, txHash: string): Promise<boolean> {
+    const userId = await this.coordinatorRpcProvider.getUserId(pkHash);
+    if (!userId) {
+      console.warn("checkTxIsConfirmed failed, userId is undefined, pkHash: " + pkHash);
+      throw new Error("checkTxIsConfirmed failed, userId is undefined");
+    }
+    const userLeafHash = await this.realmRpcProvider.getRpcProviderByUserId(userId).getUserTreeLeafHash(checkpointId, userId);
+    if (!userLeafHash || userLeafHash.length != 64) {
+      console.warn("checkTxIsConfirmed failed, userLeafHash.length != 64, userLeafHash: " + userLeafHash);
+      throw new Error("checkTxIsConfirmed failed, userLeafHash.length != 64");
+    }
+    return userLeafHash == txHash;
+  }
 }
