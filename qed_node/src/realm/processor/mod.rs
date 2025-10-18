@@ -517,7 +517,8 @@ impl RealmProcessor {
         build_ctx: &ConcreteRealmProcessorContext,
         next_checkpoint_id: u64,
     ) -> anyhow::Result<ProvingJobDataId> {
-        build_ctx.build_block().await.map(|job_id|ProvingJobDataId::new(next_checkpoint_id, job_id))
+        let slot = self.slot_timer.get_current_slot();
+        build_ctx.build_block(slot).await.map(|job_id|ProvingJobDataId::new(next_checkpoint_id, job_id))
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {

@@ -27,9 +27,9 @@ pub fn get_dummy_tree_prover_ids_op_circuit(
     group_id: u32,
     leaf_count: usize,
 ) -> Vec<Vec<QProvingJobDataID>> {
-    let dummy_id = QProvingJobDataID::new_proof_job_id(checkpoint_id, group_id, dummy_type, 0, 0);
+    let dummy_id = QProvingJobDataID::new_proof_job_id(checkpoint_id, 0, group_id, dummy_type, 0, 0);
     let leaves = (0..leaf_count)
-        .map(|i| QProvingJobDataID::core_op_witness(checkpoint_id, group_id, circuit_type, 0, i as u32))
+        .map(|i| QProvingJobDataID::core_op_witness(checkpoint_id, 0, group_id, circuit_type, 0, i as u32))
         .collect::<Vec<_>>();
     get_dummy_tree_prover_ids(&leaves, dummy_id)
 }

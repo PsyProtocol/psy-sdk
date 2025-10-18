@@ -118,7 +118,6 @@ pub async fn run(
         &proof_verifier.library,
         user_qhashout,
     ));
-    let library = Arc::new(proof_verifier.library.clone());
 
     let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(
         worker_public_key,
@@ -133,7 +132,7 @@ pub async fn run(
                 JobLocation::Coordinator,
                 job_tracker.clone(),
                 prover.clone(),
-                library.clone(),
+                proof_verifier.clone(),
                 wallet.clone(),
                 worker_public_key.clone(),
                 user_id,
@@ -149,7 +148,7 @@ pub async fn run(
                 JobLocation::Realm(realm_config.id),
                 job_tracker.clone(),
                 prover.clone(),
-                library.clone(),
+                proof_verifier.clone(),
                 wallet.clone(),
                 worker_public_key.clone(),
                 user_id,

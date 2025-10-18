@@ -588,7 +588,7 @@ impl GraphDependencyBuilder for QProvingTaskStoreImpl {
             .map(|level| QProvingTask::new(level))
             .collect();
 
-        let finished_job = QProvingJobDataID::notify_realm_complete(checkpoint_id, realm_id);
+        let finished_job = QProvingJobDataID::notify_realm_complete(checkpoint_id, 0, realm_id);
         let finished_job_task = QProvingTask::new(&[finished_job]);
 
         if !tasks.is_empty() {

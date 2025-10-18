@@ -41,6 +41,7 @@ impl<
     pub fn push_user_registration_request(
         &self,
         checkpoint_id: u64,
+        slot_id: u64,
         group_id: u32,
         task_index: u32,
         psb: &mut ProofStoreBuilder,
@@ -54,6 +55,7 @@ impl<
         };
         let job_id = QProvingJobDataID::core_op_witness(
             checkpoint_id,
+            slot_id,
             group_id,
             ProvingJobCircuitType::AppendUserRegistrationTree,
             0,
@@ -66,6 +68,7 @@ impl<
     pub fn push_deploy_contracts_request(
         &self,
         checkpoint_id: u64,
+        slot_id: u64,
         group_id: u32,
         task_index: u32,
         psb: &mut ProofStoreBuilder,
@@ -81,6 +84,7 @@ impl<
         };
         let job_id = QProvingJobDataID::core_op_witness(
             checkpoint_id,
+            slot_id,
             group_id,
             ProvingJobCircuitType::BatchDeployContracts,
             0,
