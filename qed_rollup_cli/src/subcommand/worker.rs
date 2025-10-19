@@ -112,11 +112,10 @@ pub async fn run(
     info!("Successfully retrieved user ID: {}", user_id);
 
     let recipient_user_id = recipient.unwrap_or(user_id);
-    let user_qhashout = user_id_to_qhashout(recipient_user_id);
 
     let prover = Arc::new(QEDCoordinatorCircuitManager::<C, D>::new_with_library(
         &proof_verifier.library,
-        user_qhashout,
+        user_id_hash(recipient_user_id),
     ));
 
     let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(
@@ -179,13 +178,10 @@ pub async fn run(
     Ok(())
 }
 
-pub fn user_id_to_qhashout(user_id: u64) -> QHashOut<F> {
-    let elements = [
-        F::from_canonical_u64(user_id),
-        F::ZERO,
-        F::ZERO,
-        F::ZERO,
-    ];
+pub fn user_id_hash(user_id: u64) -> QHashOut<F> {
+    use plonky2::hash::poseidon::PoseidonHash;
+    use plonky2::plonk::config::Hasher;
 
-    QHashOut(HashOut { elements })
+    let hash_out = PoseidonHash::hash_no_pad(&[F::from_canonical_u64(user_id)]);
+    QHashOut(HashOut { elements: hash_out.elements })
 }
