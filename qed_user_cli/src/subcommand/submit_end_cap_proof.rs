@@ -6,7 +6,7 @@ use qed_core::config::network_constants::{
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use qed_prover::local::args::WalletSessionArgs;
+use qed_prover::local::args::{SignData, WalletSessionArgs};
 use qed_prover::session::WalletSession;
 use qed_prover::wallet::simple_sign::SoftwareDefinedSignGadget;
 use qed_prover::wallet::software_defined_circuit::{
@@ -130,16 +130,18 @@ pub async fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
     let user_pk_hash =
         wallet_session.add_user_with_type(args.private_key, args.sign_type.clone(), fingerprint).await?;
 
-    wallet_session.exec_contract_call_with_sign_type(
+    let sign_data = fingerprint.map(|fp| SignData {
+        fingerprint: fp,
+        sign_contract_id: args.contract_id,
+        sign_inputs: args.sign_inputs,
+    });
+    let tx_hash = wallet_session.exec_contract_call_with_sign_data(
         user_pk_hash,
         args.contract_call_args,
-        args.sign_type.clone(),
-        fingerprint,
-        Some(args.contract_id),
-        vec![],
+        sign_data,
     ).await?;
 
-    tracing::info!("local proving end");
+    tracing::info!("local proving end with tx hash: {}", tx_hash);
 
     Ok(())
 }

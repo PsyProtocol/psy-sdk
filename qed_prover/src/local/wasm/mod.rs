@@ -16,6 +16,8 @@ use crate::local::{args::ContractCallArgs, provider::RpcConfig};
 use crate::session::WalletKeyPair;
 use crate::session::WalletSession;
 use crate::local::args::JobInfo;
+use crate::local::args::SignType;
+use clap::ValueEnum;
 
 // pub mod wallet_session;
 
@@ -54,10 +56,35 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
-        self.wallet_session.exec_contract_call(pk_hash, contract_call_args)
+        let end_user_leaf_hash = self.wallet_session.exec_contract_call(pk_hash, contract_call_args)
             .await
             .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
-        Ok("start session".to_string())
+        Ok(end_user_leaf_hash.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn exec_contract_call_with_sign_data_json(
+        &mut self,
+        pk_hash: &str,
+        contract_calls_json: &str,
+        sign_data: Option<String>,
+    ) -> Result<String, JsError> {
+        let contract_call_args: Vec<ContractCallArgs> = serde_json::from_str(contract_calls_json)
+            .map_err(|e| JsError::new(&format!("Parse exec calls JSON error: {}", e)))?;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let sign_data = sign_data
+            .map(|s| serde_json::from_str(&s).map_err(|e| JsError::new(&format!("Parse sign data error: {}", e))))
+            .transpose()?;
+
+        let end_user_leaf_hash = self
+            .wallet_session
+            .exec_contract_call_with_sign_data(pk_hash, contract_call_args, sign_data)
+            .await
+            .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
+        Ok(end_user_leaf_hash.to_string())
     }
 
     #[wasm_bindgen]
@@ -139,10 +166,31 @@ impl WasmRpcServer {
     pub async fn sign_and_submit(&self, pk_hash: &str) -> Result<String, JsError> {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-        self.wallet_session.sign_and_submit(pk_hash)
+        let end_user_leaf_hash = self.wallet_session.sign_and_submit(pk_hash)
             .await
             .map_err(|e| JsError::new(&format!("Sign and submit error: {}", e)))?;
-        Ok("sign and submit".to_string())
+        Ok(end_user_leaf_hash.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn sign_and_submit_with_sign_data(
+        &mut self,
+        pk_hash: &str,
+        sign_data: Option<String>,
+    ) -> Result<String, JsError> {
+        let sign_data = sign_data
+            .map(|s| serde_json::from_str(&s).map_err(|e| JsError::new(&format!("Parse sign data error: {}", e))))
+            .transpose()?;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let end_user_leaf_hash = self
+            .wallet_session
+            .sign_and_submit_with_sign_data(pk_hash, sign_data)
+            .await
+            .map_err(|e| JsError::new(&format!("Sign and submit with sign data error: {}", e)))?;
+        Ok(end_user_leaf_hash.to_string())
     }
 
     // User operations
@@ -157,12 +205,58 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
+    pub async fn register_user_with_type(
+        &mut self,
+        private_key: &str,
+        sign_type: &str,
+        fingerprint: Option<String>,
+    ) -> Result<String, JsError> {
+        let private_key = QHashOut::<F>::from_str(private_key)
+            .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
+        let sign_type = SignType::from_str(sign_type, true)
+            .map_err(|e| JsError::new(&format!("Parse sign type error: {}", e)))?;
+
+        let fingerprint = fingerprint
+            .map(|f| QHashOut::<F>::from_str(&f).map_err(|e| JsError::new(&format!("Parse fingerprint error: {}", e))))
+            .transpose()?;
+
+        let pk_hash = self.wallet_session.register_user_with_type(private_key, sign_type, fingerprint)
+            .await
+            .map_err(|e| JsError::new(&format!("Register user with type error: {}", e)))?;
+        Ok(pk_hash.to_string())
+    }
+
+    #[wasm_bindgen]
     pub async fn add_user(&mut self, private_key_str: &str) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
         let pk_hash = self.wallet_session.add_user(private_key)
             .await
             .map_err(|e| JsError::new(&format!("Add user error: {}", e)))?;
+        Ok(pk_hash.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn add_user_with_type(
+        &mut self,
+        private_key_str: &str,
+        sign_type: &str,
+        fingerprint: Option<String>,
+    ) -> Result<String, JsError> {
+        let private_key = QHashOut::<F>::from_str(private_key_str)
+            .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
+                
+        let sign_type = SignType::from_str(sign_type, true)
+            .map_err(|e| JsError::new(&format!("Parse sign type error: {}", e)))?;
+
+        let fingerprint = fingerprint
+            .map(|f| QHashOut::<F>::from_str(&f).map_err(|e| JsError::new(&format!("Parse fingerprint error: {}", e))))
+            .transpose()?;
+
+        let pk_hash = self.wallet_session.add_user_with_type(private_key, sign_type, fingerprint)
+            .await
+            .map_err(|e| JsError::new(&format!("Add user with sign type error: {}", e)))?;
+
         Ok(pk_hash.to_string())
     }
 

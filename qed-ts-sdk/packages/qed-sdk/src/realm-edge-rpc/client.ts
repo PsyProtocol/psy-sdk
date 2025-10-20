@@ -72,7 +72,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         super(urlOrUrls, configOrHttpClient, httpClient);
     }
 
-    setUserId(userId: Felt): void {}
+    setUserId(userId: Felt): void { console.log('setUserId:', userId); }
 
     /**
      * Get read-only methods for caching
@@ -92,6 +92,7 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
 
     // Get RPC provider by user ID
     getRpcProviderByUserId(userId: Felt): IRealmEdgeRpcProvider {
+        console.log('getRpcProviderByUserId:', userId);
         return this;
     }
 

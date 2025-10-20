@@ -1,5 +1,5 @@
 use plonky2::{
-    field::goldilocks_field::GoldilocksField, hash::hash_types::{HashOut, RichField}, plonk::{
+    field::{goldilocks_field::GoldilocksField, types::PrimeField64}, hash::hash_types::{HashOut, RichField}, plonk::{
         circuit_data::VerifierOnlyCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
@@ -9,7 +9,7 @@ use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::cir
     PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
     PortableQTreeRecursionCircuitsTrait,
 };
-use qed_core::job::id::{VariableHeightRewardMerkleProof, QProvingJobDataID};
+use qed_core::{job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof}, traits::to_qfelts::ToQFelts};
 use qed_crypto::{
     common::witnesses::qrecursion::proof_data::{
         AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs,
@@ -22,18 +22,17 @@ use qed_crypto::{
     },
     hash::{
         merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-        traits::hasher::MerkleZeroHasher,
+        traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     },
 };
 use qed_data::{
-    qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition},
-    ups::{
+    config::store_config::QEDHasher, qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition, user}, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync}, ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{
             UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput,
         },
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
-    },
+    }
 };
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
@@ -551,6 +550,34 @@ impl RpcProvider {
         }
 
         Ok(proofs.into_iter().next().unwrap())
+    }
+
+    pub async fn get_claim_amount(&self, checkpoint_id: u64, user_id: u64, claim_user_id: u64) -> anyhow::Result<u64> {
+        let contract_id = 0;
+        let height = 32;
+        let sender_total_sent_index = 3 + user_id * 2;
+        let sender_total_sent_slot = sender_total_sent_index / 4;
+        let sender_total_sent_slot_index = sender_total_sent_index % 4;
+        let amount_claimed_index = 3 + claim_user_id * 2 + 1;
+        let amount_claimed_slot = amount_claimed_index / 4;
+        let amount_claimed_slot_index = amount_claimed_index % 4;
+        let user_total_sent = self
+            .get_user_contract_state_tree_leaf_hash(checkpoint_id, claim_user_id, contract_id, height, sender_total_sent_slot)
+            .await?.to_qfelts()[(sender_total_sent_slot_index) as usize].to_canonical_u64();
+        let amount_claimed = self
+            .get_user_contract_state_tree_leaf_hash(checkpoint_id, user_id, contract_id, height, amount_claimed_slot)
+            .await?.to_qfelts()[(amount_claimed_slot_index) as usize].to_canonical_u64();   
+
+        if amount_claimed > user_total_sent {
+            return Err(anyhow::format_err!("amount claimed {} is greater than user total sent {}", amount_claimed, user_total_sent));
+        }
+
+        Ok(user_total_sent - amount_claimed)
+    }
+
+    pub async fn check_tx_is_confirmed(&self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<GoldilocksField>) -> anyhow::Result<bool> {
+        let user_leaf_data = self.get_user_leaf_data(checkpoint_id, user_id).await?;
+        Ok(user_leaf_data.qfhash::<QEDHasher>() == tx_hash)
     }
 
     pub const fn get_realm_id(&self, user_id: u64) -> u64 {

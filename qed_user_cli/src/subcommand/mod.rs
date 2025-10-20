@@ -17,6 +17,8 @@ cfg_if::cfg_if! {
         pub mod register_user;
         pub mod submit_end_cap_proof;
         pub mod claim_rewards;
+        pub mod claim_amount;
+        pub mod check_tx;
     }
 }
 
@@ -94,4 +96,8 @@ pub enum Commands {
 
     // rewards claiming
     ClaimRewards(crate::subcommand::args::ClaimRewardsArgs),
+    // claim amount
+    GetClaimAmount(crate::subcommand::args::ClaimAmountArgs),
+    // check tx is onchain
+    CheckTx(crate::subcommand::args::CheckTxArgs),
 }

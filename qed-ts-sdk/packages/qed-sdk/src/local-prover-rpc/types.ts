@@ -85,15 +85,25 @@ interface SubmitUserEndCapNonProofInput {
     contract_state_updates: QEDContractStateUpdateHistory[];
 }
 
+export interface SignData {
+    fingerprint: QHashOut;
+    sign_contract_id: bigint;
+    sign_inputs: bigint[];
+}
+
 // Namespace corresponds to "qed" in Rust
 enum QedUserProverRPCCommand {
     ExecContractCall = "qed_exec_contract_call",
+    ExecContractCallWithSignData = "qed_exec_contract_call_with_sign_data",
     StartSession = "qed_start_session",
     ProveContractCall = "qed_prove_contract_call",
     ProveContractCalls = "qed_prove_contract_calls",
     SignAndSubmit = "qed_sign_and_submit",
+    SignAndSubmitWithData = "qed_sign_and_submit_with_sign_data",
     RegisterUser = "qed_register_user",
+    RegisterUserWithType = "qed_register_user_with_sign_type",
     AddUser = "qed_add_user",
+    AddUserWithType = "qed_add_user_with_sign_type",
     SwitchUser = "qed_switch_user",
     GetZKPublicKey = "qed_get_zk_public_key",
     GetRandomKeypair = "qed_get_random_keypair",
@@ -109,18 +119,22 @@ enum QedUserProverRPCCommand {
 
 interface IQedUserProverProvider {
     // Local proving operations
-    execContractCall(pk_hash: string, contractCallArg: ContractCallArgs[]): Promise<string>;
+    execContractCall(pk_hash: string, contractCallArg: ContractCallArgs[]): Promise<QHashOut>;
+    execContractCallWithSignData(pk_hash: string, contractCallArg: ContractCallArgs[], signData: SignData): Promise<QHashOut>;
     startSession(pk_hash: string): Promise<string>;
     proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
     proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
-    signAndSubmit(pk_hash: string): Promise<string>;
+    signAndSubmit(pk_hash: string): Promise<QHashOut>;
+    signAndSubmitWithData(pk_hash: string, signData: SignData): Promise<QHashOut>;
 
     getClaimRewardsCallArgs(pk_hash: string, jobInfos: string): Promise<ContractCallArgs[]>;
     claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
 
     // User operations
     registerUser(privateKey: PrivateKey): Promise<PublicKey>;
+    registerUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey>;
     addUser(privateKey: PrivateKey): Promise<PublicKey>;
+    addUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey>;
     // switchUser(pkHash: PublicKey): Promise<void>;
     getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;
     getRandomKeypair(): Promise<WalletKeyPair>;

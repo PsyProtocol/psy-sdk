@@ -496,3 +496,32 @@ pub struct ClaimRewardsArgs {
     pub start_checkpoint_id: Option<u64>,
 }
 
+#[derive(Clone, Args, Serialize, Deserialize)]
+pub struct ClaimAmountArgs {
+    #[clap(env, long, default_value = "config.json", env)]
+    pub rpc_config: String,
+
+    #[clap(long)]
+    pub checkpoint_id: Option<u64>,
+
+    #[clap(long)]
+    pub user_id: u64,
+
+    #[clap(long)]
+    pub claim_user_id: u64,
+}
+
+#[derive(Clone, Args, Serialize, Deserialize)]
+pub struct CheckTxArgs {
+    #[clap(env, long, default_value = "config.json", env)]
+    pub rpc_config: String,
+
+    #[clap(long)]
+    pub checkpoint_id: Option<u64>,
+
+    #[clap(long)]
+    pub user_id: u64,
+
+    #[clap(long)]
+    pub tx_hash: String,
+}

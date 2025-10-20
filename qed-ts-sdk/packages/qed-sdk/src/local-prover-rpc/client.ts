@@ -4,6 +4,7 @@ import {
     IQedUserProverProvider,
     QBCDeployContract,
     QedUserProverRPCCommand,
+    SignData,
     WalletKeyPair,
 } from "./types";
 
@@ -36,6 +37,10 @@ class QedRPCUserProverProvider extends BaseProvider implements IQedUserProverPro
         return this.rpc<string>(QedUserProverRPCCommand.ExecContractCall, [pk_hash, contractCallArg]);
     }
 
+    async execContractCallWithSignData(pk_hash: string, contractCallArg: ContractCallArgs[], signData: SignData|null|undefined): Promise<QHashOut> {
+        return this.rpc<QHashOut>(QedUserProverRPCCommand.ExecContractCallWithSignData, [pk_hash, contractCallArg, signData]);
+    }
+
     async startSession(pk_hash: string): Promise<string> {
         return this.rpc<string>(QedUserProverRPCCommand.StartSession, [pk_hash]);
     }
@@ -52,6 +57,10 @@ class QedRPCUserProverProvider extends BaseProvider implements IQedUserProverPro
         return this.rpc<string>(QedUserProverRPCCommand.SignAndSubmit, [pk_hash]);
     }
 
+    async signAndSubmitWithData(pk_hash: string, signData: SignData|null|undefined): Promise<QHashOut> {
+        return this.rpc<QHashOut>(QedUserProverRPCCommand.SignAndSubmitWithData, [pk_hash, signData]);
+    }
+
     async getClaimRewardsCallArgs(pkHash: PublicKey, jobInfos: string): Promise<ContractCallArgs[]> {
         throw new Error("Method not implemented.");
     }
@@ -65,8 +74,16 @@ class QedRPCUserProverProvider extends BaseProvider implements IQedUserProverPro
         return this.rpc<QHashOut>(QedUserProverRPCCommand.RegisterUser, [privateKey]);
     }
 
+    async registerUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
+        return this.rpc<PublicKey>(QedUserProverRPCCommand.RegisterUserWithType, [privateKey, signType, fingerprint]);
+    }
+
     async addUser(privateKey: PrivateKey): Promise<PublicKey> {
         return this.rpc<PublicKey>(QedUserProverRPCCommand.AddUser, [privateKey]);
+    }
+
+    async addUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
+        return this.rpc<PublicKey>(QedUserProverRPCCommand.AddUserWithType, [privateKey, signType, fingerprint]);
     }
 
     // async switchUser(pkHash: PublicKey): Promise<void> {

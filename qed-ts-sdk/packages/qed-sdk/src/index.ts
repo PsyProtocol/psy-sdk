@@ -20,3 +20,5 @@ export * from "./local-web-prover";
 export * from "./wallet";
 
 export * from "./zksigner";
+
+export * from "./rpc-provider";
