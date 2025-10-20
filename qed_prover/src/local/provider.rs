@@ -22,11 +22,11 @@ use qed_crypto::{
     },
     hash::{
         merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-        traits::hasher::MerkleZeroHasher,
+        traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     },
 };
 use qed_data::{
-    qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition, user}, traits::qdatastore::qtreedata::QTreeDataStoreReaderSync, ups::{
+    config::store_config::QEDHasher, qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition, user}, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync}, ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{
             UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput,
@@ -573,6 +573,11 @@ impl RpcProvider {
         }
 
         Ok(user_total_sent - amount_claimed)
+    }
+
+    pub async fn check_tx_is_confirmed(&self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<GoldilocksField>) -> anyhow::Result<bool> {
+        let user_leaf_data = self.get_user_leaf_data(checkpoint_id, user_id).await?;
+        Ok(user_leaf_data.qfhash::<QEDHasher>() == tx_hash)
     }
 
     pub const fn get_realm_id(&self, user_id: u64) -> u64 {
