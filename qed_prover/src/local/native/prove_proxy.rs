@@ -8,7 +8,7 @@ use plonky2::plonk::{
     proof::ProofWithPublicInputs,
 };
 use qed_common_circuit::circuits::{
-    l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::QEDBasicZKSignatureCircuit,
+    l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature::inner, zk_signature3::core::QEDBasicZKSignatureCircuit
 };
 use qed_core::{
     config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT,
@@ -91,6 +91,12 @@ pub trait ProveProxyRpc {
 
     #[method(name = "prove_zk_sign")]
     async fn prove_zk_sign(&self, private_key: QHashOut<F>, sig_hash: QHashOut<F>) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+
+    #[method(name = "prove_zk_sign_inner")]
+    async fn prove_zk_sign_inner(&self, private_key: QHashOut<F>, sig_hash: QHashOut<F>) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+
+    #[method(name = "prove_zk_sign_minifier")]
+    async fn prove_zk_sign_minifier(&self, inner_proof: String) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     #[method(name = "prove_secp_sign")]
     async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
@@ -538,6 +544,61 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
             ErrorObjectOwned::owned(
                 1,
                 "prove_ups_cfc_deferred_tx proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
+    }
+
+    async fn prove_zk_sign_inner(&self, private_key: QHashOut<F>, sig_hash: QHashOut<F>) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
+        tracing::info!("🔔 prove_zk_sign_inner");
+
+        let circuit_manager = self.circuit_manager.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || circuit_manager.zk_circuit.prove_base_inner(private_key, sig_hash));
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_zk_sign_inner: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_zk_sign_inner proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
+    }
+
+    async fn prove_zk_sign_minifier(&self, inner_proof: String) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
+        tracing::info!("🔔 prove_zk_sign_minifier");
+
+        let circuit_manager = self.circuit_manager.clone();
+        let inner_proof = serde_json::from_str::<ProofWithPublicInputs<F, C, D>>(&inner_proof).map_err(|err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_zk_sign_minifier: inner_proof deserialize error",
+                Some(format!("ZK proof deserialize failed: {}", err)),
+            )
+        })?;
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || circuit_manager.zk_circuit.prove_minifier(inner_proof));
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_zk_sign_minifier: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_zk_sign_minifier proving error",
                 Some(format!("ZK proof generation failed: {}", prove_err)),
             )
         })

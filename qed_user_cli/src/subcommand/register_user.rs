@@ -24,7 +24,7 @@ use qed_prover::wallet::utils::{get_secp_public_key, hash_no_pad_compressed_publ
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::str::FromStr;
 
-const ZK_FINGERPRINT: &str = "65ac37ce1e8ef55ca83dc342e76c1e9c0b377c98eb38bcc95c08525418f067c0";
+const ZK_FINGERPRINT: &str = "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
 const SECP256K1_FINGERPRINT: &str =
     "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c";
 

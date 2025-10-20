@@ -321,7 +321,7 @@ impl WalletSession {
     }
 
     pub async fn register_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        self.register_user_with_type(private_key, SignType::SECP256K1Sign, None)
+        self.register_user_with_type(private_key, SignType::ZKSign, None)
             .await
     }
 
@@ -364,7 +364,7 @@ impl WalletSession {
     }
 
     pub async fn add_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        self.add_user_with_type(private_key, SignType::SECP256K1Sign, None)
+        self.add_user_with_type(private_key, SignType::ZKSign, None)
             .await
     }
 

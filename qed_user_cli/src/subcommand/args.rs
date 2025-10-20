@@ -44,7 +44,7 @@ pub struct GetPublicKeyArgs {
     #[clap(long, short)]
     pub private_key: String,
     /// signature type
-    #[clap(long, short, default_value = "secp256k1")]
+    #[clap(long, short, default_value = "zk")]
     pub sign_type: SignType,
 }
 
@@ -56,7 +56,7 @@ pub struct RegisterUserArgs {
     /// user private key
     #[clap(long, short)]
     pub private_key: Option<String>,
-    #[clap(long, short, default_value = "secp256k1")]
+    #[clap(long, short, default_value = "zk")]
     pub sign_type: SignType,
     /// optional fingerprint (defaults to standard circuit fingerprint)
     #[clap(long)]
@@ -86,7 +86,7 @@ pub struct SubmitEndCapArgs {
     pub method_name: String,
     #[arg(long, env)]
     pub inputs: Vec<u64>,
-    #[clap(long, default_value = "secp256k1")]
+    #[clap(long, default_value = "zk")]
     pub sign_type: SignType,
     #[clap(long)]
     pub sign_inputs: Vec<u64>,
