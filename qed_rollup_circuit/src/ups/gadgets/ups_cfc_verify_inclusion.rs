@@ -19,10 +19,10 @@ use crate::gadgets::qdata::{
 pub struct UPSVerifyCFCProofExistsAndValidGadget {
 
     // start require witness
-    pub checkpoint_state_gadget: QEDCheckpointLeafCompactWithStateRootsGadget,    
+    pub checkpoint_state_gadget: QEDCheckpointLeafCompactWithStateRootsGadget,
     pub verify_cfc_proof_gadget: AttestTreeAwareProofInTreeGadget,
     pub cfc_inclusion_proof_gadget: QEDContractFunctionInclusionProofGadget,
-    
+
     // start computed
 
 
@@ -30,14 +30,14 @@ pub struct UPSVerifyCFCProofExistsAndValidGadget {
     pub checkpoint_leaf_hash: HashOutTarget,
     pub attested_proof_tree_root: HashOutTarget,
 
-    // key proven results 
+    // key proven results
     pub cfc_fingerprint: HashOutTarget,
     pub cfc_inner_public_inputs_hash: HashOutTarget,
     pub cfc_contract_id: Target,
     pub cfc_method_id: Target,
     pub cfc_num_inputs: Target,
     pub cfc_num_outputs: Target,
-    
+
 
 }
 impl UPSVerifyCFCProofExistsAndValidGadget {
@@ -46,10 +46,10 @@ impl UPSVerifyCFCProofExistsAndValidGadget {
         ups_session_proof_tree_height: usize,
     ) -> Self {
         // -- start require witness
-        
+
         // ensure the proof exists in our proof tree
         let verify_cfc_proof_gadget = AttestTreeAwareProofInTreeGadget::add_virtual_to::<H, F, D>(
-            builder, 
+            builder,
             ups_session_proof_tree_height
         );
 
@@ -64,11 +64,16 @@ impl UPSVerifyCFCProofExistsAndValidGadget {
         // -- start list assumptions
         let checkpoint_leaf_hash = checkpoint_state_gadget.checkpoint_leaf_hash;
         let attested_proof_tree_root = verify_cfc_proof_gadget.attested_proof_tree_root;
+        tracing::debug!("🔍 UPSVerifyCFC Assumptions - checkpoint_leaf_hash={:?}, attested_proof_tree_root={:?}",
+            checkpoint_leaf_hash, attested_proof_tree_root);
         // -- end list assumptions
 
         // -- start constrainting cfc_inclusion_proof_gadget
 
-        // ensure the inclusion and checkpoint gadgets have the same global contract tree root 
+        // ensure the inclusion and checkpoint gadgets have the same global contract tree root
+        tracing::debug!("🔍 UPSVerifyCFC Constraint 1 - contract tree root equality: inclusion_root={:?}, checkpoint_root={:?}",
+            cfc_inclusion_proof_gadget.contract_inclusion_proof.contract_tree_merkle_proof.root,
+            checkpoint_state_gadget.global_state_roots.contract_tree_root);
         builder.connect_hashes(
             cfc_inclusion_proof_gadget.contract_inclusion_proof.contract_tree_merkle_proof.root,
             checkpoint_state_gadget.global_state_roots.contract_tree_root,
@@ -76,7 +81,9 @@ impl UPSVerifyCFCProofExistsAndValidGadget {
 
 
         let verifier_cfc_fingerprint = verify_cfc_proof_gadget.fingerprint;
-        // ensure the inclusion gadget's fingerprint matches the verify gadget's verifier data fingerprint 
+        // ensure the inclusion gadget's fingerprint matches the verify gadget's verifier data fingerprint
+        tracing::debug!("🔍 UPSVerifyCFC Constraint 2 - fingerprint equality: inclusion_fingerprint={:?}, verifier_fingerprint={:?}",
+            cfc_inclusion_proof_gadget.function_verifier_fingerprint, verifier_cfc_fingerprint);
         builder.connect_hashes(
             cfc_inclusion_proof_gadget.function_verifier_fingerprint,
             verifier_cfc_fingerprint,
@@ -94,6 +101,11 @@ impl UPSVerifyCFCProofExistsAndValidGadget {
         let cfc_method_id = cfc_inclusion_proof_gadget.method_id;
         let cfc_num_inputs = cfc_inclusion_proof_gadget.num_inputs;
         let cfc_num_outputs = cfc_inclusion_proof_gadget.num_outputs;
+
+        tracing::debug!("🔍 UPSVerifyCFC Results - contract_id={:?}, method_id={:?}, num_inputs={:?}, num_outputs={:?}",
+            cfc_contract_id, cfc_method_id, cfc_num_inputs, cfc_num_outputs);
+        tracing::debug!("🔍 UPSVerifyCFC Results - fingerprint={:?}, inner_public_inputs_hash={:?}",
+            cfc_fingerprint, cfc_inner_public_inputs_hash);
 
         // -- end list key proven results
 
@@ -116,8 +128,8 @@ impl UPSVerifyCFCProofExistsAndValidGadget {
 
     }
     pub fn set_witness_params<F: RichField>(
-        &self, 
-        witness: &mut impl Witness<F>, 
+        &self,
+        witness: &mut impl Witness<F>,
         checkpoint_state: &QEDCheckpointLeafCompactWithStateRoots<F>,
         verify_cfc_proof_input: &AttestTreeAwareProofInTreeInput<F>,
         cfc_inclusion_proof: &QEDContractFunctionInclusionProof<F>,

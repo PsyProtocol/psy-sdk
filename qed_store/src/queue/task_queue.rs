@@ -23,14 +23,8 @@ use crate::queue::{new_redis_async_pool, QueueId, QueueStats, RsmqQueue};
 const TASK_COMMON_PREFIX: &str = "tasks:";
 pub const JOB_STATUS_PREFIX: &str = "job-status:";
 pub const JOB_TIMEOUT_PREFIX: &str = "job-timeout:";
-const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(30);
-
-// Job dependency graph LRU cache constants
-const MAX_JOB_GRAPHS: usize = 256;
-
-// it should be the same with VISIBILITY_TIMEOUT
-const JOB_TIMEOUT_SECONDS: u64 =  30;
-
+const JOB_TIMEOUT_SECONDS: u64 =  6;
+const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(JOB_TIMEOUT_SECONDS);
 
 /// Represents a single proving job with task assignment
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -434,7 +428,7 @@ impl QProvingTaskStoreImpl {
         pipe.atomic();
 
         for (idx, layer) in layers.iter().enumerate() {
-            let serialized = bincode::serialize(&layer.layer_id)?;
+            let serialized = bincode::serialize(&layer.layer_id).context("push_layers: Failed to serialize layer id")?;
             // Score ensures ordering: earlier layers have lower scores
             let score = base_score + (idx as f64);
             pipe.zadd(&layers_key, serialized, score);
@@ -480,7 +474,7 @@ impl QProvingTaskStoreImpl {
         match rank {
             Some(0) => {
                 // It's the first element, safe to remove
-                let expected_serialized = bincode::serialize(expected_layer_id)?;
+                let expected_serialized = bincode::serialize(expected_layer_id).context("pop_current_layer: Failed to serialize layer id")?;
                 let removed: i32 = conn.zrem(&layers_key, &expected_serialized).await?;
 
                 if removed > 0 {
@@ -943,7 +937,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
     async fn save_job_dependency_graph(&self, checkpoint_id: u64) -> Result<()> {
         let mut conn = self.redis_pool.get().await?;
-        let serialized = bincode::serialize(&*self.job_graph.lock().await)?;
+        let serialized = bincode::serialize(&*self.job_graph.lock().await).map_err(|e| anyhow::anyhow!("Failed to serialize job graph: {}", e))?;
         let graph_key = self.graph_key(checkpoint_id);
 
         // Store the job graph
@@ -1069,7 +1063,7 @@ impl QProvingTaskStoreImpl {
     async fn layer_exists(&self, layer_id: &LayerId) -> Result<bool> {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layers_key();
-        let serialized = bincode::serialize(layer_id)?;
+        let serialized = bincode::serialize(layer_id).context("layer_exists: Failed to serialize layer id")?;
 
         // ZSCORE returns the score if member exists, None otherwise
         let score: Option<f64> = conn.zscore(&layers_key, &serialized).await?;
@@ -1079,7 +1073,7 @@ impl QProvingTaskStoreImpl {
     async fn get_layer_rank(&self, layer_id: &LayerId) -> Result<Option<isize>> {
         let mut conn = self.redis_pool.get().await?;
         let layers_key = self.layers_key();
-        let serialized = bincode::serialize(layer_id)?;
+        let serialized = bincode::serialize(layer_id).context("get_layer_rank: Failed to serialize layer id")?;
 
         // ZRANK returns 0-based rank (position) in ascending order
         let rank: Option<isize> = conn.zrank(&layers_key, &serialized).await?;

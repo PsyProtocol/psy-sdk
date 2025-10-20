@@ -112,13 +112,11 @@ pub async fn run(
     info!("Successfully retrieved user ID: {}", user_id);
 
     let recipient_user_id = recipient.unwrap_or(user_id);
-    let user_qhashout = user_id_to_qhashout(recipient_user_id);
 
     let prover = Arc::new(QEDCoordinatorCircuitManager::<C, D>::new_with_library(
         &proof_verifier.library,
-        user_qhashout,
+        user_id_hash(recipient_user_id),
     ));
-    let library = Arc::new(proof_verifier.library.clone());
 
     let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(
         worker_public_key,
@@ -133,7 +131,7 @@ pub async fn run(
                 JobLocation::Coordinator,
                 job_tracker.clone(),
                 prover.clone(),
-                library.clone(),
+                proof_verifier.clone(),
                 wallet.clone(),
                 worker_public_key.clone(),
                 user_id,
@@ -149,7 +147,7 @@ pub async fn run(
                 JobLocation::Realm(realm_config.id),
                 job_tracker.clone(),
                 prover.clone(),
-                library.clone(),
+                proof_verifier.clone(),
                 wallet.clone(),
                 worker_public_key.clone(),
                 user_id,
@@ -180,13 +178,10 @@ pub async fn run(
     Ok(())
 }
 
-pub fn user_id_to_qhashout(user_id: u64) -> QHashOut<F> {
-    let elements = [
-        F::from_canonical_u64(user_id),
-        F::ZERO,
-        F::ZERO,
-        F::ZERO,
-    ];
+pub fn user_id_hash(user_id: u64) -> QHashOut<F> {
+    use plonky2::hash::poseidon::PoseidonHash;
+    use plonky2::plonk::config::Hasher;
 
-    QHashOut(HashOut { elements })
+    let hash_out = PoseidonHash::hash_no_pad(&[F::from_canonical_u64(user_id)]);
+    QHashOut(HashOut { elements: hash_out.elements })
 }

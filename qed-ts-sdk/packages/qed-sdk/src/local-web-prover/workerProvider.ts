@@ -8,8 +8,10 @@ import {
     QedUserProverRPCCommand,
     QBCDeployContract,
     WalletKeyPair,
+    SignData,
 } from "../local-prover-rpc/types";
 import { JobInfo, ZKPublicKeyInfo } from "../types";
+import { QedJSON } from "../utils";
 
 // Client-side types
 interface ClientRequest {
@@ -303,6 +305,11 @@ export class QedProverClient implements IQedUserProverProvider {
         return this.callServerMethod(QedUserProverRPCCommand.ExecContractCall, [pkHash, contractCallArg]);
     }
 
+    async execContractCallWithSignData(pkHash: string, contractCallArg: ContractCallArgs[], signData: SignData|null|undefined): Promise<QHashOut> {
+        const signDataJson = signData ? QedJSON.stringify(signData) : null;
+        return this.callServerMethod(QedUserProverRPCCommand.ExecContractCallWithSignData, [pkHash, contractCallArg, signDataJson]);
+    }
+
     async startSession(pkHash: PublicKey): Promise<string> {
         return this.callServerMethod(QedUserProverRPCCommand.StartSession, [pkHash]);
     }
@@ -319,12 +326,25 @@ export class QedProverClient implements IQedUserProverProvider {
         return this.callServerMethod(QedUserProverRPCCommand.SignAndSubmit, [pkHash]);
     }
 
+    async signAndSubmitWithData(pkHash: PublicKey, signData: SignData|null|undefined): Promise<string> {
+        const signDataJson = signData ? QedJSON.stringify(signData) : null;
+        return this.callServerMethod(QedUserProverRPCCommand.SignAndSubmitWithData, [pkHash, signDataJson]);
+    }
+
     async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
         return this.callServerMethod(QedUserProverRPCCommand.RegisterUser, [privateKey]);
     }
 
+    async registerUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
+        return this.callServerMethod(QedUserProverRPCCommand.RegisterUserWithType, [privateKey, signType, fingerprint]);
+    }
+
     async addUser(privateKey: PrivateKey): Promise<PublicKey> {
         return this.callServerMethod(QedUserProverRPCCommand.AddUser, [privateKey]);
+    }
+
+    async addUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
+        return this.callServerMethod(QedUserProverRPCCommand.AddUserWithType, [privateKey, signType, fingerprint]);
     }
 
     async getClaimRewardsCallArgs(pkHash: PublicKey, jobInfos: string): Promise<ContractCallArgs[]> {

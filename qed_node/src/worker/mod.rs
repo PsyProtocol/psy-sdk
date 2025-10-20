@@ -10,6 +10,7 @@ use qed_core::job::{
     id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
     traits::QProofStoreReaderAsync,
 };
+use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::common::{
     simple_circuit_library::SimpleCircuitLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
 };
@@ -21,7 +22,7 @@ pub use worker_state::*;
 use crate::common::{
     jobs::{JobClient, JobReceiver},
     verifier::get_cached_generic_verifier,
-    retry::{RetryConfig},
+    retry::RetryConfig,
 };
 use job_tracker::{JobLocation, WorkerJobTracker};
 use tokio::sync::Mutex;
@@ -36,7 +37,7 @@ pub async fn run_worker(
     location: JobLocation,
     job_tracker: Arc<Mutex<WorkerJobTracker>>,
     prover: Arc<QEDCoordinatorCircuitManager<C, D>>,
-    library: Arc<SimpleCircuitLibrary<F>>,
+    verifier: Arc<GenericCircuitVerifier<C, D>>,
     wallet: Arc<Wallet>,
     worker_public_key: QHashOut<F>,
     user_id: u64,
@@ -94,7 +95,7 @@ pub async fn run_worker(
             &job_receiver,
             job.clone(),
             &prover,
-            library.as_ref(),
+            &verifier,
             wallet.clone(),
             &worker_pk_str,
             &job_tracker,
@@ -129,7 +130,7 @@ async fn process_job_with_retry<S, R>(
     job_receiver: &R,
     job: qed_store::queue::task_queue::QJob,
     prover: &Arc<QEDCoordinatorCircuitManager<C, D>>,
-    library: &SimpleCircuitLibrary<F>,
+    verifier: &Arc<GenericCircuitVerifier<C, D>>,
     wallet: Arc<Wallet>,
     worker_pk_str: &str,
     job_tracker: &Arc<Mutex<WorkerJobTracker>>,
@@ -148,7 +149,8 @@ where
         retry_config,
         &format!("prove job {}", job_id.to_hex_string()),
         || async {
-            prover.worker_prove_mut_async(store, library, job_id).await
+            let proof = prover.worker_prove_mut_async(store, &verifier.library, job_id).await?;
+            Ok::<_, anyhow::Error>(proof)
         },
     ).await?;
 

@@ -36,11 +36,16 @@ impl UPSEndCapCoreGadget {
         empty_inline_tx_debt_tree_root: HashOutTarget,
         second_to_last_tx_hash_stack: HashOutTarget,
     ) -> Self {
+        tracing::debug!("🏁 EndCap Constraint 1 - nonce equality: current={:?}, start={:?}",
+            last_header_gadget.current_state.user_leaf.nonce,
+            last_header_gadget.session_start_context.start_session_user_leaf.nonce);
         builder.connect(
             last_header_gadget.current_state.user_leaf.nonce,
             last_header_gadget.session_start_context.start_session_user_leaf.nonce,
         );
 
+        tracing::debug!("🏁 EndCap Constraint 2 - nonce greater than: new_nonce={:?}, current_nonce={:?}",
+            nonce, last_header_gadget.current_state.user_leaf.nonce);
         builder.ensure_is_greater_than(
             MAX_NONCE_BITS as usize,
             nonce,
@@ -56,11 +61,19 @@ impl UPSEndCapCoreGadget {
             sig_proof_fingerprint,
             sig_proof_param_hash,
         );
+        tracing::debug!("🏁 EndCap Public Key - fingerprint={:?}, param_hash={:?}, expected={:?}",
+            sig_proof_fingerprint, sig_proof_param_hash, expected_public_key);
 
+        tracing::debug!("🏁 EndCap Constraint 3 - public key equality: start={:?}, end={:?}",
+            last_header_gadget.session_start_context.start_session_user_leaf.public_key,
+            real_end_user_leaf.public_key);
         builder.connect_hashes(
             last_header_gadget.session_start_context.start_session_user_leaf.public_key,
             real_end_user_leaf.public_key,
         );
+        tracing::debug!("🏁 EndCap Constraint 4 - public key vs expected: start={:?}, expected={:?}",
+            last_header_gadget.session_start_context.start_session_user_leaf.public_key,
+            expected_public_key);
         builder.connect_hashes(
             last_header_gadget.session_start_context.start_session_user_leaf.public_key,
             expected_public_key,
@@ -68,6 +81,9 @@ impl UPSEndCapCoreGadget {
 
 
 
+        tracing::debug!("🏁 EndCap Constraint 5 - user_id equality: end={:?}, start={:?}",
+            real_end_user_leaf.user_id,
+            last_header_gadget.session_start_context.start_session_user_leaf.user_id);
         builder.connect(
             real_end_user_leaf.user_id,
             last_header_gadget.session_start_context.start_session_user_leaf.user_id,
@@ -104,6 +120,10 @@ impl UPSEndCapCoreGadget {
             sig_proof_param_hash,
         );
 
+        tracing::debug!("🏁 EndCap Constraint 6 - public inputs hash: expected={:?}, actual={:?}",
+            expected_public_inputs_hash, sig_proof_public_inputs_hash);
+        tracing::debug!("🏁 EndCap Signature Data - sighash={:?}, param_hash={:?}",
+            ups_end_cap_sighash, sig_proof_param_hash);
         builder.connect_hashes(
             expected_public_inputs_hash,
             sig_proof_public_inputs_hash,
@@ -119,27 +139,47 @@ impl UPSEndCapCoreGadget {
 
 
 
+        tracing::debug!("🏁 EndCap Constraint 7 - checkpoint_id equality: session={:?}, user_leaf={:?}",
+            last_header_gadget.session_start_context.checkpoint_id,
+            real_end_user_leaf.last_checkpoint_id);
         builder.connect(
             last_header_gadget.session_start_context.checkpoint_id,
             real_end_user_leaf.last_checkpoint_id,
         );
 
-        builder.ensure_is_greater_than(
+        tracing::debug!("🏁 EndCap Constraint 8 - checkpoint greater than: end={:?}, start={:?}",
+            real_end_user_leaf.last_checkpoint_id,
+            last_header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id);
+
+        let is_greater_than = builder.is_greater_than(
             CHECKPOINT_TREE_HEIGHT as usize,
             real_end_user_leaf.last_checkpoint_id,
             last_header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id,
         );
+        let is_equal = builder.is_equal(real_end_user_leaf.last_checkpoint_id, last_header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id);
+        let is_zero = builder.is_zero(real_end_user_leaf.last_checkpoint_id);
 
+        let zero_and_equal = builder.and(is_zero, is_equal);
+        let valid_checkpoint = builder.or(zero_and_equal, is_greater_than);
 
+        tracing::debug!("🏁 EndCap Checkpoint Logic - is_zero={:?}, is_equal={:?}, is_greater={:?}, valid={:?}",
+            is_zero, is_equal, is_greater_than, valid_checkpoint);
 
+        builder.assert_one(valid_checkpoint.target);
 
         // ensure the deferred tx debt tree is empty
+        tracing::debug!("🏁 EndCap Constraint 9 - deferred debt tree empty: current={:?}, expected_empty={:?}",
+            last_header_gadget.current_state.deferred_tx_debt_tree_root,
+            empty_deferred_tx_debt_tree_root);
         builder.connect_hashes(
             last_header_gadget.current_state.deferred_tx_debt_tree_root,
             empty_deferred_tx_debt_tree_root,
         );
 
         // ensure the inline tx debt tree is empty
+        tracing::debug!("🏁 EndCap Constraint 10 - inline debt tree empty: current={:?}, expected_empty={:?}",
+            last_header_gadget.current_state.inline_tx_debt_tree_root,
+            empty_inline_tx_debt_tree_root);
         builder.connect_hashes(
             last_header_gadget.current_state.inline_tx_debt_tree_root,
             empty_inline_tx_debt_tree_root,
@@ -149,6 +189,7 @@ impl UPSEndCapCoreGadget {
         let one_target = builder.one();
 
         let tx_count = last_header_gadget.current_state.tx_count;
+        tracing::debug!("🏁 EndCap Constraint 11 - tx_count greater than one: tx_count={:?}", tx_count);
         builder.ensure_is_greater_than(MAX_NONCE_BITS as usize, tx_count, one_target);
 
         let burn_contract_id = builder.constant_u64(TOKEN_CONTRACT_ID as u64);
@@ -168,6 +209,10 @@ impl UPSEndCapCoreGadget {
             second_to_last_tx_hash_stack,
             expected_burn_tx_hash
         );
+        tracing::debug!("🏁 EndCap Constraint 12 - tx_stack reconstruction: reconstructed={:?}, current={:?}",
+            reconstructed_current_stack, current_tx_stack);
+        tracing::debug!("🏁 EndCap Gas Fee Transaction - contract_id={:?}, method_id={:?}, amount={:?}, hash={:?}",
+            burn_contract_id, burn_method_id, burn_amount, expected_burn_tx_hash);
         builder.connect_hashes(reconstructed_current_stack, current_tx_stack);
 
         let guta_stats = GUTAStatsGadget{

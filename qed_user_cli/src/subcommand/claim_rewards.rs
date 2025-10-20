@@ -21,7 +21,7 @@ use qed_data::{
     config::store_config::QEDHasher,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
-use qed_prover::local::args::{JobInfo, JobLocation, WorkerJobTracker};
+use qed_prover::local::args::{JobInfo, JobLocation, SignData, WorkerJobTracker};
 use qed_prover::{
     local::{
         args::{ContractCallArgs, SignType},
@@ -233,18 +233,20 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     }
 
     info!("Executing {} contract calls in single transaction", all_contract_calls.len());
-    wallet_session.exec_contract_call_with_sign_type(
+    let sign_data = fingerprint.map(|fp| SignData {
+        fingerprint: fp,
+        sign_contract_id: MINING_REWARDS_CONTRACT_ID,
+        sign_inputs: vec![],
+    });
+    let tx_hash = wallet_session.exec_contract_call_with_sign_data(
         user_pk_hash,
         all_contract_calls,
-        args.sign_type.clone(),
-        fingerprint,
-        Some(MINING_REWARDS_CONTRACT_ID),
-        vec![],
+        sign_data,
     ).await?;
 
 
 
-    info!("Successfully claimed rewards");
+    info!("Successfully claimed rewards with tx hash: {}", tx_hash);
 
     Ok(())
 }
@@ -467,9 +469,6 @@ fn load_jobs_from_tracker_file(public_key: &QHashOut<F>, target_checkpoint_id: u
 fn parse_job_id_from_hex(hex_str: &str) -> Result<QProvingJobDataID> {
     let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
     let bytes = hex::decode(hex_str)?;
-    if bytes.len() != 24 {
-        anyhow::bail!("Invalid job ID length: expected 24 bytes, got {}", bytes.len());
-    }
     QProvingJobDataID::try_from_byte_vec(&bytes)
 }
 
@@ -580,19 +579,18 @@ pub async fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Re
         user_pk_hash,
         checked_job_infos,
     ).await?;
-
-    println!("contract_call_args: {}", serde_json::to_string_pretty(&all_contract_calls)?);
-
-    wallet_session.exec_contract_call_with_sign_type(
+    let sign_data = fingerprint.map(|fp| SignData {
+        fingerprint: fp,
+        sign_contract_id: MINING_REWARDS_CONTRACT_ID,
+        sign_inputs: vec![],
+    });
+    let tx_hash = wallet_session.exec_contract_call_with_sign_data(
         user_pk_hash,
         all_contract_calls,
-        args.sign_type.clone(),
-        fingerprint,
-        Some(MINING_REWARDS_CONTRACT_ID),
-        vec![],
+        sign_data,
     ).await?;
 
-    info!("Successfully claimed rewards");
+    info!("Successfully claimed rewards with tx hash: {}", tx_hash);
 
     Ok(())
 }

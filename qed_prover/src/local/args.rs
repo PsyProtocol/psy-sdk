@@ -1,8 +1,10 @@
 use clap::{Args, Parser, ValueEnum};
+use plonky2::hash::hash_types::RichField;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use ts_rs::TS;
 use std::collections::HashMap;
-use qed_core::job::id::QProvingJobDataID;
+use qed_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Parser, TS)]
 #[ts(export)]
@@ -23,6 +25,15 @@ pub enum SignType {
     SECP256K1Sign,
     #[clap(name = "software-defined")]
     SoftwareDefinedSign,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Hash, Eq, Debug)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+pub struct SignData<F: RichField> {
+    pub fingerprint: QHashOut<F>,
+    pub sign_contract_id: u64,
+    pub sign_inputs: Vec<u64>,
 }
 
 pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>> {

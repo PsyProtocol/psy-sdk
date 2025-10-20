@@ -7,6 +7,7 @@ import {
     DPNFunctionCircuitDefinition,
     IQedUserProverProvider,
     QBCDeployContract,
+    SignData,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo, JobInfo } from "../types";
@@ -50,11 +51,25 @@ export class QedWasmWebProverProvider implements IQedUserProverProvider {
     async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
         const now = new Date().getTime();
         
-        await this.startSession(pkHash);
-        const result = await this.proveContractCalls(pkHash, contractCallArg);
-        await this.signAndSubmit(pkHash);
+        // await this.startSession(pkHash);
+        // const result = await this.proveContractCalls(pkHash, contractCallArg);
+        // await this.signAndSubmit(pkHash);
+
+        const json = QedJSON.stringify(contractCallArg);
+        const result = await QedWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
 
         console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
+        return result;
+    }
+
+    async execContractCallWithSignData(pkHash: string, contractCallArg: ContractCallArgs[], signData: SignData|null|undefined): Promise<QHashOut> {
+        const now = new Date().getTime();
+
+        const json = QedJSON.stringify(contractCallArg);
+        const signDataJson = signData ? QedJSON.stringify(signData) : null;
+        const result = await QedWasmWebProverProvider.wasmServer.exec_contract_call_with_sign_data_json(pkHash, json, signDataJson);
+
+        console.log(`execContractCallWithSignData in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
 
@@ -103,6 +118,14 @@ export class QedWasmWebProverProvider implements IQedUserProverProvider {
         return result;
     }
 
+    async signAndSubmitWithData(pkHash: PublicKey, signData: SignData|null|undefined): Promise<QHashOut> {
+        const now = new Date().getTime();
+        const signDataJson = signData ? QedJSON.stringify(signData) : null;
+        const result = await QedWasmWebProverProvider.wasmServer.sign_and_submit_with_sign_data(pkHash, signDataJson);
+        console.log(`signAndSubmitWithData in ${(new Date().getTime() - now) / 1000} seconds`);
+        return result;
+    }
+
     // User operations
     async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
         const now = new Date().getTime();
@@ -111,8 +134,19 @@ export class QedWasmWebProverProvider implements IQedUserProverProvider {
         return result;
     }
 
+    async registerUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
+        const now = new Date().getTime();
+        const result = await QedWasmWebProverProvider.wasmServer.register_user_with_type(privateKey.toString(), signType, fingerprint);
+        console.log(`registerUserWithType in ${(new Date().getTime() - now) / 1000} seconds`);
+        return result;
+    }
+
     async addUser(privateKey: PrivateKey): Promise<PublicKey> {
         return QedWasmWebProverProvider.wasmServer.add_user(privateKey.toString());
+    }
+
+    async addUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
+        return QedWasmWebProverProvider.wasmServer.add_user_with_type(privateKey.toString(), signType, fingerprint);
     }
 
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {

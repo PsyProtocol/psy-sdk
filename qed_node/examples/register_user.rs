@@ -69,8 +69,7 @@ async fn register_user(idx: u64, url: &str, client: &Client) -> Result<()> {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+async fn run_register_loop() -> Result<()> {
     let rpc_url = "http://127.0.0.1:8545".to_string();
     let mut counter = 0;
 
@@ -97,4 +96,23 @@ async fn main() -> Result<()> {
             }
         }
     }
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let ctrl_c = tokio::signal::ctrl_c();
+
+    tokio::select! {
+        result = run_register_loop() => {
+            match result {
+                Ok(()) => println!("🔰 Register user loop completed."),
+                Err(e) => println!("❌ Register user loop error: {:?}", e),
+            }
+        }
+        _ = ctrl_c => {
+            println!("🔰 Ctrl-C received, shutting down gracefully...");
+        }
+    }
+
+    Ok(())
 }
