@@ -6,9 +6,6 @@ version.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
-[[bin]]
-name = "qed_api_services"
-path = "src/main.rs"
 
 [dependencies]
 qed_core = { workspace = true }

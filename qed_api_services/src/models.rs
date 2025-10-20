@@ -251,8 +251,6 @@ impl UserEvent {
     }
 }
 
-
-
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum JobFilterCategory {
@@ -273,4 +271,34 @@ impl JobFilterCategory {
             "all" | _ => JobFilterCategory::All,
         }
     }
+}
+
+// Job status summary model
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct JobStatusSummary {
+    pub status: String,
+    pub job_count: i64,
+    pub percentage: Option<f64>,  // Using Option because it could be NULL
+    pub last_update: Option<DateTime<Utc>>,
+}
+
+// Job status detailed model (from materialized view)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LatestJobStatus {
+    pub job_id: serde_json::Value,  // JSONB field
+    pub realm_id: Option<i64>,
+    pub status: String,
+    pub timestamp: DateTime<Utc>,
+    pub public_key: Option<String>,
+    pub checkpoint_id: i64,
+}
+
+// Realm-specific job status summary
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct RealmJobStatusSummary {
+    pub realm_id: Option<i64>,
+    pub status: String,
+    pub job_count: i64,
+    pub percentage: Option<f64>,
+    pub last_update: Option<DateTime<Utc>>,
 }

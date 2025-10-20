@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{models::*, repositories::*, services::ApiService};
+use crate::services::JobStatusService;
 
 /// Parse order parameter from query string
 /// Returns true for ASC, false for DESC (default)
@@ -59,6 +60,10 @@ pub fn create_router(api_service: ApiService) -> Router {
         )
         .route("/leaderboard/workers", get(worker_leaderboard_handler))
         .route("/admin/refresh_aggregates", post(refresh_aggregates_handler))
+        .route("/stats/jobs", get(job_status_summary_handler))
+        .route("/stats/jobs/realm/:realm_id", get(realm_job_status_handler))
+        .route("/stats/jobs/all-realms", get(all_realms_job_status_handler))
+        .route("/stats/jobs/counts", get(job_counts_handler))
         .with_state(api_service)
 }
 
@@ -737,4 +742,161 @@ async fn refresh_aggregates_handler(
         "results": results,
         "timestamp": Utc::now().to_rfc3339()
     })))
+}
+
+
+
+// Query parameters for job status endpoint
+#[derive(Debug, Deserialize)]
+pub struct JobStatusQuery {
+    /// Optional: filter by time window (in hours)
+    pub hours: Option<u32>,
+    /// Optional: filter by specific realm
+    pub realm_id: Option<i64>,
+}
+
+// Response structure for job status
+#[derive(Debug, Serialize)]
+pub struct JobStatusResponse {
+    pub summary: Vec<JobStatusSummary>,
+    pub total_jobs: i64,
+    pub query_time: DateTime<Utc>,
+    pub materialized_view_healthy: bool,
+}
+
+/// GET /stats/jobs - Get job status summary
+async fn job_status_summary_handler(
+    State(service): State<ApiService>,
+    Query(query): Query<JobStatusQuery>,
+) -> Result<Json<JobStatusResponse>, StatusCode> {
+    tracing::info!("Job status summary request: {:?}", query);
+
+    // Check materialized view health
+    let view_healthy = JobStatusRepository::check_materialized_view_health(&service.pool)
+        .await
+        .unwrap_or(false);
+
+    if !view_healthy {
+        tracing::warn!("Materialized view 'latest_job_status' is not healthy or empty");
+    }
+
+    let summary = if let Some(hours) = query.hours {
+        let since = Utc::now() - chrono::Duration::hours(hours as i64);
+        JobStatusRepository::get_job_status_summary_with_time_window(&service.pool, since)
+            .await
+    } else if let Some(realm_id) = query.realm_id {
+        JobStatusRepository::get_job_status_summary_by_realm(&service.pool, Some(realm_id))
+            .await
+    } else {
+        JobStatusRepository::get_job_status_summary(&service.pool)
+            .await
+    };
+
+    match summary {
+        Ok(summary) => {
+            let total_jobs: i64 = summary.iter().map(|s| s.job_count).sum();
+
+            tracing::info!(
+                "Retrieved job status summary: {} statuses, {} total jobs",
+                summary.len(),
+                total_jobs
+            );
+
+            Ok(Json(JobStatusResponse {
+                summary,
+                total_jobs,
+                query_time: Utc::now(),
+                materialized_view_healthy: view_healthy,
+            }))
+        }
+        Err(e) => {
+            tracing::error!("Failed to retrieve job status summary: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// GET /stats/jobs/realm/:realm_id - Get job status for a specific realm
+async fn realm_job_status_handler(
+    State(service): State<ApiService>,
+    Path(realm_id): Path<i64>,
+) -> Result<Json<Vec<JobStatusSummary>>, StatusCode> {
+    tracing::info!("Realm job status request for realm_id: {}", realm_id);
+
+    match JobStatusRepository::get_job_status_summary_by_realm(&service.pool, Some(realm_id)).await {
+        Ok(summary) => {
+            tracing::info!(
+                "Retrieved job status for realm {}: {} statuses",
+                realm_id,
+                summary.len()
+            );
+            Ok(Json(summary))
+        }
+        Err(e) => {
+            tracing::error!(
+                "Failed to retrieve job status for realm {}: {}",
+                realm_id,
+                e
+            );
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// GET /stats/jobs/all-realms - Get job status grouped by all realms
+async fn all_realms_job_status_handler(
+    State(service): State<ApiService>,
+) -> Result<Json<Vec<RealmJobStatusSummary>>, StatusCode> {
+    tracing::info!("All realms job status request");
+
+    match JobStatusRepository::get_all_realm_job_status_summary(&service.pool).await {
+        Ok(summaries) => {
+            tracing::info!("Retrieved job status for all realms: {} entries", summaries.len());
+            Ok(Json(summaries))
+        }
+        Err(e) => {
+            tracing::error!("Failed to retrieve all realms job status: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// GET /stats/jobs/counts - Get simple job counts by status
+async fn job_counts_handler(
+    State(service): State<ApiService>,
+) -> Result<Json<HashMap<String, i64>>, StatusCode> {
+    tracing::info!("Job counts request");
+
+    match JobStatusRepository::get_job_counts_by_status(&service.pool).await {
+        Ok(counts) => {
+            tracing::info!("Retrieved job counts: {:?}", counts);
+            Ok(Json(counts))
+        }
+        Err(e) => {
+            tracing::error!("Failed to retrieve job counts: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// POST /admin/refresh-job-status - Manually trigger materialized view refresh
+async fn refresh_job_status_handler(
+    State(service): State<ApiService>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    tracing::info!("Manual job status refresh requested");
+
+    match JobStatusService::force_refresh(&service.pool).await {
+        Ok(_) => {
+            tracing::info!("Job status materialized view refreshed successfully");
+            Ok(Json(serde_json::json!({
+                "success": true,
+                "message": "Job status materialized view refreshed successfully",
+                "timestamp": Utc::now()
+            })))
+        }
+        Err(e) => {
+            tracing::error!("Failed to refresh job status materialized view: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
