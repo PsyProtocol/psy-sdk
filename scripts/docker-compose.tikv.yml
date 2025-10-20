@@ -12,9 +12,10 @@ services:
       - --initial-cluster=pd0=http://127.0.0.1:2380,pd1=http://127.0.0.1:2382,pd2=http://127.0.0.1:2384
       - --data-dir=/var/lib/pd
       - --log-file=/var/log/pd.log
+      - --config=/etc/tikv/pd-config.toml
     volumes:
-      - pd0:/var/lib/pd
-      - ./tikv/pd-config8.5.toml:/etc/tikv/pd-config.toml:ro 
+      - ${PWD}/db/tikv-pd0:/var/lib/pd
+      - ${PWD}/scripts/tikv/pd-config8.5.toml:/etc/tikv/pd-config.toml:ro
     restart: unless-stopped
 
   pd1:
@@ -30,9 +31,10 @@ services:
       - --initial-cluster=pd0=http://127.0.0.1:2380,pd1=http://127.0.0.1:2382,pd2=http://127.0.0.1:2384
       - --data-dir=/var/lib/pd
       - --log-file=/var/log/pd.log
+      - --config=/etc/tikv/pd-config.toml
     volumes:
-      - pd1:/var/lib/pd
-      - ./tikv/pd-config8.5.toml:/etc/tikv/pd-config.toml:ro 
+      - ${PWD}/db/tikv-pd1:/var/lib/pd
+      - ${PWD}/scripts/tikv/pd-config8.5.toml:/etc/tikv/pd-config.toml:ro
     restart: unless-stopped
 
   pd2:
@@ -48,9 +50,10 @@ services:
       - --initial-cluster=pd0=http://127.0.0.1:2380,pd1=http://127.0.0.1:2382,pd2=http://127.0.0.1:2384
       - --data-dir=/var/lib/pd
       - --log-file=/var/log/pd.log
+      - --config=/etc/tikv/pd-config.toml
     volumes:
-      - pd2:/var/lib/pd
-      - ./tikv/pd-config8.5.toml:/etc/tikv/pd-config.toml:ro 
+      - ${PWD}/db/tikv-pd2:/var/lib/pd
+      - ${PWD}/scripts/tikv/pd-config8.5.toml:/etc/tikv/pd-config.toml:ro
     restart: unless-stopped
 
   tikv0:
@@ -63,10 +66,10 @@ services:
       - --data-dir=/var/lib/tikv
       - --pd-endpoints=127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
       - --log-file=/var/log/tikv.log
-      - --config=/etc/tikv/tikv-config.toml 
+      - --config=/etc/tikv/tikv-config.toml
     volumes:
-      - tikv0:/var/lib/tikv
-      - ./tikv/tikv-config8.5.toml:/etc/tikv/tikv-config.toml:ro 
+      - ${PWD}/db/tikv-server0:/var/lib/tikv
+      - ${PWD}/scripts/tikv/tikv-config8.5.toml:/etc/tikv/tikv-config.toml:ro
     restart: unless-stopped
 
   tikv1:
@@ -79,10 +82,10 @@ services:
       - --data-dir=/var/lib/tikv
       - --pd-endpoints=127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
       - --log-file=/var/log/tikv.log
-      - --config=/etc/tikv/tikv-config.toml 
+      - --config=/etc/tikv/tikv-config.toml
     volumes:
-      - tikv1:/var/lib/tikv
-      - ./tikv/tikv-config8.5.toml:/etc/tikv/tikv-config.toml:ro 
+      - ${PWD}/db/tikv-server1:/var/lib/tikv
+      - ${PWD}/scripts/tikv/tikv-config8.5.toml:/etc/tikv/tikv-config.toml:ro
     restart: unless-stopped
 
   tikv2:
@@ -95,16 +98,9 @@ services:
       - --data-dir=/var/lib/tikv
       - --pd-endpoints=127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
       - --log-file=/var/log/tikv.log
-      - --config=/etc/tikv/tikv-config.toml 
+      - --config=/etc/tikv/tikv-config.toml
     volumes:
-      - tikv2:/var/lib/tikv
-      - ./tikv/tikv-config8.5.toml:/etc/tikv/tikv-config.toml:ro 
+      - ${PWD}/db/tikv-server2:/var/lib/tikv
+      - ${PWD}/scripts/tikv/tikv-config8.5.toml:/etc/tikv/tikv-config.toml:ro
     restart: unless-stopped
 
-volumes:
-  pd0:
-  pd1:
-  pd2:
-  tikv0:
-  tikv1:
-  tikv2:

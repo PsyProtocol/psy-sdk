@@ -47,6 +47,7 @@ pub trait EdgeContext {
 
         let job_id = QProvingJobDataID::end_cap_proof(
             checkpoint_id,
+            0,
             self.get_node_id(),
             validated_input
                 .input

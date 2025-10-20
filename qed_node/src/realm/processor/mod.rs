@@ -272,7 +272,7 @@ impl RealmProcessor {
                 checkpoint, ret.checkpoint_id, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
 
             if ret.checkpoint_id >= checkpoint && realm_root.value == ret.realm_root {
-                let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id).await?;
+                let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id).await.map_err(|e| anyhow!("Failed to commit checkpoint {}: {}", ret.checkpoint_id, e))?;
                 self.pending_checkpoint_id.store(0, Ordering::Relaxed);
                 info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint, ret.latest_checkpoint_id);
                 sync_tx.send(SyncState::Confirmed).await?;
@@ -518,7 +518,8 @@ impl RealmProcessor {
         build_ctx: &ConcreteRealmProcessorContext,
         next_checkpoint_id: u64,
     ) -> anyhow::Result<ProvingJobDataId> {
-        build_ctx.build_block().await.map(|job_id|ProvingJobDataId::new(next_checkpoint_id, job_id))
+        let slot = self.slot_timer.get_current_slot();
+        build_ctx.build_block(slot).await.map(|job_id|ProvingJobDataId::new(next_checkpoint_id, job_id))
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {

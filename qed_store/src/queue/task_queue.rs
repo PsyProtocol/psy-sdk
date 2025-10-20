@@ -22,12 +22,11 @@ use crate::queue::{new_redis_async_pool, QueueId, QueueStats, RsmqQueue};
 
 const TASK_COMMON_PREFIX: &str = "tasks";
 pub const JOB_STATUS_PREFIX: &str = "js"; // short for job-status
-pub const JOB_TIMEOUT_PREFIX: &str = "jt";
+pub const JOB_TIMEOUT_PREFIX: &str = "jt"; //short for job-timeout
+const JOB_TIMEOUT_SECONDS: u64 =  6;
+const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(JOB_TIMEOUT_SECONDS);
 
 pub const JOB_STATUS_TTL_SECONDS: u64 = 7200; //job status ttl in seconds, 2 hour
-pub const JOB_EXECUTION_TIMEOUT_SECONDS: u64 =  30;
-
-const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(30);
 
 
 /// Represents a single proving job with task assignment
@@ -351,7 +350,7 @@ impl QProvingTaskStoreImpl {
 
         match self.get_layer_rank(target_layer_id).await? {
             Some(0) => {
-                let removed: u64 = conn.zrem(&layer_zset_key, &target_layer_id.to_bytes()).await?;
+                let removed: i32 = conn.zrem(&layer_zset_key, &target_layer_id.to_bytes()).await?;
                 if removed > 0 {
                     trace!("✅ Popped layer {:?} from head", target_layer_id);
                     Ok(true)
@@ -625,7 +624,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         };
 
         self.set_job_status(&job_status).await?;
-        self.set_job_timeout(&job.job_id, JOB_EXECUTION_TIMEOUT_SECONDS).await?;
+        self.set_job_timeout(&job.job_id, JOB_TIMEOUT_SECONDS).await?;
 
         info!("Worker {} got job {} from layer {}", worker_id, job.job_id, current_layer);
 
@@ -692,9 +691,9 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
     async fn save_job_dependency_graph(&self, checkpoint_id: u64) -> Result<()> {
         let graph = self.job_graph.lock().await;
-        let serialized = bincode::serialize(&*graph)?;
+        let serialized = bincode::serialize(&*graph)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize job graph: {}", e))?;
         drop(graph);
-
 
         let mut conn = self.redis_pool.get().await?;
         let graph_key = self.graph_key(checkpoint_id);

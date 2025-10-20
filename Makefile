@@ -22,7 +22,7 @@ fix:
 
 build: config_gen_v2
 	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p qed_precompiles
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server --bin qed_api_services
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server --bin qed_api_services --examples
 
 fmt:
 	@cargo fmt
@@ -179,7 +179,7 @@ init:
 	# @docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
 	# @docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
 	# @docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
-	@docker-compose -f ./scripts/docker-compose.db.yml up -d
+	@docker-compose -f ./scripts/docker-compose.db.yml up -d --remove-orphans
 	@sleep 10
 	# @echo "Starting ScyllaDB containers..."
 	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
@@ -195,7 +195,7 @@ shutdown:
 	@docker-compose -f ./scripts/docker-compose.db.yml down -v --remove-orphans
 	@rm -rf ./target/redis-all > /dev/null 2>&1 || true
 	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
-	@rm -fr ${PROJECT_DIR} ${PWD}/db logs > /dev/null 2>&1 || true
+	@sudo rm -fr ${PROJECT_DIR} ${PWD}/db logs > /dev/null 2>&1 || true
 	@echo "Removing user job tracker JSON files..."
 	@rm -f ${USER0_PUBLIC_KEY}.json ${USER0_SECP_ZK_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER1_SECP_ZK_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER2_SECP_ZK_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json ${USER3_SECP_ZK_PUBLIC_KEY}.json > /dev/null 2>&1 || true
 

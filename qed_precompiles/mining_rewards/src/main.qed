@@ -95,7 +95,7 @@ impl PsyPOWMiningRewardsClaimContractRef {
         proposed_reward: Felt
     ) {
         let c = PsyPOWMiningRewardsClaimContractRef::new(ContractMetadata::current());
-        let user_public_key_hash = get_user_id();
+        let user_id_hash = hash([get_user_id()]);
 
         let expected_guta_rewards_tree_root = get_gutas_root(checkpoint_id);
         let total_proofs = get_gutas_completed(checkpoint_id);
@@ -114,10 +114,10 @@ impl PsyPOWMiningRewardsClaimContractRef {
         "guta tree root mismatch");
 
         assert(
-            proof.reward_leaf[0] == user_public_key_hash
-            && proof.reward_leaf[1] == 0
-            && proof.reward_leaf[2] == 0
-            && proof.reward_leaf[3] == 0,
+            proof.reward_leaf[0] == user_id_hash[0]
+            && proof.reward_leaf[1] == user_id_hash[1]
+            && proof.reward_leaf[2] == user_id_hash[2]
+            && proof.reward_leaf[3] == user_id_hash[3],
         "reward not for current user");
 
         assert(c.claimed_guta_nullifiers.index(nullifier_index).get() == 0, "reward already claimed");

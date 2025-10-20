@@ -223,6 +223,7 @@ where
             proof_id: QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 checkpoint_id,
+                0, // slot_id - default value since this is for proof tracking
                 self.ctx.realm_config.realm_id as u32,
                 GLOBAL_USER_TREE_HEIGHT as u32,
                 user_id as u32,

@@ -233,6 +233,7 @@ impl<
         let proof_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
             u64::MAX,
+            0,
             self.realm_config.realm_id,
             user_id_u64 as u32,
             input.core.new_user_leaf.nonce.to_canonical_u64() as u32,
