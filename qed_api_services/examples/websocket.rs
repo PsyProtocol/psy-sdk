@@ -276,6 +276,7 @@ fn create_sample_job_id(job_name: &str) -> serde_json::Value {
     let job = QProvingJobDataID {
         topic: QJobTopic::GenerateStandardProof,
         goal_id: job_name.len() as u64, // Use string length for some variety
+        slot_id: 0,
         circuit_type: ProvingJobCircuitType::UserEndCap,
         group_id: 1,
         sub_group_id: 0,

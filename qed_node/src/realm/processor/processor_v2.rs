@@ -423,6 +423,7 @@ impl RealmProcessorV2 {
         let w_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
             current_checkpoint_id,
+            0, // slot_id - default value for realm processing
             realm_id as u32,
             0,
             0,
@@ -524,6 +525,7 @@ impl RealmProcessorV2 {
         let pending_users_job_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
+            0, // slot_id - default value for realm processing
             realm_id as u32,
             0,
             1,
@@ -540,6 +542,7 @@ impl RealmProcessorV2 {
         let final_root_job_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
+            0, // slot_id - default value for realm processing
             realm_id as u32,
             0,
             2,
@@ -589,7 +592,8 @@ impl RealmProcessorV2 {
         let final_root_job_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
-            self.realm_config.realm_id,
+            0, // slot_id - default value for realm processing
+            self.realm_config.realm_id as u32,
             0,
             0,
             ProvingJobCircuitType::GUTARegisterUsers,
@@ -754,7 +758,7 @@ impl RealmProcessorV2 {
             user_contract_tree_updates: vec![],
             global_user_tree_updates: vec![],
             updated_users: vec![],
-            root_job_id: QProvingJobDataID::notify_realm_complete(0, 1337133769),
+            root_job_id: QProvingJobDataID::notify_realm_complete(0, 1337133769, self.realm_config.realm_id),
             header: RealmDataForCoordinatorHeader {
                 realm_id,
                 checkpoint_id: current_checkpoint_id,
@@ -766,7 +770,7 @@ impl RealmProcessorV2 {
                     total_transactions: F::ZERO,
                     slots_modified: F::ZERO,
                 },
-                root_job_id: QProvingJobDataID::notify_realm_complete(0, 1337133769),
+                root_job_id: QProvingJobDataID::notify_realm_complete(0, 1337133769, self.realm_config.realm_id),
             },
         };
         info!("🏗️ Initialized combined_update structure");
@@ -862,6 +866,7 @@ impl RealmProcessorV2 {
             let w_id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 current_checkpoint_id,
+                0, // slot_id - default value for realm processing
                 realm_id as u32,
                 0,
                 0,
@@ -937,6 +942,7 @@ impl RealmProcessorV2 {
             let w_id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 current_checkpoint_id,
+                0, // slot_id - default value for realm processing
                 realm_id as u32,
                 0,
                 0,
@@ -1043,6 +1049,7 @@ impl RealmProcessorV2 {
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     unique_queue_id.id,
+                    0, // slot_id - default value for realm processing
                     realm_id as u32,
                     0,
                     i as u32,
@@ -1165,6 +1172,7 @@ impl RealmProcessorV2 {
                     let w_id = QProvingJobDataID::new(
                         QJobTopic::GenerateStandardProof,
                         current_checkpoint_id,
+                        0, // slot_id - default value for realm processing
                         realm_id as u32,
                         root_addition.level as u32,
                         root_addition.index as u32,
@@ -1249,6 +1257,7 @@ impl RealmProcessorV2 {
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
                     current_checkpoint_id,
+                    0, // slot_id - default value for realm processing
                     realm_id as u32,
                     root_addition.level as u32,
                     root_addition.index as u32,
@@ -1349,7 +1358,8 @@ impl RealmProcessorV2 {
             let w_id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
                 current_checkpoint_id,
-                self.realm_config.realm_id,
+                0, // slot_id - default value for realm processing
+                self.realm_config.realm_id as u32,
                 0,
                 0,
                 ProvingJobCircuitType::GUTAVerifyToCap,

@@ -65,7 +65,9 @@ cleanup() {
     done
     pkill -f qed_user_cli
     pkill -f qed_rollup_cli
-    pkill -f qed_api_service
+    pkill -f qed_dev_cli
+    pkill -f register_user
+    pkill -f qed_api_services
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] All processes terminated. Exiting."
     exit 0
 }

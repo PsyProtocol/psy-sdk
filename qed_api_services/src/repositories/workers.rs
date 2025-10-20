@@ -179,7 +179,7 @@ impl WorkerEventRepository {
         use sqlx::Row;
 
         // Create a default QProvingJobDataID in case of conversion failure
-        let default_job_id = QProvingJobDataID::new_proof_job_id(0, 0, ProvingJobCircuitType::AddL1Deposit, 0, 0);
+        let default_job_id = QProvingJobDataID::new_proof_job_id(0, 0, 0, ProvingJobCircuitType::AddL1Deposit, 0, 0);
 
         let events: Result<Vec<WorkerEvent>> = rows
             .into_iter()

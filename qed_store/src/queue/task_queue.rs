@@ -23,14 +23,8 @@ use crate::queue::{new_redis_async_pool, QueueId, QueueStats, RsmqQueue};
 const TASK_COMMON_PREFIX: &str = "tasks:";
 pub const JOB_STATUS_PREFIX: &str = "job-status:";
 pub const JOB_TIMEOUT_PREFIX: &str = "job-timeout:";
-const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(30);
-
-// Job dependency graph LRU cache constants
-const MAX_JOB_GRAPHS: usize = 256;
-
-// it should be the same with VISIBILITY_TIMEOUT
-const JOB_TIMEOUT_SECONDS: u64 =  30;
-
+const JOB_TIMEOUT_SECONDS: u64 =  6;
+const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(JOB_TIMEOUT_SECONDS);
 
 /// Represents a single proving job with task assignment
 #[derive(Serialize, Deserialize, Debug, Clone)]

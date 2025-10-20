@@ -167,9 +167,6 @@ pub async fn load_jobs_from_tracker_file(public_key: &QHashOut<F>, target_checkp
 pub async fn parse_job_id_from_hex(hex_str: &str) -> anyhow::Result<QProvingJobDataID> {
     let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
     let bytes = hex::decode(hex_str)?;
-    if bytes.len() != 24 {
-        anyhow::bail!("Invalid job ID length: expected 24 bytes, got {}", bytes.len());
-    }
     QProvingJobDataID::try_from_byte_vec(&bytes)
 }
 
