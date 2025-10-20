@@ -16,7 +16,7 @@ pub struct TiKVConfig {
     pub namespace: String,
     #[clap(long = "tikv-timeout", env = "TIKV_TIMEOUT", default_value = "2")]
     pub timeout: u64,
-    #[clap(long = "tikv-grpc-max-decoding-message-size", env = "TIKV_GRPC_MAX_DECODING_MESSAGE_SIZE", default_value = "12582912")] // 12MB
+    #[clap(long = "tikv-grpc-max-decoding-message-size", env = "TIKV_GRPC_MAX_DECODING_MESSAGE_SIZE", default_value = "20971520")] // 20MB
     pub grpc_max_decoding_message_size: usize,
     #[clap(long = "tikv-enable-grpc-gzip-compression", env = "TIKV_ENABLE_GRPC_GZIP_COMPRESSION", default_value = "true")]
     pub enable_grpc_gzip_compression: bool,
@@ -43,7 +43,7 @@ impl Default for TiKVConfig {
             pd_endpoints: "127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383".to_string(),
             namespace: "qed".to_string(),
             timeout: 10,
-            grpc_max_decoding_message_size:  12 * 1024 * 1024,// 12MB => 12582912
+            grpc_max_decoding_message_size:  20 * 1024 * 1024,// 20MB => 20971520
             enable_grpc_gzip_compression: true,
         }
     }
