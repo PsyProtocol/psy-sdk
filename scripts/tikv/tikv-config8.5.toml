@@ -430,7 +430,7 @@ max-grpc-send-msg-len = 20971520
 # split-region-check-tick-interval = "10s"
 
 ## When the number of Raft entries exceeds the max size, TiKV rejects to propose the entry.
-raft-entry-max-size = "16MB"
+raft-entry-max-size = "26MB"
 
 ## Interval to compact unnecessary Raft log.
 # raft-log-compact-sync-interval = "2s"
