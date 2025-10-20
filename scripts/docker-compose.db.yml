@@ -1,5 +1,5 @@
 services:
-  redis-all:
+  redis-data:
     image: redis:alpine
     container_name: qed-redis-coordinator
     network_mode: host

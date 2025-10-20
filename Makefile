@@ -193,7 +193,7 @@ shutdown:
 	@echo "Stopping and removing database containers..."
 	@redis-cli -p 6379 FLUSHALL > /dev/null 2>&1 || true
 	@docker-compose -f ./scripts/docker-compose.db.yml down -v --remove-orphans
-	@rm -rf ./target/redis-all > /dev/null 2>&1 || true
+	@rm -rf ./target/redis-data > /dev/null 2>&1 || true
 	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
 	@sudo rm -fr ${PROJECT_DIR} ${PWD}/db logs > /dev/null 2>&1 || true
 	@echo "Removing user job tracker JSON files..."
