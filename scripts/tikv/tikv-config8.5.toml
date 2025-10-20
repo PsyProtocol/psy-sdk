@@ -104,10 +104,12 @@
 [readpool.unified]
 ## The minimal working thread count of the thread pool.
 # min-thread-count = 1
+min-thread-count = 4
 
 ## The maximum working thread count of the thread pool.
 ## The default value is max(4, LOGICAL_CPU_NUM * 0.8).
 # max-thread-count = 4
+max-thread-count = 16
 
 ## Size of the stack for each thread in the thread pool.
 # stack-size = "10MB"
@@ -201,9 +203,11 @@ grpc-compression-type = "gzip"
 
 ## Size of the thread pool for the gRPC server.
 # grpc-concurrency = 5
+grpc-concurrency = 10
 
 ## The number of max concurrent streams/requests on a client connection.
 # grpc-concurrent-stream = 1024
+grpc-concurrent-stream = 2048
 
 ## Limit the memory size can be used by gRPC. Default is unlimited.
 ## gRPC usually works well to reclaim memory by itself. Limit the memory in case OOM
@@ -212,16 +216,20 @@ grpc-compression-type = "gzip"
 
 ## The number of connections with each TiKV server to send Raft messages.
 # grpc-raft-conn-num = 1
+grpc-raft-conn-num = 2
 
 ## Amount to read ahead on individual gRPC streams.
 # grpc-stream-initial-window-size = "2MB"
+grpc-stream-initial-window-size = "4MB"
 
 ## Time to wait before sending out a ping to check if server is still alive.
 ## This is only for communications between TiKV instances.
 # grpc-keepalive-time = "10s"
+grpc-keepalive-time = "30s"
 
 ## Time to wait before closing the connection without receiving KeepAlive ping Ack.
 # grpc-keepalive-timeout = "3s"
+grpc-keepalive-timeout = "10s"
 
 ## Set maximum message length in bytes that gRPC can send. `-1` means unlimited.
 max-grpc-send-msg-len = 20971520
@@ -570,6 +578,7 @@ raft-entry-max-size = "26MB"
 ## working set. You can estimate the number of files based on `target-file-size-base` for
 ## level-based compaction.
 # max-open-files = 40960
+max-open-files = 65536
 
 ## Max size of RocksDB's MANIFEST file.
 ## For detailed explanation, please refer to https://github.com/facebook/rocksdb/wiki/MANIFEST
@@ -701,6 +710,7 @@ raft-entry-max-size = "26MB"
 ## Maximum number of threads of `Titan` background gc jobs.
 ## default: 1
 # max-background-gc = 1
+max-background-gc = 4
 
 ## Options for "Default" Column Family, which stores actual user data.
 [rocksdb.defaultcf]
@@ -729,6 +739,7 @@ raft-entry-max-size = "26MB"
 ## mode to "no:no:no:lz4:lz4:zstd:zstd". In a word, it aims at making full use of the existing
 ## resources of the system and improving TiKV performance in terms of the current resources.
 # compression-per-level = ["no", "no", "lz4", "lz4", "lz4", "zstd", "zstd"]
+compression-per-level = ["no", "no", "zstd", "zstd", "zstd", "zstd", "zstd"]
 
 ## Set zstd compression for the bottommost level.
 ## This config overrides compression-per-level. It use zstd for bottommost level to ensure
@@ -917,6 +928,7 @@ raft-entry-max-size = "26MB"
 ##   flush-only: kFlushOnly
 ##
 # prepopulate-block-cache = "disabled"
+prepopulate-block-cache = "flush-only"
 
 ## Use the specified checksum type. Newly created table files will be
 ## protected with this checksum type. Old table files will still be readable,
@@ -1019,9 +1031,13 @@ raft-entry-max-size = "26MB"
 ## Recommend to set it the same as `rocksdb.defaultcf.compression-per-level`.
 # compression-per-level = ["no", "no", "lz4", "lz4", "lz4", "zstd", "zstd"]
 # block-size = "32KB"
+block-size = "64KB"
+compression-per-level = ["no", "no", "zstd", "zstd", "zstd", "zstd", "zstd"]
 
 ## Recommend to set it the same as `rocksdb.defaultcf.write-buffer-size`.
 # write-buffer-size = "128MB"
+write-buffer-size = "64MB"
+max-write-buffer-number = 3
 # max-write-buffer-number = 5
 # min-write-buffer-number-to-merge = 1
 
@@ -1049,6 +1065,7 @@ raft-entry-max-size = "26MB"
 # max-compactions = 0
 
 [rocksdb.lockcf]
+compression-per-level = ["no", "no", "lz4", "lz4", "lz4", "zstd", "zstd"]
 # compression-per-level = ["no", "no", "no", "no", "no", "no", "no"]
 # block-size = "16KB"
 # write-buffer-size = "32MB"
@@ -1107,10 +1124,13 @@ raft-entry-max-size = "26MB"
 [raftdb.defaultcf]
 ## Recommend to set it the same as `rocksdb.defaultcf.compression-per-level`.
 # compression-per-level = ["no", "no", "lz4", "lz4", "lz4", "zstd", "zstd"]
+compression-per-level = ["no", "zstd", "zstd", "zstd", "zstd", "zstd", "zstd"]
 # block-size = "64KB"
 
 ## Recommend to set it the same as `rocksdb.defaultcf.write-buffer-size`.
 # write-buffer-size = "128MB"
+write-buffer-size = "64MB"
+max-write-buffer-number = 3
 # max-write-buffer-number = 5
 # min-write-buffer-number-to-merge = 1
 
@@ -1369,6 +1389,7 @@ raft-entry-max-size = "26MB"
 [gc]
 ## The number of keys to GC in one batch.
 # batch-keys = 512
+batch-keys = 1024
 
 ## Max bytes that GC worker can write to rocksdb in one second.
 ## If it is set to 0, there is no limit.
@@ -1379,3 +1400,4 @@ raft-entry-max-size = "26MB"
 
 ## Garbage ratio threshold to trigger a GC.
 # ratio-threshold = 1.1
+ratio-threshold = 1.05
