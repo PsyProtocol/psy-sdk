@@ -53,6 +53,10 @@ pub fn create_router(api_service: ApiService) -> Router {
             "/stats/workers/{worker_public_key}",
             get(worker_stats_handler),
         )
+        .route("/stats/jobs", get(job_status_summary_handler))
+        .route("/stats/jobs/realm/{realm_id}", get(realm_job_status_handler))
+        .route("/stats/jobs/all-realms", get(all_realms_job_status_handler))
+        .route("/stats/jobs/counts", get(job_counts_handler))
         .route("/rewards/{worker_public_key}", get(worker_rewards_handler))
         .route(
             "/rewards_aggregations/{worker_public_key}",
@@ -60,10 +64,6 @@ pub fn create_router(api_service: ApiService) -> Router {
         )
         .route("/leaderboard/workers", get(worker_leaderboard_handler))
         .route("/admin/refresh_aggregates", post(refresh_aggregates_handler))
-        .route("/stats/jobs", get(job_status_summary_handler))
-        .route("/stats/jobs/realm/:realm_id", get(realm_job_status_handler))
-        .route("/stats/jobs/all-realms", get(all_realms_job_status_handler))
-        .route("/stats/jobs/counts", get(job_counts_handler))
         .with_state(api_service)
 }
 
@@ -777,19 +777,16 @@ async fn job_status_summary_handler(
         .unwrap_or(false);
 
     if !view_healthy {
-        tracing::warn!("Materialized view 'latest_job_status' is not healthy or empty");
+        tracing::warn!("❗ Materialized view 'latest_job_status' is not healthy or empty");
     }
 
     let summary = if let Some(hours) = query.hours {
         let since = Utc::now() - chrono::Duration::hours(hours as i64);
-        JobStatusRepository::get_job_status_summary_with_time_window(&service.pool, since)
-            .await
+        JobStatusRepository::get_job_status_summary_with_time_window(&service.pool, since).await
     } else if let Some(realm_id) = query.realm_id {
-        JobStatusRepository::get_job_status_summary_by_realm(&service.pool, Some(realm_id))
-            .await
+        JobStatusRepository::get_job_status_summary_by_realm(&service.pool, Some(realm_id)).await
     } else {
-        JobStatusRepository::get_job_status_summary(&service.pool)
-            .await
+        JobStatusRepository::get_job_status_summary(&service.pool).await
     };
 
     match summary {
