@@ -13,6 +13,7 @@ shadow!(build);
 use clap::Parser;
 use error::Result;
 use crate::subcommand::claim_rewards;
+use crate::subcommand::claim_amount;
 use crate::subcommand::deploy_contract;
 use crate::subcommand::get_public_key;
 use crate::subcommand::random_wallet;
@@ -38,6 +39,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::DeployContract(args) => deploy_contract::run(args).await?,
         Commands::SubmitEndCaproof(args) => submit_end_cap_proof::run(args).await?,
         Commands::ClaimRewards(args) => claim_rewards::run(args).await?,
+        Commands::GetClaimAmount(args) => claim_amount::run(args).await?,
 
         // get block data
         Commands::GetUserId(user_id_args) => {
