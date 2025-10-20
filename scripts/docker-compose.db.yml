@@ -1,5 +1,5 @@
 services:
-  redis-coordinator:
+  redis-data:
     image: redis:alpine
     container_name: qed-redis-coordinator
     network_mode: host
@@ -13,38 +13,8 @@ services:
       - "60 1"
       - --appendonly
       - "yes"
-    restart: unless-stopped
-
-  redis-realm0:
-    image: redis:alpine
-    container_name: qed-redis-realm0
-    network_mode: host
-    volumes:
-      - ${PWD}/db/redis-realm0:/data
-    command:
-      - redis-server
-      - --port
-      - "6380"
-      - --save
-      - "60 1"
-      - --appendonly
-      - "yes"
-    restart: unless-stopped
-
-  redis-realm1:
-    image: redis:alpine
-    container_name: qed-redis-realm1
-    network_mode: host
-    volumes:
-      - ${PWD}/db/redis-realm1:/data
-    command:
-      - redis-server
-      - --port
-      - "6381"
-      - --save
-      - "60 1"
-      - --appendonly
-      - "yes"
+      - --dir
+      - "/data"
     restart: unless-stopped
 
   timescaledb:

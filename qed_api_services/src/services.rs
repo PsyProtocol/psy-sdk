@@ -103,7 +103,7 @@ impl RewardService {
 
         for event in unprocessed_events {
             events_by_checkpoint
-                .entry(event.checkpoint_id)
+                .entry(event.checkpoint_id as i64)
                 .or_insert_with(Vec::new)
                 .push(event);
         }
@@ -197,7 +197,7 @@ impl RewardService {
             let reward = WorkerEventReward {
                 id: event_id,                                             // Same as worker event id
                 public_key: event.public_key.clone().unwrap_or_default(), // From worker event
-                checkpoint_id: event.checkpoint_id,                       // From worker event
+                checkpoint_id: event.checkpoint_id as i64,                       // From worker event
                 reward_amount: reward_per_event,
                 timestamp: now,
                 created_at: now,

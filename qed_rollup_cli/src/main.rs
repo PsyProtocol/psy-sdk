@@ -11,14 +11,11 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     qed_common::setup_logging()?;
     match cli.command {
-        Commands::CoordinatorEdge(args) => {
-            coordinator_edge::run(args).await?;
-        }
         Commands::CoordinatorProcessor(args) => {
             coordinator_processor::run(args).await?;
         }
-        Commands::RealmEdge { config } => {
-            realm_edge::run(config).await?;
+        Commands::CoordinatorEdge(args) => {
+            coordinator_edge::run(args).await?;
         }
         Commands::RealmEdgeV2 { config } => {
             realm_edge_v2::run(config).await?;
@@ -28,6 +25,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::RealmProcessorV2 { config } => {
             realm_processor_v2::run(config).await?;
+        }
+        Commands::RealmEdge { config } => {
+            realm_edge::run(config).await?;
         }
         Commands::Worker { config, private_key, keystore_path, wallet_password, recipient } => {
             worker::run(config, private_key, keystore_path, wallet_password, recipient).await?;

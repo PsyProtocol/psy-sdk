@@ -95,7 +95,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("initialized store");
 
     let task_store = Arc::new(
-        QProvingTaskStoreImpl::new("redis://127.0.0.1/", 10)
+        QProvingTaskStoreImpl::new("redis://127.0.0.1/", 10, "biz_key1")
             .await
             .expect("Failed to create JobTaskStore")
     );

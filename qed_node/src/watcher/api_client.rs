@@ -7,11 +7,7 @@ use tracing::{info, debug, warn};
 use qed_api_services::handlers::{TelemetryPayload, TelemetryResponse};
 use qed_api_services::models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus};
 use qed_core::job::id::QProvingJobDataID;
-use crate::watcher::events::{
-    JobCompletedEvent, JobTimeoutEvent, UserRegistrationEvent, BackupProofEvent,
-    BackupWitnessEvent, UserRegistrationMetadata, UserDeployContractMetadata,
-    UserDeployContractEvent, UserGutaSubmissionEvent, JobStartedEvent
-};
+use crate::watcher::events::{JobCompletedEvent, JobTimeoutEvent, UserRegistrationEvent, BackupProofEvent, BackupWitnessEvent, UserRegistrationMetadata, UserDeployContractMetadata, UserDeployContractEvent, UserGutaSubmissionEvent, JobStartedEvent, JobPendingEvent};
 use crate::watcher::watcher::NodeType;
 use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
 
@@ -96,6 +92,33 @@ impl ApiClient {
 
         self.send_user_events(vec![api_event]).await?;
         debug!("GUTA submission event sent for realm_id: {}", event.realm_id);
+        Ok(())
+    }
+    pub async fn send_job_pending(&self, event: JobPendingEvent) -> Result<()> {
+        let api_event = WorkerEvent {
+            id: None,
+            realm_id: self.realm_id,
+            public_key: None,
+            status: WorkerEventStatus::Pending,
+            source: self.worker_source(),
+            job_id: event.job_id.clone(),
+            checkpoint_id: event.job_id.goal_id as i64,
+            duration: None,
+            metadata: Some(serde_json::json!({
+                "event_type": "job_pending",
+                "start_time": event.start_time,
+                "node_id": self.node_id,
+                "node_type": format!("{:?}", self.node_type),
+                "layer_id": event.job_id.task_index,
+                "circuit_type": format!("{:?}", event.job_id.circuit_type),
+            })),
+            timestamp: Utc::now(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        self.send_worker_events(vec![api_event]).await?;
+        debug!("Job pending event sent for job: {:?}", event.job_id);
         Ok(())
     }
 
