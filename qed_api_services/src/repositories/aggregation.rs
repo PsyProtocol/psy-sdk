@@ -168,8 +168,8 @@ impl WorkerRewardsAggregationRepository {
             "#,
             worker_public_key
         )
-            .fetch_one(pool)
-            .await?;
+        .fetch_one(pool)
+        .await?;
 
         let total_records = check_query.count.unwrap_or(0);
 

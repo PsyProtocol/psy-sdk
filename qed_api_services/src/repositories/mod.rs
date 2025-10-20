@@ -5,6 +5,7 @@ pub mod rewards;
 pub mod stats;
 pub mod users;
 pub mod workers;
+pub mod job_status;
 
 // Re-export all repository structs for backward compatibility
 pub use aggregation::{
@@ -15,3 +16,4 @@ pub use rewards::{WorkerEventRewardRepository, WorkerRewardsRepository};
 pub use stats::{RealmStatsRepository, WorkerStatsRepository};
 pub use users::{UserEventRepository, UserRepository};
 pub use workers::WorkerEventRepository;
+pub use job_status::*;
