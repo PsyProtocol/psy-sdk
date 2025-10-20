@@ -350,11 +350,10 @@ impl CoordinatorEdgeHandler {
         checkpoint_queue.cdq_push_imm(queue_item.clone()).await?;
         trace!("✅ wrote guta result to proof store end");
         let metadata = queue_item.get_dq_metadata();
-        let items: Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> =
-            checkpoint_queue.cdq_peek_imm(metadata.channel_id).await?;
+        let items_len = checkpoint_queue.cdq_len_imm(metadata.channel_id).await?;
         debug!(
             "Retrieved GUTA queue items: {} items, metadata: {:#?}",
-            items.len(),
+            items_len,
             metadata
         );
 
