@@ -247,7 +247,7 @@ pub struct SubmitGUTARealmResultAPINoProofInput<F: RichField> {
     pub guta_stats: GUTAStats<F>,
     pub top_line_proof: DeltaMerkleProofCore<QHashOut<F>>,
     pub checkpoint_tree_root: QHashOut<F>,
-    pub circuit_type: ProvingJobCircuitType,
+    pub proof_id: QProvingJobDataID,
 }
 impl<F: RichField> KVQSerializable for SubmitGUTARealmResultAPINoProofInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -302,17 +302,7 @@ impl<F: RichField > SubmitGUTARealmResultAPINoProofInput<F> {
             guta_stats: self.guta_stats,
             top_line_proof: self.top_line_proof,
             checkpoint_tree_root:self.checkpoint_tree_root,
-            proof_id: QProvingJobDataID::new(
-                QJobTopic::GenerateStandardProof,
-                self.checkpoint_id,
-                0, // slot_id
-                self.realm_id as u32,
-                0,
-                0,
-                self.circuit_type,
-                ProvingJobDataType::OutputProof,
-                0,
-            )
+            proof_id: self.proof_id
         }
     }
 }

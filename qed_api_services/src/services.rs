@@ -103,7 +103,7 @@ impl RewardService {
 
         for event in unprocessed_events {
             events_by_checkpoint
-                .entry(event.checkpoint_id)
+                .entry(event.checkpoint_id as i64)
                 .or_insert_with(Vec::new)
                 .push(event);
         }
@@ -197,7 +197,7 @@ impl RewardService {
             let reward = WorkerEventReward {
                 id: event_id,                                             // Same as worker event id
                 public_key: event.public_key.clone().unwrap_or_default(), // From worker event
-                checkpoint_id: event.checkpoint_id,                       // From worker event
+                checkpoint_id: event.checkpoint_id as i64,                       // From worker event
                 reward_amount: reward_per_event,
                 timestamp: now,
                 created_at: now,
@@ -241,3 +241,105 @@ impl RewardService {
         }
     }
 }
+
+/// Job status aggregation service
+pub struct JobStatusService;
+
+impl JobStatusService {
+    /// Refresh the latest_job_status materialized view
+    pub async fn refresh_materialized_view(pool: &PgPool) -> crate::Result<()> {
+        tracing::debug!("Refreshing latest_job_status materialized view");
+
+        let start = std::time::Instant::now();
+
+        // Use CONCURRENTLY to avoid locking the view during refresh
+        let result = sqlx::query("REFRESH MATERIALIZED VIEW CONCURRENTLY latest_job_status")
+            .execute(pool)
+            .await;
+
+        let duration = start.elapsed();
+
+        match result {
+            Ok(_) => {
+                tracing::info!(
+                    "Successfully refreshed latest_job_status materialized view in {:?}",
+                    duration
+                );
+                Ok(())
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Failed to refresh latest_job_status materialized view: {}",
+                    e
+                );
+                Err(anyhow::anyhow!("Failed to refresh materialized view: {}", e))
+            }
+        }
+    }
+
+    /// Background task that refreshes the materialized view periodically
+    pub async fn start_refresh_task(pool: PgPool, refresh_interval_secs: u64) {
+        tracing::info!(
+            "Starting job status materialized view refresh task (interval: {}s)",
+            refresh_interval_secs
+        );
+
+        let mut interval = tokio::time::interval(
+            tokio::time::Duration::from_secs(refresh_interval_secs)
+        );
+
+        // Skip the first tick to avoid immediate refresh on startup
+        interval.tick().await;
+
+        let mut consecutive_failures = 0;
+        const MAX_CONSECUTIVE_FAILURES: u32 = 5;
+
+        loop {
+            interval.tick().await;
+
+            match Self::refresh_materialized_view(&pool).await {
+                Ok(()) => {
+                    consecutive_failures = 0;
+                    tracing::debug!("Job status refresh task completed successfully");
+                }
+                Err(e) => {
+                    consecutive_failures += 1;
+                    tracing::error!(
+                        "Job status refresh task failed (attempt {}/{}): {}",
+                        consecutive_failures,
+                        MAX_CONSECUTIVE_FAILURES,
+                        e
+                    );
+
+                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
+                        tracing::error!(
+                            "Job status refresh task failed {} times consecutively. \
+                            Continuing with exponential backoff...",
+                            MAX_CONSECUTIVE_FAILURES
+                        );
+
+                        // Implement exponential backoff
+                        let backoff_secs = std::cmp::min(
+                            refresh_interval_secs * 2_u64.pow(consecutive_failures - MAX_CONSECUTIVE_FAILURES),
+                            300 // Max 5 minutes
+                        );
+
+                        tracing::warn!(
+                            "Backing off for {} seconds before next refresh attempt",
+                            backoff_secs
+                        );
+
+                        tokio::time::sleep(tokio::time::Duration::from_secs(backoff_secs)).await;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Manually trigger a refresh (useful for testing or admin endpoints)
+    pub async fn force_refresh(pool: &PgPool) -> crate::Result<()> {
+        tracing::info!("Manually triggered job status materialized view refresh");
+        Self::refresh_materialized_view(pool).await
+    }
+}
+

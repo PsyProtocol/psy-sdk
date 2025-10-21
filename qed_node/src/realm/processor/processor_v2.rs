@@ -176,6 +176,7 @@ impl RealmProcessorV2 {
         let task_store = QProvingTaskStoreImpl::new(
             &config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10),
+            &config.queue.queue_biz_key,
         )
         .await?;
 

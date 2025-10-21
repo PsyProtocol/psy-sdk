@@ -113,6 +113,7 @@ impl RealmProcessor {
         let task_store = QProvingTaskStoreImpl::new(
             &config.redis.redis_uri.as_str(),
             config.redis.pool_size.unwrap_or(10),
+            &config.queue.queue_biz_key
         )
         .await?;
         let realm_qps = ProofStoreRedisAsync::new(
@@ -307,6 +308,11 @@ impl RealmProcessor {
         // }
 
         let mut buffer = vec![];
+        // recv synced、confirmed、confirmed failed state from sync processor
+        let _ = sync_rx.recv_many(&mut buffer, sync_rx.len()).await;
+        trace!("Block handle buffer: {:?}", buffer);
+        // time::sleep(Duration::from_secs(1)).await;
+
         tokio::select! {
             // recv synced、confirmed、confirmed failed state from sync processor
             biased;
@@ -317,7 +323,7 @@ impl RealmProcessor {
                 trace!("Sleep 1 second to try build block");
             }
         }
-        
+
         let slot = self.slot_timer.get_current_slot();
         trace!("Next slot: {}", slot);
         let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
@@ -386,7 +392,7 @@ impl RealmProcessor {
             guta_stats: realm_result.guta_stats,
             top_line_proof: realm_result.top_line_proof,
             checkpoint_tree_root: realm_result.checkpoint_tree_root,
-            circuit_type: realm_result.proof_id.circuit_type,
+            proof_id: realm_result.proof_id.get_output_id()
         };
         self.coordinator_client.submit_guta_v1(&input, &bincode::serialize(&proof)?, input.realm_id).await
     }

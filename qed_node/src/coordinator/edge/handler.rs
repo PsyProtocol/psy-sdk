@@ -71,6 +71,7 @@ type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
+const WATCHER_NODE_ID_FOR_COORDINATOR_EDGE: &str = "coordinator-edge-node";
 #[derive(Clone)]
 pub struct CoordinatorEdgeHandler {
     history_queue: Arc<ProofStore>,
@@ -90,7 +91,7 @@ impl CoordinatorEdgeHandler {
         info!("🗄️ Initializing storage backend...");
         let qed_store = QEDStore::from_backend(args.backend.to_backend()).await?;
         let store_reader = Arc::new(qed_store);
-        let task_store = QProvingTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size).await?;
+        let task_store = QProvingTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size, &args.queue_args.queue_biz_key).await?;
         let qe_args = &args.queue_args;
 
         let proof_store = Arc::new(
@@ -117,7 +118,7 @@ impl CoordinatorEdgeHandler {
         // Initialize watcher
         info!("📡 Initializing watcher client...");
         let watcher_client = Arc::new(
-            WatcherClient::new(&args.redis_uri).await?
+            WatcherClient::new(&args.redis_uri, args.redis_pool_size, &args.queue_args.queue_biz_key, Some(WATCHER_NODE_ID_FOR_COORDINATOR_EDGE)).await?
         );
         info!("✅ Watcher client initialized successfully");
 
@@ -264,7 +265,7 @@ impl CoordinatorEdgeHandler {
         }
 
         //if circuit type is GUTANoChange, disable the proof
-        if input.circuit_type == ProvingJobCircuitType::GUTANoChange {
+        if input.proof_id.circuit_type == ProvingJobCircuitType::GUTANoChange {
             info!("⚠️ GUTANoChange proof, disabling it");
             return Ok(());
         }
@@ -320,10 +321,10 @@ impl CoordinatorEdgeHandler {
         }
 
         // verify proof
-        verifier.verify_proof_of_type(input.circuit_type, &proof)?;
+        verifier.verify_proof_of_type(input.proof_id.circuit_type, &proof)?;
 
         let realm_proof_public_inputs =  proof.public_inputs.clone();
-        let circuit_type = input.circuit_type;
+        let circuit_type = input.proof_id.circuit_type;
 
         // Report GUTA submission to watcher with structured metadata
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
@@ -350,7 +351,8 @@ impl CoordinatorEdgeHandler {
         checkpoint_queue.cdq_push_imm(queue_item.clone()).await?;
         trace!("✅ wrote guta result to proof store end");
         let metadata = queue_item.get_dq_metadata();
-        let items_len = checkpoint_queue.cdq_len_imm(metadata.channel_id).await?;
+        let items_len: usize =
+            checkpoint_queue.cdq_len_imm(metadata.channel_id).await?;
         debug!(
             "Retrieved GUTA queue items: {} items, metadata: {:#?}",
             items_len,
@@ -1054,7 +1056,7 @@ use qed_store::queue::task_queue::{current_timestamp_millis, JobValidationStatus
 use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserDeployContractMetadata, UserGutaSubmissionMetadata, WatcherMessage};
 use crate::watcher::watcher::NodeType;
 use crate::watcher::watcher_client::WatcherClient;
-use crate::watcher::watcher_service::{current_timestamp, current_timestamp_mills, WATCHER_RSMQ};
+use crate::watcher::watcher_service::{current_timestamp, current_timestamp_mills};
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
@@ -1137,7 +1139,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             guta_stats: realm_result.header.guta_stats,
             top_line_proof,
             checkpoint_tree_root,
-            circuit_type: realm_result.header.root_job_id.circuit_type,
+            proof_id: realm_result.header.root_job_id,
         };
         let proof = bincode::deserialize::<ProofWithPublicInputs<F, C, D>>(&realm_result.proof)
             .map_err(|err| RpcError::Anyhow(anyhow::format_err!(err.to_string())))?;
@@ -1895,7 +1897,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
             .map_err(|e| RpcError::Anyhow(e.into()))?;
 
         let worker_id = signed.worker_public_key.to_string();
-        let j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
+        let j = match self.task_store.acquire_job(&worker_id).await {
             Ok(job) => job,
             Err(e) => {
                 error!("Error claiming job from current task: {:?}", e);
@@ -2007,7 +2009,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
         // CRITICAL: Validate job ownership before processing proof
         let validation_status = self
             .task_store
-            .validate_job_ownership(&job)
+            .validate_and_extend_job(&job)
             .await
             .map_err(|e| RpcError::Anyhow(anyhow!("Failed to validate job: {}", e)))?;
 
@@ -2092,7 +2094,7 @@ impl CoordinatorEdgeHandler {
         let worker_id = worker_id.to_string();
 
         // Acknowledge job completion and get the job status
-        let job_status = match self.task_store.acknowledge_job_completion(&job, &worker_id).await {
+        let job_status = match self.task_store.mark_job_completed(&job, &worker_id).await {
             Ok(status) => {
                 info!("Job completed successfully: {:?}", job_id);
                 status

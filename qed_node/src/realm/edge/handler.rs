@@ -1067,7 +1067,7 @@ where
         )?;
 
         let worker_id = signed.worker_public_key.to_string();
-        let j = match self.task_store.claim_job_from_current_layer(&worker_id).await {
+        let j = match self.task_store.acquire_job(&worker_id).await {
             Ok(job) => job,
             Err(e) => {
                 error!("Error claiming job from current task: {:?}", e);
@@ -1138,7 +1138,7 @@ where
 
         let job_id = job.job_id;
         // CRITICAL: Validate job ownership before processing proof
-        let validation_status = self.task_store.validate_job_ownership(&job).await
+        let validation_status = self.task_store.validate_and_extend_job(&job).await
             .map_err(|e| RpcError::Anyhow(anyhow!("Failed to validate job: {}", e)))?;
 
         match validation_status {
@@ -1220,7 +1220,7 @@ where
         let job_id = job.job_id;
         let worker_id = worker_id.to_string();
 
-        let job_status = match self.task_store.acknowledge_job_completion(&job, &worker_id).await {
+        let job_status = match self.task_store.mark_job_completed(&job, &worker_id).await {
             Ok(status) => {
                 info!("Job completed successfully: {:?}", job_id);
                 status

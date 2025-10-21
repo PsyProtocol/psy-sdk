@@ -3,6 +3,8 @@ use qed_store::store::backend::BackendConfig;
 use anyhow::Result;
 use crate::watcher::watcher::NodeType;
 use clap::Args;
+use qed_store::queue::QueueId;
+use crate::realm::QueueConfig;
 
 #[derive(Clone, Debug, Args)]
 pub struct WatcherArgs {
@@ -16,8 +18,8 @@ pub struct WatcherArgs {
     #[clap(
         long = "node-type",
         env = "WATCHER_NODE_TYPE",
-        help = "Type of node being monitored (coordinator, realm, worker)",
-        value_parser = ["coordinator", "realm", "worker"]
+        help = "Type of node being monitored (coordinator, realm)",
+        value_parser = ["coordinator", "realm"]
     )]
     pub node_type: String,
 
@@ -25,7 +27,7 @@ pub struct WatcherArgs {
         long = "api-endpoint",
         env = "WATCHER_API_ENDPOINT",
         help = "Data center API endpoint for reporting",
-        default_value = "http://localhost:8080"
+        default_value = "http://localhost:3000"
     )]
     pub api_endpoint: String,
 
@@ -46,12 +48,12 @@ pub struct WatcherArgs {
     pub redis_pool_size: usize,
 
     #[clap(
-        long = "queue-name",
-        env = "WATCHER_QUEUE_NAME",
+        long = "queue-biz-key",
+        env = "WATCHER_QUEUE",
         help = "Name of the RSMQ queue",
         default_value = "watcher:queue"
     )]
-    pub queue_name: String,
+    pub queue_biz_key: String,
 
     #[clap(
         long = "block-sync-interval",
@@ -74,12 +76,14 @@ pub struct WatcherConfig {
     pub redis_pool_size: usize,
     pub block_sync_interval: u64,
     pub backend: BackendConfig,
+    pub queue_id: QueueConfig,
 }
 
 impl WatcherConfig {
     /// Create config from command line arguments
     pub fn from_args(args: WatcherArgs) -> Result<Self> {
         let node_type = NodeType::from_str(&args.node_type)?;
+        let queue_id = QueueConfig::from_str(&args.queue_biz_key)?;
 
         Ok(Self {
             node_id: args.node_id,
@@ -87,6 +91,7 @@ impl WatcherConfig {
             api_endpoint: args.api_endpoint,
             redis_uri: args.redis_uri,
             redis_pool_size: args.redis_pool_size,
+            queue_id,
             block_sync_interval: args.block_sync_interval,
             backend: args.backend,
         })

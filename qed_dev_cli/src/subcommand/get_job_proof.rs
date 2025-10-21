@@ -86,7 +86,7 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
                 proofs.push((job_info.clone(), job_proof, verified, root, nullifier_index));
             }
             Err(e) => {
-                info!("Skipping job due to error: {:?} - {}", job_info.job_id, e);
+                info!("Skipping job({}) due to error: {:?} - {}", job_info.job_id.to_hex_string(), job_info.job_id, e);
                 continue;
             }
         }

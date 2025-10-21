@@ -12,13 +12,10 @@ pub enum WatcherMessage {
     GutaSubmission(UserGutaSubmissionEvent),
 
     // Job status - immediate reporting
+    JobPending(JobPendingEvent),
     JobStarted(JobStartedEvent),
     JobCompleted(JobCompletedEvent),
     JobTimeout(JobTimeoutEvent),
-
-    // Backup operations - report with retry, then schedule deletion
-    BackupProof(BackupProofEvent),
-    BackupWitness(BackupWitnessEvent),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +70,13 @@ pub struct TopLineProofData {
     pub new_root: String,
     pub old_value: String,
     pub new_value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobPendingEvent {
+    pub job_id: QProvingJobDataID,
+    pub start_time: u64,
+    pub layer_id: LayerId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

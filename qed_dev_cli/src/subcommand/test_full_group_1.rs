@@ -95,7 +95,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("initialized store");
 
     let task_store = Arc::new(
-        QProvingTaskStoreImpl::new("redis://127.0.0.1/", 10)
+        QProvingTaskStoreImpl::new("redis://127.0.0.1/", 10, "biz_key1")
             .await
             .expect("Failed to create JobTaskStore")
     );
@@ -235,7 +235,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
                 guta_stats: realm_result.guta_stats,
                 top_line_proof: realm_result.top_line_proof,
                 checkpoint_tree_root: realm_result.checkpoint_tree_root,
-                circuit_type: realm_result.proof_id.circuit_type,
+                proof_id: realm_result.proof_id,
             },
             &realm_proof,
         )
@@ -437,7 +437,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
                 guta_stats: realm_result.guta_stats,
                 top_line_proof: realm_result.top_line_proof,
                 checkpoint_tree_root: realm_result.checkpoint_tree_root,
-                circuit_type: realm_result.proof_id.circuit_type,
+                proof_id: realm_result.proof_id,
             },
             &realm_proof,
         )
