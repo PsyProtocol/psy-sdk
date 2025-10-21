@@ -365,7 +365,7 @@ impl RealmProofSender {
             guta_stats: realm_result.guta_stats,
             top_line_proof: realm_result.top_line_proof,
             checkpoint_tree_root: realm_result.checkpoint_tree_root,
-            circuit_type: realm_result.proof_id.circuit_type,
+            proof_id: realm_result.proof_id,
         };
 
         let real_checkpoint_id = input.checkpoint_id.saturating_sub(1);
@@ -409,7 +409,7 @@ impl RealmProofSender {
         }
 
         // verify proof
-        ctx.proof_verifier.verify_proof_of_type(input.circuit_type, &proof)?;
+        ctx.proof_verifier.verify_proof_of_type(input.proof_id.circuit_type, &proof)?;
 
         // Submit with retry
         self.submit_with_retry(input, proof).await
