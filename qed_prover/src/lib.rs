@@ -97,14 +97,17 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
 pub async fn run_prove_proxy_server(
     args: crate::local::args::ProveProxyArgs,
 ) -> anyhow::Result<()> {
-    use crate::local::native::prove_proxy::ProveProxyRpcServer;
+    use crate::local::{native::prove_proxy::ProveProxyRpcServer, provider::RpcConfig};
     use crate::health::HealthLayer;
     use hyper::Method;
     use jsonrpsee::server::Server;
     use std::net::SocketAddr;
     use tower_http::cors::{Any, CorsLayer};
-
-    let prove_proxy = ProveProxyServerProvider::new_with_config(QED_NETWORK_MAGIC_REGTEST).await;
+    
+    let config_str = std::fs::read_to_string(&args.rpc_config)?;
+    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
+    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let prove_proxy = ProveProxyServerProvider::new_with_config(rpc_config, QED_NETWORK_MAGIC_REGTEST).await?;
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])
         .allow_origin(Any)
