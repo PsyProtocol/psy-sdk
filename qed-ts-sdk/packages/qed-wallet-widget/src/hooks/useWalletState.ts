@@ -37,8 +37,8 @@ interface IWalletStateStore {
     setWalletProvider: (provider: QedUserWalletProvider) => any;
     refreshCurrentWallet: () => Promise<any>;
     refreshAllWallets: () => Promise<any>;
-    addRandomWallet: (registerUser?: boolean) => Promise<any>;
-    addWalletFromPrivateKey: (privateKeyHex: string, registerUser?: boolean, changeCurrent?: boolean) => Promise<any>;
+    addRandomWallet: (signType: string, fingerprint: string | null | undefined, registerUser?: boolean) => Promise<any>;
+    addWalletFromPrivateKey: (privateKeyHex: string, signType: string, fingerprint: string | null | undefined, registerUser?: boolean, changeCurrent?: boolean) => Promise<any>;
 }
 type Setter = (
     partial:
@@ -280,7 +280,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     return {};
                 }
 
-                const signer = await state.provider.signerProvider.addRandomPrivateKey();
+                const signer = await state.provider.signerProvider.addRandomPrivateKey("zk");
                 const publicKeyHex = await signer.getPublicKeyHex();
 
                 if (registerUser) {
@@ -288,8 +288,8 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                         return {};
                     }
                     const privateKeyHex = await signer.getPrivateKeyHex();
-                    await state.provider.signerProvider.registerUser(privateKeyHex);
-                    await state.provider.signerProvider.addUser(privateKeyHex);
+                    await state.provider.signerProvider.registerUser(privateKeyHex, "zk");
+                    await state.provider.signerProvider.addUser(privateKeyHex, "zk");
                 }
 
                 // Refresh wallet list and set new wallet as current
@@ -322,7 +322,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 }
 
                 console.log("Calling importPrivateKey on provider...");
-                const signer = await state.provider.signerProvider.importPrivateKey(privateKeyHex);
+                const signer = await state.provider.signerProvider.importPrivateKey(privateKeyHex, "zk");
                 const publicKeyHex = await signer.getPublicKeyHex();
                 console.log("Created signer with public key:", publicKeyHex);
 
@@ -333,8 +333,8 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     }
                     const privateKeyHex = await signer.getPrivateKeyHex();
                     console.log("Registering user with provider...");
-                    await state.provider.signerProvider.registerUser(privateKeyHex);
-                    await state.provider.signerProvider.addUser(privateKeyHex);
+                    await state.provider.signerProvider.registerUser(privateKeyHex, "zk");
+                    await state.provider.signerProvider.addUser(privateKeyHex, "zk");
                 }
 
                 console.log("Getting all IQ wallets...");
@@ -374,8 +374,8 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                             if (isDataFresh && data.wallets.length > 0) {
                                 console.log('Restoring first wallet from storage...');
                                 const firstWallet = data.wallets[0];
-                                if (firstWallet?.privateKey) {
-                                    await provider.signerProvider.importPrivateKey(firstWallet.privateKey);
+                                if (firstWallet?.privateKey && typeof provider.signerProvider.importPrivateKey === "function") {
+                                    await provider.signerProvider.importPrivateKey(firstWallet.privateKey, "zk");
                                 }
                             }
                         }
