@@ -240,7 +240,17 @@ where
         );
 
     }*/
-    pub fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManagerTrait<C, D>
+    for QEDUPSStepCircuitManager<C, D>
+where
+    C::Hasher:
+        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+{
+    async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         info_store.register_circuit(
             LocalCircuitType::UPSStart.into(),
             self.ups_start.get_fingerprint(),
@@ -286,16 +296,7 @@ where
             info_store,
         );
     }
-}
 
-#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
-#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManagerTrait<C, D>
-    for QEDUPSStepCircuitManager<C, D>
-where
-    C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
-{
     async fn prove_ups_start(
         &self,
         input: &UPSStartStepInput<C::F>,
@@ -810,27 +811,18 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> QCircuitManager<C, D>
-where
-    C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
-{
-    pub async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
-        match self {
-            QCircuitManager::Local(manager) => manager.register_info(info_store),
-            QCircuitManager::Rpc(provider) => provider.register_info(info_store),
-        }
-    }
-}
-
-#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
-#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManagerTrait<C, D>
     for QCircuitManager<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
+    async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
+        match self {
+            QCircuitManager::Local(manager) => manager.register_info(info_store).await,
+            QCircuitManager::Rpc(provider) => provider.register_info(info_store).await,
+        }
+    }
     async fn prove_ups_start(
         &self,
         input: &UPSStartStepInput<C::F>,

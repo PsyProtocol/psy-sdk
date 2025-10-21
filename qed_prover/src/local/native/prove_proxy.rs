@@ -37,7 +37,7 @@ use qedlang_core::dpn::contract::cfc_code_definition_to_dapen_fc;
 use serde::{Deserialize, Deserializer, Serialize};
 
 // use crate::local::provider::LocalCommonCircuitsData;
-use crate::local::provider::QCommonCircuitData;
+use crate::local::provider::{QCommonCircuitData, UPSCircuitManagerTrait};
 use crate::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
     ups::circuit_manager::core::QEDUPSStepCircuitManager,
@@ -230,7 +230,7 @@ pub struct ProveProxyServerProvider {
 }
 
 impl ProveProxyServerProvider {
-    pub fn new_with_config(network_magic: u64) -> Self {
+    pub async fn new_with_config(network_magic: u64) -> Self {
         use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use qed_core::ups::circuits::LocalCircuitType;
         use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
@@ -249,7 +249,7 @@ impl ProveProxyServerProvider {
         //     secp_circuit.get_verifier_config_ref().into(),
         // );
 
-        circuit_manager.register_info(&mut circuit_info);
+        circuit_manager.register_info(&mut circuit_info).await;
 
         let circuits_data = LocalCommonCircuitsData {
             ups_start: QCommonCircuitData {

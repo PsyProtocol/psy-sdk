@@ -52,7 +52,7 @@ pub struct QEDMemoryWallet {
     // figerprint, circuit
     pub software_defined_circuits:
         DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
-    pub circuit_manager: Vec<QCircuitManager<C, D>>,
+    pub circuit_manager: Vec<Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync>>,
     pub zk_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
     pub secp_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
     pub software_defined_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
@@ -61,7 +61,7 @@ pub struct QEDMemoryWallet {
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl QEDMemoryWallet {
-    pub fn new(circuit_manager: Vec<QCircuitManager<C, D>>) -> Self {
+    pub fn new(circuit_manager: Vec<Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync>>) -> Self {
         Self {
             zk_public_key_to_private_key_store: DashMap::new(),
             secp_public_key_to_private_key_store: DashMap::new(),
@@ -71,7 +71,7 @@ impl QEDMemoryWallet {
         }
     }
 
-    pub fn random_circuit_manager(&self) -> &QCircuitManager<C, D> {
+    pub fn random_circuit_manager(&self) -> &Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync> {
         let index = rand::random::<usize>() % self.circuit_manager.len();
         &self.circuit_manager[index]
     }
@@ -271,22 +271,23 @@ impl QEDMemoryWallet {
         &mut self,
         input: SoftwareDefinedSignatureInput,
     ) -> anyhow::Result<QHashOut<F>> {
-        if let QCircuitManager::Rpc(rpc_provider) = self.random_circuit_manager() {
-            return rpc_provider.register_software_defined_circuit(input).await;
-        };
-        let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
-        let fingerprint = sdc.get_fingerprint();
-        tracing::info!(
-            "register software defined circuit: {}",
-            fingerprint.to_string()
-        );
-        if let Some(_) = self.software_defined_circuits.insert(fingerprint, sdc) {
-            tracing::warn!(
-                "software defined circuit `{}` is already registered",
-                fingerprint.to_string()
-            );
-        };
-        Ok(fingerprint)
+        self.random_circuit_manager().register_software_defined_circuit(input).await
+        // if let QCircuitManager::Rpc(rpc_provider) = self.random_circuit_manager() {
+        //     return rpc_provider.register_software_defined_circuit(input).await;
+        // };
+        // let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
+        // let fingerprint = sdc.get_fingerprint();
+        // tracing::info!(
+        //     "register software defined circuit: {}",
+        //     fingerprint.to_string()
+        // );
+        // if let Some(_) = self.software_defined_circuits.insert(fingerprint, sdc) {
+        //     tracing::warn!(
+        //         "software defined circuit `{}` is already registered",
+        //         fingerprint.to_string()
+        //     );
+        // };
+        // Ok(fingerprint)
     }
 }
 
@@ -407,7 +408,7 @@ mod tests {
         let circuit_manager = crate::ups::circuit_manager::core::QCircuitManager::Local(
             crate::ups::circuit_manager::core::QEDUPSStepCircuitManager::new_with_config(0x1337)
         );
-        let wallet = QEDMemoryWallet::new(vec![circuit_manager]);
+        let wallet = QEDMemoryWallet::new(vec![Box::new(circuit_manager)]);
 
         println!("Created memory wallet");
 

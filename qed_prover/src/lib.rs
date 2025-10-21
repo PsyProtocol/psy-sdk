@@ -104,7 +104,7 @@ pub async fn run_prove_proxy_server(
     use std::net::SocketAddr;
     use tower_http::cors::{Any, CorsLayer};
 
-    let prove_proxy = ProveProxyServerProvider::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+    let prove_proxy = ProveProxyServerProvider::new_with_config(QED_NETWORK_MAGIC_REGTEST).await;
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])
         .allow_origin(Any)

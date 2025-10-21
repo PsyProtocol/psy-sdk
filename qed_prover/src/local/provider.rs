@@ -672,6 +672,7 @@ where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
+    async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>);
     async fn prove_ups_start(
         &self,
         input: &UPSStartStepInput<C::F>,
@@ -789,6 +790,10 @@ where
     T: UPSCircuitManagerTrait<C, D> + Sync,
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
+    async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
+        (**self).register_info(info_store).await
+    }
+
     async fn prove_ups_start(
         &self,
         input: &UPSStartStepInput<C::F>,
@@ -1040,8 +1045,16 @@ where
             _marker: PhantomData,
         })
     }
+}
 
-    pub fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl<C: GenericConfig<D> + 'static, const D: usize> UPSCircuitManagerTrait<C, D> for ProveProxyRpcProvider<C, D>
+where
+    C::Hasher:
+        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+{
+    async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         info_store.register_circuit(
             LocalCircuitType::UPSStart.into(),
             self.common_circuits_data.ups_start.fingerprint,
@@ -1178,15 +1191,7 @@ where
                 .clone(),
         );
     }
-}
 
-#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
-#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> UPSCircuitManagerTrait<C, D> for ProveProxyRpcProvider<C, D>
-where
-    C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
-{
     async fn prove_ups_start(
         &self,
         input: &UPSStartStepInput<C::F>,

@@ -134,7 +134,7 @@ where
         index
     }
 
-    async fn prove_single_leaf<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
+    async fn prove_single_leaf<T: PortableQTreeRecursionCircuitsTrait<C, D> + ?Sized>(
         &self,
         circuit_mgr: &T,
         leaf: &LeafProofRecord<C, D>,
@@ -164,7 +164,7 @@ where
         Ok(record)
     }
 
-    async fn prove_left_agg_right_leaf<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
+    async fn prove_left_agg_right_leaf<T: PortableQTreeRecursionCircuitsTrait<C, D> + ?Sized>(
         &self,
         circuit_mgr: &T,
         left: &AggProofRecord<C, D>,
@@ -199,7 +199,7 @@ where
         Ok(record)
     }
 
-    pub async fn prove_two_leaf<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
+    pub async fn prove_two_leaf<T: PortableQTreeRecursionCircuitsTrait<C, D> + ?Sized>(
         &self,
         circuit_mgr: &T,
         left: &LeafProofRecord<C, D>,
@@ -232,7 +232,7 @@ where
         Ok(record)
     }
 
-    async fn prove_two_agg<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
+    async fn prove_two_agg<T: PortableQTreeRecursionCircuitsTrait<C, D> + ?Sized>(
         &self,
         circuit_mgr: &T,
         left: &AggProofRecord<C, D>,
@@ -270,7 +270,7 @@ where
         Ok(record)
     }
 
-    pub async fn prove_one_step_simple_serial<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
+    pub async fn prove_one_step_simple_serial<T: PortableQTreeRecursionCircuitsTrait<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &T,
     ) -> anyhow::Result<bool> {
@@ -312,7 +312,7 @@ where
         inds
     }
 
-    pub async fn finalize_tree<T: PortableQTreeRecursionCircuitsTrait<C, D>>(
+    pub async fn finalize_tree<T: PortableQTreeRecursionCircuitsTrait<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &T,
     ) -> anyhow::Result<()> {

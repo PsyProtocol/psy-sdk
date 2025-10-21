@@ -213,9 +213,9 @@ impl<
         new_hash_tip
     }
 
-    pub async fn prove_ups_start(
+    pub async fn prove_ups_start<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
     ) -> anyhow::Result<()> {
         let mut timer = DebugTimer::new("prove_ups_start");
         timer.lap("start");
@@ -331,9 +331,9 @@ impl<
         Ok((fn_id, fn_circuit_def))
     }
 
-    pub async fn prove_contract_call(
+    pub async fn prove_contract_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
         contract_id: F,
         fn_id: u32,
         fn_circuit_def: &DPNFunctionCircuitDefinition,
@@ -350,9 +350,9 @@ impl<
         Ok(())
     }
 
-    pub async fn prove_standard_call(
+    pub async fn prove_standard_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
         contract_id: F,
         fn_id: u32,
         fn_circuit_def: &DPNFunctionCircuitDefinition,
@@ -506,9 +506,9 @@ impl<
         sighash
     }
 
-    pub async fn prove_burn_fee(
+    pub async fn prove_burn_fee<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
     ) -> anyhow::Result<()> {
         tracing::info!("Adding burn transaction for GUTA fee: {}", GUTA_FEE);
 
@@ -534,9 +534,9 @@ impl<
         Ok(())
     }
 
-    pub async fn prove_end_cap(
+    pub async fn prove_end_cap<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
         network_magic: u64,
         nonce: F,
         zk_sig_fingerprint: QHashOut<F>,
@@ -643,9 +643,9 @@ impl<
             ).await
     }
 
-    async fn repay_deferred_debt(
+    async fn repay_deferred_debt<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
         initial_debt_item: &qed_data::dpn::proving_session::DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
     ) -> anyhow::Result<()> {
         let mut debt_queue = vec![initial_debt_item.clone()];
@@ -665,9 +665,9 @@ impl<
         Ok(())
     }
 
-    async fn prove_deferred_call(
+    async fn prove_deferred_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
         debt_item: &DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
     ) -> anyhow::Result<()> {
         let (_, debt_removal_proof) = self.lps.repay_deferred_tx_debt(debt_item.tree_index)?;
