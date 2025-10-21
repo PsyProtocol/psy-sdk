@@ -6210,6 +6210,7 @@ dependencies = [
  "kvq",
  "plonky2",
  "qed-common",
+ "qed_api_services",
  "qed_common_circuit",
  "qed_core",
  "qed_crypto",

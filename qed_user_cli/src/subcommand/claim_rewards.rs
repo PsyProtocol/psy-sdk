@@ -29,10 +29,14 @@ use qed_prover::{
     },
     session::WalletSession,
 };
+use qed_api_services::models::{WorkerEvent, WorkerEventSource};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{info, warn};
 
 use super::args::ClaimRewardsArgs;
+
+type ApiResponse = Vec<WorkerEvent>;
 
 #[derive(Clone)]
 struct ProofWithCheckpoint {
@@ -106,15 +110,35 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     info!("Claiming rewards from checkpoint {} to {} (limit: {}, latest: {}, cooldown: {})",
           start_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown);
 
+    // Load all jobs at once from API or individually from files
+    let all_job_infos = if !args.jobs.is_empty() {
+        // Use manually specified jobs for all checkpoints
+        let jobs = parse_job_specs(&args.jobs)?;
+        let mut all_jobs = HashMap::new();
+        for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
+            all_jobs.insert(checkpoint_id, jobs.clone());
+        }
+        all_jobs
+    } else if args.api_service_url.is_empty() {
+        // Load from files per checkpoint when API URL is empty
+        let mut all_jobs = HashMap::new();
+        for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
+            let jobs = load_jobs_from_tracker_file(&user_pk_hash, checkpoint_id)?;
+            if !jobs.is_empty() {
+                all_jobs.insert(checkpoint_id, jobs);
+            }
+        }
+        all_jobs
+    } else {
+        // Load from API once
+        load_jobs_from_api_service(&args.api_service_url, &user_pk_hash, start_checkpoint, max_claimable_checkpoint, args.limit).await?
+    };
+
     for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
         if processed_count >= args.limit {
             break;
         }
-        let mut job_infos = if !args.jobs.is_empty() {
-            parse_job_specs(&args.jobs)?
-        } else {
-            load_jobs_from_tracker_file(&user_pk_hash, checkpoint_id)?
-        };
+        let mut job_infos = all_job_infos.get(&checkpoint_id).cloned().unwrap_or_default();
 
         job_infos.retain(|job_info| {
             matches!(job_info.job_id.circuit_type,
@@ -436,6 +460,49 @@ fn parse_job_specs(specs: &[String]) -> Result<Vec<JobInfo>> {
     Ok(job_infos)
 }
 
+async fn load_jobs_from_api_service(
+    api_url: &str,
+    public_key: &QHashOut<F>,
+    from_checkpoint_id: u64,
+    to_checkpoint_id: u64,
+    limit: usize,
+) -> Result<HashMap<u64, Vec<JobInfo>>> {
+    let public_key_hex = public_key.to_string();
+    let url = format!(
+        "{}/worker_events?public_key={}&from_checkpoint_id={}&to_checkpoint_id={}&limit={}&category=reward_only",
+        api_url, public_key_hex, from_checkpoint_id, to_checkpoint_id, limit
+    );
+
+    info!("Fetching worker events from API: {}", url);
+
+    let response = reqwest::get(&url).await?;
+    let api_response: ApiResponse = response.json().await?;
+
+    let mut checkpoint_jobs: HashMap<u64, Vec<JobInfo>> = HashMap::new();
+
+    for event in api_response {
+        let job_id = event.job_id;
+        let location = match event.source {
+            WorkerEventSource::Coordinator => JobLocation::Coordinator,
+            WorkerEventSource::Realm => JobLocation::Realm(event.realm_id.unwrap_or(0) as u64),
+        };
+
+        let job_info = JobInfo {
+            job_id,
+            location,
+        };
+
+        checkpoint_jobs
+            .entry(event.checkpoint_id as u64)
+            .or_insert_with(Vec::new)
+            .push(job_info);
+    }
+
+    info!("Loaded jobs from API for {} checkpoints", checkpoint_jobs.len());
+    Ok(checkpoint_jobs)
+}
+
+
 fn load_jobs_from_tracker_file(public_key: &QHashOut<F>, target_checkpoint_id: u64) -> Result<Vec<JobInfo>> {
     let filename = format!("{}.json", public_key.to_string());
 
@@ -532,22 +599,41 @@ pub async fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Re
         return Ok(());
     }
 
-    // let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
     let mut checked_job_infos = Vec::new();
     let mut processed_count = 0;
 
     info!("Claiming rewards from checkpoint {} to {} (limit: {}, latest: {}, cooldown: {})",
           start_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown);
 
+    // Load all jobs at once from API or individually from files
+    let all_job_infos = if !args.jobs.is_empty() {
+        // Use manually specified jobs for all checkpoints
+        let jobs = parse_job_specs(&args.jobs)?;
+        let mut all_jobs = HashMap::new();
+        for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
+            all_jobs.insert(checkpoint_id, jobs.clone());
+        }
+        all_jobs
+    } else if args.api_service_url.is_empty() {
+        // Load from files per checkpoint when API URL is empty
+        let mut all_jobs = HashMap::new();
+        for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
+            let jobs = load_jobs_from_tracker_file(&user_pk_hash, checkpoint_id)?;
+            if !jobs.is_empty() {
+                all_jobs.insert(checkpoint_id, jobs);
+            }
+        }
+        all_jobs
+    } else {
+        // Load from API once
+        load_jobs_from_api_service(&args.api_service_url, &user_pk_hash, start_checkpoint, max_claimable_checkpoint, args.limit).await?
+    };
+
     for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
         if processed_count >= args.limit {
             break;
         }
-        let mut job_infos = if !args.jobs.is_empty() {
-            parse_job_specs(&args.jobs)?
-        } else {
-            load_jobs_from_tracker_file(&user_pk_hash, checkpoint_id)?
-        };
+        let mut job_infos = all_job_infos.get(&checkpoint_id).cloned().unwrap_or_default();
 
         job_infos.retain(|job_info| {
             matches!(job_info.job_id.circuit_type,
