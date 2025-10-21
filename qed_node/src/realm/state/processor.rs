@@ -998,21 +998,6 @@ impl<
         Ok(false)
     }
 
-    pub async fn has_cst_updates_tasks(&self) -> anyhow::Result<bool> {
-        // Check for contract state updates
-        let cst_updates_count = self
-            .checkpoint_queue
-            .cdq_len_imm(CST_USER_UPDATE_CHANNEL_ID)
-            .await?;
-
-        if cst_updates_count > 0 {
-            debug!("Found {} pending contract state updates", cst_updates_count);
-            return Ok(true);
-        }
-        Ok(false)
-    }
-
-
 
     async fn commit_offset(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         if let Some(state) = self.sync_queue.get_last_peek_offset().await? {
