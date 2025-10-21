@@ -18,7 +18,7 @@ use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore
 use qedlang_core::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition};
 use serde::Serialize;
 
-use crate::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::provider::ProveProxyRpcTrait, ups::circuit_manager::core::QCircuitManager};
+use crate::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::provider::UPSCircuitManagerTrait, ups::circuit_manager::core::QCircuitManager};
 
 use super::circuit_manager::core::QEDUPSStepCircuitManager;
 

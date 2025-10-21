@@ -3,7 +3,7 @@ use std::{collections::HashMap, str::FromStr};
 use crate::{
     dpn::circuits::cfc::DapenContractFunctionCircuit, local::{
         args::{ContractCallArgs, JobLocation, SignData, SignType},
-        provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
+        provider::{ProveProxyRpcProvider, UPSCircuitManagerTrait},
     }, session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint, MINING_REWARDS_CONTRACT_ID}, ups::{
         circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
         session::UserProvingSessionManager,

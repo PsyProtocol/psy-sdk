@@ -61,7 +61,7 @@ use std::collections::HashMap;
 use crate::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
     local::{
-        provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
+        provider::{ProveProxyRpcProvider, UPSCircuitManagerTrait},
         request::QAggProofRecord,
     },
     wallet::software_defined_circuit::{
@@ -290,7 +290,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> ProveProxyRpcTrait<C, D>
+impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManagerTrait<C, D>
     for QEDUPSStepCircuitManager<C, D>
 where
     C::Hasher:
@@ -825,7 +825,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> ProveProxyRpcTrait<C, D>
+impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManagerTrait<C, D>
     for QCircuitManager<C, D>
 where
     C::Hasher:

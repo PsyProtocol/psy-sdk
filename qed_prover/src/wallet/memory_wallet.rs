@@ -27,7 +27,7 @@ use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::local::args::SignType;
-use crate::local::provider::ProveProxyRpcTrait;
+use crate::local::provider::UPSCircuitManagerTrait;
 use crate::ups::circuit_manager;
 use crate::ups::circuit_manager::core::QCircuitManager;
 use crate::wallet::simple_sign::StateReader;

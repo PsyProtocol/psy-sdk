@@ -667,7 +667,7 @@ pub struct CoordinatorConfig {
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-pub trait ProveProxyRpcTrait<C: GenericConfig<D>, const D: usize>: PortableQTreeRecursionCircuitsTrait<C, D>
+pub trait UPSCircuitManagerTrait<C: GenericConfig<D>, const D: usize>: PortableQTreeRecursionCircuitsTrait<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
@@ -784,9 +784,9 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize, T> ProveProxyRpcTrait<C, D> for &T
+impl<C: GenericConfig<D>, const D: usize, T> UPSCircuitManagerTrait<C, D> for &T
 where
-    T: ProveProxyRpcTrait<C, D> + Sync,
+    T: UPSCircuitManagerTrait<C, D> + Sync,
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
     async fn prove_ups_start(
@@ -1182,7 +1182,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> ProveProxyRpcTrait<C, D> for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> UPSCircuitManagerTrait<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
