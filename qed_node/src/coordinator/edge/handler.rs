@@ -265,7 +265,7 @@ impl CoordinatorEdgeHandler {
         }
 
         //if circuit type is GUTANoChange, disable the proof
-        if input.circuit_type == ProvingJobCircuitType::GUTANoChange {
+        if input.proof_id.circuit_type == ProvingJobCircuitType::GUTANoChange {
             info!("⚠️ GUTANoChange proof, disabling it");
             return Ok(());
         }
@@ -321,10 +321,10 @@ impl CoordinatorEdgeHandler {
         }
 
         // verify proof
-        verifier.verify_proof_of_type(input.circuit_type, &proof)?;
+        verifier.verify_proof_of_type(input.proof_id.circuit_type, &proof)?;
 
         let realm_proof_public_inputs =  proof.public_inputs.clone();
-        let circuit_type = input.circuit_type;
+        let circuit_type = input.proof_id.circuit_type;
 
         // Report GUTA submission to watcher with structured metadata
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
@@ -351,11 +351,11 @@ impl CoordinatorEdgeHandler {
         checkpoint_queue.cdq_push_imm(queue_item.clone()).await?;
         trace!("✅ wrote guta result to proof store end");
         let metadata = queue_item.get_dq_metadata();
-        let items: Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> =
-            checkpoint_queue.cdq_peek_imm(metadata.channel_id).await?;
+        let items_len: usize =
+            checkpoint_queue.cdq_len_imm(metadata.channel_id).await?;
         debug!(
             "Retrieved GUTA queue items: {} items, metadata: {:#?}",
-            items.len(),
+            items_len,
             metadata
         );
 
@@ -1139,7 +1139,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
             guta_stats: realm_result.header.guta_stats,
             top_line_proof,
             checkpoint_tree_root,
-            circuit_type: realm_result.header.root_job_id.circuit_type,
+            proof_id: realm_result.header.root_job_id,
         };
         let proof = bincode::deserialize::<ProofWithPublicInputs<F, C, D>>(&realm_result.proof)
             .map_err(|err| RpcError::Anyhow(anyhow::format_err!(err.to_string())))?;
