@@ -189,7 +189,14 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
             });
         }
 
-        for (_, proof) in jobs {
+        for (job_info, proof) in jobs {
+            let (root, nullifier_index) = proof.compute_root_and_nullifier_index();
+            if root != checkpoint_leaf.stats.pm_rewards_commitment.gutas_root {
+                warn!("Skipping job {:?} with proof {} due to guta root mismatch (computed_root={}, expected_root={})",
+                  job_info, serde_json::to_string_pretty(&proof).unwrap(), root, checkpoint_leaf.stats.pm_rewards_commitment.gutas_root);
+                continue;
+            }
+
             all_proofs_with_checkpoints.push(ProofWithCheckpoint {
                 checkpoint_id,
                 proof: proof.clone(),

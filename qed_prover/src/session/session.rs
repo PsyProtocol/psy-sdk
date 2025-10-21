@@ -61,6 +61,7 @@ use qedlang_core::dpn::{
 };
 use qed_core::job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::local::{
     args::WalletSessionArgs,
@@ -1045,14 +1046,13 @@ impl WalletSession {
             }
 
             tracing::info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, jobs.len());
-            for (job_info, _) in jobs {
-                tracing::info!("  - {} ({})", job_info.job_id.to_hex_string(), match &job_info.location {
-                    JobLocation::Coordinator => "coordinator".to_string(),
-                    JobLocation::Realm(id) => format!("realm:{}", id),
-                });
-            }
-
-            for (_, proof) in jobs {
+            for (job_info, proof) in jobs {
+                let (root, nullifier_index) = proof.compute_root_and_nullifier_index();
+                if root != checkpoint_leaf.stats.pm_rewards_commitment.gutas_root {
+                    warn!("Skipping job {:?} with proof {} due to guta root mismatch (computed_root={}, expected_root={})",
+                      job_info, serde_json::to_string_pretty(&proof).unwrap(), root, checkpoint_leaf.stats.pm_rewards_commitment.gutas_root);
+                    continue;
+                }
                 all_proofs_with_checkpoints.push(ProofWithCheckpoint {
                     checkpoint_id,
                     proof: proof.clone(),
