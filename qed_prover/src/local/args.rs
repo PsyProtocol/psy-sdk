@@ -85,17 +85,7 @@ pub struct ProveProxyArgs {
     pub listen_addr: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum JobLocation {
-    Realm(u64),
-    Coordinator,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JobInfo {
-    pub job_id: QProvingJobDataID,
-    pub location: JobLocation,
-}
+pub use crate::local::provider::{JobInfo, JobLocation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmJobData {

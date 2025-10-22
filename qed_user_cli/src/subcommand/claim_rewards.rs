@@ -74,9 +74,9 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     info!("Latest checkpoint: {}", latest_checkpoint_id);
 
-    let start_checkpoint = if let Some(start_id) = args.start_checkpoint_id {
-        info!("Using manually specified start checkpoint: {}", start_id);
-        start_id
+    let start_checkpoint = if let Some(start_checkpoint_id) = args.start_checkpoint_id {
+        info!("Using manually specified start checkpoint: {}", start_checkpoint_id);
+        start_checkpoint_id
     } else {
         let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id).await {
             Ok(checkpoint) => {
@@ -104,42 +104,52 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         return Ok(());
     }
 
-    let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
+    let mut checkpoint_jobs: HashMap<u64, Vec<VariableHeightRewardMerkleProof>> = HashMap::new();
     let mut processed_count = 0;
 
     info!("Claiming rewards from checkpoint {} to {} (limit: {}, latest: {}, cooldown: {})",
           start_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown);
 
-    // Load all jobs at once from API or individually from files
     let all_job_infos = if !args.jobs.is_empty() {
-        // Use manually specified jobs for all checkpoints
+        info!("Using manually specified jobs from args.jobs");
         let jobs = parse_job_specs(&args.jobs)?;
         let mut all_jobs = HashMap::new();
-        for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
-            all_jobs.insert(checkpoint_id, jobs.clone());
+        for job in jobs {
+            let checkpoint_id = job.job_id.goal_id;
+            if checkpoint_id >= start_checkpoint && checkpoint_id <= max_claimable_checkpoint {
+                all_jobs.entry(checkpoint_id).or_insert_with(Vec::new).push(job);
+            }
         }
+        info!("Loaded {} checkpoints from manual job specs", all_jobs.len());
         all_jobs
     } else if args.api_service_url.is_empty() {
-        // Load from files per checkpoint when API URL is empty
+        info!("Loading jobs from file (api_service_url is empty)");
+        let all_jobs_from_file = load_jobs_from_tracker_file(&user_pk_hash)?;
         let mut all_jobs = HashMap::new();
-        for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
-            let jobs = load_jobs_from_tracker_file(&user_pk_hash, checkpoint_id)?;
-            if !jobs.is_empty() {
-                all_jobs.insert(checkpoint_id, jobs);
+        for job in all_jobs_from_file {
+            let checkpoint_id = job.job_id.goal_id;
+            if checkpoint_id >= start_checkpoint && checkpoint_id <= max_claimable_checkpoint {
+                all_jobs.entry(checkpoint_id).or_insert_with(Vec::new).push(job);
             }
         }
         all_jobs
     } else {
-        // Load from API once
-        load_jobs_from_api_service(&args.api_service_url, &user_pk_hash, start_checkpoint, max_claimable_checkpoint, args.limit).await?
+        info!("Using API service at {}", args.api_service_url);
+        let result = load_jobs_from_api_service(&args.api_service_url, &user_pk_hash, start_checkpoint, max_claimable_checkpoint, args.limit).await?;
+        result
     };
 
-    for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
+    info!("all_job_infos: {}", serde_json::to_string_pretty(&all_job_infos).unwrap());
+
+    let mut sorted_checkpoints: Vec<_> = all_job_infos.keys().copied().collect();
+    sorted_checkpoints.sort();
+
+    for checkpoint_id in sorted_checkpoints {
         if processed_count >= args.limit {
             break;
         }
-        let mut job_infos = all_job_infos.get(&checkpoint_id).cloned().unwrap_or_default();
 
+        let mut job_infos = all_job_infos.get(&checkpoint_id).cloned().unwrap_or_default();
         job_infos.retain(|job_info| {
             matches!(job_info.job_id.circuit_type,
                 ProvingJobCircuitType::GUTAOnlyRegisterUsers
@@ -155,33 +165,30 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
                 | ProvingJobCircuitType::GUTANoChange
             )
         });
-
         if job_infos.is_empty() {
             continue;
         }
-
         info!("Checkpoint {} - Found {} valid jobs", checkpoint_id, job_infos.len());
 
-        for job_info in job_infos {
-
-            match get_job_proof(&provider, &job_info, checkpoint_id).await {
-                Ok((actual_checkpoint_id, job_proof)) => {
-                    info!("Found job proof for checkpoint {}, job {:?}", actual_checkpoint_id, job_info.job_id);
+        match provider.get_job_proofs(job_infos.clone()).await {
+            Ok(results) => {
+                for (root_job_id, job_proof) in results {
+                    let actual_checkpoint_id = root_job_id.goal_id;
                     checkpoint_jobs.entry(actual_checkpoint_id)
                         .or_insert_with(Vec::new)
-                        .push((job_info, job_proof));
-                }
-                Err(e) => {
-                    warn!("Failed to get job proof for checkpoint {}, job {:?}: {}", checkpoint_id, job_info.job_id, e);
+                        .push((job_proof.clone().pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT)));
                 }
             }
+            Err(e) => {
+                warn!("Failed to get job proofs for checkpoint {}: {}", checkpoint_id, e);
+            }
         }
-
         processed_count += 1;
     }
 
+    info!("Total jobs attempted: processed {} checkpoints, checkpoint_jobs.len() = {}", processed_count, checkpoint_jobs.len());
     if checkpoint_jobs.is_empty() {
-        info!("No valid checkpoints with rewards to claim");
+        info!("No valid checkpoints with rewards to claim - all job proofs failed");
         return Ok(());
     }
 
@@ -189,38 +196,19 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     sorted_checkpoints.sort();
 
     let mut all_proofs_with_checkpoints = Vec::new();
-
     for &checkpoint_id in &sorted_checkpoints {
         let jobs = checkpoint_jobs.get(&checkpoint_id).unwrap();
-
         let checkpoint_leaf = provider.get_checkpoint_leaf_data(checkpoint_id).await?;
         let fees_collected = checkpoint_leaf.stats.fees_collected.to_canonical_u64();
         let gutas_completed = checkpoint_leaf.stats.pm_jobs_completed.gutas_completed.to_canonical_u64();
-
         let proposed_reward = if gutas_completed > 0 { fees_collected / gutas_completed } else { 0u64 };
-
         if proposed_reward == 0 {
             warn!("Skipping checkpoint {} due to zero reward (fees_collected={}, gutas_completed={})",
                   checkpoint_id, fees_collected, gutas_completed);
             continue;
         }
-
         info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, jobs.len());
-        for (job_info, _) in jobs {
-            info!("  - {} ({})", job_info.job_id.to_hex_string(), match &job_info.location {
-                JobLocation::Coordinator => "coordinator".to_string(),
-                JobLocation::Realm(id) => format!("realm:{}", id),
-            });
-        }
-
-        for (job_info, proof) in jobs {
-            let (root, nullifier_index) = proof.compute_root_and_nullifier_index();
-            if root != checkpoint_leaf.stats.pm_rewards_commitment.gutas_root {
-                warn!("Skipping job {:?} with proof {} due to guta root mismatch (computed_root={}, expected_root={})",
-                  job_info, serde_json::to_string_pretty(&proof).unwrap(), root, checkpoint_leaf.stats.pm_rewards_commitment.gutas_root);
-                continue;
-            }
-
+        for proof in jobs {
             all_proofs_with_checkpoints.push(ProofWithCheckpoint {
                 checkpoint_id,
                 proof: proof.clone(),
@@ -228,41 +216,33 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
             });
         }
     }
-
     if all_proofs_with_checkpoints.is_empty() {
         info!("No checkpoints with valid rewards to claim");
         return Ok(());
     }
-
     let mut all_contract_calls = build_claim_calls_for_multi_checkpoints(&all_proofs_with_checkpoints);
-
     if all_contract_calls.is_empty() {
         info!("No checkpoints with valid rewards to claim");
         return Ok(());
     }
-
     let last_checkpoint = all_proofs_with_checkpoints
         .last()
         .unwrap()
         .checkpoint_id;
-
     all_contract_calls.push(ContractCallArgs {
         contract_id: MINING_REWARDS_CONTRACT_ID,
         method_name: "end_session".to_string(),
         inputs: vec![last_checkpoint],
     });
-
     all_contract_calls.push(ContractCallArgs {
         contract_id: TOKEN_CONTRACT_ID as u64,
         method_name: "simple_claim_pow_rewards".to_string(),
         inputs: vec![last_checkpoint],
     });
-
     if all_contract_calls.is_empty() {
         info!("No rewards to claim");
         return Ok(());
     }
-
     info!("Executing {} contract calls in single transaction", all_contract_calls.len());
     let sign_data = fingerprint.map(|fp| SignData {
         fingerprint: fp,
@@ -274,15 +254,9 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         all_contract_calls,
         sign_data,
     ).await?;
-
-
-
     info!("Successfully claimed rewards with tx hash: {}", tx_hash);
-
     Ok(())
 }
-
-
 
 async fn get_last_claimed_checkpoint_id(provider: &RpcProvider, user_id: u64, latest_checkpoint_id: u64) -> Result<u64> {
     let proof = provider.get_user_contract_state_tree_merkle_proof(
@@ -414,25 +388,6 @@ fn serialize_proof_to_inputs(proof: &VariableHeightRewardMerkleProof, inputs: &m
     inputs.extend(vec![proof.proof_height.0, proof.index.0]);
 }
 
-async fn get_job_proof(
-    provider: &RpcProvider,
-    job_info: &JobInfo,
-    checkpoint_id: u64,
-) -> anyhow::Result<(u64, qed_core::job::id::VariableHeightRewardMerkleProof)> {
-    let (job_proof, actual_checkpoint_id) = match &job_info.location {
-        JobLocation::Realm(realm_id) => {
-            let (proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id()).await?;
-            (proof, root_job_id.goal_id)
-        }
-        JobLocation::Coordinator => {
-            let (proof, root_job_id) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id()).await?;
-            (proof, root_job_id.goal_id)
-        }
-    };
-
-    Ok((actual_checkpoint_id, job_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT)))
-}
-
 fn parse_job_specs(specs: &[String]) -> Result<Vec<JobInfo>> {
     let mut job_infos = Vec::new();
 
@@ -503,7 +458,7 @@ async fn load_jobs_from_api_service(
 }
 
 
-fn load_jobs_from_tracker_file(public_key: &QHashOut<F>, target_checkpoint_id: u64) -> Result<Vec<JobInfo>> {
+fn load_jobs_from_tracker_file(public_key: &QHashOut<F>) -> Result<Vec<JobInfo>> {
     let filename = format!("{}.json", public_key.to_string());
 
     if !std::path::Path::new(&filename).exists() {
@@ -511,13 +466,32 @@ fn load_jobs_from_tracker_file(public_key: &QHashOut<F>, target_checkpoint_id: u
     }
 
     let content = std::fs::read_to_string(&filename)?;
-    let tracker: WorkerJobTracker = serde_json::from_str(&content)?;
 
+    if let Ok(tracker) = serde_json::from_str::<WorkerJobTracker>(&content) {
+        info!("Parsing worker job tracker format");
+        return parse_worker_job_tracker_format(tracker);
+    }
+
+    if let Ok(events) = serde_json::from_str::<Vec<WorkerEvent>>(&content) {
+        info!("Parsing worker event format");
+        return parse_worker_event_format(events);
+    }
+
+    if let Ok(checkpoint_jobs_tuples) = serde_json::from_str::<Vec<(u64, Vec<JobInfo>)>>(&content) {
+        info!("Parsing job info format");
+        return parse_job_info_format(checkpoint_jobs_tuples);
+    }
+
+    Err(anyhow::format_err!("Failed to parse job file in any known format"))
+}
+
+
+fn parse_worker_job_tracker_format(tracker: WorkerJobTracker) -> Result<Vec<JobInfo>> {
     let mut job_infos = Vec::new();
 
-    if let Some(coordinator_jobs) = tracker.coordinator.get(&target_checkpoint_id) {
+    for (_checkpoint_id, coordinator_jobs) in tracker.coordinator {
         for job_hex in coordinator_jobs {
-            let job_id = parse_job_id_from_hex(job_hex)?;
+            let job_id = parse_job_id_from_hex(&job_hex)?;
             job_infos.push(JobInfo {
                 job_id,
                 location: JobLocation::Coordinator,
@@ -526,7 +500,7 @@ fn load_jobs_from_tracker_file(public_key: &QHashOut<F>, target_checkpoint_id: u
     }
 
     for realm in &tracker.realms {
-        if let Some(realm_jobs) = realm.checkpoints.get(&target_checkpoint_id) {
+        for (_checkpoint_id, realm_jobs) in &realm.checkpoints {
             for job_hex in realm_jobs {
                 let job_id = parse_job_id_from_hex(job_hex)?;
                 job_infos.push(JobInfo {
@@ -540,150 +514,35 @@ fn load_jobs_from_tracker_file(public_key: &QHashOut<F>, target_checkpoint_id: u
     Ok(job_infos)
 }
 
+fn parse_worker_event_format(events: Vec<WorkerEvent>) -> Result<Vec<JobInfo>> {
+    let mut job_infos = Vec::new();
+
+    for event in events {
+        let job_id = event.job_id;
+        let location = match event.source {
+            WorkerEventSource::Coordinator => JobLocation::Coordinator,
+            WorkerEventSource::Realm => JobLocation::Realm(event.realm_id.unwrap_or(0) as u64),
+        };
+
+        job_infos.push(JobInfo {
+            job_id,
+            location,
+        });
+    }
+
+    Ok(job_infos)
+}
+
+fn parse_job_info_format(checkpoint_jobs_tuples: Vec<(u64, Vec<JobInfo>)>) -> Result<Vec<JobInfo>> {
+    let mut all_jobs = Vec::new();
+    for (_checkpoint_id, jobs) in checkpoint_jobs_tuples {
+        all_jobs.extend(jobs);
+    }
+    Ok(all_jobs)
+}
+
 fn parse_job_id_from_hex(hex_str: &str) -> Result<QProvingJobDataID> {
     let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
     let bytes = hex::decode(hex_str)?;
     QProvingJobDataID::try_from_byte_vec(&bytes)
-}
-
-
-pub async fn run_with_wallet_session_claim_rewards(args: ClaimRewardsArgs) -> Result<()> {
-    let config_str = std::fs::read_to_string(&args.rpc_config)?;
-    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
-    let private_key = QHashOut::from(Hash256::from_hex_string(&args.private_key)?);
-
-    let provider = RpcProvider::new_with_config(&rpc_config)?;
-    let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let fingerprint = if args.fingerprint.is_some() {
-        Some(QHashOut::<F>::from_str(&args.fingerprint.as_ref().unwrap()).map_err(|e| anyhow::format_err!("Failed to parse fingerprint: {}", e))?)
-    } else {
-        None
-    };
-
-    let user_pk_hash = wallet_session.add_user_with_type(private_key, args.sign_type.clone(), fingerprint).await?;
-    let user_id = provider.get_user_id(user_pk_hash).await?;
-
-    let latest_l2_block_state = provider.get_latest_l2_block_state().await?;
-    let latest_checkpoint_id = latest_l2_block_state.checkpoint_id;
-
-    info!("Latest checkpoint: {}", latest_checkpoint_id);
-
-    let start_checkpoint = if let Some(start_id) = args.start_checkpoint_id {
-        info!("Using manually specified start checkpoint: {}", start_id);
-        start_id
-    } else {
-        let last_claimed = match get_last_claimed_checkpoint_id(&provider, user_id, latest_checkpoint_id).await {
-            Ok(checkpoint) => {
-                info!("Last claimed checkpoint: {}", checkpoint);
-                checkpoint
-            }
-            Err(e) => {
-                warn!("Failed to query last claimed checkpoint ({}), starting from checkpoint 1", e);
-                0
-            }
-        };
-        last_claimed + 1
-    };
-
-    let claim_rewards_cooldown = 0;
-    let max_claimable_checkpoint = if latest_checkpoint_id > claim_rewards_cooldown {
-        latest_checkpoint_id - claim_rewards_cooldown
-    } else {
-        0
-    };
-
-    if start_checkpoint > max_claimable_checkpoint {
-        info!("No new checkpoints to claim (latest: {}, cooldown: {}, max claimable: {})",
-              latest_checkpoint_id, claim_rewards_cooldown, max_claimable_checkpoint);
-        return Ok(());
-    }
-
-    let mut checked_job_infos = Vec::new();
-    let mut processed_count = 0;
-
-    info!("Claiming rewards from checkpoint {} to {} (limit: {}, latest: {}, cooldown: {})",
-          start_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown);
-
-    // Load all jobs at once from API or individually from files
-    let all_job_infos = if !args.jobs.is_empty() {
-        // Use manually specified jobs for all checkpoints
-        let jobs = parse_job_specs(&args.jobs)?;
-        let mut all_jobs = HashMap::new();
-        for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
-            all_jobs.insert(checkpoint_id, jobs.clone());
-        }
-        all_jobs
-    } else if args.api_service_url.is_empty() {
-        // Load from files per checkpoint when API URL is empty
-        let mut all_jobs = HashMap::new();
-        for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
-            let jobs = load_jobs_from_tracker_file(&user_pk_hash, checkpoint_id)?;
-            if !jobs.is_empty() {
-                all_jobs.insert(checkpoint_id, jobs);
-            }
-        }
-        all_jobs
-    } else {
-        // Load from API once
-        load_jobs_from_api_service(&args.api_service_url, &user_pk_hash, start_checkpoint, max_claimable_checkpoint, args.limit).await?
-    };
-
-    for checkpoint_id in start_checkpoint..=max_claimable_checkpoint {
-        if processed_count >= args.limit {
-            break;
-        }
-        let mut job_infos = all_job_infos.get(&checkpoint_id).cloned().unwrap_or_default();
-
-        job_infos.retain(|job_info| {
-            matches!(job_info.job_id.circuit_type,
-                ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                | ProvingJobCircuitType::GUTARegisterUsers
-                | ProvingJobCircuitType::GUTATwoEndCap
-                | ProvingJobCircuitType::GUTATwoGUTA
-                | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                | ProvingJobCircuitType::GUTASingleEndCap
-                | ProvingJobCircuitType::GUTAVerifyToCap
-                | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-                | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                | ProvingJobCircuitType::GUTANoChange
-            )
-        });
-
-        if job_infos.is_empty() {
-            continue;
-        }
-
-        info!("Checkpoint {} - Found {} valid jobs", checkpoint_id, job_infos.len());
-        checked_job_infos.push((checkpoint_id, job_infos));
-
-        processed_count += 1;
-    }
-
-    if checked_job_infos.is_empty() {
-        info!("No valid checkpoints with rewards to claim");
-        return Ok(());
-    }
-
-
-    info!("Executing {} contract calls in single transaction", checked_job_infos.len());
-    let all_contract_calls = wallet_session.get_claim_rewards_call_args(
-        user_pk_hash,
-        checked_job_infos,
-    ).await?;
-    let sign_data = fingerprint.map(|fp| SignData {
-        fingerprint: fp,
-        sign_contract_id: MINING_REWARDS_CONTRACT_ID,
-        sign_inputs: vec![],
-    });
-    let tx_hash = wallet_session.exec_contract_call_with_sign_data(
-        user_pk_hash,
-        all_contract_calls,
-        sign_data,
-    ).await?;
-
-    info!("Successfully claimed rewards with tx hash: {}", tx_hash);
-
-    Ok(())
 }
