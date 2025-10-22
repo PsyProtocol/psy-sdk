@@ -1194,7 +1194,7 @@ impl QEDEvalSessionResult<GF> {
         Ok(())
     }
 
-    pub async fn exec_contract_call_with_caller<R: QEDReadCommandProcessorSync<GF> + Send + Sync>(
+    pub async fn exec_deferred_contract_call<R: QEDReadCommandProcessorSync<GF> + Send + Sync>(
         self,
         sesh: &mut QEDLocalProvingSessionStore<GF, R>,
         contract_id: GF,
@@ -1218,7 +1218,7 @@ impl QEDEvalSessionResult<GF> {
         fn_def: &DPNFunctionCircuitDefinition,
         inputs: Vec<GF>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
-        self.exec_contract_call_with_caller(
+        self.exec_deferred_contract_call(
             sesh,
             contract_id,
             GF::ZERO,

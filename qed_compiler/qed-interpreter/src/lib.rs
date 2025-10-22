@@ -951,6 +951,9 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                     CheckedIntrinsicExprNode::GetContractId { .. } => {
                         CheckedValueRef::from_felt(self.context.get_contract_id())
                     }
+                    CheckedIntrinsicExprNode::GetCallerContractId { .. } => {
+                        CheckedValueRef::from_felt(self.context.get_caller_contract_id())
+                    }
                     CheckedIntrinsicExprNode::GetCheckpointId { .. } => {
                         CheckedValueRef::from_felt(self.context.get_checkpoint_id())
                     }

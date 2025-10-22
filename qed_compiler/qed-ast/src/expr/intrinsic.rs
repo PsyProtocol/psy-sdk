@@ -8,6 +8,9 @@ pub enum IntrinsicExprNode {
     GetContractId {
         location: Location,
     },
+    GetCallerContractId {
+        location: Location,
+    },
     GetCheckpointId {
         location: Location,
     },

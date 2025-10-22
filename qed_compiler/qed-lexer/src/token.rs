@@ -69,6 +69,8 @@ pub enum Token<'input> {
     IntrinsicCtxGetUserId,
     #[token("__ctx_get_contract_id")]
     IntrinsicCtxGetContractId,
+    #[token("__ctx_get_caller_contract_id")]
+    IntrinsicCtxGetCallerContractId,
     #[token("__ctx_get_checkpoint_id")]
     IntrinsicCtxGetCheckpointId,
     #[token("__ctx_get_checkpoint_stats")]

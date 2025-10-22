@@ -626,7 +626,7 @@ impl<
         Ok(proof)
     }
 
-    pub async fn exec_contract_call_with_caller(
+    pub async fn exec_deferred_contract_call(
         &mut self,
         contract_id: F,
         caller_contract_id: F,
@@ -637,7 +637,7 @@ impl<
             self.proof_tree_state.get_proof_tree_root().await
         );
         QEDEvalSessionResult::new()
-            .exec_contract_call_with_caller(
+            .exec_deferred_contract_call(
                 &mut self.lps,
                 contract_id,
                 caller_contract_id,
@@ -652,7 +652,7 @@ impl<
         fn_circuit_def: &DPNFunctionCircuitDefinition,
         inputs: Vec<F>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
-        self.exec_contract_call_with_caller(contract_id, F::ZERO, fn_circuit_def, inputs).await
+        self.exec_deferred_contract_call(contract_id, F::ZERO, fn_circuit_def, inputs).await
     }
 
     async fn repay_deferred_debt(
@@ -687,7 +687,7 @@ impl<
         let method_id = deferred_tx.method_id.to_canonical_u64() as u32;
         let contract_id = deferred_tx.contract_id.to_canonical_u64();
         let (fn_id, fn_circuit_def) = self.resolve_contract_function(contract_id, method_id).await?;
-        let cfc_proof_input = self.exec_contract_call_with_caller(
+        let cfc_proof_input = self.exec_deferred_contract_call(
             deferred_tx.contract_id,
             deferred_tx.caller_contract_id,
             &fn_circuit_def,

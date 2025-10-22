@@ -123,7 +123,6 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProv
         mapping.into_iter().map(|(k,v)|{
             (k, v)
         }).collect()
-
     }
     pub fn get_total_slots_modified(&self) -> F {
         F::from_canonical_u32(self.local_state_tracker.total_slots_modified)
