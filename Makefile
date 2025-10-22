@@ -545,6 +545,15 @@ run-watcher-realm1-tikv:
 run-all-tikv: shutdown-tikv init-tikv compile
 	@./scripts/run_all_tikv.sh
 
+build-node:
+	@docker build -f Dockerfile-qed-rollup . -t qed-rollup:latest
+
+run-node: init-tikv
+	@docker-compose -f ./scripts/docker-compose.node.yml up -d
+
+shutdown-node: shutdown-tikv
+	@docker-compose -f ./scripts/docker-compose.node.yml down -v
+
 run-user-prover:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover
 
