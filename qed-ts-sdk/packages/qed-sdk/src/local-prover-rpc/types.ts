@@ -127,7 +127,7 @@ interface IQedUserProverProvider {
     signAndSubmit(pk_hash: string): Promise<QHashOut>;
     signAndSubmitWithData(pk_hash: string, signData: SignData): Promise<QHashOut>;
 
-    getClaimRewardsCallArgs(pk_hash: string, jobInfos: string): Promise<ContractCallArgs[]>;
+    getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
     claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
 
     // User operations

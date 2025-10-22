@@ -32,9 +32,9 @@ export class QedWasmUserProverProvider implements IQedUserProverProvider {
         return this.wasmServer.exec_contract_call_with_sign_data_json(pkHash, json, signDataJson);
     }
 
-    async getClaimRewardsCallArgs(pkHash: PublicKey, jobInfos: string): Promise<ContractCallArgs[]> {
+    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
         // const json = QedJSON.stringify(jobInfos);
-        const contractCallArgs = await this.wasmServer.get_claim_rewards_call_args_json(pkHash, jobInfos);
+        const contractCallArgs = await this.wasmServer.get_claim_rewards_call_args_json(jobInfos);
         return QedJSON.parse(contractCallArgs) as ContractCallArgs[];
     }
 

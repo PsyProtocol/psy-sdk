@@ -48,8 +48,8 @@ class QedMemoryTransactionSignerProvider implements IQedTransactionSignerProvide
         return this.proverProvider.addUserWithType(privateKeyHex, signType, fingerprint);
     }
 
-    async getClaimRewardsCallArgs(pk_hash: string, jobInfos: string): Promise<ContractCallArgs[]> {
-        return this.proverProvider.getClaimRewardsCallArgs(pk_hash, jobInfos);
+    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
+        return this.proverProvider.getClaimRewardsCallArgs(jobInfos);
     }
 
     async claimRewards(pk_hash: string, jobInfos: string): Promise<string> {

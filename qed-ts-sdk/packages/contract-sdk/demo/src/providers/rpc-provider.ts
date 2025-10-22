@@ -2,6 +2,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { IContractProvider, GUint } from '../sdk/types';
 import { config, getRpcUrls, getRealmRpcUrl, getCoordinatorRpcUrl, getKeyPairByPublicKey } from '../config';
+import { QedJSON } from '@qed/qed-sdk';
 
 export interface RpcRequest {
     jsonrpc: '2.0';
@@ -476,7 +477,7 @@ export class RpcProvider implements IContractProvider {
 
     private mockSign(privateKey: string, contractId: GUint, functionName: string, args: any[]): string {
         // Mock signature - in production, use actual cryptographic signing
-        const message = `${contractId}-${functionName}-${JSON.stringify(args)}`;
+        const message = `${contractId}-${functionName}-${QedJSON.stringify(args)}`;
         return `sig-${privateKey.substring(0, 8)}-${message.substring(0, 8)}`;
     }
 

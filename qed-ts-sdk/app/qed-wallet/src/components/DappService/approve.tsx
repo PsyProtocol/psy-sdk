@@ -32,7 +32,7 @@ const parsemsgParams = (): msgParams | null => {
     // Base64 decode
     const decodedJson = decodeURIComponent(escape(atob(base64Str)));
 
-    const params = JSON.parse(decodedJson) as msgParams;
+    const params = QedJSON.parse(decodedJson) as msgParams;
     return params;
   } catch (error) {
     console.error('Parameter parsing failed:', error);
@@ -140,7 +140,7 @@ const ApprovePopup = () => {
         console.log('Stored data:', stored);
 
         if (stored) {
-          const data: StoredWalletData = JSON.parse(stored);
+          const data: StoredWalletData = QedJSON.parse(stored);
           console.log('Parsed stored data:', data);
 
           // Check if data is not too old (24 hours)
