@@ -34,10 +34,22 @@ REALM_EDGE_LOG="$LOG_DIR/realm-edge-tikv.log"
 
 REALM_PROCESSOR1_LOG="$LOG_DIR/realm-processor1-tikv.log"
 REALM_EDGE1_LOG="$LOG_DIR/realm-edge1-tikv.log"
+REALM_PROCESSOR2_LOG="$LOG_DIR/realm-processor2-tikv.log"
+REALM_EDGE2_LOG="$LOG_DIR/realm-edge2-tikv.log"
+REALM_PROCESSOR3_LOG="$LOG_DIR/realm-processor3-tikv.log"
+REALM_EDGE3_LOG="$LOG_DIR/realm-edge3-tikv.log"
+REALM_PROCESSOR4_LOG="$LOG_DIR/realm-processor4-tikv.log"
+REALM_EDGE4_LOG="$LOG_DIR/realm-edge4-tikv.log"
+REALM_PROCESSOR5_LOG="$LOG_DIR/realm-processor5-tikv.log"
+REALM_EDGE5_LOG="$LOG_DIR/realm-edge5-tikv.log"
 
 WORKER0_LOG="$LOG_DIR/worker0.log"
 WORKER1_LOG="$LOG_DIR/worker1.log"
 WORKER2_LOG="$LOG_DIR/worker2.log"
+WORKER3_LOG="$LOG_DIR/worker3.log"
+WORKER4_LOG="$LOG_DIR/worker4.log"
+WORKER5_LOG="$LOG_DIR/worker5.log"
+WORKER6_LOG="$LOG_DIR/worker6.log"
 
 API_SERVICES_LOG="$LOG_DIR/api-services.log"
 
@@ -57,11 +69,23 @@ echo "Clearing log files..."
 : > "$REALM_EDGE_LOG"
 : > "$REALM_PROCESSOR1_LOG"
 : > "$REALM_EDGE1_LOG"
+: > "$REALM_PROCESSOR2_LOG"
+: > "$REALM_EDGE2_LOG"
+: > "$REALM_PROCESSOR3_LOG"
+: > "$REALM_EDGE3_LOG"
+: > "$REALM_PROCESSOR4_LOG"
+: > "$REALM_EDGE4_LOG"
+: > "$REALM_PROCESSOR5_LOG"
+: > "$REALM_EDGE5_LOG"
 : > "$LOCAL_PROVE_PROXY_LOG"
 : > "$WEB_WALLET_LOG"
 : > "$WORKER0_LOG"
 : > "$WORKER1_LOG"
 : > "$WORKER2_LOG"
+: > "$WORKER3_LOG"
+: > "$WORKER4_LOG"
+: > "$WORKER5_LOG"
+: > "$WORKER6_LOG"
 : > "$API_SERVICES_LOG"
 : > "$WATCHER_COORDINATOR_LOG"
 : > "$WATCHER_REALM0_LOG"
@@ -117,6 +141,14 @@ run_service "make run-realm-processor-tikv" "realm-processor-tikv" "$REALM_PROCE
 PIDS+=($!)
 run_service "make run-realm-processor1-tikv" "realm-processor1-tikv" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
+run_service "make run-realm-processor2-tikv" "realm-processor2-tikv" "$REALM_PROCESSOR2_LOG" &
+PIDS+=($!)
+run_service "make run-realm-processor3-tikv" "realm-processor3-tikv" "$REALM_PROCESSOR3_LOG" &
+PIDS+=($!)
+# run_service "make run-realm-processor4-tikv" "realm-processor4-tikv" "$REALM_PROCESSOR4_LOG" &
+# PIDS+=($!)
+# run_service "make run-realm-processor5-tikv" "realm-processor5-tikv" "$REALM_PROCESSOR5_LOG" &
+# PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors)
 sleep 8
@@ -126,6 +158,14 @@ run_service "make run-realm-edge-tikv" "realm-edge-tikv" "$REALM_EDGE_LOG" &
 PIDS+=($!)
 run_service "make run-realm-edge1-tikv" "realm-edge1-tikv" "$REALM_EDGE1_LOG" &
 PIDS+=($!)
+run_service "make run-realm-edge2-tikv" "realm-edge2-tikv" "$REALM_EDGE2_LOG" &
+PIDS+=($!)
+run_service "make run-realm-edge3-tikv" "realm-edge3-tikv" "$REALM_EDGE3_LOG" &
+PIDS+=($!)
+# run_service "make run-realm-edge4-tikv" "realm-edge4-tikv" "$REALM_EDGE4_LOG" &
+# PIDS+=($!)
+# run_service "make run-realm-edge5-tikv" "realm-edge5-tikv" "$REALM_EDGE5_LOG" &
+# PIDS+=($!)
 
 # Group 3: Start worker services (depend on edges)
 sleep 2
@@ -135,6 +175,14 @@ run_service "make run-worker1" "worker1" "$WORKER1_LOG" &
 PIDS+=($!)
 run_service "make run-worker2" "worker2" "$WORKER2_LOG" &
 PIDS+=($!)
+# run_service "make run-worker3" "worker3" "$WORKER3_LOG" &
+# PIDS+=($!)
+# run_service "make run-worker4" "worker4" "$WORKER4_LOG" &
+# PIDS+=($!)
+# run_service "make run-worker5" "worker5" "$WORKER5_LOG" &
+# PIDS+=($!)
+# run_service "make run-worker6" "worker6" "$WORKER6_LOG" &
+# PIDS+=($!)
 
 run_service "make run-api-services" "api-services" "$API_SERVICES_LOG" &
 PIDS+=($!)

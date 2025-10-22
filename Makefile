@@ -347,6 +347,26 @@ run-worker2:
       --config=./config.json \
       --private-key=${USER2_PRIVATE_KEY}
 
+run-worker3:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+      --config=./config.json \
+      --private-key=474cc8e224f11ae4e8fd954ba1ed452ddd6be1f0e7004dc9d8a3cde7904876ff
+
+run-worker4:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+      --config=./config.json \
+      --private-key=75e3573a6f5c4e5b5c03c9a030a945c4ab6ff275f7a575fdad9f09b910ab7244
+
+run-worker5:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+      --config=./config.json \
+      --private-key=691e70254fba261f3a095904daa35a85e7d341fa188fa66adb7f4a8688af51a0
+
+run-worker6:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+      --config=./config.json \
+      --private-key=48001860a5289eb83e4c5e4a7a080250703ee797716edc95038c64b9927ce01c
+
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 
 init-tikv: init
@@ -410,6 +430,84 @@ run-realm-edge1-tikv:
         --coordinator-addr=http://127.0.0.1:8545 \
 		--realm-id=1 \
 		--queue-biz-key realm1
+
+run-realm-processor2-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm2 \
+		--realm-id=2 \
+		--queue-biz-key realm2
+
+run-realm-edge2-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+		--listen-addr=0.0.0.0:8548 \
+        --redis-uri=redis://127.0.0.1:6379 \
+        --database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm2 \
+        --coordinator-addr=http://127.0.0.1:8545 \
+		--realm-id=2 \
+		--queue-biz-key realm2
+
+run-realm-processor3-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm3 \
+		--realm-id=3 \
+		--queue-biz-key realm3
+
+run-realm-edge3-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+		--listen-addr=0.0.0.0:8549 \
+        --redis-uri=redis://127.0.0.1:6379 \
+        --database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm3 \
+        --coordinator-addr=http://127.0.0.1:8545 \
+		--realm-id=3 \
+		--queue-biz-key realm3
+
+run-realm-processor4-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm4 \
+		--realm-id=4 \
+		--queue-biz-key realm4
+
+run-realm-edge4-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+		--listen-addr=0.0.0.0:8550 \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm4 \
+		--realm-id=4 \
+		--queue-biz-key realm4
+
+run-realm-processor5-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm5 \
+		--realm-id=5 \
+		--queue-biz-key realm5
+
+run-realm-edge5-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+		--listen-addr=0.0.0.0:8551 \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm5 \
+		--realm-id=5 \
+		--queue-biz-key realm5
 
 run-watcher-coordinator-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
