@@ -7,19 +7,9 @@ use std::fs;
 use std::path::Path;
 use tracing::{error, info, warn, trace};
 
+pub use qed_prover::local::provider::{JobInfo, JobLocation};
+
 type F = GoldilocksField;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum JobLocation {
-    Realm(u64),
-    Coordinator,
-}
-
-#[derive(Debug, Clone)]
-pub struct JobInfo {
-    pub job_id: QProvingJobDataID,
-    pub location: JobLocation,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmJobData {
