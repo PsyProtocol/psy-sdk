@@ -902,6 +902,8 @@ impl<
                     });
                 }
             } else {
+                // -1 0
+                //   2 3
                 let (r_proof_id, r_stats) = combo_stats[r_dep_ind as usize];
                 let l_dep_ind = -(l_dep_ind + 1) as usize;
                 let left_guta_item = &guta_queue_items[l_dep_ind];
@@ -909,19 +911,19 @@ impl<
                 if left_guta_item.checkpoint_tree_root != last_checkpoint_tree_root {
                     tracing::debug!("LeftRealmGutaRightCoordinatorGutaWithCheckpointUpgrade");
                     let real_last_guta_checkpoint_id = left_guta_item.checkpoint_id.saturating_sub(1);
-                    let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id).await?;
-                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id).await?;
+                    let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id).await?;
+                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id).await?;
                     let x = CircuitInputWithDependencies {
                         input: VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple {
                             historical_checkpoint_proof_a,
                             historical_checkpoint_proof_b,
-                            stats_a: r_stats,
-                            stats_b: left_guta_item.guta_stats.clone(),
+                            stats_a: left_guta_item.guta_stats.clone(),
+                            stats_b:  r_stats,
                             nca_proof: res.nca_proofs[i].to_partial(),
                         },
                         dependencies: vec![
-                            r_proof_id.get_output_id(),
                             left_guta_item.proof_id,
+                            r_proof_id.get_output_id(),
                         ],
                     };
                     x.input.check_witness()?;
@@ -953,13 +955,13 @@ impl<
                         input: VerifyTwoGUTAProofGadgetStandardInputSimple {
                             checkpoint_tree_root: last_checkpoint_tree_root,
                             b_checkpoint_tree_root: last_checkpoint_tree_root,
-                            stats_a: r_stats,
-                            stats_b: left_guta_item.guta_stats.clone(),
+                            stats_a: left_guta_item.guta_stats.clone(),
+                            stats_b: r_stats,
                             nca_proof: res.nca_proofs[i].to_partial(),
                         },
                         dependencies: vec![
-                            r_proof_id.get_output_id(),
                             left_guta_item.proof_id,
+                            r_proof_id.get_output_id(),
                         ],
                     };
                     x.input.check_witness()?;
