@@ -59,15 +59,15 @@ use qed_store::controllers::local::{
 use qedlang_core::dpn::{
     contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}, vm::def::DPNFunctionCircuitDefinition,
 };
-use qed_core::job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof};
+use qed_core::job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::local::{
     args::WalletSessionArgs,
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
         request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
-use crate::session::get_job_proof;
 use crate::local::args::JobInfo;
 
 pub fn gen_contract_deploy_and_circuits_for_functions<C: GenericConfig<D>, const D: usize>(
@@ -686,7 +686,7 @@ impl WalletSession {
         }
         user_session_mgr.mgr.prove_burn_fee(&self.wallet.random_circuit_manager()).await?;
         user_session_mgr.check_user_state().await?;
-        
+
         Ok(())
     }
 
@@ -974,48 +974,42 @@ impl WalletSession {
 
     pub async fn get_claim_rewards_call_args(
         &self,
-        public_key: QHashOut<F>,
-        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>)>
+        mut job_infos: Vec<JobInfo>
     ) -> anyhow::Result<Vec<ContractCallArgs>> {
-        let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
+        job_infos.retain(|job_info| {
+            matches!(job_info.job_id.circuit_type,
+                ProvingJobCircuitType::GUTAOnlyRegisterUsers
+                | ProvingJobCircuitType::GUTARegisterUsers
+                | ProvingJobCircuitType::GUTATwoEndCap
+                | ProvingJobCircuitType::GUTATwoGUTA
+                | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+                | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                | ProvingJobCircuitType::GUTASingleEndCap
+                | ProvingJobCircuitType::GUTAVerifyToCap
+                | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+                | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
+                | ProvingJobCircuitType::GUTANoChange
+            )
+        });
 
-        for (checkpoint_id, mut job_infos) in proofs_with_checkpoints {
+        if job_infos.is_empty() {
+            tracing::info!("No valid GUTA jobs found after filtering");
+            return Ok(Vec::new());
+        }
 
-            job_infos.retain(|job_info| {
-                matches!(job_info.job_id.circuit_type,
-                    ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                    | ProvingJobCircuitType::GUTARegisterUsers
-                    | ProvingJobCircuitType::GUTATwoEndCap
-                    | ProvingJobCircuitType::GUTATwoGUTA
-                    | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                    | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                    | ProvingJobCircuitType::GUTASingleEndCap
-                    | ProvingJobCircuitType::GUTAVerifyToCap
-                    | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTANoChange
-                )
-            });
+        let mut checkpoint_jobs: HashMap<u64, Vec<VariableHeightRewardMerkleProof>> = HashMap::new();
 
-            if job_infos.is_empty() {
-                continue;
-            }
-
-            tracing::info!("Checkpoint {} - Found {} valid jobs", checkpoint_id, job_infos.len());
-
-            for job_info in job_infos {
-
-                match get_job_proof(&self.st_provider, &job_info, checkpoint_id).await {
-                    Ok((actual_checkpoint_id, job_proof)) => {
-                        tracing::info!("Found job proof for checkpoint {}, job {:?}", actual_checkpoint_id, job_info.job_id);
-                        checkpoint_jobs.entry(actual_checkpoint_id)
-                            .or_insert_with(Vec::new)
-                            .push((job_info, job_proof));
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to get job proof for checkpoint {}, job {:?}: {}", checkpoint_id, job_info.job_id, e);
-                    }
+        match self.st_provider.get_job_proofs(job_infos).await {
+            Ok(results) => {
+                for (root_job_id, job_proof) in results {
+                    let actual_checkpoint_id = root_job_id.goal_id;
+                    checkpoint_jobs.entry(actual_checkpoint_id)
+                        .or_insert_with(Vec::new)
+                        .push(job_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT));
                 }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to get job proofs: {}", e);
             }
         }
 
@@ -1030,7 +1024,7 @@ impl WalletSession {
         let mut all_proofs_with_checkpoints = Vec::new();
 
         for &checkpoint_id in &sorted_checkpoints {
-            let jobs = checkpoint_jobs.get(&checkpoint_id).unwrap();
+            let proofs = checkpoint_jobs.get(&checkpoint_id).unwrap();
 
             let checkpoint_leaf = self.st_provider.get_checkpoint_leaf_data(checkpoint_id).await?;
             let fees_collected = checkpoint_leaf.stats.fees_collected.to_canonical_u64();
@@ -1044,15 +1038,8 @@ impl WalletSession {
                 continue;
             }
 
-            tracing::info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, jobs.len());
-            for (job_info, _) in jobs {
-                tracing::info!("  - {} ({})", job_info.job_id.to_hex_string(), match &job_info.location {
-                    JobLocation::Coordinator => "coordinator".to_string(),
-                    JobLocation::Realm(id) => format!("realm:{}", id),
-                });
-            }
-
-            for (_, proof) in jobs {
+            tracing::info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, proofs.len());
+            for proof in proofs {
                 all_proofs_with_checkpoints.push(ProofWithCheckpoint {
                     checkpoint_id,
                     proof: proof.clone(),
@@ -1099,79 +1086,14 @@ impl WalletSession {
         Ok(all_contract_calls)
     }
 
-    fn add_claim_call_for_batch(
-        &self,
-        contract_call_args: &mut Vec<ContractCallArgs>,
-        mining_rewards_contract_id: u64,
-        batch: Vec<(u64, VariableHeightRewardMerkleProof, u64)>,
-        method_name: &str,
-    ) -> anyhow::Result<()> {
-        let batch_size = batch.len();
-        let mut batch_inputs = Vec::new();
-
-        for (checkpoint_id, _, _) in &batch {
-            batch_inputs.push(*checkpoint_id);
-        }
-
-        for (_, proof, _) in &batch {
-            self.serialize_proof_to_inputs(proof, &mut batch_inputs);
-        }
-
-        for (_, _, proposed_reward) in &batch {
-            batch_inputs.push(*proposed_reward);
-        }
-
-        contract_call_args.push(ContractCallArgs {
-            contract_id: mining_rewards_contract_id,
-            method_name: method_name.to_string(),
-            inputs: batch_inputs,
-        });
-
-        tracing::info!("Added {} call with {} proofs", method_name, batch_size);
-        Ok(())
-    }
-
-    fn serialize_proof_to_inputs(&self, proof: &VariableHeightRewardMerkleProof, inputs: &mut Vec<u64>) {
-        for j in 0..qed_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT {
-            if j < proof.top_siblings.len() {
-                let sibling = &proof.top_siblings[j];
-                inputs.extend(vec![
-                    sibling.sibling_branch.0.elements[0].0,
-                    sibling.sibling_branch.0.elements[1].0,
-                    sibling.sibling_branch.0.elements[2].0,
-                    sibling.sibling_branch.0.elements[3].0,
-                    sibling.sibling_reward_leaf.0.elements[0].0,
-                    sibling.sibling_reward_leaf.0.elements[1].0,
-                    sibling.sibling_reward_leaf.0.elements[2].0,
-                    sibling.sibling_reward_leaf.0.elements[3].0,
-                ]);
-            } else {
-                inputs.extend(vec![0u64; 8]);
-            }
-        }
-        inputs.extend(vec![
-            proof.sibling_branch.0.elements[0].0,
-            proof.sibling_branch.0.elements[1].0,
-            proof.sibling_branch.0.elements[2].0,
-            proof.sibling_branch.0.elements[3].0,
-        ]);
-        inputs.extend(vec![
-            proof.reward_leaf.0.elements[0].0,
-            proof.reward_leaf.0.elements[1].0,
-            proof.reward_leaf.0.elements[2].0,
-            proof.reward_leaf.0.elements[3].0,
-        ]);
-        inputs.extend(vec![proof.proof_height.0, proof.index.0]);
-    }
-
     pub async fn claim_rewards(
         &self,
         user_pk_hash: QHashOut<F>,
-        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>)>,
+        job_infos: Vec<JobInfo>,
     ) -> anyhow::Result<()> {
         self.claim_rewards_with_sign_type(
             user_pk_hash,
-            proofs_with_checkpoints,
+            job_infos,
             None,
         ).await?;
         Ok(())
@@ -1180,13 +1102,11 @@ impl WalletSession {
     pub async fn claim_rewards_with_sign_type(
         &self,
         user_pk_hash: QHashOut<F>,
-        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>)>,
-        // sign_type: SignType,
+        job_infos: Vec<JobInfo>,
         sign_data: Option<SignData<F>>,
     ) -> anyhow::Result<()> {
         let contract_call_args = self.get_claim_rewards_call_args(
-            user_pk_hash,
-            proofs_with_checkpoints,
+            job_infos,
         ).await?;
 
         self.exec_contract_call_with_sign_data(

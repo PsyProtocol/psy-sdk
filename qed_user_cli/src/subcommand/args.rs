@@ -494,6 +494,10 @@ pub struct ClaimRewardsArgs {
     /// Starting checkpoint ID (optional, if not provided will start from last claimed + 1)
     #[clap(long)]
     pub start_checkpoint_id: Option<u64>,
+
+    /// API service URL for fetching worker events (if empty, uses file-based loading)
+    #[clap(long, default_value = "http://127.0.0.1:3000")]
+    pub api_service_url: String,
 }
 
 #[derive(Clone, Args, Serialize, Deserialize)]

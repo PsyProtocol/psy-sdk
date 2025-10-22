@@ -39,6 +39,18 @@ use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, marker::PhantomData, sync::Arc};
 
+#[derive(Debug, Clone, Deserialize, Serialize, Hash, Eq, PartialEq)]
+pub enum JobLocation {
+    Realm(u64),
+    Coordinator,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobInfo {
+    pub job_id: QProvingJobDataID,
+    pub location: JobLocation,
+}
+
 use crate::local::request::{
     QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QLatestL2BlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, RequestParamsV2
 };
@@ -459,91 +471,76 @@ impl RpcProvider {
         }
     }
 
-    pub async fn get_job_proof_from_coordinator(
+    pub async fn get_job_proofs(
         &self,
-        checkpoint_id: u64,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<(VariableHeightRewardMerkleProof, QProvingJobDataID)> {
-        let url = self.get_coordinator_url()?;
+        job_infos: Vec<JobInfo>,
+    ) -> anyhow::Result<Vec<(QProvingJobDataID, VariableHeightRewardMerkleProof)>> {
 
-        let output_job_id = job_id.get_output_id();
-        let request = serde_json::json!({
-            "jsonrpc": "2.0",
-            "method": "qed_generate_batch_variable_height_reward_proofs",
-            "params": [checkpoint_id, vec![output_job_id]],
-            "id": 1
-        });
+        let mut jobs_by_checkpoint: HashMap<u64, HashMap<JobLocation, Vec<JobInfo>>> = HashMap::new();
 
-        let response = self
-            .client
-            .post(url)
-            .json(&request)
-            .send()
-            .await?
-            .json::<serde_json::Value>()
-            .await?;
-
-        if let Some(error) = response.get("error") {
-            return Err(anyhow::format_err!("RPC error: {:?}", error));
+        for job_info in job_infos {
+            let checkpoint_id = job_info.job_id.goal_id;
+            jobs_by_checkpoint
+                .entry(checkpoint_id)
+                .or_insert_with(HashMap::new)
+                .entry(job_info.location.clone())
+                .or_insert_with(Vec::new)
+                .push(job_info);
         }
 
-        let result = response
-            .get("result")
-            .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
+        let mut all_results = Vec::new();
 
-        let proofs: Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
+        for (checkpoint_id, jobs_by_location) in jobs_by_checkpoint {
+            for (location, jobs) in jobs_by_location {
+                if jobs.is_empty() {
+                    continue;
+                }
 
-        if proofs.is_empty() {
-            return Err(anyhow::format_err!("No proof returned for job ID"));
+                let url = match &location {
+                    JobLocation::Coordinator => self.get_coordinator_url()?,
+                    JobLocation::Realm(realm_id) => {
+                        let realm_urls = self
+                            .realm_configs
+                            .get(realm_id)
+                            .ok_or(anyhow::format_err!("Realm {} not configured", realm_id))?;
+                        &realm_urls[0]
+                    }
+                };
+
+                let output_job_ids: Vec<_> = jobs.iter().map(|j| j.job_id.get_output_id()).collect();
+                let request = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "method": "qed_generate_batch_variable_height_reward_proofs",
+                    "params": [checkpoint_id, output_job_ids],
+                    "id": 1
+                });
+
+                let response = self
+                    .client
+                    .post(url)
+                    .json(&request)
+                    .send()
+                    .await?
+                    .json::<serde_json::Value>()
+                    .await?;
+
+                if let Some(error) = response.get("error") {
+                    return Err(anyhow::format_err!("RPC error: {:?}", error));
+                }
+
+                let result = response
+                    .get("result")
+                    .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
+
+                let proofs: Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
+
+                for (proof, job_id) in proofs {
+                    all_results.push((job_id, proof));
+                }
+            }
         }
 
-        Ok(proofs.into_iter().next().unwrap())
-    }
-
-    pub async fn get_job_proof_from_realm(
-        &self,
-        realm_id: u64,
-        checkpoint_id: u64,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<(VariableHeightRewardMerkleProof, QProvingJobDataID)> {
-        let realm_urls = self
-            .realm_configs
-            .get(&realm_id)
-            .ok_or(anyhow::format_err!("Realm {} not configured", realm_id))?;
-        let url = &realm_urls[0];
-
-        let output_job_id = job_id.get_output_id();
-        let request = serde_json::json!({
-            "jsonrpc": "2.0",
-            "method": "qed_generate_batch_variable_height_reward_proofs",
-            "params": [checkpoint_id, vec![output_job_id]],
-            "id": 1
-        });
-
-        let response = self
-            .client
-            .post(url)
-            .json(&request)
-            .send()
-            .await?
-            .json::<serde_json::Value>()
-            .await?;
-
-        if let Some(error) = response.get("error") {
-            return Err(anyhow::format_err!("RPC error: {:?}", error));
-        }
-
-        let result = response
-            .get("result")
-            .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
-
-        let proofs: Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
-
-        if proofs.is_empty() {
-            return Err(anyhow::format_err!("No proof returned for job ID"));
-        }
-
-        Ok(proofs.into_iter().next().unwrap())
+        Ok(all_results)
     }
 
     pub async fn get_claim_amount(&self, checkpoint_id: u64, user_id: u64, claim_user_id: u64) -> anyhow::Result<u64> {
@@ -560,7 +557,7 @@ impl RpcProvider {
             .await?.to_qfelts()[(sender_total_sent_slot_index) as usize].to_canonical_u64();
         let amount_claimed = self
             .get_user_contract_state_tree_leaf_hash(checkpoint_id, user_id, contract_id, height, amount_claimed_slot)
-            .await?.to_qfelts()[(amount_claimed_slot_index) as usize].to_canonical_u64();   
+            .await?.to_qfelts()[(amount_claimed_slot_index) as usize].to_canonical_u64();
 
         if amount_claimed > user_total_sent {
             return Err(anyhow::format_err!("amount claimed {} is greater than user total sent {}", amount_claimed, user_total_sent));
@@ -779,7 +776,7 @@ pub trait ProveProxyRpcTrait<C: GenericConfig<D>, const D: usize> {
 }
 
 #[derive(Clone, Debug)]
-pub struct ProveProxyRpcProvider<C: GenericConfig<D> + 'static, const D: usize> 
+pub struct ProveProxyRpcProvider<C: GenericConfig<D> + 'static, const D: usize>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {
@@ -827,7 +824,7 @@ pub struct LocalCommonCircuitsData<F: RichField> {
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> ProveProxyRpcProvider<C, D> 
+impl<C: GenericConfig<D> + 'static, const D: usize> ProveProxyRpcProvider<C, D>
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {

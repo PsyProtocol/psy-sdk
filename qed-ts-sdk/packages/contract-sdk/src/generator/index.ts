@@ -7,6 +7,7 @@ import { TypesGenerator } from "./types-generator";
 import { DecoderGenerator } from "./decoder-generator";
 import { AbiConverter } from "../converters/abi-converter";
 import { AbiFormat } from "../types/abi-format";
+import { QedJSON } from "packages/qed-sdk/dist";
 
 export class SDKGenerator {
     constructor(private outputDir: string) {}
@@ -18,7 +19,7 @@ export class SDKGenerator {
 
         console.log(`📖 Reading ABI from ${abiPath}`);
         const abiContent = readFileSync(abiPath, "utf-8");
-        const abiData = JSON.parse(abiContent);
+        const abiData = QedJSON.parse(abiContent);
 
         // Validate it's the expected format
         if (!abiData.structs || !Array.isArray(abiData.structs)) {
