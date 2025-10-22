@@ -3,7 +3,8 @@ use anyhow::Result;
 use qed_core::job::id::{LayerId, QProvingJobDataID};
 use qed_store::queue::{QueueId, RsmqQueue};
 use crate::watcher::common::get_queue_name;
-use crate::watcher::events::{BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobStartedEvent, JobTimeoutEvent, UserDeployContractEvent, UserDeployContractMetadata, UserGutaSubmissionEvent, UserGutaSubmissionMetadata, UserRegistrationEvent, WatcherMessage};
+use crate::watcher::events::{BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobStartedEvent, JobTimeoutEvent, UserDeployContractEvent, UserContractMetadata, UserGutaSubmissionEvent, UserGutaSubmissionMetadata, UserRegistrationEvent, WatcherMessage, UserRegistrationMetadata};
+use crate::watcher::watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
 
 pub struct WatcherClient {
@@ -45,16 +46,22 @@ impl WatcherClient {
     // Convenience methods
     pub async fn register_user(&self, public_key: &str) -> Result<()> {
         self.send_event(WatcherMessage::UserRegistration(UserRegistrationEvent {
-            public_key: public_key.to_string(),
             timestamp: current_datetime(),
+            node_id: self.node_id.clone().unwrap_or_default(),
+            node_type: WatcherSourceNodeType::Coordinator,
+            metadata: UserRegistrationMetadata {
+                public_key: public_key.to_string(),
+            },
         })).await
     }
 
-    pub async fn deploy_contract(&self, deployer: &str, metadata: UserDeployContractMetadata) -> Result<()> {
+    pub async fn deploy_contract(&self, deployer: &str, metadata: UserContractMetadata) -> Result<()> {
         self.send_event(WatcherMessage::DeployContract(UserDeployContractEvent {
             deployer: deployer.to_string(),
             metadata,
             timestamp: current_datetime(),
+            node_id: self.node_id.clone().unwrap_or_default(),
+            node_type: WatcherSourceNodeType::Coordinator,
         })).await
     }
 

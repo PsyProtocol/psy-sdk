@@ -7,6 +7,7 @@ use futures::StreamExt;
 use qed_store::queue::task_queue::{current_timestamp_millis, QJobStatus, QProvingTaskStoreImpl, JOB_TIMEOUT_PREFIX};
 use qed_store::queue::{QueueId, RsmqQueue};
 use redis::AsyncCommands;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -17,16 +18,16 @@ const LOCK_TTL_SECONDS: usize = 10;
 #[derive(Debug, Clone)]
 pub struct NodeInfo {
     pub node_id: String,
-    pub node_type: NodeType,
+    pub node_type: WatcherSourceNodeType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NodeType {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WatcherSourceNodeType {
     Coordinator,
     Realm,
 }
 
-impl std::fmt::Display for NodeType {
+impl std::fmt::Display for WatcherSourceNodeType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Coordinator => write!(f, "coordinator"),
@@ -35,7 +36,7 @@ impl std::fmt::Display for NodeType {
     }
 }
 
-impl std::str::FromStr for NodeType {
+impl std::str::FromStr for WatcherSourceNodeType {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self> {

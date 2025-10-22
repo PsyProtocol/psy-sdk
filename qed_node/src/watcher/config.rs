@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use qed_store::store::backend::BackendConfig;
 use anyhow::Result;
-use crate::watcher::watcher::NodeType;
+use crate::watcher::watcher::WatcherSourceNodeType;
 use clap::Args;
 use qed_store::queue::QueueId;
 use crate::realm::QueueConfig;
@@ -70,7 +70,7 @@ pub struct WatcherArgs {
 #[derive(Debug, Clone)]
 pub struct WatcherConfig {
     pub node_id: String,
-    pub node_type: NodeType,
+    pub node_type: WatcherSourceNodeType,
     pub api_endpoint: String,
     pub redis_uri: String,
     pub redis_pool_size: usize,
@@ -82,7 +82,7 @@ pub struct WatcherConfig {
 impl WatcherConfig {
     /// Create config from command line arguments
     pub fn from_args(args: WatcherArgs) -> Result<Self> {
-        let node_type = NodeType::from_str(&args.node_type)?;
+        let node_type = WatcherSourceNodeType::from_str(&args.node_type)?;
         let queue_id = QueueConfig::from_str(&args.queue_biz_key)?;
 
         Ok(Self {

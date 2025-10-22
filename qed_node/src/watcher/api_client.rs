@@ -7,15 +7,15 @@ use tracing::{info, debug, warn};
 use qed_api_services::handlers::{TelemetryPayload, TelemetryResponse};
 use qed_api_services::models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus};
 use qed_core::job::id::QProvingJobDataID;
-use crate::watcher::events::{JobCompletedEvent, JobTimeoutEvent, UserRegistrationEvent, BackupProofEvent, BackupWitnessEvent, UserRegistrationMetadata, UserDeployContractMetadata, UserDeployContractEvent, UserGutaSubmissionEvent, JobStartedEvent, JobPendingEvent};
-use crate::watcher::watcher::NodeType;
+use crate::watcher::events::{JobCompletedEvent, JobTimeoutEvent, UserRegistrationEvent, BackupProofEvent, BackupWitnessEvent, UserRegistrationMetadata, UserContractMetadata, UserDeployContractEvent, UserGutaSubmissionEvent, JobStartedEvent, JobPendingEvent};
+use crate::watcher::watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
 
 pub struct ApiClient {
     client: Client,
     endpoint: String,
     node_id: String,
-    node_type: NodeType,
+    node_type: WatcherSourceNodeType,
     realm_id: Option<i64>,
 }
 
@@ -23,7 +23,7 @@ impl ApiClient {
     pub fn new(
         endpoint: String,
         node_id: String,
-        node_type: NodeType,
+        node_type: WatcherSourceNodeType,
         realm_id: Option<i64>,
     ) -> Result<Self> {
         let client = Client::builder()
@@ -41,21 +41,17 @@ impl ApiClient {
 
     pub async fn send_user_registration(&self, event: UserRegistrationEvent) -> Result<()> {
         let api_event = UserEvent {
-            user_id: format!("user_{}", event.public_key),
-            public_key: event.public_key.clone(),
+            user_id: format!("user_{}", &event.metadata.public_key),
+            public_key: event.metadata.public_key.clone(),
             tx_type: UserEventTxType::RegisterUser,
-            metadata: Some(serde_json::to_value(UserRegistrationMetadata {
-                registration_time: event.timestamp,
-                node_id: self.node_id.clone(),
-                node_type: format!("{:?}", self.node_type),
-            })?),
+            metadata: Some(serde_json::to_value(&event.metadata)?),
             timestamp: current_datetime(),
             created_at: current_datetime(),
             updated_at: current_datetime(),
         };
 
         self.send_user_events(vec![api_event]).await?;
-        debug!("User registration event sent for: {}", event.public_key);
+        debug!("User registration event sent for: {}", &event.metadata.public_key);
         Ok(())
     }
 
@@ -64,11 +60,7 @@ impl ApiClient {
             user_id: format!("user_{}", event.deployer),
             public_key: event.deployer.clone(),
             tx_type: UserEventTxType::DeployContract,
-            metadata: Some(serde_json::to_value(UserRegistrationMetadata {
-                registration_time: event.timestamp,
-                node_id: self.node_id.clone(),
-                node_type: format!("{:?}", self.node_type),
-            })?),
+            metadata: Some(serde_json::to_value(event.metadata.clone())?),
             timestamp: event.timestamp,
             created_at: current_datetime(),
             updated_at: current_datetime(),
@@ -312,8 +304,8 @@ impl ApiClient {
 
     fn worker_source(&self) -> WorkerEventSource {
         match self.node_type {
-            NodeType::Coordinator => WorkerEventSource::Coordinator,
-            NodeType::Realm => WorkerEventSource::Realm,
+            WatcherSourceNodeType::Coordinator => WorkerEventSource::Coordinator,
+            WatcherSourceNodeType::Realm => WorkerEventSource::Realm,
         }
     }
 }

@@ -32,7 +32,6 @@ impl<F: RichField> QBCDeployContract<F> {
     }
 }
 
-
 impl<F: RichField> KVQSerializable for QBCDeployContract<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
@@ -44,9 +43,6 @@ impl<F: RichField> KVQSerializable for QBCDeployContract<F> {
 }
 
 
-
-
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QBCDeployContractWithRoot<F: RichField> {
@@ -54,8 +50,6 @@ pub struct QBCDeployContractWithRoot<F: RichField> {
     pub code_definition: ContractCodeDefinition,
     pub function_whitelist: Vec<QHashOut<F>>,
     pub function_whitelist_root: QHashOut<F>,
-    
-
 }
 
 impl<F: RichField> QBCDeployContractWithRoot<F> {
@@ -66,8 +60,6 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
             }
             let function_whitelist_root = t.get_root();
 
-            
-
         Ok(Self {
             deployer,
             code_definition,
@@ -76,7 +68,6 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
         })
     }
 }
-
 
 impl<F: RichField> KVQSerializable for QBCDeployContractWithRoot<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -87,3 +78,22 @@ impl<F: RichField> KVQSerializable for QBCDeployContractWithRoot<F> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct QContractMetadata {
+    pub contract_id: Option<u64>,
+    pub deployer: String,
+    pub state_tree_height: u16,
+    pub function_count: usize,
+    pub function_whitelist_root: String,
+    pub functions: Vec<QFunctionMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct QFunctionMetadata {
+    pub method_id: u32,
+    pub name: String,
+    pub num_inputs: u32,
+    pub num_outputs: u32,
+}
+

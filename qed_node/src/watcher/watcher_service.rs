@@ -27,7 +27,7 @@ use crate::watcher::{
     config::WatcherConfig,
     events::WatcherMessage,
     schedule_tasks::{ExecutionTrigger, ScheduledTask, ScheduledTaskManager, TaskType},
-    watcher::{NodeInfo, NodeType, TimeoutWatcher},
+    watcher::{NodeInfo, WatcherSourceNodeType, TimeoutWatcher},
 };
 
 const MAX_RETRY_ATTEMPTS: u32 = 3;
@@ -93,7 +93,7 @@ impl WatcherService {
         rsmq_queue.create_queue_if_not_exists(&rsmq_queue_id).await?;
 
         let realm_id = config.node_type
-            .eq(&NodeType::Realm)
+            .eq(&WatcherSourceNodeType::Realm)
             .then(|| config.node_id.parse())
             .transpose()?;
 
@@ -305,7 +305,7 @@ impl WatcherService {
 
         match message {
             UserRegistration(event) => {
-                info!("UserEvent: user registration with pk ({})", event.public_key);
+                info!("UserEvent: user registration with pk ({})", event.metadata.public_key);
                 self.api_client.send_user_registration(event.clone()).await
             }
             DeployContract(event) => {
@@ -524,10 +524,10 @@ impl WatcherService {
 
     async fn fetch_block_height_from_db(&self) -> Result<u64> {
         let block_state = match self.config.node_type {
-            NodeType::Coordinator => {
+            WatcherSourceNodeType::Coordinator => {
                 QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.qed_store).await?
             }
-            NodeType::Realm => {
+            WatcherSourceNodeType::Realm => {
                 QEDRealmStoreReaderAsync::get_latest_l2_block_state(&self.qed_store).await?
             }
         };
@@ -616,13 +616,13 @@ impl WatcherService {
     }
 }
 
-async fn fetch_initial_block_height(node_type: &NodeType, store: &QEDStore) -> Result<u64> {
+async fn fetch_initial_block_height(node_type: &WatcherSourceNodeType, store: &QEDStore) -> Result<u64> {
 
     let block_state = match node_type {
-        NodeType::Coordinator => {
+        WatcherSourceNodeType::Coordinator => {
             QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(store).await?
         }
-        NodeType::Realm => {
+        WatcherSourceNodeType::Realm => {
             QEDRealmStoreReaderAsync::get_latest_l2_block_state(store).await?
         }
     };
