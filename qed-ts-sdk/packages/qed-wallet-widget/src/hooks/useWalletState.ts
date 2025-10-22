@@ -6,6 +6,7 @@ import {
     ICoordinatorEdgeRpcProvider,
     IRealmEdgeRpcProvider,
     IQedUserWallet,
+    QedJSON,
 } from "@qed/qed-sdk";
 import { createMemoryWalletProvider } from "../utils/provider";
 import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
@@ -368,7 +369,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                         const stored = localStorage.getItem(WALLET_STORAGE_KEY);
 
                         if (stored) {
-                            const data = JSON.parse(stored);
+                            const data = QedJSON.parse(stored);
                             const isDataFresh = Date.now() - data.lastUpdated < 24 * 60 * 60 * 1000;
 
                             if (isDataFresh && data.wallets.length > 0) {

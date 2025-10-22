@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useWalletState } from '@qed/qed-wallet-widget';
+import { QedJSON } from '@qed/qed-sdk';
 
 export const WALLET_STORAGE_KEY = 'psy_wallet_data';
 
@@ -59,7 +60,7 @@ export const usePersistentWallet = () => {
         console.log('Stored data:', stored);
         
         if (stored) {
-          const data: StoredWalletData = JSON.parse(stored);
+          const data: StoredWalletData = QedJSON.parse(stored);
           console.log('Parsed stored data:', data);
           
           // Check if data is not too old (24 hours)
@@ -170,7 +171,7 @@ export const usePersistentWallet = () => {
           // Clean all BigInt values recursively
           const cleanedData = cleanBigIntValues(dataToStore);
           
-          localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(cleanedData));
+          localStorage.setItem(WALLET_STORAGE_KEY, QedJSON.stringify(cleanedData));
           console.log('Saved wallets to storage:', dataToStore.wallets.length);
         } catch (error) {
           console.warn('Failed to save wallets:', error);
