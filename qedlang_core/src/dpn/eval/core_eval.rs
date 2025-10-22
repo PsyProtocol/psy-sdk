@@ -260,6 +260,7 @@ impl ContextEval for SymFeltStore {
                 DPNOpType::CalculateMerkleRoot => todo!("CalculateMerkleRoot is not implemented"),
                 DPNOpType::GetUserId => input.get_user_id(),
                 DPNOpType::GetContractId => input.get_contract_id(),
+                DPNOpType::GetCallerContractId => input.get_caller_contract_id(),
                 DPNOpType::GetCheckpointId => input.get_checkpoint_id(),
                 DPNOpType::GetNonce => input.get_user_nonce(),
                 DPNOpType::GetUserPublicKeyHash => todo!(),

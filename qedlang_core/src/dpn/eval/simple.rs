@@ -13,6 +13,7 @@ pub struct DummyContextEvalInput {
     pub input: Vec<u64>,
     pub checkpoint_id: u64,
     pub contract_id: u64,
+    pub caller_contract_id: u64,
     pub user_id: u64,
     pub global_contract_slots: HashMap<ContractHashRef, [u64; 4]>,
     pub user_public_key_hash: [u64; 4],
@@ -24,6 +25,7 @@ impl DummyContextEvalInput {
         DummyContextEvalInput {
             input: input,
             contract_id: 0,
+            caller_contract_id: 0,
             checkpoint_id: 1,
             user_id: 0,
             last_nonce: 1,
@@ -54,6 +56,9 @@ impl ContextInput for DummyContextEvalInput {
     }
     fn get_contract_id(&self) -> u64 {
         self.contract_id
+    }
+    fn get_caller_contract_id(&self) -> u64 {
+        self.caller_contract_id
     }
     fn get_user_id(&self) -> u64 {
         self.user_id

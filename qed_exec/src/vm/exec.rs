@@ -1034,6 +1034,7 @@ impl<R: QEDReadCommandProcessorSync<GF> + Send + Sync> QEDCmdInputWitnessResolve
             },
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
                 let call_data = DPNProvingSessionSimpleMethodCall {
+                    caller_contract_id: current_contract_id,
                     contract_id: GF::from_canonical_u64(c.contract_id),
                     method_id: GF::from_canonical_u64(c.method_id),
                     inputs: c
@@ -1193,6 +1194,23 @@ impl QEDEvalSessionResult<GF> {
         Ok(())
     }
 
+    pub async fn exec_contract_call_with_caller<R: QEDReadCommandProcessorSync<GF> + Send + Sync>(
+        self,
+        sesh: &mut QEDLocalProvingSessionStore<GF, R>,
+        contract_id: GF,
+        caller_contract_id: GF,
+        fn_def: &DPNFunctionCircuitDefinition,
+        inputs: Vec<GF>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
+        sesh.init_transaction(DPNProvingSessionSimpleMethodCall {
+            caller_contract_id,
+            contract_id,
+            method_id: GF::from_canonical_u32(fn_def.method_id),
+            inputs: inputs.clone(),
+        }).await?;
+        self.eval_session(fn_def, sesh, inputs).await
+    }
+
     pub async fn exec_contract_call<R: QEDReadCommandProcessorSync<GF>  + Send + Sync>(
         self,
         sesh: &mut QEDLocalProvingSessionStore<GF, R>,
@@ -1200,12 +1218,13 @@ impl QEDEvalSessionResult<GF> {
         fn_def: &DPNFunctionCircuitDefinition,
         inputs: Vec<GF>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
-        sesh.init_transaction(DPNProvingSessionSimpleMethodCall {
+        self.exec_contract_call_with_caller(
+            sesh,
             contract_id,
-            method_id: GF::from_canonical_u32(fn_def.method_id),
-            inputs: inputs.clone(),
-        }).await?;
-        self.eval_session(fn_def, sesh, inputs).await
+            GF::ZERO,
+            fn_def,
+            inputs,
+        ).await
     }
 
     async fn eval_session<R: QEDReadCommandProcessorSync<GF> + Send + Sync>(
@@ -1226,6 +1245,7 @@ impl QEDEvalSessionResult<GF> {
             inputs,
             sesh.get_current_user_id(),
             sesh.get_current_contract_id(),
+            sesh.get_current_caller_contract_id(),
             sesh.get_current_start_checkpoint_id(),
             sesh.get_nonce(),
             start_session_ctx.start_session_user_leaf.public_key.0.elements,

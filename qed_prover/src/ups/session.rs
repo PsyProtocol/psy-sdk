@@ -361,6 +361,7 @@ impl<
         let deferred_tx_pivot_index = self.lps.get_deferred_tx_debt_latest_index();
         let inline_tx_pivot_index = self.lps.get_inline_tx_debt_latest_index();
         let tx_log_item = DPNProvingSessionSimpleMethodCall {
+            caller_contract_id: F::ZERO,
             contract_id,
             method_id: F::from_canonical_u32(fn_circuit_def.method_id),
             inputs: inputs.clone(),
@@ -625,9 +626,10 @@ impl<
         Ok(proof)
     }
 
-    pub async fn exec_contract_call(
+    pub async fn exec_contract_call_with_caller(
         &mut self,
         contract_id: F,
+        caller_contract_id: F,
         fn_circuit_def: &DPNFunctionCircuitDefinition,
         inputs: Vec<F>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
@@ -635,12 +637,22 @@ impl<
             self.proof_tree_state.get_proof_tree_root().await
         );
         QEDEvalSessionResult::new()
-            .exec_contract_call(
+            .exec_contract_call_with_caller(
                 &mut self.lps,
                 contract_id,
+                caller_contract_id,
                 fn_circuit_def,
                 inputs
             ).await
+    }
+
+    pub async fn exec_contract_call(
+        &mut self,
+        contract_id: F,
+        fn_circuit_def: &DPNFunctionCircuitDefinition,
+        inputs: Vec<F>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
+        self.exec_contract_call_with_caller(contract_id, F::ZERO, fn_circuit_def, inputs).await
     }
 
     async fn repay_deferred_debt(
@@ -675,8 +687,9 @@ impl<
         let method_id = deferred_tx.method_id.to_canonical_u64() as u32;
         let contract_id = deferred_tx.contract_id.to_canonical_u64();
         let (fn_id, fn_circuit_def) = self.resolve_contract_function(contract_id, method_id).await?;
-        let cfc_proof_input = self.exec_contract_call(
+        let cfc_proof_input = self.exec_contract_call_with_caller(
             deferred_tx.contract_id,
+            deferred_tx.caller_contract_id,
             &fn_circuit_def,
             deferred_tx.inputs.clone(),
         ).await?;
@@ -751,6 +764,7 @@ impl<
             user_id: self.current_ups_header.current_state.user_leaf.user_id,
         };
         let tx_log_item = DPNProvingSessionSimpleMethodCall {
+            caller_contract_id: deferred_tx.caller_contract_id,
             contract_id: deferred_tx.contract_id,
             method_id: deferred_tx.method_id,
             inputs: deferred_tx.inputs.clone(),

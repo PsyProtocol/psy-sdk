@@ -1470,6 +1470,7 @@ impl StateReaderGadget {
                 let method_id_target = dpn.resolve_target(c.method_id);
                 let input_targets = dpn.resolve_targets(&c.input_args);
                 let deferred_method_call_gadget = DPNProvingSessionSimpleMethodCallGadget {
+                    caller_contract_id: dpn.contract_id,
                     contract_id: contract_id_target,
                     method_id: method_id_target,
                     inputs: input_targets,

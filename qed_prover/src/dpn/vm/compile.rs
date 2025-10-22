@@ -112,6 +112,10 @@ impl QEDContractFunctionBuilderGadget {
                 .transaction_call_start_ctx
                 .call_data
                 .contract_id,
+            self.tx_ctx_header
+                .transaction_call_start_ctx
+                .call_data
+                .caller_contract_id,
             self.tx_ctx_header.proving_session_start_ctx.checkpoint_id,
             self.tx_ctx_header
                 .proving_session_start_ctx

@@ -197,6 +197,7 @@ impl UPSEndCapCoreGadget {
         let burn_amount = builder.constant_u64(GUTA_FEE);
 
         let expected_burn_transaction = DPNProvingSessionSimpleMethodCallGadget {
+            caller_contract_id: builder.zero(),
             contract_id: burn_contract_id,
             method_id: burn_method_id,
             inputs: vec![burn_amount],
@@ -229,4 +230,3 @@ impl UPSEndCapCoreGadget {
         }
     }
 }
-

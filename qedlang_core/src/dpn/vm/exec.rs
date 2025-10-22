@@ -14,6 +14,7 @@ pub struct SimpleDPNExecutor<F: RichField> {
     pub u32_arrays: Vec<Vec<u32>>,
     pub user_id: F,
     pub contract_id: F,
+    pub caller_contract_id: F,
     pub checkpoint_id: F,
     pub user_public_key: [F; 4],
     pub nonce: F,
@@ -33,6 +34,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             u32_arrays: Vec::new(),
             user_id: F::ZERO,
             contract_id: F::ZERO,
+            caller_contract_id: F::ZERO,
             checkpoint_id: F::ZERO,
             user_public_key: [F::ZERO; 4],
             nonce: F::ZERO,
@@ -40,7 +42,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             
         }
     }
-    pub fn new_with_contract_ctx(inputs: Vec<F>, user_id: F, contract_id: F, checkpoint_id: F, nonce: F, user_public_key: [F; 4]) -> Self {
+    pub fn new_with_contract_ctx(inputs: Vec<F>, user_id: F, contract_id: F, caller_contract_id: F, checkpoint_id: F, nonce: F, user_public_key: [F; 4]) -> Self {
         SimpleDPNExecutor {
             targets: Vec::new(),
             target_arrays: Vec::new(),
@@ -52,6 +54,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             u32_arrays: Vec::new(),
             user_id,
             contract_id,
+            caller_contract_id,
             checkpoint_id,
             user_public_key,
             nonce,
@@ -553,6 +556,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             DPNOpType::CalculateMerkleRoot => unimplemented!(),
             DPNOpType::GetUserId => self.targets.push(self.user_id),
             DPNOpType::GetContractId => self.targets.push(self.contract_id),
+            DPNOpType::GetCallerContractId => self.targets.push(self.caller_contract_id),
             DPNOpType::GetCheckpointId => self.targets.push(self.checkpoint_id),
             DPNOpType::GetNonce => self.targets.push(self.nonce),
             DPNOpType::GetUserPublicKeyHash => self.hashes.push(self.user_public_key),
