@@ -123,6 +123,11 @@ config_gen_v2:
 
 .PHONY: check fix build format run test update-snapshots
 
+
+config_gen:
+	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package qed_prover --example config_gen_v2;
+
+
 ################################################################################
 #                                   TMP                                        #
 ################################################################################
@@ -405,6 +410,16 @@ run-worker6:
       --config=./config.json \
       --private-key=48001860a5289eb83e4c5e4a7a080250703ee797716edc95038c64b9927ce01c
 
+run-worker7:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+      --config=./config.json \
+      --private-key=53d13861c42eca37a573c9e50fae74c297369347d237f44cec5b2faa6c2e4f77
+
+run-worker8:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+      --config=./config.json \
+      --private-key=9283264949e3248ccd661dca69441e5fa60ab4073177380bd97717cda56739ec
+
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 
 init-tikv: init
@@ -546,6 +561,46 @@ run-realm-edge5-tikv:
 		--tikv-namespace realm5 \
 		--realm-id=5 \
 		--queue-biz-key realm5
+
+
+run-realm-processor6-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm6 \
+		--realm-id=6 \
+		--queue-biz-key realm6
+
+run-realm-edge6-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+		--listen-addr=0.0.0.0:8552 \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm6 \
+		--realm-id=6 \
+		--queue-biz-key realm6
+
+
+run-realm-processor7-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm7 \
+		--realm-id=7 \
+		--queue-biz-key realm7
+
+run-realm-edge7-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+		--listen-addr=0.0.0.0:8553 \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm7 \
+		--realm-id=7 \
+		--queue-biz-key realm7
 
 run-watcher-coordinator-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \

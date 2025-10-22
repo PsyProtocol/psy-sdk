@@ -42,7 +42,10 @@ REALM_PROCESSOR4_LOG="$LOG_DIR/realm-processor4-tikv.log"
 REALM_EDGE4_LOG="$LOG_DIR/realm-edge4-tikv.log"
 REALM_PROCESSOR5_LOG="$LOG_DIR/realm-processor5-tikv.log"
 REALM_EDGE5_LOG="$LOG_DIR/realm-edge5-tikv.log"
-
+REALM_PROCESSOR6_LOG="$LOG_DIR/realm-processor6-tikv.log"
+REALM_EDGE6_LOG="$LOG_DIR/realm-edge6-tikv.log"
+REALM_PROCESSOR7_LOG="$LOG_DIR/realm-processor7-tikv.log"
+REALM_EDGE7_LOG="$LOG_DIR/realm-edge7-tikv.log"
 WORKER0_LOG="$LOG_DIR/worker0.log"
 WORKER1_LOG="$LOG_DIR/worker1.log"
 WORKER2_LOG="$LOG_DIR/worker2.log"
@@ -50,6 +53,8 @@ WORKER3_LOG="$LOG_DIR/worker3.log"
 WORKER4_LOG="$LOG_DIR/worker4.log"
 WORKER5_LOG="$LOG_DIR/worker5.log"
 WORKER6_LOG="$LOG_DIR/worker6.log"
+WORKER7_LOG="$LOG_DIR/worker7.log"
+WORKER8_LOG="$LOG_DIR/worker8.log"
 
 API_SERVICES_LOG="$LOG_DIR/api-services.log"
 
@@ -77,6 +82,10 @@ echo "Clearing log files..."
 : > "$REALM_EDGE4_LOG"
 : > "$REALM_PROCESSOR5_LOG"
 : > "$REALM_EDGE5_LOG"
+: > "$REALM_PROCESSOR6_LOG"
+: > "$REALM_EDGE6_LOG"
+: > "$REALM_PROCESSOR7_LOG"
+: > "$REALM_EDGE7_LOG"
 : > "$LOCAL_PROVE_PROXY_LOG"
 : > "$WEB_WALLET_LOG"
 : > "$WORKER0_LOG"
@@ -86,6 +95,8 @@ echo "Clearing log files..."
 : > "$WORKER4_LOG"
 : > "$WORKER5_LOG"
 : > "$WORKER6_LOG"
+: > "$WORKER7_LOG"
+: > "$WORKER8_LOG"
 : > "$API_SERVICES_LOG"
 : > "$WATCHER_COORDINATOR_LOG"
 : > "$WATCHER_REALM0_LOG"
@@ -145,10 +156,15 @@ run_service "make run-realm-processor2-tikv" "realm-processor2-tikv" "$REALM_PRO
 PIDS+=($!)
 run_service "make run-realm-processor3-tikv" "realm-processor3-tikv" "$REALM_PROCESSOR3_LOG" &
 PIDS+=($!)
-# run_service "make run-realm-processor4-tikv" "realm-processor4-tikv" "$REALM_PROCESSOR4_LOG" &
-# PIDS+=($!)
-# run_service "make run-realm-processor5-tikv" "realm-processor5-tikv" "$REALM_PROCESSOR5_LOG" &
-# PIDS+=($!)
+#run_service "make run-realm-processor4-tikv" "realm-processor4-tikv" "$REALM_PROCESSOR4_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-processor5-tikv" "realm-processor5-tikv" "$REALM_PROCESSOR5_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-processor6-tikv" "realm-processor6-tikv" "$REALM_PROCESSOR6_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-processor7-tikv" "realm-processor7-tikv" "$REALM_PROCESSOR7_LOG" &
+#PIDS+=($!)
+
 
 # Group 2: Start edge services (depend on processors)
 sleep 8
@@ -162,10 +178,14 @@ run_service "make run-realm-edge2-tikv" "realm-edge2-tikv" "$REALM_EDGE2_LOG" &
 PIDS+=($!)
 run_service "make run-realm-edge3-tikv" "realm-edge3-tikv" "$REALM_EDGE3_LOG" &
 PIDS+=($!)
-# run_service "make run-realm-edge4-tikv" "realm-edge4-tikv" "$REALM_EDGE4_LOG" &
-# PIDS+=($!)
-# run_service "make run-realm-edge5-tikv" "realm-edge5-tikv" "$REALM_EDGE5_LOG" &
-# PIDS+=($!)
+#run_service "make run-realm-edge4-tikv" "realm-edge4-tikv" "$REALM_EDGE4_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-edge5-tikv" "realm-edge5-tikv" "$REALM_EDGE5_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-edge6-tikv" "realm-edge6-tikv" "$REALM_EDGE6_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-edge7-tikv" "realm-edge7-tikv" "$REALM_EDGE7_LOG" &
+#PIDS+=($!)
 
 # Group 3: Start worker services (depend on edges)
 sleep 2
@@ -175,14 +195,18 @@ run_service "make run-worker1" "worker1" "$WORKER1_LOG" &
 PIDS+=($!)
 run_service "make run-worker2" "worker2" "$WORKER2_LOG" &
 PIDS+=($!)
-# run_service "make run-worker3" "worker3" "$WORKER3_LOG" &
-# PIDS+=($!)
-# run_service "make run-worker4" "worker4" "$WORKER4_LOG" &
-# PIDS+=($!)
-# run_service "make run-worker5" "worker5" "$WORKER5_LOG" &
-# PIDS+=($!)
-# run_service "make run-worker6" "worker6" "$WORKER6_LOG" &
-# PIDS+=($!)
+#run_service "make run-worker3" "worker3" "$WORKER3_LOG" &
+#PIDS+=($!)
+#run_service "make run-worker4" "worker4" "$WORKER4_LOG" &
+#PIDS+=($!)
+#run_service "make run-worker5" "worker5" "$WORKER5_LOG" &
+#PIDS+=($!)
+#run_service "make run-worker6" "worker6" "$WORKER6_LOG" &
+#PIDS+=($!)
+#run_service "make run-worker7" "worker7" "$WORKER7_LOG" &
+#PIDS+=($!)
+#run_service "make run-worker8" "worker8" "$WORKER8_LOG" &
+#PIDS+=($!)
 
 run_service "make run-api-services" "api-services" "$API_SERVICES_LOG" &
 PIDS+=($!)
