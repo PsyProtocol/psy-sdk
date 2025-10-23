@@ -6,6 +6,7 @@ pub mod stats;
 pub mod users;
 pub mod workers;
 pub mod job_status;
+pub mod checkpoint_state;
 
 // Re-export all repository structs for backward compatibility
 pub use aggregation::{

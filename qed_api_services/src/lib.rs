@@ -12,7 +12,7 @@ use axum::Router;
 use services::{create_database_pool, ApiService, RewardService};
 use tokio::signal;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
-use crate::services::JobStatusService;
+use crate::services::{CheckpointRewardService, JobStatusService};
 
 /// Run the API service with the given configuration.
 ///
@@ -37,6 +37,12 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     let pool_for_job_status = pool.clone();
     tokio::spawn(async move {
         JobStatusService::start_refresh_task(pool_for_job_status, 10).await;
+    });
+
+    tracing::info!("Starting checkpoint reward processing background task");
+    let pool_for_checkpoint_rewards = pool.clone();
+    tokio::spawn(async move {
+        CheckpointRewardService::start_checkpoint_reward_task(pool_for_checkpoint_rewards, 30).await;
     });
 
     // Create application router

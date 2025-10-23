@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{models::*, repositories::*, services::ApiService};
-use crate::services::JobStatusService;
+use crate::repositories::checkpoint_state::{CheckpointRewardDistributionRepository, CheckpointStatsRepository, WorkerJobEventRepository};
+use crate::services::{CheckpointRewardService, JobStatusService, TimePeriod};
 
 /// Parse order parameter from query string
 /// Returns true for ASC, false for DESC (default)
@@ -33,37 +34,57 @@ async fn health_handler() -> Json<serde_json::Value> {
 
 pub fn create_router(api_service: ApiService) -> Router {
     Router::new()
+        // Health & User Management
         .route("/health", get(health_handler))
         .route("/register", post(register_handler))
         .route("/user_info", get(user_info_handler))
+
+        // Events
         .route("/worker_events", get(worker_events_handler))
         .route("/user_events", get(user_events_handler))
-        .route(
-            "/worker_events_aggregations",
-            get(worker_events_aggregations_handler),
-        )
-        .route(
-            "/user_events_aggregations",
-            get(user_events_aggregations_handler),
-        )
+        .route("/worker_events_aggregations", get(worker_events_aggregations_handler))
+        .route("/user_events_aggregations", get(user_events_aggregations_handler))
+
+        // Stats - General
         .route("/stats", get(stats_handler))
         .route("/stats/realms", get(global_realm_stats_handler))
         .route("/stats/realms/{realm_id}", get(realm_stats_handler))
-        .route(
-            "/stats/workers/{worker_public_key}",
-            get(worker_stats_handler),
-        )
+        .route("/stats/workers/{worker_public_key}", get(worker_stats_handler))
+
+        // Stats - Job Status
         .route("/stats/jobs", get(job_status_summary_handler))
         .route("/stats/jobs/realm/{realm_id}", get(realm_job_status_handler))
         .route("/stats/jobs/all-realms", get(all_realms_job_status_handler))
         .route("/stats/jobs/counts", get(job_counts_handler))
+
+        // Legacy Rewards (old system - consider deprecating)
         .route("/rewards/{worker_public_key}", get(worker_rewards_handler))
-        .route(
-            "/rewards_aggregations/{worker_public_key}",
-            get(worker_rewards_aggregations_handler),
-        )
+        .route("/rewards_aggregations/{worker_public_key}", get(worker_rewards_aggregations_handler))
+
+        // Leaderboard
         .route("/leaderboard/workers", get(worker_leaderboard_handler))
-        .route("/admin/refresh_aggregates", post(refresh_aggregates_handler))
+
+        // Checkpoint Stats - QUERIES ONLY
+        .route("/checkpoint/stats", get(get_checkpoint_stats_by_range_handler))
+        .route("/checkpoint/stats/{checkpoint_id}", get(get_checkpoint_stats_handler))
+
+        // Worker Job Events
+        .route("/checkpoint/job-events/{checkpoint_id}", get(get_checkpoint_job_events_handler))
+
+        // Reward Calculation & Distribution
+        .route("/checkpoint/distributions/{checkpoint_id}", get(get_checkpoint_distributions_handler))
+        .route("/checkpoint/summary/{checkpoint_id}", get(get_checkpoint_summary_handler))
+
+        // Worker Rewards
+        .route("/checkpoint/rewards/{worker_public_key}", get(get_worker_rewards_handler))
+        .route("/checkpoint/rewards/{worker_public_key}/stats", get(get_worker_reward_stats_handler))
+
+        // Admin Operations
+        .route("/admin/refresh-worker-aggregates", post(refresh_worker_rewards_aggregates_handler))
+        .route("/admin/refresh-checkpoint-aggregates", post(refresh_checkpoint_aggregates_handler))
+        .route("/checkpoint/calculate-rewards/{checkpoint_id}", post(calculate_rewards_handler))
+        .route("/admin/checkpoint-processing-status", get(checkpoint_processing_status_handler))
+
         .with_state(api_service)
 }
 
@@ -690,7 +711,7 @@ pub struct RefreshAggregatesRequest {
 }
 
 /// Admin endpoint to manually refresh continuous aggregates
-async fn refresh_aggregates_handler(
+async fn refresh_worker_rewards_aggregates_handler(
     State(service): State<ApiService>,
     Json(payload): Json<Option<RefreshAggregatesRequest>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
@@ -896,4 +917,307 @@ async fn refresh_job_status_handler(
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+/// POST /checkpoint/process - Process complete checkpoint (stats + events + rewards)
+pub async fn process_checkpoint_handler(
+    State(service): State<ApiService>,
+    Json(payload): Json<ProcessCheckpointRequest>,
+) -> Result<Json<ProcessCheckpointResponse>, StatusCode> {
+    let checkpoint_id = payload.checkpoint_stats.checkpoint_id;
+    tracing::info!("Processing complete checkpoint {}", checkpoint_id);
+
+    let create_stats = CreateCheckpointStats {
+        checkpoint_id: payload.checkpoint_stats.checkpoint_id,
+        fees_collected: payload.checkpoint_stats.fees_collected,
+        user_ops_processed: payload.checkpoint_stats.user_ops_processed,
+        total_transactions: payload.checkpoint_stats.total_transactions,
+        slots_modified: payload.checkpoint_stats.slots_modified,
+        metadata: payload.checkpoint_stats.metadata,
+        timestamp: payload.checkpoint_stats.timestamp,
+    };
+
+    let create_events: Vec<CreateWorkerJobEvent> = payload
+        .job_events
+        .into_iter()
+        .map(|e| CreateWorkerJobEvent {
+            worker_public_key: e.worker_public_key,
+            checkpoint_id: e.checkpoint_id,
+            job_id: e.job_id,
+            topic: e.topic,
+            circuit_type: e.circuit_type,
+            duration: e.duration,
+            status: e.status,
+            metadata: e.metadata,
+            timestamp: e.timestamp,
+        })
+        .collect();
+
+    let reward_service = CheckpointRewardService::new(service.pool.clone());
+
+    match reward_service.process_checkpoint(create_stats, create_events).await {
+        Ok(result) => {
+            let total_jobs = result.job_events.len();
+            let distributions_count = result.reward_distributions.len();
+
+            // Count unique workers
+            let mut workers = std::collections::HashSet::new();
+            for dist in &result.reward_distributions {
+                workers.insert(dist.worker_public_key.clone());
+            }
+            let total_workers = workers.len();
+
+            let reward_per_job = if total_jobs > 0 {
+                result.checkpoint_stats.fees_collected / total_jobs as i64
+            } else {
+                0
+            };
+
+            let response = ProcessCheckpointResponse {
+                checkpoint_id,
+                fees_collected: result.checkpoint_stats.fees_collected,
+                total_jobs: total_jobs as i64,
+                total_workers: total_workers as i64,
+                reward_per_job,
+                total_distributions_created: distributions_count,  // One per job
+                message: format!(
+                    "Successfully processed checkpoint {}. {} jobs completed by {} workers, {} reward per job, {} distribution records created",
+                    checkpoint_id, total_jobs, total_workers, reward_per_job, distributions_count
+                ),
+            };
+
+            tracing::info!("Successfully processed checkpoint {}", checkpoint_id);
+            Ok(Json(response))
+        }
+        Err(e) => {
+            tracing::error!("Failed to process checkpoint: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// POST /checkpoint/calculate-rewards/:checkpoint_id - Calculate rewards for a checkpoint
+pub async fn calculate_rewards_handler(
+    State(service): State<ApiService>,
+    Path(checkpoint_id): Path<i64>,
+) -> Result<Json<Vec<CheckpointRewardDistribution>>, StatusCode> {
+    tracing::info!("Calculating rewards for checkpoint {}", checkpoint_id);
+
+    let reward_service = CheckpointRewardService::new(service.pool.clone());
+
+    match reward_service.calculate_and_distribute_rewards(checkpoint_id).await {
+        Ok(distributions) => {
+            tracing::info!("Successfully calculated {} reward distributions", distributions.len());
+            Ok(Json(distributions))
+        }
+        Err(e) => {
+            tracing::error!("Failed to calculate rewards: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// GET /checkpoint/stats/:checkpoint_id - Get checkpoint statistics
+pub async fn get_checkpoint_stats_handler(
+    State(service): State<ApiService>,
+    Path(checkpoint_id): Path<i64>,
+) -> Result<Json<CheckpointStats>, StatusCode> {
+    match CheckpointStatsRepository::get_by_checkpoint_id(&service.pool, checkpoint_id).await {
+        Ok(Some(stats)) => Ok(Json(stats)),
+        Ok(None) => Err(StatusCode::NOT_FOUND),
+        Err(e) => {
+            tracing::error!("Failed to get checkpoint stats: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// GET /checkpoint/stats - Get checkpoint statistics by range
+pub async fn get_checkpoint_stats_by_range_handler(
+    State(service): State<ApiService>,
+    Query(query): Query<CheckpointQuery>,
+) -> Result<Json<Vec<CheckpointStats>>, StatusCode> {
+    let start = query.start_checkpoint.unwrap_or(0);
+    let end = query.end_checkpoint.unwrap_or(i64::MAX);
+
+    match CheckpointStatsRepository::get_by_checkpoint_range(&service.pool, start, end).await {
+        Ok(stats) => Ok(Json(stats)),
+        Err(e) => {
+            tracing::error!("Failed to get checkpoint stats by range: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// GET /checkpoint/summary/:checkpoint_id - Get checkpoint reward summary
+pub async fn get_checkpoint_summary_handler(
+    State(service): State<ApiService>,
+    Path(checkpoint_id): Path<i64>,
+) -> Result<Json<CheckpointRewardSummary>, StatusCode> {
+    let reward_service = CheckpointRewardService::new(service.pool.clone());
+
+    match reward_service.get_checkpoint_summary(checkpoint_id).await {
+        Ok(Some(summary)) => Ok(Json(summary)),
+        Ok(None) => Err(StatusCode::NOT_FOUND),
+        Err(e) => {
+            tracing::error!("Failed to get checkpoint summary: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// GET /checkpoint/rewards/:worker_public_key - Get worker's reward aggregations
+pub async fn get_worker_rewards_handler(
+    State(service): State<ApiService>,
+    Path(worker_public_key): Path<String>,
+    Query(query): Query<WorkerRewardQuery>,
+) -> Result<Json<WorkerRewardResponse>, StatusCode> {
+    let time_period_str = query.time_period.unwrap_or_else(|| "1d".to_string());
+    let limit = query.limit.unwrap_or(100);
+
+    let time_period = match time_period_str.as_str() {
+        "2m" => TimePeriod::TwoMinutes,
+        "1h" => TimePeriod::OneHour,
+        "1d" => TimePeriod::OneDay,
+        "1w" => TimePeriod::OneWeek,
+        "1m" => TimePeriod::OneMonth,
+        _ => TimePeriod::OneDay,
+    };
+
+    let reward_service = CheckpointRewardService::new(service.pool.clone());
+
+    match reward_service
+        .get_worker_rewards_aggregated(
+            &worker_public_key,
+            time_period,
+            query.start_time,
+            query.end_time,
+            limit,
+        )
+        .await
+    {
+        Ok(aggregations) => {
+            let total_rewards: i64 = aggregations.iter().map(|a| a.total_rewards).sum();
+            let total_jobs: i64 = aggregations.iter().map(|a| a.jobs_completed).sum();
+            let total_checkpoints: i64 = aggregations.iter().map(|a| a.checkpoints_participated).sum();
+
+            let response = WorkerRewardResponse {
+                worker_public_key: worker_public_key.clone(),
+                time_period: time_period_str,
+                aggregations,
+                total_rewards,
+                total_jobs,
+                total_checkpoints,
+            };
+
+            Ok(Json(response))
+        }
+        Err(e) => {
+            tracing::error!("Failed to get worker rewards: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// GET /checkpoint/rewards/:worker_public_key/stats - Get worker's overall reward statistics
+pub async fn get_worker_reward_stats_handler(
+    State(service): State<ApiService>,
+    Path(worker_public_key): Path<String>,
+) -> Result<Json<WorkerCheckpointRewardStats>, StatusCode> {
+    let reward_service = CheckpointRewardService::new(service.pool.clone());
+
+    match reward_service.get_worker_stats(&worker_public_key).await {
+        Ok(Some(stats)) => Ok(Json(stats)),
+        Ok(None) => Err(StatusCode::NOT_FOUND),
+        Err(e) => {
+            tracing::error!("Failed to get worker reward stats: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// POST /checkpoint/aggregates/refresh - Manually refresh continuous aggregates
+pub async fn refresh_checkpoint_aggregates_handler(
+    State(service): State<ApiService>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    tracing::info!("Manual refresh of checkpoint reward aggregates requested");
+
+    let reward_service = CheckpointRewardService::new(service.pool.clone());
+
+    match reward_service.refresh_all_aggregates().await {
+        Ok(_) => {
+            let response = serde_json::json!({
+                "message": "Successfully refreshed all checkpoint reward aggregates",
+                "timestamp": Utc::now().to_rfc3339()
+            });
+            Ok(Json(response))
+        }
+        Err(e) => {
+            tracing::error!("Failed to refresh aggregates: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// GET /checkpoint/job-events/:checkpoint_id - Get job events for a checkpoint
+pub async fn get_checkpoint_job_events_handler(
+    State(service): State<ApiService>,
+    Path(checkpoint_id): Path<i64>,
+) -> Result<Json<Vec<WorkerJobEvent>>, StatusCode> {
+    match WorkerJobEventRepository::get_by_checkpoint(&service.pool, checkpoint_id).await {
+        Ok(events) => Ok(Json(events)),
+        Err(e) => {
+            tracing::error!("Failed to get job events: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// GET /checkpoint/distributions/:checkpoint_id - Get reward distributions for a checkpoint
+pub async fn get_checkpoint_distributions_handler(
+    State(service): State<ApiService>,
+    Path(checkpoint_id): Path<i64>,
+) -> Result<Json<Vec<CheckpointRewardDistribution>>, StatusCode> {
+    match CheckpointRewardDistributionRepository::get_by_checkpoint(&service.pool, checkpoint_id).await {
+        Ok(distributions) => Ok(Json(distributions)),
+        Err(e) => {
+            tracing::error!("Failed to get reward distributions: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+
+
+async fn checkpoint_processing_status_handler(
+    State(service): State<ApiService>,
+) -> Result<Json<CheckpointProcessingStatus>, StatusCode> {
+    let pending = match CheckpointRewardService::find_pending_checkpoints_public(&service.pool).await {
+        Ok(checkpoints) => checkpoints,
+        Err(e) => {
+            tracing::error!("Failed to get pending checkpoints: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let last_processed = sqlx::query_scalar::<_, i64>(
+        "SELECT MAX(checkpoint_id) FROM checkpoint_reward_distributions"
+    )
+        .fetch_optional(&service.pool)
+        .await
+        .ok()
+        .flatten();
+
+    let status = if pending.is_empty() {
+        "All checkpoints processed".to_string()
+    } else {
+        format!("{} checkpoints pending", pending.len())
+    };
+
+    Ok(Json(CheckpointProcessingStatus {
+        pending_count: pending.len(),
+        pending_checkpoints: pending.iter().take(10).copied().collect(), // Show first 10
+        last_processed_checkpoint: last_processed,
+        status,
+    }))
 }
