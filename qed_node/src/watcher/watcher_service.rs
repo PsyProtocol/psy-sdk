@@ -8,7 +8,7 @@ use anyhow::{anyhow, Result};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use chrono::{DateTime, Utc};
-use qed_core::job::id::QProvingJobDataID;
+use qed_core::{config::network_constants::SLOT_SIZE, job::id::QProvingJobDataID};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::task_queue::QProvingTaskStoreImpl;
@@ -16,7 +16,7 @@ use qed_store::queue::{new_redis_async_pool, QueueId, RsmqQueue};
 use qed_store::store::QEDStore;
 use redis::AsyncCommands;
 use rsmq::RsmqMessage;
-use tokio::sync::Semaphore;
+use tokio::sync::{Semaphore, RwLock};
 use tokio::time::{interval, timeout};
 use tracing::{debug, error, info, warn};
 
@@ -36,6 +36,8 @@ const TASK_MONITOR_INTERVAL: u64 = 5;
 const BLOCK_SYNC_TIMEOUT: u64 = 10;
 const FAILURE_BACKOFF_THRESHOLD: u32 = 3;
 const FAILURE_BACKOFF_DURATION: u64 = 30;
+const BLOCK_METADATA_WAIT_BLOCK_NUM: u64 = 3;
+const BLOCK_METADATA_WAIT_DURATION: u64 = BLOCK_METADATA_WAIT_BLOCK_NUM * SLOT_SIZE;
 
 pub struct WatcherService {
     config: WatcherConfig,
@@ -45,6 +47,7 @@ pub struct WatcherService {
     rsmq_queue_id: QueueId,
     api_client: Arc<ApiClient>,
     block_height_manager: Arc<BlockHeightManager>,
+    block_metadata_height: Arc<RwLock<u64>>,
     task_manager: Arc<ScheduledTaskManager>,
     timeout_watcher: Arc<TimeoutWatcher>,
     node_info: Arc<NodeInfo>,
@@ -106,13 +109,18 @@ impl WatcherService {
 
         let block_height_manager = Arc::new(BlockHeightManager::new());
 
-        match fetch_initial_block_height(&config.node_type, &qed_store).await {
+        let height =  match fetch_initial_block_height(&config.node_type, &qed_store).await {
             Ok(height) => {
                 block_height_manager.set_height(height);
                 info!("Block height initialized to {} from database", height);
+                height
             }
-            Err(e) => warn!("Failed to fetch initial block height: {}. Continuing with height 0", e),
-        }
+            Err(e) => {
+                warn!("Failed to fetch initial block height: {}. Continuing with height 0", e);
+                0
+            }
+        };
+        let block_metadata_height = Arc::new(RwLock::new(height));
 
         let task_manager = Arc::new(
             ScheduledTaskManager::new(redis_pool.clone(), config.node_id.clone()).await?,
@@ -125,6 +133,7 @@ impl WatcherService {
             rsmq_queue_id,
             api_client,
             block_height_manager,
+            block_metadata_height,
             task_manager,
             timeout_watcher,
             config,
@@ -150,6 +159,10 @@ impl WatcherService {
             }
             result = self.clone().monitor_timeouts() => {
                 error!("Timeout monitor stopped: {:?}", result);
+                result
+            }
+            result = self.clone().send_block_metadata() => {
+                error!("Send block metadata stopped: {:?}", result);
                 result
             }
         }
@@ -623,6 +636,33 @@ impl WatcherService {
     async fn sync_data_with_datacenter(&self) -> Result<()> {
         info!("Syncing data with datacenter");
         Ok(())
+    }
+
+    async fn send_block_metadata(self: Arc<Self>) -> Result<()> {
+        info!("Starting sending block metadata to api service");
+
+        loop {
+            let latest_block_height = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.qed_store).await?.checkpoint_id;
+            let target_height = latest_block_height.saturating_sub(BLOCK_METADATA_WAIT_BLOCK_NUM);
+
+            let local_height = *self.block_metadata_height.read().await;
+
+            let mut checkpoint_metadatas = Vec::new();
+            for checkpoint_id in local_height..target_height {
+                let checkpoint_leaf = QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data(&self.qed_store, checkpoint_id).await?;
+                checkpoint_metadatas.push(checkpoint_leaf);
+                info!("checkpoint {}: {}", checkpoint_id, serde_json::to_string_pretty(&checkpoint_leaf.stats)?);
+            }
+
+            if local_height > target_height {
+                warn!("local height {} is less than target height {}, do not send block metadata", local_height, target_height);
+            } else {
+                let mut local_height = self.block_metadata_height.write().await;
+                // send checkpoint_metadatas
+                *local_height = target_height;
+            }
+            tokio::time::sleep(Duration::from_secs(BLOCK_METADATA_WAIT_DURATION)).await;
+        }
     }
 }
 
