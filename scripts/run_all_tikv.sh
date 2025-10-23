@@ -141,10 +141,6 @@ run_service() {
     done
 }
 
-# Start TiKV cluster first
-echo "Starting TiKV cluster..."
-make init-tikv
-
 # Group 1: Start processor and worker services in background (using TiKV)
 run_service "make run-coordinator-processor-tikv" "coordinator-processor-tikv" "$COORDINATOR_PROCESSOR_LOG" &
 PIDS+=($!)
