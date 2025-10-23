@@ -16,6 +16,7 @@ use qed_data::dpn::proving_session::{
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DPNProvingSessionCompactMethodCallGadget {
+    pub caller_contract_id: Target,
     pub contract_id: Target,
     pub method_id: Target,
     pub inputs_length: Target,
@@ -25,6 +26,7 @@ pub struct DPNProvingSessionCompactMethodCallGadget {
 impl DPNProvingSessionCompactMethodCallGadget {
     pub fn new_from_inputs<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
+        caller_contract_id: Target,
         contract_id: Target,
         method_id: Target,
         inputs: &[Target]
@@ -32,6 +34,7 @@ impl DPNProvingSessionCompactMethodCallGadget {
         let inputs_length = builder.constant_u64(inputs.len() as u64);
         let inputs_hash = builder.safe_hash_fixed_length::<H>(inputs);
         Self {
+            caller_contract_id,
             contract_id,
             method_id,
             inputs_length,
@@ -41,12 +44,14 @@ impl DPNProvingSessionCompactMethodCallGadget {
     pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
+        let caller_contract_id = builder.add_virtual_target();
         let contract_id = builder.add_virtual_target();
         let method_id = builder.add_virtual_target();
         let inputs_length = builder.add_virtual_target();
         let inputs_hash = builder.add_virtual_hash();
 
         Self {
+            caller_contract_id,
             contract_id,
             method_id,
             inputs_length,
@@ -58,6 +63,7 @@ impl DPNProvingSessionCompactMethodCallGadget {
         witness: &mut impl Witness<F>,
         target: &DPNProvingSessionCompactMethodCall<F>,
     ) -> anyhow::Result<()> {
+        witness.set_target(self.caller_contract_id, target.caller_contract_id)?;
         witness.set_target(self.contract_id, target.contract_id)?;
         witness.set_target(self.method_id, target.method_id)?;
         witness.set_target(self.inputs_length, target.inputs_length)?;
@@ -71,6 +77,7 @@ impl DPNProvingSessionCompactMethodCallGadget {
 
         let final_hash = builder.hash_n_to_hash_no_pad::<H>(vec![
             magic_felt,
+            self.caller_contract_id,
             self.contract_id,
             self.method_id,
             self.inputs_length,
@@ -100,6 +107,7 @@ impl AlgebraicHashableTarget for DPNProvingSessionCompactMethodCallGadget {
 impl ToTargets for DPNProvingSessionCompactMethodCallGadget {
     fn to_targets(&self) -> Vec<Target> {
         vec![
+            self.caller_contract_id,
             self.contract_id,
             self.method_id,
             self.inputs_length,
@@ -112,15 +120,16 @@ impl ToTargets for DPNProvingSessionCompactMethodCallGadget {
 }
 impl FromTargets for DPNProvingSessionCompactMethodCallGadget {
     fn from_targets(targets: &[Target]) -> Self {
-        if targets.len() != 7 {
-            panic!("Invalid number of elements for DPNProvingSessionCompactMethodCallGadget, expected 7, got {}", targets.len());
+        if targets.len() != 8 {
+            panic!("Invalid number of elements for DPNProvingSessionCompactMethodCallGadget, expected 8, got {}", targets.len());
         }
         Self {
-            contract_id: targets[0],
-            method_id: targets[1],
-            inputs_length: targets[2],
+            caller_contract_id: targets[0],
+            contract_id: targets[1],
+            method_id: targets[2],
+            inputs_length: targets[3],
             inputs_hash: HashOutTarget {
-                elements: [targets[3], targets[4], targets[5], targets[6]],
+                elements: [targets[4], targets[5], targets[6], targets[7]],
             },
         }
     }
@@ -152,6 +161,7 @@ impl<F: RichField> WitnessValueFor<DPNProvingSessionCompactMethodCallGadget, F, 
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DPNProvingSessionSimpleMethodCallGadget {
+    pub caller_contract_id: Target,
     pub contract_id: Target,
     pub method_id: Target,
     pub inputs: Vec<Target>,
@@ -162,6 +172,7 @@ impl DPNProvingSessionSimpleMethodCallGadget {
         builder: &mut CircuitBuilder<F, D>,
         input_count: usize,
     ) -> Self {
+        let caller_contract_id = builder.add_virtual_target();
         let contract_id = builder.add_virtual_target();
         let method_id = builder.add_virtual_target();
         let inputs = (0..input_count)
@@ -169,6 +180,7 @@ impl DPNProvingSessionSimpleMethodCallGadget {
             .collect::<Vec<Target>>();
 
         Self {
+            caller_contract_id,
             contract_id,
             method_id,
             inputs,
@@ -178,13 +190,20 @@ impl DPNProvingSessionSimpleMethodCallGadget {
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> DPNProvingSessionCompactMethodCallGadget {
-        DPNProvingSessionCompactMethodCallGadget::new_from_inputs::<H, F, D>(builder, self.contract_id, self.method_id, &self.inputs)
+        DPNProvingSessionCompactMethodCallGadget::new_from_inputs::<H, F, D>(
+            builder,
+            self.caller_contract_id,
+            self.contract_id,
+            self.method_id,
+            &self.inputs,
+        )
     }
     pub fn set_witness<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,
         target: &DPNProvingSessionSimpleMethodCall<F>,
     ) -> anyhow::Result<()> {
+        witness.set_target(self.caller_contract_id, target.caller_contract_id)?;
         witness.set_target(self.contract_id, target.contract_id)?;
         witness.set_target(self.method_id, target.method_id)?;
         witness.set_target_arr(&self.inputs, &target.inputs)
@@ -232,7 +251,8 @@ impl AlgebraicHashableTarget for DPNProvingSessionSimpleMethodCallGadget {
 }
 impl ToTargets for DPNProvingSessionSimpleMethodCallGadget {
     fn to_targets(&self) -> Vec<Target> {
-        let mut targets = Vec::with_capacity(2 + self.inputs.len());
+        let mut targets = Vec::with_capacity(3 + self.inputs.len());
+        targets.push(self.caller_contract_id);
         targets.push(self.contract_id);
         targets.push(self.method_id);
         targets.extend_from_slice(&self.inputs);
@@ -241,13 +261,14 @@ impl ToTargets for DPNProvingSessionSimpleMethodCallGadget {
 }
 impl FromTargets for DPNProvingSessionSimpleMethodCallGadget {
     fn from_targets(targets: &[Target]) -> Self {
-        if targets.len() < 2 {
+        if targets.len() < 3 {
             panic!("Invalid number of elements for DPNProvingSessionSimpleMethodCall");
         }
         Self {
-            contract_id: targets[0],
-            method_id: targets[1],
-            inputs: targets[2..].to_vec(),
+            caller_contract_id: targets[0],
+            contract_id: targets[1],
+            method_id: targets[2],
+            inputs: targets[3..].to_vec(),
         }
     }
 }

@@ -1,4 +1,5 @@
 use plonky2::{hash::{hash_types::RichField, poseidon::PoseidonHash}, plonk::config::Hasher};
+use qed_core::config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
 
 use crate::dpn::ops::op_types::{decode_indexed_op_id, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType};
 
@@ -14,6 +15,7 @@ pub struct SimpleDPNExecutor<F: RichField> {
     pub u32_arrays: Vec<Vec<u32>>,
     pub user_id: F,
     pub contract_id: F,
+    pub caller_contract_id: F,
     pub checkpoint_id: F,
     pub user_public_key: [F; 4],
     pub nonce: F,
@@ -33,14 +35,15 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             u32_arrays: Vec::new(),
             user_id: F::ZERO,
             contract_id: F::ZERO,
+            caller_contract_id: F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64),
             checkpoint_id: F::ZERO,
             user_public_key: [F::ZERO; 4],
             nonce: F::ZERO,
             inputs: Vec::new(),
-            
+
         }
     }
-    pub fn new_with_contract_ctx(inputs: Vec<F>, user_id: F, contract_id: F, checkpoint_id: F, nonce: F, user_public_key: [F; 4]) -> Self {
+    pub fn new_with_contract_ctx(inputs: Vec<F>, user_id: F, contract_id: F, caller_contract_id: F, checkpoint_id: F, nonce: F, user_public_key: [F; 4]) -> Self {
         SimpleDPNExecutor {
             targets: Vec::new(),
             target_arrays: Vec::new(),
@@ -52,11 +55,12 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             u32_arrays: Vec::new(),
             user_id,
             contract_id,
+            caller_contract_id,
             checkpoint_id,
             user_public_key,
             nonce,
             inputs,
-            
+
         }
     }
     pub fn push_external_target(&mut self, target: F) {
@@ -82,7 +86,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 assert!(uv == 1 || uv == 0, "Invalid bool value");
                 uv == 1
             },
-            
+
             DPNBuiltInDataType::U32Target => {
                 assert!(index < self.u32s.len(), "Invalid u32 index");
 
@@ -131,7 +135,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 assert!(index < self.targets.len(), "Invalid target index");
                 self.targets[index]
             },
-            
+
             DPNBuiltInDataType::U32Target => {
                 assert!(index < self.u32s.len(), "Invalid u32 index");
 
@@ -144,7 +148,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
     pub fn resolve_u32(&self, id: u64) -> u32 {
         let (t, index) = decode_indexed_op_id(id);
         match t {
-            
+
             DPNBuiltInDataType::U32Target => {
                 assert!(index < self.u32s.len(), "Invalid u32 index");
 
@@ -177,7 +181,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 assert!(index < self.target_arrays.len(), "Invalid target array index");
                 self.target_arrays[index].clone()
             },
-            
+
             DPNBuiltInDataType::U32TargetArray => {
                 assert!(index < self.u32_arrays.len(), "Invalid u32 array index");
 
@@ -194,7 +198,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
 
         let ind_real = self.resolve_target(index_id);
         //println!("in_array_index_target_id: {} (equals {})",index_id, ind_real.to_canonical_u64());
-        
+
         match t {
             DPNBuiltInDataType::HashOut => {
                 assert!(ind_real.to_canonical_u64() < 4, "Invalid index in hash");
@@ -216,7 +220,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 assert!(index < self.target_arrays.len(), "Invalid target array index");
                 self.target_arrays[index][ind_real.to_canonical_u64() as usize]
             },
-            
+
             DPNBuiltInDataType::U32TargetArray => {
                 assert!(index < self.u32_arrays.len(), "Invalid u32 array index");
                 F::from_canonical_u32(self.u32_arrays[index][ind_real.to_canonical_u64() as usize])
@@ -263,7 +267,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
 
     pub fn process_var_def(&mut self, op: &DPNIndexedVarDef) {
         //self.print_current_op(op);
-        
+
         match op.op_type {
             //DPNOpType::InputTarget => todo!("this shouldn't ever get called probably"),
             DPNOpType::InputTarget => {
@@ -350,18 +354,18 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 let target = self.resolve_target(op.inputs[1]);
                 let num_bits = op.inputs[0];
                 assert!(num_bits <= 64, "SplitBits: num_bits must be less than 64");
-                
+
                 let actual_target_bits = 64 - target.to_canonical_u64().leading_zeros();
                 assert!(actual_target_bits <= num_bits as u32, "SplitBits: target bits must be less than num_bits");
-                
+
                 self.bool_arrays.push(split_bits(target.to_canonical_u64(), num_bits));
             },
             DPNOpType::SumBits => {
                 assert!(op.inputs.len() <= 64, "Sumbits: can only sum at most 64 bits");
                 let sum = op.inputs.iter().enumerate().map(|(i, &input)| self.resolve_bool(input) as u64 * (1 << i)).sum::<u64>();
-         
+
                 assert!(sum <= F::ORDER, "SumBits: sum must be less than field order");
-                
+
                 self.targets.push(F::from_canonical_u64(sum));
             },
             DPNOpType::TargetAt => {
@@ -553,6 +557,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
             DPNOpType::CalculateMerkleRoot => unimplemented!(),
             DPNOpType::GetUserId => self.targets.push(self.user_id),
             DPNOpType::GetContractId => self.targets.push(self.contract_id),
+            DPNOpType::GetCallerContractId => self.targets.push(self.caller_contract_id),
             DPNOpType::GetCheckpointId => self.targets.push(self.checkpoint_id),
             DPNOpType::GetNonce => self.targets.push(self.nonce),
             DPNOpType::GetUserPublicKeyHash => self.hashes.push(self.user_public_key),
@@ -645,7 +650,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                     },
                     DPNBuiltInDataType::Bool => {
                         assert!(index < self.bools.len(), "Invalid bool index");
-                        self.bools[index] 
+                        self.bools[index]
                     },
                     DPNBuiltInDataType::Target => {
                         assert!(index < self.targets.len(), "Invalid target index");
@@ -748,7 +753,7 @@ impl<F: RichField> SimpleDPNExecutor<F> {
                 }
             }
         }
-        
+
     }
 }
 

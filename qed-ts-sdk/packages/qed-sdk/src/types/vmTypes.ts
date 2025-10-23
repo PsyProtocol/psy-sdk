@@ -85,6 +85,9 @@ export enum DPNOpType {
     BoolInputTarget = 74,
     U32Mod = 75,
     U32Exp = 76,
+    Secp256k1Verify = 77,
+    HashTwoToOne = 78,
+    GetCallerContractId = 79,
 }
 
 /**

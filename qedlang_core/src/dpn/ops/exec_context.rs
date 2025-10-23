@@ -863,6 +863,10 @@ impl DPNContext<SymFeltRef> for QExecContext {
         SymFeltRef::new_valueless(DPNOpType::GetContractId)
     }
 
+    fn get_caller_contract_id(&mut self) -> SymFeltRef {
+        SymFeltRef::new_valueless(DPNOpType::GetCallerContractId)
+    }
+
     fn get_checkpoint_id(&mut self) -> SymFeltRef {
         SymFeltRef::new_valueless(DPNOpType::GetCheckpointId)
     }
