@@ -58,6 +58,7 @@ use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
+use qedlang_core::dpn::contract::{cfc_code_definition_to_dapen_fc, hash_dpn_function_in_field};
 use qed_data::models::checkpoint::sync_info::QEDCheckpointSyncInfoModelReaderCore;
 use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::rsmq_queue::CEQueueNotification;
@@ -191,7 +192,7 @@ impl CoordinatorEdgeHandler {
 
     pub async fn deploy_contract(
         &self,
-        contract: QBCDeployContract<QEDFelt>,
+        mut contract: QBCDeployContract<QEDFelt>,
     ) -> anyhow::Result<()> {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = latest + 1;
@@ -201,8 +202,21 @@ impl CoordinatorEdgeHandler {
         let state_tree_height = contract.code_definition.state_tree_height;
         let function_count = contract.code_definition.functions.len();
 
+        let mut computed_hashes = Vec::with_capacity(function_count);
+        for func in &contract.code_definition.functions {
+            let dpn_def = cfc_code_definition_to_dapen_fc(func)?;
+            computed_hashes.push(hash_dpn_function_in_field::<QEDFelt>(&dpn_def));
+        }
+        if !contract.function_code_hashes.is_empty()
+            && contract.function_code_hashes != computed_hashes
+        {
+            bail!("provided function_code_hashes mismatch computed hashes");
+        }
+        contract.function_code_hashes = computed_hashes;
+
         let with_root = contract.into_with_whitelist_root::<QEDHasher>()?;
         let function_whitelist_root_str = format!("{}", with_root.function_whitelist_root.to_string_le());
+        let function_code_hash_root_str = format!("{}", with_root.function_code_hash_root.to_string_le());
 
         let cd_for_queue = WithDrainQueueMetadata::new_params(
             self.ctx.coordinator_config.deploy_contract_channel_id,
@@ -218,6 +232,7 @@ impl CoordinatorEdgeHandler {
             state_tree_height,
             function_count,
             function_whitelist_root: function_whitelist_root_str,
+            function_code_hash_root: function_code_hash_root_str,
             node_id: self.watcher_client.get_node_id().await.unwrap_or_default(),
             node_type: "coordinator".to_string(),
         };

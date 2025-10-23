@@ -11,6 +11,7 @@ use ts_rs::TS;
 pub struct QEDContractLeaf<F: RichField> {
     pub deployer: QHashOut<F>,
     pub function_tree_root: QHashOut<F>,
+    pub function_code_root: QHashOut<F>,
     pub state_tree_height: F,
 }
 
@@ -26,7 +27,7 @@ impl<F: RichField> KVQSerializable for QEDContractLeaf<F> {
 
 impl<F: RichField> QFeltSized for QEDContractLeaf<F> {
     fn q_felt_size() -> usize {
-        9
+        13
     }
 }
 impl<F: RichField> ToQFelts<F> for QEDContractLeaf<F> {
@@ -40,20 +41,26 @@ impl<F: RichField> ToQFelts<F> for QEDContractLeaf<F> {
             self.function_tree_root.0.elements[1],
             self.function_tree_root.0.elements[2],
             self.function_tree_root.0.elements[3],
+            self.function_code_root.0.elements[0],
+            self.function_code_root.0.elements[1],
+            self.function_code_root.0.elements[2],
+            self.function_code_root.0.elements[3],
             self.state_tree_height,
         ]
     }
 
     fn from_qfelts(felts: &[F]) -> Self {
-        if felts.len() != 9 {
+        if felts.len() != 13 {
             panic!("Invalid number of elements for QEDContractLeaf");
         }
         let deployer = QHashOut::from_qfelts(&felts[0..4]);
         let function_tree_root = QHashOut::from_qfelts(&felts[4..8]);
-        let state_tree_height = felts[8];
+        let function_code_root = QHashOut::from_qfelts(&felts[8..12]);
+        let state_tree_height = felts[12];
         QEDContractLeaf {
             deployer,
             function_tree_root,
+            function_code_root,
             state_tree_height,
         }
     }
@@ -71,6 +78,10 @@ impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
             self.function_tree_root.0.elements[1],
             self.function_tree_root.0.elements[2],
             self.function_tree_root.0.elements[3],
+            self.function_code_root.0.elements[0],
+            self.function_code_root.0.elements[1],
+            self.function_code_root.0.elements[2],
+            self.function_code_root.0.elements[3],
             self.state_tree_height,
         ])
     }

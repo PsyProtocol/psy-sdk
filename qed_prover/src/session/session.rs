@@ -57,7 +57,7 @@ use qed_store::controllers::local::{
     proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
 };
 use qedlang_core::dpn::{
-    contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}, vm::def::DPNFunctionCircuitDefinition,
+    contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function_in_field}, vm::def::DPNFunctionCircuitDefinition,
 };
 use qed_core::job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT};
 use serde::{Deserialize, Serialize};
@@ -86,6 +86,7 @@ where
         .map(|x| dapen_fc_to_cfc_code_definition(x))
         .collect::<Vec<_>>();
     let mut fingerprints = Vec::with_capacity(defs.len() * 2);
+    let mut code_hashes = Vec::with_capacity(defs.len());
     let circuits = defs
         .iter()
         .map(|x| {
@@ -105,6 +106,7 @@ where
                 0,
                 0,
             ));
+            code_hashes.push(hash_dpn_function_in_field::<C::F>(x));
             c
         })
         .collect::<Vec<_>>();
@@ -116,6 +118,7 @@ where
             functions: code_defs,
         },
         function_whitelist: fingerprints,
+        function_code_hashes: code_hashes,
     };
 
     Ok((circuits, deploy))

@@ -12,7 +12,7 @@ use crate::qblock::process::witnesses::QEDCheckpointStateTransitionCircuitInput;
 use crate::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
     qblock::{
-        cmds::{core::QEDBlockCommands, register_user::QBCRegisterUser, deploy_contract::QBCDeployContract},
+        cmds::{core::QEDBlockCommands, register_user::QBCRegisterUser, deploy_contract::{QBCDeployContract, QBCDeployContractWithRoot}},
         process::witnesses::{
             QEDDeployContractCircuitInput, QEDInternalBlockCircuitInputs,
             QEDUserRegistrationCircuitInput,
@@ -95,6 +95,12 @@ impl SimpleBlockProcessor {
 
         for (i, d) in cmds.deploy_contracts.iter().enumerate() {
             let contract_id = (current_block_state.next_contract_id as u64) + i as u64;
+            let contract_with_root = QBCDeployContractWithRoot::new::<QEDHasher>(
+                d.deployer,
+                d.code_definition.clone(),
+                d.function_whitelist.clone(),
+                d.function_code_hashes.clone(),
+            )?;
             let function_tree_root = store.set_contract_function_whitelist(
                 new_checkpoint_id,
                 contract_id,
@@ -104,6 +110,7 @@ impl SimpleBlockProcessor {
             let contract_leaf = QEDContractLeaf {
                 deployer: d.deployer,
                 function_tree_root,
+                function_code_root: contract_with_root.function_code_hash_root,
                 state_tree_height: QEDFelt::from_canonical_u16(d.code_definition.state_tree_height),
             };
             let contract_leaf_hash = contract_leaf.qfhash::<QEDHasher>();
@@ -277,6 +284,7 @@ impl SimpleBlockProcessor {
                     functions: vec![ContractFunctionCodeDefinition::default()],
                 },
                 function_whitelist: whitelist_items_fake.clone(),
+                function_code_hashes: vec![QHashOut::rand()],
             },
             QBCDeployContract {
                 deployer: QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378])
@@ -286,6 +294,7 @@ impl SimpleBlockProcessor {
                     functions: vec![ContractFunctionCodeDefinition::default()],
                 },
                 function_whitelist: whitelist_items_fake.clone(),
+                function_code_hashes: vec![QHashOut::rand()],
             },
         ];
         all_contracts.extend(deploy_contracts);

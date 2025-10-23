@@ -318,6 +318,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
                     QHashOut::rand(),
                     QHashOut::rand(),
                 ],
+                function_code_hashes: vec![QHashOut::rand()],
             },
             QBCDeployContract {
                 deployer: QHashOut::from_values(13375, 13376, 13377, 13378),
@@ -331,6 +332,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
                     QHashOut::rand(),
                     QHashOut::rand(),
                 ],
+                function_code_hashes: vec![QHashOut::rand()],
             },
             deploy_cmd,
         ],

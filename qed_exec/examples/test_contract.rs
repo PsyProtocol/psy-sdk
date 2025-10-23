@@ -136,6 +136,7 @@ async fn main() {
             QHashOut::rand(),
             QHashOut::rand(),
         ],
+        function_code_hashes: vec![QHashOut::rand()],
     };
 
     let mut lps = prepare_environment_with_real_contract(

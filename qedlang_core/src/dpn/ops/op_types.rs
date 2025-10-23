@@ -510,9 +510,96 @@ impl DPNIndexedVarDef {
     }
 }
 
+use crate::dpn::ops::context_trait::{ContextFelt, ToFelts};
+
+impl<F: ContextFelt> ToFelts<F> for DPNIndexedVarDef {
+    fn to_felts(&self) -> Vec<F> {
+        let mut out = Vec::with_capacity(4 + self.inputs.len());
+        out.push(F::cns(self.data_type as u8 as u64));
+        out.push(F::cns(self.index as u64));
+        out.push(F::cns(self.op_type.get_enc_value() as u64));
+        out.push(F::cns(self.inputs.len() as u64));
+        for value in &self.inputs {
+            out.push(F::cns(*value));
+        }
+        out
+    }
+
+    fn from_felts(felts: &[F]) -> Self {
+        if felts.len() < 4 {
+            panic!("DPNIndexedVarDef expects at least 4 felts, got {}", felts.len());
+        }
+        let mut idx = 0usize;
+        let mut take = |felts: &[F], idx: &mut usize| {
+            if *idx >= felts.len() {
+                panic!("DPNIndexedVarDef decoding overflow");
+            }
+            let v = felts[*idx].get_u64();
+            *idx += 1;
+            v
+        };
+        let data_type = DPNBuiltInDataType::from(take(felts, &mut idx) as u8);
+        let index = take(felts, &mut idx) as usize;
+        let op_type = DPNOpType::from(take(felts, &mut idx) as u16);
+        let inputs_len = take(felts, &mut idx) as usize;
+        if felts.len() < idx + inputs_len {
+            panic!(
+                "DPNIndexedVarDef inputs length mismatch: expected {}, remaining {}",
+                inputs_len,
+                felts.len().saturating_sub(idx)
+            );
+        }
+        let mut inputs = Vec::with_capacity(inputs_len);
+        for _ in 0..inputs_len {
+            inputs.push(take(felts, &mut idx));
+        }
+        DPNIndexedVarDef {
+            data_type,
+            index,
+            op_type,
+            inputs,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, TS)]
 pub struct DPNAssertEqInfoIndexed {
     pub left: u64,
     pub right: u64,
     pub message: String,
+}
+
+impl<F: ContextFelt> ToFelts<F> for DPNAssertEqInfoIndexed {
+    fn to_felts(&self) -> Vec<F> {
+        let mut out = Vec::with_capacity(3 + self.message.len());
+        out.push(F::cns(self.left));
+        out.push(F::cns(self.right));
+        out.push(F::cns(self.message.as_bytes().len() as u64));
+        for b in self.message.as_bytes() {
+            out.push(F::cns(*b as u64));
+        }
+        out
+    }
+
+    fn from_felts(felts: &[F]) -> Self {
+        if felts.len() < 3 {
+            panic!("DPNAssertEqInfoIndexed expects at least 3 felts");
+        }
+        let left = felts[0].get_u64();
+        let right = felts[1].get_u64();
+        let msg_len = felts[2].get_u64() as usize;
+        if felts.len() != 3 + msg_len {
+            panic!(
+                "DPNAssertEqInfoIndexed message length mismatch: expected {}, got {}",
+                msg_len,
+                felts.len().saturating_sub(3)
+            );
+        }
+        let mut bytes = Vec::with_capacity(msg_len);
+        for felt in &felts[3..] {
+            bytes.push(felt.get_u64() as u8);
+        }
+        let message = String::from_utf8(bytes).expect("invalid utf8 in DPNAssertEqInfoIndexed");
+        DPNAssertEqInfoIndexed { left, right, message }
+    }
 }

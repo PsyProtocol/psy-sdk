@@ -45,6 +45,7 @@ const mockQBCDeployContract: QBCDeployContract = {
         ],
     },
     function_whitelist: ["0x1234567890abcdef"],
+    function_code_hashes: ["0x1234567890abcdef"],
 };
 
 // --- Assertion Helpers ---
@@ -74,9 +75,10 @@ function expectQEDUserLeaf(value: any) {
 
 function expectQEDContractLeaf(value: any) {
     expect(value).toBeDefined();
-    expect(typeof value.contract_id).toBe("bigint");
-    expectQHashOut(value.contract_state_tree_root);
-    expectQHashOut(value.contract_code_hash);
+    expectQHashOut(value.deployer);
+    expectQHashOut(value.function_tree_root);
+    expectQHashOut(value.function_code_root);
+    expect(typeof value.state_tree_height).toBe("bigint");
 }
 
 function expectQEDCheckpointLeaf(value: any) {

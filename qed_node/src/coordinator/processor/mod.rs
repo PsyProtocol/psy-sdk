@@ -11,6 +11,7 @@ use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use qed_crypto::hash::merkle::utils::common::QMerkleNode;
 use qed_data::config::genesis_config::GenesisConfig;
+use qed_data::qblock::cmds::deploy_contract::QBCDeployContractWithRoot;
 use qed_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
@@ -459,9 +460,17 @@ impl
                     &deploy_cmd.function_whitelist,
                 ).await?;
 
+                let deploy_with_root = QBCDeployContractWithRoot::new::<QEDHasher>(
+                    deploy_cmd.deployer,
+                    deploy_cmd.code_definition.clone(),
+                    deploy_cmd.function_whitelist.clone(),
+                    deploy_cmd.function_code_hashes.clone(),
+                )?;
+
                 let contract_leaf = QEDContractLeaf {
                     deployer: deploy_cmd.deployer,
                     function_tree_root,
+                    function_code_root: deploy_with_root.function_code_hash_root,
                     state_tree_height: F::from_canonical_u32(deploy_cmd.code_definition.state_tree_height as u32),
                 };
 

@@ -7,6 +7,7 @@ use qed_data::qdata::contract::QEDContractLeaf;
 pub struct QEDContractLeafGadget {
     pub deployer: HashOutTarget,
     pub function_tree_root: HashOutTarget,
+    pub function_code_root: HashOutTarget,
     pub state_tree_height: Target,
 }
 
@@ -14,6 +15,7 @@ impl QEDContractLeafGadget {
     pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDContractLeaf<F>) -> anyhow::Result<()> {
         witness.set_hash_target(self.deployer, target.deployer.0)?;
         witness.set_hash_target(self.function_tree_root, target.function_tree_root.0)?;
+        witness.set_hash_target(self.function_code_root, target.function_code_root.0)?;
         witness.set_target(self.state_tree_height, target.state_tree_height)
     }
     pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
@@ -31,6 +33,7 @@ impl CreatableTarget for QEDContractLeafGadget {
     ) -> Self {
         let deployer = builder.add_virtual_hash();
         let function_tree_root = builder.add_virtual_hash();
+        let function_code_root = builder.add_virtual_hash();
         let state_tree_height = builder.add_virtual_target();
         let mut base = state_tree_height;
         let zero = builder.zero();
@@ -50,9 +53,10 @@ impl CreatableTarget for QEDContractLeafGadget {
         Self {
             deployer,
             function_tree_root,
+            function_code_root,
             state_tree_height,
         }
-        
+
     }
 }
 impl ToTargets for QEDContractLeafGadget {
@@ -66,14 +70,18 @@ impl ToTargets for QEDContractLeafGadget {
             self.function_tree_root.elements[1],
             self.function_tree_root.elements[2],
             self.function_tree_root.elements[3],
+            self.function_code_root.elements[0],
+            self.function_code_root.elements[1],
+            self.function_code_root.elements[2],
+            self.function_code_root.elements[3],
             self.state_tree_height,
         ]
     }
 }
 impl FromTargets for QEDContractLeafGadget {
     fn from_targets(targets: &[Target]) -> Self {
-        if targets.len() != 9 {
-            panic!("tried to create QEDContractLeafGadget from an array of {} targets, but expected an array of 9 targets", targets.len());
+        if targets.len() != 13 {
+            panic!("tried to create QEDContractLeafGadget from an array of {} targets, but expected an array of 13 targets", targets.len());
         }
         let deployer = HashOutTarget {
             elements: [
@@ -91,10 +99,19 @@ impl FromTargets for QEDContractLeafGadget {
                 targets[7],
             ]
         };
-        let state_tree_height = targets [8];
+        let function_code_root = HashOutTarget {
+            elements: [
+                targets[8],
+                targets[9],
+                targets[10],
+                targets[11],
+            ]
+        };
+        let state_tree_height = targets[12];
         Self {
             deployer,
             function_tree_root,
+            function_code_root,
             state_tree_height,
         }
     }

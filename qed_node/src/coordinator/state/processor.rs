@@ -220,6 +220,7 @@ impl<
             .map(|x| QEDContractLeaf {
                 deployer: x.payload.deployer,
                 function_tree_root: x.payload.function_whitelist_root,
+                function_code_root: x.payload.function_code_hash_root,
                 state_tree_height: F::from_canonical_u16(x.payload.code_definition.state_tree_height),
             })
             .collect::<Vec<_>>();
