@@ -1,8 +1,11 @@
+use std::time::Duration;
 use reqwest::Client;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tokio::time::sleep;
 use tracing::{info, debug, warn};
 use qed_api_services::handlers::{TelemetryPayload, TelemetryResponse};
 use qed_api_services::models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus};
@@ -11,14 +14,82 @@ use crate::watcher::events::{JobCompletedEvent, JobTimeoutEvent, UserRegistratio
 use crate::watcher::watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
 
-pub struct ApiClient {
-    client: Client,
-    endpoint: String,
-    node_id: String,
-    node_type: WatcherSourceNodeType,
-    realm_id: Option<i64>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockStatusReport {
+    pub node_id: String,
+    pub node_type: WatcherSourceNodeType,
+    pub checkpoint_id: u64,
+    pub block_height: u64,
+    pub timestamp: DateTime<Utc>,
+    pub metadata: Option<serde_json::Value>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointStats {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,
+    pub user_ops_processed: i32,
+    pub total_transactions: i32,
+    pub slots_modified: i32,
+    pub metadata: Option<serde_json::Value>,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchEventPayload {
+    pub worker_events: Vec<WorkerEvent>,
+    pub user_events: Vec<UserEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiResponse<T> {
+    pub success: bool,
+    pub data: Option<T>,
+    pub message: Option<String>,
+}
+
+
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+const DEFAULT_RETRY_COUNT: u32 = 3;
+const DEFAULT_RETRY_DELAY: Duration = Duration::from_secs(1);
+const MAX_BATCH_SIZE: usize = 100;
+
+pub struct ApiClientConfig {
+    pub endpoint: String,
+    pub node_id: String,
+    pub node_type: WatcherSourceNodeType,
+    pub realm_id: Option<i64>,
+    pub timeout: Duration,
+    pub max_retries: u32,
+    pub retry_delay: Duration,
+    pub enable_compression: bool,
+}
+
+impl ApiClientConfig {
+    pub fn new(
+        endpoint: String,
+        node_id: String,
+        node_type: WatcherSourceNodeType,
+        realm_id: Option<i64>,
+    ) -> Self {
+        Self {
+            endpoint,
+            node_id,
+            node_type,
+            realm_id,
+            timeout: DEFAULT_TIMEOUT,
+            max_retries: DEFAULT_RETRY_COUNT,
+            retry_delay: DEFAULT_RETRY_DELAY,
+            enable_compression: true,
+        }
+    }
+}
+
+
+pub struct ApiClient {
+    client: Client,
+    config: ApiClientConfig,
+}
 impl ApiClient {
     pub fn new(
         endpoint: String,
@@ -26,17 +97,25 @@ impl ApiClient {
         node_type: WatcherSourceNodeType,
         realm_id: Option<i64>,
     ) -> Result<Self> {
-        let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()?;
+        let config = ApiClientConfig::new(endpoint, node_id, node_type, realm_id);
+        Self::with_config(config)
+    }
 
-        Ok(Self {
-            client,
-            endpoint,
-            node_id,
-            node_type,
-            realm_id,
-        })
+    pub fn with_config(config: ApiClientConfig) -> Result<Self> {
+        let mut builder = Client::builder()
+            .timeout(config.timeout)
+            .connect_timeout(Duration::from_secs(10))
+            .pool_idle_timeout(Duration::from_secs(90))
+            .pool_max_idle_per_host(10);
+
+        if config.enable_compression {
+            builder = builder.gzip(true).brotli(true);
+        }
+
+        let client = builder.build()
+            .context("Failed to create HTTP client")?;
+
+        Ok(Self { client, config })
     }
 
     pub async fn send_user_registration(&self, event: UserRegistrationEvent) -> Result<()> {
@@ -89,7 +168,7 @@ impl ApiClient {
     pub async fn send_job_pending(&self, event: JobPendingEvent) -> Result<()> {
         let api_event = WorkerEvent {
             id: None,
-            realm_id: self.realm_id,
+            realm_id: self.config.realm_id,
             public_key: None,
             status: WorkerEventStatus::Pending,
             source: self.worker_source(),
@@ -99,8 +178,8 @@ impl ApiClient {
             metadata: Some(serde_json::json!({
                 "event_type": "job_pending",
                 "start_time": event.start_time,
-                "node_id": self.node_id,
-                "node_type": format!("{:?}", self.node_type),
+                "node_id": self.config.node_id,
+                "node_type": format!("{:?}", self.config.node_type),
                 "layer_id": event.job_id.task_index,
                 "circuit_type": format!("{:?}", event.job_id.circuit_type),
             })),
@@ -117,7 +196,7 @@ impl ApiClient {
     pub async fn send_job_started(&self, event: JobStartedEvent) -> Result<()> {
         let api_event = WorkerEvent {
             id: None,
-            realm_id: self.realm_id,
+            realm_id: self.config.realm_id,
             public_key: Some(event.worker_id.to_string()),
             status: WorkerEventStatus::Processing,
             source: self.worker_source(),
@@ -127,8 +206,8 @@ impl ApiClient {
             metadata: Some(serde_json::json!({
                 "event_type": "job_started",
                 "start_time": event.start_time,
-                "node_id": self.node_id,
-                "node_type": format!("{:?}", self.node_type),
+                "node_id": self.config.node_id,
+                "node_type": format!("{:?}", self.config.node_type),
                 "layer_id": event.job_id.task_index,
                 "circuit_type": format!("{:?}", event.job_id.circuit_type),
             })),
@@ -145,7 +224,7 @@ impl ApiClient {
     pub async fn send_job_completed(&self, event: JobCompletedEvent) -> Result<()> {
         let api_event = WorkerEvent {
             id: None,
-            realm_id: self.realm_id,
+            realm_id: self.config.realm_id,
             public_key: event.worker_id.clone(),
             status: WorkerEventStatus::Completed,
             source: self.worker_source(),
@@ -155,8 +234,8 @@ impl ApiClient {
             metadata: Some(serde_json::json!({
                 "start_time": event.start_time,
                 "end_time": event.end_time,
-                "node_id": self.node_id,
-                "node_type": format!("{:?}", self.node_type),
+                "node_id": self.config.node_id,
+                "node_type": format!("{:?}", self.config.node_type),
                 "layer_id": event.job_id.task_index,
                 "circuit_type": format!("{:?}", event.job_id.circuit_type),
             })),
@@ -173,7 +252,7 @@ impl ApiClient {
     pub async fn send_job_timeout(&self, event: JobTimeoutEvent) -> Result<()> {
         let api_event = WorkerEvent {
             id: None,
-            realm_id: self.realm_id,
+            realm_id: self.config.realm_id,
             public_key: event.worker_id.clone(),
             status: WorkerEventStatus::Failed,
             source: self.worker_source(),
@@ -184,8 +263,8 @@ impl ApiClient {
                 "timeout": true,
                 "start_time": event.start_time,
                 "timeout_time": event.timeout_time,
-                "node_id": self.node_id,
-                "node_type": format!("{:?}", self.node_type),
+                "node_id": self.config.node_id,
+                "node_type": format!("{:?}", self.config.node_type),
                 "layer_id": event.job_id.task_index,
                 "circuit_type": format!("{:?}", event.job_id.circuit_type),
             })),
@@ -204,7 +283,7 @@ impl ApiClient {
 
         let api_event = WorkerEvent {
             id: None,
-            realm_id: self.realm_id,
+            realm_id: self.config.realm_id,
             public_key: None,
             status: WorkerEventStatus::Processing,
             source: self.worker_source(),
@@ -217,8 +296,8 @@ impl ApiClient {
                 "proof_hash": proof_hash,
                 "delete_after_blocks": event.delete_after_blocks,
                 "backup_time": event.timestamp,
-                "node_id": self.node_id,
-                "node_type": format!("{:?}", self.node_type),
+                "node_id": self.config.node_id,
+                "node_type": format!("{:?}", self.config.node_type),
             })),
             timestamp: Utc::now(),
             created_at: Utc::now(),
@@ -235,7 +314,7 @@ impl ApiClient {
 
         let api_event = WorkerEvent {
             id: None,
-            realm_id: self.realm_id,
+            realm_id: self.config.realm_id,
             public_key: None,
             status: WorkerEventStatus::Processing,
             source: self.worker_source(),
@@ -248,8 +327,8 @@ impl ApiClient {
                 "witness_hash": witness_hash,
                 "delete_after_blocks": event.delete_after_blocks,
                 "backup_time": event.timestamp,
-                "node_id": self.node_id,
-                "node_type": format!("{:?}", self.node_type),
+                "node_id": self.config.node_id,
+                "node_type": format!("{:?}", self.config.node_type),
             })),
             timestamp: Utc::now(),
             created_at: Utc::now(),
@@ -258,6 +337,67 @@ impl ApiClient {
 
         self.send_worker_events(vec![api_event]).await?;
         debug!("Witness backup event sent for job: {:?}", event.job_id);
+        Ok(())
+    }
+
+    pub async fn report_block_status(&self, checkpoint_id: u64, block_height: u64) -> Result<()> {
+        let report = BlockStatusReport {
+            node_id: self.config.node_id.clone(),
+            node_type: self.config.node_type,
+            checkpoint_id,
+            block_height,
+            timestamp: current_datetime(),
+            metadata: None,
+        };
+
+        self.send_with_retry(
+            "POST",
+            "/telemetry/block/status",
+            Some(&report),
+        ).await?;
+
+        debug!(
+            "Block status reported: checkpoint_id={}, block_height={}",
+            checkpoint_id, block_height
+        );
+        Ok(())
+    }
+
+    pub async fn report_checkpoint_stats(&self, stats: CheckpointStats) -> Result<()> {
+        let response: ApiResponse<serde_json::Value> = self.post_json(
+            "/telemetry/checkpoint/stats",
+            &stats,
+        ).await?;
+
+        if !response.success {
+            return Err(anyhow::anyhow!(
+                "Failed to report checkpoint stats: {}",
+                response.message.unwrap_or_else(|| "Unknown error".to_string())
+            ));
+        }
+
+        debug!("Checkpoint stats reported for checkpoint {}", stats.checkpoint_id);
+        Ok(())
+    }
+
+    pub async fn send_batch_events(&self, worker_events: Vec<WorkerEvent>, user_events: Vec<UserEvent>) -> Result<()> {
+        // Split into batches if needed
+        for worker_batch in worker_events.chunks(MAX_BATCH_SIZE) {
+            let payload = TelemetryPayload {
+                worker_events: Some(worker_batch.to_vec()),
+                user_events: None,
+            };
+            self.send_telemetry(&payload).await?;
+        }
+
+        for user_batch in user_events.chunks(MAX_BATCH_SIZE) {
+            let payload = TelemetryPayload {
+                worker_events: None,
+                user_events: Some(user_batch.to_vec()),
+            };
+            self.send_telemetry(&payload).await?;
+        }
+
         Ok(())
     }
 
@@ -281,7 +421,7 @@ impl ApiClient {
 
     async fn send_telemetry(&self, payload: &TelemetryPayload) -> Result<()> {
         let response = self.client
-            .post(&format!("{}/telemetry/events", self.endpoint))
+            .post(&format!("{}/telemetry/events", self.config.endpoint))
             .json(payload)
             .send()
             .await?;
@@ -303,9 +443,132 @@ impl ApiClient {
     }
 
     fn worker_source(&self) -> WorkerEventSource {
-        match self.node_type {
+        match self.config.node_type {
             WatcherSourceNodeType::Coordinator => WorkerEventSource::Coordinator,
             WatcherSourceNodeType::Realm => WorkerEventSource::Realm,
         }
     }
+
+    async fn send_with_retry<T, R>(
+        &self,
+        method: &str,
+        path: &str,
+        body: Option<&T>,
+    ) -> Result<R>
+    where
+        T: Serialize + ?Sized,
+        R: for<'de> Deserialize<'de>,
+    {
+        let url = format!("{}{}", self.config.endpoint, path);
+        let mut last_error = None;
+
+        for attempt in 0..=self.config.max_retries {
+            if attempt > 0 {
+                let delay = self.config.retry_delay * attempt;
+                info!("Retrying request (attempt {}/{}), waiting {:?}", attempt, self.config.max_retries, delay);
+                sleep(delay).await;
+            }
+
+            let request = match method {
+                "GET" => self.client.get(&url),
+                "POST" => self.client.post(&url),
+                "PUT" => self.client.put(&url),
+                "DELETE" => self.client.delete(&url),
+                _ => return Err(anyhow::anyhow!("Unsupported HTTP method: {}", method)),
+            };
+
+            let request = if let Some(body) = body {
+                request.json(body)
+            } else {
+                request
+            };
+
+            match request.send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        return response.json::<R>().await
+                            .context("Failed to parse response");
+                    } else if !self.should_retry(response.status()) {
+                        return Err(anyhow::anyhow!(
+                            "Request failed with status: {}",
+                            response.status()
+                        ));
+                    }
+                    last_error = Some(format!("HTTP {}", response.status()));
+                }
+                Err(e) => {
+                    last_error = Some(e.to_string());
+                    if !self.is_retriable_error(&e) {
+                        return Err(e.into());
+                    }
+                }
+            }
+        }
+
+        Err(anyhow::anyhow!(
+            "Request failed after {} attempts. Last error: {}",
+            self.config.max_retries + 1,
+            last_error.unwrap_or_else(|| "Unknown".to_string())
+        ))
+    }
+
+    async fn post_json<T, R>(&self, path: &str, body: &T) -> Result<R>
+    where
+        T: Serialize + ?Sized,
+        R: for<'de> Deserialize<'de>,
+    {
+        self.send_with_retry("POST", path, Some(body)).await
+    }
+
+    async fn get_json<R>(&self, path: &str) -> Result<R>
+    where
+        R: for<'de> Deserialize<'de>,
+    {
+        self.send_with_retry::<(), R>("GET", path, None).await
+    }
+
+    fn should_retry(&self, status: StatusCode) -> bool {
+        matches!(
+            status,
+            StatusCode::REQUEST_TIMEOUT
+                | StatusCode::TOO_MANY_REQUESTS
+                | StatusCode::INTERNAL_SERVER_ERROR
+                | StatusCode::BAD_GATEWAY
+                | StatusCode::SERVICE_UNAVAILABLE
+                | StatusCode::GATEWAY_TIMEOUT
+        )
+    }
+
+    fn is_retriable_error(&self, error: &reqwest::Error) -> bool {
+        error.is_timeout() || error.is_connect() || error.is_request()
+    }
+
+
+    pub async fn health_check(&self) -> Result<bool> {
+        match self.get_json::<serde_json::Value>("/health").await {
+            Ok(response) => {
+                if let Some(status) = response.get("status").and_then(|s| s.as_str()) {
+                    Ok(status == "ok")
+                } else {
+                    Ok(false)
+                }
+            }
+            Err(e) => {
+                warn!("Health check failed: {}", e);
+                Ok(false)
+            }
+        }
+    }
+
+    pub async fn get_stats(&self) -> Result<serde_json::Value> {
+        self.get_json("/stats").await
+    }
+
+    pub async fn get_block_height(&self) -> Result<u64> {
+        let stats: serde_json::Value = self.get_json("/stats").await?;
+        stats.get("block_height")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| anyhow::anyhow!("Block height not found in stats"))
+    }
+
 }

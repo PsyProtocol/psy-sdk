@@ -49,7 +49,7 @@ qed_rollup_utils = { workspace = true }
 hyper = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["gzip", "brotli"] }
 jsonwebtoken = { workspace = true }
 qed_prover = { workspace = true }
 http = { workspace = true }
