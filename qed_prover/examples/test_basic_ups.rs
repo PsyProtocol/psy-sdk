@@ -13,7 +13,7 @@ use qed_data::{
     },
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
-use qed_prover::{local::provider::ProveProxyRpcTrait, dpn::circuits::cfc::DapenContractFunctionCircuit, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
+use qed_prover::{local::provider::UPSCircuitManagerTrait, dpn::circuits::cfc::DapenContractFunctionCircuit, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };

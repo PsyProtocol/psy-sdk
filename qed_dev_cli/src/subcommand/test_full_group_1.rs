@@ -36,7 +36,7 @@ use qed_node::{
     },
 };
 use qed_node::common::verifier::get_cached_generic_verifier;
-use qed_prover::{local::provider::ProveProxyRpcTrait, ups::{
+use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{
     circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager,
 }};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;

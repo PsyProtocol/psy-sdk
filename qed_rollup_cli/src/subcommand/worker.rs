@@ -78,7 +78,7 @@ pub async fn run(
             qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
         ));
 
-    let mut memory_wallet = qed_prover::wallet::memory_wallet::QEDMemoryWallet::new(vec![main_circuits]);
+    let mut memory_wallet = qed_prover::wallet::memory_wallet::QEDMemoryWallet::new(vec![Box::new(main_circuits)]);
 
     let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
     let public_key_info = memory_wallet.add_secp_private_key(private_key).await?;

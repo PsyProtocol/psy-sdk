@@ -6,7 +6,7 @@ import { ContractCallArgs, WalletKeyPair, DPNFunctionCircuitDefinition } from ".
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
 import { ZKPublicKeyInfo } from "../types";
-import { waitMs } from "../utils";
+import { QedJSON, waitMs } from "../utils";
 
 /**
  * Integration tests for QED User Prover RPC Client
@@ -417,7 +417,7 @@ describe("QED User Prover RPC Integration Tests", () => {
             "should deploy contract",
             async () => {
                 try {
-                    const circuitDefs = JSON.parse(
+                    const circuitDefs = QedJSON.parse(
                         fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
                     );
                     console.log("circuitDefs: ", circuitDefs);
@@ -467,7 +467,7 @@ describe("QED User Prover RPC Integration Tests", () => {
             "should deploy contract",
             async () => {
                 try {
-                    const circuitDefs = JSON.parse(
+                    const circuitDefs = QedJSON.parse(
                         fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
                     );
                     console.log("circuitDefs: ", circuitDefs);

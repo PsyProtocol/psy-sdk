@@ -61,7 +61,7 @@ use std::collections::HashMap;
 use crate::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
     local::{
-        provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
+        provider::{ProveProxyRpcProvider, UPSCircuitManagerTrait},
         request::QAggProofRecord,
     },
     wallet::software_defined_circuit::{
@@ -240,7 +240,17 @@ where
         );
 
     }*/
-    pub fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManagerTrait<C, D>
+    for QEDUPSStepCircuitManager<C, D>
+where
+    C::Hasher:
+        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+{
+    async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         info_store.register_circuit(
             LocalCircuitType::UPSStart.into(),
             self.ups_start.get_fingerprint(),
@@ -286,23 +296,15 @@ where
             info_store,
         );
     }
-}
 
-#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
-#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> QEDUPSStepCircuitManager<C, D>
-where
-    C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
-{
-    pub async fn prove_ups_start(
+    async fn prove_ups_start(
         &self,
         input: &UPSStartStepInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.ups_start.prove_base(input)
     }
 
-    pub async fn register_contract_circuits(
+    async fn register_contract_circuits(
         &self,
         contract_id: u64,
         contract_code: &ContractCodeDefinition,
@@ -330,7 +332,7 @@ where
         Ok(())
     }
 
-    pub async fn get_method_id(
+    async fn get_method_id(
         &self,
         contract_id: u64,
         method_name: String,
@@ -376,7 +378,7 @@ where
         ))
     }
 
-    pub async fn prove_contract_call(
+    async fn prove_contract_call(
         &self,
         contract_id: u64,
         method_id: u32,
@@ -397,21 +399,21 @@ where
         }
     }
 
-    pub async fn ups_cfc_standard_tx(
+    async fn prove_ups_cfc_standard_tx(
         &self,
         input: &UPSCFCStandardTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.ups_cfc_standard_tx.prove_base(&input)
     }
 
-    pub async fn ups_cfc_deferred_tx(
+    async fn prove_ups_cfc_deferred_tx(
         &self,
         input: &UPSCFCDeferredTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.ups_cfc_deferred_tx.prove_base(&input)
     }
 
-    pub async fn prove_zk_sign(
+    async fn prove_zk_sign(
         &self,
         private_key: QHashOut<C::F>,
         sig_hash: QHashOut<C::F>,
@@ -419,23 +421,35 @@ where
         self.zk_circuit.prove_base(private_key, sig_hash)
     }
 
-    pub async fn prove_secp_sign(
+    async fn prove_secp_sign(
         &self,
         signature: QEDCompressedSecp256K1Signature,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.secp_circuit.prove(&signature)
     }
-    // async fn software_defined_sign(
-    //     &self,
-    //     private_key: QHashOut<C::F>,
-    //     sig_hash: QHashOut<C::F>,
-    // ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    pub async fn ups_end_cap(
+    async fn register_software_defined_circuit(
+        &self,
+        input: SoftwareDefinedSignatureInput,
+    ) -> anyhow::Result<QHashOut<C::F>> {
+        unimplemented!("register_software_defined_circuit");
+    }
+
+    async fn prove_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<C::F>,
+        private_key: QHashOut<C::F>,
+        input: SoftwareDefinedSignatureWitnessInput,
+        sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        unimplemented!("prove_software_defined_sign");
+    }
+
+    async fn prove_ups_end_cap(
         &self,
         circuit_info: &SessionCircuitInfoStore<C::F>,
         end_cap_from_proof_tree_input: &UPSEndCapFromProofTreeGadgetInput<C::F>,
-        agg_proof_record: &QAggProofRecord<C::F>,
+        agg_proof_record: &AggProofRecord<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let agg_whitelist_merkle_proof = self
             .proof_tree_agg_circuits
@@ -445,15 +459,74 @@ where
             .get_circuit_info_by_fingerprint(agg_proof_record.fingerprint)?
             .verifier_data
             .to_verifier_data::<C, D>();
-        let agg_proof = serde_json::from_str(&agg_proof_record.proof)?;
 
         self.ups_end_cap.prove_base(
             &end_cap_from_proof_tree_input,
             agg_whitelist_merkle_proof,
             &agg_proof_record.agg_header,
-            &agg_proof,
+            &agg_proof_record.proof,
             &agg_root_verifier_data,
         )
+    }
+
+    async fn ups_start_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        Ok(self.ups_start.get_fingerprint())
+    }
+
+    async fn ups_start_circuit_verifier_config(
+        &self,
+    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self.ups_start.get_verifier_config_ref().clone().into())
+    }
+
+    async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        Ok(self.ups_cfc_standard_tx.get_fingerprint())
+    }
+
+    async fn ups_cfc_standard_tx_circuit_verifier_config(
+        &self,
+    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self.ups_cfc_standard_tx.get_verifier_config_ref().clone().into())
+    }
+
+    async fn ups_cfc_deferred_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        Ok(self.ups_cfc_deferred_tx.get_fingerprint())
+    }
+
+    async fn ups_cfc_deferred_tx_circuit_verifier_config(
+        &self,
+    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self.ups_cfc_deferred_tx.get_verifier_config_ref().clone().into())
+    }
+
+    async fn ups_end_cap_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        Ok(self.ups_end_cap.get_fingerprint())
+    }
+
+    async fn ups_end_cap_circuit_verifier_config(
+        &self,
+    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self.ups_end_cap.get_verifier_config_ref().clone().into())
+    }
+
+    async fn ups_circuit_whitelist_root(&self) -> anyhow::Result<QHashOut<C::F>> {
+        Ok(self.ups_circuit_whitelist_root)
+    }
+
+    async fn zk_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        Ok(self.zk_circuit.get_fingerprint())
+    }
+
+    async fn zk_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self.zk_circuit.get_verifier_config_ref().clone().into())
+    }
+
+    async fn secp_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        Ok(self.secp_circuit.get_fingerprint())
+    }
+
+    async fn secp_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self.secp_circuit.get_verifier_config_ref().clone().into())
     }
 }
 
@@ -531,6 +604,201 @@ pub fn register_qtree_recursion_circuits_whitelist_proofs<F: RichField>(
     );
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D>
+    for QEDUPSStepCircuitManager<C, D>
+where
+    C::Hasher:
+        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+{
+    async fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+        self.proof_tree_agg_circuits.single_leaf_circuit_fingerprint().await
+    }
+
+    async fn two_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+        self.proof_tree_agg_circuits.two_leaf_circuit_fingerprint().await
+    }
+
+    async fn two_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
+        self.proof_tree_agg_circuits.two_agg_circuit_fingerprint().await
+    }
+
+    async fn left_leaf_right_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
+        self.proof_tree_agg_circuits.left_leaf_right_agg_circuit_fingerprint().await
+    }
+
+    async fn left_agg_right_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
+        self.proof_tree_agg_circuits.left_agg_right_leaf_circuit_fingerprint().await
+    }
+
+    async fn single_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+        self.proof_tree_agg_circuits.single_leaf_circuit_verifier_config().await
+    }
+
+    async fn two_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+        self.proof_tree_agg_circuits.two_leaf_circuit_verifier_config().await
+    }
+
+    async fn two_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+        self.proof_tree_agg_circuits.two_agg_circuit_verifier_config().await
+    }
+
+    async fn left_leaf_right_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+        self.proof_tree_agg_circuits.left_leaf_right_agg_circuit_verifier_config().await
+    }
+
+    async fn left_agg_right_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
+        self.proof_tree_agg_circuits.left_agg_right_leaf_circuit_verifier_config().await
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
+    for QEDUPSStepCircuitManager<C, D>
+where
+    C::Hasher:
+        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+{
+    async fn get_verifier_data_by_type(
+        &self,
+        circuit_type: qed_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType,
+    ) -> VerifierOnlyCircuitData<C, D> {
+        self.proof_tree_agg_circuits.get_verifier_data_by_type(circuit_type).await
+    }
+
+    async fn prove_single_leaf_circuit(
+        &self,
+        agg_circuit_whitelist_root: QHashOut<C::F>,
+        single_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+            QHashOut<C::F>,
+        >,
+        single_proof: &ProofWithPublicInputs<C::F, C, D>,
+        single_verifier_data: &VerifierOnlyCircuitData<C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        self.proof_tree_agg_circuits.prove_single_leaf_circuit(
+            agg_circuit_whitelist_root,
+            single_insert_leaf_proof,
+            single_proof,
+            single_verifier_data,
+        )
+        .await
+    }
+
+    async fn prove_two_leaf_circuit(
+        &self,
+        agg_circuit_whitelist_root: QHashOut<C::F>,
+        left_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+            QHashOut<C::F>,
+        >,
+        left_proof: &ProofWithPublicInputs<C::F, C, D>,
+        left_verifier_data: &VerifierOnlyCircuitData<C, D>,
+        right_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+            QHashOut<C::F>,
+        >,
+        right_proof: &ProofWithPublicInputs<C::F, C, D>,
+        right_verifier_data: &VerifierOnlyCircuitData<C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        self.proof_tree_agg_circuits.prove_two_leaf_circuit(
+            agg_circuit_whitelist_root,
+            left_insert_leaf_proof,
+            left_proof,
+            left_verifier_data,
+            right_insert_leaf_proof,
+            right_proof,
+            right_verifier_data,
+        )
+        .await
+    }
+
+    async fn prove_two_agg_circuit(
+        &self,
+        left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
+        left_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        left_proof: &ProofWithPublicInputs<C::F, C, D>,
+        left_verifier_data: &VerifierOnlyCircuitData<C, D>,
+        right_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
+        right_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        right_proof: &ProofWithPublicInputs<C::F, C, D>,
+        right_verifier_data: &VerifierOnlyCircuitData<C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        self.proof_tree_agg_circuits.prove_two_agg_circuit(
+            left_agg_whitelist_merkle_proof,
+            left_agg_proof_header,
+            left_proof,
+            left_verifier_data,
+            right_agg_whitelist_merkle_proof,
+            right_agg_proof_header,
+            right_proof,
+            right_verifier_data,
+        )
+        .await
+    }
+
+    async fn prove_left_leaf_right_agg_circuit(
+        &self,
+        left_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+            QHashOut<C::F>,
+        >,
+        left_proof: &ProofWithPublicInputs<C::F, C, D>,
+        left_verifier_data: &VerifierOnlyCircuitData<C, D>,
+        right_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
+        right_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        right_proof: &ProofWithPublicInputs<C::F, C, D>,
+        right_verifier_data: &VerifierOnlyCircuitData<C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        self.proof_tree_agg_circuits.prove_left_leaf_right_agg_circuit(
+            left_insert_leaf_proof,
+            left_proof,
+            left_verifier_data,
+            right_agg_whitelist_merkle_proof,
+            right_agg_proof_header,
+            right_proof,
+            right_verifier_data,
+        )
+        .await
+    }
+
+    async fn prove_left_agg_right_leaf_circuit(
+        &self,
+        left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
+        left_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        left_proof: &ProofWithPublicInputs<C::F, C, D>,
+        left_verifier_data: &VerifierOnlyCircuitData<C, D>,
+        right_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+            QHashOut<C::F>,
+        >,
+        right_proof: &ProofWithPublicInputs<C::F, C, D>,
+        right_verifier_data: &VerifierOnlyCircuitData<C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        self.proof_tree_agg_circuits.prove_left_agg_right_leaf_circuit(
+            left_agg_whitelist_merkle_proof,
+            left_agg_proof_header,
+            left_proof,
+            left_verifier_data,
+            right_insert_leaf_proof,
+            right_proof,
+            right_verifier_data,
+        )
+        .await
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
+    for QEDUPSStepCircuitManager<C, D>
+where
+    C::Hasher:
+        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+{
+    async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
+        &self.proof_tree_agg_circuits.circuit_inclusion_proofs
+    }
+}
+
+
 #[derive(Debug)]
 pub enum QCircuitManager<C: GenericConfig<D> + 'static, const D: usize>
 where
@@ -543,27 +811,18 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> QCircuitManager<C, D>
-where
-    C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
-{
-    pub async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
-        match self {
-            QCircuitManager::Local(manager) => manager.register_info(info_store),
-            QCircuitManager::Rpc(provider) => provider.register_info(info_store),
-        }
-    }
-}
-
-#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
-#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> ProveProxyRpcTrait<C, D>
+impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManagerTrait<C, D>
     for QCircuitManager<C, D>
 where
     C::Hasher:
         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
+    async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
+        match self {
+            QCircuitManager::Local(manager) => manager.register_info(info_store).await,
+            QCircuitManager::Rpc(provider) => provider.register_info(info_store).await,
+        }
+    }
     async fn prove_ups_start(
         &self,
         input: &UPSStartStepInput<C::F>,
@@ -648,7 +907,7 @@ where
         input: &UPSCFCStandardTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self {
-            QCircuitManager::Local(manager) => manager.ups_cfc_standard_tx(&input).await,
+            QCircuitManager::Local(manager) => manager.prove_ups_cfc_standard_tx(&input).await,
             QCircuitManager::Rpc(provider) => provider.prove_ups_cfc_standard_tx(&input).await,
         }
     }
@@ -658,7 +917,7 @@ where
         input: &UPSCFCDeferredTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self {
-            QCircuitManager::Local(manager) => manager.ups_cfc_deferred_tx(&input).await,
+            QCircuitManager::Local(manager) => manager.prove_ups_cfc_deferred_tx(&input).await,
             QCircuitManager::Rpc(provider) => provider.prove_ups_cfc_deferred_tx(&input).await,
         }
     }
@@ -1266,3 +1525,14 @@ where
         }
     }
 }
+
+// // impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
+// //     for QEDUPSStepCircuitManager<C, D>
+// // where
+// //     C::Hasher:
+// //         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+// // {
+// //     async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
+// //         &self.circuit_inclusion_proofs
+// //     }
+// // }

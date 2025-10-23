@@ -73,10 +73,10 @@ export class QedWasmWebProverProvider implements IQedUserProverProvider {
         return result;
     }
 
-    async getClaimRewardsCallArgs(pkHash: string, jobInfos: string): Promise<ContractCallArgs[]> {
+    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
         const now = new Date().getTime();
         // const json = QedJSON.stringify(jobInfos);
-        const result = await QedWasmWebProverProvider.wasmServer.get_claim_rewards_call_args_json(pkHash, jobInfos);
+        const result = await QedWasmWebProverProvider.wasmServer.get_claim_rewards_call_args_json(jobInfos);
         console.log(`claimRewards in ${(new Date().getTime() - now) / 1000} seconds`);
         const contractCallArgs = QedJSON.parse(result) as ContractCallArgs[];
         return contractCallArgs;

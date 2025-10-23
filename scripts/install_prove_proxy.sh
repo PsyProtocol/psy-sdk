@@ -46,6 +46,7 @@ Options:
     --create-user       Create system user if it doesn't exist
     --num-proxies N     Number of proxy instances (default: 3)
     --base-port PORT    Starting port number (default: 9090)
+    --qed-config-path PATH  Path to config.json for RPC; will be installed to /etc/qed/config.json
     --prefix PREFIX     Installation prefix (default: /usr/local)
     --uninstall         Remove the installation
     --upgrade           Upgrade existing installation (preserves config)
@@ -92,6 +93,7 @@ BASE_PORT="$DEFAULT_BASE_PORT"
 DRY_RUN=false
 UNINSTALL=false
 UPGRADE=false
+QED_CONFIG_PATH=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -121,6 +123,10 @@ while [[ $# -gt 0 ]]; do
             BIN_DIR="${INSTALL_PREFIX}/bin"
             SBIN_DIR="${INSTALL_PREFIX}/sbin"
             LIB_DIR="${INSTALL_PREFIX}/lib/qed"
+            shift 2
+            ;;
+        --qed-config-path)
+            QED_CONFIG_PATH="$2"
             shift 2
             ;;
         --uninstall)
@@ -231,6 +237,13 @@ if [ ! -f "$BINARY_PATH" ]; then
     exit 1
 fi
 
+# Validate rpc-config file if provided
+if [ -n "$QED_CONFIG_PATH" ]; then
+    if [ ! -f "$QED_CONFIG_PATH" ]; then
+        echo -e "${RED}Error: QED config file not found at $QED_CONFIG_PATH${NC}"
+        exit 1
+    fi
+fi
 # Check if running as root
 if [ "$EUID" -ne 0 ] && [ "$DRY_RUN" != true ]; then
     echo -e "${RED}This installer requires root privileges${NC}"
@@ -250,7 +263,12 @@ echo "  Service user: $SERVICE_USER"
 echo "  Service group: $SERVICE_GROUP"
 echo "  Number of proxies: $NUM_PROXIES"
 echo "  Port range: ${BASE_PORT}-$((BASE_PORT + NUM_PROXIES - 1))"
+if [ -n "$QED_CONFIG_PATH" ]; then
+    echo "  QED config source: $QED_CONFIG_PATH"
+    echo "  QED config dest:   $ETC_DIR/config.json"
+fi
 echo ""
+
 echo -e "${BLUE}Directories:${NC}"
 echo "  Binaries: $BIN_DIR"
 echo "  Scripts: $SBIN_DIR"
@@ -367,7 +385,8 @@ run_prove_proxy() {
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting on port $port" >> "$log_file"
 
         RUST_LOG=$LOG_LEVEL "$BINARY_PATH" prove-proxy \
-            --listen-addr "0.0.0.0:${port}" >> "$log_file" 2>&1 &
+            --listen-addr "0.0.0.0:${port}" \
+            --rpc-config "${QED_CONFIG_PATH}" >> "$log_file" 2>&1 &
 
         local proxy_pid=$!
         echo $proxy_pid > "$pid_file"
@@ -520,6 +539,21 @@ fi
 run_cmd chmod 755 "$SBIN_DIR/qed_prove_proxy_manager"
 echo -e "${GREEN}✓ Manager script installed${NC}"
 
+# Install RPC config if specified
+if [ -n "$QED_CONFIG_PATH" ]; then
+    echo -e "${YELLOW}Installing QED config file...${NC}"
+    run_cmd cp "$QED_CONFIG_PATH" "$ETC_DIR/config.json"
+    run_cmd chmod 644 "$ETC_DIR/config.json"
+    echo -e "${GREEN}✅ QED config installed at $ETC_DIR/config.json${NC}"
+else
+    if [ -f "$ETC_DIR/config.json" ]; then
+        echo -e "${BLUE}Using existing RPC config at $ETC_DIR/config.json${NC}"
+    else
+        echo -e "${RED}Error: No --qed-config-path provided and no $ETC_DIR/config.json found.${NC}"
+        echo -e "${RED}         The service will rely on the binary's default 'config.json' relative path.${NC}"
+    fi
+fi
+
 # Create configuration file
 echo -e "${YELLOW}Creating configuration file...${NC}"
 
@@ -540,6 +574,9 @@ VAR_DIR="$VAR_DIR"
 # Service configuration
 SERVICE_USER="$SERVICE_USER"
 SERVICE_GROUP="$SERVICE_GROUP"
+
+# RPC Configuration
+QED_CONFIG_PATH="$ETC_DIR/config.json"
 
 # Proxy settings (MODIFY AS NEEDED)
 NUM_PROXIES=$NUM_PROXIES

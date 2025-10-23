@@ -83,6 +83,8 @@ pub struct ProverArgs {
 pub struct ProveProxyArgs {
     #[clap(env = "PROVE_PROXY_LISTEN_ADDR", long, default_value = "0.0.0.0:9999")]
     pub listen_addr: String,
+    #[clap(env, long, default_value = "config.json", env)]
+    pub rpc_config: String,
 }
 
 pub use crate::local::provider::{JobInfo, JobLocation};

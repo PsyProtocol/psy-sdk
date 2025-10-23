@@ -627,9 +627,12 @@ impl RealmProcessor {
                       user_id, user_contract_tree_root, realm_id);
             }
 
-            store.injest_user_tree_nodes_imm(0, COORDINATOR_USER_TREE_HEIGHT, &realm_updates).await?;
-
-            info!("Genesis state initialization completed for realm {}", realm_id);
+            if !realm_updates.is_empty() {
+                store.injest_user_tree_nodes_imm(0, COORDINATOR_USER_TREE_HEIGHT, &realm_updates).await?;
+                info!("✅ Genesis state initialization completed for realm {} with {} users", realm_id, realm_updates.len());
+            } else {
+                info!("⚠️ Genesis state initialization skipped for realm {} (no users assigned)", realm_id);
+            }
         }
 
         Ok(())
