@@ -37,6 +37,7 @@ async fn decode_job_id(args: DecodeArgs) -> Result<()> {
     println!("Job ID: {}", job_id.to_hex_string());
     println!("  Topic: {:?}", job_id.topic);
     println!("  Goal ID: {}", job_id.goal_id);
+    println!("  Slot ID: {}", job_id.slot_id);
     println!("  Circuit Type: {:?}", job_id.circuit_type);
     println!("  Group ID: {}", job_id.group_id);
     println!("  Sub Group ID: {}", job_id.sub_group_id);

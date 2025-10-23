@@ -311,7 +311,7 @@ impl RealmProcessor {
         let _ = sync_rx.recv_many(&mut buffer, sync_rx.len()).await;
         trace!("Block handle buffer: {:?}", buffer);
         // time::sleep(Duration::from_secs(1)).await;
-        
+
         let slot = self.slot_timer.get_current_slot();
         trace!("Next slot: {}", slot);
         let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
@@ -380,7 +380,7 @@ impl RealmProcessor {
             guta_stats: realm_result.guta_stats,
             top_line_proof: realm_result.top_line_proof,
             checkpoint_tree_root: realm_result.checkpoint_tree_root,
-            circuit_type: realm_result.proof_id.circuit_type,
+            proof_id: realm_result.proof_id.get_output_id()
         };
         self.coordinator_client.submit_guta_v1(&input, &bincode::serialize(&proof)?, input.realm_id).await
     }
@@ -627,9 +627,12 @@ impl RealmProcessor {
                       user_id, user_contract_tree_root, realm_id);
             }
 
-            store.injest_user_tree_nodes_imm(0, COORDINATOR_USER_TREE_HEIGHT, &realm_updates).await?;
-
-            info!("Genesis state initialization completed for realm {}", realm_id);
+            if !realm_updates.is_empty() {
+                store.injest_user_tree_nodes_imm(0, COORDINATOR_USER_TREE_HEIGHT, &realm_updates).await?;
+                info!("✅ Genesis state initialization completed for realm {} with {} users", realm_id, realm_updates.len());
+            } else {
+                info!("⚠️ Genesis state initialization skipped for realm {} (no users assigned)", realm_id);
+            }
         }
 
         Ok(())

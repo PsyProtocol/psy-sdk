@@ -268,7 +268,7 @@ export abstract class Provider {
      * Generate cache key for a request
      */
     private getCacheKey(method: string, params: any): string {
-        return `${method}:${JSON.stringify(params)}`;
+        return `${method}:${QedJSON.stringify(params)}`;
     }
 
     /**
@@ -511,7 +511,7 @@ export abstract class Provider {
         const result = QedJSON.parse(response.body);
 
         if (result.error) {
-            throw new Error(`RPC error: ${result.error.message || JSON.stringify(result.error)}`);
+            throw new Error(`RPC error: ${result.error.message || QedJSON.stringify(result.error)}`);
         }
 
         return result.result as T;

@@ -8,25 +8,39 @@ class QedMemoryTransactionSigner implements IQedTransactionSigner {
     networkMagic: bigint;
     publicKeyHex: string;
     privateKeyHex: string;
+    signType: string;
+    fingerprint?: string;
     prover: IQedUserProverProvider;
     private constructor(
         proverProvider: IQedUserProverProvider,
         networkId: NetworkId,
         publicKeyHex: string,
-        privateKeyHex: string
+        privateKeyHex: string,
+        signType: string,
+        fingerprint?: string
     ) {
         this.networkId = networkId;
         this.networkMagic = getQedNetworkMagicForNetworkId(networkId);
         this.publicKeyHex = publicKeyHex;
         this.privateKeyHex = privateKeyHex;
         this.prover = proverProvider;
+        this.signType = signType;
+        this.fingerprint = fingerprint;
     }
-    static async create(proverProvider: IQedUserProverProvider, networkId: NetworkId, privateKeyHex: string) {
-        const publicKeyHex = await proverProvider.addUser(privateKeyHex);
-        return new QedMemoryTransactionSigner(proverProvider, networkId, publicKeyHex, privateKeyHex);
+    static async create(proverProvider: IQedUserProverProvider, networkId: NetworkId, privateKeyHex: string, signType: string, fingerprint?: string) {
+        const publicKeyHex = await proverProvider.addUserWithType(privateKeyHex, signType, fingerprint);
+        return new QedMemoryTransactionSigner(proverProvider, networkId, publicKeyHex, privateKeyHex, signType, fingerprint);
     }
     getPrivateKeyHex(): Promise<string> {
         return Promise.resolve(this.privateKeyHex);
+    }
+
+    getSignType(): Promise<string> {
+        return Promise.resolve(this.signType);
+    }
+
+    getFingerprint(): Promise<string|null|undefined> {
+        return Promise.resolve(this.fingerprint);
     }
     // async signHash(hash: QHashOut): Promise<ProofWithPublicInputs> {
     //     return this.prover.getZKSignature(hash);
@@ -51,16 +65,16 @@ class QedMemoryTransactionSigner implements IQedTransactionSigner {
         return this.publicKeyHex;
     }
 
-    async registerUser(privateKeyHex: string): Promise<string> {
-        return this.prover.registerUser(privateKeyHex);
+    async registerUser(privateKeyHex: string, signType: string, fingerprint?: string): Promise<string> {
+        return this.prover.registerUserWithType(privateKeyHex, signType, fingerprint);
     }
 
-    async addUser(privateKeyHex: string): Promise<string> {
-        return this.prover.addUser(privateKeyHex);
+    async addUser(privateKeyHex: string, signType: string, fingerprint?: string): Promise<string> {
+        return this.prover.addUserWithType(privateKeyHex, signType, fingerprint);
     }
 
-    async getClaimRewardsCallArgs(pk_hash: string, jobInfos: string): Promise<ContractCallArgs[]> {
-        return this.prover.getClaimRewardsCallArgs(pk_hash, jobInfos);
+    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
+        return this.prover.getClaimRewardsCallArgs(jobInfos);
     }
 
     async claimRewards(pk_hash: string, jobInfos: string): Promise<string> {

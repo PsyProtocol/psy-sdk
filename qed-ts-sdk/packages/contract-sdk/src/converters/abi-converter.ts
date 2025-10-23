@@ -1,5 +1,6 @@
 // packages/codegen/src/converters/abi-converter.ts
 
+import { QedJSON } from "packages/qed-sdk/dist";
 import {
     AbiFormat,
     StructDefinition,
@@ -93,7 +94,7 @@ export class AbiConverter {
             }
             return typeId;
         }
-        throw new Error(`Invalid type: ${JSON.stringify(type)}`);
+        throw new Error(`Invalid type: ${QedJSON.stringify(type)}`);
     }
 
     // Convert a contract struct into an internal contract representation, including fields and functions.
@@ -245,7 +246,7 @@ export class AbiConverter {
             };
         }
 
-        throw new Error(`Unknown field type: ${JSON.stringify(field.type)}`);
+        throw new Error(`Unknown field type: ${QedJSON.stringify(field.type)}`);
     }
 
     // Flatten function parameters and returns into field paths.

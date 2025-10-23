@@ -86,7 +86,7 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
                 proofs.push((job_info.clone(), job_proof, verified, root, nullifier_index));
             }
             Err(e) => {
-                info!("Skipping job due to error: {:?} - {}", job_info.job_id, e);
+                info!("Skipping job({}) due to error: {:?} - {}", job_info.job_id.to_hex_string(), job_info.job_id, e);
                 continue;
             }
         }
@@ -129,18 +129,22 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
 }
 
 async fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64) -> Result<qed_core::job::id::VariableHeightRewardMerkleProof> {
-    let job_proof = match &job_info.location {
+    let results = provider.get_job_proofs(vec![job_info.clone()]).await?;
+
+    if results.is_empty() {
+        return Err(anyhow::format_err!("No proof returned for job ID").into());
+    }
+
+    let (_, job_proof) = results.into_iter().next().unwrap();
+
+    match &job_info.location {
         JobLocation::Realm(realm_id) => {
-            let (realm_proof, root_job_id) = provider.get_job_proof_from_realm(*realm_id, checkpoint_id, job_info.job_id.get_output_id()).await?;
-            info!("Got realm {} proof: {}", realm_id, serde_json::to_string_pretty(&realm_proof).unwrap());
-            realm_proof
+            info!("Got realm {} proof: {}", realm_id, serde_json::to_string_pretty(&job_proof).unwrap());
         }
         JobLocation::Coordinator => {
-            let (coordinator_proof, _) = provider.get_job_proof_from_coordinator(checkpoint_id, job_info.job_id.get_output_id()).await?;
-            info!("Got coordinator proof: {}", serde_json::to_string_pretty(&coordinator_proof).unwrap());
-            coordinator_proof
+            info!("Got coordinator proof: {}", serde_json::to_string_pretty(&job_proof).unwrap());
         }
-    };
+    }
 
     Ok(job_proof)
 }

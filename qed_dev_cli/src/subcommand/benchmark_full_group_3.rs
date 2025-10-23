@@ -56,7 +56,7 @@ use qed_node::{
     },
 };
 use qed_node::common::verifier::get_cached_generic_verifier;
-use qed_prover::{local::provider::ProveProxyRpcTrait, ups::{
+use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{
     circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager,
 }};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
@@ -241,7 +241,7 @@ impl<
                         guta_stats: realm_result.guta_stats,
                         top_line_proof: realm_result.top_line_proof,
                         checkpoint_tree_root: realm_result.checkpoint_tree_root,
-                        circuit_type: realm_result.proof_id.circuit_type,
+                        proof_id: realm_result.proof_id,
                     },
                     &realm_proof,
                 )

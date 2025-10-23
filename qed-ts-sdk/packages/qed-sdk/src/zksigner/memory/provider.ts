@@ -29,27 +29,27 @@ class QedMemoryTransactionSignerProvider implements IQedTransactionSignerProvide
     getAbilities(): TQedTransactionSignerProviderAbility[] {
         return ["import-private-key", "add-random-private-key"];
     }
-    async importPrivateKey(privateKeyHex: string): Promise<IQedTransactionSigner> {
+    async importPrivateKey(privateKeyHex: string, signType: string, fingerprint?: string): Promise<IQedTransactionSigner> {
         const existing = this.signers.find((signer) => signer.privateKeyHex === privateKeyHex);
         if (existing) return existing;
-        const signer = await QedMemoryTransactionSigner.create(this.proverProvider, this.networkId, privateKeyHex);
+        const signer = await QedMemoryTransactionSigner.create(this.proverProvider, this.networkId, privateKeyHex, signType, fingerprint);
         this.signers.push(signer);
         return signer;
     }
-    addRandomPrivateKey(): Promise<IQedTransactionSigner> {
-        return this.importPrivateKey(cryptoRandomHashOutHex());
+    async addRandomPrivateKey(signType: string, fingerprint?: string): Promise<IQedTransactionSigner> {
+        return this.importPrivateKey(cryptoRandomHashOutHex(), signType, fingerprint);
     }
 
-    async registerUser(privateKeyHex: string): Promise<string> {
-        return this.proverProvider.registerUser(privateKeyHex);
+    async registerUser(privateKeyHex: string, signType: string, fingerprint?: string): Promise<string> {
+        return this.proverProvider.registerUserWithType(privateKeyHex, signType, fingerprint);
     }
 
-    async addUser(privateKeyHex: string): Promise<string> {
-        return this.proverProvider.addUser(privateKeyHex);
+    async addUser(privateKeyHex: string, signType: string, fingerprint?: string): Promise<string> {
+        return this.proverProvider.addUserWithType(privateKeyHex, signType, fingerprint);
     }
 
-    async getClaimRewardsCallArgs(pk_hash: string, jobInfos: string): Promise<ContractCallArgs[]> {
-        return this.proverProvider.getClaimRewardsCallArgs(pk_hash, jobInfos);
+    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
+        return this.proverProvider.getClaimRewardsCallArgs(jobInfos);
     }
 
     async claimRewards(pk_hash: string, jobInfos: string): Promise<string> {

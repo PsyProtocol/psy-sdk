@@ -927,9 +927,7 @@ where
                         ProvingJobCircuitType::GUTASingleEndCap | ProvingJobCircuitType::GUTATwoEndCap |
                         ProvingJobCircuitType::GUTALeftEndCapRightGUTA | ProvingJobCircuitType::GUTALeftGUTARightEndCap |
                         ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade  |
-                        ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade => {
-                            graph.guta_graph.has_node(job_id)
-                        } |
+                        ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade |
                         ProvingJobCircuitType::GUTAVerifyToCap => {
                             graph.guta_graph.has_node(job_id)
                         }

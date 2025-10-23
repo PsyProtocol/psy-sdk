@@ -100,7 +100,7 @@ impl<
         if input.top_line_proof.new_root != input.top_line_proof.new_value {
             anyhow::bail!("top line not currently supported for guta proofs");
         }
-        self.verify_proof_of_type(input.circuit_type, proof)?;
+        self.verify_proof_of_type(input.proof_id.circuit_type, proof)?;
 
         let old_value = self
             .store_reader

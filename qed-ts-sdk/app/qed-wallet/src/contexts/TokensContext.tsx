@@ -1,3 +1,4 @@
+import { QedJSON } from '@qed/qed-sdk';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export interface Token {
@@ -52,7 +53,7 @@ export const TokensProvider: React.FC<TokensProviderProps> = ({ children }) => {
       const stored = localStorage.getItem(TOKENS_STORAGE_KEY);
       console.log('TokensProvider initializing, localStorage data:', stored);
       if (stored) {
-        const parsedTokens = JSON.parse(stored);
+        const parsedTokens = QedJSON.parse(stored);
         const customTokens = parsedTokens.filter((token: Token) => 
           !defaultTokens.some(defaultToken => defaultToken.id === token.id)
         );
@@ -80,7 +81,7 @@ export const TokensProvider: React.FC<TokensProviderProps> = ({ children }) => {
         !defaultTokens.some(defaultToken => defaultToken.id === token.id)
       );
       console.log('Saving tokens to localStorage:', customTokens);
-      localStorage.setItem(TOKENS_STORAGE_KEY, JSON.stringify(customTokens));
+      localStorage.setItem(TOKENS_STORAGE_KEY, QedJSON.stringify(customTokens));
     } catch (error) {
       console.warn('Failed to save tokens:', error);
     }

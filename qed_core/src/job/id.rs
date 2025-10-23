@@ -795,19 +795,6 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn with_ps_prefix(&self, prefix: [u8; 4]) -> [u8; 28] {
-        let mut result = [0u8; 28];
-        result[0..3].copy_from_slice(&prefix);
-        result[4] = self.topic.to_u8();
-        result[5..13].copy_from_slice(&self.goal_id.to_le_bytes());
-        result[13] = self.circuit_type.to_u8();
-        result[14..18].copy_from_slice(&self.group_id.to_le_bytes());
-        result[18..22].copy_from_slice(&self.sub_group_id.to_le_bytes());
-        result[22..26].copy_from_slice(&self.task_index.to_le_bytes());
-        result[26] = self.data_type.to_u8();
-        result[27] = self.data_index;
-        result
-    }
 
     pub fn try_from_byte_vec(value: &[u8]) -> anyhow::Result<Self> {
         if value.len() != 32 {
