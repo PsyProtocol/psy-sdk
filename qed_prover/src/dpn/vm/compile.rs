@@ -48,7 +48,7 @@ impl QEDContractFunctionBuilderGadget {
 
         let tx_ctx_header = DapenCFCUserTransactionInputContextGadget::add_virtual_to::<H,F,D>(builder);
         let session_proof_tree_root = builder.add_virtual_hash();
-        
+
         let state_reader = StateReaderGadget::new(
             tx_ctx_header.proving_session_start_ctx.state_roots.clone(),
             tx_ctx_header.transaction_call_start_ctx.start_user_contract_tree_root,
@@ -61,7 +61,7 @@ impl QEDContractFunctionBuilderGadget {
             tx_ctx_header.proving_session_start_ctx.checkpoint_leaf.stats.clone(),
             tx_ctx_header.proving_session_start_ctx.checkpoint_tree_root,
         );
-        
+
         let mut g = Self {
             cmd_results: Vec::new(),
             state_reader,
@@ -92,7 +92,7 @@ impl QEDContractFunctionBuilderGadget {
             result,
         });
     }
-    
+
     fn eval_session<H:AlgebraicHasher<F> + qed_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,

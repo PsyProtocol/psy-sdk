@@ -1,6 +1,7 @@
 use hashbrown::HashMap;
 
 use super::traits::ContextInput;
+use qed_core::config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -25,7 +26,7 @@ impl DummyContextEvalInput {
         DummyContextEvalInput {
             input: input,
             contract_id: 0,
-            caller_contract_id: 0,
+            caller_contract_id: DEFAULT_CALLER_CONTRACT_ID_U64,
             checkpoint_id: 1,
             user_id: 0,
             last_nonce: 1,
