@@ -427,12 +427,16 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
                 .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))?;
         }
         if let Some(circuits) = self.contract_circuits.get(&contract_id) {
+            tracing::info!("get contract {} circuits", contract_id);
             for (id, circuit) in circuits.iter().enumerate() {
+                tracing::info!("get contract {} method {} id: {}", contract_id, circuit.fn_def.name, id);
                 if circuit.fn_def.name == method_name {
+                    tracing::info!("return contract {} method {} id: {}", contract_id, method_name, id);
                     return Ok(id as u64);
                 }
             }
         }
+        tracing::error!("contract {} method {} not registed", contract_id, method_name);
         Err(ErrorObjectOwned::owned(
             1,
             "get_method_id error",
