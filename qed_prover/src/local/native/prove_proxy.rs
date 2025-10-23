@@ -24,12 +24,11 @@ use qed_crypto::{
     signature::{secp256k1, secp256k1::core::QEDCompressedSecp256K1Signature},
 };
 use qed_data::{
-    qdata::contract::ContractCodeDefinition,
-    ups::{
+    qdata::contract::ContractCodeDefinition, qstore::imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync}, ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
-    },
+    }
 };
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
@@ -37,7 +36,7 @@ use qedlang_core::dpn::contract::cfc_code_definition_to_dapen_fc;
 use serde::{Deserialize, Deserializer, Serialize};
 
 // use crate::local::provider::LocalCommonCircuitsData;
-use crate::local::provider::QCommonCircuitData;
+use crate::local::provider::{QCommonCircuitData, RpcConfig, RpcProvider, UPSCircuitManagerTrait};
 use crate::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
     ups::circuit_manager::core::QEDUPSStepCircuitManager,
@@ -221,6 +220,7 @@ pub struct LocalCommonCircuitsData {
 }
 #[derive(Debug)]
 pub struct ProveProxyServerProvider {
+    pub rpc_provider: RpcProvider,
     pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
     pub software_defined_circuits: DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
 
@@ -230,10 +230,12 @@ pub struct ProveProxyServerProvider {
 }
 
 impl ProveProxyServerProvider {
-    pub fn new_with_config(network_magic: u64) -> Self {
+    pub async fn new_with_config(rpc_config: RpcConfig, network_magic: u64) -> anyhow::Result<Self> {
         use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use qed_core::ups::circuits::LocalCircuitType;
         use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
+
+        let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;
 
         let circuit_manager = QEDUPSStepCircuitManager::<C, D>::new_with_config(network_magic);
         let mut circuit_info = SessionCircuitInfoStore::new();
@@ -249,7 +251,7 @@ impl ProveProxyServerProvider {
         //     secp_circuit.get_verifier_config_ref().into(),
         // );
 
-        circuit_manager.register_info(&mut circuit_info);
+        circuit_manager.register_info(&mut circuit_info).await;
 
         let circuits_data = LocalCommonCircuitsData {
             ups_start: QCommonCircuitData {
@@ -339,13 +341,40 @@ impl ProveProxyServerProvider {
             },
         };
 
-        Self {
+        Ok(Self {
+            rpc_provider,
             contract_circuits: DashMap::new(),
             software_defined_circuits: DashMap::new(),
             circuit_manager: Arc::new(circuit_manager),
             circuit_info: Arc::new(circuit_info),
             circuits_data,
+        })
+    }
+
+    async fn register_contract_circuits_inner(&self, contract_id: u64) -> anyhow::Result<()> {
+        tracing::info!("🔔 register_contract_circuits contract_id: {}", contract_id);
+        let mut circuits = Vec::new();
+        if self.contract_circuits.get(&contract_id).is_some() {
+            tracing::info!("contract {} is already registered", contract_id);
+            return Ok(());
         }
+        let contract_code = self
+            .rpc_provider
+            .resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })
+            .await?;
+        for func in contract_code.functions.iter() {
+            let dapen_fc = cfc_code_definition_to_dapen_fc(&func)
+                .map_err(|err| ErrorObjectOwned::owned(1, "cfc_code_definition_to_dapen_fc error", Some(err.to_string())))?;
+            tracing::info!("register contract {} function {}", contract_id, dapen_fc.name);
+            circuits.push(DapenContractFunctionCircuit::<C, D>::new(
+                &dapen_fc,
+                contract_code.state_tree_height as usize,
+                UPS_SESSION_PROOF_TREE_HEIGHT as usize,
+                false,
+            ));
+        }
+        self.contract_circuits.insert(contract_id, circuits);
+        Ok(())
     }
 }
 
@@ -377,25 +406,9 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
     }
 
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: ContractCodeDefinition) -> Result<(), ErrorObjectOwned> {
-        tracing::info!("🔔 register_contract_circuits contract_id: {}", contract_id);
-        let mut circuits = Vec::new();
-        if self.contract_circuits.get(&contract_id).is_some() {
-            tracing::info!("contract {} is already registered", contract_id);
-            return Ok(());
-        }
-        for func in contract_code.functions.iter() {
-            let dapen_fc = cfc_code_definition_to_dapen_fc(&func)
-                .map_err(|err| ErrorObjectOwned::owned(1, "cfc_code_definition_to_dapen_fc error", Some(err.to_string())))?;
-            tracing::info!("register contract {} function {}", contract_id, dapen_fc.name);
-            circuits.push(DapenContractFunctionCircuit::<C, D>::new(
-                &dapen_fc,
-                contract_code.state_tree_height as usize,
-                UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-                false,
-            ));
-        }
-        self.contract_circuits.insert(contract_id, circuits);
-        Ok(())
+       self.register_contract_circuits_inner(contract_id)
+            .await
+            .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))
     }
 
     async fn get_circuits_data(&self) -> Result<String, ErrorObjectOwned> {
@@ -406,6 +419,13 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
 
     async fn get_method_id(&self, contract_id: u64, method_name: String) -> Result<u64, ErrorObjectOwned> {
         tracing::info!("🔔 get_method_id contract_id: {}, method_name: {}", contract_id, method_name);
+        if !self.contract_circuits.contains_key(&contract_id) {
+            tracing::warn!("contract {} is not registered, can not get method id", contract_id);
+            tracing::warn!("register contract {} first", contract_id);
+            self.register_contract_circuits_inner(contract_id)
+                .await
+                .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))?;
+        }
         if let Some(circuits) = self.contract_circuits.get(&contract_id) {
             for (id, circuit) in circuits.iter().enumerate() {
                 if circuit.fn_def.name == method_name {
@@ -426,6 +446,14 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
             contract_id,
             method_id
         );
+        if !self.contract_circuits.contains_key(&contract_id) {
+            tracing::warn!("contract {} is not registered, can not get method id", contract_id);
+            tracing::warn!("register contract {} first", contract_id);
+            self.register_contract_circuits_inner(contract_id)
+                .await
+                .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))?;
+        }
+
         if let Some(circuits) = self.contract_circuits.get(&contract_id) {
             let circuit = circuits.get(method_id as usize).ok_or_else(|| {
                 ErrorObjectOwned::owned(
