@@ -3,7 +3,7 @@
     "users_per_realm": 1048576,
     "global_user_tree_height": 24,
     "realm_user_tree_height": 20,
-    "group_realm_height": 2,
+    "group_realm_height": 3,
     "realm_configs": [
       {
         "id": 0,
