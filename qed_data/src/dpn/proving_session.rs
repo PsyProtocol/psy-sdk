@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::{
-    config::network_constants::{DEFERRED_CALL_MAGIC, SIGN_SIMPLE_TRANSACTION_MAGIC},
+    config::network_constants::{DEFERRED_CALL_MAGIC, SIGN_SIMPLE_TRANSACTION_MAGIC, DEFAULT_CALLER_CONTRACT_ID_U64},
     data::qhashout::QHashOut,
     traits::to_qfelts::ToQFelts,
 };
@@ -122,7 +122,7 @@ impl<F: RichField> QFieldHashable<F> for DPNProvingSessionCompactMethodCall<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNProvingSessionSimpleMethodCall<F: RichField> {
@@ -134,7 +134,7 @@ pub struct DPNProvingSessionSimpleMethodCall<F: RichField> {
 impl<F: RichField> DPNProvingSessionSimpleMethodCall<F> {
     pub fn new(contract_id: F, method_id: F, inputs: Vec<F>) -> Self {
         Self {
-            caller_contract_id: F::ZERO,
+            caller_contract_id: F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64),
             contract_id,
             method_id,
             inputs,
@@ -147,6 +147,16 @@ impl<F: RichField> DPNProvingSessionSimpleMethodCall<F> {
             self.method_id,
             &self.inputs,
         )
+    }
+}
+impl<F: RichField> Default for DPNProvingSessionSimpleMethodCall<F> {
+    fn default() -> Self {
+        Self {
+            caller_contract_id: F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64),
+            contract_id: F::ZERO,
+            method_id: F::ZERO,
+            inputs: Vec::new(),
+        }
     }
 }
 impl<F: RichField> KVQSerializable for DPNProvingSessionSimpleMethodCall<F> {
