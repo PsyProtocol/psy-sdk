@@ -185,25 +185,6 @@ impl<
         Ok(())
     }
 
-    async fn handle_guta_state_updates_from_users(
-        &self,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<()> {
-        // Use position-based consumption for CST updates
-        let (updates, consumption_state) = self
-            .checkpoint_queue
-            .peek_with_position::<CSTUserUpdate<QHashOut<F>>>(
-                self.max_processed_end_caps_per_block,
-                CST_USER_UPDATE_CHANNEL_ID,
-                checkpoint_id,
-        ).await?;
-
-        debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
-
-        // Process updates with error handling
-        self.store.injest_checked_cst_nodes_imm(&updates).await
-    }
-
     async fn handle_guta_from_users_ensure_no_topline(
         &self,
         checkpoint_id: u64,
@@ -215,8 +196,6 @@ impl<
         DeltaMerkleProofCore<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
     )> {
-        self.handle_guta_state_updates_from_users(checkpoint_id).await?;
-
         let (jobs, guta, proof, mut guta_graph) = self.handle_guta_from_users(checkpoint_id, slot_id).await?;
         tracing::debug!(guta = %serde_json::to_string_pretty(&guta)?, guta_hash = %guta.qfhash::<QEDHasher>(), jobs = ?jobs, "Processing GUTA and jobs");
 
@@ -512,13 +491,26 @@ impl<
         DeltaMerkleProofCore<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
     )> {
-        self.handle_guta_state_updates_from_users(checkpoint_id).await?;
+        // Use position-based consumption for CST updates
+        let (updates, consumption_state) = self
+            .checkpoint_queue
+            .peek_with_position::<CSTUserUpdate<QHashOut<F>>>(
+                self.max_processed_end_caps_per_block,
+                CST_USER_UPDATE_CHANNEL_ID,
+                checkpoint_id,
+            ).await?;
+
+        debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
+
+        // Process updates with error handling
+        self.store.injest_checked_cst_nodes_imm(&updates).await?;
 
         let (mut guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
             self.max_processed_end_caps_per_block,
             self.realm_config.guta_channel_id,
             checkpoint_id,
         ).await?;
+
         debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items)?, "GUTA queue items for aggregation");
 
         let real_checkpoint_id = checkpoint_id.saturating_sub(1);
