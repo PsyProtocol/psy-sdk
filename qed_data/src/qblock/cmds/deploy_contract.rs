@@ -70,7 +70,6 @@ pub struct QBCDeployContractWithRoot<F: RichField> {
     pub function_whitelist_root: QHashOut<F>,
     #[serde(default)]
     pub function_code_hashes: Vec<QHashOut<F>>,
-    pub function_code_hash_root: QHashOut<F>,
 
 }
 
@@ -86,20 +85,26 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
             "function_code_hashes length must equal number of functions"
         );
         ensure!(
-            function_whitelist.len() == code_definition.functions.len() * 2,
-            "function_whitelist must contain two entries per function"
+            function_whitelist.len() == code_definition.functions.len() * 4,
+            "function_whitelist must contain four entries per function"
         );
+        let zero = QHashOut::from_values(0, 0, 0, 0);
+        for (i, hash) in function_code_hashes.iter().enumerate() {
+            let base = i * 4;
+            ensure!(
+                function_whitelist[base + 2] == *hash,
+                "function whitelist entry does not match provided code hash"
+            );
+            ensure!(
+                function_whitelist[base + 3] == zero,
+                "function whitelist placeholder must be zero"
+            );
+        }
         let mut whitelist_tree = SimpleMerkleTree::<H, QHashOut<F>>::new(CONTRACT_FUNCTION_TREE_HEIGHT);
         for (i, leaf) in function_whitelist.iter().enumerate() {
             whitelist_tree.set_leaf(i as u64, *leaf);
         }
         let function_whitelist_root = whitelist_tree.get_root();
-
-        let mut code_tree = SimpleMerkleTree::<H, QHashOut<F>>::new(CONTRACT_FUNCTION_TREE_HEIGHT);
-        for (i, leaf) in function_code_hashes.iter().enumerate() {
-            code_tree.set_leaf(i as u64, *leaf);
-        }
-        let function_code_hash_root = code_tree.get_root();
 
         Ok(Self {
             deployer,
@@ -107,7 +112,6 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
             function_whitelist,
             function_whitelist_root,
             function_code_hashes,
-            function_code_hash_root,
         })
     }
 }

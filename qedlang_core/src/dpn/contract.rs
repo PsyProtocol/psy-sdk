@@ -1,5 +1,8 @@
 use crate::dpn::{
-    ops::{op_types::DPNIndexedVarDef, state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore}},
+    ops::{
+        op_types::{DPNAssertEqInfoIndexed, DPNIndexedVarDef},
+        state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore},
+    },
     vm::def::DPNFunctionCircuitDefinition,
 };
 use plonky2::{
@@ -19,13 +22,6 @@ pub fn dapen_fc_to_cfc_code_definition(
         num_outputs: dpn_fc_def.circuit_outputs.len() as u32,
         vm_type: VM_TYPE_STANRDARD_DAPEN_V1,
         code: serde_cbor::to_vec(dpn_fc_def).unwrap(),
-    }
-}
-
-fn encode_string(buffer: &mut Vec<u64>, value: &str) {
-    buffer.push(value.as_bytes().len() as u64);
-    for b in value.as_bytes() {
-        buffer.push(*b as u64);
     }
 }
 
@@ -133,15 +129,11 @@ fn encode_state_cmds(buffer: &mut Vec<u64>, cmds: &[DPNStateCmd<u64>]) {
     }
 }
 
-fn encode_assertions(buffer: &mut Vec<u64>, assertions: &[crate::dpn::ops::op_types::DPNAssertEqInfoIndexed]) {
+fn encode_assertions(buffer: &mut Vec<u64>, assertions: &[DPNAssertEqInfoIndexed]) {
     buffer.push(assertions.len() as u64);
     for assertion in assertions {
         buffer.push(assertion.left);
         buffer.push(assertion.right);
-        buffer.push(assertion.message.as_bytes().len() as u64);
-        for b in assertion.message.as_bytes() {
-            buffer.push(*b as u64);
-        }
     }
 }
 
@@ -158,7 +150,6 @@ fn encode_indexed_var_defs(buffer: &mut Vec<u64>, defs: &[DPNIndexedVarDef]) {
 
 fn dpn_function_words(def: &DPNFunctionCircuitDefinition) -> Vec<u64> {
     let mut out = Vec::new();
-    encode_string(&mut out, &def.name);
     out.push(def.method_id as u64);
     encode_vec(&mut out, &def.circuit_inputs);
     encode_vec(&mut out, &def.circuit_outputs);

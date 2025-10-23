@@ -470,7 +470,6 @@ impl
                 let contract_leaf = QEDContractLeaf {
                     deployer: deploy_cmd.deployer,
                     function_tree_root,
-                    function_code_root: deploy_with_root.function_code_hash_root,
                     state_tree_height: F::from_canonical_u32(deploy_cmd.code_definition.state_tree_height as u32),
                 };
 

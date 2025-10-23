@@ -133,10 +133,10 @@ async fn main() {
         function_whitelist: vec![
             QHashOut::rand(),
             QHashOut::rand(),
-            QHashOut::rand(),
-            QHashOut::rand(),
+            QHashOut::from_values(1, 0, 0, 0),
+            QHashOut::from_values(0, 0, 0, 0),
         ],
-        function_code_hashes: vec![QHashOut::rand()],
+        function_code_hashes: vec![QHashOut::from_values(1, 0, 0, 0)],
     };
 
     let mut lps = prepare_environment_with_real_contract(

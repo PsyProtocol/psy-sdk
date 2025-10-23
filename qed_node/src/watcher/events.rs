@@ -43,7 +43,6 @@ pub struct UserDeployContractMetadata {
     pub state_tree_height: u16,
     pub function_count: usize,
     pub function_whitelist_root: String,
-    pub function_code_hash_root: String,
     pub node_id: String,
     pub node_type: String,
 }

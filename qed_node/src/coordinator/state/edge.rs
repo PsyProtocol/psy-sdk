@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::bail;
 use plonky2::plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs};
 use qed_core::job::{
     drain_queue::{CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata}, id::ProvingJobCircuitType,
@@ -11,7 +10,6 @@ use qed_data::{guta::api::SubmitGUTARealmResultAPINoProofInput, qblock::cmds::de
 use qed_data::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use rand::{thread_rng, RngCore};
-use qedlang_core::dpn::contract::{cfc_code_definition_to_dapen_fc, hash_dpn_function_in_field};
 
 use super::processor::CoordinatorConfig;
 
@@ -80,19 +78,8 @@ impl<
         Ok(())
     }
 
-    pub async fn handle_deploy_contract(&self, mut contract_data: QBCDeployContract<F>) -> anyhow::Result<()> {
+    pub async fn handle_deploy_contract(&self, contract_data: QBCDeployContract<F>) -> anyhow::Result<()> {
         let checkpoint_id = self.get_next_checkpoint_id_async().await?;
-        let mut computed_hashes = Vec::with_capacity(contract_data.code_definition.functions.len());
-        for func in &contract_data.code_definition.functions {
-            let dpn = cfc_code_definition_to_dapen_fc(func)?;
-            computed_hashes.push(hash_dpn_function_in_field::<F>(&dpn));
-        }
-        if !contract_data.function_code_hashes.is_empty()
-            && contract_data.function_code_hashes != computed_hashes
-        {
-            bail!("provided function_code_hashes mismatch computed hashes");
-        }
-        contract_data.function_code_hashes = computed_hashes;
         let with_root = contract_data.into_with_whitelist_root::<QEDHasher>()?;
 
         let cd_for_queue = WithDrainQueueMetadata::new_params(self.coordinator_config.deploy_contract_channel_id, checkpoint_id, thread_rng().next_u64(), with_root);

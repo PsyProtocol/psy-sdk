@@ -77,7 +77,6 @@ function expectQEDContractLeaf(value: any) {
     expect(value).toBeDefined();
     expectQHashOut(value.deployer);
     expectQHashOut(value.function_tree_root);
-    expectQHashOut(value.function_code_root);
     expect(typeof value.state_tree_height).toBe("bigint");
 }
 

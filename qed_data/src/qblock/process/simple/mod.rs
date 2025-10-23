@@ -110,7 +110,6 @@ impl SimpleBlockProcessor {
             let contract_leaf = QEDContractLeaf {
                 deployer: d.deployer,
                 function_tree_root,
-                function_code_root: contract_with_root.function_code_hash_root,
                 state_tree_height: QEDFelt::from_canonical_u16(d.code_definition.state_tree_height),
             };
             let contract_leaf_hash = contract_leaf.qfhash::<QEDHasher>();
@@ -256,12 +255,14 @@ impl SimpleBlockProcessor {
         deploy_contracts: Vec<QBCDeployContract<QEDFelt>>,
         store: S,
     ) -> anyhow::Result<S> {
+        let fake_code_hash = QHashOut::rand();
         let whitelist_items_fake = vec![
             QHashOut::rand(),
             QHashOut::rand(),
-            QHashOut::rand(),
-            QHashOut::rand(),
+            fake_code_hash,
+            QHashOut::from_values(0, 0, 0, 0),
         ];
+        let fake_code_hash_2 = QHashOut::rand();
 
         // Initialize store with genesis state if not already initialized
         let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
@@ -284,7 +285,7 @@ impl SimpleBlockProcessor {
                     functions: vec![ContractFunctionCodeDefinition::default()],
                 },
                 function_whitelist: whitelist_items_fake.clone(),
-                function_code_hashes: vec![QHashOut::rand()],
+                function_code_hashes: vec![fake_code_hash],
             },
             QBCDeployContract {
                 deployer: QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378])
@@ -293,8 +294,13 @@ impl SimpleBlockProcessor {
                     state_tree_height: 13 as u16,
                     functions: vec![ContractFunctionCodeDefinition::default()],
                 },
-                function_whitelist: whitelist_items_fake.clone(),
-                function_code_hashes: vec![QHashOut::rand()],
+                function_whitelist: vec![
+                    QHashOut::rand(),
+                    QHashOut::rand(),
+                    fake_code_hash_2,
+                    QHashOut::from_values(0, 0, 0, 0),
+                ],
+                function_code_hashes: vec![fake_code_hash_2],
             },
         ];
         all_contracts.extend(deploy_contracts);
