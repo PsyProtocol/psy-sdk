@@ -1275,6 +1275,16 @@ impl QProvingJobDataID {
     }
 }
 
+impl DrainQueueMetadataTagged for QProvingJobDataID {
+    fn get_dq_metadata(&self) -> DrainQueueMetadata {
+        DrainQueueMetadata {
+            channel_id: QED_CHECKPOINT_JOB_ID_CHANNEL,//TODO
+            checkpoint_id: self.goal_id,
+            item_id: self.group_id as u64,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct ProvingJobDataId {
     pub checkpoint_id: u64,

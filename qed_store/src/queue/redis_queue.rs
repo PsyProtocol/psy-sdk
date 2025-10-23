@@ -9,8 +9,9 @@ use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
-use kvq::traits::KVQPair;
+use kvq::traits::{KVQPair, KVQSerializable};
 use plonky2::{hash::hash_types::RichField, plonk::{config::GenericConfig, proof::ProofWithPublicInputs}};
+use redis::Value::Boolean;
 use qed_core::job::{
     drain_queue::{
         CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable,
@@ -25,7 +26,7 @@ use qed_core::job::{
 };
 use tokio::{sync::Mutex, time::sleep};
 use tracing::error;
-
+use qed_data::guta::api::UserEndCapNonProofCoreInputQueueItem;
 use crate::queue::{
     resilient_redis::ResilientRedisConnection,
     {PROOF_STORE_COUNTERS_PREFIX_1, PROOF_STORE_KEY_PREFIX_1, PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, PS_WORKER_QUEUE_KEY_PREFIX}
@@ -136,6 +137,16 @@ impl ProofStoreRedisAsync {
         Ok(())
     }
 
+    fn cdq_kv_pair<T: DQSerializable>(&self, item: T) -> anyhow::Result<(String, Vec<u8>)>{
+        let metadata = item.get_dq_metadata();
+        let checkpoint_queue_prefix =
+            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!("{}-{}", checkpoint_queue_prefix, metadata.channel_id);
+
+        let bytes = item.to_bytes()?;
+        Ok((key, bytes))
+    }
+
 }
 
 #[async_trait]
@@ -170,6 +181,102 @@ impl QProofStoreReaderAsync for ProofStoreRedisAsync {
         let data: Vec<u8> = self.redis.hget(public_inputs_key, id.to_fixed_bytes().to_vec()).await?;
         let public_inputs = bincode::deserialize(&data)?;
         Ok(public_inputs)
+    }
+}
+
+#[async_trait]
+pub trait TxPoolAsyncImm: CheckpointDrainQueueConsumerAsyncImmWithPosition + Send + Sync {
+    async fn contains_tx_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool>;
+    async fn add_user_tx<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+        proof: &ProofWithPublicInputs<C::F, C, D>,
+        user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
+    ) -> anyhow::Result<()>;
+
+    async fn get_user_txs<C: GenericConfig<D>, const D: usize>(
+        &self,
+        count: Option<isize>,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>>;
+
+    async fn remove_user_txs(&self, channel_id: u64) -> anyhow::Result<()>;
+}
+
+
+#[async_trait]
+impl TxPoolAsyncImm for ProofStoreRedisAsync {
+    async fn contains_tx_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
+        self.redis.exists(id.to_fixed_bytes().to_vec()).await
+    }
+    async fn add_user_tx<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+        proof: &ProofWithPublicInputs<C::F, C, D>,
+        user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
+    ) -> anyhow::Result<()> {
+        let mut builder = self.redis.cmd_builder();
+        let checkpoint_id = id.goal_id;
+        let checkpoint_list_key = self.checkpoint_list_key();
+        let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
+        let public_inputs_key = self.public_inputs_key();
+
+        let proof_bytes = bincode::serialize(proof)?;
+        let public_inputs_data = bincode::serialize(&proof.public_inputs)?;
+        builder = builder
+            .sadd(checkpoint_list_key, checkpoint_id)
+            .hset(
+                checkpoint_proofs_key,
+                id.to_fixed_bytes().to_vec(),
+                proof_bytes,
+            ).hset(
+                public_inputs_key,
+                id.to_fixed_bytes().to_vec(),
+                public_inputs_data,
+            ).set_ex(
+                id.to_fixed_bytes().to_vec(),
+                user_end_cap.to_bytes()?,
+                2 * 60 // 2 minutes
+        );
+        // UserEndCapNonProofCoreInputQueueItem
+        let (key, bytes) = self.cdq_kv_pair(id)?;
+        builder = builder.rpush(key, bytes);
+        builder.execute_atomic(&self.redis).await?;
+        Ok(())
+    }
+
+    async fn get_user_txs<C: GenericConfig<D>, const D: usize>(
+        &self,
+        count: Option<isize>,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>> {
+        let (mut txs, state) = CheckpointDrainQueueConsumerAsyncImmWithPosition::peek_with_position::<UserEndCapNonProofCoreInputQueueItem<C::F>>(self, count, channel_id, checkpoint_id).await?;
+        if txs.is_empty() {
+            return Ok(txs);
+        }
+        let mut builder = self.redis.cmd_builder();
+        for tx in &txs {
+            builder = builder.exists(tx.proof_id.to_fixed_bytes().to_vec());
+        }
+        let rets = builder.execute_atomic(&self.redis).await?;
+        for (i, ret) in rets.iter().enumerate() {
+            if let Boolean(ret) = ret.clone() {
+                if !ret {
+                    txs.remove(i);
+                }
+            }
+        }
+        Ok(txs)
+    }
+
+    async fn remove_user_txs(&self, channel_id: u64) -> anyhow::Result<()> {
+        let state = CheckpointDrainQueueConsumerAsyncImmWithPosition::get_last_peek_offset(self, channel_id).await?;
+        if let Some(state) = state {
+            CheckpointDrainQueueConsumerAsyncImmWithPosition::commit_offset(self, &state).await?;
+        }
+        Ok(())
     }
 }
 
@@ -312,12 +419,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
 #[async_trait]
 impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedisAsync {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
-        let metadata = item.get_dq_metadata();
-        let checkpoint_queue_prefix =
-            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-        let key = format!("{}-{}", checkpoint_queue_prefix, metadata.channel_id);
-
-        let bytes = item.to_bytes()?;
+        let (key, bytes) = self.cdq_kv_pair(item)?;
         self.redis.rpush(key, bytes).await?;
         Ok(())
     }

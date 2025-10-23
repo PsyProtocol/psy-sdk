@@ -4,6 +4,7 @@ use tokio::sync::RwLock;
 use redis::{aio::MultiplexedConnection, AsyncCommands};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use qed_data::config::store_config::F;
 
 #[derive(Debug, Clone)]
 pub struct ConnectionState {
@@ -349,6 +350,16 @@ impl ResilientRedisConnection {
         }).await
     }
 
+    pub async fn exists<K>(&self, key: K) -> Result<bool>
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+    {
+        let key_clone = key.clone();
+        self.execute(move |mut conn| async move {
+            conn.exists(key_clone).await
+        }).await
+    }
+
     pub async fn hexists<K, F>(&self, key: K, field: F) -> Result<bool>
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
@@ -514,6 +525,16 @@ impl CommandBuilder {
         Self {
             commands: Vec::new(),
         }
+    }
+
+    pub fn exists<K>(mut self, key: K) -> Self
+    where
+        K: redis::ToRedisArgs
+    {
+        let mut cmd = redis::cmd("EXISTS");
+        cmd.arg(key);
+        self.commands.push(cmd);
+        self
     }
 
     pub fn set<K, V>(mut self, key: K, value: V) -> Self
