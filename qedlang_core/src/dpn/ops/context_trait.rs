@@ -385,6 +385,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
 
     fn get_user_id(&mut self) -> F;
     fn get_contract_id(&mut self) -> F;
+    fn get_caller_contract_id(&mut self) -> F;
     fn get_checkpoint_id(&mut self) -> F;
     fn get_last_nonce(&mut self) -> F;
     fn get_user_public_key_hash(&mut self) -> [F; 4];
@@ -419,4 +420,3 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
         ToFelts::from_felts(&result)
     }
 }
-

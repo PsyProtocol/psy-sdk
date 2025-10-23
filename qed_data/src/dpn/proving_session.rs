@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::{
-    config::network_constants::{DEFERRED_CALL_MAGIC, SIGN_SIMPLE_TRANSACTION_MAGIC},
+    config::network_constants::{DEFERRED_CALL_MAGIC, SIGN_SIMPLE_TRANSACTION_MAGIC, DEFAULT_CALLER_CONTRACT_ID_U64},
     data::qhashout::QHashOut,
     traits::to_qfelts::ToQFelts,
 };
@@ -36,17 +36,19 @@ pub struct DPNProvingSessionCheckpointState<F: RichField> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNProvingSessionCompactMethodCall<F: RichField> {
+    pub caller_contract_id: F,
     pub contract_id: F,
     pub method_id: F,
     pub inputs_length: F,
     pub inputs_hash: QHashOut<F>,
 }
 impl<F: RichField> DPNProvingSessionCompactMethodCall<F> {
-    pub fn new_from_inputs<H: FieldQHasher<F>>(contract_id: F, method_id: F, inputs: &[F]) -> Self {
+    pub fn new_from_inputs<H: FieldQHasher<F>>(caller_contract_id: F, contract_id: F, method_id: F, inputs: &[F]) -> Self {
         let inputs_length = F::from_canonical_u64(inputs.len() as u64);
         let inputs_hash = safe_hash_fixed_length::<H, F>(inputs);
 
         Self {
+            caller_contract_id,
             contract_id,
             method_id,
             inputs_length,
@@ -68,6 +70,7 @@ impl<F: RichField> KVQSerializable for DPNProvingSessionCompactMethodCall<F> {
 impl<F: RichField> ToQFelts<F> for DPNProvingSessionCompactMethodCall<F> {
     fn to_qfelts(&self) -> Vec<F> {
         vec![
+            self.caller_contract_id,
             self.contract_id,
             self.method_id,
             self.inputs_length,
@@ -79,15 +82,16 @@ impl<F: RichField> ToQFelts<F> for DPNProvingSessionCompactMethodCall<F> {
     }
 
     fn from_qfelts(felts: &[F]) -> Self {
-        if felts.len() != 7 {
-            panic!("Invalid number of elements for DPNProvingSessionCompactMethodCall, expected 7, got {}",felts.len());
+        if felts.len() != 8 {
+            panic!("Invalid number of elements for DPNProvingSessionCompactMethodCall, expected 8, got {}",felts.len());
         }
 
         Self {
-            contract_id: felts[0],
-            method_id: felts[1],
-            inputs_length: felts[2],
-            inputs_hash: QHashOut::from_felt_slice(&felts[3..]),
+            caller_contract_id: felts[0],
+            contract_id: felts[1],
+            method_id: felts[2],
+            inputs_length: felts[3],
+            inputs_hash: QHashOut::from_felt_slice(&felts[4..]),
         }
     }
 }
@@ -106,6 +110,7 @@ impl<F: RichField> QFieldHashable<F> for DPNProvingSessionCompactMethodCall<F> {
 
         H::q_hash_many(&[
             magic_felt,
+            self.caller_contract_id,
             self.contract_id,
             self.method_id,
             self.inputs_length,
@@ -117,10 +122,11 @@ impl<F: RichField> QFieldHashable<F> for DPNProvingSessionCompactMethodCall<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNProvingSessionSimpleMethodCall<F: RichField> {
+    pub caller_contract_id: F,
     pub contract_id: F,
     pub method_id: F,
     pub inputs: Vec<F>,
@@ -128,6 +134,7 @@ pub struct DPNProvingSessionSimpleMethodCall<F: RichField> {
 impl<F: RichField> DPNProvingSessionSimpleMethodCall<F> {
     pub fn new(contract_id: F, method_id: F, inputs: Vec<F>) -> Self {
         Self {
+            caller_contract_id: F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64),
             contract_id,
             method_id,
             inputs,
@@ -135,10 +142,21 @@ impl<F: RichField> DPNProvingSessionSimpleMethodCall<F> {
     }
     pub fn to_compact<H: FieldQHasher<F>>(&self) -> DPNProvingSessionCompactMethodCall<F> {
         DPNProvingSessionCompactMethodCall::new_from_inputs::<H>(
+            self.caller_contract_id,
             self.contract_id,
             self.method_id,
             &self.inputs,
         )
+    }
+}
+impl<F: RichField> Default for DPNProvingSessionSimpleMethodCall<F> {
+    fn default() -> Self {
+        Self {
+            caller_contract_id: F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64),
+            contract_id: F::ZERO,
+            method_id: F::ZERO,
+            inputs: Vec::new(),
+        }
     }
 }
 impl<F: RichField> KVQSerializable for DPNProvingSessionSimpleMethodCall<F> {
@@ -153,7 +171,8 @@ impl<F: RichField> KVQSerializable for DPNProvingSessionSimpleMethodCall<F> {
 
 impl<F: RichField> ToQFelts<F> for DPNProvingSessionSimpleMethodCall<F> {
     fn to_qfelts(&self) -> Vec<F> {
-        let mut felts = Vec::with_capacity(2 + self.inputs.len());
+        let mut felts = Vec::with_capacity(3 + self.inputs.len());
+        felts.push(self.caller_contract_id);
         felts.push(self.contract_id);
         felts.push(self.method_id);
         felts.extend_from_slice(&self.inputs);
@@ -161,13 +180,14 @@ impl<F: RichField> ToQFelts<F> for DPNProvingSessionSimpleMethodCall<F> {
     }
 
     fn from_qfelts(felts: &[F]) -> Self {
-        if felts.len() < 2 {
+        if felts.len() < 3 {
             panic!("Invalid number of elements for DPNProvingSessionSimpleMethodCall");
         }
         Self {
-            contract_id: felts[0],
-            method_id: felts[1],
-            inputs: felts[2..].to_vec(),
+            caller_contract_id: felts[0],
+            contract_id: felts[1],
+            method_id: felts[2],
+            inputs: felts[3..].to_vec(),
         }
     }
 }
@@ -175,6 +195,7 @@ impl<F: RichField> ToQFelts<F> for DPNProvingSessionSimpleMethodCall<F> {
 impl<F: RichField> QFieldHashable<F> for DPNProvingSessionSimpleMethodCall<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         DPNProvingSessionCompactMethodCall::new_from_inputs::<H>(
+            self.caller_contract_id,
             self.contract_id,
             self.method_id,
             &self.inputs,
@@ -203,7 +224,7 @@ impl<F: RichField> KVQSerializable for DPNProvingSessionSignableCompactMethodCal
 
 impl<F: RichField> ToQFelts<F> for DPNProvingSessionSignableCompactMethodCall<F> {
     fn to_qfelts(&self) -> Vec<F> {
-        let mut felts = Vec::with_capacity(9);
+        let mut felts = Vec::with_capacity(10);
         felts.push(self.checkpoint_id);
         felts.push(self.user_id);
         felts.extend_from_slice(&self.call_data.to_qfelts());
@@ -211,8 +232,8 @@ impl<F: RichField> ToQFelts<F> for DPNProvingSessionSignableCompactMethodCall<F>
     }
 
     fn from_qfelts(felts: &[F]) -> Self {
-        if felts.len() != 9 {
-            panic!("Invalid number of elements for DPNProvingSessionSignableCompactMethodCall: expected 9, got {}", felts.len());
+        if felts.len() != 10 {
+            panic!("Invalid number of elements for DPNProvingSessionSignableCompactMethodCall: expected 10, got {}", felts.len());
         }
         Self {
             checkpoint_id: felts[0],
@@ -281,7 +302,7 @@ impl<F: RichField> KVQSerializable for DPNProvingSessionSignableMethodCall<F> {
 
 impl<F: RichField> ToQFelts<F> for DPNProvingSessionSignableMethodCall<F> {
     fn to_qfelts(&self) -> Vec<F> {
-        let mut felts = Vec::with_capacity(9);
+        let mut felts = Vec::with_capacity(10);
         felts.push(self.checkpoint_id);
         felts.push(self.user_id);
         felts.extend_from_slice(&self.call_data.to_qfelts());
@@ -289,8 +310,8 @@ impl<F: RichField> ToQFelts<F> for DPNProvingSessionSignableMethodCall<F> {
     }
 
     fn from_qfelts(felts: &[F]) -> Self {
-        if felts.len() < 4 {
-            panic!("Invalid number of elements for DPNProvingSessionSignableMethodCall: expected >= 4, got {}", felts.len());
+        if felts.len() < 5 {
+            panic!("Invalid number of elements for DPNProvingSessionSignableMethodCall: expected >= 5, got {}", felts.len());
         }
         Self {
             checkpoint_id: felts[0],

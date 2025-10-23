@@ -104,6 +104,7 @@ pub enum DPNOpType {
 
     Secp256k1Verify = 77,
     HashTwoToOne = 78,
+    GetCallerContractId = 79,
 }
 
 impl From<u16> for DPNOpType {
@@ -179,6 +180,7 @@ impl From<u16> for DPNOpType {
             76 => DPNOpType::U32Exp,
             77 => DPNOpType::Secp256k1Verify,
             78 => DPNOpType::HashTwoToOne,
+            79 => DPNOpType::GetCallerContractId,
             _ => panic!("Unknown DPNOpType: {}", value),
         }
     }
@@ -280,6 +282,7 @@ impl DPNOpType {
             DPNOpType::CalculateMerkleRoot => DPNBuiltInDataType::HashOut,
             DPNOpType::GetUserId => DPNBuiltInDataType::Target,
             DPNOpType::GetContractId => DPNBuiltInDataType::Target,
+            DPNOpType::GetCallerContractId => DPNBuiltInDataType::Target,
             DPNOpType::GetCheckpointId => DPNBuiltInDataType::Target,
             DPNOpType::GetNonce => DPNBuiltInDataType::Target,
             DPNOpType::GetUserPublicKeyHash => DPNBuiltInDataType::HashOut,
@@ -311,6 +314,7 @@ impl DPNOpType {
             DPNOpType::ConstantFalse => true,
             DPNOpType::GetUserId => true,
             DPNOpType::GetContractId => true,
+            DPNOpType::GetCallerContractId => true,
             DPNOpType::GetCheckpointId => true,
             DPNOpType::GetNonce => true,
             DPNOpType::GetUserPublicKeyHash => true,
@@ -325,6 +329,7 @@ impl DPNOpType {
             DPNOpType::ConstantFalse => false,
             DPNOpType::GetUserId => false,
             DPNOpType::GetContractId => false,
+            DPNOpType::GetCallerContractId => false,
             DPNOpType::GetCheckpointId => false,
             DPNOpType::GetNonce => false,
             DPNOpType::GetUserPublicKeyHash => false,
@@ -407,6 +412,7 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::CalculateMerkleRoot => "CalculateMerkleRoot",
             DPNOpType::GetUserId => "GetUserId",
             DPNOpType::GetContractId => "GetContractId",
+            DPNOpType::GetCallerContractId => "GetCallerContractId",
             DPNOpType::GetCheckpointId => "GetCheckpointId",
             DPNOpType::GetNonce => "GetNonce",
             DPNOpType::GetUserPublicKeyHash => "GetUserPublicKeyHash",
@@ -430,6 +436,7 @@ impl std::fmt::Display for DPNOpType {
             DPNOpType::U32Exp => "U32Exp",
             DPNOpType::Secp256k1Verify => "Secp256k1Verify",
             DPNOpType::HashTwoToOne => "HashTwoToOne",
+            DPNOpType::GetCallerContractId => "GetCallerContractId",
         };
         write!(f, "DPNOpType::{}", r)
     }

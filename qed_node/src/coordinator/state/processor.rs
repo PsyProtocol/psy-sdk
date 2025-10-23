@@ -472,7 +472,7 @@ impl<
                     slots_modified: F::ZERO,
                 },
             };
-            tracing::debug!(guta_header = ?guta_header, guta_header_hash = ?guta_header.qfhash::<QEDHasher>(), "GUTA header");
+            tracing::debug!(guta_header = %serde_json::to_string_pretty(&guta_header).unwrap(), guta_header_hash = %guta_header.qfhash::<QEDHasher>(), "GUTA header");
             let input = GUTANoChangeFullInput {
                 checkpoint_tree_proof,
                 checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
@@ -480,7 +480,7 @@ impl<
                     global_state_roots: roots,
                 },
             };
-            tracing::debug!(input = ?input, "Single GUTA input");
+            tracing::debug!(input = %serde_json::to_string_pretty(&input).unwrap(), "Single GUTA input");
 
             let id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,
