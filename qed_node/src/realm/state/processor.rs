@@ -491,20 +491,6 @@ impl<
         DeltaMerkleProofCore<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
     )> {
-        // Use position-based consumption for CST updates
-        let (updates, consumption_state) = self
-            .checkpoint_queue
-            .peek_with_position::<CSTUserUpdate<QHashOut<F>>>(
-                self.max_processed_end_caps_per_block,
-                CST_USER_UPDATE_CHANNEL_ID,
-                checkpoint_id,
-            ).await?;
-
-        debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
-
-        // Process updates with error handling
-        self.store.injest_checked_cst_nodes_imm(&updates).await?;
-
         let (mut guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
             self.max_processed_end_caps_per_block,
             self.realm_config.guta_channel_id,
@@ -574,6 +560,12 @@ impl<
 
             filtered_items.push(guta_queue_item);
         }
+
+        let cst_user_update = filtered_items.iter().map(|item| item.cst_user_update.clone()).collect::<Vec<_>>();
+        debug!(checkpoint_id = checkpoint_id, updates_count = cst_user_update.len(), "Checkpoint updates");
+
+        // Process updates with error handling
+        self.store.injest_checked_cst_nodes_imm(&cst_user_update).await?;
 
         let guta_queue_items = filtered_items;
 

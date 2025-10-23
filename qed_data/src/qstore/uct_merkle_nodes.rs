@@ -1,5 +1,5 @@
-use std::{collections::HashMap, fmt::Display};
-
+use std::{collections::HashMap, fmt, fmt::Display};
+use std::fmt::Debug;
 use kvq::traits::{KVQPair, KVQSerializable};
 use qed_core::{config::network_constants::CST_USER_UPDATE_CHANNEL_ID, job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}};
 use qed_crypto::hash::{
@@ -16,6 +16,20 @@ pub struct CSTUserUpdate<Hash: PartialEq + Copy + Serialize> {
     pub user_id: u64,
     pub uct_updates: Vec<SimpleMerkleNode<Hash>>,
     pub updates: Vec<CSTDeltaNode<Hash>>,
+}
+
+
+impl<Hash: PartialEq + Copy + Serialize> Debug for CSTUserUpdate<Hash> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let uct_updates_len = self.uct_updates.len();
+        let updates_len = self.updates.len();
+        f.debug_struct("CSTUserUpdate")
+            .field("checkpoint_id", &self.checkpoint_id)
+            .field("user_id", &self.user_id)
+            .field("uct_updates len", &uct_updates_len)
+            .field("update len", &updates_len)
+            .finish()
+    }
 }
 
 

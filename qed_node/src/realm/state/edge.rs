@@ -115,7 +115,7 @@ impl<
 
         let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
         let checkpoint_id = self.get_checkpoint_id_async().await?;
-        let next_checkpoint_id = checkpoint_id + 1;//todo fix bug?
+        let next_checkpoint_id = checkpoint_id + 1;
         if end_cap_checkpoint_id > checkpoint_id {
             tracing::info!("ensure end cap checkpoint id: {} {} {}", checkpoint_id, end_cap_checkpoint_id, next_checkpoint_id);
             anyhow::bail!("invalid checkpoint id");
@@ -232,7 +232,7 @@ impl<
 
         let proof_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
-            u64::MAX,
+            u64::MAX,// todo fix bug
             0,
             self.realm_config.realm_id,
             user_id_u64 as u32,
@@ -259,6 +259,7 @@ impl<
         let queue_item = UserEndCapNonProofCoreInputQueueItem {
             input: input.core,
             proof_id,
+            cst_user_update,
             checkpoint_tree_proof,
             checkpoint_id: next_checkpoint_id,
             channel_id: self.realm_config.guta_channel_id,
@@ -269,8 +270,6 @@ impl<
             serde_json::to_string_pretty(&queue_item).unwrap()
         );
 
-        debug!("Enqueuing contract state tree update for user {}", cst_user_update.user_id);
-        self.checkpoint_queue.cdq_push_imm(cst_user_update).await?;
         self.checkpoint_queue.cdq_push_imm(queue_item).await?;
 
         debug!("enqueued queue item successfully");
