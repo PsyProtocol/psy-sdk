@@ -427,12 +427,16 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
                 .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))?;
         }
         if let Some(circuits) = self.contract_circuits.get(&contract_id) {
+            tracing::info!("get contract {} circuits", contract_id);
             for (id, circuit) in circuits.iter().enumerate() {
+                tracing::info!("get contract {} method {} id: {}", contract_id, circuit.fn_def.name, id);
                 if circuit.fn_def.name == method_name {
+                    tracing::info!("return contract {} method {} id: {}", contract_id, method_name, id);
                     return Ok(id as u64);
                 }
             }
         }
+        tracing::error!("contract {} method {} not registed", contract_id, method_name);
         Err(ErrorObjectOwned::owned(
             1,
             "get_method_id error",
@@ -487,6 +491,13 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         input: DapenContractFunctionCircuitInput<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_contract_call contract_id: {}, method_id: {}", contract_id, method_id);
+        if !self.contract_circuits.contains_key(&contract_id) {
+            tracing::warn!("contract {} is not registered, can not get method id", contract_id);
+            tracing::warn!("register contract {} first", contract_id);
+            self.register_contract_circuits_inner(contract_id)
+                .await
+                .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))?;
+        }
         if let Some(fn_circuits) = &self.contract_circuits.get(&contract_id) {
             let fn_circuit = fn_circuits.get(method_id as usize).ok_or_else(|| {
                 ErrorObjectOwned::owned(
