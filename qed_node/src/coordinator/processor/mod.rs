@@ -621,9 +621,9 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         tokio::select! {
             biased;
             slot = slot_timer.wait_for_next_slot() => {
-                if slot.is_odd() {
-                    continue;
-                }
+                // if slot.is_odd() {
+                //     continue;
+                // }
                 trace!("✅ Successfully wait for next slot: {}", slot);
                 if !coordinator_processor.has_pending_tasks(next_checkpoint_id).await? {
                     trace!("⚠️ No pending tasks for checkpoint {}, waiting for next checkpoint", next_checkpoint_id);
