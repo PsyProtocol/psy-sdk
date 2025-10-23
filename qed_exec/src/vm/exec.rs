@@ -6,7 +6,11 @@ use plonky2::{
     },
     hash::hash_types::{HashOut, RichField},
 };
-use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::ToQFelts};
+use qed_core::{
+    config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64,
+    data::qhashout::QHashOut,
+    traits::to_qfelts::ToQFelts,
+};
 use qed_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::{qhashable::QFieldHashable, hasher::MerkleZeroHasher},
@@ -1221,7 +1225,7 @@ impl QEDEvalSessionResult<GF> {
         self.exec_deferred_contract_call(
             sesh,
             contract_id,
-            GF::ZERO,
+            GF::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64),
             fn_def,
             inputs,
         ).await
