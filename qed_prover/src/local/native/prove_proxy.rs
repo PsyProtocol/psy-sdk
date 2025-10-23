@@ -491,6 +491,13 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         input: DapenContractFunctionCircuitInput<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_contract_call contract_id: {}, method_id: {}", contract_id, method_id);
+        if !self.contract_circuits.contains_key(&contract_id) {
+            tracing::warn!("contract {} is not registered, can not get method id", contract_id);
+            tracing::warn!("register contract {} first", contract_id);
+            self.register_contract_circuits_inner(contract_id)
+                .await
+                .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))?;
+        }
         if let Some(fn_circuits) = &self.contract_circuits.get(&contract_id) {
             let fn_circuit = fn_circuits.get(method_id as usize).ok_or_else(|| {
                 ErrorObjectOwned::owned(
