@@ -7,7 +7,7 @@ use tracing::{info, debug, warn};
 use qed_api_services::handlers::{TelemetryPayload, TelemetryResponse};
 use qed_api_services::models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus};
 use qed_core::job::id::QProvingJobDataID;
-use crate::watcher::events::{JobCompletedEvent, JobTimeoutEvent, UserRegistrationEvent, BackupProofEvent, BackupWitnessEvent, UserRegistrationMetadata, UserContractMetadata, UserDeployContractEvent, UserGutaSubmissionEvent, JobStartedEvent, JobPendingEvent};
+use crate::watcher::events::{BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobPendingEvent, JobStartedEvent, JobTimeoutEvent, UserContractMetadata, UserDeployContractEvent, UserEndcapSubmissionEvent, UserGutaSubmissionEvent, UserRegistrationEvent, UserRegistrationMetadata};
 use crate::watcher::watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
 
@@ -84,6 +84,21 @@ impl ApiClient {
 
         self.send_user_events(vec![api_event]).await?;
         debug!("GUTA submission event sent for realm_id: {}", event.realm_id);
+        Ok(())
+    }
+    pub async fn send_endcap_submission(&self, event: UserEndcapSubmissionEvent) -> Result<()> {
+        let api_event = UserEvent {
+            user_id: format!("user_{}", event.user_id),
+            public_key: format!("{}", event.metadata.new_user_leaf.public_key),
+            tx_type: UserEventTxType::UserEndcap,
+            metadata: Some(serde_json::to_value(event.metadata)?),
+            timestamp: event.timestamp,
+            created_at: current_datetime(),
+            updated_at: current_datetime(),
+        };
+
+        self.send_user_events(vec![api_event]).await?;
+        debug!("UserEndcap submission event sent for realm_id: {}, user_id: {}", event.realm_id, event.user_id);
         Ok(())
     }
     pub async fn send_job_pending(&self, event: JobPendingEvent) -> Result<()> {

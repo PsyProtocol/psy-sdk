@@ -5986,6 +5986,7 @@ dependencies = [
  "rsmq_async",
  "secp256k1 0.31.1",
  "serde",
+ "serde_cbor",
  "serde_json",
  "serde_repr",
  "serde_with",

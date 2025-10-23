@@ -61,6 +61,7 @@ pub enum UserEventTxType {
     RegisterUser,
     DeployContract,
     Guta,
+    UserEndcap,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -241,11 +242,17 @@ impl UserEvent {
     pub fn get_transaction_count(&self) -> i64 {
         match self.tx_type {
             UserEventTxType::RegisterUser | UserEventTxType::DeployContract => 1,
+            UserEventTxType::UserEndcap => {
+                if let Some(_metadata) = &self.metadata {
+                    // For future use, we can add more fields to the metadata
+                }
+                1
+            }
             UserEventTxType::Guta => {
                 if let Some(_metadata) = &self.metadata {
                     // For future use, we can add more fields to the metadata
                 }
-                2
+                0
             }
         }
     }

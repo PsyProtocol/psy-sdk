@@ -319,6 +319,16 @@ impl WatcherService {
                 );
                 self.api_client.send_guta_submission(event.clone()).await
             }
+            EndcapSubmission(event) => {
+                info!(
+                    "UserEvent: Endcap submission from realm: {}, user {}, start_user_leaf_hash {}, end_user_leaf_hash{}",
+                    event.realm_id,
+                    event.user_id,
+                    event.metadata.state_transition.start_user_leaf_hash,
+                    event.metadata.state_transition.end_user_leaf_hash,
+                );
+                self.api_client.send_endcap_submission(event.clone()).await
+            }
 
             JobPending(event) => {
                 info!("JobEvent: pending: {:?}", event.job_id);

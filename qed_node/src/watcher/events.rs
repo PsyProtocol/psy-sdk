@@ -1,9 +1,11 @@
 use chrono::{DateTime, Utc};
+use qed_data::qdata::user::QEDUserLeaf;
 use serde::{Deserialize, Serialize};
 use qed_api_services::models::UserEventTxType;
 use qed_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
 use qed_data::config::store_config::QEDFelt;
 use qed_data::qblock::cmds::deploy_contract::QFunctionMetadata;
+use qed_data::qdata::ups_end_cap_result::UPSEndCapResultCompact;
 use crate::watcher::watcher::WatcherSourceNodeType;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,6 +14,7 @@ pub enum WatcherMessage {
     UserRegistration(UserRegistrationEvent),
     DeployContract(UserDeployContractEvent),
     GutaSubmission(UserGutaSubmissionEvent),
+    EndcapSubmission(UserEndcapSubmissionEvent),
 
     // Job status - immediate reporting
     JobPending(JobPendingEvent),
@@ -123,3 +126,20 @@ pub struct BackupWitnessEvent {
     pub delete_after_blocks: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserEndcapSubmissionEvent {
+    pub realm_id: u64,
+    pub user_id: u64,
+    pub metadata: UserEndcapSubmissionMetadata,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserEndcapSubmissionMetadata {
+    pub checkpoint_id: u64,
+    pub state_transition: UPSEndCapResultCompact<QEDFelt>,
+    pub new_user_leaf: QEDUserLeaf<QEDFelt>,
+    pub endcap_proof_public_inputs: Vec<QEDFelt>,
+    pub node_id: String,
+    pub node_type: String,
+}

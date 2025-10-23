@@ -10,7 +10,7 @@ use crate::watcher::watcher_service::{current_datetime, current_timestamp, curre
 pub struct WatcherClient {
     rsmq: Arc<RsmqQueue>,
     queue_id: QueueId,
-    node_id: Option<String>,
+    pub node_id: Option<String>,
 }
 
 impl WatcherClient {
