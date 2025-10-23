@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use qed_core::job::id::QProvingJobDataID;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use serde_json::Value as JsonValue;
 
 #[derive(
     Debug,
@@ -308,4 +309,222 @@ pub struct RealmJobStatusSummary {
     pub job_count: i64,
     pub percentage: Option<f64>,
     pub last_update: Option<DateTime<Utc>>,
+}
+
+/// Checkpoint statistics from blockchain
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CheckpointStats {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,      // Total transaction fees collected (in minimal units)
+    pub user_ops_processed: i64,  // Number of user operations processed
+    pub total_transactions: i64,  // Total number of transactions
+    pub slots_modified: i64,      // Number of slots modified
+    pub metadata: JsonValue,      // Flexible metadata for future extensions
+    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Input for creating checkpoint stats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCheckpointStats {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,
+    pub user_ops_processed: i64,
+    pub total_transactions: i64,
+    pub slots_modified: i64,
+    pub metadata: Option<JsonValue>,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Worker job event (3+ blocks confirmed)
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkerJobEvent {
+    pub id: uuid::Uuid,
+    pub worker_public_key: String,
+    pub checkpoint_id: i64,
+    pub job_id: JsonValue,           // QProvingJobDataID serialized as JSONB
+    pub topic: Option<i16>,
+    pub circuit_type: Option<i16>,
+    pub duration: Option<i64>,       // milliseconds
+    pub status: String,              // typically "COMPLETED"
+    pub metadata: JsonValue,
+    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Input for creating worker job events
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateWorkerJobEvent {
+    pub worker_public_key: String,
+    pub checkpoint_id: i64,
+    pub job_id: JsonValue,
+    pub topic: Option<i16>,
+    pub circuit_type: Option<i16>,
+    pub duration: Option<i64>,
+    pub status: Option<String>,
+    pub metadata: Option<JsonValue>,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Checkpoint reward distribution
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CheckpointRewardDistribution {
+    pub id: Uuid,
+    pub checkpoint_id: i64,
+    pub worker_public_key: String,
+    pub job_id: Uuid,
+    pub reward_amount: i64,
+    pub total_fees_at_checkpoint: i64,
+    pub total_jobs_at_checkpoint: i64,
+    pub metadata: JsonValue,
+    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Input for creating checkpoint reward distributions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCheckpointRewardDistribution {
+    pub checkpoint_id: i64,
+    pub worker_public_key: String,
+    pub job_id: Uuid,
+    pub reward_amount: i64,
+    pub total_fees_at_checkpoint: i64,
+    pub total_jobs_at_checkpoint: i64,
+    pub metadata: Option<JsonValue>,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Aggregated checkpoint rewards (from continuous aggregates)
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CheckpointRewardAggregation {
+    pub bucket: DateTime<Utc>,
+    pub worker_public_key: String,
+    pub checkpoints_participated: i64,
+    pub jobs_completed: i64,
+    pub total_rewards: i64,
+    pub avg_reward_per_job: Option<f64>,
+    pub max_checkpoint: i64,
+    pub min_checkpoint: i64,
+}
+
+/// Summary statistics for a checkpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointRewardSummary {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,
+    pub total_jobs: i64,
+    pub total_workers: i64,
+    pub reward_per_job: i64,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Worker's reward statistics across time periods
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerCheckpointRewardStats {
+    pub worker_public_key: String,
+    pub total_rewards: i64,
+    pub total_jobs_completed: i64,
+    pub checkpoints_participated: i64,
+    pub avg_reward_per_job: f64,
+    pub last_checkpoint_id: i64,
+    pub last_reward_timestamp: DateTime<Utc>,
+}
+
+
+#[derive(Debug, Deserialize)]
+pub struct CheckpointStatsRequest {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,
+    pub user_ops_processed: i64,
+    pub total_transactions: i64,
+    pub slots_modified: i64,
+    pub metadata: Option<serde_json::Value>,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CheckpointStatsResponse {
+    pub success: bool,
+    pub checkpoint_id: i64,
+    pub message: String,
+}
+
+
+#[derive(Debug, Deserialize)]
+pub struct WorkerJobEventRequest {
+    pub worker_public_key: String,
+    pub checkpoint_id: i64,
+    pub job_id: serde_json::Value,
+    pub topic: Option<i16>,
+    pub circuit_type: Option<i16>,
+    pub duration: Option<i64>,
+    pub status: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+    pub timestamp: DateTime<Utc>,
+}
+
+
+#[derive(Debug, Serialize)]
+pub struct WorkerJobEventsResponse {
+    pub success: bool,
+    pub events_reported: usize,
+    pub checkpoint_id: i64,
+    pub message: String,
+}
+
+
+
+#[derive(Debug, Deserialize)]
+pub struct ProcessCheckpointRequest {
+    pub checkpoint_stats: CheckpointStatsRequest,
+    pub job_events: Vec<WorkerJobEventRequest>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProcessCheckpointResponse {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,
+    pub total_jobs: i64,
+    pub total_workers: i64,
+    pub reward_per_job: i64,
+    pub total_distributions_created: usize,  // Total reward records (one per job)
+    pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CheckpointQuery {
+    pub start_checkpoint: Option<i64>,
+    pub end_checkpoint: Option<i64>,
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkerRewardQuery {
+    pub time_period: Option<String>, // "2m", "1h", "1d", "1w", "1m"
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WorkerRewardResponse {
+    pub worker_public_key: String,
+    pub time_period: String,
+    pub aggregations: Vec<CheckpointRewardAggregation>,
+    pub total_rewards: i64,
+    pub total_jobs: i64,
+    pub total_checkpoints: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CheckpointProcessingStatus {
+    pub pending_checkpoints: Vec<i64>,
+    pub pending_count: usize,
+    pub last_processed_checkpoint: Option<i64>,
+    pub status: String,
 }
