@@ -271,6 +271,17 @@ impl ResilientRedisConnection {
         }).await
     }
 
+    pub async fn zrembyscore<K,M, V>(&self, keys: K, min: M, max: M) -> Result<V>
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        M: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        V: redis::FromRedisValue + Send + 'static,
+    {
+        self.execute(move |mut conn| async move {
+            conn.zrembyscore(keys, min, max).await
+        }).await
+    }
+
     pub async fn zremrangebyrank<K, V>(&self, keys: K, start: isize, stop: isize) -> Result<V>
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,

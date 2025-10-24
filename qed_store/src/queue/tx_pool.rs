@@ -205,6 +205,8 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
         checkpoint_id: u64,
     ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>> {
         let user_end_cap_key = self.user_end_cap_key();
+
+        // self.redis.zrembyscore(user_end_cap_key.clone(), 0, Utc::now().timestamp_millis() - 1000 * 60 * 2).await?;
         let len= self.pool_len_v2(channel_id).await?;
         if len == 0 {
             return Ok(vec![]);
