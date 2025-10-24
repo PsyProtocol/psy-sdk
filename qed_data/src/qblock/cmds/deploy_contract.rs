@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -15,11 +16,14 @@ pub struct QBCDeployContract<F: RichField> {
     pub deployer: QHashOut<F>,
     pub code_definition: ContractCodeDefinition,
     pub function_whitelist: Vec<QHashOut<F>>,
-
 }
 
 impl<F: RichField> QBCDeployContract<F> {
-    pub fn new(deployer: QHashOut<F>, code_definition: ContractCodeDefinition, function_whitelist: Vec<QHashOut<F>>) -> Self {
+    pub fn new(
+        deployer: QHashOut<F>,
+        code_definition: ContractCodeDefinition,
+        function_whitelist: Vec<QHashOut<F>>,
+    ) -> Self {
         Self {
             deployer,
             code_definition,
@@ -27,7 +31,11 @@ impl<F: RichField> QBCDeployContract<F> {
         }
     }
     pub fn into_with_whitelist_root<H: MerkleZeroHasher<QHashOut<F>>>(self) -> anyhow::Result<QBCDeployContractWithRoot<F>>{
-        QBCDeployContractWithRoot::<F>::new::<H>(self.deployer, self.code_definition, self.function_whitelist)
+        QBCDeployContractWithRoot::<F>::new::<H>(
+            self.deployer,
+            self.code_definition,
+            self.function_whitelist,
+        )
 
     }
 }
@@ -54,19 +62,31 @@ pub struct QBCDeployContractWithRoot<F: RichField> {
     pub code_definition: ContractCodeDefinition,
     pub function_whitelist: Vec<QHashOut<F>>,
     pub function_whitelist_root: QHashOut<F>,
-    
-
 }
 
 impl<F: RichField> QBCDeployContractWithRoot<F> {
-    pub fn new<H: MerkleZeroHasher<QHashOut<F>>>(deployer: QHashOut<F>, code_definition: ContractCodeDefinition, function_whitelist: Vec<QHashOut<F>>) -> anyhow::Result<Self> {
-            let mut t = SimpleMerkleTree::<H, QHashOut<F>>::new(CONTRACT_FUNCTION_TREE_HEIGHT);
-            for (i,l) in function_whitelist.iter().enumerate() {
-                t.set_leaf(i as u64, *l);
-            }
-            let function_whitelist_root = t.get_root();
-
-            
+    pub fn new<H: MerkleZeroHasher<QHashOut<F>>>(
+        deployer: QHashOut<F>,
+        code_definition: ContractCodeDefinition,
+        function_whitelist: Vec<QHashOut<F>>,
+    ) -> anyhow::Result<Self> {
+        ensure!(
+            function_whitelist.len() == code_definition.functions.len() * 4,
+            "function_whitelist must contain four entries per function"
+        );
+        let zero = QHashOut::from_values(0, 0, 0, 0);
+        for i in 0..code_definition.functions.len() {
+            let base = i * 4;
+            ensure!(
+                function_whitelist[base + 3] == zero,
+                "function whitelist placeholder must be zero"
+            );
+        }
+        let mut whitelist_tree = SimpleMerkleTree::<H, QHashOut<F>>::new(CONTRACT_FUNCTION_TREE_HEIGHT);
+        for (i, leaf) in function_whitelist.iter().enumerate() {
+            whitelist_tree.set_leaf(i as u64, *leaf);
+        }
+        let function_whitelist_root = whitelist_tree.get_root();
 
         Ok(Self {
             deployer,

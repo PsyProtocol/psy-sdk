@@ -45,15 +45,15 @@ pub struct QEDContractFunctionInclusionProof<F: RichField> {
 
 impl<F: RichField> QEDContractFunctionInclusionProof<F> {
     pub fn verify<H: FieldQHasher<F>>(&self) -> bool {
-        // must have a valid contract inclusion proof and a valid merkle proof with an even index
-        // (even index is because each function uses two leaves) 
+        // must have a valid contract inclusion proof and a valid merkle proof with an index divisible by 4
+        // (each function uses four leaves: fingerprint, metadata, code hash, reserved) 
         self.contract_inclusion_proof.verify::<H>()
             && self.contract_function_merkle_proof.verify::<H>()
-            && (self.contract_function_merkle_proof.index&1) == 0
+            && (self.contract_function_merkle_proof.index & 3) == 0
     }
 
-    // note that each function has two leaves:
-    // **left** is the hash of the verifier key and **right** is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
+    // note that each function occupies four leaves:
+    // 4*i = verifier fingerprint, 4*i+1 = [method_id, (num_outputs<<32)|num_inputs, 0, 0], 4*i+2 = code hash, 4*i+3 = reserved zero
 
     pub fn get_function_verifier_fingerprint(&self) -> QHashOut<F> {
         self.contract_function_merkle_proof.value

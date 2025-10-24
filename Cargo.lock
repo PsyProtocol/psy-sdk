@@ -6250,6 +6250,7 @@ dependencies = [
  "k256",
  "plonky2",
  "qed_core",
+ "qed_crypto",
  "qed_data",
  "serde",
  "serde_cbor",

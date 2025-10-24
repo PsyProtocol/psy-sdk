@@ -247,12 +247,12 @@ impl<T: KVQBinaryStore> QTreeDataStoreReaderSync<F> for T {
         contract_id: u32,
         function_id: u32,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        // NOTE: two leaves per function
+        // NOTE: four leaves per function (fingerprint, metadata, code hash, reserved)
         ContractFunctionTreeStore::<T>::get_leaf_sfc(
             self,
             checkpoint_id,
             contract_id.into(),
-            (function_id as u64) * 2u64,
+            (function_id as u64) * 4u64,
         )
     }
 
@@ -415,7 +415,7 @@ impl<T: KVQBinaryStore> QTreeDataStoreWriterSync<F> for T {
         WithdrawalTreeStore::<T>::set_leaf_fc(self, checkpoint_id, withdrawal_id, leaf_hash)
     }
 
-    // note that each function has two leaves -- left is the hash of the verifier key and right is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
+    // note that each function uses four leaves: verifier fingerprint, metadata, code hash, and a reserved zero slot
     fn set_contract_function_whitelist(
         &self,
         checkpoint_id: u64,
