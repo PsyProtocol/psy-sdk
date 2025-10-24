@@ -3,4 +3,4 @@
  */
 
 export * from "./types";
-export * from "./memory/index";
+export * from "./memory";

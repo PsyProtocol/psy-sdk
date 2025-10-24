@@ -1,25 +1,32 @@
 {
   "compilerOptions": {
     "outDir": "./dist",
-    "types": ["jest", "node"],
+    "rootDir": "./src",
     "target": "ES2020",
     "module": "ESNext",
-    "moduleResolution": "node",
     "sourceMap": true,
-    "strict": true,
     "declaration": true,
-    "allowJs": true,
     "declarationMap": true,
-    "noEmitOnError": true,
-    "skipLibCheck": true,
+    "strict": true,
     "esModuleInterop": true,
-    "noEmit": false
+    "skipLibCheck": true,
+    "noEmitOnError": true,
+    "allowJs": true,
+    "types": [
+      "node",
+      "jest"
+    ],
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@qed/*": ["packages/*/src"]
+    }
   },
+  "include": [
+    "src/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist"
-  ],
-  "include": [
-      "src/**/*"
   ]
 }

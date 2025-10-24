@@ -1,9 +1,12 @@
 {
   "name": "@qed/qed-sdk",
   "version": "1.2.6",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*"
+  },
   "files": [
     "dist"
   ],
