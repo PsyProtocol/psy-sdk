@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM checkpoint_processing_status\n            WHERE checkpoint_id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f4665aec0b671a33c44ecf6dedf5d93a9a69bbe97be773c343063dbcd8b72403"
+}

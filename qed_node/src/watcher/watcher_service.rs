@@ -2,6 +2,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
+use std::sync::atomic::AtomicU64;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Result};
@@ -47,7 +48,7 @@ pub struct WatcherService {
     rsmq_queue_id: QueueId,
     api_client: Arc<ApiClient>,
     block_height_manager: Arc<BlockHeightManager>,
-    block_metadata_height: Arc<RwLock<u64>>,
+    block_metadata_height: Arc<AtomicU64>,
     task_manager: Arc<ScheduledTaskManager>,
     timeout_watcher: Arc<TimeoutWatcher>,
     node_info: Arc<NodeInfo>,
@@ -120,7 +121,7 @@ impl WatcherService {
                 0
             }
         };
-        let block_metadata_height = Arc::new(RwLock::new(height));
+        let block_metadata_height = Arc::new(AtomicU64::new(0));
 
         let task_manager = Arc::new(
             ScheduledTaskManager::new(redis_pool.clone(), config.node_id.clone()).await?,
@@ -642,26 +643,30 @@ impl WatcherService {
         info!("Starting sending block metadata to api service");
 
         loop {
-            let latest_block_height = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.qed_store).await?.checkpoint_id;
-            let target_height = latest_block_height.saturating_sub(BLOCK_METADATA_WAIT_BLOCK_NUM);
+            tokio::time::sleep(Duration::from_millis(BLOCK_METADATA_WAIT_DURATION)).await;
 
-            let local_height = *self.block_metadata_height.read().await;
+            //the finalized height is latest_height - BLOCK_METADATA_WAIT_BLOCK_NUM
+            let latest_height = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.qed_store).await?.checkpoint_id;
+            let finalized_height = latest_height.saturating_sub(BLOCK_METADATA_WAIT_BLOCK_NUM);
 
+            //watcher local height
+            let local_height = self.block_metadata_height.load(Ordering::Relaxed);
+
+            if finalized_height <= local_height {
+                debug!("finalized height({}) <= local height ({}), sleep {} s", finalized_height, local_height, BLOCK_METADATA_WAIT_DURATION / 1000);
+                continue;
+            }
             let mut checkpoint_metadatas = Vec::new();
-            for checkpoint_id in local_height..target_height {
+            for checkpoint_id in local_height..finalized_height {
                 let checkpoint_leaf = QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data(&self.qed_store, checkpoint_id).await?;
                 checkpoint_metadatas.push(checkpoint_leaf);
                 info!("checkpoint {}: {}", checkpoint_id, serde_json::to_string_pretty(&checkpoint_leaf.stats)?);
             }
 
-            if local_height > target_height {
-                warn!("local height {} is less than target height {}, do not send block metadata", local_height, target_height);
-            } else {
-                let mut local_height = self.block_metadata_height.write().await;
-                // send checkpoint_metadatas
-                *local_height = target_height;
-            }
-            tokio::time::sleep(Duration::from_secs(BLOCK_METADATA_WAIT_DURATION)).await;
+            self.block_metadata_height.store(finalized_height, Ordering::Relaxed);
+
+            self.api_client.send_block_metadata(checkpoint_metadatas).await?;
+
         }
     }
 }

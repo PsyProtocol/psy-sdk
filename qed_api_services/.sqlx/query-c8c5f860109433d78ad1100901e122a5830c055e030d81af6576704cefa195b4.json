@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COUNT(DISTINCT we.checkpoint_id) as count\n            FROM worker_events we\n            LEFT JOIN worker_job_events wje ON we.checkpoint_id = wje.checkpoint_id\n            WHERE we.checkpoint_id <= $1\n                AND we.status = 'COMPLETED'\n                AND wje.checkpoint_id IS NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c8c5f860109433d78ad1100901e122a5830c055e030d81af6576704cefa195b4"
+}

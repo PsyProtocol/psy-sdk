@@ -10,6 +10,8 @@ use tracing::{info, debug, warn};
 use qed_api_services::handlers::{TelemetryPayload, TelemetryResponse};
 use qed_api_services::models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus};
 use qed_core::job::id::QProvingJobDataID;
+use qed_data::config::store_config::QEDFelt;
+use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
 use crate::watcher::events::{BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobPendingEvent, JobStartedEvent, JobTimeoutEvent, UserContractMetadata, UserDeployContractEvent, UserEndcapSubmissionEvent, UserGutaSubmissionEvent, UserRegistrationEvent, UserRegistrationMetadata};
 use crate::watcher::watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
@@ -378,6 +380,9 @@ impl ApiClient {
         Ok(())
     }
 
+    pub async fn send_block_metadata(&self, block_data: Vec<QEDCheckpointLeaf<QEDFelt>>) -> Result<()> {
+        todo!()
+    }
     pub async fn report_checkpoint_stats(&self, stats: CheckpointStats) -> Result<()> {
         let response: ApiResponse<serde_json::Value> = self.post_json(
             "/telemetry/checkpoint/stats",

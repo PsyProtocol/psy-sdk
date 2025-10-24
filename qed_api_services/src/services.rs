@@ -8,6 +8,11 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
+use axum::extract::{Query, State};
+use axum::{Json, Router};
+use axum::http::StatusCode;
+use axum::routing::{get, post};
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 use crate::repositories::checkpoint_state::{CheckpointRewardAggregationRepository, CheckpointRewardDistributionRepository, CheckpointStatsRepository, WorkerJobEventRepository};
@@ -882,4 +887,330 @@ pub struct ProcessCheckpointResult {
     pub checkpoint_stats: CheckpointStats,
     pub job_events: Vec<WorkerJobEvent>,
     pub reward_distributions: Vec<CheckpointRewardDistribution>,
+}
+
+
+pub struct ProcessorMonitor {
+    pool: PgPool,
+}
+
+impl ProcessorMonitor {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    /// Get processor health status
+    pub async fn get_health_status(&self) -> anyhow::Result<ProcessorHealthStatus> {
+        // Get current max checkpoint
+        let max_checkpoint = sqlx::query!(
+            r#"
+            SELECT MAX(checkpoint_id) as max_checkpoint
+            FROM worker_events
+            WHERE status = 'COMPLETED'
+            "#
+        )
+        .fetch_one(&self.pool)
+        .await?
+        .max_checkpoint
+        .unwrap_or(0);
+
+        // Get finalized checkpoint (with 3 block depth)
+        let finalized_checkpoint = (max_checkpoint - 3).max(0);
+
+        // Count pending checkpoints
+        let pending_count = sqlx::query!(
+            r#"
+            SELECT COUNT(DISTINCT we.checkpoint_id) as count
+            FROM worker_events we
+            LEFT JOIN worker_job_events wje ON we.checkpoint_id = wje.checkpoint_id
+            WHERE we.checkpoint_id <= $1
+                AND we.status = 'COMPLETED'
+                AND wje.checkpoint_id IS NULL
+            "#,
+            finalized_checkpoint
+        )
+        .fetch_one(&self.pool)
+        .await?
+        .count
+        .unwrap_or(0);
+
+        // Get last processing time
+        let last_processed = sqlx::query!(
+            r#"
+            SELECT MAX(processed_at) as last_time
+            FROM checkpoint_processing_status
+            WHERE status = 'COMPLETED'
+            "#
+        )
+        .fetch_one(&self.pool)
+        .await?
+        .last_time;
+
+        // Count recent rollbacks
+        let rollback_count = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as count
+            FROM rollback_detections
+            WHERE detection_time > NOW() - INTERVAL '24 hours'
+            "#
+        )
+            .fetch_one(&self.pool)
+            .await?
+            .count
+            .unwrap_or(0);
+
+        // Get processing stats
+        let stats = sqlx::query!(
+            r#"
+            SELECT
+                COUNT(*) as total_processed,
+                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed,
+                COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed,
+                COUNT(CASE WHEN processed_at > NOW() - INTERVAL '1 hour' THEN 1 END) as last_hour
+            FROM checkpoint_processing_status
+            "#
+        )
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(ProcessorHealthStatus {
+            is_healthy: pending_count < 1000 && last_processed.map_or(false, |t|
+                Utc::now().signed_duration_since(t).num_minutes() < 10
+            ),
+            current_max_checkpoint: max_checkpoint,
+            finalized_checkpoint,
+            pending_checkpoints: pending_count as usize,
+            last_processing_time: last_processed,
+            rollbacks_24h: rollback_count as usize,
+            total_processed: stats.total_processed.unwrap_or(0) as usize,
+            completed: stats.completed.unwrap_or(0) as usize,
+            failed: stats.failed.unwrap_or(0) as usize,
+            processed_last_hour: stats.last_hour.unwrap_or(0) as usize,
+        })
+    }
+
+    /// Get detailed rollback history
+    pub async fn get_rollback_history(&self, limit: i64) -> anyhow::Result<Vec<RollbackDetail>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                checkpoint_id,
+                conflicting_slots,
+                selected_slot,
+                discarded_slots,
+                affected_job_count,
+                detection_time
+            FROM rollback_detections
+            ORDER BY detection_time DESC
+            LIMIT $1
+            "#,
+            limit
+        )
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(rows.into_iter().map(|row| RollbackDetail {
+            checkpoint_id: row.checkpoint_id,
+            conflicting_slots: row.conflicting_slots,
+            selected_slot: row.selected_slot,
+            discarded_slots: row.discarded_slots,
+            affected_job_count: row.affected_job_count,
+            detection_time: row.detection_time,
+        }).collect())
+    }
+
+    /// Get checkpoint processing history
+    pub async fn get_processing_history(&self, limit: i64) -> anyhow::Result<Vec<CheckpointHistory>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                checkpoint_id,
+                status,
+                events_processed,
+                processed_at,
+                error_message,
+                updated_at
+            FROM checkpoint_processing_status
+            ORDER BY checkpoint_id DESC
+            LIMIT $1
+            "#,
+            limit
+        )
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(rows.into_iter().map(|row| CheckpointHistory {
+            checkpoint_id: row.checkpoint_id,
+            status: row.status,
+            events_processed: row.events_processed,
+            processed_at: row.processed_at,
+            error_message: row.error_message,
+            updated_at: row.updated_at,
+        }).collect())
+    }
+
+    /// Manual trigger for processing specific checkpoint
+    pub async fn trigger_checkpoint_processing(&self, checkpoint_id: i64) -> anyhow::Result<ProcessingTriggerResult> {
+        // Check if checkpoint exists
+        let exists = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as count
+            FROM worker_events
+            WHERE checkpoint_id = $1
+            "#,
+            checkpoint_id
+        )
+            .fetch_one(&self.pool)
+            .await?
+            .count
+            .unwrap_or(0) > 0;
+
+        if !exists {
+            return Ok(ProcessingTriggerResult {
+                success: false,
+                message: format!("Checkpoint {} not found", checkpoint_id),
+                checkpoint_id,
+            });
+        }
+
+        // Reset status to allow reprocessing
+        sqlx::query!(
+            r#"
+            DELETE FROM checkpoint_processing_status
+            WHERE checkpoint_id = $1
+            "#,
+            checkpoint_id
+        )
+            .execute(&self.pool)
+            .await?;
+
+        Ok(ProcessingTriggerResult {
+            success: true,
+            message: format!("Checkpoint {} queued for processing", checkpoint_id),
+            checkpoint_id,
+        })
+    }
+}
+
+// ============================================================================
+// Data Structures for Monitoring
+// ============================================================================
+
+#[derive(Debug, Serialize)]
+pub struct ProcessorHealthStatus {
+    pub is_healthy: bool,
+    pub current_max_checkpoint: i64,
+    pub finalized_checkpoint: i64,
+    pub pending_checkpoints: usize,
+    pub last_processing_time: Option<DateTime<Utc>>,
+    pub rollbacks_24h: usize,
+    pub total_processed: usize,
+    pub completed: usize,
+    pub failed: usize,
+    pub processed_last_hour: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RollbackDetail {
+    pub checkpoint_id: i64,
+    pub conflicting_slots: Vec<i64>,
+    pub selected_slot: i64,
+    pub discarded_slots: Vec<i64>,
+    pub affected_job_count: i32,
+    pub detection_time: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CheckpointHistory {
+    pub checkpoint_id: i64,
+    pub status: String,
+    pub events_processed: Option<i32>,
+    pub processed_at: Option<DateTime<Utc>>,
+    pub error_message: Option<String>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProcessingTriggerResult {
+    pub success: bool,
+    pub message: String,
+    pub checkpoint_id: i64,
+}
+
+// ============================================================================
+// HTTP Endpoints for Monitoring
+// ============================================================================
+
+pub fn create_processor_monitoring_router(monitor: Arc<ProcessorMonitor>) -> Router {
+    Router::new()
+        .route("/processor/health", get(processor_health_handler))
+        .route("/processor/rollbacks", get(rollback_history_handler))
+        .route("/processor/history", get(processing_history_handler))
+        .route("/processor/trigger", post(trigger_processing_handler))
+        .with_state(monitor)
+}
+
+async fn processor_health_handler(
+    State(monitor): State<Arc<ProcessorMonitor>>,
+) -> Result<Json<ProcessorHealthStatus>, StatusCode> {
+    match monitor.get_health_status().await {
+        Ok(status) => Ok(Json(status)),
+        Err(e) => {
+            error!("Failed to get processor health: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct HistoryQuery {
+    limit: Option<i64>,
+}
+
+async fn rollback_history_handler(
+    State(monitor): State<Arc<ProcessorMonitor>>,
+    Query(query): Query<HistoryQuery>,
+) -> Result<Json<Vec<RollbackDetail>>, StatusCode> {
+    let limit = query.limit.unwrap_or(100).min(1000);
+
+    match monitor.get_rollback_history(limit).await {
+        Ok(history) => Ok(Json(history)),
+        Err(e) => {
+            error!("Failed to get rollback history: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+async fn processing_history_handler(
+    State(monitor): State<Arc<ProcessorMonitor>>,
+    Query(query): Query<HistoryQuery>,
+) -> Result<Json<Vec<CheckpointHistory>>, StatusCode> {
+    let limit = query.limit.unwrap_or(100).min(1000);
+
+    match monitor.get_processing_history(limit).await {
+        Ok(history) => Ok(Json(history)),
+        Err(e) => {
+            error!("Failed to get processing history: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct TriggerRequest {
+    checkpoint_id: i64,
+}
+
+async fn trigger_processing_handler(
+    State(monitor): State<Arc<ProcessorMonitor>>,
+    Json(request): Json<TriggerRequest>,
+) -> Result<Json<ProcessingTriggerResult>, StatusCode> {
+    match monitor.trigger_checkpoint_processing(request.checkpoint_id).await {
+        Ok(result) => Ok(Json(result)),
+        Err(e) => {
+            error!("Failed to trigger processing: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
