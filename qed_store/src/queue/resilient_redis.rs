@@ -251,6 +251,16 @@ impl ResilientRedisConnection {
         }).await
     }
 
+    pub async fn mget<K, V>(&self, keys: K) -> Result<Vec<V>>
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        V: redis::FromRedisValue + Send + 'static,
+    {
+        self.execute(move |mut conn| async move {
+            conn.mget(keys).await
+        }).await
+    }
+
     pub async fn lpop<K, V>(&self, key: K, count: Option<usize>) -> Result<Option<V>>
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
@@ -537,6 +547,17 @@ impl CommandBuilder {
         self
     }
 
+    pub fn get<K>(mut self, key: K) -> Self
+    where
+        K: redis::ToRedisArgs
+    {
+        let mut cmd = redis::cmd("GET");
+        cmd.arg(key);
+        self.commands.push(cmd);
+        self
+    }
+
+
     pub fn set<K, V>(mut self, key: K, value: V) -> Self
     where
         K: redis::ToRedisArgs,
@@ -653,7 +674,7 @@ impl CommandBuilder {
         self
     }
 
-    pub fn set_ex<K, V>(mut self, key: K, value: V, seconds: u64) -> Self
+    pub fn set_ex<K, V>(mut self, key: K, seconds: u64, value: V) -> Self
     where
         K: redis::ToRedisArgs,
         V: redis::ToRedisArgs,

@@ -24,7 +24,8 @@ use super::PS_DRAIN_QUEUE_KEY_PREFIX;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::RichField;
-use crate::queue::redis_queue::QueueOffsetState;
+use qed_data::guta::api::UserEndCapNonProofCoreInputQueueItem;
+use crate::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState, TxPoolAsyncImm};
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -566,7 +567,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
 
 #[async_trait]
 impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreFred {
-    async fn peek_with_position<T: DQSerializable>(
+    async fn peek_with_position<T: KVQSerializable>(
         &self,
         _count: Option<isize>,
         _channel_id: u64,
@@ -586,6 +587,35 @@ impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for Pr
         Ok(None)
     }
 }
+
+#[async_trait]
+impl TxPoolAsyncImm for ProofStoreFred {
+    async fn contains_tx_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
+        todo!()
+    }
+    async fn add_user_tx<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+        proof: &ProofWithPublicInputs<C::F, C, D>,
+        user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
+    ) -> anyhow::Result<()> {
+        todo!()
+    }
+
+    async fn get_user_txs<C: GenericConfig<D>, const D: usize>(
+        &self,
+        count: Option<isize>,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>> {
+        todo!()
+    }
+
+    async fn remove_user_txs(&self, channel_id: u64) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
 
 
 #[async_trait]

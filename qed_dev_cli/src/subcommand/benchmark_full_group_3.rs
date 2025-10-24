@@ -87,7 +87,7 @@ use plonky2::{
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_store::queue::QPendingUserStoreAsyncImm;
-use qed_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
+use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, TxPoolAsyncImm};
 use qed_store::store::journal::{Journal, JournalStore};
 
 struct TestGrouping<
@@ -106,15 +106,15 @@ struct TestGrouping<
     CPWQ: WorkerEventTransmitterAsyncImm,
     CPTS: QProvingTaskStore + Send + Sync,
     RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
-    RDQ: CheckpointDrainQueueEmitterAsyncImm,
-    RPS: QProofStoreAsyncImm,
+    RDQ: CheckpointDrainQueueEmitterAsyncImm + TxPoolAsyncImm,
+    RPS: QProofStoreAsyncImm + TxPoolAsyncImm,
     RPSR: QEDCoordinatorStoreWriterAsyncImm<F>
         + QEDCoordinatorStoreReaderAsync<F>
         + Send
         + Sync
         + Journal
         + KVQBinaryStore,
-    RPDQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
+    RPDQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition + TxPoolAsyncImm,
     RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     RPWQ: WorkerEventTransmitterAsyncImm,
     RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -152,15 +152,15 @@ impl<
         CPWQ: WorkerEventTransmitterAsyncImm,
         CPTS: QProvingTaskStore + Send + Sync,
         RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
-        RDQ: CheckpointDrainQueueEmitterAsyncImm,
-        RPS: QProofStoreAsyncImm,
+        RDQ: CheckpointDrainQueueEmitterAsyncImm + TxPoolAsyncImm,
+        RPS: QProofStoreAsyncImm + TxPoolAsyncImm,
         RPSR: QEDCoordinatorStoreWriterAsyncImm<F>
             + QEDCoordinatorStoreReaderAsync<F>
             + Send
             + Sync
             + Journal
             + KVQBinaryStore,
-        RPDQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
+        RPDQ: CheckpointDrainQueueConsumerAsyncImmWithPosition + TxPoolAsyncImm,
         RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         RPWQ: WorkerEventTransmitterAsyncImm,
         RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,

@@ -44,6 +44,7 @@ use qed_store::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
+use qed_store::queue::redis_queue::TxPoolAsyncImm;
 use qed_store::store::journal::Journal;
 use crate::common::slot::SLOT_SIZE;
 
@@ -101,7 +102,7 @@ impl RealmConfig {
 #[derive(Clone)]
 pub struct RealmProcessorContext<
     SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F> + Journal,
-    DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
+    DQ: TxPoolAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -120,7 +121,7 @@ pub struct RealmProcessorContext<
 
 impl<
         SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F> + Journal,
-        DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
+        DQ: TxPoolAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -491,7 +492,7 @@ impl<
         DeltaMerkleProofCore<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
     )> {
-        let (mut guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
+        let mut guta_queue_items = self.checkpoint_queue.get_user_txs::<C, D>(
             self.max_processed_end_caps_per_block,
             self.realm_config.guta_channel_id,
             checkpoint_id,
@@ -963,7 +964,7 @@ impl<
     pub async fn has_pending_guta_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
         let guta_count = self
             .checkpoint_queue
-            .cdq_len_imm(self.realm_config.guta_channel_id)
+            .user_txs_len(self.realm_config.guta_channel_id)
             .await?;
         if guta_count > 0 {
             debug!("Found {} pending GUTA queue items", guta_count);
@@ -987,12 +988,7 @@ impl<
         if let Some(state) = self.sync_queue.get_last_peek_offset().await? {
             self.sync_queue.commit_offset(&state).await?;
         }
-        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(CST_USER_UPDATE_CHANNEL_ID).await? {
-            self.checkpoint_queue.commit_offset(&state).await?;
-        }
-        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(self.realm_config.guta_channel_id).await? {
-            self.checkpoint_queue.commit_offset(&state).await?;
-        }
+        self.checkpoint_queue.remove_user_txs(self.realm_config.guta_channel_id).await?;
         Ok(())
     }
 
