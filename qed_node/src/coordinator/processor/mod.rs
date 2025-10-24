@@ -460,13 +460,6 @@ impl
                     &deploy_cmd.function_whitelist,
                 ).await?;
 
-                let deploy_with_root = QBCDeployContractWithRoot::new::<QEDHasher>(
-                    deploy_cmd.deployer,
-                    deploy_cmd.code_definition.clone(),
-                    deploy_cmd.function_whitelist.clone(),
-                    deploy_cmd.function_code_hashes.clone(),
-                )?;
-
                 let contract_leaf = QEDContractLeaf {
                     deployer: deploy_cmd.deployer,
                     function_tree_root,

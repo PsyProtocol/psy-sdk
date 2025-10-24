@@ -16,9 +16,6 @@ pub struct QBCDeployContract<F: RichField> {
     pub deployer: QHashOut<F>,
     pub code_definition: ContractCodeDefinition,
     pub function_whitelist: Vec<QHashOut<F>>,
-    #[serde(default)]
-    pub function_code_hashes: Vec<QHashOut<F>>,
-
 }
 
 impl<F: RichField> QBCDeployContract<F> {
@@ -26,13 +23,11 @@ impl<F: RichField> QBCDeployContract<F> {
         deployer: QHashOut<F>,
         code_definition: ContractCodeDefinition,
         function_whitelist: Vec<QHashOut<F>>,
-        function_code_hashes: Vec<QHashOut<F>>,
     ) -> Self {
         Self {
             deployer,
             code_definition,
             function_whitelist,
-            function_code_hashes,
         }
     }
     pub fn into_with_whitelist_root<H: MerkleZeroHasher<QHashOut<F>>>(self) -> anyhow::Result<QBCDeployContractWithRoot<F>>{
@@ -40,7 +35,6 @@ impl<F: RichField> QBCDeployContract<F> {
             self.deployer,
             self.code_definition,
             self.function_whitelist,
-            self.function_code_hashes,
         )
 
     }
@@ -68,9 +62,6 @@ pub struct QBCDeployContractWithRoot<F: RichField> {
     pub code_definition: ContractCodeDefinition,
     pub function_whitelist: Vec<QHashOut<F>>,
     pub function_whitelist_root: QHashOut<F>,
-    #[serde(default)]
-    pub function_code_hashes: Vec<QHashOut<F>>,
-
 }
 
 impl<F: RichField> QBCDeployContractWithRoot<F> {
@@ -78,23 +69,14 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
         deployer: QHashOut<F>,
         code_definition: ContractCodeDefinition,
         function_whitelist: Vec<QHashOut<F>>,
-        function_code_hashes: Vec<QHashOut<F>>,
     ) -> anyhow::Result<Self> {
-        ensure!(
-            function_code_hashes.len() == code_definition.functions.len(),
-            "function_code_hashes length must equal number of functions"
-        );
         ensure!(
             function_whitelist.len() == code_definition.functions.len() * 4,
             "function_whitelist must contain four entries per function"
         );
         let zero = QHashOut::from_values(0, 0, 0, 0);
-        for (i, hash) in function_code_hashes.iter().enumerate() {
+        for i in 0..code_definition.functions.len() {
             let base = i * 4;
-            ensure!(
-                function_whitelist[base + 2] == *hash,
-                "function whitelist entry does not match provided code hash"
-            );
             ensure!(
                 function_whitelist[base + 3] == zero,
                 "function whitelist placeholder must be zero"
@@ -111,7 +93,6 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
             code_definition,
             function_whitelist,
             function_whitelist_root,
-            function_code_hashes,
         })
     }
 }

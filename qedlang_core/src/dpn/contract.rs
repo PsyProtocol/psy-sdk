@@ -165,24 +165,14 @@ fn dpn_function_words(def: &DPNFunctionCircuitDefinition) -> Vec<u64> {
     out
 }
 
-pub fn hash_dpn_function(def: &DPNFunctionCircuitDefinition) -> QHashOut<GoldilocksField> {
-    let felts = dpn_function_words(def)
-        .into_iter()
-        .map(GoldilocksField::from_canonical_u64)
-        .collect::<Vec<_>>();
-    safe_hash_fixed_length::<PoseidonHasher, GoldilocksField>(&felts)
-}
-
-pub fn hash_dpn_function_in_field<F: RichField>(
+pub fn hash_dpn_function<F: RichField + PrimeField64>(
     def: &DPNFunctionCircuitDefinition,
 ) -> QHashOut<F> {
-    let base = hash_dpn_function(def);
-    QHashOut::from_values(
-        base.0.elements[0].to_canonical_u64(),
-        base.0.elements[1].to_canonical_u64(),
-        base.0.elements[2].to_canonical_u64(),
-        base.0.elements[3].to_canonical_u64(),
-    )
+    let felts = dpn_function_words(def)
+        .into_iter()
+        .map(F::from_canonical_u64)
+        .collect::<Vec<_>>();
+    safe_hash_fixed_length::<PoseidonHasher, F>(&felts)
 }
 
 pub fn cfc_code_definition_to_dapen_fc(

@@ -318,7 +318,6 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
                     QHashOut::from_values(1, 0, 0, 0),
                     QHashOut::from_values(0, 0, 0, 0),
                 ],
-                function_code_hashes: vec![QHashOut::from_values(1, 0, 0, 0)],
             },
             QBCDeployContract {
                 deployer: QHashOut::from_values(13375, 13376, 13377, 13378),
@@ -332,7 +331,6 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
                     QHashOut::from_values(2, 0, 0, 0),
                     QHashOut::from_values(0, 0, 0, 0),
                 ],
-                function_code_hashes: vec![QHashOut::from_values(2, 0, 0, 0)],
             },
             deploy_cmd,
         ],

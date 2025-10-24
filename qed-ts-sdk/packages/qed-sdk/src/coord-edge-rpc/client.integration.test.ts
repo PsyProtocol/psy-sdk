@@ -45,7 +45,6 @@ const mockQBCDeployContract: QBCDeployContract = {
         ],
     },
     function_whitelist: ["0x1234567890abcdef"],
-    function_code_hashes: ["0x1234567890abcdef"],
 };
 
 // --- Assertion Helpers ---
