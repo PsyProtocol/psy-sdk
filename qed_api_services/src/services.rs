@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::handlers::websocket::{UserEventManager, WorkerEventManager};
-use crate::models::{CheckpointRewardAggregation, CheckpointRewardDistribution, CheckpointRewardSummary, CheckpointStats, CreateCheckpointRewardDistribution, CreateCheckpointStats, CreateWorkerJobEvent, WorkerCheckpointRewardStats, WorkerEvent, WorkerEventReward, WorkerJobEvent};
+use crate::models::{CheckpointRewardAggregation, CheckpointRewardDistribution, CheckpointRewardSummary, CheckpointStats, CreateCheckpointRewardDistribution, CheckpointLeafStat, CreateWorkerJobEvent, WorkerCheckpointRewardStats, WorkerEvent, WorkerEventReward, WorkerJobEvent};
 use crate::repositories::{
     UserEventRepository, WorkerEventRepository, WorkerEventRewardRepository,
 };
@@ -363,7 +363,7 @@ impl CheckpointRewardService {
     /// Report checkpoint stats (called by watcher after 3+ block confirmations)
     pub async fn report_checkpoint_stats(
         &self,
-        stats: CreateCheckpointStats,
+        stats: CheckpointLeafStat,
     ) -> anyhow::Result<CheckpointStats> {
         info!(
             "Reporting checkpoint stats for checkpoint {}: fees={}, transactions={}",
@@ -533,7 +533,7 @@ impl CheckpointRewardService {
     /// This is a convenience method that handles the entire flow
     pub async fn process_checkpoint(
         &self,
-        checkpoint_stats: CreateCheckpointStats,
+        checkpoint_stats: CheckpointLeafStat,
         job_events: Vec<CreateWorkerJobEvent>,
     ) -> anyhow::Result<ProcessCheckpointResult> {
         let checkpoint_id = checkpoint_stats.checkpoint_id;

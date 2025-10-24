@@ -17,10 +17,12 @@ use qed_store::queue::{new_redis_async_pool, QueueId, RsmqQueue};
 use qed_store::store::QEDStore;
 use redis::AsyncCommands;
 use rsmq::RsmqMessage;
+use serde::{Deserialize, Serialize};
 use tokio::sync::{Semaphore, RwLock};
 use tokio::time::{interval, timeout};
 use tracing::{debug, error, info, warn};
-
+use qed_data::config::store_config::QEDFelt;
+use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
 use crate::watcher::{
     api_client::ApiClient,
     block_height::BlockHeightManager,
@@ -39,6 +41,9 @@ const FAILURE_BACKOFF_THRESHOLD: u32 = 3;
 const FAILURE_BACKOFF_DURATION: u64 = 30;
 const BLOCK_METADATA_WAIT_BLOCK_NUM: u64 = 3;
 const BLOCK_METADATA_WAIT_DURATION: u64 = BLOCK_METADATA_WAIT_BLOCK_NUM * SLOT_SIZE;
+
+const CHECKPOINT_LEAF_FETCH_RETRY_COUNT: u32 = 3;
+const CHECKPOINT_LEAF_FETCH_RETRY_DELAY: u64 = 5;
 
 pub struct WatcherService {
     config: WatcherConfig,
@@ -162,7 +167,7 @@ impl WatcherService {
                 error!("Timeout monitor stopped: {:?}", result);
                 result
             }
-            result = self.clone().send_block_metadata() => {
+            result = self.clone().send_checkpoint_leaves() => {
                 error!("Send block metadata stopped: {:?}", result);
                 result
             }
@@ -639,33 +644,116 @@ impl WatcherService {
         Ok(())
     }
 
-    async fn send_block_metadata(self: Arc<Self>) -> Result<()> {
-        info!("Starting sending block metadata to api service");
+    async fn send_checkpoint_leaves(self: Arc<Self>) -> Result<()> {
+        info!("Starting sending checkpoint leaves to api service");
 
         loop {
             tokio::time::sleep(Duration::from_millis(BLOCK_METADATA_WAIT_DURATION)).await;
 
             //the finalized height is latest_height - BLOCK_METADATA_WAIT_BLOCK_NUM
-            let latest_height = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.qed_store).await?.checkpoint_id;
+            let latest_height = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.qed_store)
+                .await?
+                .checkpoint_id;
             let finalized_height = latest_height.saturating_sub(BLOCK_METADATA_WAIT_BLOCK_NUM);
 
             //watcher local height
             let local_height = self.block_metadata_height.load(Ordering::Relaxed);
 
             if finalized_height <= local_height {
-                debug!("finalized height({}) <= local height ({}), sleep {} s", finalized_height, local_height, BLOCK_METADATA_WAIT_DURATION / 1000);
+                debug!(
+                    "finalized height({}) <= local height ({}), sleep {} s",
+                    finalized_height,
+                    local_height,
+                    BLOCK_METADATA_WAIT_DURATION / 1000
+                );
                 continue;
             }
-            let mut checkpoint_metadatas = Vec::new();
+            let mut checkpoint_leaves = Vec::new();
+            let mut fetch_failed = false;
+
             for checkpoint_id in local_height..finalized_height {
-                let checkpoint_leaf = QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data(&self.qed_store, checkpoint_id).await?;
-                checkpoint_metadatas.push(checkpoint_leaf);
-                info!("checkpoint {}: {}", checkpoint_id, serde_json::to_string_pretty(&checkpoint_leaf.stats)?);
+                let mut last_error = None;
+                let mut checkpoint_leaf = None;
+
+                // Retry mechanism for fetching checkpoint leaf data
+                for attempt in 0..CHECKPOINT_LEAF_FETCH_RETRY_COUNT {
+                    if attempt > 0 {
+                        warn!(
+                            "Retrying to fetch checkpoint {} leaf (attempt {}/{})",
+                            checkpoint_id,
+                            attempt + 1,
+                            CHECKPOINT_LEAF_FETCH_RETRY_COUNT
+                        );
+                        tokio::time::sleep(Duration::from_secs(CHECKPOINT_LEAF_FETCH_RETRY_DELAY)).await;
+                    }
+
+                    match QEDCoordinatorStoreReaderAsync::get_checkpoint_leaf_data(&self.qed_store, checkpoint_id).await {
+                        Ok(leaf) => {
+                            checkpoint_leaf = Some(leaf);
+                            break;
+                        }
+                        Err(e) => {
+                            last_error = Some(e);
+                            warn!(
+                                "Failed to fetch checkpoint {} leaf (attempt {}/{}): {}",
+                                checkpoint_id,
+                                attempt + 1,
+                                CHECKPOINT_LEAF_FETCH_RETRY_COUNT,
+                                last_error.as_ref().unwrap()
+                            );
+                        }
+                    }
+                }
+
+                // If all retries failed, skip this execution and return to main loop
+                if checkpoint_leaf.is_none() {
+                    error!(
+                        "Failed to fetch checkpoint {} leaf after {} attempts: {}. Skipping this execution.",
+                        checkpoint_id,
+                        CHECKPOINT_LEAF_FETCH_RETRY_COUNT,
+                        last_error.unwrap()
+                    );
+                    fetch_failed = true;
+                    break;
+                }
+
+                let leaf = checkpoint_leaf.unwrap();
+                debug!(
+                    "checkpoint {} leaf: {}",
+                    checkpoint_id,
+                    serde_json::to_string_pretty(&leaf.stats)?
+                );
+
+                let cl = CheckpointLeafWithId {
+                    checkpoint_id,
+                    checkpoint_leaf: leaf,
+                };
+                checkpoint_leaves.push(cl);
             }
 
-            self.block_metadata_height.store(finalized_height, Ordering::Relaxed);
+            // If fetch failed, skip sending and continue to next iteration of main loop
+            if fetch_failed {
+                warn!(
+                    "Skipping block metadata send due to checkpoint fetch failure. Will retry in next iteration."
+                );
+                continue;
+            }
 
-            self.api_client.send_block_metadata(checkpoint_metadatas).await?;
+            // Send the collected checkpoint leaves
+            match self.api_client.send_block_metadata(checkpoint_leaves).await {
+                Ok(_) => {
+                    // Only update local height after successful send
+                    self.block_metadata_height.store(finalized_height, Ordering::Relaxed);
+                    info!(
+                        "Successfully sent block metadata for checkpoints {} to {}",
+                        local_height,
+                        finalized_height
+                    );
+                }
+                Err(e) => {
+                    error!("Failed to send block metadata to API service: {}", e);
+                }
+            }
 
         }
     }
@@ -700,4 +788,10 @@ pub fn current_timestamp_mills() -> u64 {
 
 pub fn current_datetime() -> DateTime<Utc> {
     Utc::now()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointLeafWithId {
+    pub checkpoint_id: u64,
+    pub checkpoint_leaf: QEDCheckpointLeaf<QEDFelt>,
 }

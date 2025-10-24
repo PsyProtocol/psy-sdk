@@ -327,7 +327,7 @@ pub struct CheckpointStats {
 
 /// Input for creating checkpoint stats
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateCheckpointStats {
+pub struct CheckpointLeafStat {
     pub checkpoint_id: i64,
     pub fees_collected: i64,
     pub user_ops_processed: i64,
@@ -340,7 +340,7 @@ pub struct CreateCheckpointStats {
 /// Worker job event (3+ blocks confirmed)
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct WorkerJobEvent {
-    pub id: uuid::Uuid,
+    pub id: Uuid,
     pub worker_public_key: String,
     pub checkpoint_id: i64,
     pub job_id: JsonValue,           // QProvingJobDataID serialized as JSONB
@@ -528,3 +528,18 @@ pub struct CheckpointProcessingStatus {
     pub last_processed_checkpoint: Option<i64>,
     pub status: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointLeavesRequest {
+    pub leaves: Vec<CheckpointLeafStat>,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointLeavesResponse {
+    pub success: bool,
+    pub processed_count: usize,
+    pub message: String,
+}
+
+

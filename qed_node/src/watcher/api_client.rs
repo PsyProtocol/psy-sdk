@@ -3,15 +3,17 @@ use reqwest::Client;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use http::StatusCode;
+use plonky2::field::types::PrimeField64;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::time::sleep;
 use tracing::{info, debug, warn};
 use qed_api_services::handlers::{TelemetryPayload, TelemetryResponse};
-use qed_api_services::models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus};
+use qed_api_services::models::{CheckpointLeafStat, CheckpointLeavesRequest, CheckpointLeavesResponse, UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus};
 use qed_core::job::id::QProvingJobDataID;
 use qed_data::config::store_config::QEDFelt;
 use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
+use crate::watcher::{CheckpointLeafWithId,};
 use crate::watcher::events::{BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobPendingEvent, JobStartedEvent, JobTimeoutEvent, UserContractMetadata, UserDeployContractEvent, UserEndcapSubmissionEvent, UserGutaSubmissionEvent, UserRegistrationEvent, UserRegistrationMetadata};
 use crate::watcher::watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
@@ -380,9 +382,61 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn send_block_metadata(&self, block_data: Vec<QEDCheckpointLeaf<QEDFelt>>) -> Result<()> {
-        todo!()
+    pub async fn send_block_metadata(&self, block_data: Vec<CheckpointLeafWithId>) -> Result<()> {
+        // Process block data in batches to avoid overwhelming the API
+        for (_batch_idx, batch) in block_data.chunks(MAX_BATCH_SIZE).enumerate() {
+            // Convert QEDCheckpointLeaf to the format expected by the API
+            let checkpoint_leaves: Vec<CheckpointLeafStat> = batch
+                .iter()
+                .enumerate()
+                .map(|(idx, leaf)| {
+
+                    let fees_collected = leaf.checkpoint_leaf.stats.fees_collected.to_canonical_u64() as i64;
+                    let user_ops_processed = leaf.checkpoint_leaf.stats.user_ops_processed.to_canonical_u64() as i64;
+                    let total_transactions = leaf.checkpoint_leaf.stats.total_transactions.to_canonical_u64() as i64;
+                    let slots_modified = leaf.checkpoint_leaf.stats.slots_modified.to_canonical_u64() as i64;
+
+                    let leaf_data = serde_json::to_value(leaf)
+                        .unwrap_or_else(|_| serde_json::json!({}));
+
+                    CheckpointLeafStat {
+                        checkpoint_id: leaf.checkpoint_id as i64,
+                        fees_collected,
+                        user_ops_processed,
+                        total_transactions,
+                        slots_modified,
+                        metadata: Some(leaf_data),
+                        timestamp: current_datetime(),
+                    }
+                })
+                .collect();
+
+            let request = CheckpointLeavesRequest {
+                leaves: checkpoint_leaves,
+                timestamp: current_datetime(),
+            };
+
+            let response: CheckpointLeavesResponse = self.post_json(
+                "/telemetry/block/metadata",
+                &request,
+            ).await?;
+
+            if !response.success {
+                return Err(anyhow::anyhow!(
+                    "Failed to send block metadata: {}",
+                    response.message
+                ));
+            }
+
+            debug!(
+                "Block metadata sent successfully: {} checkpoint leaves processed",
+                response.processed_count
+            );
+        }
+
+        Ok(())
     }
+
     pub async fn report_checkpoint_stats(&self, stats: CheckpointStats) -> Result<()> {
         let response: ApiResponse<serde_json::Value> = self.post_json(
             "/telemetry/checkpoint/stats",

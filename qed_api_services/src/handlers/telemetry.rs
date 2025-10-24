@@ -1,7 +1,8 @@
+use std::cmp::min;
 use axum::{extract::State, http::StatusCode, response::Json, routing::post, Router};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
+use tracing::{error, info};
 use crate::{models::*, repositories::*, services::ApiService};
 use crate::repositories::checkpoint_state::{CheckpointStatsRepository, WorkerJobEventRepository};
 
@@ -10,18 +11,13 @@ pub fn create_telemetry_router(api_service: ApiService) -> Router {
         // Legacy event reporting
         .route("/telemetry/events", post(receive_events_handler))
 
-        // Checkpoint Stats Reporting
-        .route("/telemetry/checkpoint/stats", post(report_checkpoint_stats_handler))
-
-        // Worker Job Events Reporting
+        // Worker Job Events Reporting (reserved for edge when worker submits job results)
         .route("/telemetry/checkpoint/job-events", post(report_worker_job_events_handler))
 
+        // Checkpoint Leafs Reporting
+        .route("/telemetry/checkpoint/leafs", post(report_checkpoint_leafs_handler))
         .with_state(api_service)
 }
-
-// ============================================================================
-// LEGACY EVENT REPORTING
-// ============================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TelemetryPayload {
@@ -39,20 +35,20 @@ async fn receive_events_handler(
     State(service): State<ApiService>,
     Json(payload): Json<TelemetryPayload>,
 ) -> Result<Json<TelemetryResponse>, StatusCode> {
-    tracing::info!(
+    info!(
         "Telemetry events received: worker_events={}, user_events={}",
         payload.worker_events.as_ref().map(|v| v.len()).unwrap_or(0),
         payload.user_events.as_ref().map(|v| v.len()).unwrap_or(0)
     );
-    tracing::info!("Telemetry payload: {:?}", payload);
+    info!("Telemetry payload: {:?}", payload);
 
     let mut processed_count = 0;
 
     // Process worker events
     if let Some(ref worker_events) = payload.worker_events {
-        tracing::info!("Processing {} worker events", worker_events.len());
+        info!("Processing {} worker events", worker_events.len());
         for (index, worker_event) in worker_events.iter().enumerate() {
-            tracing::info!(
+            info!(
                 "Processing worker event {}/{}: {:?}",
                 index + 1,
                 worker_events.len(),
@@ -74,13 +70,13 @@ async fn receive_events_handler(
             {
                 Ok(_) => {
                     processed_count += 1;
-                    tracing::info!(
+                    info!(
                         "Worker event inserted successfully: job_id={:?}",
                         worker_event.job_id
                     );
                 }
                 Err(e) => {
-                    tracing::error!("Failed to insert worker event: {:?}", e);
+                    error!("Failed to insert worker event: {:?}", e);
                     continue;
                 }
             }
@@ -89,9 +85,9 @@ async fn receive_events_handler(
 
     // Process user events
     if let Some(ref user_events) = payload.user_events {
-        tracing::info!("Processing {} user events", user_events.len());
+        info!("Processing {} user events", user_events.len());
         for (index, user_event) in user_events.iter().enumerate() {
-            tracing::info!(
+            info!(
                 "Processing user event {}/{}: {:?}",
                 index + 1,
                 user_events.len(),
@@ -109,14 +105,14 @@ async fn receive_events_handler(
             {
                 Ok(_) => {
                     processed_count += 1;
-                    tracing::info!(
+                    info!(
                         "User event inserted successfully: user_id={}, tx_type={:?}",
                         user_event.user_id,
                         user_event.tx_type
                     );
                 }
                 Err(e) => {
-                    tracing::error!("Failed to insert user event: {:?}", e);
+                    error!("Failed to insert user event: {:?}", e);
                     continue;
                 }
             }
@@ -124,7 +120,7 @@ async fn receive_events_handler(
     }
 
     if let Some(ref worker_events) = payload.worker_events {
-        tracing::info!(
+        info!(
             "Broadcasting {} worker events to WebSocket subscribers",
             worker_events.len()
         );
@@ -137,7 +133,7 @@ async fn receive_events_handler(
     }
 
     if let Some(ref user_events) = payload.user_events {
-        tracing::info!(
+        info!(
             "Broadcasting {} user events to WebSocket subscribers",
             user_events.len()
         );
@@ -146,7 +142,7 @@ async fn receive_events_handler(
         }
     }
 
-    tracing::info!(
+    info!(
         "Telemetry processing completed successfully: processed {} events",
         processed_count
     );
@@ -156,45 +152,6 @@ async fn receive_events_handler(
         processed_count,
     }))
 }
-
-async fn report_checkpoint_stats_handler(
-    State(service): State<ApiService>,
-    Json(payload): Json<CheckpointStatsRequest>,
-) -> Result<Json<CheckpointStatsResponse>, StatusCode> {
-    tracing::info!(
-        "📊 Telemetry: Received checkpoint stats for checkpoint {}",
-        payload.checkpoint_id
-    );
-
-    let create_stats = CreateCheckpointStats {
-        checkpoint_id: payload.checkpoint_id,
-        fees_collected: payload.fees_collected,
-        user_ops_processed: payload.user_ops_processed,
-        total_transactions: payload.total_transactions,
-        slots_modified: payload.slots_modified,
-        metadata: payload.metadata,
-        timestamp: payload.timestamp,
-    };
-
-    match CheckpointStatsRepository::create(&service.pool, &create_stats).await {
-        Ok(stats) => {
-            tracing::info!(
-                "✅ Successfully reported checkpoint stats for checkpoint {}",
-                stats.checkpoint_id
-            );
-            Ok(Json(CheckpointStatsResponse {
-                success: true,
-                checkpoint_id: stats.checkpoint_id,
-                message: format!("Checkpoint stats reported successfully"),
-            }))
-        }
-        Err(e) => {
-            tracing::error!("❌ Failed to report checkpoint stats: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
 
 async fn report_worker_job_events_handler(
     State(service): State<ApiService>,
@@ -210,7 +167,7 @@ async fn report_worker_job_events_handler(
     }
 
     let checkpoint_id = payload[0].checkpoint_id;
-    tracing::info!(
+    info!(
         "🔧 Telemetry: Received {} worker job events for checkpoint {}",
         payload.len(),
         checkpoint_id
@@ -233,7 +190,7 @@ async fn report_worker_job_events_handler(
 
     match WorkerJobEventRepository::create_batch(&service.pool, &create_events).await {
         Ok(events) => {
-            tracing::info!(
+            info!(
                 "✅ Successfully reported {} worker job events for checkpoint {}",
                 events.len(),
                 checkpoint_id
@@ -246,8 +203,67 @@ async fn report_worker_job_events_handler(
             }))
         }
         Err(e) => {
-            tracing::error!("❌ Failed to report worker job events: {}", e);
+            error!("❌ Failed to report worker job events: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+async fn report_checkpoint_leafs_handler(
+    State(service): State<ApiService>,
+    Json(payload): Json<CheckpointLeavesRequest>,
+) -> Result<Json<CheckpointLeavesResponse>, StatusCode> {
+    info!("🍃 Telemetry: Received {} checkpoint leafs", payload.leaves.len());
+
+    let (min_id, max_id) = match get_checkpoint_range(&payload.leaves) {
+        Some(range) => range,
+        None => {
+            error!("No checkpoints found");
+            return Err(StatusCode::NOT_FOUND);
+        }
+    };
+    info!("🍃 Checkpoint ID range: {} - {}", min_id, max_id);
+    let mut processed_count = 0;
+
+    for payload in payload.leaves {
+        let leaf = CheckpointLeafStat {
+            checkpoint_id: payload.checkpoint_id,
+            fees_collected: payload.fees_collected,
+            user_ops_processed: payload.user_ops_processed,
+            total_transactions: payload.total_transactions,
+            slots_modified: payload.slots_modified,
+            metadata: payload.metadata,
+            timestamp: payload.timestamp,
+        };
+
+        match CheckpointStatsRepository::create(&service.pool, &leaf).await {
+            Ok(_) => {
+                processed_count += 1;
+            }
+            Err(e) => {
+                error!(
+                    "❌ Failed to create checkpoint leaf at {}: {}",
+                    leaf.checkpoint_id,
+                    e
+                );
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            }
+        }
+    }
+
+    info!("✅ Successfully reported {} checkpoint leafs {}~{} ", processed_count,min_id,max_id);
+
+    Ok(Json(CheckpointLeavesResponse {
+        success: true,
+        processed_count,
+        message: format!("Checkpoint leafs reported successfully"),
+    }))
+}
+
+fn get_checkpoint_range(stats: &[CheckpointLeafStat]) -> Option<(i64, i64)> {
+    stats
+        .iter()
+        .map(|s| s.checkpoint_id)
+        .min()
+        .zip(stats.iter().map(|s| s.checkpoint_id).max())
 }

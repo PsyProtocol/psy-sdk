@@ -1,14 +1,14 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
-use crate::models::{CheckpointRewardAggregation, CheckpointRewardDistribution, CheckpointRewardSummary, CheckpointStats, CreateCheckpointRewardDistribution, CreateCheckpointStats, CreateWorkerJobEvent, WorkerCheckpointRewardStats, WorkerJobEvent};
+use crate::models::{CheckpointRewardAggregation, CheckpointRewardDistribution, CheckpointRewardSummary, CheckpointStats, CreateCheckpointRewardDistribution, CheckpointLeafStat, CreateWorkerJobEvent, WorkerCheckpointRewardStats, WorkerJobEvent};
 
 /// Repository for checkpoint statistics
 pub struct CheckpointStatsRepository;
 
 impl CheckpointStatsRepository {
     /// Create a new checkpoint stats entry
-    pub async fn create(pool: &PgPool, stats: &CreateCheckpointStats) -> Result<CheckpointStats> {
+    pub async fn create(pool: &PgPool, stats: &CheckpointLeafStat) -> Result<CheckpointStats> {
         let metadata = stats.metadata.clone().unwrap_or(serde_json::json!({}));
 
         let record = sqlx::query_as!(

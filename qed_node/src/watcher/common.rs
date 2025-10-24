@@ -1,5 +1,4 @@
 use std::time::Duration;
-
 pub const WATCHER_RSMQ: &str = "waq"; // watcher queue
 pub const MAX_CONCURRENT_TASKS: usize = 1000;
 pub const MAX_RETRY_ATTEMPTS: u32 = 3;
