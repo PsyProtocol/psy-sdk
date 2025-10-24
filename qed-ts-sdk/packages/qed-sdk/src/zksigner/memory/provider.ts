@@ -30,7 +30,7 @@ class QedMemoryTransactionSignerProvider implements IQedTransactionSignerProvide
         return ["import-private-key", "add-random-private-key"];
     }
     async importPrivateKey(privateKeyHex: string, signType: string, fingerprint?: string): Promise<IQedTransactionSigner> {
-        const existing = this.signers.find((signer) => signer.privateKeyHex === privateKeyHex);
+        const existing = this.signers.find((signer) => signer.privateKeyHex === privateKeyHex && signer.signType === signType && signer.fingerprint == fingerprint);
         if (existing) return existing;
         const signer = await QedMemoryTransactionSigner.create(this.proverProvider, this.networkId, privateKeyHex, signType, fingerprint);
         this.signers.push(signer);

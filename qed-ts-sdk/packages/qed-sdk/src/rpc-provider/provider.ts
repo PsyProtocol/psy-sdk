@@ -58,13 +58,13 @@ export class RpcProvider {
     const height = 32;
     const senderTotalSentIndex = 3n + BigInt(userId) * 2n;
     const senderTotalSentSlot = senderTotalSentIndex / 4n;
-    const senderTotalSentSlotIndex = senderTotalSentIndex % 4n;
+    const senderTotalSentSlotIndex = 3n - senderTotalSentIndex % 4n;
     const amountClaimedIndex = 3n + BigInt(claimUserId) * 2n + 1n;
     const amountClaimedSlot = amountClaimedIndex / 4n;
-    const amountClaimedSlotIndex = amountClaimedIndex % 4n;
+    const amountClaimedSlotIndex = 3n - amountClaimedIndex % 4n;
     const userTotalSentSlotValue = await this.realmRpcProvider.getRpcProviderByUserId(claimUserId).getUserContractStateTreeLeafHash(checkpointId, claimUserId, contractId, height, senderTotalSentSlot);
     const userTotalSent = parseInt(userTotalSentSlotValue?.substring(Number(senderTotalSentSlotIndex) * 16, Number(senderTotalSentSlotIndex) * 16 + 16), 16);
-    const amountClaimedSlotValue = await this.realmRpcProvider.getRpcProviderByUserId(claimUserId).getUserContractStateTreeLeafHash(checkpointId, claimUserId, contractId, height, amountClaimedSlot);
+    const amountClaimedSlotValue = await this.realmRpcProvider.getRpcProviderByUserId(userId).getUserContractStateTreeLeafHash(checkpointId, userId, contractId, height, amountClaimedSlot);
     const amountClaimed = parseInt(amountClaimedSlotValue?.substring(Number(amountClaimedSlotIndex) * 16, Number(amountClaimedSlotIndex) * 16 + 16), 16);
 
     if (amountClaimed > userTotalSent) {
