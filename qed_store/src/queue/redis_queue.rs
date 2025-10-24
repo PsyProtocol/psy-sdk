@@ -258,7 +258,8 @@ impl TxPoolAsyncImm for ProofStoreRedisAsync {
             return Ok(vec![]);
         }
         let mut ids: Vec<Vec<u8>> = job_ids.iter().map(|id| id.to_fixed_bytes().to_vec()).collect();
-        ids.dedup();
+        ids.dedup(); //remove duplicates
+        //TODO remove old user tx
         let rets: Option<Vec<Option<Vec<u8>>>> = self.redis.mget(ids).await.ok();
         let mut txs = vec![];
         if let Some(rets) = rets {
@@ -281,8 +282,6 @@ impl TxPoolAsyncImm for ProofStoreRedisAsync {
             if state.consumed_count == 0 {
                 return Ok(());
             }
-            let checkpoint_proofs_key = self.checkpoint_proofs_key(state.checkpoint_id);
-            let public_inputs_key = self.public_inputs_key();
 
             let checkpoint_queue_prefix =
                 format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
@@ -290,15 +289,18 @@ impl TxPoolAsyncImm for ProofStoreRedisAsync {
             let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", state.channel_id);
             let job_ids: Vec<Vec<u8>> = self.redis.lrange(key.clone(), state.start_position as isize, state.end_position as isize).await?;
             let mut builder = self.redis.cmd_builder();
-            for job_id in &job_ids {
-                builder = builder.del(job_id);
+            if job_ids.len() <= 1000 {
+                for job_id in &job_ids {
+                    builder = builder.del(job_id);
+                }
+                let checkpoint_proofs_key = self.checkpoint_proofs_key(state.checkpoint_id);
+                builder = builder.hdel(checkpoint_proofs_key, &job_ids);
+                // let public_inputs_key = self.public_inputs_key();
+                // builder = builder.hdel(public_inputs_key, &job_ids);
             }
-            builder.hdel(checkpoint_proofs_key, &job_ids)
-                .hdel(public_inputs_key, &job_ids)
-                .ltrim(key, (state.end_position + 1) as isize, -1)
-                .del(state_key.clone())
-                .execute_atomic(&self.redis).await?;
-
+            builder.ltrim(key, (state.end_position + 1) as isize, -1)
+            .del(state_key.clone())
+            .execute_atomic(&self.redis).await?;
             tracing::debug!("Remove user tx {} items for checkpoint {}, channel_id {}, state_key {}",
               state.consumed_count, state.checkpoint_id, state.channel_id, state_key);
         }
