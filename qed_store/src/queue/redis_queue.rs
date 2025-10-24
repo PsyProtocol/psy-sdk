@@ -9,6 +9,7 @@ use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
+use chrono::Utc;
 use kvq::traits::{KVQPair, KVQSerializable};
 use plonky2::{hash::hash_types::RichField, plonk::{config::GenericConfig, proof::ProofWithPublicInputs}};
 use qed_core::job::{
@@ -58,6 +59,7 @@ pub trait QueuePrefixKey {
     fn checkpoint_list_key(&self) -> String;
     fn checkpoint_proofs_key(&self, checkpoint_id: u64) -> String;
 
+    fn user_end_cap_key(&self) -> String;
     // public inputs key
     fn public_inputs_key(&self) -> String;
 }
@@ -100,6 +102,11 @@ impl<T: BizKey> QueuePrefixKey for T {
     fn checkpoint_proofs_key(&self, checkpoint_id: u64) -> String {
         format!("checkpoint_proofs:{}-{}", checkpoint_id, self.biz_key())
     }
+
+    fn user_end_cap_key(&self) -> String {
+        format!("user_end_caps:{}", self.biz_key())
+    }
+
 
     fn public_inputs_key(&self) -> String {
         format!("public_inputs-{}", self.biz_key())
@@ -305,6 +312,138 @@ impl TxPoolAsyncImm for ProofStoreRedisAsync {
               state.consumed_count, state.checkpoint_id, state.channel_id, state_key);
         }
         Ok(())
+    }
+}
+
+#[async_trait]
+pub trait TxPoolAsyncImmV2: Send + Sync {
+    async fn contains_tx_id_v2(&self, id: QProvingJobDataID) -> anyhow::Result<bool>;
+    async fn add_user_tx_v2<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+        proof: &ProofWithPublicInputs<C::F, C, D>,
+        user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
+    ) -> anyhow::Result<()>;
+
+    async fn get_user_txs_v2<C: GenericConfig<D>, const D: usize>(
+        &self,
+        count: Option<isize>,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>>;
+
+    async fn remove_user_txs_v2(&self, channel_id: u64) -> anyhow::Result<()>;
+    async fn user_txs_len_v2(&self, channel_id: u64) -> anyhow::Result<usize>;
+}
+
+#[async_trait]
+impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
+    async fn contains_tx_id_v2(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
+        let checkpoint_proofs_key = self.checkpoint_proofs_key(id.goal_id);
+        let exists = self.redis.hexists(checkpoint_proofs_key, id.to_fixed_bytes().to_vec()).await?;
+        Ok(exists)
+    }
+
+    async fn add_user_tx_v2<C: GenericConfig<D>, const D: usize>(
+        &self,
+        id: QProvingJobDataID,
+        proof: &ProofWithPublicInputs<C::F, C, D>,
+        user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
+    ) -> anyhow::Result<()> {
+        let mut builder = self.redis.cmd_builder();
+        let checkpoint_id = id.goal_id;
+        let checkpoint_list_key = self.checkpoint_list_key();
+        let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
+        let user_end_cap_key = self.user_end_cap_key();
+        let public_inputs_key = self.public_inputs_key();
+
+        let proof_bytes = bincode::serialize(proof)?;
+        let public_inputs_data = bincode::serialize(&proof.public_inputs)?;
+        builder = builder
+            .sadd(checkpoint_list_key, checkpoint_id)
+            .hset(
+                checkpoint_proofs_key,
+                id.to_fixed_bytes().to_vec(),
+                proof_bytes,
+            ).hset(
+            public_inputs_key,
+            id.to_fixed_bytes().to_vec(),
+            public_inputs_data,
+        ).zadd(
+            user_end_cap_key,
+            user_end_cap.to_bytes()?,
+            Utc::now().timestamp_millis(),
+        );
+        builder.execute_atomic(&self.redis).await?;
+        Ok(())
+    }
+
+    async fn get_user_txs_v2<C: GenericConfig<D>, const D: usize>(
+        &self,
+        count: Option<isize>,
+        channel_id: u64,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>> {
+        let user_end_cap_key = self.user_end_cap_key();
+        let len= self.user_txs_len_v2(channel_id).await?;
+        if len == 0 {
+            return Ok(vec![]);
+        }
+        let mut stop = -1;
+        if let Some(count) = count {
+            if count < len as isize {
+                stop = count - 1;
+            }
+        }
+
+        let txs: Vec<Vec<u8>> = self.redis.zrange(user_end_cap_key, 0, stop).await?;
+        let txs:Vec<UserEndCapNonProofCoreInputQueueItem<C::F>> = txs.iter().map(|item| {
+            UserEndCapNonProofCoreInputQueueItem::from_bytes(item)
+        }).collect::<anyhow::Result<Vec<_>>>()?;
+
+        // remove old user end cap
+        let txs = txs.into_iter().filter(|item| {
+            item.checkpoint_id < checkpoint_id - 20 // todo
+        }).collect::<Vec<_>>();
+        if txs.len() == 0 {
+            return Ok(vec![]);
+        }
+        let state = QueueOffsetState {
+            start_position: 0i64,
+            end_position: stop as i64,
+            checkpoint_id,
+            channel_id,
+            consumed_count: txs.len(),
+        };
+
+        let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
+        let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
+        self.redis.set(state_key.clone(), state_data).await?;
+
+        tracing::debug!("Consumed redis {} items from drain queue {} for checkpoint {}, state_key {}",
+              txs.len(), channel_id, checkpoint_id, state_key);
+
+        Ok(txs)
+    }
+
+    async fn remove_user_txs_v2(&self, channel_id: u64) -> anyhow::Result<()> {
+        let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
+        let state_data: Option<Vec<u8>> = self.redis.get(state_key.clone()).await.ok();
+        if let Some(data) = state_data {
+            if !data.is_empty() {
+                let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!("Failed to deserialize state: {}", e))?;
+                let user_end_cap_key = self.user_end_cap_key();
+                self.redis.cmd_builder()
+                    .zremrangebyrank(user_end_cap_key, state.start_position as isize, state.end_position as isize)
+                    .del(state_key)
+                    .execute_atomic(&self.redis).await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn user_txs_len_v2(&self, channel_id: u64) -> anyhow::Result<usize> {
+        self.redis.zcard(self.user_end_cap_key()).await
     }
 }
 

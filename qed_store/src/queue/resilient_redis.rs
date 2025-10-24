@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use redis::{aio::MultiplexedConnection, AsyncCommands};
+use redis::{aio::MultiplexedConnection, AsyncCommands, FromRedisValue, ToRedisArgs};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use qed_data::config::store_config::F;
@@ -261,6 +261,27 @@ impl ResilientRedisConnection {
         }).await
     }
 
+    pub async fn zrange<K, V>(&self, keys: K, start: isize, stop: isize) -> Result<Vec<V>>
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        V: redis::FromRedisValue + Send + 'static,
+    {
+        self.execute(move |mut conn| async move {
+            conn.zrange(keys, start, stop).await
+        }).await
+    }
+
+    pub async fn zremrangebyrank<K, V>(&self, keys: K, start: isize, stop: isize) -> Result<V>
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        V: redis::FromRedisValue + Send + 'static,
+    {
+        self.execute(move |mut conn| async move {
+            conn.zremrangebyrank(keys, start, stop).await
+        }).await
+    }
+
+
     pub async fn lpop<K, V>(&self, key: K, count: Option<usize>) -> Result<Option<V>>
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
@@ -414,6 +435,16 @@ impl ResilientRedisConnection {
         let members = members.to_vec();
         self.execute(move |mut conn| async move {
             conn.srem(key_clone, members).await
+        }).await
+    }
+
+    pub async fn zcard<K, V>(&self, key: K) -> Result<V>
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        V: FromRedisValue + Send + Sync + Clone + 'static,
+    {
+        self.execute(move |mut conn| async move {
+            conn.zcard(key).await
         }).await
     }
 
@@ -681,6 +712,28 @@ impl CommandBuilder {
     {
         let mut cmd = redis::cmd("SETEX");
         cmd.arg(key).arg(seconds).arg(value);
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn zadd<K, S, M>(mut self, key: K, member: M, score: S)  -> Self
+    where
+        K: redis::ToRedisArgs,
+        S: ToRedisArgs,
+        M: redis::ToRedisArgs,
+    {
+        let mut cmd = redis::cmd("ZADD");
+        cmd.arg(key).arg(score).arg(member);
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn zremrangebyrank<K>(mut self, key: K, start: isize, stop: isize) -> Self
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+    {
+        let mut cmd = redis::cmd("ZREMRANGEBYSCORE");
+        cmd.arg(key).arg(start).arg(stop);
         self.commands.push(cmd);
         self
     }
