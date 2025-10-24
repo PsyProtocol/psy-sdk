@@ -9,11 +9,11 @@ repository.workspace = true
 
 [dependencies]
 qed_core = { workspace = true }
-
+clap = {workspace = true}
 # Web framework
 axum = { workspace = true, features = ["ws"] }
 tower-http = { workspace = true }
-tokio = { workspace = true, features = ["signal"]}
+tokio = { workspace = true, features = ["full"]}
 
 # Serialization
 serde = { workspace = true }
