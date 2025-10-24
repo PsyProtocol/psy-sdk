@@ -9,8 +9,7 @@ use qed_node::{coordinator::state::edge::CoordinatorEdgeContext, realm::state::e
 use qed_prover::ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager};
 use qed_data::{config::store_config::QEDHasher, qstore::imm::cmd_processor::QEDReadCommandProcessorSync};
 use qed_store::node::{coordinator::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync};
-use qed_store::queue::redis_queue::TxPoolAsyncImm;
-
+use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use super::contract::SimpleTestContract;
 
 

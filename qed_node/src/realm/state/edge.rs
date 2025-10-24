@@ -11,7 +11,7 @@ use crate::realm::{C, D, F, H};
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
 use qed_crypto::hash::traits::hasher::FieldQHasher;
 use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
-use qed_store::queue::redis_queue::TxPoolAsyncImm;
+use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use super::processor::RealmConfig;
 
 #[derive(Clone)]

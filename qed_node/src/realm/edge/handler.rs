@@ -44,7 +44,7 @@ use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob, current_timestamp_millis};
 use crate::coordinator::edge::ProofStore;
 use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
-use qed_store::queue::redis_queue::TxPoolAsyncImm;
+use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use crate::common::whitelist::{WhiteList, WhiteListCache};
 use crate::common_v2::traits::realm::{RealmEdgeContractStateTreeUpdate, RealmEdgeStateHelper, RealmEdgeUserContractTreeUpdate, RealmEdgeUserUpdateSubmission, SimpleTreeUpdateBuilder, UniqueQueueId};
 use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;

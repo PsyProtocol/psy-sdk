@@ -44,7 +44,7 @@ use qed_store::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
-use qed_store::queue::redis_queue::TxPoolAsyncImm;
+use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use qed_store::store::journal::Journal;
 use crate::common::slot::SLOT_SIZE;
 
@@ -964,7 +964,7 @@ impl<
     pub async fn has_pending_guta_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
         let guta_count = self
             .checkpoint_queue
-            .user_txs_len(self.realm_config.guta_channel_id)
+            .pool_len(self.realm_config.guta_channel_id)
             .await?;
         if guta_count > 0 {
             debug!("Found {} pending GUTA queue items", guta_count);

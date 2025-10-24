@@ -25,7 +25,8 @@ use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::RichField;
 use qed_data::guta::api::UserEndCapNonProofCoreInputQueueItem;
-use crate::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState, TxPoolAsyncImm};
+use crate::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState};
+use crate::queue::tx_pool::TxPoolAsyncImm;
 
 #[derive(Clone)]
 pub struct ProofStoreFred {

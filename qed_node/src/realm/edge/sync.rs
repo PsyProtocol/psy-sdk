@@ -29,7 +29,7 @@ use qed_data::config::store_config::{QEDFelt, QEDHasher};
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_rollup_utils::generate_jwt_token;
 use qed_store::queue::ProofStoreRedisAsync;
-use qed_store::queue::redis_queue::TxPoolAsyncImm;
+use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use crate::common::retry::{RetryConfig, Retryable};
 use crate::realm::state::edge::RealmEdgeContext;
 

@@ -87,7 +87,8 @@ use plonky2::{
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_store::queue::QPendingUserStoreAsyncImm;
-use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, TxPoolAsyncImm};
+use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition};
+use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use qed_store::store::journal::{Journal, JournalStore};
 
 struct TestGrouping<
