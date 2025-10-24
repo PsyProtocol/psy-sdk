@@ -1,25 +1,24 @@
 {
   "compilerOptions": {
-    "outDir": "./dist",
-    "types": ["jest", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@qed/*": ["packages/*/src"]
+    },
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "resolveJsonModule": true,
+    "module": "commonjs",
     "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "node",
     "sourceMap": true,
     "strict": true,
     "declaration": true,
-    "allowJs": true,
     "declarationMap": true,
     "noEmitOnError": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "noEmit": false
   },
-  "exclude": [
-    "node_modules",
-    "dist"
-  ],
   "include": [
-      "src/**/*"
+    "src/**/*"
   ]
 }
