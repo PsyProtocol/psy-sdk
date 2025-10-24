@@ -257,7 +257,8 @@ impl TxPoolAsyncImm for ProofStoreRedisAsync {
         if job_ids.is_empty() {
             return Ok(vec![]);
         }
-        let ids: Vec<Vec<u8>> = job_ids.iter().map(|id| id.to_fixed_bytes().to_vec()).collect();
+        let mut ids: Vec<Vec<u8>> = job_ids.iter().map(|id| id.to_fixed_bytes().to_vec()).collect();
+        ids.dedup();
         let rets: Option<Vec<Option<Vec<u8>>>> = self.redis.mget(ids).await.ok();
         let mut txs = vec![];
         if let Some(rets) = rets {
