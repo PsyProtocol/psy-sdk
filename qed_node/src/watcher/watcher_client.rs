@@ -2,10 +2,10 @@ use std::sync::Arc;
 use anyhow::Result;
 use qed_core::job::id::{LayerId, QProvingJobDataID};
 use qed_store::queue::{QueueId, RsmqQueue};
-use crate::watcher::common::get_queue_name;
+use crate::common::utils::{current_datetime, current_timestamp_millis};
 use crate::watcher::events::{BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobStartedEvent, JobTimeoutEvent, UserDeployContractEvent, UserContractMetadata, UserGutaSubmissionEvent, UserGutaSubmissionMetadata, UserRegistrationEvent, WatcherMessage, UserRegistrationMetadata};
+use crate::watcher::utils::get_queue_name;
 use crate::watcher::watcher::WatcherSourceNodeType;
-use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
 
 pub struct WatcherClient {
     rsmq: Arc<RsmqQueue>,
@@ -83,7 +83,7 @@ impl WatcherClient {
         self.send_event(WatcherMessage::JobStarted(JobStartedEvent {
             job_id,
             worker_id: worker_id.to_string(),
-            start_time: current_timestamp_mills(),
+            start_time: current_timestamp_millis(),
             layer_id,
         })).await
     }

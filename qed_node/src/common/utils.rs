@@ -1,4 +1,6 @@
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
+use chrono::{DateTime, Utc};
 use plonky2::hash::hash_types::RichField;
 use qed_data::config::store_config::{QEDFelt, QEDHasher};
 use qed_data::qblock::cmds::deploy_contract::{QBCDeployContract, QContractMetadata, QFunctionMetadata};
@@ -79,6 +81,23 @@ pub fn extract_contract_metadata(
     })
 }
 
+pub fn current_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
+pub fn current_timestamp_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
+}
+
+pub fn current_datetime() -> DateTime<Utc> {
+    Utc::now()
+}
 
 #[cfg(test)]
 mod tests {

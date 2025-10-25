@@ -4,7 +4,6 @@ use crate::common::jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB};
 use crate::realm::state::edge::RealmEdgeContext;
 use crate::realm::{C, D, F, H};
 use crate::watcher::watcher::WatcherSourceNodeType;
-use crate::watcher::{current_datetime, current_timestamp_mills};
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
@@ -45,6 +44,7 @@ use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob, current_timestamp_millis};
 use crate::coordinator::edge::ProofStore;
 use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
+use crate::common::utils::current_datetime;
 use crate::common::whitelist::{WhiteList, WhiteListCache};
 use crate::common_v2::traits::realm::{RealmEdgeContractStateTreeUpdate, RealmEdgeStateHelper, RealmEdgeUserContractTreeUpdate, RealmEdgeUserUpdateSubmission, SimpleTreeUpdateBuilder, UniqueQueueId};
 use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
@@ -1103,7 +1103,7 @@ where
                 let start_event = JobStartedEvent {
                     job_id: job.job_id,
                     worker_id,
-                    start_time: current_timestamp_mills(),
+                    start_time: current_timestamp_millis(),
                     layer_id: job.layer_id,
                 };
 

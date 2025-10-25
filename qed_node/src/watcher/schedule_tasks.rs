@@ -10,8 +10,6 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{error, info, warn, debug};
 
-use crate::watcher::watcher_service::current_timestamp;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScheduledTask {
     pub task_id: String,

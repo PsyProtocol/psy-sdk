@@ -893,7 +893,6 @@ impl QProvingTaskStoreImpl {
 }
 
 
-/// Get current timestamp in milliseconds
 pub fn current_timestamp_millis() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

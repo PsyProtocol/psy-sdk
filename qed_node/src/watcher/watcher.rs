@@ -10,9 +10,8 @@ use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
-
+use crate::watcher::constant::REDIS_LOCK_TTL_SECS;
 use crate::watcher::events::{JobTimeoutEvent, WatcherMessage};
-use crate::watcher::REDIS_LOCK_TTL_SECONDS;
 
 #[derive(Debug, Clone)]
 pub struct NodeInfo {
@@ -138,7 +137,7 @@ impl TimeoutWatcher {
             .arg(&self.node_instance_id)
             .arg("NX")
             .arg("EX")
-            .arg(REDIS_LOCK_TTL_SECONDS)
+            .arg(REDIS_LOCK_TTL_SECS)
             .query_async(&mut *self.redis_pool.get().await?)
             .await?;
 

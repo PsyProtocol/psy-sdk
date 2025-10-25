@@ -1057,7 +1057,6 @@ use crate::coordinator::edge::jwt::JwtAuthMetadata;
 use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserContractMetadata, UserGutaSubmissionMetadata, WatcherMessage};
 use crate::watcher::watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_client::WatcherClient;
-use crate::watcher::watcher_service::{current_timestamp, current_timestamp_mills};
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
@@ -1948,7 +1947,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                     let start_event = JobStartedEvent {
                         job_id: job.job_id,
                         worker_id,
-                        start_time: current_timestamp_mills(),
+                        start_time: current_timestamp_millis(),
                         layer_id: job.layer_id,
                     };
 
