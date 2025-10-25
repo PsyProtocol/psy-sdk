@@ -40,15 +40,17 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::new(&cli.log_level))
         .init();
 
-    let config = Config {
-        server: qed_api_services::config::ServerConfig {
-            host: cli.listen_addr.clone(),
-            port: cli.port,
-        },
-        database: qed_api_services::config::DatabaseConfig {
-            url: cli.database_url.clone(),
-            max_connections: cli.max_connections,
-        },
+    let mut config = Config::from_env();
+
+
+    config.server = qed_api_services::config::ServerConfig {
+        host: cli.listen_addr.clone(),
+        port: cli.port,
+    };
+
+    config.database = qed_api_services::config::DatabaseConfig {
+        url: cli.database_url.clone(),
+        max_connections: cli.max_connections,
     };
 
     tracing::info!(

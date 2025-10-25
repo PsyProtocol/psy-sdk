@@ -63,6 +63,14 @@ pub struct WatcherArgs {
     )]
     pub block_sync_interval: u64,
 
+    #[clap(
+        long = "jwt-secret",
+        env = "JWT_SECRET",
+        help = "JWT secret for authenticating with telemetry endpoints (shared with API server)",
+        required = false
+    )]
+    pub jwt_secret: Option<String>,
+
     #[clap(flatten)]
     pub backend: BackendConfig,
 }
@@ -77,6 +85,7 @@ pub struct WatcherConfig {
     pub block_sync_interval: u64,
     pub backend: BackendConfig,
     pub queue_id: QueueConfig,
+    pub jwt_secret: Option<String>,
 }
 
 impl WatcherConfig {
@@ -84,6 +93,22 @@ impl WatcherConfig {
     pub fn from_args(args: WatcherArgs) -> Result<Self> {
         let node_type = WatcherSourceNodeType::from_str(&args.node_type)?;
         let queue_id = QueueConfig::from_str(&args.queue_biz_key)?;
+
+        // Try to load JWT secret from environment if not provided in args
+        let jwt_secret = args.jwt_secret.or_else(|| {
+            dotenv::dotenv().ok();
+            std::env::var("JWT_SECRET").ok()
+        });
+
+        if jwt_secret.is_none() {
+            tracing::warn!(
+                "JWT_SECRET not configured. Telemetry endpoints may fail authentication. \
+                Set JWT_SECRET environment variable or use --jwt-secret flag."
+            );
+        } else {
+            tracing::info!("JWT authentication configured for telemetry endpoints");
+        }
+
 
         Ok(Self {
             node_id: args.node_id,
@@ -94,6 +119,7 @@ impl WatcherConfig {
             queue_id,
             block_sync_interval: args.block_sync_interval,
             backend: args.backend,
+            jwt_secret,
         })
     }
 }

@@ -15,7 +15,6 @@ use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_data::config::store_config::QCheckpointSyncInfoCompact;
 use crate::common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator, RealmDataForCoordinator};
-
 // Import the request types from qed_prover
 use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
 

@@ -78,7 +78,7 @@ async fn run_register_loop() -> Result<()> {
         .build()?;
 
     loop {
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(3000)).await;
 
         // Handle the result without exiting on failure
         match register_user(counter, &rpc_url, &test_client).await {

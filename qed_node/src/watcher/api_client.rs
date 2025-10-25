@@ -1,13 +1,16 @@
+use std::sync::Arc;
 use std::time::Duration;
 use reqwest::Client;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use http::StatusCode;
+use jsonwebtoken::{encode, EncodingKey, Header};
 use plonky2::field::types::PrimeField64;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tokio::sync::RwLock;
 use tokio::time::sleep;
-use tracing::{info, debug, warn};
+use tracing::{info, debug, warn, error};
 use qed_api_services::handlers::{TelemetryPayload, TelemetryResponse};
 use qed_api_services::models::{CheckpointLeafStat, CheckpointLeavesRequest, CheckpointLeavesResponse, UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus};
 use qed_core::job::id::QProvingJobDataID;
@@ -18,15 +21,6 @@ use crate::watcher::events::{BackupProofEvent, BackupWitnessEvent, JobCompletedE
 use crate::watcher::watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockStatusReport {
-    pub node_id: String,
-    pub node_type: WatcherSourceNodeType,
-    pub checkpoint_id: u64,
-    pub block_height: u64,
-    pub timestamp: DateTime<Utc>,
-    pub metadata: Option<serde_json::Value>,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckpointStats {
@@ -52,11 +46,22 @@ pub struct ApiResponse<T> {
     pub message: Option<String>,
 }
 
+/// JWT Claims for authentication
+#[derive(Debug, Serialize, Deserialize)]
+struct JwtClaims {
+    sub: String,
+    service: Option<String>,
+    iat: i64,
+    exp: i64,
+}
+
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_RETRY_COUNT: u32 = 3;
 const DEFAULT_RETRY_DELAY: Duration = Duration::from_secs(1);
 const MAX_BATCH_SIZE: usize = 100;
+const JWT_EXPIRATION_HOURS: i64 = 24;  // Default JWT expiration
+
 
 pub struct ApiClientConfig {
     pub endpoint: String,
@@ -67,6 +72,8 @@ pub struct ApiClientConfig {
     pub max_retries: u32,
     pub retry_delay: Duration,
     pub enable_compression: bool,
+    pub jwt_secret: Option<String>,  // JWT secret for telemetry endpoints
+
 }
 
 impl ApiClientConfig {
@@ -76,6 +83,14 @@ impl ApiClientConfig {
         node_type: WatcherSourceNodeType,
         realm_id: Option<i64>,
     ) -> Self {
+        // Try to load JWT secret from environment
+        dotenv::dotenv().ok();
+        let jwt_secret = std::env::var("JWT_SECRET").ok();
+
+        if jwt_secret.is_none() {
+            warn!("JWT_SECRET not found in environment. Telemetry endpoints may fail authentication.");
+        }
+
         Self {
             endpoint,
             node_id,
@@ -85,7 +100,14 @@ impl ApiClientConfig {
             max_retries: DEFAULT_RETRY_COUNT,
             retry_delay: DEFAULT_RETRY_DELAY,
             enable_compression: true,
+            jwt_secret,
+
         }
+    }
+
+    pub fn with_jwt_secret(mut self, secret: String) -> Self {
+        self.jwt_secret = Some(secret);
+        self
     }
 }
 
@@ -93,6 +115,10 @@ impl ApiClientConfig {
 pub struct ApiClient {
     client: Client,
     config: ApiClientConfig,
+    jwt_token: Arc<RwLock<Option<String>>>,  // Cached JWT token with interior mutability
+    token_expiry: Arc<RwLock<Option<DateTime<Utc>>>>,  // Token expiration time with interior mutability
+
+
 }
 impl ApiClient {
     pub fn new(
@@ -119,7 +145,103 @@ impl ApiClient {
         let client = builder.build()
             .context("Failed to create HTTP client")?;
 
-        Ok(Self { client, config })
+        let api_client = Self {
+            client,
+            config,
+            jwt_token: Arc::new(RwLock::new(None)),
+            token_expiry: Arc::new(RwLock::new(None)),
+        };
+
+        Ok(api_client)
+
+    }
+
+    /// Generate a new JWT token using the shared secret
+    fn generate_jwt_token(&self) -> Result<String> {
+        let jwt_secret = self.config.jwt_secret.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("JWT_SECRET not configured"))?;
+
+        let now = Utc::now();
+        let exp = now + chrono::Duration::hours(JWT_EXPIRATION_HOURS);
+
+        let claims = JwtClaims {
+            sub: format!("watcher-{}", self.config.node_id),
+            service: Some(format!("watcher-{:?}", self.config.node_type)),
+            iat: now.timestamp(),
+            exp: exp.timestamp(),
+        };
+
+        let token = encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(jwt_secret.as_bytes()),
+        ).context("Failed to generate JWT token")?;
+
+        debug!(
+            "Generated JWT token for watcher-{} (expires at {})",
+            self.config.node_id,
+            exp
+        );
+
+        Ok(token)
+    }
+
+    /// Refresh JWT token if expired or not yet generated
+    async fn refresh_jwt_token(&self) -> Result<()> {
+        // Check if we need to refresh (no token or expired)
+        let needs_refresh = {
+            let expiry = self.token_expiry.read().await;
+            if let Some(exp) = *expiry {
+                Utc::now() >= exp - chrono::Duration::minutes(5)  // Refresh 5 minutes before expiry
+            } else {
+                true
+            }
+        };
+
+        if needs_refresh {
+            let token = self.generate_jwt_token()?;
+            let expiry = Utc::now() + chrono::Duration::hours(JWT_EXPIRATION_HOURS);
+
+            // Update token and expiry with write locks
+            {
+                let mut token_lock = self.jwt_token.write().await;
+                *token_lock = Some(token);
+            }
+            {
+                let mut expiry_lock = self.token_expiry.write().await;
+                *expiry_lock = Some(expiry);
+            }
+
+            info!("JWT token refreshed for watcher-{}", self.config.node_id);
+        }
+
+        Ok(())
+    }
+
+    /// Get headers for a request, including JWT for telemetry endpoints
+    async fn get_headers(&self, path: &str) -> Result<reqwest::header::HeaderMap> {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("Content-Type", "application/json".parse()?);
+
+        // Add JWT token for telemetry endpoints only
+        if path.starts_with("/telemetry/") {
+            // Refresh token if needed
+            self.refresh_jwt_token().await?;
+
+            let token = self.jwt_token.read().await;
+            if let Some(token_str) = &*token {
+                headers.insert(
+                    "Authorization",
+                    format!("Bearer {}", token_str).parse()
+                        .context("Failed to create Authorization header")?
+                );
+                debug!("Added JWT token to request for {}", path);
+            } else {
+                warn!("No JWT token available for telemetry endpoint: {}", path);
+            }
+        }
+
+        Ok(headers)
     }
 
     pub async fn send_user_registration(&self, event: UserRegistrationEvent) -> Result<()> {
@@ -297,92 +419,8 @@ impl ApiClient {
         Ok(())
     }
 
-    pub async fn send_proof_backup(&self, event: BackupProofEvent) -> Result<()> {
-        let proof_hash = format!("{:x}", Sha256::digest(&event.proof_data));
 
-        let api_event = WorkerEvent {
-            id: None,
-            realm_id: self.config.realm_id,
-            public_key: None,
-            status: WorkerEventStatus::Processing,
-            source: self.worker_source(),
-            job_id: event.job_id.clone(),
-            checkpoint_id: event.job_id.goal_id as i64,
-            duration: None,
-            metadata: Some(serde_json::json!({
-                "backup_type": "proof",
-                "proof_size": event.proof_data.len(),
-                "proof_hash": proof_hash,
-                "delete_after_blocks": event.delete_after_blocks,
-                "backup_time": event.timestamp,
-                "node_id": self.config.node_id,
-                "node_type": format!("{:?}", self.config.node_type),
-            })),
-            timestamp: Utc::now(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        };
-
-        self.send_worker_events(vec![api_event]).await?;
-        debug!("Proof backup event sent for job: {:?}", event.job_id);
-        Ok(())
-    }
-
-    pub async fn send_witness_backup(&self, event: BackupWitnessEvent) -> Result<()> {
-        let witness_hash = format!("{:x}", Sha256::digest(&event.witness_data));
-
-        let api_event = WorkerEvent {
-            id: None,
-            realm_id: self.config.realm_id,
-            public_key: None,
-            status: WorkerEventStatus::Processing,
-            source: self.worker_source(),
-            job_id: event.job_id.clone(),
-            checkpoint_id: event.job_id.goal_id as i64,
-            duration: None,
-            metadata: Some(serde_json::json!({
-                "backup_type": "witness",
-                "witness_size": event.witness_data.len(),
-                "witness_hash": witness_hash,
-                "delete_after_blocks": event.delete_after_blocks,
-                "backup_time": event.timestamp,
-                "node_id": self.config.node_id,
-                "node_type": format!("{:?}", self.config.node_type),
-            })),
-            timestamp: Utc::now(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        };
-
-        self.send_worker_events(vec![api_event]).await?;
-        debug!("Witness backup event sent for job: {:?}", event.job_id);
-        Ok(())
-    }
-
-    pub async fn report_block_status(&self, checkpoint_id: u64, block_height: u64) -> Result<()> {
-        let report = BlockStatusReport {
-            node_id: self.config.node_id.clone(),
-            node_type: self.config.node_type,
-            checkpoint_id,
-            block_height,
-            timestamp: current_datetime(),
-            metadata: None,
-        };
-
-        self.send_with_retry(
-            "POST",
-            "/telemetry/block/status",
-            Some(&report),
-        ).await?;
-
-        debug!(
-            "Block status reported: checkpoint_id={}, block_height={}",
-            checkpoint_id, block_height
-        );
-        Ok(())
-    }
-
-    pub async fn send_block_metadata(&self, block_data: Vec<CheckpointLeafWithId>) -> Result<()> {
+    pub async fn send_checkpoint_leaves(&self, block_data: Vec<CheckpointLeafWithId>) -> Result<()> {
         // Process block data in batches to avoid overwhelming the API
         for (_batch_idx, batch) in block_data.chunks(MAX_BATCH_SIZE).enumerate() {
             // Convert QEDCheckpointLeaf to the format expected by the API
@@ -416,43 +454,36 @@ impl ApiClient {
                 timestamp: current_datetime(),
             };
 
-            let response: CheckpointLeavesResponse = self.post_json(
-                "/telemetry/block/metadata",
-                &request,
-            ).await?;
+            let path = "/telemetry/events";
 
-            if !response.success {
+            let url = format!("{}{}", self.config.endpoint, path);
+
+            let headers = self.get_headers(path).await?;  // This will add JWT
+
+            let response = self.client
+                .post(&url)
+                .headers(headers)
+                .json(&request)
+                .send()
+                .await?;
+
+
+            if !response.status().is_success() {
                 return Err(anyhow::anyhow!(
                     "Failed to send block metadata: {}",
-                    response.message
+                    response.status()
                 ));
             }
 
             debug!(
-                "Block metadata sent successfully: {} checkpoint leaves processed",
-                response.processed_count
+                "Checkpoint leaves sent successfully: return status {:?}",
+                response.status()
             );
         }
 
         Ok(())
     }
 
-    pub async fn report_checkpoint_stats(&self, stats: CheckpointStats) -> Result<()> {
-        let response: ApiResponse<serde_json::Value> = self.post_json(
-            "/telemetry/checkpoint/stats",
-            &stats,
-        ).await?;
-
-        if !response.success {
-            return Err(anyhow::anyhow!(
-                "Failed to report checkpoint stats: {}",
-                response.message.unwrap_or_else(|| "Unknown error".to_string())
-            ));
-        }
-
-        debug!("Checkpoint stats reported for checkpoint {}", stats.checkpoint_id);
-        Ok(())
-    }
 
     pub async fn send_batch_events(&self, worker_events: Vec<WorkerEvent>, user_events: Vec<UserEvent>) -> Result<()> {
         // Split into batches if needed
@@ -494,11 +525,25 @@ impl ApiClient {
     }
 
     async fn send_telemetry(&self, payload: &TelemetryPayload) -> Result<()> {
+        let path = "/telemetry/events";
+
+        let url = format!("{}{}", self.config.endpoint, path);
+
+        let headers = self.get_headers(path).await?;  // This will add JWT
+
         let response = self.client
-            .post(&format!("{}/telemetry/events", self.config.endpoint))
+            .post(&url)
+            .headers(headers)
             .json(payload)
             .send()
             .await?;
+
+        if response.status() == StatusCode::UNAUTHORIZED {
+            error!("JWT authentication failed. Check JWT_SECRET configuration.");
+            return Err(anyhow::anyhow!(
+                "Authentication failed - invalid or missing JWT token"
+            ));
+        }
 
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(

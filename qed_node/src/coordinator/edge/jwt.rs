@@ -150,7 +150,7 @@ where
 
     fn call(&mut self, mut req: Request<HttpBody>) -> Self::Future {
         // tracing::info!("🔐 JWT middleware called");
-
+        tracing::info!("🔐 JWT middleware triggered for {}", req.uri().path());
         if let Some(Ok(auth_str)) = req.headers().get(AUTHORIZATION).map(|v| v.to_str()) {
             // tracing::info!("🔐 Authorization: {auth_str:?}");
 

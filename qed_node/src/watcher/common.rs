@@ -6,6 +6,8 @@ pub const MAX_SINGLE_MESSAGE_PROCESSING_TIME_SECS: Duration = Duration::from_sec
 pub const SLEEP_TIME_IF_NO_MSG_MILLIS: u64 = 100;
 pub const SLEEP_TIME_IF_HAVE_MSG_MILLIS: u64 = 10;
 
+pub const REDIS_LOCK_TTL_SECONDS: usize = 10;
+
 
 pub fn get_queue_name(biz_key: &str) -> String {
     format!("{}:{}", biz_key, WATCHER_RSMQ)

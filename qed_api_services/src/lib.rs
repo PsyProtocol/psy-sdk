@@ -3,6 +3,9 @@ pub mod handlers;
 pub mod models;
 pub mod repositories;
 pub mod services;
+pub mod auth;
+
+use std::sync::Arc;
 pub use config::Config;
 
 pub type Result<T> = anyhow::Result<T>;
@@ -12,6 +15,7 @@ use services::{create_database_pool, ApiService, RewardService};
 use tokio::signal;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use crate::services::{CheckpointRewardService, JobStatusService};
+use auth::JwtManager;  // Import JWT manager
 
 /// Run the API service with the given configuration.
 ///
@@ -21,8 +25,24 @@ use crate::services::{CheckpointRewardService, JobStatusService};
 pub async fn run(config: Config) -> anyhow::Result<()> {
     tracing::info!("config: {:#?}", config);
 
+    // Load .env file (if not already loaded)
+    dotenv::dotenv().ok();
+
     let pool = create_database_pool(&config).await?;
     let api_service = ApiService::new(pool.clone());
+
+    // Initialize JWT manager with shared secret from .env
+    tracing::info!("Initializing JWT authentication with shared secret from .env");
+    let jwt_manager = match JwtManager::from_env() {
+        Ok(manager) => {
+            tracing::info!("JWT authentication initialized successfully");
+            Arc::new(manager)
+        },
+        Err(e) => {
+            tracing::error!("Failed to initialize JWT: {}. Make sure JWT_SECRET is set in .env file", e);
+            return Err(anyhow::anyhow!("JWT initialization failed: {}", e));
+        }
+    };
 
     // Start background reward processing task
     tracing::info!("Starting reward processing background task");
@@ -47,7 +67,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     // Create application router
     let app = Router::new()
         .merge(handlers::create_router(api_service.clone()))
-        .merge(handlers::create_telemetry_router(api_service.clone()))
+        .merge(handlers::create_telemetry_router(api_service.clone(), jwt_manager))
         .merge(handlers::create_websocket_router(api_service))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());

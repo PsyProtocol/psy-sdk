@@ -432,6 +432,7 @@ impl CoordinatorEdgeHandler {
         };
         Ok(sync_info)
     }
+
     // async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
     pub async fn get_contract_leaf_data(
         &self,
@@ -1052,6 +1053,7 @@ use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::redis_queue::NotificationQueue;
 use qed_store::queue::task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl};
 use crate::common::utils::extract_contract_metadata;
+use crate::coordinator::edge::jwt::JwtAuthMetadata;
 use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserContractMetadata, UserGutaSubmissionMetadata, WatcherMessage};
 use crate::watcher::watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_client::WatcherClient;
@@ -1060,6 +1062,9 @@ use crate::watcher::watcher_service::{current_timestamp, current_timestamp_mills
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn register_user(&self, public_key: ZKPublicKeyInfo<F>) -> RpcResult<String> {
+
+        // self.verify_jwt().await?;
+
         self.register_user(public_key)
             .await
             .map(|_| "ok".to_string())

@@ -23,15 +23,7 @@ use tokio::time::{interval, timeout};
 use tracing::{debug, error, info, warn};
 use qed_data::config::store_config::QEDFelt;
 use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
-use crate::watcher::{
-    api_client::ApiClient,
-    block_height::BlockHeightManager,
-    common::*,
-    config::WatcherConfig,
-    events::WatcherMessage,
-    schedule_tasks::{ExecutionTrigger, ScheduledTask, ScheduledTaskManager, TaskType},
-    watcher::{NodeInfo, WatcherSourceNodeType, TimeoutWatcher},
-};
+use crate::watcher::{api_client::ApiClient, block_height::BlockHeightManager, common::*, config::WatcherConfig, events::WatcherMessage, schedule_tasks::{ExecutionTrigger, ScheduledTask, ScheduledTaskManager, TaskType}, watcher::{NodeInfo, WatcherSourceNodeType, TimeoutWatcher}, ApiClientConfig};
 
 const MAX_RETRY_ATTEMPTS: u32 = 3;
 const RETRY_ATTEMPT_TTL: u64 = 3600;
@@ -54,7 +46,6 @@ pub struct WatcherService {
     api_client: Arc<ApiClient>,
     block_height_manager: Arc<BlockHeightManager>,
     block_metadata_height: Arc<AtomicU64>,
-    task_manager: Arc<ScheduledTaskManager>,
     timeout_watcher: Arc<TimeoutWatcher>,
     node_info: Arc<NodeInfo>,
 }
@@ -69,15 +60,13 @@ impl WatcherService {
         });
 
         let qed_store = Arc::new(
-            QEDStore::from_backend(config.backend.to_backend())
-                .await
-                .map_err(|e| anyhow!("Database initialization failed: {}", e))?,
+        QEDStore::from_backend(config.backend.to_backend()).await
+            .map_err(|e| anyhow!("Database initialization failed: {}", e))?,
         );
 
         let redis_pool = Arc::new(
-            new_redis_async_pool(&config.redis_uri, config.redis_pool_size)
-                .await
-                .map_err(|e| anyhow!("Failed to create Redis pool: {}", e))?,
+        new_redis_async_pool(&config.redis_uri, config.redis_pool_size).await
+            .map_err(|e| anyhow!("Failed to create Redis pool: {}", e))?,
         );
 
         let queue_name = get_queue_name(&config.queue_id.queue_biz_key);
@@ -106,12 +95,26 @@ impl WatcherService {
             .then(|| config.node_id.parse())
             .transpose()?;
 
-        let api_client = Arc::new(ApiClient::new(
+        // Initialize API client with JWT support
+        let mut api_client_config = ApiClientConfig::new(
             config.api_endpoint.clone(),
             config.node_id.clone(),
             config.node_type,
             realm_id,
-        )?);
+        );
+
+        // Add JWT secret if configured
+        if let Some(jwt_secret) = config.jwt_secret.clone() {
+            info!("Configuring API client with JWT authentication for telemetry endpoints");
+            api_client_config = api_client_config.with_jwt_secret(jwt_secret);
+        } else {
+            warn!(
+                "API client initialized without JWT authentication. \
+                Telemetry endpoints may fail. Set JWT_SECRET environment variable."
+            );
+        }
+
+        let api_client = Arc::new(ApiClient::with_config(api_client_config)?);
 
         let block_height_manager = Arc::new(BlockHeightManager::new());
 
@@ -128,9 +131,6 @@ impl WatcherService {
         };
         let block_metadata_height = Arc::new(AtomicU64::new(0));
 
-        let task_manager = Arc::new(
-            ScheduledTaskManager::new(redis_pool.clone(), config.node_id.clone()).await?,
-        );
 
         Ok(Self {
             node_info,
@@ -140,7 +140,6 @@ impl WatcherService {
             api_client,
             block_height_manager,
             block_metadata_height,
-            task_manager,
             timeout_watcher,
             config,
             qed_store,
@@ -153,10 +152,6 @@ impl WatcherService {
         tokio::select! {
             result = self.clone().process_messages() => {
                 error!("Message processor stopped: {:?}", result);
-                result
-            }
-            result = self.clone().monitor_scheduled_tasks() => {
-                error!("Task monitor stopped: {:?}", result);
                 result
             }
             result = self.clone().sync_block_height() => {
@@ -368,68 +363,6 @@ impl WatcherService {
         }
     }
 
-    async fn handle_backup_proof(&self, event: &crate::watcher::events::BackupProofEvent) -> Result<()> {
-        info!("Processing proof backup: {:?}", event.job_id);
-
-        self.report_with_retry(
-            || self.api_client.send_proof_backup(event.clone()),
-            3,
-            Duration::from_secs(1),
-        ).await?;
-
-        self.schedule_deletion(
-            event.job_id.clone(),
-            TaskType::DeleteProof,
-            event.delete_after_blocks,
-        ).await
-    }
-
-    async fn handle_backup_witness(&self, event: &crate::watcher::events::BackupWitnessEvent) -> Result<()> {
-        info!("Processing witness backup: {:?}", event.job_id);
-
-        self.report_with_retry(
-            || self.api_client.send_witness_backup(event.clone()),
-            3,
-            Duration::from_secs(1),
-        ).await?;
-
-        self.schedule_deletion(
-            event.job_id.clone(),
-            TaskType::DeleteWitness,
-            event.delete_after_blocks,
-        ).await
-    }
-
-    async fn monitor_scheduled_tasks(self: Arc<Self>) -> Result<()> {
-        info!("Starting scheduled task monitor");
-        let mut ticker = interval(Duration::from_secs(TASK_MONITOR_INTERVAL));
-
-        loop {
-            ticker.tick().await;
-            self.process_ready_tasks().await?;
-        }
-    }
-
-    async fn process_ready_tasks(&self) -> Result<()> {
-        let current_height = self.block_height_manager.get_height();
-        let current_time = current_timestamp();
-        let ready_tasks = self.task_manager.get_ready_tasks(current_height, current_time).await?;
-
-        for task in ready_tasks {
-            info!("Processing scheduled task: {}", task.task_id);
-
-            if let Err(e) = self.execute_scheduled_task(&task).await {
-                error!("Failed to execute task {}: {}", task.task_id, e);
-                self.task_manager.retry_task(task).await?;
-                continue;
-            }
-
-            info!("Successfully executed task: {}", task.task_id);
-            self.task_manager.complete_task(&task.task_id).await?;
-        }
-
-        Ok(())
-    }
 
     async fn sync_block_height(self: Arc<Self>) -> Result<()> {
         info!("Starting block height synchronization");
@@ -495,30 +428,6 @@ impl WatcherService {
         }
 
         unreachable!()
-    }
-
-    async fn schedule_deletion(&self, job_id: QProvingJobDataID, task_type: TaskType, blocks_to_wait: u64) -> Result<()> {
-        let current_height = self.block_height_manager.get_height();
-        let target_height = current_height + blocks_to_wait;
-
-        let task_prefix = match task_type {
-            TaskType::DeleteProof => "delete_proof",
-            TaskType::DeleteWitness => "delete_witness",
-            _ => "delete",
-        };
-
-        let task = ScheduledTask {
-            task_id: format!("{}_{}", task_prefix, job_id),
-            task_type,
-            execute_at: ExecutionTrigger::AfterBlocks { target_height },
-            payload: serde_json::json!({ "job_id": job_id }),
-            created_at: current_timestamp(),
-            retry_count: 0,
-        };
-
-        self.task_manager.schedule_task(task).await?;
-        info!("Scheduled deletion at block height {}", target_height);
-        Ok(())
     }
 
     async fn execute_scheduled_task(&self, task: &ScheduledTask) -> Result<()> {
@@ -651,9 +560,7 @@ impl WatcherService {
             tokio::time::sleep(Duration::from_millis(BLOCK_METADATA_WAIT_DURATION)).await;
 
             //the finalized height is latest_height - BLOCK_METADATA_WAIT_BLOCK_NUM
-            let latest_height = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.qed_store)
-                .await?
-                .checkpoint_id;
+            let latest_height = self.fetch_block_height_from_db().await?;
             let finalized_height = latest_height.saturating_sub(BLOCK_METADATA_WAIT_BLOCK_NUM);
 
             //watcher local height
@@ -740,12 +647,12 @@ impl WatcherService {
             }
 
             // Send the collected checkpoint leaves
-            match self.api_client.send_block_metadata(checkpoint_leaves).await {
+            match self.api_client.send_checkpoint_leaves(checkpoint_leaves).await {
                 Ok(_) => {
                     // Only update local height after successful send
                     self.block_metadata_height.store(finalized_height, Ordering::Relaxed);
                     info!(
-                        "Successfully sent block metadata for checkpoints {} to {}",
+                        "Successfully sent checkpoint leaves from {} to {}",
                         local_height,
                         finalized_height
                     );

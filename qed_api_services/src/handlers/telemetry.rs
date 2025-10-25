@@ -1,21 +1,21 @@
 use std::cmp::min;
-use axum::{extract::State, http::StatusCode, response::Json, routing::post, Router};
+use std::sync::Arc;
+use axum::{extract::State, http::StatusCode, middleware, response::Json, routing::post, Extension, Router};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use crate::{models::*, repositories::*, services::ApiService};
+use crate::auth::{auth_middleware, AuthExtension, JwtManager};
 use crate::repositories::checkpoint_state::{CheckpointStatsRepository, WorkerJobEventRepository};
 
-pub fn create_telemetry_router(api_service: ApiService) -> Router {
+pub fn create_telemetry_router(api_service: ApiService, jwt_manager: Arc<JwtManager>) -> Router {
     Router::new()
-        // Legacy event reporting
         .route("/telemetry/events", post(receive_events_handler))
-
-        // Worker Job Events Reporting (reserved for edge when worker submits job results)
-        .route("/telemetry/checkpoint/job-events", post(report_worker_job_events_handler))
-
-        // Checkpoint Leafs Reporting
-        .route("/telemetry/checkpoint/leafs", post(report_checkpoint_leafs_handler))
+        .route("/telemetry/checkpoint/leaves", post(report_checkpoint_leafs_handler))
+        .layer(middleware::from_fn_with_state(
+            jwt_manager.clone(),
+            auth_middleware,
+        ))
         .with_state(api_service)
 }
 
@@ -29,14 +29,17 @@ pub struct TelemetryPayload {
 pub struct TelemetryResponse {
     pub success: bool,
     pub processed_count: usize,
+    pub service: String,
 }
 
 async fn receive_events_handler(
     State(service): State<ApiService>,
+    Extension(auth): Extension<AuthExtension>, // Extract authenticated claims
     Json(payload): Json<TelemetryPayload>,
 ) -> Result<Json<TelemetryResponse>, StatusCode> {
     info!(
-        "Telemetry events received: worker_events={}, user_events={}",
+        "Telemetry events received from '{}': worker_events={}, user_events={}",
+        auth.claims.sub,
         payload.worker_events.as_ref().map(|v| v.len()).unwrap_or(0),
         payload.user_events.as_ref().map(|v| v.len()).unwrap_or(0)
     );
@@ -150,70 +153,21 @@ async fn receive_events_handler(
     Ok(Json(TelemetryResponse {
         success: true,
         processed_count,
+        service: auth.claims.sub,
     }))
 }
 
-async fn report_worker_job_events_handler(
-    State(service): State<ApiService>,
-    Json(payload): Json<Vec<WorkerJobEventRequest>>,
-) -> Result<Json<WorkerJobEventsResponse>, StatusCode> {
-    if payload.is_empty() {
-        return Ok(Json(WorkerJobEventsResponse {
-            success: true,
-            events_reported: 0,
-            checkpoint_id: 0,
-            message: "No events to report".to_string(),
-        }));
-    }
-
-    let checkpoint_id = payload[0].checkpoint_id;
-    info!(
-        "🔧 Telemetry: Received {} worker job events for checkpoint {}",
-        payload.len(),
-        checkpoint_id
-    );
-
-    let create_events: Vec<CreateWorkerJobEvent> = payload
-        .into_iter()
-        .map(|e| CreateWorkerJobEvent {
-            worker_public_key: e.worker_public_key,
-            checkpoint_id: e.checkpoint_id,
-            job_id: e.job_id,
-            topic: e.topic,
-            circuit_type: e.circuit_type,
-            duration: e.duration,
-            status: e.status,
-            metadata: e.metadata,
-            timestamp: e.timestamp,
-        })
-        .collect();
-
-    match WorkerJobEventRepository::create_batch(&service.pool, &create_events).await {
-        Ok(events) => {
-            info!(
-                "✅ Successfully reported {} worker job events for checkpoint {}",
-                events.len(),
-                checkpoint_id
-            );
-            Ok(Json(WorkerJobEventsResponse {
-                success: true,
-                events_reported: events.len(),
-                checkpoint_id,
-                message: format!("Successfully reported {} job events", events.len()),
-            }))
-        }
-        Err(e) => {
-            error!("❌ Failed to report worker job events: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
 
 async fn report_checkpoint_leafs_handler(
     State(service): State<ApiService>,
+    Extension(auth): Extension<AuthExtension>,
     Json(payload): Json<CheckpointLeavesRequest>,
 ) -> Result<Json<CheckpointLeavesResponse>, StatusCode> {
-    info!("🍃 Telemetry: Received {} checkpoint leafs", payload.leaves.len());
+    info!(
+        "Checkpoint leafs from '{}': {} leafs",
+        auth.claims.sub,
+        payload.leaves.len()
+    );
 
     let (min_id, max_id) = match get_checkpoint_range(&payload.leaves) {
         Some(range) => range,
@@ -251,8 +205,13 @@ async fn report_checkpoint_leafs_handler(
         }
     }
 
-    info!("✅ Successfully reported {} checkpoint leafs {}~{} ", processed_count,min_id,max_id);
-
+    info!(
+        "✅ Successfully reported {} checkpoint leafs ({}~{}) from '{}'",
+        processed_count,
+        min_id,
+        max_id,
+        auth.claims.sub
+    );
     Ok(Json(CheckpointLeavesResponse {
         success: true,
         processed_count,

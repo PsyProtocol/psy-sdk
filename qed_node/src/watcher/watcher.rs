@@ -12,8 +12,7 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::watcher::events::{JobTimeoutEvent, WatcherMessage};
-
-const LOCK_TTL_SECONDS: usize = 10;
+use crate::watcher::REDIS_LOCK_TTL_SECONDS;
 
 #[derive(Debug, Clone)]
 pub struct NodeInfo {
@@ -139,7 +138,7 @@ impl TimeoutWatcher {
             .arg(&self.node_instance_id)
             .arg("NX")
             .arg("EX")
-            .arg(LOCK_TTL_SECONDS)
+            .arg(REDIS_LOCK_TTL_SECONDS)
             .query_async(&mut *self.redis_pool.get().await?)
             .await?;
 
