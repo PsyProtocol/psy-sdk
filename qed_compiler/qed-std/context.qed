@@ -8,6 +8,10 @@ pub fn get_contract_id() -> Felt {
     __ctx_get_contract_id()
 }
 
+pub fn get_caller_contract_id() -> Felt {
+    __ctx_get_caller_contract_id()
+}
+
 pub fn get_checkpoint_id() -> Felt {
     __ctx_get_checkpoint_id()
 }

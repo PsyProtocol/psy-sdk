@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use indexmap::IndexMap;
 use plonky2::{
     hash::hash_types::RichField,
     plonk::{
@@ -25,7 +24,7 @@ use super::{
 pub struct GenericCircuitCommonDataLibrary<C: GenericConfig<D>, const D: usize> {
     pub common_data_items: Vec<CommonCircuitData<C::F, D>>,
     pub common_data_hashes: Vec<Hash256>,
-    pub common_circuit_map: HashMap<ProvingJobCircuitType, usize>,
+    pub common_circuit_map: IndexMap<ProvingJobCircuitType, usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -39,7 +38,7 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
         Self {
             common_data_items: Vec::new(),
             common_data_hashes: Vec::new(),
-            common_circuit_map: HashMap::new(),
+            common_circuit_map: IndexMap::new(),
         }
     }
     pub fn print_common(&self) {
@@ -102,7 +101,7 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
             }
         }
 
-        let mut common_circuit_map = HashMap::new();
+        let mut common_circuit_map = IndexMap::new();
 
         ser.common_circuit_list
             .iter()

@@ -46,6 +46,7 @@ pub struct SimpleDPNBuilder<F: RichField + Extendable<D>, const D: usize>{
     pub u32_arrays: Vec<Vec<U32Target>>,
     pub user_id: Target,
     pub contract_id: Target,
+    pub caller_contract_id: Target,
     pub checkpoint_id: Target,
     pub user_public_key: HashOutTarget,
     pub nonce: Target,
@@ -54,7 +55,7 @@ pub struct SimpleDPNBuilder<F: RichField + Extendable<D>, const D: usize>{
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
-    pub fn new_with_contract_ctx(inputs: Vec<Target>, user_id: Target, contract_id: Target, checkpoint_id: Target, nonce: Target, user_public_key: HashOutTarget) -> Self {
+    pub fn new_with_contract_ctx(inputs: Vec<Target>, user_id: Target, contract_id: Target, caller_contract_id: Target, checkpoint_id: Target, nonce: Target, user_public_key: HashOutTarget) -> Self {
         SimpleDPNBuilder {
             targets: Vec::new(),
             target_arrays: Vec::new(),
@@ -66,6 +67,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             u32_arrays: Vec::new(),
             user_id,
             contract_id,
+            caller_contract_id,
             checkpoint_id,
             user_public_key,
             nonce,
@@ -596,6 +598,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             DPNOpType::CalculateMerkleRoot => unimplemented!(),
             DPNOpType::GetUserId => self.targets.push(self.user_id),
             DPNOpType::GetContractId => self.targets.push(self.contract_id),
+            DPNOpType::GetCallerContractId => self.targets.push(self.caller_contract_id),
             DPNOpType::GetCheckpointId => self.targets.push(self.checkpoint_id),
             DPNOpType::GetNonce => self.targets.push(self.nonce),
             DPNOpType::GetUserPublicKeyHash => self.hashes.push(self.user_public_key),

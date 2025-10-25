@@ -74,9 +74,9 @@ function expectQEDUserLeaf(value: any) {
 
 function expectQEDContractLeaf(value: any) {
     expect(value).toBeDefined();
-    expect(typeof value.contract_id).toBe("bigint");
-    expectQHashOut(value.contract_state_tree_root);
-    expectQHashOut(value.contract_code_hash);
+    expectQHashOut(value.deployer);
+    expectQHashOut(value.function_tree_root);
+    expect(typeof value.state_tree_height).toBe("bigint");
 }
 
 function expectQEDCheckpointLeaf(value: any) {

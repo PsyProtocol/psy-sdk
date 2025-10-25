@@ -129,9 +129,10 @@ impl QEDContractFunctionInclusionProofGadget {
         // END: create targets that require witness
 
 
-        // ensure that the index in the function tree is an EVEN number (least significant bit is 0)
-        // this is because each function takes up two leaves (one for verifier key, one for metadata)
+        // ensure that the index in the function tree is aligned to four leaves (two least significant bits are 0)
+        // this is because each function takes up four leaves (fingerprint, metadata, code hash, reserved)
         builder.assert_zero(cf_merkle_proof_index_bits[0].target);
+        builder.assert_zero(cf_merkle_proof_index_bits[1].target);
 
         // ensure the function_tree_root in the contract leaf matches our function tree merkle proof's root
         builder.connect_hashes(
@@ -141,9 +142,8 @@ impl QEDContractFunctionInclusionProofGadget {
 
         // START: setup computed targets
 
-        // each function has two leaves, a left leaf and a right sibling:
-        // **left** is the hash of the verifier key and **right** is [method_id, (num_outputs<<32)|num_inputs, 0, 0]
-        
+        // each function has four leaves: fingerprint, metadata, code hash, reserved zero
+       
         let function_verifier_fingerprint = contract_function_merkle_proof.value;
         let method_id = contract_function_merkle_proof.siblings[0].elements[0];
         let outputs_and_inputs = contract_function_merkle_proof.siblings[0].elements[1];
@@ -202,5 +202,4 @@ impl<F: RichField> WitnessValueFor<QEDContractFunctionInclusionProofGadget, F, f
         target.set_witness(witness, self)
     }
 }
-
 

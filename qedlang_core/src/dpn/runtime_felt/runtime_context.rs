@@ -303,6 +303,10 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         todo!()
     }
 
+    fn get_caller_contract_id(&mut self) -> F {
+        todo!()
+    }
+
     fn get_checkpoint_id(&mut self) -> F {
         todo!()
     }

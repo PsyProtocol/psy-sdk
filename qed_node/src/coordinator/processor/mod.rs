@@ -11,6 +11,7 @@ use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use qed_crypto::hash::merkle::utils::common::QMerkleNode;
 use qed_data::config::genesis_config::GenesisConfig;
+use qed_data::qblock::cmds::deploy_contract::QBCDeployContractWithRoot;
 use qed_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
@@ -621,9 +622,9 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
         tokio::select! {
             biased;
             slot = slot_timer.wait_for_next_slot() => {
-                if slot.is_odd() {
-                    continue;
-                }
+                // if slot.is_odd() {
+                //     continue;
+                // }
                 trace!("✅ Successfully wait for next slot: {}", slot);
                 if !coordinator_processor.has_pending_tasks(next_checkpoint_id).await? {
                     trace!("⚠️ No pending tasks for checkpoint {}, waiting for next checkpoint", next_checkpoint_id);

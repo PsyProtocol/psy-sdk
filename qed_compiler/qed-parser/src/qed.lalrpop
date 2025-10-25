@@ -816,6 +816,13 @@ IntrinsicExpression: ExprNode<F> = {
             }
         )
     },
+    <l:@L> <variable:CTX_GET_CALLER_CONTRACT_ID> "(" ")" <r:@R> => {
+        ExprNode::Intrinsic(
+            IntrinsicExprNode::GetCallerContractId {
+                location: Location::new(file_id, l, r)
+            }
+        )
+    },
     <l:@L> <variable:CTX_GET_CHECKPOINT_ID> "(" ")" <r:@R> => {
         ExprNode::Intrinsic(
             IntrinsicExprNode::GetCheckpointId {
@@ -1250,6 +1257,7 @@ extern {
         STORAGE_WRITE_RANGE => Token::IntrinsicStorageWriteRange,
         CTX_GET_USER_ID => Token::IntrinsicCtxGetUserId,
         CTX_GET_CONTRACT_ID => Token::IntrinsicCtxGetContractId,
+        CTX_GET_CALLER_CONTRACT_ID => Token::IntrinsicCtxGetCallerContractId,
         CTX_GET_CHECKPOINT_ID => Token::IntrinsicCtxGetCheckpointId,
         CTX_GET_CHECKPOINT_STATS => Token::IntrinsicCtxGetCheckpointStats,
         CTX_GET_REGISTER_USERS_ROOT => Token::IntrinsicCtxGetRegisterUsersRoot,

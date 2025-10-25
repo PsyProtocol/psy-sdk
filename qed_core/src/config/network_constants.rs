@@ -55,6 +55,7 @@ pub const DA_CHALLENGE_WINDOW: usize = 14;
 pub const DEFERRED_CALL_MAGIC: u64 = 0xDEFE1212EDCA11u64;
 pub const DEFERRED_TRANSACTION_TREE_HEIGHT: u8 = 16;
 pub const INLINE_TRANSACTION_TREE_HEIGHT: u8 = 16;
+pub const DEFAULT_CALLER_CONTRACT_ID_U64: u64 = (u32::MAX as u64) + 1;
 
 
 // used for signing a transaction/contract function call 0xCA11_<ascii'TXCALL'>
@@ -127,8 +128,8 @@ pub const MAX_PROCESSED_USERS_PER_BLOCK: u64 = 256;
 
 // slot constants
 pub const SLOT0: u64 = 0;
-pub const SLOT_SIZE: u64 = 6000; // 6s
-pub const REALM_SLOT_SIZE_MS: u64 = SLOT_SIZE/4;// 3s
+pub const SLOT_SIZE: u64 = 2000; // 2s
+pub const REALM_SLOT_SIZE_MS: u64 = 3000;// 3s
 pub const SLOT0_TIMESTAMP: u64 = 1753891200000; // 2025-07-31 00:00:00
 pub const NETWORK_COST_TIME_MS: u64 = 1000; // 1s
 

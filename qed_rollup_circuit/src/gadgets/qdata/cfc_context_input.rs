@@ -58,7 +58,7 @@ impl DapenCFCProvingSessionStartContextGadget {
     ) -> UserProvingSessionStartContextGadget {
         let start_session_user_leaf_hash = self.start_session_user_leaf.to_hash::<H, F, D>(builder);
         let checkpoint_leaf_hash = self.checkpoint_leaf.to_hash::<H, F, D>(builder);
-        // we need to ensure that these are interchangable and most importantly have interchangable hashes with UserProvingSessionStartContextGadget 
+        // we need to ensure that these are interchangable and most importantly have interchangable hashes with UserProvingSessionStartContextGadget
 
         UserProvingSessionStartContextGadget {
             checkpoint_id: self.checkpoint_id,
@@ -467,7 +467,7 @@ pub fn hash_transaction_input_context<H:AlgebraicHasher<F>, F: RichField + Exten
     session_start_tx_combo
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct DapenCFCUserTransactionInputContextGadget {    
+pub struct DapenCFCUserTransactionInputContextGadget {
     pub proving_session_start_ctx: DapenCFCProvingSessionStartContextGadget,
     pub transaction_call_start_ctx: DapenCFCUserTransactionCallStartContextGadget,
     pub transaction_end_ctx: DapenCFCUserTransactionEndContextGadget,

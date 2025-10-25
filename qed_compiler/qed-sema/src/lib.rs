@@ -274,6 +274,14 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     },
                 ));
             }
+            IntrinsicExprNode::GetCallerContractId { location } => {
+                return Ok(CheckedExprNode::Intrinsic(
+                    CheckedIntrinsicExprNode::GetCallerContractId {
+                        type_id: FELT_TYPE,
+                        location,
+                    },
+                ));
+            }
             IntrinsicExprNode::GetCheckpointId { location } => {
                 return Ok(CheckedExprNode::Intrinsic(
                     CheckedIntrinsicExprNode::GetCheckpointId {

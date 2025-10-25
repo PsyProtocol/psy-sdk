@@ -243,6 +243,7 @@ impl<
         );
 
         if self.proof_store.contains_id(proof_id).await? {
+            tracing::warn!("already submitted proof {:?} for this block", proof_id);
             anyhow::bail!("already submitted proof {:?} for this block", proof_id);
         }
 

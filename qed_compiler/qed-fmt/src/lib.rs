@@ -1027,6 +1027,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         match node {
             IntrinsicExprNode::GetUserId { .. } => Ok("__ctx_get_user_id()".to_string()),
             IntrinsicExprNode::GetContractId { .. } => Ok("__ctx_get_contract_id()".to_string()),
+            IntrinsicExprNode::GetCallerContractId { .. } => {
+                Ok("__ctx_get_caller_contract_id()".to_string())
+            }
             IntrinsicExprNode::GetLastNonce { .. } => Ok("__ctx_get_last_nonce()".to_string()),
             IntrinsicExprNode::GetCheckpointId { .. } => {
                 Ok("__ctx_get_checkpoint_id()".to_string())

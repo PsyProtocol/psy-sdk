@@ -133,8 +133,8 @@ async fn main() {
         function_whitelist: vec![
             QHashOut::rand(),
             QHashOut::rand(),
-            QHashOut::rand(),
-            QHashOut::rand(),
+            QHashOut::from_values(1, 0, 0, 0),
+            QHashOut::from_values(0, 0, 0, 0),
         ],
     };
 

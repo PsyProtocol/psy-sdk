@@ -186,7 +186,7 @@ impl CoordinatorEdgeHandler {
 
     pub async fn deploy_contract(
         &self,
-        contract: QBCDeployContract<QEDFelt>,
+        mut contract: QBCDeployContract<QEDFelt>,
     ) -> anyhow::Result<()> {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = latest + 1;

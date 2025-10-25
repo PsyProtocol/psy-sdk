@@ -57,7 +57,7 @@ use qed_store::controllers::local::{
     proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
 };
 use qedlang_core::dpn::{
-    contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}, vm::def::DPNFunctionCircuitDefinition,
+    contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function}, vm::def::DPNFunctionCircuitDefinition,
 };
 use qed_core::job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT};
 use serde::{Deserialize, Serialize};
@@ -85,7 +85,7 @@ where
         .iter()
         .map(|x| dapen_fc_to_cfc_code_definition(x))
         .collect::<Vec<_>>();
-    let mut fingerprints = Vec::with_capacity(defs.len() * 2);
+    let mut whitelist_leaves = Vec::with_capacity(defs.len() * 4);
     let circuits = defs
         .iter()
         .map(|x| {
@@ -95,16 +95,19 @@ where
                 UPS_SESSION_PROOF_TREE_HEIGHT as usize,
                 false,
             );
-            fingerprints.push(c.get_fingerprint());
+            whitelist_leaves.push(c.get_fingerprint());
 
             let inputs_outputs_combo =
                 ((x.circuit_outputs.len() as u64) << 32u64) | (x.circuit_inputs.len() as u64);
-            fingerprints.push(QHashOut::from_values(
+            whitelist_leaves.push(QHashOut::from_values(
                 x.method_id as u64,
                 inputs_outputs_combo,
                 0,
                 0,
             ));
+            let code_hash = hash_dpn_function::<C::F>(x);
+            whitelist_leaves.push(code_hash);
+            whitelist_leaves.push(QHashOut::from_values(0, 0, 0, 0));
             c
         })
         .collect::<Vec<_>>();
@@ -115,7 +118,7 @@ where
             state_tree_height: contract_state_tree_height as u16,
             functions: code_defs,
         },
-        function_whitelist: fingerprints,
+        function_whitelist: whitelist_leaves,
     };
 
     Ok((circuits, deploy))
