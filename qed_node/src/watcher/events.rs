@@ -6,7 +6,7 @@ use qed_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
 use qed_data::config::store_config::QEDFelt;
 use qed_data::qblock::cmds::deploy_contract::QFunctionMetadata;
 use qed_data::qdata::ups_end_cap_result::UPSEndCapResultCompact;
-use crate::watcher::watcher::WatcherSourceNodeType;
+use crate::watcher::timeout_watcher::WatcherSourceNodeType;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WatcherMessage {
@@ -108,22 +108,6 @@ pub struct JobTimeoutEvent {
     pub worker_id: Option<String>,
     pub start_time: u64,
     pub timeout_time: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BackupProofEvent {
-    pub job_id: QProvingJobDataID,
-    pub proof_data: Vec<u8>,
-    pub timestamp: u64,
-    pub delete_after_blocks: u64,  // Delete after N blocks (e.g., 256)
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BackupWitnessEvent {
-    pub job_id: QProvingJobDataID,
-    pub witness_data: Vec<u8>,
-    pub timestamp: u64,
-    pub delete_after_blocks: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

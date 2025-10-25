@@ -3,9 +3,9 @@ use anyhow::Result;
 use qed_core::job::id::{LayerId, QProvingJobDataID};
 use qed_store::queue::{QueueId, RsmqQueue};
 use crate::common::utils::{current_datetime, current_timestamp_millis};
-use crate::watcher::events::{BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobStartedEvent, JobTimeoutEvent, UserDeployContractEvent, UserContractMetadata, UserGutaSubmissionEvent, UserGutaSubmissionMetadata, UserRegistrationEvent, WatcherMessage, UserRegistrationMetadata};
+use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, JobTimeoutEvent, UserDeployContractEvent, UserContractMetadata, UserGutaSubmissionEvent, UserGutaSubmissionMetadata, UserRegistrationEvent, WatcherMessage, UserRegistrationMetadata};
 use crate::watcher::utils::get_queue_name;
-use crate::watcher::watcher::WatcherSourceNodeType;
+use crate::watcher::timeout_watcher::WatcherSourceNodeType;
 
 pub struct WatcherClient {
     rsmq: Arc<RsmqQueue>,

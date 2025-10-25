@@ -23,7 +23,7 @@ use tokio::time::{interval, timeout};
 use tracing::{debug, error, info, warn};
 use qed_data::config::store_config::QEDFelt;
 use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
-use crate::watcher::{api_client::ApiClient, config::WatcherConfig, events::WatcherMessage, schedule_tasks::{ExecutionTrigger, ScheduledTask, ScheduledTaskManager, TaskType}, watcher::{NodeInfo, WatcherSourceNodeType, TimeoutWatcher}, ApiClientConfig};
+use crate::watcher::{api_client::ApiClient, config::WatcherConfig, events::WatcherMessage, timeout_watcher::{NodeInfo, WatcherSourceNodeType, TimeoutWatcher}, ApiClientConfig};
 use crate::watcher::block_sync::BlockSyncService;
 use crate::watcher::checkpoint_sender::CheckpointSenderService;
 use crate::watcher::message_processor::MessageProcessor;

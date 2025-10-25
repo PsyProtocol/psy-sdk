@@ -13,7 +13,7 @@ use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::store::QEDStore;
 use crate::watcher::constant::{BLOCK_SYNC_TIMEOUT_SECS, FAILURE_BACKOFF_DURATION, FAILURE_BACKOFF_THRESHOLD};
 use crate::watcher::error::WatcherError;
-use crate::watcher::watcher::WatcherSourceNodeType;
+use crate::watcher::timeout_watcher::WatcherSourceNodeType;
 
 pub struct BlockSyncService {
     qed_store: Arc<QEDStore>,

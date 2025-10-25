@@ -3,7 +3,7 @@ use super::rpc::RealmEdgeRpcServer;
 use crate::common::jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB};
 use crate::realm::state::edge::RealmEdgeContext;
 use crate::realm::{C, D, F, H};
-use crate::watcher::watcher::WatcherSourceNodeType;
+use crate::watcher::timeout_watcher::WatcherSourceNodeType;
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};

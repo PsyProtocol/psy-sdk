@@ -330,8 +330,6 @@ impl RsmqQueue {
         Ok(message.map(|msg| msg.message))
     }
 
-    // ===== Type-safe serialization methods =====
-
     /// Send a serializable object to the queue
     pub async fn send_object<T: Serialize>(&self, queue: &QueueId, obj: &T) -> Result<()> {
         let bytes = bincode::serialize(obj)?;

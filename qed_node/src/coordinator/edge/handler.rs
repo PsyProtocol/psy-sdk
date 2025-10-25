@@ -1055,7 +1055,7 @@ use qed_store::queue::task_queue::{current_timestamp_millis, JobValidationStatus
 use crate::common::utils::extract_contract_metadata;
 use crate::coordinator::edge::jwt::JwtAuthMetadata;
 use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserContractMetadata, UserGutaSubmissionMetadata, WatcherMessage};
-use crate::watcher::watcher::WatcherSourceNodeType;
+use crate::watcher::timeout_watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_client::WatcherClient;
 
 #[async_trait]
