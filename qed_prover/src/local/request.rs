@@ -90,6 +90,8 @@ pub enum RequestParams<F: RichField> {
     AddWithdrawal(QAddWithdrawalRPCRequest),
     #[serde(rename = "qed_submit_user_end_cap")]
     SubmitEndCap(QSubmitEndCapRPCRequest<F>),
+    #[serde(rename = "qed_get_tx_status")]
+    GetTxStatus(QGetTxStatusRPCRequest),
 
     // QTreeDataStoreReaderSync
     #[serde(rename = "qed_get_user_contract_state_tree_root")]
@@ -548,6 +550,13 @@ pub struct QSubmitEndCapRPCRequest<F: RichField> {
     pub user_ec_input: SubmitUserEndCapNonProofInput<F>,
     #[ts(type = "any")]
     pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+pub struct QGetTxStatusRPCRequest {
+    pub user_id: u64,
+    pub nonce: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

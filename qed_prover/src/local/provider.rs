@@ -26,7 +26,7 @@ use qed_crypto::{
     },
 };
 use qed_data::{
-    config::store_config::QEDHasher, qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition, user}, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync}, ups::{
+    config::store_config::{QEDFelt, QEDHasher}, qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition, user}, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync}, ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{
             UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput,
@@ -51,9 +51,9 @@ pub struct JobInfo {
     pub location: JobLocation,
 }
 
-use crate::local::request::{
-    QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QLatestL2BlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, RequestParamsV2
-};
+use crate::{local::request::{
+    QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QLatestL2BlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, RequestParamsV2
+}, session::TxStatus};
 use crate::wallet::software_defined_circuit::{
     SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
 };
@@ -569,6 +569,47 @@ impl RpcProvider {
     pub async fn check_tx_is_confirmed(&self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<GoldilocksField>) -> anyhow::Result<bool> {
         let user_leaf_data = self.get_user_leaf_data(checkpoint_id, user_id).await?;
         Ok(user_leaf_data.qfhash::<QEDHasher>() == tx_hash)
+    }
+
+    pub async fn get_tx_status(
+        &self,
+        user_id: u64,
+        nonce: u64,
+    ) -> anyhow::Result<TxStatus> {
+        tracing::info!(
+            "Fetching tx status user_id: {}, nonce: {}",
+            user_id, nonce
+        );
+        let rpc_url = self.get_realm_url(user_id)?;
+
+        let input = QGetTxStatusRPCRequest {
+            user_id,
+            nonce,
+        };
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<QEDFelt>::GetTxStatus(input),
+            TxStatus
+        );
+        match response.result {
+            ResponseResult::Success(status) => {
+                tracing::info!(
+                    "Successfully fetched tx status user_id: {}, nonce: {}, status: {:?}",
+                    user_id,
+                    nonce,
+                    status
+                );
+                Ok(status)
+            }
+            ResponseResult::Error(e) => {
+                tracing::error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!(
+                    "get_tx_status rpc call failed `{:?}`",
+                    e
+                ))
+            }
+        }
     }
 
     pub const fn get_realm_id(&self, user_id: u64) -> u64 {
