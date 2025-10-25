@@ -164,7 +164,7 @@ async fn report_checkpoint_leafs_handler(
     Json(payload): Json<CheckpointLeavesRequest>,
 ) -> Result<Json<CheckpointLeavesResponse>, StatusCode> {
     info!(
-        "Checkpoint leafs from '{}': {} leafs",
+        "received leaves from {},  leaves len {}",
         auth.claims.sub,
         payload.leaves.len()
     );
@@ -176,6 +176,7 @@ async fn report_checkpoint_leafs_handler(
             return Err(StatusCode::NOT_FOUND);
         }
     };
+
     info!("🍃 Checkpoint ID range: {} - {}", min_id, max_id);
     let mut processed_count = 0;
 
@@ -215,7 +216,7 @@ async fn report_checkpoint_leafs_handler(
     Ok(Json(CheckpointLeavesResponse {
         success: true,
         processed_count,
-        message: format!("Checkpoint leafs reported successfully"),
+        message: format!("Successfully reported {} checkpoint leafs (checkpoints {} to {})", processed_count, min_id, max_id),
     }))
 }
 

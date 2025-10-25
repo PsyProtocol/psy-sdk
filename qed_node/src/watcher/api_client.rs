@@ -423,7 +423,7 @@ impl ApiClient {
                 timestamp: current_datetime(),
             };
 
-            self.send_telemetry_request("/telemetry/checkpoint/leaves", &request).await?;
+            self.send_telemetry_request::<CheckpointLeavesRequest, CheckpointLeavesResponse>("/telemetry/checkpoint/leaves", &request).await?;
         }
 
         Ok(())
@@ -458,11 +458,11 @@ impl ApiClient {
 
 
     async fn send_telemetry(&self, payload: &TelemetryPayload) -> Result<()> {
-        let response: TelemetryResponse = self
+        let _response: TelemetryResponse = self
             .send_telemetry_request("/telemetry/events", payload)
             .await?;
 
-        debug!("Telemetry sent: {} events processed", response.processed_count);
+        // debug!("Telemetry sent: {} events processed", response.processed_count);
         Ok(())
     }
 
@@ -482,6 +482,7 @@ impl ApiClient {
             .send()
             .await?;
 
+        debug!("response: {:?}", response);
         match response.status() {
             StatusCode::UNAUTHORIZED => {
                 error!("JWT authentication failed");

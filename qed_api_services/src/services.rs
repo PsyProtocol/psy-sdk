@@ -120,7 +120,7 @@ impl RewardService {
         for (checkpoint_id, checkpoint_events) in events_by_checkpoint {
             match Self::process_checkpoint_rewards(pool, checkpoint_id, checkpoint_events).await {
                 Ok(rewards_count) => {
-                    info!(
+                    debug!(
                         "Successfully processed {} rewards for checkpoint {}",
                         rewards_count,
                         checkpoint_id
@@ -128,12 +128,11 @@ impl RewardService {
                     total_processed += rewards_count;
                 }
                 Err(e) => {
-                    tracing::error!(
+                    error!(
                         "Failed to process rewards for checkpoint {}: {}",
                         checkpoint_id,
                         e
                     );
-                    // Continue processing other checkpoints even if one fails
                 }
             }
         }

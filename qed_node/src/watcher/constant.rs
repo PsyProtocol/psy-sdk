@@ -24,7 +24,7 @@ pub const FAILURE_BACKOFF_THRESHOLD: u32 = 3;
 pub const FAILURE_BACKOFF_DURATION: Duration = Duration::from_secs(10);
 
 // Block Metadata Configuration
-pub const BLOCK_METADATA_FINALIZATION_DELAY: u64 = 3;
+pub const BLOCK_METADATA_FINALIZATION_DELAY: u64 = 5;
 
 // Redis Configuration
 pub const REDIS_LOCK_TTL_SECS: usize = 10;

@@ -61,6 +61,8 @@ impl CheckpointSenderService {
         let latest_height = self.get_latest_height().await;
         let finalized_height = latest_height.saturating_sub(BLOCK_METADATA_FINALIZATION_DELAY);
         let local_height = self.get_local_height().await;
+        debug!("🆕 CheckpointSenderService: latest_height={}, finalized_height={}, local_height={}",
+            latest_height, finalized_height, local_height);
 
         if finalized_height <= local_height {
             debug!(
@@ -72,6 +74,8 @@ impl CheckpointSenderService {
 
         let checkpoint_leaves = self.fetch_checkpoint_range(local_height, finalized_height).await?;
 
+        debug!("checkpoint leaves fetched: {}", checkpoint_leaves.len());
+
         if checkpoint_leaves.is_empty() {
             warn!(
                 "⚠️ No checkpoint leaves fetched between {} and {}. Skipping send.",
@@ -80,8 +84,10 @@ impl CheckpointSenderService {
             return Ok(());
         }
 
+        debug!("🚀 Sending {} checkpoint leaves to API client...", checkpoint_leaves.len());
         self.api_client.send_checkpoint_leaves(checkpoint_leaves).await
             .map_err(|e| WatcherError::ApiClient(e.to_string()))?;
+        debug!("✅ Successfully sent checkpoint leaves to API client.");
 
         self.local_height.store(finalized_height, Ordering::Relaxed);
 
@@ -98,6 +104,9 @@ impl CheckpointSenderService {
     }
     async fn get_local_height(&self) -> u64 {
         self.local_height.load(Ordering::Relaxed)
+    }
+    async fn set_local_height(&self, new_height: u64) {
+        self.local_height.store(new_height, Ordering::Relaxed);
     }
 
     async fn fetch_checkpoint_range(

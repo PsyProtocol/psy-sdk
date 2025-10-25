@@ -396,9 +396,9 @@ impl WorkerEventProcessor {
             if max_checkpoint > current {
                 info!("Updating max checkpoint from {} to {}", current, max_checkpoint);
                 let r = self.set_current_checkpoint(max_checkpoint);
-                debug!("Max checkpoint updated result: {}", r);
+                debug!("⬆️ Max checkpoint updated result: {}", r);
             } else {
-                debug!("Max checkpoint remains at {}", current);
+                debug!("➡️  Max checkpoint remains at {}", current);
             }
         }
 
@@ -450,11 +450,31 @@ impl WorkerEventProcessor {
 
         Ok(rows)
     }
-
     /// Insert events into worker_job_events table
+    /// Alternative implementation without ON CONFLICT clause
     async fn insert_job_events(&self, checkpoint_id: i64, events: &[WorkerEventForProcessing]) -> Result<usize> {
         let mut tx = self.pool.begin().await?;
         let mut inserted_count = 0;
+
+        // First, get all existing job_ids for this checkpoint to avoid duplicates
+        let existing_job_ids: Vec<String> = sqlx::query_scalar!(
+            r#"
+            SELECT job_id::text
+            FROM worker_job_events
+            WHERE checkpoint_id = $1
+            "#,
+            checkpoint_id
+        )
+        .fetch_all(&mut *tx)
+        .await?
+        .into_iter()
+        .flatten()
+        .collect();
+
+        let existing_set: std::collections::HashSet<String> = existing_job_ids
+            .into_iter()
+            .map(|s| s.to_lowercase())
+            .collect();
 
         for batch in events.chunks(BATCH_SIZE) {
             for event in batch {
@@ -473,29 +493,50 @@ impl WorkerEventProcessor {
                     .and_then(|v| v.as_i64())
                     .unwrap_or(0) as i16;
 
-                let result = sqlx::query!(
-                    r#"
-                    INSERT INTO worker_job_events
-                        (worker_public_key, checkpoint_id, job_id, topic, circuit_type,
-                         duration, status, metadata, timestamp)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                    ON CONFLICT (checkpoint_id, job_id) DO NOTHING
-                    "#,
-                    worker_public_key,
+                // Check if this job_id already exists for this checkpoint
+                let job_id_str = event.job_id.to_string().to_lowercase();
+                if existing_set.contains(&job_id_str) {
+                    debug!(
+                    "Skipping duplicate job_id for checkpoint {}: {}",
                     checkpoint_id,
-                    event.job_id,
-                    topic,
-                    circuit_type,
-                    event.duration,
-                    event.status,
-                    event.metadata,
-                    event.timestamp
-                )
-                .execute(&mut *tx)
-                .await?;
+                    job_id_str
+                );
+                    continue;
+                }
 
-                if result.rows_affected() > 0 {
-                    inserted_count += 1;
+                // Insert the event
+                match sqlx::query!(
+                r#"
+                INSERT INTO worker_job_events
+                    (worker_public_key, checkpoint_id, job_id, topic, circuit_type,
+                     duration, status, metadata, timestamp)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                "#,
+                worker_public_key,
+                checkpoint_id,
+                event.job_id,
+                topic,
+                circuit_type,
+                event.duration,
+                event.status,
+                event.metadata,
+                event.timestamp
+            )
+            .execute(&mut *tx)
+            .await
+                {
+                    Ok(_) => {
+                        inserted_count += 1;
+                    }
+                    Err(e) => {
+                        // Log error but continue processing other events
+                        error!(
+                        "Failed to insert worker_job_event for checkpoint {} job_id {}: {}",
+                        checkpoint_id,
+                        job_id_str,
+                        e
+                    );
+                    }
                 }
             }
         }

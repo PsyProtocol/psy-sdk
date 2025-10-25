@@ -58,10 +58,19 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         JobStatusService::start_refresh_task(pool_for_job_status, 10).await;
     });
 
+
     tracing::info!("Starting checkpoint reward processing background task");
     let pool_for_checkpoint_rewards = pool.clone();
     tokio::spawn(async move {
         CheckpointRewardService::start_checkpoint_reward_task(pool_for_checkpoint_rewards, 30).await;
+    });
+
+    // Start worker event processor task (converts worker_events -> worker_job_events)
+    tracing::info!("Starting worker event processor background task");
+    let pool_for_processor = pool.clone();
+    tokio::spawn(async move {
+        use repositories::worker_event_processor::{WorkerEventProcessor, EventProcessorConfig};
+        WorkerEventProcessor::start_processing_task(pool_for_processor, EventProcessorConfig::default()).await;
     });
 
     // Create application router
