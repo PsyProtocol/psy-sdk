@@ -3,7 +3,6 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use crate::models::{CheckpointRewardAggregation, CheckpointRewardDistribution, CheckpointRewardSummary, CheckpointStats, CreateCheckpointRewardDistribution, CheckpointLeafStat, CreateWorkerJobEvent, WorkerCheckpointRewardStats, WorkerJobEvent};
 
-/// Repository for checkpoint statistics
 pub struct CheckpointStatsRepository;
 
 impl CheckpointStatsRepository {
@@ -215,8 +214,8 @@ impl WorkerJobEventRepository {
             end_time,
             limit
         )
-            .fetch_all(pool)
-            .await?;
+        .fetch_all(pool)
+        .await?;
 
         Ok(records)
     }
@@ -234,8 +233,8 @@ impl WorkerJobEventRepository {
             "#,
             checkpoint_id
         )
-            .fetch_one(pool)
-            .await?;
+        .fetch_one(pool)
+        .await?;
 
         Ok(result.count.unwrap_or(0))
     }
@@ -273,8 +272,8 @@ impl CheckpointRewardDistributionRepository {
             metadata,
             distribution.timestamp
         )
-            .fetch_one(pool)
-            .await?;
+        .fetch_one(pool)
+        .await?;
 
         Ok(record)
     }
@@ -311,8 +310,8 @@ impl CheckpointRewardDistributionRepository {
             "#,
             checkpoint_id
         )
-            .fetch_all(pool)
-            .await?;
+        .fetch_all(pool)
+        .await?;
 
         Ok(records)
     }
@@ -343,8 +342,8 @@ impl CheckpointRewardDistributionRepository {
             end_time,
             limit
         )
-            .fetch_all(pool)
-            .await?;
+        .fetch_all(pool)
+        .await?;
 
         Ok(records)
     }
@@ -374,8 +373,8 @@ impl CheckpointRewardDistributionRepository {
             "#,
             checkpoint_id
         )
-            .fetch_optional(pool)
-            .await?;
+        .fetch_optional(pool)
+        .await?;
 
         Ok(record.map(|r| CheckpointRewardSummary {
             checkpoint_id: r.checkpoint_id,
@@ -492,8 +491,8 @@ impl CheckpointRewardAggregationRepository {
             "#,
             worker_public_key
         )
-            .fetch_optional(pool)
-            .await?;
+        .fetch_optional(pool)
+        .await?;
 
         Ok(record.map(|r| WorkerCheckpointRewardStats {
             worker_public_key: r.worker_public_key,

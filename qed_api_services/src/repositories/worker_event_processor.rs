@@ -523,8 +523,8 @@ impl WorkerEventProcessor {
             rollback.discarded_events_count as i32,
             rollback.detected_at
         )
-            .execute(&self.pool)
-            .await?;
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
@@ -571,8 +571,8 @@ impl WorkerEventProcessor {
             events_count as i32,
             Utc::now()
         )
-            .execute(&self.pool)
-            .await?;
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
@@ -594,16 +594,12 @@ impl WorkerEventProcessor {
             error,
             Utc::now()
         )
-            .execute(&self.pool)
-            .await?;
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
 }
-
-// ============================================================================
-// Helper Structures
-// ============================================================================
 
 #[derive(Debug)]
 struct CheckpointResult {
@@ -612,56 +608,3 @@ struct CheckpointResult {
     events_by_status: HashMap<String, usize>,
     rollback_info: Option<RollbackInfo>,
 }
-
-// ============================================================================
-// Database Schema
-// ============================================================================
-
-/*
--- Add these tables to your API service database:
-
-CREATE TABLE IF NOT EXISTS checkpoint_processing_status (
-    checkpoint_id BIGINT PRIMARY KEY,
-    status VARCHAR(50) NOT NULL,
-    events_processed INT DEFAULT 0,
-    processed_at TIMESTAMPTZ,
-    error_message TEXT,
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_checkpoint_status ON checkpoint_processing_status(status);
-CREATE INDEX idx_checkpoint_processed ON checkpoint_processing_status(processed_at);
-
-CREATE TABLE IF NOT EXISTS rollback_detections (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    checkpoint_id BIGINT NOT NULL,
-    conflicting_slots BIGINT[] NOT NULL,
-    selected_slot BIGINT NOT NULL,
-    discarded_slots BIGINT[] NOT NULL,
-    affected_job_count INT NOT NULL,
-    detection_time TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_rollback_checkpoint ON rollback_detections(checkpoint_id);
-CREATE INDEX idx_rollback_time ON rollback_detections(detection_time);
-
-CREATE TABLE IF NOT EXISTS archived_worker_events (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    original_id UUID NOT NULL UNIQUE,
-    checkpoint_id BIGINT NOT NULL,
-    slot_id BIGINT NOT NULL,
-    worker_public_key VARCHAR(255) NOT NULL,
-    job_id JSONB NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    metadata JSONB,
-    archived_at TIMESTAMPTZ NOT NULL,
-    reason VARCHAR(100) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_archived_checkpoint ON archived_worker_events(checkpoint_id);
-CREATE INDEX idx_archived_slot ON archived_worker_events(slot_id);
-CREATE INDEX idx_archived_original ON archived_worker_events(original_id);
-*/
