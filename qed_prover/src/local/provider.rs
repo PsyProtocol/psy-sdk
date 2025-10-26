@@ -52,7 +52,7 @@ pub struct JobInfo {
 }
 
 use crate::{local::request::{
-    QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QLatestL2BlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, RequestParamsV2
+    QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QL2BlockStateRPCRequest, QLatestL2BlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2
 }, session::TxStatus};
 use crate::wallet::software_defined_circuit::{
     SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
@@ -464,7 +464,80 @@ impl RpcProvider {
             ResponseResult::Error(e) => {
                 tracing::error!("RPC call failed: {:?}", e);
                 Err(anyhow::format_err!(
-                    "get_latest_l2_block_state rpc call failed `{:?}`",
+                    "get_realm_latest_l2_block_state rpc call failed `{:?}`",
+                    e
+                ))
+            }
+        }
+    }
+
+    pub async fn get_realm_l2_block_state(
+        &self,
+        checkpoint_id: u64,
+    ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
+        tracing::info!("Fetching realm L2 block state at checkpoint {}", checkpoint_id);
+        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        let input = QL2BlockStateRPCRequest { checkpoint_id };
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<GoldilocksField>::GetL2BlockState(input),
+            QEDL2BlockState
+        );
+        match response.result {
+            ResponseResult::Success(block_state) => {
+                tracing::debug!(
+                    block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
+                    "Successfully fetched L2 block state"
+                );
+                Ok(block_state)
+            }
+            ResponseResult::Error(e) => {
+                tracing::error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!(
+                    "get_realm_l2_block_state rpc call failed `{:?}`",
+                    e
+                ))
+            }
+        }
+    }
+
+    pub async fn get_user_sub_tree_merkle_proof_inner(
+        &self,
+        rpc_url: &str,
+        checkpoint_id: u64,
+        root_level: u8,
+        leaf_level: u8,
+        leaf_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<GoldilocksField>>> {
+        let input = QUserSubTreeMerkleProofRPCRequest {
+            checkpoint_id,
+            root_level,
+            leaf_level,
+            leaf_index,
+        };
+        let response = qed_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<GoldilocksField>::GetUserSubTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<GoldilocksField>>
+        );
+        match response.result {
+            ResponseResult::Success(merkle_proof) => {
+                tracing::debug!(
+                    checkpoint_id = checkpoint_id,
+                    root_level = root_level,
+                    leaf_level = leaf_level,
+                    leaf_index = leaf_index,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
+                    "Successfully fetched merkle proof"
+                );
+                Ok(merkle_proof)
+            }
+            ResponseResult::Error(e) => {
+                tracing::error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!(
+                    "get_user_sub_tree_merkle_proof rpc call failed `{:?}`",
                     e
                 ))
             }
