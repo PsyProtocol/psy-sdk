@@ -44,20 +44,12 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         }
     };
 
-    // Start background reward processing task
-    // tracing::info!("Starting reward processing background task");
-    // let pool_for_rewards = pool.clone();
-    // tokio::spawn(async move {
-    //     RewardService::start_reward_processing_task(pool_for_rewards).await;
-    // });
-
     // Start job status refresh task (refresh every 10 seconds)
     tracing::info!("Starting job status refresh background task");
     let pool_for_job_status = pool.clone();
     tokio::spawn(async move {
         JobStatusService::start_refresh_task(pool_for_job_status, 10).await;
     });
-
 
     tracing::info!("Starting checkpoint reward processing background task");
     let pool_for_checkpoint_rewards = pool.clone();

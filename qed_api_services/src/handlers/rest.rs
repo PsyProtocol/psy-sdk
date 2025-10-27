@@ -58,7 +58,7 @@ pub fn create_router(api_service: ApiService) -> Router {
         .route("/stats/jobs/all-realms", get(all_realms_job_status_handler))
         .route("/stats/jobs/counts", get(job_counts_handler))
 
-        // Legacy Rewards (old system - consider deprecating)
+        // Legacy Rewards
         .route("/rewards/{worker_public_key}", get(worker_rewards_handler))
         .route("/rewards_aggregations/{worker_public_key}", get(worker_rewards_aggregations_handler))
 
@@ -663,10 +663,10 @@ async fn worker_rewards_aggregations_handler(
 
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
-        "1m" => "worker_rewards_1m",
         "1d" => "worker_rewards_1d",
         "1w" => "worker_rewards_1w",
-        "all_time" => "worker_rewards_all_time",
+        "1m" => "worker_rewards_1m",
+        "all_time" => "worker_rewards",
         _ => {
             tracing::warn!("Invalid bucket parameter: {}", query.bucket);
             return Err(StatusCode::BAD_REQUEST);

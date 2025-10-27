@@ -246,7 +246,7 @@ impl WorkerRewardsAggregationRepository {
         worker_public_key: &str,
     ) -> Result<i64> {
 
-        let view_name = "worker_rewards_all_time";
+        let view_name = "worker_rewards";
         let query = format!(
             r#"
             SELECT
