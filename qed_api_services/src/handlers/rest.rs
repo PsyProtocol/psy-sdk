@@ -12,6 +12,7 @@ use std::collections::HashMap;
 
 use crate::{models::*, repositories::*, services::ApiService};
 use crate::repositories::checkpoint_state::{CheckpointRewardDistributionRepository, CheckpointStatsRepository, WorkerJobEventRepository};
+use crate::repositories::rewards::WorkerRewardsRepository;
 use crate::services::{CheckpointRewardService, JobStatusService, TimePeriod};
 
 /// Parse order parameter from query string
@@ -80,8 +81,6 @@ pub fn create_router(api_service: ApiService) -> Router {
         .route("/checkpoint/rewards/{worker_public_key}/stats", get(get_worker_reward_stats_handler))
 
         // Admin Operations
-        .route("/admin/refresh-worker-aggregates", post(refresh_worker_rewards_aggregates_handler))
-        .route("/admin/refresh-checkpoint-aggregates", post(refresh_checkpoint_aggregates_handler))
         .route("/checkpoint/calculate-rewards/{checkpoint_id}", post(calculate_rewards_handler))
         .route("/admin/checkpoint-processing-status", get(checkpoint_processing_status_handler))
 
@@ -664,9 +663,10 @@ async fn worker_rewards_aggregations_handler(
 
     // Determine view name based on bucket interval
     let view_name = match query.bucket.as_str() {
+        "1m" => "worker_rewards_1m",
         "1d" => "worker_rewards_1d",
         "1w" => "worker_rewards_1w",
-        "1m" => "worker_rewards_1m",
+        "all_time" => "worker_rewards_all_time",
         _ => {
             tracing::warn!("Invalid bucket parameter: {}", query.bucket);
             return Err(StatusCode::BAD_REQUEST);
@@ -709,62 +709,6 @@ async fn worker_rewards_aggregations_handler(
 pub struct RefreshAggregatesRequest {
     pub aggregate_type: Option<String>, // Optional: specific aggregate to refresh, or all if not specified
 }
-
-/// Admin endpoint to manually refresh continuous aggregates
-async fn refresh_worker_rewards_aggregates_handler(
-    State(service): State<ApiService>,
-    Json(payload): Json<Option<RefreshAggregatesRequest>>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    tracing::info!("Manual aggregate refresh requested");
-
-    // Determine which aggregates to refresh
-    let aggregates_to_refresh = if let Some(req) = payload {
-        if let Some(specific_type) = req.aggregate_type {
-            match specific_type.as_str() {
-                "1d" => vec!["worker_rewards_1d"],
-                "1w" => vec!["worker_rewards_1w"],
-                "1m" => vec!["worker_rewards_1m"],
-                "all" => vec!["worker_rewards_1d", "worker_rewards_1w", "worker_rewards_1m"],
-                _ => {
-                    tracing::warn!("Invalid aggregate type requested: {}", specific_type);
-                    return Err(StatusCode::BAD_REQUEST);
-                }
-            }
-        } else {
-            vec!["worker_rewards_1d", "worker_rewards_1w", "worker_rewards_1m"]
-        }
-    } else {
-        vec!["worker_rewards_1d", "worker_rewards_1w", "worker_rewards_1m"]
-    };
-
-    let mut results = HashMap::new();
-    let mut success_count = 0;
-    let mut failure_count = 0;
-
-    for aggregate in aggregates_to_refresh {
-        match WorkerRewardsAggregationRepository::refresh_aggregate(&service.pool, aggregate).await {
-            Ok(_) => {
-                tracing::info!("Successfully refreshed {}", aggregate);
-                results.insert(aggregate.to_string(), "success".to_string());
-                success_count += 1;
-            }
-            Err(e) => {
-                tracing::error!("Failed to refresh {}: {}", aggregate, e);
-                results.insert(aggregate.to_string(), format!("failed: {}", e));
-                failure_count += 1;
-            }
-        }
-    }
-
-    Ok(Json(serde_json::json!({
-        "message": "Aggregate refresh completed",
-        "success_count": success_count,
-        "failure_count": failure_count,
-        "results": results,
-        "timestamp": Utc::now().to_rfc3339()
-    })))
-}
-
 
 
 // Query parameters for job status endpoint
@@ -1059,28 +1003,7 @@ pub async fn get_worker_reward_stats_handler(
     }
 }
 
-/// POST /checkpoint/aggregates/refresh - Manually refresh continuous aggregates
-pub async fn refresh_checkpoint_aggregates_handler(
-    State(service): State<ApiService>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    tracing::info!("Manual refresh of checkpoint reward aggregates requested");
 
-    let reward_service = CheckpointRewardService::new(service.pool.clone());
-
-    match reward_service.refresh_all_aggregates().await {
-        Ok(_) => {
-            let response = serde_json::json!({
-                "message": "Successfully refreshed all checkpoint reward aggregates",
-                "timestamp": Utc::now().to_rfc3339()
-            });
-            Ok(Json(response))
-        }
-        Err(e) => {
-            tracing::error!("Failed to refresh aggregates: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
 
 /// GET /checkpoint/job-events/:checkpoint_id - Get job events for a checkpoint
 pub async fn get_checkpoint_job_events_handler(

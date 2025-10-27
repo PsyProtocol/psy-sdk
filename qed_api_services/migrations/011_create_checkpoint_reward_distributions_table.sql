@@ -55,3 +55,62 @@ COMMENT ON COLUMN checkpoint_reward_distributions.job_id IS 'Reference to the sp
 COMMENT ON COLUMN checkpoint_reward_distributions.reward_amount IS 'Calculated reward for THIS SINGLE JOB: total_fees_at_checkpoint / total_jobs_at_checkpoint';
 COMMENT ON COLUMN checkpoint_reward_distributions.total_fees_at_checkpoint IS 'Total fees collected at this checkpoint (stored for reference and auditing)';
 COMMENT ON COLUMN checkpoint_reward_distributions.total_jobs_at_checkpoint IS 'Total number of jobs at this checkpoint (stored for reference and auditing)';
+
+
+-- Function to update worker_rewards aggregate table when checkpoint rewards are distributed
+CREATE OR REPLACE FUNCTION update_worker_rewards_from_distribution()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Insert or update the worker_rewards aggregate
+INSERT INTO worker_rewards (
+    worker_public_key,
+    total_jobs_completed,
+    total_rewards,
+    checkpoints_participated,
+    first_reward_time,
+    last_reward_time,
+    max_checkpoint
+)
+SELECT
+    NEW.worker_public_key,
+    COUNT(DISTINCT job_id),
+    SUM(reward_amount),
+    COUNT(DISTINCT checkpoint_id),
+    MIN(timestamp),
+    MAX(timestamp),
+    MAX(checkpoint_id)
+FROM checkpoint_reward_distributions
+WHERE worker_public_key = NEW.worker_public_key
+    ON CONFLICT (worker_public_key) DO UPDATE SET
+        total_jobs_completed = (
+           SELECT COUNT(DISTINCT job_id)
+           FROM checkpoint_reward_distributions
+           WHERE worker_public_key = NEW.worker_public_key
+       ),
+       total_rewards = (
+           SELECT SUM(reward_amount)
+           FROM checkpoint_reward_distributions
+           WHERE worker_public_key = NEW.worker_public_key
+       ),
+       checkpoints_participated = (
+           SELECT COUNT(DISTINCT checkpoint_id)
+           FROM checkpoint_reward_distributions
+           WHERE worker_public_key = NEW.worker_public_key
+       ),
+       first_reward_time = LEAST(worker_rewards.first_reward_time, NEW.timestamp),
+       last_reward_time = GREATEST(worker_rewards.last_reward_time, NEW.timestamp),
+       max_checkpoint = GREATEST(worker_rewards.max_checkpoint, NEW.checkpoint_id),
+       updated_at = NOW();
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to automatically update worker_rewards when distributions are inserted
+CREATE TRIGGER trigger_update_worker_rewards
+    AFTER INSERT ON checkpoint_reward_distributions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_worker_rewards_from_distribution();
+
+COMMENT ON FUNCTION update_worker_rewards_from_distribution() IS
+'Automatically updates worker_rewards aggregate table when new checkpoint reward distributions are inserted';

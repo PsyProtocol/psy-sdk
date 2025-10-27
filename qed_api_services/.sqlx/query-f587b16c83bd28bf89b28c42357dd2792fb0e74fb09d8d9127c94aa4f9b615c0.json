@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                COUNT(CASE WHEN checkpoint_id < $2 THEN 1 END)::BIGINT as claimed_proofs,\n                COUNT(CASE WHEN checkpoint_id >= $2 THEN 1 END)::BIGINT as unclaimed_proofs,\n                COUNT(*)::BIGINT as total_proofs,\n                COALESCE(SUM(CASE WHEN checkpoint_id < $2 THEN reward_amount END), 0)::BIGINT as claimed_rewards,\n                COALESCE(SUM(CASE WHEN checkpoint_id >= $2 THEN reward_amount END), 0)::BIGINT as unclaimed_rewards,\n                COALESCE(SUM(reward_amount), 0)::BIGINT as total_rewards\n            FROM worker_event_rewards\n            WHERE public_key = $1\n            ",
+  "query": "\n            SELECT\n                COUNT(DISTINCT CASE WHEN checkpoint_id < $2 THEN job_id END)::BIGINT as claimed_proofs,\n                COUNT(DISTINCT CASE WHEN checkpoint_id >= $2 THEN job_id END)::BIGINT as unclaimed_proofs,\n                COUNT(DISTINCT job_id)::BIGINT as total_proofs,\n                COALESCE(SUM(CASE WHEN checkpoint_id < $2 THEN reward_amount END), 0)::BIGINT as claimed_rewards,\n                COALESCE(SUM(CASE WHEN checkpoint_id >= $2 THEN reward_amount END), 0)::BIGINT as unclaimed_rewards,\n                COALESCE(SUM(reward_amount), 0)::BIGINT as total_rewards\n            FROM checkpoint_reward_distributions\n            WHERE worker_public_key = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -49,5 +49,5 @@
       null
     ]
   },
-  "hash": "662c78080aefcb4516096641302d2ef2603844b7b279e99c8472985c5809387e"
+  "hash": "f587b16c83bd28bf89b28c42357dd2792fb0e74fb09d8d9127c94aa4f9b615c0"
 }

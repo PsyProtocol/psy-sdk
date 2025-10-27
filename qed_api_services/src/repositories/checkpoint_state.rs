@@ -445,31 +445,6 @@ impl CheckpointRewardAggregationRepository {
         Ok(aggregations)
     }
 
-    /// Force refresh a continuous aggregate
-    pub async fn refresh_aggregate(pool: &PgPool, view_name: &str) -> Result<()> {
-        let valid_views = vec![
-            "checkpoint_rewards_2m",
-            "checkpoint_rewards_1h",
-            "checkpoint_rewards_1d",
-            "checkpoint_rewards_1w",
-            "checkpoint_rewards_1m",
-        ];
-
-        if !valid_views.contains(&view_name) {
-            return Err(anyhow::anyhow!("Invalid view name: {}", view_name));
-        }
-
-        let query = format!(
-            "CALL refresh_continuous_aggregate('{}', NULL, NULL)",
-            view_name
-        );
-
-        sqlx::query(&query).execute(pool).await?;
-
-        tracing::info!("Successfully refreshed continuous aggregate: {}", view_name);
-        Ok(())
-    }
-
     /// Get worker reward statistics across all time
     pub async fn get_worker_stats(
         pool: &PgPool,

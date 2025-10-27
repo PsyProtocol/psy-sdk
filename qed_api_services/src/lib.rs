@@ -11,7 +11,7 @@ pub use config::Config;
 pub type Result<T> = anyhow::Result<T>;
 
 use axum::Router;
-use services::{create_database_pool, ApiService, RewardService};
+use services::{create_database_pool, ApiService};
 use tokio::signal;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use crate::services::{CheckpointRewardService, JobStatusService};
@@ -45,11 +45,11 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     };
 
     // Start background reward processing task
-    tracing::info!("Starting reward processing background task");
-    let pool_for_rewards = pool.clone();
-    tokio::spawn(async move {
-        RewardService::start_reward_processing_task(pool_for_rewards).await;
-    });
+    // tracing::info!("Starting reward processing background task");
+    // let pool_for_rewards = pool.clone();
+    // tokio::spawn(async move {
+    //     RewardService::start_reward_processing_task(pool_for_rewards).await;
+    // });
 
     // Start job status refresh task (refresh every 10 seconds)
     tracing::info!("Starting job status refresh background task");
