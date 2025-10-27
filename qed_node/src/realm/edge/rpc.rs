@@ -8,6 +8,7 @@ use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
 use qed_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
+use qed_prover::session::TxStatus;
 
 #[rpc(server, client, namespace = "qed")]
 pub trait RealmEdgeRpc {
@@ -22,6 +23,13 @@ pub trait RealmEdgeRpc {
         user_ec_input: SubmitUserEndCapNonProofInput<F>,
         proof: ProofWithPublicInputs<F, C, D>,
     ) -> RpcResult<String>;
+
+    #[method(name = "get_tx_status")]
+    async fn get_tx_status(
+        &self,
+        user_id: u64,
+        nonce: u64,
+    ) -> RpcResult<TxStatus>;
 
     #[method(name = "get_checkpoint_leaf_data")]
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64)
