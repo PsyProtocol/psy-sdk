@@ -232,7 +232,7 @@ impl<
 
         let proof_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
-            u64::MAX,// todo fix bug
+            next_checkpoint_id,
             0,
             self.realm_config.realm_id,
             user_id_u64 as u32,
