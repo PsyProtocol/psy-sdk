@@ -529,13 +529,14 @@ impl WorkerEventProcessor {
                         inserted_count += 1;
                     }
                     Err(e) => {
-                        // Log error but continue processing other events
-                        error!(
-                        "Failed to insert worker_job_event for checkpoint {} job_id {}: {}",
-                        checkpoint_id,
-                        job_id_str,
-                        e
-                    );
+                        warn!(
+                            "⚠️ Failed to insert worker_job_event for checkpoint {} job_id {}: {}",
+                            checkpoint_id,
+                            job_id_str,
+                            e
+                        );
+                        tx.rollback().await?;
+                        return Err(e.into());
                     }
                 }
             }
