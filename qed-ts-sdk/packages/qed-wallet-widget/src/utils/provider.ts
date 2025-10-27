@@ -8,8 +8,8 @@ import {
     RpcConfig,
 } from "@qed/qed-sdk";
 
-import { QedUserWalletProvider } from "@qed/qed-sdk/src/wallet/provider";
-import { QedMemoryTransactionSignerProvider } from "@qed/qed-sdk/src/zksigner/memory/provider";
+import { QedUserWalletProvider } from "@qed/qed-sdk";
+import { QedMemoryTransactionSignerProvider } from "@qed/qed-sdk";
 
 function createMemoryWalletProvider(
     globalUserTreeHeight: number,
