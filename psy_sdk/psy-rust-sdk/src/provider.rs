@@ -77,16 +77,17 @@ use super::request::{
     QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
 };
 use crate::{
-    local::request::{
+    request::{
         QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest,
         QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest,
         QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest,
         QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2,
         QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
     },
-    session::TxStatus,
-    wallet::software_defined_circuit::{SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput},
+    wallet::software_defined_circuit::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput, SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput},
 };
+
+use crate::session::TxStatus;
 
 #[derive(Debug, Clone)]
 pub struct RpcProvider {
@@ -1309,7 +1310,6 @@ where
         tracing::info!("register_software_defined_circuit: ");
         let input = match input {
             SoftwareDefinedSignatureInput::Psy(input) => input,
-            SoftwareDefinedSignatureInput::PLONKY2(_) => unimplemented!(),
         };
         let response = psy_rpc_call_back!(
             self,
@@ -1336,7 +1336,6 @@ where
         tracing::info!("prove_software_defined_sign:");
         let input = match input {
             SoftwareDefinedSignatureWitnessInput::Psy(input) => input,
-            SoftwareDefinedSignatureWitnessInput::PLONKY2(_) => unimplemented!(),
         };
         let response = psy_rpc_call_back!(
             self,

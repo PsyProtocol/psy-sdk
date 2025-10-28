@@ -44,12 +44,13 @@ use psy_node::{
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
 use psy_prover::{
-    local::provider::UPSCircuitManagerTrait,
+
     ups::{
         circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
         session::UserProvingSessionManager,
     },
 };
+use psy_rust_sdk::provider::UPSCircuitManagerTrait;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{

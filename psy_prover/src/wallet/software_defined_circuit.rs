@@ -31,12 +31,15 @@ use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_rust_sdk::{
+    provider::RpcProvider,
+    wallet::software_defined_circuit::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput},
+};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::{
     dpn::vm::compile::PsyContractFunctionBuilderGadget,
-    local::provider::RpcProvider,
     wallet::simple_sign::{SoftwareDefinedSignTrait, StateReader, StateReaderGadget},
 };
 
@@ -158,6 +161,7 @@ pub enum SoftwareDefinedSignatureGadget {
     PLONKY2(PSoftwareDefinedSignatureGadget),
 }
 
+// Extended enum that includes prover-specific PLONKY2 variant  
 #[derive(Debug)]
 pub enum SoftwareDefinedSignatureInput {
     Psy(QSoftwareDefinedSignatureInput),
@@ -167,16 +171,13 @@ pub enum SoftwareDefinedSignatureInput {
 type C = PoseidonGoldilocksConfig;
 type GF = GoldilocksField;
 const D: usize = 2;
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-pub struct QSoftwareDefinedSignatureWitnessInput {
-    pub cfc_input: DapenContractFunctionCircuitInput<GF>,
-}
 
 #[derive(Debug, Clone)]
 pub struct PSoftwareDefinedSignatureWitnessInput {
     pub state_reader: StateReader<GF, D, RpcProvider>,
     pub circuit_inputs: Vec<GF>,
 }
+// Extended enum that includes prover-specific PLONKY2 variant
 #[derive(Debug)]
 pub enum SoftwareDefinedSignatureWitnessInput {
     Psy(QSoftwareDefinedSignatureWitnessInput),
@@ -190,14 +191,6 @@ pub struct QSoftwareDefinedSignatureGadget {
     pub circuit_inputs: Vec<Target>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-pub struct QSoftwareDefinedSignatureInput {
-    pub fn_def: DPNFunctionCircuitDefinition,
-    pub contract_id: u64,
-    pub contract_state_tree_height: u8,
-    pub session_proof_tree_height: u8,
-    pub force_four_align: bool,
-}
 
 #[derive(Debug, Clone)]
 pub struct PSoftwareDefinedSignatureInput {

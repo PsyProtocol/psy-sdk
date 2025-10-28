@@ -13,12 +13,12 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     local::{
-        args::{ContractCallArgs, JobInfo, SignType},
-        provider::RpcConfig,
+        args::{ContractCallArgs, SignType},
         store::UserProverWorkerStore,
     },
     session::{WalletKeyPair, WalletSession},
 };
+use psy_rust_sdk::provider::{JobInfo, RpcConfig};
 
 // pub mod wallet_session;
 

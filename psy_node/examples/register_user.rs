@@ -7,7 +7,7 @@ use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
-use psy_prover::local::request::{Id, QRegisterUserRPCRequest, RequestParams, RpcRequest, Version};
+use psy_rust_sdk::request::{Id, QRegisterUserRPCRequest, RequestParams, RpcRequest, Version};
 use rand::Rng;
 use reqwest::Client;
 

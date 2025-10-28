@@ -381,7 +381,7 @@ fn compress_public_key(public_key: &[u8]) -> Result<CompressedPublicKey> {
 }
 
 fn compute_wallet_id(compressed: CompressedPublicKey) -> QHashOut<GoldilocksField> {
-    crate::wallet::utils::hash_no_pad_compressed_public_key::<GoldilocksField, PoseidonPermutation<GoldilocksField>>(compressed)
+    psy_crypto::signature::secp256k1::wallet::hash_no_pad_compressed_public_key::<GoldilocksField, PoseidonPermutation<GoldilocksField>>(compressed)
 }
 
 fn create_vanity_matcher(prefix: Option<&str>, suffix: Option<&str>) -> impl Fn(&Address) -> bool {

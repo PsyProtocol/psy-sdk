@@ -14,9 +14,10 @@ use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tokio::time::timeout;
+use psy_rust_sdk::provider::RpcProvider;
 
 use crate::{
-    local::{args::ContractCallArgs, provider::RpcProvider, store::UserProverWorkerStore},
+    local::{args::ContractCallArgs, store::UserProverWorkerStore},
     session::{WalletKeyPair, WalletSession},
 };
 

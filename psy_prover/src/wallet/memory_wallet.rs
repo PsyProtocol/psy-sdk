@@ -29,9 +29,10 @@ use psy_crypto::{
 use psy_data::{config::store_config::PsyHasher, qstore::imm::cmd_processor::PsyReadCommandProcessorSync};
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_rust_sdk::provider::UPSCircuitManagerTrait;
 
 use crate::{
-    local::{args::SignType, provider::UPSCircuitManagerTrait},
+    local::args::SignType,
     ups::{circuit_manager, circuit_manager::core::QCircuitManager},
     wallet::{
         simple_sign::StateReader,
@@ -39,7 +40,6 @@ use crate::{
             get_sdc_public_key_param, QSoftwareDefinedSignatureGadget, SoftwareDefinedSignature, SoftwareDefinedSignatureCircuit,
             SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureInput,
         },
-        utils::hash_no_pad_compressed_public_key,
     },
 };
 
@@ -133,14 +133,14 @@ impl PsyMemoryWallet {
     }
 
     pub fn get_secp_public_key(&self, private_key: QHashOut<F>) -> anyhow::Result<CompressedPublicKey> {
-        super::utils::get_secp_public_key(private_key)
+        psy_crypto::signature::secp256k1::wallet::get_secp_public_key(private_key)
     }
 
     pub async fn get_secp_pk_info(&self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
         let pub_compressed = self.get_secp_public_key(private_key)?;
         tracing::info!("get secp public key {:?}", pub_compressed);
 
-        let public_key_params = hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(pub_compressed);
+        let public_key_params = psy_crypto::signature::secp256k1::wallet::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(pub_compressed);
 
         Ok(ZKPublicKeyInfo {
             fingerprint: self.random_circuit_manager().secp_circuit_fingerprint().await?,
@@ -218,7 +218,16 @@ impl PsyMemoryWallet {
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl PsyMemoryWallet {
     pub async fn register_software_defined_circuit(&mut self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<F>> {
-        self.random_circuit_manager().register_software_defined_circuit(input).await
+        // Convert prover's enum to SDK's enum
+        let sdk_input = match input {
+            SoftwareDefinedSignatureInput::Psy(psy_input) => {
+                psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureInput::Psy(psy_input)
+            }
+            SoftwareDefinedSignatureInput::PLONKY2(_) => {
+                anyhow::bail!("PLONKY2 variant not supported for SDK integration")
+            }
+        };
+        self.random_circuit_manager().register_software_defined_circuit(sdk_input).await
         // if let QCircuitManager::Rpc(rpc_provider) =
         // self.random_circuit_manager() {     return
         // rpc_provider.register_software_defined_circuit(input).await;
@@ -321,7 +330,7 @@ mod tests {
         use psy_crypto::hash::traits::hasher::FieldQHasher;
         use psy_data::config::store_config::PsyHasher;
 
-        let public_key_param = crate::wallet::utils::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
+        let public_key_param = psy_crypto::signature::secp256k1::wallet::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
             psy_core::data::secp256k1::CompressedPublicKey(compressed_pk),
         );
         let message_hash: QHashOut<F> = QHashOut::from(Hash256::from(sig_hash));
@@ -399,7 +408,7 @@ mod tests {
         use psy_data::config::store_config::PsyHasher;
 
         // Get public key param the same way as in memory wallet
-        let public_key_param = crate::wallet::utils::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
+        let public_key_param = psy_crypto::signature::secp256k1::wallet::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
             psy_core::data::secp256k1::CompressedPublicKey(secp_signature.public_key),
         );
         let message_hash: QHashOut<F> = QHashOut::from(secp_signature.message);

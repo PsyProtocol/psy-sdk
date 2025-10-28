@@ -74,7 +74,8 @@ use psy_vm::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctio
 use serde::Serialize;
 
 use super::circuit_manager::core::PsyUPSStepCircuitManager;
-use crate::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::provider::UPSCircuitManagerTrait, ups::circuit_manager::core::QCircuitManager};
+use crate::{dpn::circuits::cfc::DapenContractFunctionCircuit, ups::circuit_manager::core::QCircuitManager};
+use psy_rust_sdk::provider::UPSCircuitManagerTrait;
 
 const UPS_STEP_LEAF_TYPE: u64 = 1;
 const CFC_LEAF_TYPE: u64 = 2;

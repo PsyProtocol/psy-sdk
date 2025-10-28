@@ -1,7 +1,8 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
-use psy_prover::local::{args::SignType, provider::RpcConfig};
+use psy_prover::local::args::SignType;
+use psy_rust_sdk::provider::RpcConfig;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 #[derive(Clone, Args)]

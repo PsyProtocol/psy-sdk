@@ -1,8 +1,7 @@
 [package]
 edition = "2021"
-name    = "psy_prover"
+name    = "psy_rust_sdk"
 version = "0.1.0"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
@@ -34,7 +33,6 @@ psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 psy_exec = { workspace = true, default-features = false }
 psy_store = { workspace = true, default-features = false }
-psy_rust_sdk = { path = "../psy_sdk/psy-rust-sdk" }
 psylang_macros = { workspace = true }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }

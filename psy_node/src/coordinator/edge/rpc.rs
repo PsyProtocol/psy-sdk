@@ -18,8 +18,8 @@ use psy_data::{
         user::PsyUserLeaf,
     },
 };
-// Import the request types from psy_prover
-use psy_prover::local::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
+// Import the request types from psy_rust_sdk
+use psy_rust_sdk::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
 
 use super::types::LatestCheckpointResponse;
 use crate::common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator, RealmDataForCoordinator};

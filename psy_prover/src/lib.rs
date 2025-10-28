@@ -48,6 +48,7 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     use jsonrpsee::server::Server;
     use parking_lot::{Mutex, RwLock};
     use psy_core::data::base_types::hash256::Hash256;
+    use psy_rust_sdk::provider::RpcConfig;
     use tower_http::cors::{Any, CorsLayer};
 
     use crate::{
@@ -55,7 +56,6 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
         local::{
             common::enc::SimpleZeroPadEncryptionHelper,
             native::{RpcServer, RpcServerImpl},
-            provider::RpcConfig,
             UserProverWorkerStore,
         },
         session::WalletSession,
@@ -97,8 +97,9 @@ pub async fn run_prove_proxy_server(args: crate::local::args::ProveProxyArgs) ->
 
     use crate::{
         health::HealthLayer,
-        local::{native::prove_proxy::ProveProxyRpcServer, provider::RpcConfig},
+        local::native::prove_proxy::ProveProxyRpcServer,
     };
+    use psy_rust_sdk::provider::RpcConfig;
 
     let config_str = std::fs::read_to_string(&args.rpc_config)?;
     let json_value: serde_json::Value = serde_json::from_str(&config_str)?;

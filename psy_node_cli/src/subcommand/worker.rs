@@ -30,7 +30,8 @@ use psy_node::{
         run_worker,
     },
 };
-use psy_prover::{ups::circuit_manager::core::PsyUPSStepCircuitManager, wallet::secp_wallet::Wallet};
+use psy_prover::ups::circuit_manager::core::PsyUPSStepCircuitManager;
+use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use tokio::{sync::Mutex, time::sleep};
 use tracing::{error, info, log::warn};
 
@@ -63,7 +64,7 @@ pub async fn run(
     info!("Loading config from: {}", config);
 
     let config_str = fs::read_to_string(&config)?;
-    let config: psy_prover::local::provider::Config = serde_json::from_str(&config_str)?;
+    let config: psy_rust_sdk::provider::Config = serde_json::from_str(&config_str)?;
 
     let wallet = Wallet::load(
         private_key.as_deref(),

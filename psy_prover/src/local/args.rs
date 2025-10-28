@@ -77,7 +77,7 @@ pub struct ProveProxyArgs {
     pub rpc_config: String,
 }
 
-pub use crate::local::provider::{JobInfo, JobLocation};
+pub use psy_rust_sdk::provider::{JobInfo, JobLocation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmJobData {

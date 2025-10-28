@@ -7,16 +7,14 @@ use psy_core::{
 };
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use psy_prover::{
-    local::{
-        args::{ContractCallArgs, SignData, SignType, WalletSessionArgs},
-        provider::RpcConfig,
-    },
+    local::args::{ContractCallArgs, SignData, SignType, WalletSessionArgs},
     session::WalletSession,
     wallet::{
         simple_sign::SoftwareDefinedSignGadget,
-        software_defined_circuit::{PSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureInput, SoftwareDefinedSignatureInput},
+        software_defined_circuit::{PSoftwareDefinedSignatureInput, SoftwareDefinedSignatureInput},
     },
 };
+use psy_rust_sdk::{provider::RpcConfig, wallet::software_defined_circuit::QSoftwareDefinedSignatureInput};
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 

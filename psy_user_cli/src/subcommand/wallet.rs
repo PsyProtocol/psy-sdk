@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
-use psy_prover::wallet::secp_wallet::Wallet;
+use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use rpassword::read_password;
 use tracing::info;
 

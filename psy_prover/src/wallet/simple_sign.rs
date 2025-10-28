@@ -54,7 +54,7 @@ use psy_vm::dpn::ops::state_cmd::data::{
     DPNStateCmdGetSelfUserExternalContractStateSlotHash,
 };
 
-use crate::local::provider::RpcProvider;
+use psy_rust_sdk::provider::RpcProvider;
 
 #[derive(Debug)]
 pub struct StateReaderGadget<F: RichField + Extendable<D>, const D: usize> {

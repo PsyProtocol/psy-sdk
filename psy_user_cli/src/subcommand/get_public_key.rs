@@ -15,8 +15,9 @@ use psy_data::config::store_config::PsyHasher;
 use psy_prover::{
     local::args::SignType,
     ups::circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
-    wallet::{memory_wallet::PsyMemoryWallet, secp_wallet::Wallet},
+    wallet::memory_wallet::PsyMemoryWallet,
 };
+use psy_rust_sdk::wallet::secp_wallet::Wallet;
 
 use super::args::GetPublicKeyArgs;
 

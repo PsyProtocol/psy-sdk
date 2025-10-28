@@ -23,12 +23,11 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
 use psy_prover::{
-    local::{
-        args::{ContractCallArgs, JobInfo, JobLocation, SignData, SignType, WorkerJobTracker},
-        provider::{RpcConfig, RpcProvider},
-    },
+    local::args::{ContractCallArgs, SignData, SignType},
     session::WalletSession,
 };
+use psy_rust_sdk::provider::{JobInfo, JobLocation, RpcConfig, RpcProvider};
+use psy_node::worker::job_tracker::WorkerJobTracker;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{info, warn};

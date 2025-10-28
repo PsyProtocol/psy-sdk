@@ -13,12 +13,10 @@ use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable as _;
 use psy_data::config::store_config::PsyHasher;
 use psy_prover::{
-    local::{
-        args::{ContractCallArgs, SignType},
-        provider::RpcConfig,
-    },
+    local::args::{ContractCallArgs, SignType},
     session::session::WalletSession,
 };
+use psy_rust_sdk::provider::RpcConfig;
 use tracing::{error, info, warn};
 
 use crate::subcommand::{

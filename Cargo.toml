@@ -29,6 +29,7 @@ members = [
     "psy_compiler/psy-package",
     "psy_compiler/psy-dargo-cli",
     "psy_services",
+    "psy_sdk/psy-rust-sdk",
 ]
 resolver = "2"
 
@@ -252,6 +253,8 @@ psy-package = { path = "./psy_compiler/psy-package" }
 dargo = { path = "./psy_compiler/psy-dargo-cli" }
 psy-abi = { path = "./psy_compiler/psy-abi" }
 psy_services = { path = "./psy_services" }
+psy_rust_sdk = { path = "./psy_sdk/psy-rust-sdk" }
+
 serial_test = "3.2"
 
 shadow-rs = "0.27.1"

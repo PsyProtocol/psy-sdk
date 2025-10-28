@@ -32,12 +32,13 @@ use psy_data::{
 use psy_network_circuit::guta::guta_helper::PsyGUTACircuitManager;
 use psy_prover::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
-    local::{provider::UPSCircuitManagerTrait, simple::SimpleAPI},
+    local::simple::SimpleAPI,
     ups::{
         circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
         session::UserProvingSessionManager,
     },
 };
+use psy_rust_sdk::provider::UPSCircuitManagerTrait;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},

@@ -9,12 +9,12 @@ use psy_core::{config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT, data::
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::config::store_config::{PsyHasher, C, D};
 use psy_prover::{
-    local::{
-        args::ContractCallArgs,
-        provider::{QUserRpcProvider, RpcProvider},
-        request::QDeployContractRPCRequest,
-    },
+    local::args::ContractCallArgs,
     session::{gen_contract_deploy_and_circuits_for_functions, WalletSession},
+};
+use psy_rust_sdk::{
+    provider::{QUserRpcProvider, RpcProvider},
+    request::QDeployContractRPCRequest,
 };
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use scheduled_thread_pool::ScheduledThreadPool;

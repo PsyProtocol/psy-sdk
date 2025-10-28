@@ -46,7 +46,7 @@ use psy_data::{
     },
 };
 use psy_network_circuit::verify_witness::verify_witness_and_proof;
-use psy_prover::{session::TxStatus, wallet::secp_sign::SignedRequest};
+use psy_rust_sdk::{session::TxStatus, wallet::secp_sign::SignedRequest};
 use psy_store::{
     node::realm::PsyRealmStoreReaderAsync,
     queue::{

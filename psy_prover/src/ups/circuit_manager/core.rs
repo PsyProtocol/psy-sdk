@@ -53,14 +53,14 @@ use psy_network_circuit::ups::circuits::{
 };
 use psy_vm::dpn::contract::cfc_code_definition_to_dapen_fc;
 use serde::Serialize;
+use psy_rust_sdk::{
+    provider::{ProveProxyRpcProvider, UPSCircuitManagerTrait},
+    request::QAggProofRecord,
+};
 
 use crate::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
-    local::{
-        provider::{ProveProxyRpcProvider, UPSCircuitManagerTrait},
-        request::QAggProofRecord,
-    },
-    wallet::software_defined_circuit::{SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput},
+    local::{},
 };
 
 #[derive(Debug)]
@@ -354,7 +354,7 @@ where
         self.secp_circuit.prove(&signature)
     }
 
-    async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
+    async fn register_software_defined_circuit(&self, input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
         unimplemented!("register_software_defined_circuit");
     }
 
@@ -362,7 +362,7 @@ where
         &self,
         fingerprint: QHashOut<C::F>,
         private_key: QHashOut<C::F>,
-        input: SoftwareDefinedSignatureWitnessInput,
+        input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureWitnessInput,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         unimplemented!("prove_software_defined_sign");
@@ -780,7 +780,7 @@ where
         }
     }
 
-    async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
+    async fn register_software_defined_circuit(&self, input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
         match self {
             QCircuitManager::Local(_) => unreachable!(),
             QCircuitManager::Rpc(provider) => provider.register_software_defined_circuit(input).await,
@@ -791,7 +791,7 @@ where
         &self,
         fingerprint: QHashOut<C::F>,
         private_key: QHashOut<C::F>,
-        input: SoftwareDefinedSignatureWitnessInput,
+        input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureWitnessInput,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self {

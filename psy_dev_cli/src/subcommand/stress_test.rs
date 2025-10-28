@@ -12,10 +12,8 @@ use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use psy_node::common::slot::{LocalClock, Slot, SLOT_SIZE};
-use psy_prover::{
-    local::provider::{QUserRpcProvider, RpcConfig, RpcProvider},
-    session::WalletSession,
-};
+use psy_prover::session::WalletSession;
+use psy_rust_sdk::provider::{QUserRpcProvider, RpcConfig, RpcProvider};
 use tracing::{error, info};
 
 use crate::subcommand::StressTestArgs;

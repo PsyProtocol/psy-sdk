@@ -4,7 +4,7 @@ use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use psy_prover::local::provider::RpcProvider;
+use psy_rust_sdk::provider::RpcProvider;
 
 use crate::subcommand::args::CheckTxArgs;
 

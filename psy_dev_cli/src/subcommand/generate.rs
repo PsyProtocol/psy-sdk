@@ -24,7 +24,7 @@ pub struct Config {
     pub global_api_services: Option<GlobalApiServices>,
 }
 
-pub use psy_prover::local::provider::{CoordinatorConfig, NetworkConfig, RealmConfig};
+pub use psy_rust_sdk::provider::{CoordinatorConfig, NetworkConfig, RealmConfig};
 
 use crate::subcommand::launch::ensure_worker_config_file;
 

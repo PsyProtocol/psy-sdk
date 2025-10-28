@@ -22,6 +22,7 @@ psy_core = { workspace = true }
 psy_vm = { workspace = true }
 psy_prover = { workspace = true, default-features = false}
 psy_data = { workspace = true }
+psy_rust_sdk = { workspace = true }
 psy_node = { workspace = true }
 psy_node_utils = { workspace = true }
 psy_services = { workspace = true }

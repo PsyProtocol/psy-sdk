@@ -17,20 +17,21 @@ use psy_crypto::{
 };
 use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
 use psy_prover::{
-    local::{
-        args::SignType,
-        provider::{QUserRpcProvider, RpcProvider},
-        request::QRegisterUserRPCRequest,
-    },
+    local::args::SignType,
     wallet::{
         simple_sign::SoftwareDefinedSignGadget,
         software_defined_circuit::{
-            get_sdc_public_key_param, PSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureInput, SoftwareDefinedSignatureCircuit,
+            get_sdc_public_key_param, PSoftwareDefinedSignatureInput, SoftwareDefinedSignatureCircuit,
             SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureInput,
         },
-        utils::{get_secp_public_key, hash_no_pad_compressed_public_key},
     },
 };
+use psy_rust_sdk::{
+    provider::{QUserRpcProvider, RpcProvider},
+    request::QRegisterUserRPCRequest,
+};
+use psy_crypto::signature::secp256k1::wallet::{get_secp_public_key, hash_no_pad_compressed_public_key};
+use psy_rust_sdk::wallet::software_defined_circuit::QSoftwareDefinedSignatureInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::subcommand::args::RegisterUserArgs;

@@ -41,12 +41,17 @@ use psy_vm::dpn::{
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
+// Import from SDK
+use psy_rust_sdk::{
+    provider::{ProveProxyRpcProvider, QUserRpcProvider, RpcConfig, RpcProvider, UPSCircuitManagerTrait},
+    request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
+    wallet::software_defined_circuit::QSoftwareDefinedSignatureWitnessInput,
+};
+
 use crate::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
     local::{
         args::{ContractCallArgs, JobInfo, JobLocation, SignData, SignType, WalletSessionArgs},
-        provider::{ProveProxyRpcProvider, QUserRpcProvider, RpcConfig, RpcProvider, UPSCircuitManagerTrait},
-        request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
     },
     session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint, MINING_REWARDS_CONTRACT_ID},
     ups::{
@@ -57,7 +62,7 @@ use crate::{
         memory_wallet::PsyMemoryWallet,
         simple_sign::StateReader,
         software_defined_circuit::{
-            PSoftwareDefinedSignatureWitnessInput, QSoftwareDefinedSignatureGadget, QSoftwareDefinedSignatureWitnessInput, SoftwareDefinedSignature,
+            PSoftwareDefinedSignatureWitnessInput, QSoftwareDefinedSignatureGadget, SoftwareDefinedSignature,
             SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureWitnessInput,
         },
     },
@@ -229,12 +234,8 @@ impl UserSessionStateManager {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TxStatus {
-    Pending,
-    Confirmed,
-    Submittable,
-}
+// Use TxStatus from SDK
+pub use psy_rust_sdk::session::TxStatus;
 
 pub struct WalletSession {
     pub wallet: PsyMemoryWallet,
