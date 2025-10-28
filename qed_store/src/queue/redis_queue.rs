@@ -354,6 +354,10 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
         let id_key = self.id_key(channel_id);
         let ids: Vec<u64> = self.redis.zrange(id_key.clone(), 0, -1).await?;
         self.redis.del(id_key).await?;
+        // Handle empty ids case
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
         let members: Vec<Vec<u8>> = self.redis.hget(key.clone(), ids).await?;
         let items: Vec<T> = members
             .into_iter()
@@ -367,7 +371,13 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Vec<T>> {
-        let ids: Vec<u64> = self.redis.zrange(self.id_key(channel_id), 0, -1).await?;
+        let id_key: String = self.id_key(channel_id);
+        let ids: Vec<u64> = self.redis.zrange(id_key.clone(), 0, -1).await?;
+        // Handle empty ids case
+        if ids.is_empty() {
+            self.redis.del(id_key).await?;
+            return Ok(vec![]);
+        }
         let members: Vec<Vec<u8>> = self.redis.hget(self.drain_queue_key(channel_id), ids).await?;
         let items: Vec<T> = members
             .into_iter()
@@ -799,6 +809,16 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
             None => -1,
         };
         let ids: Vec<u64> = self.redis.zrange(self.id_key(channel_id), 0, end_index).await?;
+        // Handle empty ids case
+        if ids.is_empty() {
+            return Ok((vec![], QueueOffsetState {
+                start_position: 0,
+                end_position: -1,
+                checkpoint_id,
+                channel_id,
+                consumed_count: 0,
+            }));
+        }
         let members: Vec<Vec<u8>> = self.redis.hget(key, ids).await?;
 
         let items: Vec<T> = members
