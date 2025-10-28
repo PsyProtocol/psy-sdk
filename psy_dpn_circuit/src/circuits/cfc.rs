@@ -23,7 +23,7 @@ use psy_common_circuit::{
 };
 use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
-use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
+use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::vm::compile::PsyContractFunctionBuilderGadget;

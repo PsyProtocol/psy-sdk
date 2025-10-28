@@ -12,7 +12,7 @@ use psy_data::{
     config::store_config::{PsyHasher, C, D},
     qblock::cmds::register_user::QBCRegisterUser,
 };
-use psy_exec::vm::exec::PsyEvalSessionResult;
+use psy_vm::vm::exec::PsyEvalSessionResult;
 use psy_package::Workspace;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use psy_sema::{CheckedFunctionNode, Implementer, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey};

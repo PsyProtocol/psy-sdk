@@ -33,7 +33,6 @@ psy-common = { workspace = true }
 psy_vm = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
-psy_exec = { workspace = true, default-features = false }
 psy_store = { workspace = true, default-features = false }
 psy_rust_sdk = { path = "../psy_sdk/psy-rust-sdk" }
 psylang_macros = { workspace = true }
@@ -90,7 +89,7 @@ wasm-opt = ["-O", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 is_sync = [
     "psy_data/is_sync",
     "maybe-async/is_sync",
-    "psy_exec/is_sync",
+    "psy_vm/is_sync",
     "psy_store/is_sync",
     "psy_common_circuit/is_sync",
     "psy_network_circuit/is_sync",

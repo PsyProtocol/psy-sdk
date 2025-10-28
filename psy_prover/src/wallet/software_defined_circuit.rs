@@ -29,7 +29,7 @@ use psy_common_circuit::{
 };
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
-use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
+use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use psy_rust_sdk::{
     provider::RpcProvider,

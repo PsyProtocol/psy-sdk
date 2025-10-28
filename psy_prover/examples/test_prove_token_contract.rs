@@ -23,7 +23,7 @@ use psy_data::{
     qstore::{controllers::proving_session::PsyLocalProvingSessionStore, imm::cmd_processor::PsyReadCommandProcessorSync},
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::PsyComboDataStoreReaderWriterSync},
 };
-use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
+use psy_vm::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_vm::dpn::{

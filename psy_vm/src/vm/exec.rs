@@ -32,7 +32,7 @@ use psy_data::{
         },
     },
 };
-use psy_vm::dpn::{
+use crate::dpn::{
     ops::{
         op_types::DPNOpType,
         state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore},

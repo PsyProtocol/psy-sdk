@@ -8,7 +8,6 @@ members = [
     "psy_crypto",
     "psy_store",
     "psy_prover",
-    "psy_exec",
     "psy_data",
     "psy_common_circuit",
     "psy_network_circuit",
@@ -227,10 +226,9 @@ md5 = "0.7"
 jsonrpsee = { version = "0.26", features = ["server", "client", "macros"] }
 config = "0.15"
 
-psy_vm = { path = "./psy_vm" }
+psy_vm = { path = "./psy_vm", default-features = false }
 psylang_macros = { path = "./psy_compiler/psylang_macros" }
 psy_crypto = { path = "./psy_crypto" }
-psy_exec = { path = "./psy_exec", default-features = false}
 psy_store = { path = "./psy_store", default-features = false}
 psy_data = { path = "./psy_data",default-features = false}
 psy_core = { path = "./psy_core" }

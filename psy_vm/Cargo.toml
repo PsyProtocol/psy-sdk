@@ -9,6 +9,7 @@ version = "0.1.0"
 anyhow     = { workspace = true }
 serde      = { workspace = true }
 serde_cbor = { workspace = true }
+serde_json = { workspace = true }
 bincode      = { workspace = true }
 serde_repr = { workspace = true }
 plonky2 = { workspace = true }
@@ -17,7 +18,20 @@ hashbrown = { workspace = true }
 ts-rs = { workspace = true }
 
 k256 = { workspace = true }
+kvq = { workspace = true }
+async-trait = { workspace = true }
+maybe-async = { workspace = true }
+tracing = { workspace = true }
 
 psy_core = { workspace = true }
-psy_data = { workspace = true }
+psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
+
+[features]
+# default = ["is_sync"]
+is_sync = [
+    "maybe-async/is_sync",
+    "psy_data/is_sync"]
+
+[dev-dependencies]
+tokio = { workspace = true }

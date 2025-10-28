@@ -69,7 +69,7 @@ use psy_data::{
         verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput,
     },
 };
-use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
+use psy_vm::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
 use psy_vm::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition};
 use serde::Serialize;
 

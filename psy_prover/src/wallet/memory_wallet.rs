@@ -27,7 +27,7 @@ use psy_crypto::{
     },
 };
 use psy_data::{config::store_config::PsyHasher, qstore::imm::cmd_processor::PsyReadCommandProcessorSync};
-use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
+use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use psy_rust_sdk::provider::UPSCircuitManagerTrait;
 

@@ -41,7 +41,7 @@ use psy_data::{
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
-use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
+use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Hash, Eq, PartialEq)]

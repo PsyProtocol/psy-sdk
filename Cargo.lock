@@ -2380,7 +2380,6 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
- "psy_exec",
  "psy_prover",
  "psy_store",
  "psy_vm",
@@ -5670,7 +5669,6 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
- "psy_exec",
  "psy_prover",
  "psy_store",
  "psy_vm",
@@ -5936,7 +5934,6 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
- "psy_exec",
  "psy_network_circuit",
  "psy_rust_sdk",
  "psy_store",
@@ -5966,29 +5963,6 @@ dependencies = [
  "wasm-logger",
  "wasm-tracing",
  "web-sys",
-]
-
-[[package]]
-name = "psy_exec"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "kvq",
- "maybe-async",
- "plonky2",
- "psy_core",
- "psy_crypto",
- "psy_data",
- "psy_store",
- "psy_vm",
- "psylang_macros",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "ts-rs",
 ]
 
 [[package]]
@@ -6142,7 +6116,6 @@ dependencies = [
  "psy_crypto",
  "psy_data",
  "psy_dpn_circuit",
- "psy_exec",
  "psy_network_circuit",
  "psy_rust_sdk",
  "psy_store",
@@ -6207,7 +6180,6 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
- "psy_exec",
  "psy_network_circuit",
  "psy_store",
  "psy_vm",
@@ -6339,7 +6311,6 @@ dependencies = [
  "psy_crypto",
  "psy_data",
  "psy_dpn_circuit",
- "psy_exec",
  "psy_network_circuit",
  "psy_rust_sdk",
  "psy_store",
@@ -6425,16 +6396,22 @@ name = "psy_vm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bincode",
  "hashbrown 0.14.5",
  "k256",
+ "kvq",
+ "maybe-async",
  "plonky2",
  "psy_core",
  "psy_crypto",
  "psy_data",
  "serde",
  "serde_cbor",
+ "serde_json",
  "serde_repr",
+ "tokio",
+ "tracing",
  "ts-rs",
  "twox-hash 1.6.3",
 ]

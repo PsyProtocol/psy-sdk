@@ -1531,7 +1531,7 @@ mod tests {
         config::store_config::{PsyHasher, C, D},
         qblock::cmds::register_user::QBCRegisterUser,
     };
-    use psy_exec::vm::exec::PsyEvalSessionResult;
+    use psy_vm::vm::exec::PsyEvalSessionResult;
     use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
     use psy_store::prepare_environment_with_real_contract;
     use psy_vm::dpn::{
