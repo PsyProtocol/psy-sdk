@@ -7,7 +7,7 @@ use plonky2::plonk::{
     config::{GenericConfig, PoseidonGoldilocksConfig},
     proof::ProofWithPublicInputs,
 };
-use qed_common_circuit::circuits::{
+use psy_common_circuit::circuits::{
     l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature::inner, zk_signature3::core::QEDBasicZKSignatureCircuit
 };
 use psy_core::{
@@ -231,7 +231,7 @@ pub struct ProveProxyServerProvider {
 
 impl ProveProxyServerProvider {
     pub async fn new_with_config(rpc_config: RpcConfig, network_magic: u64) -> anyhow::Result<Self> {
-        use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+        use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use psy_core::ups::circuits::LocalCircuitType;
         use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
 

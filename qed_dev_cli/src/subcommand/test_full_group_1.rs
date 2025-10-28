@@ -2,7 +2,7 @@ use fred::prelude::*;
 use std::sync::Arc;
 use psy_store::store::lmdbx::KVQlibmdbxStore;
 use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
-use qed_common_circuit::circuits::{
+use psy_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
 };
 use psy_core::{

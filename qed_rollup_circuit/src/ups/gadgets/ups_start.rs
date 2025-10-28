@@ -4,7 +4,7 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, traits::{CreatableTarget, CreatableWithHasherTarget, WitnessValueFor}
 };
 use psy_core::{

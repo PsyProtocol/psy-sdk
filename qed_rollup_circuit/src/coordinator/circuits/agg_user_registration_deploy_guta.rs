@@ -9,7 +9,7 @@ use plonky2::{
         proof::ProofWithPublicInputs, verifier_v2::verify_standard_proof,
     },
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     circuits::traits::qstandard::{
         QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,

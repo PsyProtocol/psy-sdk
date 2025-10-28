@@ -10,7 +10,7 @@ use plonky2::{
     hash::hash_types::HashOut,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use psy_core::{
     config::network_constants::{TOKEN_CONTRACT_ID, MAX_CONTRACT_STATE_TREE_HEIGHT},
     data::{base_types::hash256::Hash256, qhashout::QHashOut},

@@ -1,5 +1,5 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::{BoolTarget, Target}, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use qed_common_circuit::{builder::comparison::CircuitBuilderComparison, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
+use psy_common_circuit::{builder::comparison::CircuitBuilderComparison, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{common::user_id::circuit_user_registration_tree_index_bits_to_user_id, hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore}};
 

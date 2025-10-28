@@ -1,5 +1,5 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use qed_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, CreatableWithHasherTarget, WitnessValueFor};
+use psy_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, CreatableWithHasherTarget, WitnessValueFor};
 use psy_core::data::qhashout::QHashOut;
 use psy_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeafCompactWithStateRoots};
 

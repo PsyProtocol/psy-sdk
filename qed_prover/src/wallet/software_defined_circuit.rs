@@ -16,7 +16,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::{
         hash::core::CircuitBuilderHashCore,
         pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},

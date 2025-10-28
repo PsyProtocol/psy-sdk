@@ -4,7 +4,7 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::traits::{AlgebraicHashableTarget, WitnessValueFor};
+use psy_common_circuit::traits::{AlgebraicHashableTarget, WitnessValueFor};
 use psy_data::guta::stats::GUTAStats;
 
 #[derive(Clone, Debug, Copy)]

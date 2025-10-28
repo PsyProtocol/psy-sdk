@@ -5,7 +5,7 @@ use plonky2::{
     hash::{hash_types::HashOut, poseidon::PoseidonHash},
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
-use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_core::{
     config::network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,

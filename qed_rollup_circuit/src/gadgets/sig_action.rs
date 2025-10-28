@@ -7,7 +7,7 @@ use plonky2::{
     },
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::{builder::core::CircuitBuilderHelpersCore, traits::AlgebraicHashableTarget};
+use psy_common_circuit::{builder::core::CircuitBuilderHelpersCore, traits::AlgebraicHashableTarget};
 use psy_crypto::signature::zk::wallet::QEDSigAction;
 
 pub struct SimpleQEDSigAction {

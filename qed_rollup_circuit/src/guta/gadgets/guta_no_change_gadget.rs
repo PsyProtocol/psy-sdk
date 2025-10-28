@@ -5,7 +5,7 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     debug::circuit_tracer::DebugCircuitTracer, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget
 };
 use psy_core::data::qhashout::QHashOut;

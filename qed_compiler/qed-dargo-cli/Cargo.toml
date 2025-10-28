@@ -22,7 +22,7 @@ psy_crypto = { workspace = true }
 psy_exec = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_core = { workspace = true }
-qed_common_circuit = { workspace = true }
+psy_common_circuit = { workspace = true }
 qed-sema = { workspace = true }
 qed-ast = { workspace = true }
 qed-abi = { workspace = true }

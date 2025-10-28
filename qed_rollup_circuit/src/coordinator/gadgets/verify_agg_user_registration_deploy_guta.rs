@@ -4,7 +4,7 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs},
 };
-use qed_common_circuit::{builder::hash::core::CircuitBuilderHashCore, treeprover::aggregation::gadgets::{verify_state_transition::VerifyStateTransitionProofGadget, AggStateTransitionGadget}, traits::CreatableTarget
+use psy_common_circuit::{builder::hash::core::CircuitBuilderHashCore, treeprover::aggregation::gadgets::{verify_state_transition::VerifyStateTransitionProofGadget, AggStateTransitionGadget}, traits::CreatableTarget
     }
 ;
 use psy_core::data::qhashout::QHashOut;

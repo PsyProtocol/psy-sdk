@@ -4,7 +4,7 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::{builder::connect::CircuitBuilderConnectHelpers, hash::merkle::gadgets::spiderman_append_proof::SpidermanAppendProofGadget, traits::
+use psy_common_circuit::{builder::connect::CircuitBuilderConnectHelpers, hash::merkle::gadgets::spiderman_append_proof::SpidermanAppendProofGadget, traits::
         CreatableTarget
     }
 ;

@@ -4,7 +4,7 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::{hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget,
+use psy_common_circuit::{hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget,
     traits::WitnessValueFor}
 ;
 use psy_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;

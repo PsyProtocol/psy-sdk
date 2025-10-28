@@ -1,7 +1,7 @@
 use fred::prelude::*;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use std::sync::Arc;
-use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
+use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use psy_core::{config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync}, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer}
 ;
 use psy_crypto::{
@@ -23,7 +23,7 @@ use psy_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::q
 use psy_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm}, queue::ProofStoreFred, queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl}};
 use super::super::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
 use std::time::Duration;
-use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsProveTrait;
+use psy_common_circuit::treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsProveTrait;
 
 
 use plonky2::{

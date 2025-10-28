@@ -9,7 +9,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::{
         comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore,
         verify::CircuitBuilderVerifyProofHelpers,

@@ -5,7 +5,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_common_circuit::{circuits::zk_signature3::core::QEDBasicZKSignatureInnerCircuit, treeprover::qrecursion::standard::manager::portable::circuits::{
+use psy_common_circuit::{circuits::zk_signature3::core::QEDBasicZKSignatureInnerCircuit, treeprover::qrecursion::standard::manager::portable::circuits::{
     PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
     PortableQTreeRecursionCircuitsTrait,
 }};

@@ -1,5 +1,5 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOut, HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
-use qed_common_circuit::treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget;
+use psy_common_circuit::treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget;
 use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut};
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 use psy_data::{guta::{header::GlobalUserTreeAggregatorHeader, proof_input::GUTARegisterUserFullInput}, qdata::user::QEDUserLeaf};

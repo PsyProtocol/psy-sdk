@@ -7,7 +7,7 @@ use plonky2::{
         config::AlgebraicHasher,
     },
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::
         hash::core::CircuitBuilderHashCore
     , hash::merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget}

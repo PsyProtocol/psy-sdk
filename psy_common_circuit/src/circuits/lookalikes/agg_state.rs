@@ -1,5 +1,5 @@
 use plonky2::{hash::hash_types::HashOutTarget, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData}, config::{AlgebraicHasher, GenericConfig}}};
-use qed_common_circuit::{builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, proof_minifier::pm_core::get_circuit_fingerprint_generic};
+use psy_common_circuit::{builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, proof_minifier::pm_core::get_circuit_fingerprint_generic};
 use psy_core::data::qhashout::QHashOut;
 
 
@@ -41,7 +41,7 @@ where
 #[cfg(test)]
 mod tests {
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
-    use qed_common_circuit::{circuits::traits::qstandard::QStandardCircuit, treeprover::{aggregation::{state_transition::AggStateTransitionCircuit, state_transition_dummy::AggStateTransitionDummyCircuit}, traits::TreeProverAggCircuit}};
+    use psy_common_circuit::{circuits::traits::qstandard::QStandardCircuit, treeprover::{aggregation::{state_transition::AggStateTransitionCircuit, state_transition_dummy::AggStateTransitionDummyCircuit}, traits::TreeProverAggCircuit}};
 
     use crate::lookalikes::agg_state::AggStateTransitionLookalikeCircuit;
 

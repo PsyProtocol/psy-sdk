@@ -7,7 +7,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     circuits::{
         l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit,
         zk_signature3::core::QEDBasicZKSignatureCircuit,

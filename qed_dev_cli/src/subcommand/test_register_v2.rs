@@ -2,7 +2,7 @@ use fred::prelude::*;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use std::sync::Arc;
 use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
-use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
+use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use psy_core::{config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync}, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer}
 ;
 use psy_crypto::{

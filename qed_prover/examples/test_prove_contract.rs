@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, plonk::config::PoseidonGoldilocksConfig};
-use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use psy_data::{

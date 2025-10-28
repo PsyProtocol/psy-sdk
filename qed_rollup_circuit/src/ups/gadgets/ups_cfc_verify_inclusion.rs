@@ -4,7 +4,7 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::
+use psy_common_circuit::
     treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::AttestTreeAwareProofInTreeGadget
 ;
 use psy_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::traits::hasher::MerkleZeroHasher};

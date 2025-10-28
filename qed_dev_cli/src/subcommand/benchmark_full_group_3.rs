@@ -8,7 +8,7 @@ use super::super::test_helpers::{
     contract::{gen_test_contract, SimpleTestContract},
     ups::ExampleDemoUserInfoStore,
 };
-use qed_common_circuit::circuits::{
+use psy_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
 };
 use psy_core::{

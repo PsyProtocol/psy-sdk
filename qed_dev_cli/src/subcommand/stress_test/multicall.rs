@@ -18,7 +18,7 @@ use scheduled_thread_pool::ScheduledThreadPool;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::log::{error, info};
-use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use psy_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_prover::local::provider::{QUserRpcProvider, RpcProvider};

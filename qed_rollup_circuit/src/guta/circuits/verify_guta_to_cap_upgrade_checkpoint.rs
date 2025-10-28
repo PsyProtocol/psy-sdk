@@ -8,7 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     }
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget, proof_minifier::
         pm_core::get_circuit_fingerprint_generic, traits::ToTargets
 };

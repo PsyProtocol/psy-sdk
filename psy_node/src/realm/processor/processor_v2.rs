@@ -21,7 +21,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 use kvq::traits::{KVQSerializable, KVQPair};
-use qed_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
+use psy_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
 use psy_core::{
     config::network_constants::{
         GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,

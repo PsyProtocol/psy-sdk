@@ -25,7 +25,7 @@ psy_crypto = { workspace = true }
 psy_store = { workspace = true }
 psy_node = { workspace = true }
 qed_rollup_circuit = { workspace = true }
-qed_common_circuit = { workspace = true }
+psy_common_circuit = { workspace = true }
 qed_prover = { workspace = true }
 kvq = { workspace = true }
 psy_vm = { workspace = true }

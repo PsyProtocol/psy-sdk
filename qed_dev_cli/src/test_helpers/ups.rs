@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, hash::poseidon::PoseidonHash, plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs}};
-use qed_common_circuit::{circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager}, wallet::zk::SimpleZKSignatureWallet};
+use psy_common_circuit::{circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager}, wallet::zk::SimpleZKSignatureWallet};
 use psy_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, data::qhashout::QHashOut, job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, traits::QProofStoreAsyncImm}, utils::debug_timer::DebugTimer};
 use psy_crypto::{common::user_id::get_user_id_from_registration_id, signature::zk::wallet::SimpleQEDPrivateKey};
 use psy_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;

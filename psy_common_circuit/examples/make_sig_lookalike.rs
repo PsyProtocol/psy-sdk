@@ -8,7 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager}, proof_minifier::pm_core::get_circuit_fingerprint_generic
 };
 use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};

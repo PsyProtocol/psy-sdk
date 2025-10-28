@@ -23,7 +23,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore},
     circuits::traits::qstandard::QStandardCircuit,
     hash::merkle::gadgets::merkle_proof::MerkleProofGadget,

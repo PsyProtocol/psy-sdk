@@ -36,7 +36,7 @@ use crate::wallet::software_defined_circuit::{
     SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureInput,
 };
 use crate::wallet::utils::hash_no_pad_compressed_public_key;
-use qed_common_circuit::circuits::{
+use psy_common_circuit::circuits::{
     l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit,
     zk_signature3::core::QEDBasicZKSignatureCircuit,
 };
@@ -297,8 +297,8 @@ mod tests {
     use anyhow::Result;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
-    use qed_common_circuit::circuits::l1_secp256k1_signature::L1Secp256K1SignatureCircuit;
-    use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+    use psy_common_circuit::circuits::l1_secp256k1_signature::L1Secp256K1SignatureCircuit;
+    use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
     use psy_core::data::qhashout::QHashOut;
     use std::str::FromStr;
 

@@ -7,7 +7,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_common_circuit::{builder::verify, circuits::{lookalikes::get_end_cap_type_e_common_data, traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}}};
+use psy_common_circuit::{builder::verify, circuits::{lookalikes::get_end_cap_type_e_common_data, traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}}};
 use psy_core::{
     config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT, REALM_USER_TREE_HEIGHT},
     data::qhashout::QHashOut,
@@ -484,7 +484,7 @@ where
 #[cfg(test)]
 mod tests {
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
-    use qed_common_circuit::circuits::lookalikes::custom::get_lookalike_custom;
+    use psy_common_circuit::circuits::lookalikes::custom::get_lookalike_custom;
     use psy_core::{data::qhashout::QHashOut, job::id::QCircuitCommonGatesType};
 
 

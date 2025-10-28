@@ -23,7 +23,7 @@ ariadne = { workspace = true }
 tokio = { workspace = true }
 psy_data = { workspace = true }
 psy_core = { workspace = true }
-qed_common_circuit = { workspace = true }
+psy_common_circuit = { workspace = true }
 psy_store = { workspace = true }
 
 [features]
@@ -35,5 +35,5 @@ is_sync = [
 
 [dev-dependencies]
 qed_prover = { workspace = true }
-qed_common_circuit = { workspace = true }
+psy_common_circuit = { workspace = true }
 serial_test = { workspace = true }

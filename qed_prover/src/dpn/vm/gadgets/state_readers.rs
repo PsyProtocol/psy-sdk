@@ -6,7 +6,7 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::{
         connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore,
         math::core::CircuitBuilderCoreMathHelpers, select::CircuitBuilderSelectHelpers,

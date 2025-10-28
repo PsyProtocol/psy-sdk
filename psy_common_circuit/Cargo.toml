@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "qed_common_circuit"
+name    = "psy_common_circuit"
 version = "0.1.0"
 
 

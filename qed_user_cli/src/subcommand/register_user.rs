@@ -3,7 +3,7 @@ use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::poseidon::{PoseidonHash, PoseidonPermutation};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_core::config::network_constants::{
     MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT,
 };

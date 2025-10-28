@@ -4,7 +4,7 @@ mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
-    use qed_common_circuit::{
+    use psy_common_circuit::{
         circuits::{lookalikes::{get_agg_state_transition_type_d_lookalike_circuit_data, get_end_cap_type_e_lookalike_circuit_data, get_guta_type_c_lookalike_circuit_data}, traits::qstandard::QStandardCircuit},
         treeprover::{
             aggregation::{

@@ -19,7 +19,7 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 kvq = { workspace = true }
 psy_core = { workspace = true }
-qed_common_circuit = { workspace = true }
+psy_common_circuit = { workspace = true }
 qed_rollup_circuit = { workspace = true }
 psy_data = { workspace = true }
 psy_crypto = { workspace = true }

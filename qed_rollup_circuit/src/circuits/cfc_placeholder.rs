@@ -8,7 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     }
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     circuits::traits::qstandard::QStandardCircuit,
     hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget,

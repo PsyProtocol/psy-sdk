@@ -8,7 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     }
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs
 };

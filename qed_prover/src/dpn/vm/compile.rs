@@ -4,7 +4,7 @@ use plonky2::{
     iop::target::Target,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_common_circuit::builder::{
+use psy_common_circuit::builder::{
     core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore
 };
 use qed_rollup_circuit::gadgets::qdata::cfc_context_input::DapenCFCUserTransactionInputContextGadget;

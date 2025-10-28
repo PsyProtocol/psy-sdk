@@ -26,7 +26,7 @@ use plonky2::{
     hash::{hash_types::HashOut, poseidon::PoseidonHash},
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
-use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_core::{
     config::network_constants::{
         MAX_CONTRACT_STATE_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT

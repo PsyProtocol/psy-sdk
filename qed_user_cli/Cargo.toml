@@ -15,7 +15,7 @@ anyhow = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 psy_crypto = { workspace = true }
-qed_common_circuit = { workspace = true }
+psy_common_circuit = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 psy_core = { workspace = true }

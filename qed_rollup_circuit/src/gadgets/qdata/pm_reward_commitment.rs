@@ -1,5 +1,5 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::{PartialWitness, Witness, WitnessWrite}}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use qed_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor};
+use psy_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor};
 use psy_core::data::qhashout::QHashOut;
 use psy_data::qdata::pm_reward_commitment::PMRewardCommitment;
 

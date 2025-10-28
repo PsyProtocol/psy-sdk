@@ -8,7 +8,7 @@ use plonky2::{
     iop::target::{BoolTarget, Target},
     plonk::circuit_builder::CircuitBuilder,
 };
-use qed_common_circuit::{
+use psy_common_circuit::{
     builder::{
         comparison::CircuitBuilderComparison,
         hash::core::CircuitBuilderHashCore,
@@ -431,8 +431,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let right = self.resolve_target(op.inputs[1]);
                 builder.assert_non_zero(right);
 
-                let (left_low, left_high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, left);
-                let (right_low, right_high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, right);
+                let (left_low, left_high) = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, left);
+                let (right_low, right_high) = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, right);
                 let left_biguint = BigUintTarget{
                     limbs: vec![U32Target(left_low), U32Target(left_high)],
                 };
@@ -441,7 +441,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 };
                 let (_div_biguint, rem_biguint) = builder.div_rem_biguint(&left_biguint, &right_biguint);
                 assert!(rem_biguint.limbs.len() == 2, "Felt Mod should return two limb");
-                let twopow32 = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::constant_u64(builder, 0x100000000);
+                let twopow32 = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::constant_u64(builder, 0x100000000);
                 let res = builder.mul_add(rem_biguint.limbs[1].0, twopow32, rem_biguint.limbs[0].0);
                 self.targets.push(res);
             }
@@ -452,7 +452,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             },
             DPNOpType::CastU32 => {
                 let target = self.resolve_target(op.inputs[0]);
-                let (low, high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, target);
+                let (low, high) = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, target);
                 builder.assert_zero(high);
                 self.u32s.push(U32Target(low));
             }
@@ -497,7 +497,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let two = builder.two();
                 let thirty_two = builder.constant_u32(32);
                 let power_of_two = builder.exp(two, right.0, 32);
-                let (power_of_two_low, power_of_two_heigh) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
+                let (power_of_two_low, power_of_two_heigh) = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
                 self.u32s.push(builder.mul_u32(left, U32Target(power_of_two_low)).0);
             },
             DPNOpType::U32ShiftLeftConstantBitDistance => {
@@ -520,7 +520,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let right = self.resolve_u32(op.inputs[1]);
                 let two = builder.two();
                 let power_of_two = builder.exp(two, right.0, 32);
-                let (power_of_two_low, power_of_two_heigh) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
+                let (power_of_two_low, power_of_two_heigh) = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
                 self.u32s.push(builder.mul_u32(left, U32Target(power_of_two_low)).0);
             },
             DPNOpType::U32ShiftRight => {
@@ -536,7 +536,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let right_normal = builder.select(is_right_borrow_zero, right.0, thirty_two.0);
 
                 let power_of_two = builder.exp(two, right_normal, 6);
-                let (power_of_two_low, power_of_two_heigh) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
+                let (power_of_two_low, power_of_two_heigh) = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
 
                 let left_biguint = BigUintTarget{
                     limbs: vec![left],
@@ -582,7 +582,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let right_normal = builder.select(is_right_borrow_zero, right.0, thirty_two.0);
 
                 let power_of_two = builder.exp(two, right_normal, 6);
-                let (power_of_two_low, power_of_two_heigh) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
+                let (power_of_two_low, power_of_two_heigh) = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, power_of_two);
 
                 let left_biguint = BigUintTarget{
                     limbs: vec![left],
@@ -624,7 +624,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 if index >= self.inputs.len() {
                     panic!("Invalid input index");
                 } else {
-                    let (low, high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, self.inputs[index]);
+                    let (low, high) = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, self.inputs[index]);
                     builder.assert_zero(high);
                     self.u32s.push(U32Target(low));
                 }
@@ -713,7 +713,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                 let left = self.resolve_u32(op.inputs[0]);
                 let right = self.resolve_u32(op.inputs[1]);
                 let res = builder.exp(left.0, right.0, 32);
-                let (low, high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, res);
+                let (low, high) = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, res);
                 builder.assert_zero(high);
                 self.u32s.push(U32Target(low));
             }
@@ -727,7 +727,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                     .iter()
                     .flat_map(|id| {
                         let u64_target = self.resolve_target(*id);
-                        let (_low, _high) = qed_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, u64_target);
+                        let (_low, _high) = psy_common_circuit::builder::core::CircuitBuilderHelpersCore::split_low_high_32bits( builder, u64_target);
                         vec![U32Target(_low), U32Target(_high)]
                     })
                     .collect::<Vec<_>>();

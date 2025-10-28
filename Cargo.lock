@@ -2373,6 +2373,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "plonky2",
+ "psy_common_circuit",
  "psy_core",
  "psy_crypto",
  "psy_data",
@@ -2384,7 +2385,6 @@ dependencies = [
  "qed-common",
  "qed-interpreter",
  "qed-sema",
- "qed_common_circuit",
  "qed_package",
  "qed_prover",
  "serde",
@@ -5619,6 +5619,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 
 [[package]]
+name = "psy_common_circuit"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "bitflags 2.9.4",
+ "criterion",
+ "hashbrown 0.14.5",
+ "hex",
+ "hex-literal",
+ "itertools 0.14.0",
+ "k256",
+ "kvq",
+ "maybe-async",
+ "num",
+ "plonky2",
+ "plonky2_maybe_rayon",
+ "psy_core",
+ "psy_crypto",
+ "psy_data",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "psy_core"
 version = "0.1.0"
 dependencies = [
@@ -5750,13 +5780,13 @@ dependencies = [
  "kvq",
  "once_cell",
  "plonky2",
+ "psy_common_circuit",
  "psy_core",
  "psy_crypto",
  "psy_data",
  "psy_store",
  "psy_vm",
  "qed_api_services",
- "qed_common_circuit",
  "qed_prover",
  "qed_rollup_circuit",
  "qed_rollup_utils",
@@ -5897,6 +5927,7 @@ dependencies = [
  "indexmap 2.11.3",
  "insta",
  "plonky2",
+ "psy_common_circuit",
  "psy_core",
  "psy_crypto",
  "psy_data",
@@ -5908,7 +5939,6 @@ dependencies = [
  "qed-fmt",
  "qed-parser",
  "qed-sema",
- "qed_common_circuit",
  "qed_prover",
  "serial_test",
  "thiserror 2.0.17",
@@ -6002,36 +6032,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_common_circuit"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "bitflags 2.9.4",
- "criterion",
- "hashbrown 0.14.5",
- "hex",
- "hex-literal",
- "itertools 0.14.0",
- "k256",
- "kvq",
- "maybe-async",
- "num",
- "plonky2",
- "plonky2_maybe_rayon",
- "psy_core",
- "psy_crypto",
- "psy_data",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "qed_dev_cli"
 version = "0.1.0"
 dependencies = [
@@ -6047,6 +6047,7 @@ dependencies = [
  "num_cpus",
  "parking_lot",
  "plonky2",
+ "psy_common_circuit",
  "psy_core",
  "psy_crypto",
  "psy_data",
@@ -6054,7 +6055,6 @@ dependencies = [
  "psy_store",
  "psy_vm",
  "qed-common",
- "qed_common_circuit",
  "qed_prover",
  "qed_rollup_circuit",
  "qed_rollup_utils",
@@ -6122,6 +6122,7 @@ dependencies = [
  "maybe-async",
  "parking_lot",
  "plonky2",
+ "psy_common_circuit",
  "psy_core",
  "psy_crypto",
  "psy_data",
@@ -6129,7 +6130,6 @@ dependencies = [
  "psy_store",
  "psy_vm",
  "qed-common",
- "qed_common_circuit",
  "qed_rollup_circuit",
  "qed_rollup_utils",
  "qedlang_macros",
@@ -6167,10 +6167,10 @@ dependencies = [
  "async-trait",
  "bincode",
  "plonky2",
+ "psy_common_circuit",
  "psy_core",
  "psy_crypto",
  "psy_data",
- "qed_common_circuit",
  "serde_json",
  "tracing",
 ]
@@ -6229,6 +6229,7 @@ dependencies = [
  "js-sys",
  "kvq",
  "plonky2",
+ "psy_common_circuit",
  "psy_core",
  "psy_crypto",
  "psy_data",
@@ -6237,7 +6238,6 @@ dependencies = [
  "psy_vm",
  "qed-common",
  "qed_api_services",
- "qed_common_circuit",
  "qed_prover",
  "qed_rollup_utils",
  "rand 0.8.5",

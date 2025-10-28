@@ -1,5 +1,5 @@
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use serde::{Deserialize, Serialize};
