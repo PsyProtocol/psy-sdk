@@ -111,7 +111,7 @@ mod tests {
             "precompiles": [
                 {
                     "name": "test",
-                    "path": "qed_precompiles",
+                    "path": "psy_precompiles",
                     "contract_name": "ContractRef",
                     "method_names": ["test_method"]
                 }
@@ -131,7 +131,7 @@ mod tests {
 
         let config = GenesisConfig::<GoldilocksField>::from_json(json).unwrap();
         assert_eq!(config.precompiles.len(), 1);
-        assert_eq!(config.precompiles[0].path, "qed_precompiles");
+        assert_eq!(config.precompiles[0].path, "psy_precompiles");
         assert_eq!(config.precompiles[0].name, "test");
 
         let user_state = config.get_contract_user_state(1, 0).unwrap();

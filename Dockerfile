@@ -25,9 +25,9 @@ COPY ./qed_api_services/migrations /qed-rollup/migrations
 COPY .env /qed-rollup/.env
 
 # Copy precompiles
-COPY ./qed_precompiles/token           /qed-rollup/qed_precompiles/token
-COPY ./qed_precompiles/rewards         /qed-rollup/qed_precompiles/rewards
-COPY ./qed_precompiles/mining_rewards  /qed-rollup/qed_precompiles/mining_rewards
+COPY ./psy_precompiles/token           /qed-rollup/psy_precompiles/token
+COPY ./psy_precompiles/rewards         /qed-rollup/psy_precompiles/rewards
+COPY ./psy_precompiles/mining_rewards  /qed-rollup/psy_precompiles/mining_rewards
 
 
 RUN echo '#!/bin/bash\n/qed-rollup/qed_rollup_cli $@' > /qed-rollup/.entrypoint.sh

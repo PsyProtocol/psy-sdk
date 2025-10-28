@@ -1,5 +1,5 @@
 [package]
-name = "qed_precompiles"
+name = "psy_precompiles"
 edition.workspace = true
 rust-version.workspace = true
 version.workspace = true

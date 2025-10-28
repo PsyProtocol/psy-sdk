@@ -321,7 +321,7 @@ impl Multicast {
         let mint_amount = 250000000000u64;
         let (from_user_id, public_key0) = self.init_user0(mint_amount).await?;
         if contract_path.is_empty() {
-            contract_path = "./qed_precompiles/token/target/token.json".to_string();
+            contract_path = "./psy_precompiles/token/target/token.json".to_string();
         }
         info!("deploying contract from {}", contract_path.clone());
         let defs_array: Vec<DPNFunctionCircuitDefinition> =

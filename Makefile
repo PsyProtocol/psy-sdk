@@ -21,7 +21,7 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: config_gen_v2
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p qed_precompiles
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p psy_precompiles
 	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin psy-lsp-server --bin qed_api_services --examples
 
 fmt:
@@ -478,8 +478,8 @@ run-benchmark-flow-repeat:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --repeat 100
 
 run-benchmark-deploy:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path ./qed_precompiles/token/target/token.json
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path ./qed_precompiles/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path ./psy_precompiles/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path ./psy_precompiles/token/target/token.json
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token

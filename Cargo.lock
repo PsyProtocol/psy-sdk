@@ -5975,6 +5975,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "psy_precompiles"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dargo",
+ "minijinja",
+ "psy-interpreter",
+ "psy-package",
+ "psy_data",
+ "psy_vm",
+ "serde_json",
+]
+
+[[package]]
 name = "psy_store"
 version = "0.1.0"
 dependencies = [
@@ -6115,20 +6129,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "qed_precompiles"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "dargo",
- "minijinja",
- "psy-interpreter",
- "psy-package",
- "psy_data",
- "psy_vm",
- "serde_json",
 ]
 
 [[package]]
