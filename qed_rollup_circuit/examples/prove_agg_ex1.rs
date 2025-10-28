@@ -1,6 +1,6 @@
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_common_circuit::{circuits::traits::qstandard::QStandardCircuit, wallet::zk::{SimpleZKSignatureWallet, ZKSignatureBasicWalletProvider}};
-use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use qed_rollup_circuit::circuits::cfc_placeholder::CFCPlaceholderCircuit;
 
 //type F = GoldilocksField;

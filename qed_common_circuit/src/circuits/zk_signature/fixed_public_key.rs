@@ -8,7 +8,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use serde::{Deserialize, Serialize};
 

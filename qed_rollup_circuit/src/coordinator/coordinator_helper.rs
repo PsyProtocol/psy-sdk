@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::{hash::hash_types::HashOut, plonk::{config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
 use qed_common_circuit::{circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, treeprover::{aggregation::{state_transition::AggStateTransitionCircuit, state_transition_dummy::AggStateTransitionDummyCircuit}, traits::TreeProverAggCircuit}};
-use qed_core::{config::network_constants::{BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::QProofStoreReaderAsync}};
+use psy_core::{config::network_constants::{BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::QProofStoreReaderAsync}};
 use psy_crypto::{common::{circuit_library::{CircuitInfoLibrary, CircuitInfoLibraryBuilder}, worker::{QNextGenWorkerGenericInfo, QNextGenWorkerGenericProverAsyncMut}}, hash::{merkle::treeprover::TPAltCircuitFingerprintConfig, traits::hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher}}};
 
 use crate::guta::guta_helper::QEDGUTACircuitManager;

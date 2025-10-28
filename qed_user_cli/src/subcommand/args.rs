@@ -1,6 +1,6 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use qed_prover::local::{args::SignType, provider::RpcConfig};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

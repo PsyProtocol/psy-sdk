@@ -1,5 +1,5 @@
 use plonky2::hash::hash_types::RichField;
-use qed_core::{data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut}, ups::circuits::LocalCircuitId};
+use psy_core::{data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut}, ups::circuits::LocalCircuitId};
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use serde::{Deserialize, Serialize};
 

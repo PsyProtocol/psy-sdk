@@ -1,6 +1,6 @@
 use custom::get_lookalike_custom;
 use plonky2::plonk::{circuit_data::{CircuitData, CommonCircuitData}, config::{AlgebraicHasher, GenericConfig}};
-use qed_core::job::id::QCircuitCommonGatesType;
+use psy_core::job::id::QCircuitCommonGatesType;
 
 pub mod custom;
 

@@ -10,7 +10,7 @@ use plonky2::{
     },
 };
 use qed_common_circuit::{builder::verify::CircuitBuilderVerifyProofHelpers, hash::merkle::gadgets::merkle_proof::MerkleProofGadget};
-use qed_core::{config::network_constants::GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT, data::qhashout::QHashOut};
+use psy_core::{config::network_constants::GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT, data::qhashout::QHashOut};
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
 

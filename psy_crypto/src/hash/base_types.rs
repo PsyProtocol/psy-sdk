@@ -1,4 +1,4 @@
-use qed_core::data::base_types::{hash160::Hash160, hash192::Hash192, hash256::Hash256};
+use psy_core::data::base_types::{hash160::Hash160, hash192::Hash192, hash256::Hash256};
 
 use super::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 

@@ -180,7 +180,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
-    use qed_core::data::base_types::hash192::Hash192;
+    use psy_core::data::base_types::hash192::Hash192;
 
     use crate::{
         builder::hash::sha256_truncated::CircuitBuilderTruncatedSha256,

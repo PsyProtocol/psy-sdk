@@ -1,5 +1,5 @@
 use plonky2::{hash::hash_types::HashOut, plonk::{config::{AlgebraicHasher, GenericConfig, Hasher}, proof::ProofWithPublicInputs}};
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey};
 
 use crate::circuits::traits::qstandard::QStandardCircuit;
@@ -126,7 +126,7 @@ mod tests {
 
     use plonky2::hash::poseidon::PoseidonHash;
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
-    use qed_core::utils::debug_timer::DebugTimer;
+    use psy_core::utils::debug_timer::DebugTimer;
 
     use super::*;
 

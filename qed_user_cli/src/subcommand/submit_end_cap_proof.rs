@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::config::network_constants::{
+use psy_core::config::network_constants::{
     MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT,
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_prover::local::args::{SignData, WalletSessionArgs};
 use qed_prover::session::WalletSession;

@@ -21,7 +21,7 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
     util::log2_ceil,
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
     data::qhashout::QHashOut,
 };

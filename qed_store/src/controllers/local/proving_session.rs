@@ -7,7 +7,7 @@ use plonky2::{
     },
     hash::hash_types::RichField,
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };

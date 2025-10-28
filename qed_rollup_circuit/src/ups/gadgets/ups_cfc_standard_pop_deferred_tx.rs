@@ -7,7 +7,7 @@ use plonky2::{
 use qed_common_circuit::{hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget,
     traits::WitnessValueFor}
 ;
-use qed_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
+use psy_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use psy_data::ups::ups_standard_cfc_input::UPSVerifyPopDeferredTxStepInput;
 

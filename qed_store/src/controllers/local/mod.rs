@@ -12,7 +12,7 @@ use psy_data::config::store_config::QEDFelt;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use crate::controllers::local::proving_session::QEDLocalProvingSessionStore;
 use psy_data::traits::qdatastore::qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync};
-use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use plonky2::field::types::Field;
 
 #[cfg(all(not(target_arch = "wasm32")))]

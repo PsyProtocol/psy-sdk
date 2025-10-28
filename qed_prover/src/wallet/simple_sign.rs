@@ -30,7 +30,7 @@ use qed_common_circuit::{
     proof_minifier::pm_chain::QEDProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT, data::qhashout::QHashOut,
 };
 use psy_crypto::{

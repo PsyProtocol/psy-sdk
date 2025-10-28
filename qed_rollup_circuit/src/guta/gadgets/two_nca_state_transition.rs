@@ -1,6 +1,6 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::{hash::merkle::gadgets::sub_tree_update_proof_opt::UpdateNearestCommonAncestorProofOptGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
-use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use psy_crypto::hash::merkle::{core::DeltaMerkleProofCore, utils::sub_tree_nca::{PartialUpdateNearestCommonAncestorProof, UpdateNearestCommonAncestorProof}};
 
 use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, helpers::ToGUTAHeader};

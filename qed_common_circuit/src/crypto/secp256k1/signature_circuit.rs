@@ -10,7 +10,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_core::utils::debug_timer::DebugTimer;
+use psy_core::utils::debug_timer::DebugTimer;
 
 use crate::proof_minifier::pm_chain::QEDProofMinifierChain;
 

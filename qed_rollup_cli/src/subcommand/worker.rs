@@ -1,8 +1,8 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::GenericHashOut;
-use qed_core::config::network_constants::get_default_worker_public_key;
-use qed_core::data::base_types::hash256::Hash256;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::config::network_constants::get_default_worker_public_key;
+use psy_core::data::base_types::hash256::Hash256;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use psy_data::config::store_config::{QEDFelt, QEDHash, QEDHasher};
@@ -75,7 +75,7 @@ pub async fn run(
             C,
             D,
         >::new_with_config(
-            qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
+            psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
         ));
 
     let mut memory_wallet = qed_prover::wallet::memory_wallet::QEDMemoryWallet::new(vec![Box::new(main_circuits)]);

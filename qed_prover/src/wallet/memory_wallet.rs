@@ -9,10 +9,10 @@ use plonky2::plonk::{
     config::{AlgebraicHasher, GenericConfig},
     proof::ProofWithPublicInputs,
 };
-use qed_core::config::network_constants::{
+use psy_core::config::network_constants::{
     MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT,
 };
-use qed_core::data::{
+use psy_core::data::{
     base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey,
 };
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
@@ -299,7 +299,7 @@ mod tests {
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
     use qed_common_circuit::circuits::l1_secp256k1_signature::L1Secp256K1SignatureCircuit;
     use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-    use qed_core::data::qhashout::QHashOut;
+    use psy_core::data::qhashout::QHashOut;
     use std::str::FromStr;
 
     type F = GoldilocksField;
@@ -310,7 +310,7 @@ mod tests {
     fn test_raw_secp256k1_sign() -> Result<()> {
         use psy_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
         use k256::ecdsa::signature::hazmat::PrehashSigner;
-        use qed_core::data::base_types::hash256::Hash256;
+        use psy_core::data::base_types::hash256::Hash256;
 
         // Create a test private key and signature hash
         let private_key = QHashOut::<F>::from_str(
@@ -377,7 +377,7 @@ mod tests {
         use plonky2::hash::poseidon::PoseidonPermutation;
 
         let public_key_param = crate::wallet::utils::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
-            qed_core::data::secp256k1::CompressedPublicKey(compressed_pk)
+            psy_core::data::secp256k1::CompressedPublicKey(compressed_pk)
         );
         let message_hash: QHashOut<F> = QHashOut::from(Hash256::from(sig_hash));
 
@@ -394,7 +394,7 @@ mod tests {
     #[test]
     fn test_memory_wallet_secp256k1_sign() -> Result<()> {
         use psy_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
-        use qed_core::data::base_types::hash256::Hash256;
+        use psy_core::data::base_types::hash256::Hash256;
 
         // Create a test private key and signature hash
         let private_key = QHashOut::<F>::from_str(
@@ -453,7 +453,7 @@ mod tests {
 
         // Get public key param the same way as in memory wallet
         let public_key_param = crate::wallet::utils::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
-            qed_core::data::secp256k1::CompressedPublicKey(secp_signature.public_key)
+            psy_core::data::secp256k1::CompressedPublicKey(secp_signature.public_key)
         );
         let message_hash: QHashOut<F> = QHashOut::from(secp_signature.message);
 

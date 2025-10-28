@@ -11,7 +11,7 @@ use qed_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic, traits::ToTargets
 };
-use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}, utils::debug_timer::DebugTimer};
+use psy_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}, utils::debug_timer::DebugTimer};
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher}};
 use psy_data::{guta::proof_input::VerifyTwoEndCapCircuitInput, qdata::pm_jobs_completed_stats::PMJobsCompletedStats};
 

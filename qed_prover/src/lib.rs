@@ -8,7 +8,7 @@ pub mod session;
 pub mod health;
 
 
-use qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
+use psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -46,7 +46,7 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     use hyper::Method;
     use jsonrpsee::server::Server;
     use crate::local::UserProverWorkerStore;
-    use qed_core::data::base_types::hash256::Hash256;
+    use psy_core::data::base_types::hash256::Hash256;
     use crate::local::provider::RpcConfig;
     use crate::session::WalletSession;
     use std::net::SocketAddr;

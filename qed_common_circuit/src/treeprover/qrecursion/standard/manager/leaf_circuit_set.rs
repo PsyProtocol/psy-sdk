@@ -5,7 +5,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{
     common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType,
     hash::traits::hasher::MerkleZeroHasher,

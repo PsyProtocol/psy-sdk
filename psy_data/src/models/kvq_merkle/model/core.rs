@@ -774,7 +774,7 @@ pub trait KVQMerkleTreeModelCore<
             ((append_index as u64) & ((leaves_per_subtree as u64) - 1u64)) as u64;
 
         let subtree_count =
-            qed_core::utils::math::ceil_div_usize((append_index as usize) + leaves.len(), leaves_per_subtree)
+            psy_core::utils::math::ceil_div_usize((append_index as usize) + leaves.len(), leaves_per_subtree)
                 - (cur_sub_tree_id as usize);
 
         let mut results = Vec::with_capacity(subtree_count);
@@ -1093,7 +1093,7 @@ mod tests {
     use super::*;
     use kvq::{memory::simple::KVQSimpleMemoryBackingStore, traits::KVQPair};
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+    use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
     use crate::config::store_config::{UserTreeStore, QEDHasher};
     use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
 

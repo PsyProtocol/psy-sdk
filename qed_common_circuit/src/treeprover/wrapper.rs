@@ -5,7 +5,7 @@ use crate::{
     },
     proof_minifier::pm_chain_dynamic::QEDProofMinifierDynamicChain,
 };
-use qed_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
+use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
     config::{AlgebraicHasher, GenericConfig},

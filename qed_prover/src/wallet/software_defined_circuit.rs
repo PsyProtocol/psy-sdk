@@ -25,7 +25,7 @@ use qed_common_circuit::{
     proof_minifier::pm_chain::QEDProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{
     hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
 };

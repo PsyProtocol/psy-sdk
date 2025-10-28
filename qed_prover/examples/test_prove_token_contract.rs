@@ -9,7 +9,7 @@ use plonky2::{
 use qed_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     utils::debug_timer::DebugTimer,

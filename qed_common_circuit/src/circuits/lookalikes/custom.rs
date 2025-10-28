@@ -3,7 +3,7 @@ use plonky2::plonk::{
     circuit_data::{CircuitConfig, CircuitData, CommonCircuitData},
     config::{AlgebraicHasher, GenericConfig},
 };
-use qed_core::job::id::QCircuitCommonGatesType;
+use psy_core::job::id::QCircuitCommonGatesType;
 
 use crate::
     builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}

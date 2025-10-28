@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use ts_rs::TS;
 use std::collections::HashMap;
-use qed_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
+use psy_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Parser, TS)]
 #[ts(export)]

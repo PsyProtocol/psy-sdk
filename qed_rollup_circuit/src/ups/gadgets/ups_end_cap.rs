@@ -2,7 +2,7 @@ use plonky2::{
     field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::target::Target, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}
 };
 use qed_common_circuit::builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, core::CircuitBuilderHelpersCore};
-use qed_core::config::network_constants::{CHECKPOINT_TREE_HEIGHT, GUTA_FEE, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID, DEFAULT_CALLER_CONTRACT_ID_U64};
+use psy_core::config::network_constants::{CHECKPOINT_TREE_HEIGHT, GUTA_FEE, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID, DEFAULT_CALLER_CONTRACT_ID_U64};
 
 use crate::{gadgets::qdata::{
     ups_context_input::UserProvingSessionHeaderGadget, user_contract_state::{SignContextGadget, UserContractStateGadget}, contract_function_call::DPNProvingSessionSimpleMethodCallGadget}, guta::gadgets::guta_stats::GUTAStatsGadget}

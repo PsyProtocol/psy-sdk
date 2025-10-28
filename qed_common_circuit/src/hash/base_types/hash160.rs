@@ -14,7 +14,7 @@ use plonky2::{
     },
     plonk::circuit_builder::CircuitBuilder,
 };
-use qed_core::{data::base_types::hash160::Hash160, utils::binary_helpers::{read_u32_be_at, read_u32_le_at}};
+use psy_core::{data::base_types::hash160::Hash160, utils::binary_helpers::{read_u32_be_at, read_u32_le_at}};
 
 pub type Hash160Target = [U32Target; 5];
 impl ToTargets for Hash160Target {

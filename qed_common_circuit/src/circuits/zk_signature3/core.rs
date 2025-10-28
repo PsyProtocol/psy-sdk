@@ -6,7 +6,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     }, util::serialization::{DefaultGateSerializer, DefaultGeneratorSerializer}
 };
-use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_crypto::{common::witnesses::zk_signature::QEDZKSignatureCircuitInput, hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
 
 use crate::{
@@ -353,7 +353,7 @@ where
 
 mod test {
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
-    use qed_core::utils::debug_timer::DebugTimer;
+    use psy_core::utils::debug_timer::DebugTimer;
 
     use super::*;
     

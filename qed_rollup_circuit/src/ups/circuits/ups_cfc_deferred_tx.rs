@@ -12,7 +12,7 @@ use qed_common_circuit::{
     builder::pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs
 };
-use qed_core::{config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
+use psy_core::{config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use psy_data::ups::ups_cfc_standard_step::UPSCFCDeferredTransactionCircuitInput;
 

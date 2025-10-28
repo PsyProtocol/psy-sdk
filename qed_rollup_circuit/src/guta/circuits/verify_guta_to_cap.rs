@@ -12,7 +12,7 @@ use qed_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic, traits::ToTargets
 };
-use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
+use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::{core::MerkleProofCore, treeprover::data::CircuitInputWithDependencies}, traits::hasher::MerkleZeroHasher}};
 use psy_data::guta::{header::GlobalUserTreeAggregatorHeader, proof_input::VerifyGUTAToCapCircuitInputSimple};
 

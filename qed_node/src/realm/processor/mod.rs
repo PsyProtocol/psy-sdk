@@ -10,12 +10,12 @@ use crate::coordinator::client_v2::ConcreteCoordinatorClient;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use crate::realm::{edge, C, D, F};
-use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
-use qed_core::job::history_queue::{
+use psy_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
+use psy_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
 };
-use qed_core::job::id::ProvingJobDataId;
-use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
+use psy_core::job::id::ProvingJobDataId;
+use psy_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_crypto::hash::merkle::utils::common::{QMerkleNode, SimpleMerkleNodeKey};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
@@ -33,7 +33,7 @@ use anyhow::{anyhow, bail};
 use futures::future::{err, ok};
 use tower_http::follow_redirect::policy::PolicyExt;
 use tracing::{debug, error, info, trace, warn};
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use qed_store::queue::new_redis_async_pool;
 use psy_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
@@ -42,9 +42,9 @@ use qed_store::store::journal::{Journal, JournalStore};
 use crate::common::clock::SlotTimer;
 use crate::common::slot::{Clock, LocalClock, Parity, Slot, SLOT_SIZE};
 use crate::common::retry::Retryable;
-use qed_core::config::network_constants::{REALM_USER_TREE_HEIGHT, USERS_PER_REALM};
+use psy_core::config::network_constants::{REALM_USER_TREE_HEIGHT, USERS_PER_REALM};
 use psy_data::config::store_config::QEDHasher;
-use qed_core::config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
+use psy_core::config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
 use psy_data::qdata::user::QEDUserLeaf;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_store::node::realm::QEDRealmStoreWriterAsyncImm;
@@ -379,7 +379,7 @@ impl RealmProcessor {
         build_ctx: &ConcreteRealmProcessorContext,
         job_id: ProvingJobDataId,
     ) -> anyhow::Result<()> {
-        use qed_core::job::traits::QProofStoreReaderAsync;
+        use psy_core::job::traits::QProofStoreReaderAsync;
         let bytes = build_ctx.proof_store.get_bytes_by_id(job_id.job_id).await?;
         // Deserialize realm result
         let realm_result: GUTARealmCheckpointResult<F> = bincode::deserialize(&bytes)?;
@@ -429,7 +429,7 @@ impl RealmProcessor {
     pub async fn sync_wait_expected_checkpoint(&self, expected_checkpoint: u64) -> anyhow::Result<CheckpointSyncInfo<F>>{
         // Wait for the next checkpoint sync info
          self.sync_checkpoint.wait_for_next_item_imm::<CheckpointSyncInfo<F>>(
-            qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            psy_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
             expected_checkpoint
         ).await
     }

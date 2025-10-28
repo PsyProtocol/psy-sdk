@@ -11,7 +11,7 @@ use plonky2::{
 use qed_common_circuit::{
     builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager}, proof_minifier::pm_core::get_circuit_fingerprint_generic
 };
-use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 
 pub struct SimplerSigLookalikeCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where

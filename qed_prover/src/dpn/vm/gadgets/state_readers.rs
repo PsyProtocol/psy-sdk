@@ -19,7 +19,7 @@ use qed_common_circuit::{
     },
     traits::{CreatableTarget, ToTargets},
 };
-use qed_core::{config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::{base_types::hash256::Hash256, qhashout::QHashOut}};
+use psy_core::{config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::{base_types::hash256::Hash256, qhashout::QHashOut}};
 use psy_crypto::hash::core::sha256;
 use qed_rollup_circuit::gadgets::qdata::{
     checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget,

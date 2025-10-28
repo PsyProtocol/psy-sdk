@@ -1,6 +1,6 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::{builder::core::CircuitBuilderHelpersCore, traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor}};
-use qed_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
+use psy_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use psy_data::qdata::contract::QEDContractLeaf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]

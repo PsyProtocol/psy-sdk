@@ -8,7 +8,7 @@ use qed_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_data::qdata::user::QEDUserLeaf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]

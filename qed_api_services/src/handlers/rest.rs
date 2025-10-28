@@ -6,7 +6,7 @@ use axum::{
     Router,
 };
 use chrono::{DateTime, Utc};
-use qed_core::job::id::{ProvingJobCircuitType, QJobTopic};
+use psy_core::job::id::{ProvingJobCircuitType, QJobTopic};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

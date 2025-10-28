@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
 };
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::{data::qhashout::QHashOut, job::{drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID}}};
+use psy_core::{data::qhashout::QHashOut, job::{drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID}}};
 use psy_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 

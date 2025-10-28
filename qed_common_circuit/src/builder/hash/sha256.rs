@@ -441,8 +441,8 @@ mod tests {
     use crate::u32::witness::WitnessU32;
 
     use super::CircuitBuilderHashSha256;
-    use qed_core::data::base_types::hash256::Hash256;
-    use qed_core::data::qhashout::QHashOut;
+    use psy_core::data::base_types::hash256::Hash256;
+    use psy_core::data::qhashout::QHashOut;
     use hex;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::{Field, PrimeField64};
@@ -451,7 +451,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, Hasher, PoseidonGoldilocksConfig};
-    use qed_core::utils::binary_helpers::{bytes_to_u32_vec_be, u32_vec_to_bytes_be};
+    use psy_core::utils::binary_helpers::{bytes_to_u32_vec_be, u32_vec_to_bytes_be};
     use psy_crypto::hash::core::sha256::CoreSha256Hasher;
 
     #[test]

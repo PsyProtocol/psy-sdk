@@ -16,7 +16,7 @@ use qed_common_circuit::{
         QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
     }, hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget, proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic}, traits::{CreatableTarget, ToTargets}
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::CHECKPOINT_TREE_HEIGHT, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}
 };
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{
@@ -286,7 +286,7 @@ where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
-        qed_core::data::qhashout::QHashOut(self.minifier_chain.get_fingerprint())
+        psy_core::data::qhashout::QHashOut(self.minifier_chain.get_fingerprint())
     }
 
     fn get_verifier_config_ref(&self) -> &VerifierOnlyCircuitData<C, D> {

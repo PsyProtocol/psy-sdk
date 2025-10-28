@@ -1,6 +1,6 @@
 use fred::prelude::*;
 use kvq::traits::KVQSerializable;
-use qed_core::{
+use psy_core::{
     job::drain_queue::{
         CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
         DrainQueueMetadata, DrainQueueMetadataTagged,

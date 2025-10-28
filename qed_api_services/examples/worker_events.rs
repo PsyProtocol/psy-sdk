@@ -6,7 +6,7 @@
 //! 3. Query aggregated data using /worker_events_aggregations
 
 use chrono::Utc;
-use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID};
+use psy_core::job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID};
 use reqwest::Client;
 use serde_json::json;
 

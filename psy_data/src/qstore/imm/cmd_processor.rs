@@ -1,6 +1,6 @@
 
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use crate::{dpn::proving_session::DPNProvingSessionSimpleMethodCall, qdata::{checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDCheckpointGlobalStateRoots, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}};
 use serde::{Deserialize, Serialize};

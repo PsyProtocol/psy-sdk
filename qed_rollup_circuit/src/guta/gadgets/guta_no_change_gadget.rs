@@ -8,7 +8,7 @@ use plonky2::{
 use qed_common_circuit::{
     debug::circuit_tracer::DebugCircuitTracer, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable}};
 use psy_data::qdata::checkpoint::QEDCheckpointLeafCompactWithStateRoots;
 

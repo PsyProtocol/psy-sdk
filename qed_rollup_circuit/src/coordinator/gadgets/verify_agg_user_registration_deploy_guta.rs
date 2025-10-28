@@ -7,7 +7,7 @@ use plonky2::{
 use qed_common_circuit::{builder::hash::core::CircuitBuilderHashCore, treeprover::aggregation::gadgets::{verify_state_transition::VerifyStateTransitionProofGadget, AggStateTransitionGadget}, traits::CreatableTarget
     }
 ;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::{core::MerkleProofCore, treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig}};
 use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
 

@@ -1,5 +1,5 @@
 use plonky2::hash::hash_types::RichField;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;

@@ -6,10 +6,10 @@ use plonky2::hash::poseidon::PoseidonHash;
 use plonky2::plonk::config::AlgebraicHasher;
 use plonky2::plonk::config::Hasher;
 use plonky2::util::log2_ceil;
-use qed_core::data::base_types::hash160::Hash160;
-use qed_core::data::base_types::hash192::Hash192;
-use qed_core::data::base_types::hash256::Hash256;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::base_types::hash160::Hash160;
+use psy_core::data::base_types::hash192::Hash192;
+use psy_core::data::base_types::hash256::Hash256;
+use psy_core::data::qhashout::QHashOut;
 
 use crate::field::qfield::QRichField;
 

@@ -3,7 +3,7 @@
 
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::{HashOut, RichField};
-use qed_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::QHashOut};
+use psy_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::QHashOut};
 use psy_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 

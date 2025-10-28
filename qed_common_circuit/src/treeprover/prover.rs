@@ -2,7 +2,7 @@
 use core::fmt::Debug;
 use itertools::Itertools;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use qed_core::job::traits::{QProofStoreReaderSync, QProofStoreWriterSync};
+use psy_core::job::traits::{QProofStoreReaderSync, QProofStoreWriterSync};
 use psy_crypto::hash::merkle::treeprover::{tree_planner::{BinaryTreeJob, BinaryTreePlanner}, TPLeafAggregator};
 use serde::{de::DeserializeOwned, Serialize};
 

@@ -13,13 +13,13 @@ use k256::{
 };
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::poseidon::PoseidonPermutation;
-use qed_core::data::{qhashout::QHashOut, secp256k1::CompressedPublicKey};
+use psy_core::data::{qhashout::QHashOut, secp256k1::CompressedPublicKey};
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use serde::Serialize;
 use std::{collections::HashMap, fmt, fs, path::Path};
 
 use crate::wallet::secp_sign::SignedRequest;
-use qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
+use psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
 
 pub struct WalletConfig {
     pub default_keystore_dir: Option<String>,

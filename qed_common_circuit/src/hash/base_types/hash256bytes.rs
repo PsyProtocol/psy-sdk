@@ -209,7 +209,7 @@ mod tests {
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
-    use qed_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+    use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
     use std::str::FromStr;
 
     type F = GoldilocksField;

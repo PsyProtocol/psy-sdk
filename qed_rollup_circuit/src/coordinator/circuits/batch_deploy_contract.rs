@@ -12,7 +12,7 @@ use qed_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
         pm_core::get_circuit_fingerprint_generic, traits::{ToTargets, WitnessValueFor}
 };
-use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
+use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::spiderman::SpidermanUpdateProof, traits::hasher::MerkleZeroHasher}};
 use psy_data::{protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput, qdata::{contract::QEDContractLeaf, pm_jobs_completed_stats::PMJobsCompletedStats}};
 

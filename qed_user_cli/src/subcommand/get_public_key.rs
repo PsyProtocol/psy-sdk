@@ -5,8 +5,8 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::poseidon::PoseidonHash;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
-use qed_core::data::base_types::hash256::Hash256;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::base_types::hash256::Hash256;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use psy_crypto::signature::secp256k1::wallet::{CompressedPublicKeyToP2PKH, MemorySecp256K1Wallet};
 use psy_crypto::signature::zk::wallet::{SimpleL2PrivateKey, SimpleQEDPrivateKey};
@@ -45,7 +45,7 @@ pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
 
             let main_circuits =
                 QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(
-                    qed_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
+                    psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
                 ));
 
             let mut memory_wallet = QEDMemoryWallet::new(vec![Box::new(main_circuits)]);

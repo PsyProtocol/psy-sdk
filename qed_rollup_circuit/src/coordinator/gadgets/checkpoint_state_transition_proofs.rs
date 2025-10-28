@@ -16,7 +16,7 @@ use qed_common_circuit::{
     },
     traits::CreatableTarget,
 };
-use qed_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::QHashOut};
+use psy_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::QHashOut};
 use psy_crypto::hash::merkle::
     treeprover::AggStateTransition
 ;

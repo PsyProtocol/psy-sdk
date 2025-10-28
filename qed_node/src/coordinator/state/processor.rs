@@ -7,7 +7,7 @@ use plonky2::{
     field::types::Field,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::{
         BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT,
         COORDINATOR_USER_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID,

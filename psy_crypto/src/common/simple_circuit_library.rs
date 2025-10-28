@@ -1,6 +1,6 @@
 use hashbrown::HashMap;
 use plonky2::{field::extension::Extendable, hash::hash_types::RichField, plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs, verifier_v2::verify_standard_proof}};
-use qed_core::{data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut}, job::id::ProvingJobCircuitType};
+use psy_core::{data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut}, job::id::ProvingJobCircuitType};
 use serde::{Deserialize, Serialize};
 
 use crate::hash::merkle::core::MerkleProofCore;

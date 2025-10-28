@@ -1,6 +1,6 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use qed_core::{config::network_constants::COORD_API_REGISTER_USER_CHANNEL_ID, data::qhashout::QHashOut, job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}};
+use psy_core::{config::network_constants::COORD_API_REGISTER_USER_CHANNEL_ID, data::qhashout::QHashOut, job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}};
 use serde::{Deserialize, Serialize};
 
 use crate::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};

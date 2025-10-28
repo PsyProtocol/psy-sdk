@@ -1,5 +1,5 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOut, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}, util::log2_ceil};
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 
 use crate::hash::merkle::gadgets::variable_height_delta_merkle_proof_opt::VariableHeightDeltaMerkleProofOptGadget;
 

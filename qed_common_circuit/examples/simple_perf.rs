@@ -17,7 +17,7 @@ use qed_common_circuit::{
         pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic,
     },
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 
 #[derive(Debug)]
 pub struct SimplePerfCircuit<C: GenericConfig<D> + 'static, const D: usize>

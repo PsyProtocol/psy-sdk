@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use tracing::{info, debug, warn};
 use qed_api_services::handlers::{TelemetryPayload, TelemetryResponse};
 use qed_api_services::models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus};
-use qed_core::job::id::QProvingJobDataID;
+use psy_core::job::id::QProvingJobDataID;
 use crate::watcher::events::{JobCompletedEvent, JobTimeoutEvent, UserRegistrationEvent, BackupProofEvent, BackupWitnessEvent, UserRegistrationMetadata, UserDeployContractMetadata, UserDeployContractEvent, UserGutaSubmissionEvent, JobStartedEvent, JobPendingEvent};
 use crate::watcher::watcher::NodeType;
 use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};

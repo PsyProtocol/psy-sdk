@@ -1,4 +1,4 @@
-use qed_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
+use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use core::fmt::Debug;
 use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},

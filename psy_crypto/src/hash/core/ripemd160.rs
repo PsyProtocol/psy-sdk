@@ -1,4 +1,4 @@
-use qed_core::data::base_types::hash160::Hash160;
+use psy_core::data::base_types::hash160::Hash160;
 use ripemd::{Digest, Ripemd160};
 
 use crate::hash::traits::hasher::MerkleHasher;

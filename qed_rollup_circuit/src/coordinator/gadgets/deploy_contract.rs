@@ -8,7 +8,7 @@ use qed_common_circuit::{builder::connect::CircuitBuilderConnectHelpers, hash::m
         CreatableTarget
     }
 ;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
 use psy_data::qdata::contract::QEDContractLeaf;
 

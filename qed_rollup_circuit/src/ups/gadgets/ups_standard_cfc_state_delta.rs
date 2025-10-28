@@ -6,7 +6,7 @@ use plonky2::{
 };
 use qed_common_circuit::{builder::{comparison::CircuitBuilderComparison, connect::CircuitBuilderConnectHelpers, select::CircuitBuilderSelectHelpers}, hash::{hash_stack::simple::SimpleHashStackGadget, merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, historical_root_merkle_proof::HistoricalRootMerkleProofGadget}}, traits::WitnessValueFor}
 ;
-use qed_core::config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT};
+use psy_core::config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use psy_data::ups::ups_standard_cfc_input::UPSCFCStandardStateDeltaInput;
 

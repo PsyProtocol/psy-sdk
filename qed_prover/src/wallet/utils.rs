@@ -2,7 +2,7 @@ use plonky2::hash::{
     hash_types::RichField,
     hashing::{hash_n_to_hash_no_pad, PlonkyPermutation},
 };
-use qed_core::data::{
+use psy_core::data::{
     base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::{bytes_to_u32_vec_le, CompressedPublicKey}
 };
 

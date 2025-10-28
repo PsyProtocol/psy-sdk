@@ -2,7 +2,7 @@ use alloy_primitives::Address;
 use anyhow::Result;
 use indexmap::IndexSet;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use qed_prover::wallet::secp_sign::{Eip712Signable, SignedRequest};
 use serde::{Deserialize, Serialize};
 use std::fs;

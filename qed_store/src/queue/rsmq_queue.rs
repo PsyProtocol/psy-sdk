@@ -5,17 +5,17 @@ use crate::queue::{
 };
 use async_trait::async_trait;
 use kvq::traits::KVQSerializable;
-use qed_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
-use qed_core::job::drain_queue::{
+use psy_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
+use psy_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable,
 };
-use qed_core::job::history_queue::{
+use psy_core::job::history_queue::{
     CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, HQSerializable,
     HistoryQueueMetadata, HistoryQueueMetadataTagged,
 };
-use qed_core::job::id::{QProvingJobDataID, QWorkerJobBenchmark};
-use qed_core::job::traits::QProofStoreReaderAsync;
-use qed_core::job::worker_queue::{
+use psy_core::job::id::{QProvingJobDataID, QWorkerJobBenchmark};
+use psy_core::job::traits::QProofStoreReaderAsync;
+use psy_core::job::worker_queue::{
     WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm,
 };
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
@@ -493,7 +493,7 @@ impl RsmqQueue {
 #[async_trait]
 impl CheckpointDrainQueueEmitterAsyncImm for RsmqQueue {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
-        let metadata: qed_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
+        let metadata: psy_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
         let queue_id = QueueId::CheckpointDrain {
             queue_biz_key: self.worker_queue_key().clone(),

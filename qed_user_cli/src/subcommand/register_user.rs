@@ -4,10 +4,10 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::poseidon::{PoseidonHash, PoseidonPermutation};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use qed_core::config::network_constants::{
+use psy_core::config::network_constants::{
     MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT,
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey};
 use psy_data::config::store_config::QEDHasher;

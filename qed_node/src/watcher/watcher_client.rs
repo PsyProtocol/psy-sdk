@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use anyhow::Result;
-use qed_core::job::id::{LayerId, QProvingJobDataID};
+use psy_core::job::id::{LayerId, QProvingJobDataID};
 use qed_store::queue::{QueueId, RsmqQueue};
 use crate::watcher::common::get_queue_name;
 use crate::watcher::events::{BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobStartedEvent, JobTimeoutEvent, UserDeployContractEvent, UserDeployContractMetadata, UserGutaSubmissionEvent, UserGutaSubmissionMetadata, UserRegistrationEvent, WatcherMessage};

@@ -7,7 +7,7 @@ use plonky2::{
 use qed_common_circuit::{builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore}, 
     traits::{AlgebraicHashableTarget, WitnessValueFor}}
 ;
-use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use psy_data::qdata::ups_end_cap_result::UPSEndCapResultCompact;
 
 

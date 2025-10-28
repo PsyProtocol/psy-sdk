@@ -5,7 +5,7 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::{circuit_data::VerifierOnlyCircuitData, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs},
 };
-use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStore}};
+use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStore}};
 use psy_crypto::hash::{merkle::utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof, traits::hasher::MerkleZeroHasher};
 use psy_data::{guta::{api::{SubmitUserEndCapProofAPIInput, SubmitUserEndCapProofIDAPIInput}, proof_input::{VerifyEndCapSimpleStandardInput, VerifyTwoEndCapCircuitInput, VerifyTwoEndCapCircuitWithIdsInput}}, qdata::checkpoint::QEDL2BlockState};
 use qed_rollup_circuit::guta::guta_helper::QEDGUTACircuitManager;

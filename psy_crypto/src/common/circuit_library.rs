@@ -1,5 +1,5 @@
 use plonky2::{hash::hash_types::RichField, plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
-use qed_core::{data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut}, job::id::ProvingJobCircuitType};
+use psy_core::{data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut}, job::id::ProvingJobCircuitType};
 
 use crate::hash::merkle::core::MerkleProofCore;
 

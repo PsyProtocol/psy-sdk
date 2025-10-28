@@ -1,6 +1,6 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
+use psy_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
 use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

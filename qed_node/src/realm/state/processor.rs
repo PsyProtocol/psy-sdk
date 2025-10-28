@@ -8,7 +8,7 @@ use plonky2::{
     ,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, CST_USER_UPDATE_CHANNEL_ID, DEFAULT_USER_STATE_TREE_ROOT, GLOBAL_USER_TREE_HEIGHT, REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::{

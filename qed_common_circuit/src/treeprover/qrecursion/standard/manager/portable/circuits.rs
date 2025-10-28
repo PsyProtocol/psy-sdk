@@ -6,7 +6,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs,
     },
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{common::witnesses::qrecursion::header::QRecursionAggStandardHeader, 
     hash::{
         merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, 

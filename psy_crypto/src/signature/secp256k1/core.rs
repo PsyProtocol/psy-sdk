@@ -9,7 +9,7 @@ use plonky2::{
     field::{secp256k1_base::Secp256K1Base, secp256k1_scalar::Secp256K1Scalar},
     hash::hash_types::{HashOut, RichField},
 };
-use qed_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use serde::{Deserialize, Serialize};
 
 use serde_with::serde_as;

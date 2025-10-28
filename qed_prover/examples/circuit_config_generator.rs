@@ -1,6 +1,6 @@
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use qed_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
+use psy_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
 use psy_crypto::common::{circuit_library::CircuitInfoLibraryBuilder, simple_circuit_library::SimpleCircuitLibrary};
 use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use qed_rollup_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitManager, guta::guta_helper::QEDGUTACircuitManager};
@@ -22,7 +22,7 @@ fn run_gen_config() -> anyhow::Result<()> {
     );
 
 
-    use qed_core::config::network_constants::get_default_worker_public_key;
+    use psy_core::config::network_constants::get_default_worker_public_key;
 
     let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
         main_circuits.ups_end_cap.get_common_circuit_data_ref(),

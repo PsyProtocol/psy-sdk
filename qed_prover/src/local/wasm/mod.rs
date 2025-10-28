@@ -1,9 +1,9 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
-use qed_core::data::base_types::hash256::Hash256;
-use qed_core::data::qhashout::QHashOut;
-use qed_core::data::u8bytes::U8Bytes;
+use psy_core::data::base_types::hash256::Hash256;
+use psy_core::data::qhashout::QHashOut;
+use psy_core::data::u8bytes::U8Bytes;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;

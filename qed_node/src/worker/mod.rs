@@ -5,8 +5,8 @@ pub mod worker_state;
 pub mod client;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::data::qhashout::QHashOut;
-use qed_core::job::{
+use psy_core::data::qhashout::QHashOut;
+use psy_core::job::{
     id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
     traits::QProofStoreReaderAsync,
 };
@@ -29,7 +29,7 @@ use tokio::sync::Mutex;
 use tokio::time::timeout;
 use qed_prover::wallet::secp_wallet::Wallet;
 use crate::common::slot::SLOT_SIZE;
-use qed_core::utils::trace_timer::TraceTimer;
+use psy_core::utils::trace_timer::TraceTimer;
 use crate::common::retry::retry_with_backoff;
 
 pub async fn run_worker(

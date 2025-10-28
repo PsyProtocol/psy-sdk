@@ -2,7 +2,7 @@
 
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::merkle::core::MerkleProofCore};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

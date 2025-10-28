@@ -1,4 +1,4 @@
-use qed_core::data::base_types::hash256::Hash256;
+use psy_core::data::base_types::hash256::Hash256;
 use sha2::{Digest, Sha256};
 
 use crate::hash::traits::hasher::MerkleHasher;

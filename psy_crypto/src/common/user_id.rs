@@ -1,5 +1,5 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::RichField, iop::target::{BoolTarget, Target}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT, REALM_USER_TREE_HEIGHT};
+use psy_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT, REALM_USER_TREE_HEIGHT};
 
 fn reverse_bits_in_limit(x: u64, num_bits: u8) -> u64 {
     let dif = 64 - num_bits as u64;
@@ -230,7 +230,7 @@ pub fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F
 #[cfg(test)]
 mod tests {
     use plonky2::{field::{extension::Extendable, types::{Field, PrimeField64}}, hash::hash_types::RichField, iop::{target::{BoolTarget, Target}, witness::{PartialWitness, WitnessWrite}}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData}, config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig}, proof::ProofWithPublicInputs}};
-    use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+    use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
     use rand::{thread_rng, RngCore};
 
     use super::{UserIdBitsStrategy1, UserIdBitsStrategy2, UserIdBitsStrategy3, UserIdBitsStrategy4, UserIdGeneratorStrategy};

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
     config::{AlgebraicHasher, GenericConfig},

@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::{HashOut, RichField};
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

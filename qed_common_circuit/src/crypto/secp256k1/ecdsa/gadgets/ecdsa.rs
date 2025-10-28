@@ -54,7 +54,7 @@ pub fn verify_message_circuit<F: RichField + Extendable<D>, const D: usize>(
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use qed_core::utils::debug_timer::DebugTimer;
+    use psy_core::utils::debug_timer::DebugTimer;
     use psy_crypto::signature::secp256k1::curve::curve_types::CurveScalar;
     use psy_crypto::signature::secp256k1::curve::ecdsa::{
         sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature,

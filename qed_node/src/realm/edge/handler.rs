@@ -11,10 +11,10 @@ use jsonrpsee::rpc_params;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::{field::types::PrimeField64, plonk::proof::ProofWithPublicInputs};
 use plonky2::field::types::Field;
-use qed_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
-use qed_core::data::qhashout::QHashOut;
-use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
-use qed_core::job::{
+use psy_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
+use psy_core::data::qhashout::QHashOut;
+use psy_core::job::worker_queue::WorkerEventReceiverAsyncImm;
+use psy_core::job::{
     drain_queue::CheckpointDrainQueueEmitterAsyncImm,
     id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, VariableHeightRewardMerkleProof},
     traits::QProofStoreAsyncImm,
@@ -35,8 +35,8 @@ use anyhow::{anyhow, bail, ensure};
 use jsonrpsee::types::{ErrorCode, ErrorObject};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use tracing::{debug, error, info, warn};
-use qed_core::config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
-use qed_core::job::id::ProvingJobDataType;
+use psy_core::config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
+use psy_core::job::id::ProvingJobDataType;
 use psy_crypto::hash::traits::hasher::{MerkleHasher, MerkleZeroHasher, PoseidonHasher};
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use psy_data::guta::api::{QEDContractStateUpdateHistory, SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem};

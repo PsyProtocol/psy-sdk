@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use qed_core::data::base_types::hash256::Hash256;
+use psy_core::data::base_types::hash256::Hash256;
 
 #[derive(Clone, Debug)]
 pub struct UserProverWorkerStore {

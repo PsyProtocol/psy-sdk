@@ -27,7 +27,7 @@ use plonky2::{
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use qed_core::{
+use psy_core::{
     config::network_constants::{
         MAX_CONTRACT_STATE_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT
     },
@@ -59,7 +59,7 @@ use qed_store::controllers::local::{
 use qedlang_core::dpn::{
     contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function}, vm::def::DPNFunctionCircuitDefinition,
 };
-use qed_core::job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT};
+use psy_core::job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 

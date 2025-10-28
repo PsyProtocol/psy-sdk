@@ -3,7 +3,7 @@ use std::{marker::PhantomData, sync::Arc};
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
-use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer};
+use psy_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer};
 use psy_crypto::{hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimpleQEDPrivateKey};
 use psy_data::{
     guta::api::SubmitUserEndCapProofAPIInput, proof_store::simple::SimpleProofStoreMemory, protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints, qblock::cmds::{
@@ -345,7 +345,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         QCircuitManager::Local(manager) => manager.ups_end_cap.get_common_circuit_data_ref(),
         QCircuitManager::Rpc(provider) => unimplemented!(),
     };
-    use qed_core::config::network_constants::get_default_worker_public_key;
+    use psy_core::config::network_constants::get_default_worker_public_key;
 
     let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
         end_cap_proof_common_data,

@@ -1,5 +1,5 @@
 use plonky2::hash::hash_types::RichField;
-//use qed_core::config::network_constants::QEDTreeConfig;
+//use psy_core::config::network_constants::QEDTreeConfig;
 use crate::qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf};
 
 

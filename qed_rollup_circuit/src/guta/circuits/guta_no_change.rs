@@ -16,7 +16,7 @@ use qed_common_circuit::{
     },
     proof_minifier::pm_core::get_circuit_fingerprint_generic, traits::{ToTargets, WitnessValueFor},
 };
-use qed_core::{
+use psy_core::{
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, QProvingJobDataID},

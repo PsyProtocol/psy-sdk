@@ -1,6 +1,6 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use qed_core::{
+use psy_core::{
     config::network_constants::QED_SIG_ACTION_SIGN_UPS_END_CAP, data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}
 };
 use psy_crypto::{hash::traits::{

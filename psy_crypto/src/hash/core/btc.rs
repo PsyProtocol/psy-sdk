@@ -1,5 +1,5 @@
 
-use qed_core::data::base_types::{hash160::Hash160, hash256::Hash256};
+use psy_core::data::base_types::{hash160::Hash160, hash256::Hash256};
 
 use super::{ripemd160::CoreRipemd160Hasher, sha256::CoreSha256Hasher};
 

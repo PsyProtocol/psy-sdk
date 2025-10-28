@@ -2,8 +2,8 @@ use plonky2::{
     field::goldilocks_field::GoldilocksField,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use qed_core::data::qhashout::QHashOut;
-use qed_core::job::id::{QProvingJobDataID, ProvingJobCircuitType};
+use psy_core::data::qhashout::QHashOut;
+use psy_core::job::id::{QProvingJobDataID, ProvingJobCircuitType};
 use psy_data::config::store_config::QEDProof;
 use tracing::info;
 

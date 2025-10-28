@@ -25,7 +25,7 @@ rand = { workspace = true }
 tracing = { workspace = true }
 itertools = { workspace = true }
 kvq = { workspace = true }
-qed_core = { workspace = true }
+psy_core = { workspace = true }
 indexmap = { workspace = true }
 
 

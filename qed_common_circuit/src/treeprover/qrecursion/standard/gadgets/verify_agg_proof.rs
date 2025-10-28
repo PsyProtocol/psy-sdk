@@ -9,7 +9,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{common::witnesses::qrecursion::header::QRecursionAggStandardHeader, hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher}};
 
 use crate::{

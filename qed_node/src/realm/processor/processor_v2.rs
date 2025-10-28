@@ -12,7 +12,7 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
+use psy_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use psy_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
 use psy_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTAToCapCircuitInputSimple};
 use qed_store::queue::task_queue::QProvingTaskStore;
@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 use kvq::traits::{KVQSerializable, KVQPair};
 use qed_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
-use qed_core::{
+use psy_core::{
     config::network_constants::{
         GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
         MAX_CONTRACT_STATE_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT

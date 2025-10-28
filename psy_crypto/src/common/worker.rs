@@ -1,7 +1,7 @@
 
 use async_trait::async_trait;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use qed_core::job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
+use psy_core::job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
 
 use super::circuit_library::CircuitInfoLibrary;
 

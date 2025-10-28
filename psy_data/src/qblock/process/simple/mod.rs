@@ -3,8 +3,8 @@ use std::time::SystemTime;
 
 use kvq::traits::KVQBinaryStore;
 use plonky2::field::types::{Field, PrimeField64};
-use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::
     qhashable::QFieldHashable
 ;

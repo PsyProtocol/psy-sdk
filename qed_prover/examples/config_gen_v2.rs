@@ -1,7 +1,7 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_common_circuit::circuits::{lookalikes::{get_agg_state_transition_type_d_common_data, get_agg_user_registration_deploy_guta_type_f_common_data, get_end_cap_type_e_common_data, get_guta_type_c_common_data}, traits::qstandard::QStandardCircuit};
-use qed_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
+use psy_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use qed_rollup_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitManager, guta::guta_helper::QEDGUTACircuitManager};
@@ -36,7 +36,7 @@ fn run_gen_config() -> anyhow::Result<(String, String)> {
     );
 
 
-    use qed_core::config::network_constants::get_default_worker_public_key;
+    use psy_core::config::network_constants::get_default_worker_public_key;
     let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
         main_circuits.ups_end_cap.get_common_circuit_data_ref(),
         main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),

@@ -1,6 +1,6 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use qed_core::{
+use psy_core::{
     config::network_constants::{DEFERRED_CALL_MAGIC, SIGN_SIMPLE_TRANSACTION_MAGIC, DEFAULT_CALLER_CONTRACT_ID_U64},
     data::qhashout::QHashOut,
     traits::to_qfelts::ToQFelts,

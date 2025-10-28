@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use k256::ecdsa::signature::hazmat::PrehashSigner;
 use plonky2::hash::hash_types::RichField;
-use qed_core::data::{base_types::{hash160::Hash160, hash256::Hash256}, qhashout::QHashOut, secp256k1::CompressedPublicKey};
+use psy_core::data::{base_types::{hash160::Hash160, hash256::Hash256}, qhashout::QHashOut, secp256k1::CompressedPublicKey};
 
 use crate::hash::core::btc::btc_hash160;
 

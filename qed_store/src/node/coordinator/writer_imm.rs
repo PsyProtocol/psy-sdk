@@ -13,7 +13,7 @@ use psy_data::{
 use async_trait::async_trait;
 use kvq::traits::KVQBinaryStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::{
         core::DeltaMerkleProofCore,

@@ -5,7 +5,7 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::config::AlgebraicHasher,
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use crate::hash::traits::hasher::{MerkleHasher, MerkleHasherWithMarkedLeaf, MerkleZeroHasher, QHasher};

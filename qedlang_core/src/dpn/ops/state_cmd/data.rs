@@ -11,7 +11,7 @@ use super::types::{DPNStateCmdCore, DPNStateCommandType};
 
 // Constants for field sizes
 const PM_REWARD_COMMITMENT_SIZE: usize = 12; // 3 roots * 4 field elements each
-const DA_CHALLENGE_WINDOW: usize = 14; // Matching qed_core::config::network_constants::DA_CHALLENGE_WINDOW
+const DA_CHALLENGE_WINDOW: usize = 14; // Matching psy_core::config::network_constants::DA_CHALLENGE_WINDOW
 
 
 

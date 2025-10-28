@@ -6,7 +6,7 @@ use plonky2::{
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use qed_core::{
+use psy_core::{
     config::network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     ups::circuits::LocalCircuitId,

@@ -18,7 +18,7 @@ psy_crypto = { workspace = true }
 qed_common_circuit = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-qed_core = { workspace = true }
+psy_core = { workspace = true }
 qedlang_core = { workspace = true }
 qed_prover = { workspace = true, default-features = false}
 psy_data = { workspace = true }

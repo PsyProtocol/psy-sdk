@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},

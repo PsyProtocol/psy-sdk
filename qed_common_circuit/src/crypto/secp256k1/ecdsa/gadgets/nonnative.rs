@@ -10,7 +10,7 @@ use plonky2::iop::witness::{PartitionWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CommonCircuitData;
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
-use qed_core::utils::math::ceil_div_usize;
+use psy_core::utils::math::ceil_div_usize;
 
 use crate::u32::arithmetic_u32::{CircuitBuilderU32, U32Target};
 use crate::u32::range_check::range_check_u32_circuit;

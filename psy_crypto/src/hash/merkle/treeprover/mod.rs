@@ -8,7 +8,7 @@ use plonky2::{
     hash::{hash_types::RichField, poseidon::PoseidonHash},
     plonk::config::{AlgebraicHasher, Hasher},
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 use tree_planner::BinaryTreePlanner;
 pub type QEDStateTrackingHash = PoseidonHash;

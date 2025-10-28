@@ -1,9 +1,9 @@
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
-use qed_core::job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof};
+use psy_core::job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof};
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::config::store_config::QEDFelt;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use psy_data::guta::api::SubmitGUTARealmResultAPINoProofInput;

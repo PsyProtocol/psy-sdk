@@ -16,7 +16,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
+use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::{data::CircuitInputWithDependencies, AggStateTransitionInput}};
 
 use crate::{

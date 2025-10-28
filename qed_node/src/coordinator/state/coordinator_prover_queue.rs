@@ -1,5 +1,5 @@
 use super::processor::CoordinatorProcessorContext;
-use qed_core::{
+use psy_core::{
     data::qhashout::QHashOut,
     job::{
         history_queue::CheckpointHistoryQueueEmitterAsyncImm, id::{ProvingJobCircuitType, QProvingJobDataID}, traits::{QProofStoreAsyncImm, QProofStoreWriterSync}, worker_queue::WorkerEventTransmitterAsyncImm

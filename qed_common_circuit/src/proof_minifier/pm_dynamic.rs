@@ -14,7 +14,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use qed_core::utils::debug_timer::DebugTimer;
+use psy_core::utils::debug_timer::DebugTimer;
 
 use crate::builder::verify::CircuitBuilderVerifyProofHelpers;
 

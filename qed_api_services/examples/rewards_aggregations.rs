@@ -13,7 +13,7 @@
 
 use chrono::{Duration, Utc};
 use qed_api_services::models::WorkerRewardsAggregation;
-use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID};
+use psy_core::job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID};
 use reqwest::Client;
 use serde_json::json;
 

@@ -8,7 +8,7 @@ use crate::{
         witness::WitnessU32,
     },
 };
-use qed_core::{data::base_types::hash256::Hash256, utils::binary_helpers::{read_u32_be_at, read_u32_le_at}};
+use psy_core::{data::base_types::hash256::Hash256, utils::binary_helpers::{read_u32_be_at, read_u32_le_at}};
 
 use plonky2::{
     field::{extension::Extendable, types::PrimeField64},

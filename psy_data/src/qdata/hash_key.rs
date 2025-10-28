@@ -1,6 +1,6 @@
 use kvq::traits::{KVQSerializable, ScyllaKey};
 use plonky2::hash::hash_types::{HashOut, RichField};
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
 

@@ -20,7 +20,7 @@ use qed_common_circuit::{
         },
     },
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
     ups::circuits::LocalCircuitType,

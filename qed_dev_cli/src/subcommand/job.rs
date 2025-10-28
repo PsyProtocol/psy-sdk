@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{command, Args, Subcommand};
-use qed_core::job::id::QProvingJobDataID;
+use psy_core::job::id::QProvingJobDataID;
 
 #[derive(Args)]
 pub struct JobArgs {

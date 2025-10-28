@@ -1,7 +1,7 @@
 use hashbrown::HashMap;
 
 use super::traits::ContextInput;
-use qed_core::config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
+use psy_core::config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

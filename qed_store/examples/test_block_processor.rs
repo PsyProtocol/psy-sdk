@@ -2,7 +2,7 @@
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use std::sync::Arc;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_data::{protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints, qblock::cmds::{core::QEDBlockCommands, register_user::QBCRegisterUser}};
 use psy_data::{qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}};
 use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
@@ -14,7 +14,7 @@ async fn test_simple_block_processor() -> anyhow::Result<()> {
     let mut t = DebugTimer::new("test_kvq_simple_store_arc");
     t.lap("start");
     let st = Arc::new(KVQSimpleMemoryBackingStore::new());
-    use qed_core::data::qhashout::QHashOut;
+    use psy_core::data::qhashout::QHashOut;
     let cur_checkpoint = st.initialize_store(None).await?;
     t.event(format!("current_checkpoint: {}", cur_checkpoint));
 

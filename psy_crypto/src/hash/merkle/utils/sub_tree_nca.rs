@@ -565,7 +565,7 @@ mod tests {
     use crate::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
     use crate::hash::traits::hasher::{MerkleZeroHasher, PoseidonHasher};
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use qed_core::data::qhashout::QHashOut;
+    use psy_core::data::qhashout::QHashOut;
     use rand::{thread_rng, Rng, RngCore};
 
     use super::{PartialUpdateNCAWithAdditionalLink, UpdateNCAWithAdditionalLink};

@@ -2,7 +2,7 @@
 
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::{HashOut, RichField}};
-use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::id::QProvingJobDataID};
+use psy_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::id::QProvingJobDataID};
 use psy_crypto::hash::{merkle::{core::{compute_historical_and_current_merkle_roots_core_gt, compute_historical_and_current_merkle_roots_core_gt_qho, DeltaMerkleProofCore, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 

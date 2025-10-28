@@ -1,5 +1,5 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{common::witnesses::qrecursion::header::AttestProofInTreeInput, hash::merkle::core::MerkleProofCore};
 
 use crate::{builder::hash::core::CircuitBuilderHashCore, hash::merkle::gadgets::merkle_proof::MerkleProofGadget};

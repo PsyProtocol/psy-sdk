@@ -1,5 +1,5 @@
 use fred::prelude::*;
-use qed_core::{
+use psy_core::{
     job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::QProofStoreWriterAsyncImm, worker_queue::WorkerEventTransmitterAsyncImm},
     utils::debug_timer::DebugTimer,
 };

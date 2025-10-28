@@ -1,5 +1,5 @@
 use kvq::{adapters::standard::KVQStandardAdapter, traits::{KVQBinaryStore, KVQStoreAdapter}};
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 

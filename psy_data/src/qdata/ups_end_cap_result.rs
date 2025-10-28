@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::{
+use psy_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, traits::to_qfelts::QFeltSized
 };
 use psy_crypto::hash::traits::{

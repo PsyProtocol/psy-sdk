@@ -24,7 +24,7 @@ ts-rs = { workspace = true }
 dashmap = { workspace = true }
 
 kvq = { workspace = true }
-qed_core = { workspace = true }
+psy_core = { workspace = true }
 qed_common_circuit = { workspace = true, default-features = false }
 qed_rollup_circuit = { workspace = true, default-features = false }
 qed_rollup_utils = { workspace = true }

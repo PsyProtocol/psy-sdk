@@ -10,7 +10,7 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
     util::serialization::{Read, Write},
 };
-use qed_core::utils::math::ceil_div_usize;
+use psy_core::utils::math::ceil_div_usize;
 
 use crate::u32::arithmetic_u32::U32Target;
 

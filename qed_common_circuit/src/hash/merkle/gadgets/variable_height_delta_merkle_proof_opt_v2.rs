@@ -8,7 +8,7 @@ use plonky2::{
     },
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
 
 pub struct BitsHelper {
@@ -323,7 +323,7 @@ mod tests {
     use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::proof::ProofWithPublicInputs;
-    use qed_core::data::qhashout::QHashOut;
+    use psy_core::data::qhashout::QHashOut;
     use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
     use psy_crypto::hash::merkle::utils::common::SimpleMerkleNodeKey;
     use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;

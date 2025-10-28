@@ -7,7 +7,7 @@ use plonky2::{
 use qed_common_circuit::hash::merkle::gadgets::spiderman_append_proof::SpidermanAppendProofGadget
 
 ;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
 
 // we keep this separate from DPNProvingSessionCompactMethodCallGadget incase it changes in the future

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail};
 use chrono::Utc;
-use qed_core::traits::to_qfelts::ToQFelts;
+use psy_core::traits::to_qfelts::ToQFelts;
 use psy_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
 use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
 use rand::RngCore;
@@ -18,15 +18,15 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 
 use jsonrpsee::types::ErrorObject;
-use qed_core::data::qhashout::QHashOut;
-use qed_core::job::drain_queue::{
+use psy_core::data::qhashout::QHashOut;
+use psy_core::job::drain_queue::{
     CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
     DrainQueueMetadataTagged, WithDrainQueueMetadata,
 };
-use qed_core::job::id::{
+use psy_core::job::id::{
     VariableHeightRewardMerkleProof, ProvingJobCircuitType, QJobTopic, QProvingJobDataID,
 };
-use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
+use psy_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
@@ -48,8 +48,8 @@ use crate::coordinator::args::CoordinatorEdgeArgs;
 use crate::coordinator::edge::{DrainQueue, ProofStore, StoreReader};
 use crate::coordinator::error::CoordinatorError;
 use crate::coordinator::state::edge::CoordinatorEdgeContext;
-use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
-use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
+use psy_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
+use psy_core::job::worker_queue::WorkerEventReceiverAsyncImm;
 use psy_data::config::store_config::{
     QCheckpointSyncInfoCompact, QEDFelt, QEDHash, QEDHasher, QEDProof,
 };
@@ -1047,7 +1047,7 @@ use crate::common::whitelist::{WhiteList, WhiteListCache};
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
+use psy_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
 use serde::Serialize;
 use qed_prover::local::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
 use qed_prover::wallet::secp_sign::SignedRequest;

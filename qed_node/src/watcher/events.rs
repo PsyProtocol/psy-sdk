@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use qed_api_services::models::UserEventTxType;
-use qed_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
+use psy_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
 use psy_data::config::store_config::QEDFelt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

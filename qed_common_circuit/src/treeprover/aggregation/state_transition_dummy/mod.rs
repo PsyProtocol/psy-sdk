@@ -7,7 +7,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     }
 };
-use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
+use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::DummyAggStateTransition};
 
 use crate::{

@@ -21,7 +21,7 @@ use plonky2::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 use plonky2::util::bits_u64;
-use qed_core::utils::math::ceil_div_usize;
+use psy_core::utils::math::ceil_div_usize;
 
 
 /// A gate for checking that one value is less than or equal to another.

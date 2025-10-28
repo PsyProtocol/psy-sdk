@@ -1,4 +1,4 @@
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 
 use plonky2::{
     hash::hash_types::HashOutTarget,

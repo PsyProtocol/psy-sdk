@@ -1,11 +1,11 @@
 use plonky2::field::types::Field;
 use plonky2::plonk::proof::ProofWithPublicInputs;
-use qed_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
-use qed_core::config::network_constants::REALM_USER_TREE_HEIGHT;
-use qed_core::data::qhashout::QHashOut;
-use qed_core::job::id::ProvingJobCircuitType;
-use qed_core::job::id::QProvingJobDataID;
-use qed_core::job::traits::QProofStoreAsyncImm;
+use psy_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
+use psy_core::config::network_constants::REALM_USER_TREE_HEIGHT;
+use psy_core::data::qhashout::QHashOut;
+use psy_core::job::id::ProvingJobCircuitType;
+use psy_core::job::id::QProvingJobDataID;
+use psy_core::job::traits::QProofStoreAsyncImm;
 use psy_crypto::common::circuit_library::CircuitInfoLibraryCore;
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_crypto::hash::merkle::treeprover::data::CircuitInputWithDependencies;

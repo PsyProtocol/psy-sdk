@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use fred::prelude::{FredResult, HashesInterface, KeysInterface, ListInterface, Pool};
 use kvq::traits::{KVQPair, KVQSerializable};
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use qed_core::job::{
+use psy_core::job::{
     drain_queue::{
         CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable,
     },
@@ -22,7 +22,7 @@ use tokio::time::sleep;
 
 use super::PS_DRAIN_QUEUE_KEY_PREFIX;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::RichField;
 use crate::queue::redis_queue::QueueOffsetState;
 
@@ -196,7 +196,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
         let checkpoint_queue_prefix =
             format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-        let metadata: qed_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
+        let metadata: psy_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
         let key = format!(
             "{}-{}",

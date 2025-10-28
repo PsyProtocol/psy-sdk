@@ -9,7 +9,7 @@ use plonky2::{
         config::AlgebraicHasher, proof::ProofWithPublicInputsTarget,
     },
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::treeprover::{AggStateTransition, AggStateTransitionWithEvents, TPCircuitFingerprintConfig};
 
 use crate::builder::{

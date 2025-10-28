@@ -1,5 +1,5 @@
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use qed_core::traits::to_qfelts::{QFeltSized, ToQFelts};
+use psy_core::traits::to_qfelts::{QFeltSized, ToQFelts};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

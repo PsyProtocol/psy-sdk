@@ -4,7 +4,7 @@ use plonky2::{
     iop::{target::BoolTarget, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 
 use crate::builder::{
     comparison::CircuitBuilderComparison, connect::CircuitBuilderConnectHelpers,
@@ -147,7 +147,7 @@ mod tests {
     use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::proof::ProofWithPublicInputs;
-    use qed_core::data::qhashout::QHashOut;
+    use psy_core::data::qhashout::QHashOut;
     use psy_crypto::hash::merkle::core::compute_partial_merkle_root_from_leaves_algebraic;
 
     use rand::{thread_rng, Rng};

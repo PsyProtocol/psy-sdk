@@ -16,7 +16,7 @@ use qed_common_circuit::{
         pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic,
     },
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::{core::DeltaMerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree}, traits::hasher::MerkleZeroHasher};
 
 #[derive(Debug)]

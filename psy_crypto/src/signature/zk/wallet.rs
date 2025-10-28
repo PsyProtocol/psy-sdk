@@ -2,7 +2,7 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::config::AlgebraicHasher,
 };
-use qed_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use serde::{Deserialize, Serialize};
 
 use serde_with::serde_as;

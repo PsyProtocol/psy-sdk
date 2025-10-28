@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use chrono::Utc;
 use futures_util::{SinkExt, StreamExt};
-use qed_core::job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID};
+use psy_core::job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;

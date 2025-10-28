@@ -204,7 +204,7 @@ impl RealmRecoveryManager {
     // Helper method to check if a user ID belongs to this realm
     // This logic should match RealmConfig::includes_user_id
     fn includes_user_id(&self, user_id: u64) -> bool {
-        let users_per_realm = 1usize << (qed_core::config::network_constants::REALM_USER_TREE_HEIGHT as usize);
+        let users_per_realm = 1usize << (psy_core::config::network_constants::REALM_USER_TREE_HEIGHT as usize);
         let r64 = self.realm_id as u64;
         user_id >= r64 * (users_per_realm as u64) && user_id < (r64 + 1) * (users_per_realm as u64)
     }

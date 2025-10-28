@@ -16,7 +16,7 @@ use crate::{
     },
     u32::arithmetic_u32::CircuitBuilderU32,
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{
     field::conversions::bytes33_to_public_key,
     signature::secp256k1::curve::{
@@ -367,7 +367,7 @@ mod tests {
     use std::str::FromStr;
 
     use anyhow::Result;
-    use qed_core::data::qhashout::QHashOut;
+    use psy_core::data::qhashout::QHashOut;
     use psy_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
     use psy_crypto::signature::secp256k1::curve::ecdsa::{
         sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature,
@@ -625,7 +625,7 @@ mod tests {
                 config::{GenericConfig, PoseidonGoldilocksConfig},
             },
         };
-        use qed_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+        use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
         use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
 
         use crate::{

@@ -10,7 +10,7 @@ use plonky2::{
     },
     plonk::config::PoseidonGoldilocksConfig,
 };
-use qed_core::{
+use psy_core::{
     data::{
         qhashout::QHashOut,
         secp256k1::{bytes_to_u32_vec_le, CompressedPublicKey},

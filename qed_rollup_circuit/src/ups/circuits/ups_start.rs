@@ -15,7 +15,7 @@ use qed_common_circuit::{
         pm_core::get_circuit_fingerprint_generic
     , traits::CreatableWithHasherTarget, treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs,
 };
-use qed_core::{config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
+use psy_core::{config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use psy_data::ups::start_step::UPSStartStepInput;
 

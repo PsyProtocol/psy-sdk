@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use plonky2::plonk::config::GenericConfig;
 use tracing::debug;
-use qed_core::{
+use psy_core::{
     job::{
         self, id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, QWorkerModeFilter}, mode::QWorkerMode, traits::QProofStoreAsyncImm, worker_queue::WorkerEventReceiverAsyncImm
     },

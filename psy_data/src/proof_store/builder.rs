@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use kvq::traits::KVQPair;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use qed_core::job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync, QProofStoreWriterAsyncImm, QProofStoreWriterSync}};
+use psy_core::job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync, QProofStoreWriterAsyncImm, QProofStoreWriterSync}};
 use serde::{Deserialize, Serialize};
 
 

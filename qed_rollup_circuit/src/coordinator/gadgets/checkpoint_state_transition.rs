@@ -12,7 +12,7 @@ use qed_common_circuit::{
         hash::core::CircuitBuilderHashCore
     , hash::merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget}
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::hasher::MerkleZeroHasher}
 ;
 

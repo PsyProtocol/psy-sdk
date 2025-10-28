@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable as _;
 use psy_data::config::store_config::QEDHasher;
 use tracing::{error, info, warn};

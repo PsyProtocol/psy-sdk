@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use plonky2::plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs};
-use qed_core::job::{
+use psy_core::job::{
     drain_queue::{CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata}, id::ProvingJobCircuitType,
     traits::QProofStoreAsyncImm,
 };

@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use qed_core::config::network_constants::REALM_SLOT_SIZE_MS;
+use psy_core::config::network_constants::REALM_SLOT_SIZE_MS;
 use crate::common::slot::{Clock, Slot};
 
 #[derive(Clone)]

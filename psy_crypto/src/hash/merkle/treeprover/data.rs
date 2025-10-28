@@ -1,5 +1,5 @@
 use plonky2::hash::hash_types::RichField;
-use qed_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
+use psy_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt::Debug;
 use super::{AggStateTrackableInput, AggStateTrackableWithEventsInput, AggStateTransition, AggStateTransitionWithEvents};

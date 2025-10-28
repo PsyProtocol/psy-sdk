@@ -2,7 +2,7 @@ use kvq::traits::{
     KVQBinaryStore, KVQStoreAdapter,
     KVQStoreAdapterReader,
 };
-use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, utils::math::ceil_div_usize};
+use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, utils::math::ceil_div_usize};
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};
 use crate::qdata::hash_key_with_id::Hash4x64KeyWithId;
 

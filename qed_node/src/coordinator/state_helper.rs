@@ -3,7 +3,7 @@ use plonky2::{
     field::types::{Field, PrimeField64},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use qed_core::job::{
+use psy_core::job::{
     id::QProvingJobDataID,
     traits::QProofStoreWriterSyncImm,
 };

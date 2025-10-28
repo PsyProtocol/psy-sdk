@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_prover::local::provider::RpcProvider;
 

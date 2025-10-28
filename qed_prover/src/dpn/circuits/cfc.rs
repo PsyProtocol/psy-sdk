@@ -24,7 +24,7 @@ use qed_common_circuit::{
     proof_minifier::{pm_chain::QEDProofMinifierChain, pm_core::get_circuit_fingerprint_generic},
     u32::gates::comparison::ComparisonGate,
 };
-use qed_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
+use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::{
     hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
 };

@@ -5,7 +5,7 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use tracing::{info, error, debug};
 use crate::common::retry::{RetryConfig, Retryable};
 use crate::worker::F;

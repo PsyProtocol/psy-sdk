@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use qed_core::job::id::QProvingJobDataID;
+use psy_core::job::id::QProvingJobDataID;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

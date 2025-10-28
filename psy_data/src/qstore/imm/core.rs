@@ -4,7 +4,7 @@ use crate::qdata::{
     user::QEDUserLeaf,
 };
 use kvq::traits::KVQBinaryStore;
-use qed_core::{config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
+use psy_core::{config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
 use psy_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof};
 
 use crate::{

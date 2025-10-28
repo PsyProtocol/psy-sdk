@@ -1,6 +1,6 @@
 use kvq::traits::KVQPair;
 use plonky2::hash::hash_types::RichField;
-use qed_core::{
+use psy_core::{
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, QProvingJobDataID},

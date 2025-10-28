@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
-use qed_core::job::id::QProvingJobDataID;
+use psy_core::job::id::QProvingJobDataID;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;

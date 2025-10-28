@@ -1,5 +1,5 @@
 use kvq::adapters::standard::KVQStandardAdapter;
-use qed_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
+use psy_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
 
 use psy_data::{config::store_config::{QEDHash, QEDHasher}, models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQFixedConfigMerkleTreeModel}};
 

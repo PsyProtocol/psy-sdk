@@ -15,7 +15,7 @@ use psy_data::{
 use async_trait::async_trait;
 use kvq::traits::KVQBinaryStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::qdata::{
     checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState},

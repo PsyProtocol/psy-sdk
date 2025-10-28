@@ -16,7 +16,7 @@ use qed_common_circuit::{
     },
     treeprover::qrecursion::standard::gadgets::{verify_agg_proof::VerifyAggProofGadget, verify_agg_root::VerifyAggRootGadget},
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };

@@ -6,7 +6,7 @@ use plonky2::{
     },
     hash::hash_types::{HashOut, RichField},
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64,
     data::qhashout::QHashOut,
     traits::to_qfelts::ToQFelts,

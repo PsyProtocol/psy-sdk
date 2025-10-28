@@ -5,17 +5,17 @@ use crate::coordinator::state::processor::CoordinatorProcessorContext;
 use anyhow::{bail, Context};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::field::types::Field;
-use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
-use qed_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
-use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+use psy_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
+use psy_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
+use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use psy_crypto::common::user_id::get_user_id_from_registration_id;
 use psy_crypto::hash::merkle::utils::common::QMerkleNode;
 use psy_data::config::genesis_config::GenesisConfig;
 use psy_data::qblock::cmds::deploy_contract::QBCDeployContractWithRoot;
-use qed_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
-use qed_core::data::qhashout::QHashOut;
-use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;
-use qed_core::job::{
+use psy_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
+use psy_core::data::qhashout::QHashOut;
+use psy_core::job::worker_queue::WorkerEventReceiverAsyncImm;
+use psy_core::job::{
     drain_queue::CheckpointDrainQueueConsumerAsyncImm,
     history_queue::{CheckpointHistoryQueueEmitterAsyncImm, CheckpointHistoryQueueConsumerAsyncImm},
     traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
@@ -36,7 +36,7 @@ use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::ProofStoreFred;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::queue::rsmq_queue::CEQueueNotification;
-use qed_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
+use psy_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
 use qed_store::store::QEDStore;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tracing::trace;
@@ -52,10 +52,10 @@ use psy_data::qdata::user_public_key::QEDUserPublicKeyRecord;
 use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use qedlang_core::dpn::vm::compile::QEDCompileResult;
 use psy_data::config::store_config::QEDHasher;
-use qed_core::config::network_constants::BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT;
+use psy_core::config::network_constants::BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT;
 use psy_data::qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition};
 use psy_data::config::store_config::UserTreeStore;
-use qed_core::config::network_constants::{USERS_PER_REALM, REALM_USER_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT};
+use psy_core::config::network_constants::{USERS_PER_REALM, REALM_USER_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT};
 use std::str::FromStr;
 use std::collections::HashMap;
 use indexmap::IndexMap;
@@ -282,7 +282,7 @@ impl
         )
         .await?;
 
-        use qed_core::config::network_constants::get_default_worker_public_key;
+        use psy_core::config::network_constants::get_default_worker_public_key;
         let coordinator_worker_circuits =
             QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<F>());
 

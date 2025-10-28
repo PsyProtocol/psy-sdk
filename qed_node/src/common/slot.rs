@@ -1,7 +1,7 @@
 use auto_impl::auto_impl;
 use chrono::Utc;
 
-pub use qed_core::config::network_constants::{SLOT0, SLOT_SIZE, REALM_SLOT_SIZE_MS, SLOT0_TIMESTAMP, NETWORK_COST_TIME_MS};
+pub use psy_core::config::network_constants::{SLOT0, SLOT_SIZE, REALM_SLOT_SIZE_MS, SLOT0_TIMESTAMP, NETWORK_COST_TIME_MS};
 
 #[auto_impl(&, Box, Arc)]
 pub trait Clock {

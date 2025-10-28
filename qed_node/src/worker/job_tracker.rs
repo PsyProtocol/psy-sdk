@@ -1,6 +1,6 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::data::qhashout::QHashOut;
-use qed_core::job::id::{QProvingJobDataID, ProvingJobCircuitType};
+use psy_core::data::qhashout::QHashOut;
+use psy_core::job::id::{QProvingJobDataID, ProvingJobCircuitType};
 use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;
 use std::fs;

@@ -1,6 +1,6 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::{HashOut, RichField}};
-use qed_core::{
+use psy_core::{
     config::network_constants::DA_CHALLENGE_WINDOW,
     data::qhashout::QHashOut,
     traits::to_qfelts::{QFeltSized, ToQFelts},
@@ -520,11 +520,11 @@ impl<F: RichField + Serialize + for<'de> Deserialize<'de>> KVQSerializable
     }
 }
 
-impl<F: RichField> qed_core::job::history_queue::HistoryQueueMetadataTagged for CheckpointSyncInfo<F> {
-    fn get_hq_metadata(&self) -> qed_core::job::history_queue::HistoryQueueMetadata {
+impl<F: RichField> psy_core::job::history_queue::HistoryQueueMetadataTagged for CheckpointSyncInfo<F> {
+    fn get_hq_metadata(&self) -> psy_core::job::history_queue::HistoryQueueMetadata {
         // Use the same channel as the compact version for consistency
-        qed_core::job::history_queue::HistoryQueueMetadata {
-            channel_id: qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+        psy_core::job::history_queue::HistoryQueueMetadata {
+            channel_id: psy_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
             checkpoint_id: self.compact.l2_block_state.checkpoint_id,
             item_id: self.compact.l2_block_state.checkpoint_id,
         }

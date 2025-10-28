@@ -31,7 +31,7 @@ impl WorkerState {
         pool_size: usize,
         biz_key: String,
     ) -> anyhow::Result<Self> {
-        use qed_core::config::network_constants::get_default_worker_public_key;
+        use psy_core::config::network_constants::get_default_worker_public_key;
         // Create storage and queues  
         let realm_qps = ProofStoreRedisAsync::new(
             redis_url.as_str(),

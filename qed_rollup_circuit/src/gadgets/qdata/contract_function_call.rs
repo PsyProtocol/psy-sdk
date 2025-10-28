@@ -8,7 +8,7 @@ use qed_common_circuit::{
     builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore},
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
-use qed_core::config::network_constants::DEFERRED_CALL_MAGIC;
+use psy_core::config::network_constants::DEFERRED_CALL_MAGIC;
 use psy_data::dpn::proving_session::{
     DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall,
 };

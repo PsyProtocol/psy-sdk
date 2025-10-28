@@ -15,7 +15,7 @@ mod tests {
             traits::TreeProverAggCircuit,
         },
     };
-    use qed_core::{
+    use psy_core::{
         config::network_constants::{
             QED_NETWORK_MAGIC_REGTEST, UPS_CIRCUIT_WHITELIST_TREE_HEIGHT,
             UPS_SESSION_PROOF_TREE_HEIGHT,

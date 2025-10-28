@@ -10,7 +10,7 @@ use plonky2::plonk::{
 use qed_common_circuit::circuits::{
     l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature::inner, zk_signature3::core::QEDBasicZKSignatureCircuit
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT,
     data::{alt::AltVerifierOnlyCircuitData, base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey},
 };
@@ -232,7 +232,7 @@ pub struct ProveProxyServerProvider {
 impl ProveProxyServerProvider {
     pub async fn new_with_config(rpc_config: RpcConfig, network_magic: u64) -> anyhow::Result<Self> {
         use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-        use qed_core::ups::circuits::LocalCircuitType;
+        use psy_core::ups::circuits::LocalCircuitType;
         use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
 
         let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;

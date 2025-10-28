@@ -5,7 +5,7 @@ use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use qed_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
     job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
     ups::circuits::{LocalCircuitId, LocalCircuitType},
@@ -61,7 +61,7 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     plonk::config::PoseidonGoldilocksConfig,
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use qed_node::coordinator::edge::rpc::CoordinatorEdgeRpcClient;
 use qed_store::store::journal::JournalStore;
 use qed_store::store::QEDStore;
@@ -103,7 +103,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     timer.lap("created proof verifier");
 
-    use qed_core::config::network_constants::get_default_worker_public_key;
+    use psy_core::config::network_constants::get_default_worker_public_key;
     let coordinator_worker_circuits =
         QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<GoldilocksField>());
 

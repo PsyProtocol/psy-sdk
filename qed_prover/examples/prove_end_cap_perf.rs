@@ -8,7 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::QED_NETWORK_MAGIC_REGTEST,
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut}, utils::debug_timer::DebugTimer,
 };

@@ -17,7 +17,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     }
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
     hash::{

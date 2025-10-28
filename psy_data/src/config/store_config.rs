@@ -1,6 +1,6 @@
 use kvq::adapters::standard::KVQStandardAdapter;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonHash, plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs}};
-use qed_core::{
+use psy_core::{
     config::network_constants::{
         CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
         GLOBAL_DEPOSIT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GLOBAL_WITHDRAWAL_TREE_HEIGHT,
@@ -213,8 +213,8 @@ pub type F = crate::config::store_config::QEDFelt;
 // GLOBAL_CONTRACT_TREE_HEIGHT-th zero hash
 #[cfg(test)]
 mod tests {
-    use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
-    use qed_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
+    use psy_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
+    use psy_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
     use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
     use psy_crypto::hash::traits::hasher::PoseidonHasher;
 

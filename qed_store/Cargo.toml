@@ -23,7 +23,7 @@ clap = { workspace = true }
 hex = { workspace = true }
 
 kvq = { workspace = true }
-qed_core = { workspace = true }
+psy_core = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 qedlang_core = { workspace = true }

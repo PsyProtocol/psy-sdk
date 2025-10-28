@@ -1,5 +1,5 @@
 use fred::prelude::*;
-use qed_core::{
+use psy_core::{
     job::{id::QProvingJobDataID, traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QWorkerGenericProverAsyncMut}, worker_queue::WorkerEventReceiverAsyncImm},
     utils::debug_timer::DebugTimer,
 };
@@ -9,7 +9,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use plonky2::plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::{GenericConfig, PoseidonGoldilocksConfig}, proof::ProofWithPublicInputs};
-use qed_core::{data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QJobTopic, QWorkerModeFilter}, mode::QWorkerMode, traits::{QProofStore, QWorkerGenericProverMut, QWorkerVerifyHelper}}};
+use psy_core::{data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QJobTopic, QWorkerModeFilter}, mode::QWorkerMode, traits::{QProofStore, QWorkerGenericProverMut, QWorkerVerifyHelper}}};
 use qed_store::queue::new_fred_pool;
 
 #[derive(Debug, Clone)]

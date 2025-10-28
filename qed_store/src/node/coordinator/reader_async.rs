@@ -23,7 +23,7 @@ use psy_data::models::realm_status::RealmStatusModelReaderCore;
 use async_trait::async_trait;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use tracing::info;
-use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
     qdata::{

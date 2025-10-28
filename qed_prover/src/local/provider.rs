@@ -9,7 +9,7 @@ use qed_common_circuit::{circuits::zk_signature3::core::QEDBasicZKSignatureInner
     PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
     PortableQTreeRecursionCircuitsTrait,
 }};
-use qed_core::{job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof}, traits::to_qfelts::ToQFelts};
+use psy_core::{job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof}, traits::to_qfelts::ToQFelts};
 use psy_crypto::{
     common::witnesses::qrecursion::proof_data::{
         AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs,
@@ -78,7 +78,7 @@ use super::request::{
     QGetUserIdRPCRequest, QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest,
 };
 
-use qed_core::{
+use psy_core::{
     config::network_constants::REALM_USER_TREE_HEIGHT,
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
     ups::circuits::LocalCircuitType,

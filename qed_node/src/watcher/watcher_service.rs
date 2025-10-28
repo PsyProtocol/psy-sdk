@@ -8,7 +8,7 @@ use anyhow::{anyhow, Result};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use chrono::{DateTime, Utc};
-use qed_core::job::id::QProvingJobDataID;
+use psy_core::job::id::QProvingJobDataID;
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::task_queue::QProvingTaskStoreImpl;

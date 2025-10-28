@@ -7,7 +7,7 @@ use plonky2::{
 use qed_common_circuit::{builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore}, 
     traits::{AlgebraicHashableTarget, WitnessValueFor}}
 ;
-use qed_core::config::network_constants::QED_SIG_ACTION_SIGN_UPS_END_CAP;
+use psy_core::config::network_constants::QED_SIG_ACTION_SIGN_UPS_END_CAP;
 use psy_data::qdata::ups_signature::QEDUserProvingSessionSignatureDataCompact;
 
 use crate::gadgets::{qdata::user_contract_state::{SignContextGadget, UserContractStateGadget}, sig_action::{compute_sig_action_hash_circuit, SimpleQEDSigAction}};

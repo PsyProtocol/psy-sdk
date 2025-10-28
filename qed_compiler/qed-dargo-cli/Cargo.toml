@@ -21,7 +21,7 @@ plonky2 = { workspace = true }
 psy_crypto = { workspace = true }
 qed_exec = { workspace = true }
 psy_data = { workspace = true, default-features = false }
-qed_core = { workspace = true }
+psy_core = { workspace = true }
 qed_common_circuit = { workspace = true }
 qed-sema = { workspace = true }
 qed-ast = { workspace = true }

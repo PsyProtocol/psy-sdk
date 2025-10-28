@@ -1,6 +1,6 @@
 use crate::dpn::ops::sym_felt::SymFeltRefValue;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_core::traits::to_qfelts::QFeltSized;
+use psy_core::traits::to_qfelts::QFeltSized;
 use psy_data::qdata::checkpoint::QEDCheckpointLeafStats;
 
 use super::{

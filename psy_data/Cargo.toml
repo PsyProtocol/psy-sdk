@@ -22,7 +22,7 @@ indexmap = { workspace = true }
 
 
 kvq = { workspace = true }
-qed_core = { workspace = true }
+psy_core = { workspace = true }
 psy_crypto = { workspace = true }
 ts-rs =  { workspace = true }
 

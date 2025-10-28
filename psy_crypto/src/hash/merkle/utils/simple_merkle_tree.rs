@@ -1,6 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use qed_core::utils::math::ceil_div_usize;
+use psy_core::utils::math::ceil_div_usize;
 
 use crate::hash::{
     merkle::{
@@ -653,7 +653,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
 #[cfg(test)]
 mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use qed_core::data::qhashout::QHashOut;
+    use psy_core::data::qhashout::QHashOut;
 
     use crate::hash::{
         merkle::utils::common::SimpleMerkleNodeKey,

@@ -7,7 +7,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use qed_core::{
+use psy_core::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::ProvingJobCircuitType,
 };

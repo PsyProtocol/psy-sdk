@@ -7,7 +7,7 @@ use plonky2::{
 use qed_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, traits::{CreatableTarget, CreatableWithHasherTarget, WitnessValueFor}
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };

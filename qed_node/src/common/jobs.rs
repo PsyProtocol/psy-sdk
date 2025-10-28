@@ -11,7 +11,7 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use qed_core::job::{
+use psy_core::job::{
     id::{ProvingJobDataType, QProvingJobDataID},
     traits::QProofStoreReaderAsync,
 };

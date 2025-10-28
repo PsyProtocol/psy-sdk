@@ -14,7 +14,7 @@ use qed_common_circuit::{
         QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
     }, proof_minifier::pm_core::get_circuit_fingerprint_generic
 };
-use qed_core::{
+use psy_core::{
     config::network_constants::CHECKPOINT_TREE_HEIGHT,
     data::qhashout::QHashOut,
     job::{

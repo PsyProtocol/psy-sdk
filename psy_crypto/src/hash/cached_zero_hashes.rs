@@ -1,5 +1,5 @@
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::HashOut};
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use super::traits::hasher::{
         MerkleZeroHasherWithCache, MerkleZeroHasherWithCacheMarkedLeaf, PoseidonHasher,
     };

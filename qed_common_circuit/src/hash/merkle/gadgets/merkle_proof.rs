@@ -9,7 +9,7 @@ use plonky2::{
     },
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use qed_core::data::qhashout::QHashOut;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore}, traits::hasher::MerkleZeroHasher};
 
 use crate::builder::optional_inputs::CircuitBuilderOptionalInputs;

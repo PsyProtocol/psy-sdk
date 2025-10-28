@@ -1,6 +1,6 @@
 use kvq::traits::{KVQBinaryStore, KVQSerializable};
 use plonky2::hash::hash_types::RichField;
-use qed_core::{data::qhashout::QHashOut, config::network_constants::REALM_USER_TREE_HEIGHT, utils::math::ceil_div_usize};
+use psy_core::{data::qhashout::QHashOut, config::network_constants::REALM_USER_TREE_HEIGHT, utils::math::ceil_div_usize};
 use crate::qdata::staging_delta_record_key::StagingDeltaRecordKey;
 
 pub struct StagingDeltaRecordModelCore<const TABLE_TYPE: u16, S, IDKVA> {
