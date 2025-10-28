@@ -70,7 +70,7 @@ psyup installs the following QED tools:
 - **qed_rollup_cli** - Rollup management and operation tools
 - **qed_dev_cli** - Development and testing utilities
 - **dargo** - QED language compiler and toolchain
-- **qed-lsp-server** - Language Server Protocol support for IDEs
+- **psy-lsp-server** - Language Server Protocol support for IDEs
 
 ## Directory Structure
 

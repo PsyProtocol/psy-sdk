@@ -2,7 +2,7 @@
 
 QED is a custom language with a dedicated Language Server Protocol (LSP) service, providing basic features such as `hover`, `goto definition`, `find references`, and `formatting`.
 
-This document introduces how to use the QED language server `qed-lsp-server` for a better development experience in **VSCode**, **Neovim**, and **RustRover**.
+This document introduces how to use the QED language server `psy-lsp-server` for a better development experience in **VSCode**, **Neovim**, and **RustRover**.
 
 ## 🛠️ Preparation
 
@@ -13,20 +13,20 @@ This document introduces how to use the QED language server `qed-lsp-server` for
   cd qed-lang
 ```
 
-2. Compile `qed-lsp-server`：
+2. Compile `psy-lsp-server`：
 
 ```bash
-  cd qed-lsp-server
+  cd psy-lsp-server
   cargo build --release
 ```
-> ⚠️ **Note**: Regardless of which IDE you are using, the `qed-lsp-server` binary is required for the language features to work properly.  
+> ⚠️ **Note**: Regardless of which IDE you are using, the `psy-lsp-server` binary is required for the language features to work properly.  
 > Please make sure you have built it and **remember its path**.
 
 ## 💻 VSCode Usage Tutorial
 Developer debugging mode (recommended for developers)
 1. Start VSCode:
 ```bash
-  cd qed-lsp-server/qed-lsp-vscode
+  cd psy-lsp-server/qed-lsp-vscode
   code .
 ```
 2. Press F5 to enter plugin debugging mode. VSCode will start a new VSCode window and load the local plugin.
@@ -36,12 +36,12 @@ Developer debugging mode (recommended for developers)
 
 
 💡 Note:
-In the file `qed-lsp-vscode/src/extension.ts`, the path to the `qed-lsp-server` binary is currently hardcoded:
+In the file `qed-lsp-vscode/src/extension.ts`, the path to the `psy-lsp-server` binary is currently hardcoded:
 
 ```typescript
 const serverExecutable = path.join(
     // Warning: this path is hardcoded and may not be portable across systems.
-    context.extensionPath, '..', '..', 'target', 'release', 'qed-lsp-server'
+    context.extensionPath, '..', '..', 'target', 'release', 'psy-lsp-server'
 );
 ```
 If you need to change the path (for example, to use a different build directory or binary location), please modify this line accordingly and then rebuild the extension by running:
@@ -50,9 +50,9 @@ If you need to change the path (for example, to use a different build directory 
 ```
 
 ## 🧑‍💻 Neovim usage tutorial (based on Lazy.nvim)
-This guide demonstrates how to set up the **QED language server (`qed-lsp-server`)** in Neovim using the **lazy.nvim** plugin manager.
+This guide demonstrates how to set up the **QED language server (`psy-lsp-server`)** in Neovim using the **lazy.nvim** plugin manager.
 
-> ⚠️ **Note**: The `qed-lsp-server` binary must be compiled first and accessible in your system. Ensure the path to the binary is correct.
+> ⚠️ **Note**: The `psy-lsp-server` binary must be compiled first and accessible in your system. Ensure the path to the binary is correct.
 
 ---
 ### 1️⃣ Plugin Installation
@@ -76,7 +76,7 @@ local configs = require("lspconfig.configs")
 if not configs.qed_lsp then
 configs.qed_lsp = {
    default_config = {
-      cmd = {"/full path/to/qed-lsp-server" }, -- ⚠️ Note to fill in the full path
+      cmd = {"/full path/to/psy-lsp-server" }, -- ⚠️ Note to fill in the full path
       filetypes = {"qed"},
       root_dir = lspconfig.util.root_pattern("Dargo.toml"),
       settings = {},
@@ -111,11 +111,11 @@ return {
     local lspconfig = require("lspconfig")
     local configs = require("lspconfig.configs")
 
-    -- Register qed_lsp_server only once
-    if not configs.qed_lsp_server then
-      configs.qed_lsp_server = {
+    -- Register psy_lsp_server only once
+    if not configs.psy_lsp_server then
+      configs.psy_lsp_server = {
         default_config = {
-          cmd = { "/full/path/to/qed-lsp-server" }, -- 🔧 Replace with your built binary
+          cmd = { "/full/path/to/psy-lsp-server" }, -- 🔧 Replace with your built binary
           filetypes = { "qed" },
           root_dir = lspconfig.util.root_pattern("Dargo.toml", ".qed"),
           settings = {},
@@ -124,7 +124,7 @@ return {
     end
 
     -- Attach server config to Lazy's LSP handler
-    opts.servers.qed_lsp_server = {}
+    opts.servers.psy_lsp_server = {}
     return opts
   end,
 }
@@ -135,10 +135,10 @@ return {
 ✅ Additional Notes
 * 	`vim.filetype.add(...)` tells Neovim that `.qed` files should be handled as the qed filetype.
 * 	`vim.treesitter.language.register("rust", "qed")` means `.qed`files will reuse Rust’s highlighting engine via Tree-sitter.
-*	Make sure the `qed-lsp-server` binary is either in your PATH or referenced using the full path.
+*	Make sure the `psy-lsp-server` binary is either in your PATH or referenced using the full path.
 
 ###  3️⃣ Navigation & Reference Lookup in Neovim
-Once your qed-lsp-server is properly registered and running in Neovim, you can use the following built-in LSP keybindings to navigate your QED code efficiently.
+Once your psy-lsp-server is properly registered and running in Neovim, you can use the following built-in LSP keybindings to navigate your QED code efficiently.
 ```lua
 -- Place these in your init.lua or keymap config file if not already present
 vim.keymap.set("n", "gd", vim.lsp.buf.definition, { noremap = true, desc = "Go to Definition" })
@@ -213,7 +213,7 @@ Used to register a new LSP service.
 
 - **Name**: Fill in `QED language server`.
 - **Environment Variables**: Leave it blank (optional, if you need to set `DARGO_STD_PATH`, you can fill it in here).
-- **Command**: Fill in the path of your compiled LSP executable file, for example: `/Users/UserName/bin/qed-lsp-server`
+- **Command**: Fill in the path of your compiled LSP executable file, for example: `/Users/UserName/bin/psy-lsp-server`
 
 ---
 

@@ -22,14 +22,14 @@ fix:
 
 build: config_gen_v2
 	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p qed_precompiles
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server --bin qed_api_services --examples
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin psy-lsp-server --bin qed_api_services --examples
 
 fmt:
 	@cargo fmt
 
 install:
-	@cargo install --path qed_compiler/qed-dargo-cli
-	@cargo install --path qed_compiler/qed-lsp-server
+	@cargo install --path qed_compiler/psy-dargo-cli
+	@cargo install --path qed_compiler/psy-lsp-server
 	@cargo install --path qed_user_cli
 	@cargo install --path qed_rollup_cli
 	@cargo install --path qed_dev_cli

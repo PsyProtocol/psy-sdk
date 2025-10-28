@@ -12,7 +12,7 @@ let client: LanguageClient;
 export function activate(context: vscode.ExtensionContext) {
     const serverExecutable = path.join(
         //waring: this path is hardcoded, it should be changed to a more dynamic path
-        context.extensionPath, '..', '..',  '..', 'target', 'release', 'qed-lsp-server'
+        context.extensionPath, '..', '..',  '..', 'target', 'release', 'psy-lsp-server'
     );
 
     const serverOptions: ServerOptions = {

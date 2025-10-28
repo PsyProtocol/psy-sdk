@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "qed-lsp-server"
+name    = "psy-lsp-server"
 version = "0.1.0"
 
 [dependencies]
@@ -21,5 +21,5 @@ psy-package = { workspace = true }
 psy_vm = { workspace = true }
 
 [[bin]]
-name = "qed-lsp-server"
+name = "psy-lsp-server"
 path = "src/main.rs"

@@ -5698,6 +5698,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "psy-lsp-server"
+version = "0.1.0"
+dependencies = [
+ "dargo",
+ "lsp-types 0.97.0",
+ "psy-ast",
+ "psy-common",
+ "psy-interpreter",
+ "psy-package",
+ "psy-sema",
+ "psy_vm",
+ "thiserror 2.0.17",
+ "tokio",
+ "tower-lsp",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "psy-package"
 version = "0.1.0"
 dependencies = [
@@ -6018,24 +6036,6 @@ dependencies = [
  "serde_repr",
  "ts-rs",
  "twox-hash 1.6.3",
-]
-
-[[package]]
-name = "qed-lsp-server"
-version = "0.1.0"
-dependencies = [
- "dargo",
- "lsp-types 0.97.0",
- "psy-ast",
- "psy-common",
- "psy-interpreter",
- "psy-package",
- "psy-sema",
- "psy_vm",
- "thiserror 2.0.17",
- "tokio",
- "tower-lsp",
- "unicode-segmentation",
 ]
 
 [[package]]
