@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use psy_api_services::models::UserEventTxType;
 use psy_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
-use psy_data::config::store_config::QEDFelt;
+use psy_data::config::store_config::PsyFelt;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,7 +59,7 @@ pub struct UserGutaSubmissionMetadata {
     pub checkpoint_id: u64,
     pub circuit_type: ProvingJobCircuitType,
     pub top_line_proof: TopLineProofData,
-    pub realm_proof_public_inputs: Vec<QEDFelt>,
+    pub realm_proof_public_inputs: Vec<PsyFelt>,
     pub node_id: String,
     pub node_type: String,
 }

@@ -5,24 +5,24 @@ use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use psy_data::{
-    config::store_config::QEDHasher,
-    protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
+    config::store_config::PsyHasher,
+    protocol::circuit_fingerprints::PsyWorkerToolboxCoreCircuitFingerprints,
     qblock::{
-        cmds::{core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser},
+        cmds::{core::PsyBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser},
         process::simple::SimpleBlockProcessor,
     },
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
-    qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
-    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
+    qstore::imm::cmd_processor::PsyReadCommandProcessorSync,
+    traits::qdatastore::qtreedata::PsyComboDataStoreReaderWriterSync,
 };
-use psy_exec::vm::exec::QEDEvalSessionResult;
+use psy_exec::vm::exec::PsyEvalSessionResult;
 use psy_store::{
-    controllers::local::{prepare_environment_with_real_contract, proving_session::QEDLocalProvingSessionStore},
-    node::coordinator::QEDCoordinatorStoreWriterAsyncImm,
+    controllers::local::{prepare_environment_with_real_contract, proving_session::PsyLocalProvingSessionStore},
+    node::coordinator::PsyCoordinatorStoreWriterAsyncImm,
 };
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
+    vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
 };
 use psylang_macros::qcontract;
 
@@ -70,13 +70,13 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
     }
 }
 
-async fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
+async fn test_run_contract_fn<R: PsyReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
     contract_id: GoldilocksField,
     fn_circuit_def: &DPNFunctionCircuitDefinition,
-    lps: &mut QEDLocalProvingSessionStore<GoldilocksField, R>,
+    lps: &mut PsyLocalProvingSessionStore<GoldilocksField, R>,
     inputs: &[GoldilocksField],
 ) -> anyhow::Result<Vec<GoldilocksField>> {
-    let outputs = QEDEvalSessionResult::new()
+    let outputs = PsyEvalSessionResult::new()
         .exec_contract_call(lps, contract_id, &fn_circuit_def, inputs.to_vec())
         .await?
         .outputs;
@@ -96,7 +96,7 @@ fn test_compile_contract() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("a".to_string(), 1usize), ("b".to_string(), 1), ("c".to_string(), 1)];
     let method_name = "simple_math".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec("simple_math".to_string(), method_id, &ctx.store, &ctx, &outputs);
+    let fn_circuit_def = PsyCompileResult::compile_exec("simple_math".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -107,7 +107,7 @@ async fn main() {
 
     let deployer_key = QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374]);
     let deploy_contract = QBCDeployContract {
-        deployer: deployer_key.get_public_key::<QEDHasher>(),
+        deployer: deployer_key.get_public_key::<PsyHasher>(),
         code_definition: ContractCodeDefinition {
             state_tree_height: 16,
             functions: vec![ContractFunctionCodeDefinition::default()],

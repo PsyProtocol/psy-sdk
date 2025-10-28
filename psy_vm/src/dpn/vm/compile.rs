@@ -7,7 +7,7 @@ use crate::dpn::ops::{
     sym_felt_store::SymFeltStore,
 };
 
-pub struct QEDCompileResult {
+pub struct PsyCompileResult {
     pub circuit_inputs: Vec<u64>,
     pub circuit_outputs: Vec<u64>,
     pub state_commands: Vec<DPNStateCmd<u64>>,
@@ -38,7 +38,7 @@ pub struct QEDCompileResult {
     pub indexed_map: hashbrown::HashMap<SymFeltRef, u64>,
 }
 
-impl QEDCompileResult {
+impl PsyCompileResult {
     pub fn compile_exec(
         name: String,
         method_id: u32,
@@ -46,12 +46,12 @@ impl QEDCompileResult {
         ctx: &QExecContext,
         outputs: &[SymFeltRef],
     ) -> DPNFunctionCircuitDefinition {
-        let mut result = QEDCompileResult::new();
+        let mut result = PsyCompileResult::new();
         result.compile(sym_store, ctx, outputs);
         result.finalize(name, method_id)
     }
     pub fn new() -> Self {
-        QEDCompileResult {
+        PsyCompileResult {
             circuit_inputs: vec![],
             circuit_outputs: vec![],
             state_commands: vec![],

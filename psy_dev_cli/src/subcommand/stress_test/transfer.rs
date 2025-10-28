@@ -11,7 +11,7 @@ use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable as _;
-use psy_data::config::store_config::QEDHasher;
+use psy_data::config::store_config::PsyHasher;
 use psy_prover::{
     local::{args::ContractCallArgs, provider::RpcConfig},
     session::session::WalletSession,
@@ -126,7 +126,7 @@ struct StressTestReport {
 
 impl StressTestReport {
     fn print(&self) {
-        println!("\n📊 ===== QED STRESS TEST REPORT =====");
+        println!("\n📊 ===== Psy STRESS TEST REPORT =====");
         println!("🎯 Test Scenario: Full User Lifecycle (Register → Mint → Transfer → Claim)");
         println!("⏱️  Total Duration: {:.2} seconds", self.total_elapsed_ms as f64 / 1000.0);
         println!("📤 Total Scenarios Completed: {}", self.total_transactions);
@@ -348,12 +348,12 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;
     let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from).await?;
-    let pk_hash_from = pk_info_from.qfhash::<QEDHasher>();
+    let pk_hash_from = pk_info_from.qfhash::<PsyHasher>();
     // println!("pk_hash_from: {}", pk_hash_from);
     let user_id_from = wallet_session.st_provider.get_user_id(pk_hash_from).await?;
     info!("👥 Task {} - User_id_from: {}", task_id, user_id_from);
     let pk_info_to = wallet_session.wallet.get_secp_pk_info(private_key_to).await?;
-    let pk_hash_to = pk_info_to.qfhash::<QEDHasher>();
+    let pk_hash_to = pk_info_to.qfhash::<PsyHasher>();
     let user_id_to = wallet_session.st_provider.get_user_id(pk_hash_to).await?;
     info!("👥 Task {} - User_id_to: {}", task_id, user_id_to);
 

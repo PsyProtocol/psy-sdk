@@ -10,7 +10,7 @@ pub enum CheckpointError {
     Other(#[from] anyhow::Error),
 }
 
-pub trait QEDCheckpointSyncInfoModelReaderCore<
+pub trait PsyCheckpointSyncInfoModelReaderCore<
     const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
     S,
     KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
@@ -78,11 +78,11 @@ pub trait QEDCheckpointSyncInfoModelReaderCore<
         }
     }
 }
-pub trait QEDCheckpointSyncInfoModelCore<
+pub trait PsyCheckpointSyncInfoModelCore<
     const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
     S,
     KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
->: QEDCheckpointSyncInfoModelReaderCore<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
+>: PsyCheckpointSyncInfoModelReaderCore<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
 {
     fn delete_checkpoint_sync_info_by_id(store: &mut S, checkpoint_id: u64) -> anyhow::Result<Option<QCheckpointSyncInfoCompact>> {
         let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_id);
@@ -106,7 +106,7 @@ pub trait QEDCheckpointSyncInfoModelCore<
         Ok(())
     }
 }
-pub struct QEDCheckpointSyncInfoModel<const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16, S, KVA> {
+pub struct PsyCheckpointSyncInfoModel<const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16, S, KVA> {
     _store: S,
     _kva: KVA,
 }
@@ -115,15 +115,15 @@ impl<
         const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
         S,
         KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
-    > QEDCheckpointSyncInfoModelReaderCore<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
-    for QEDCheckpointSyncInfoModel<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
+    > PsyCheckpointSyncInfoModelReaderCore<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
+    for PsyCheckpointSyncInfoModel<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
 {
 }
 impl<
         const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
         S,
         KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
-    > QEDCheckpointSyncInfoModelCore<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
-    for QEDCheckpointSyncInfoModel<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
+    > PsyCheckpointSyncInfoModelCore<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
+    for PsyCheckpointSyncInfoModel<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
 {
 }

@@ -10,16 +10,16 @@ use psy_common_circuit::{
 };
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
-use psy_data::qdata::contract::QEDContractLeaf;
+use psy_data::qdata::contract::PsyContractLeaf;
 
-use crate::gadgets::qdata::contract::QEDContractLeafGadget;
+use crate::gadgets::qdata::contract::PsyContractLeafGadget;
 
 // we keep this separate from DPNProvingSessionCompactMethodCallGadget incase it
 // changes in the future
 #[derive(Debug, Clone)]
 pub struct BatchDeployContractsGadget {
     pub spiderman_gadget: SpidermanAppendProofGadget,
-    pub contract_leaves: Vec<QEDContractLeafGadget>,
+    pub contract_leaves: Vec<PsyContractLeafGadget>,
 }
 
 impl BatchDeployContractsGadget {
@@ -33,7 +33,7 @@ impl BatchDeployContractsGadget {
 
         let total_leaves = 1usize << batch_sub_tree_height;
         let contract_leaves = (0..total_leaves)
-            .map(|_| QEDContractLeafGadget::create_virtual(builder))
+            .map(|_| PsyContractLeafGadget::create_virtual(builder))
             .collect::<Vec<_>>();
 
         // for all the newly added contract leaves, ensure their hashes correspond to
@@ -54,7 +54,7 @@ impl BatchDeployContractsGadget {
         &self,
         witness: &mut impl Witness<F>,
         spiderman_append_proof: &SpidermanUpdateProof<QHashOut<F>>,
-        contract_leaves: &[QEDContractLeaf<F>],
+        contract_leaves: &[PsyContractLeaf<F>],
     ) -> anyhow::Result<()> {
         // tracing::debug!("Deploy contract append proof: {:#?}",
         // spiderman_append_proof); tracing::debug!("Deploy contract leaves:
@@ -64,7 +64,7 @@ impl BatchDeployContractsGadget {
             g.set_witness(witness, v)?;
         }
         if contract_leaves.len() < self.contract_leaves.len() {
-            let empty = QEDContractLeaf::default();
+            let empty = PsyContractLeaf::default();
             for i in contract_leaves.len()..self.contract_leaves.len() {
                 self.contract_leaves[i].set_witness(witness, &empty)?;
             }

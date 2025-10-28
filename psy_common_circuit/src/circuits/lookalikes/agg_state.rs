@@ -1,5 +1,5 @@
 use plonky2::{hash::hash_types::HashOutTarget, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData}, config::{AlgebraicHasher, GenericConfig}}};
-use psy_common_circuit::{builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, proof_minifier::pm_core::get_circuit_fingerprint_generic};
+use psy_common_circuit::{builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates}}, proof_minifier::pm_core::get_circuit_fingerprint_generic};
 use psy_core::data::qhashout::QHashOut;
 
 
@@ -21,7 +21,7 @@ where
 
         builder.register_public_inputs(&input_hash.elements);
         builder.register_public_inputs(&output_hash.elements);
-        builder.add_qed_type_d_common_gates();
+        builder.add_psy_type_d_common_gates();
         pad_circuit_degree(&mut builder, 12);
         let circuit_data = builder.build::<C>();
 

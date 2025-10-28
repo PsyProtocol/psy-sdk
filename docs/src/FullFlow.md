@@ -1,10 +1,10 @@
-# QED Protocol Wiki: Achieving Scalability with PARTH and ZK Proofs
+# Psy Protocol Wiki: Achieving Scalability with PARTH and ZK Proofs
 
-## 1. Introduction: The Scalability Challenge and QED's Solution
+## 1. Introduction: The Scalability Challenge and Psy's Solution
 
 Traditional blockchains often face a **serial execution bottleneck**. Transactions are typically processed one after another within a single state machine context. Adding more validator nodes doesn't necessarily increase the overall transaction processing capacity (TPS), as they all work on the same sequential task list. Attempts at parallel execution often introduce complexity, race conditions, and potential state inconsistencies.
 
-QED (Quantum Entangled Data) tackles this fundamental limitation through two core innovations:
+Psy (Quantum Entangled Data) tackles this fundamental limitation through two core innovations:
 
 1.  **PARTH (Parallelizable Account-based Recursive Transaction History) Architecture:** A novel way of organizing blockchain state that inherently allows for parallel processing of transactions from different users within the same block.
 2.  **End-to-End Zero-Knowledge Proofs (ZKPs):** A sophisticated system of ZK circuits that rigorously verify every state transition, ensuring the security and consistency of the parallel execution enabled by PARTH.
@@ -27,14 +27,14 @@ PARTH reorganizes blockchain state into a hierarchy of Merkle trees, enabling fi
 1.  **Write Locally:** A transaction initiated by User A can **only modify (write to)** the state within User A's own trees (their various `CSTATE`s and subsequently their `UCON` root).
 2.  **Read Globally (Previous State):** A transaction can **read** state from *any* tree (User A's, User B's, `GCON`, etc.), but it reads the state **as it was finalized at the end of the *previous* block** (anchored by the previous block's `CHKP` root).
 
-Because write operations are isolated and reads access immutable past state, transactions from *different users* within the *same block* operate independently and cannot conflict. This architectural design is the cornerstone of QED's horizontal scalability.
+Because write operations are isolated and reads access immutable past state, transactions from *different users* within the *same block* operate independently and cannot conflict. This architectural design is the cornerstone of Psy's horizontal scalability.
 
 ## 3. The Big Picture: End-to-End ZK Proof Flow
 
 The process of validating transactions and building a block involves three main phases, each relying on specific ZK circuits:
 
 1.  **Phase 1: User Proving Session (UPS) - Local Execution & Proving:** The user (or a delegated prover) executes their transactions locally and generates a chain of recursive ZK proofs culminating in a single "End Cap" proof for their activity within the block.
-2.  **Phase 2: Global User Tree Aggregation (GUTA) - Parallel Network Execution:** The QED network's Decentralized Proving Network (DPN) takes End Cap proofs (and other GUTA-related proofs like registrations) from many users and aggregates them in parallel using specialized GUTA circuits.
+2.  **Phase 2: Global User Tree Aggregation (GUTA) - Parallel Network Execution:** The Psy network's Decentralized Proving Network (DPN) takes End Cap proofs (and other GUTA-related proofs like registrations) from many users and aggregates them in parallel using specialized GUTA circuits.
 3.  **Phase 3: Final Block Proof Generation:** A final aggregation step combines the top-level GUTA proof (representing all user state changes) with proofs for other global state changes (like contract deployments) into a single block proof anchored to the previous block's state.
 
 ## 4. Phase 1: User Proving Session (UPS) Circuits
@@ -45,9 +45,9 @@ This phase occurs locally, building a user-specific proof chain.
 
 *   **Purpose:** Initializes the proving session for a user, establishing a secure starting point based on the last globally finalized block state.
 *   **Core Gadget:** `UPSStartStepGadget`
-*   **Input Data:** `UPSStartStepInput` (contains the target starting `UserProvingSessionHeader`, the corresponding `QEDCheckpointLeaf` and `QEDCheckpointGlobalStateRoots` from the last block, and Merkle proofs (`checkpoint_tree_proof`, `user_tree_proof`) linking them together).
+*   **Input Data:** `UPSStartStepInput` (contains the target starting `UserProvingSessionHeader`, the corresponding `PsyCheckpointLeaf` and `PsyCheckpointGlobalStateRoots` from the last block, and Merkle proofs (`checkpoint_tree_proof`, `user_tree_proof`) linking them together).
 *   **What it Proves:**
-    *   **Consistency of Initial State:** The provided `UserProvingSessionHeader.session_start_context` is consistent with the provided `QEDCheckpointLeaf`, `QEDCheckpointGlobalStateRoots`, and the user's leaf (`start_session_user_leaf`) within the `user_tree_root` (part of `QEDCheckpointGlobalStateRoots`). It verifies that the user leaf, global roots, and checkpoint leaf all correctly correspond to the provided `checkpoint_tree_root` via the Merkle proofs.
+    *   **Consistency of Initial State:** The provided `UserProvingSessionHeader.session_start_context` is consistent with the provided `PsyCheckpointLeaf`, `PsyCheckpointGlobalStateRoots`, and the user's leaf (`start_session_user_leaf`) within the `user_tree_root` (part of `PsyCheckpointGlobalStateRoots`). It verifies that the user leaf, global roots, and checkpoint leaf all correctly correspond to the provided `checkpoint_tree_root` via the Merkle proofs.
     *   **Correct Initialization:** The `UserProvingSessionHeader.current_state` is correctly initialized based on the `session_start_context` (e.g., `user_leaf.last_checkpoint_id` is updated, `deferred_tx_debt_tree_root` and `inline_tx_debt_tree_root` are empty hashes, `tx_count` is zero, `tx_hash_stack` is an empty hash).
     *   **Header Integrity:** The hash of the entire `ups_header` is correctly computed.
     *   **Proof Tree Anchor:** The final public output hash combines the `ups_header` hash with the `empty_ups_proof_tree_root` (a known constant representing the start of this session's proof tree), using `compute_tree_aware_proof_public_inputs`.
@@ -102,13 +102,13 @@ This phase occurs locally, building a user-specific proof chain.
 ### 4.4. `UPSStandardEndCapCircuit`
 
 *   **Purpose:** Finalizes the user's entire proving session for the block, verifying the signature and packaging the net result.
-*   **Core Gadgets:** `UPSEndCapFromProofTreeGadget` (which uses `VerifyPreviousUPSStepProofInProofTreeGadget`, `AttestProofInTreeGadget`, `UPSEndCapCoreGadget`, `QEDUserProvingSessionSignatureDataCompactGadget`)
+*   **Core Gadgets:** `UPSEndCapFromProofTreeGadget` (which uses `VerifyPreviousUPSStepProofInProofTreeGadget`, `AttestProofInTreeGadget`, `UPSEndCapCoreGadget`, `PsyUserProvingSessionSignatureDataCompactGadget`)
 *   **Input Data:** `UPSEndCapFromProofTreeGadgetInput` (contains info about the last UPS step, the ZK signature proof (`verify_zk_signature_proof_input`), signature parameters (`user_public_key_param`, `nonce`), and `slots_modified`).
 *   **What it Proves:**
     *   **Last Step Validity:** The proof for the *last* UPS transaction step is valid and used an allowed circuit (`verify_previous_ups_step_gadget`).
     *   **Signature Proof Validity & Inclusion:** The ZK proof for the user's signature (`verify_zk_signature_proof_gadget`) is valid and is correctly included in the *final* UPS proof tree root (`current_proof_tree_root`).
     *   **Signature Authentication:** The public key (`user_public_key_param`) used to verify the signature matches the public key stored in the `previous_step_header.current_state.user_leaf`.
-    *   **Signature Payload Integrity:** The ZK signature proof attests to a specific payload hash. This circuit proves that this payload hash correctly corresponds to a `QEDUserProvingSessionSignatureDataCompact` structure containing:
+    *   **Signature Payload Integrity:** The ZK signature proof attests to a specific payload hash. This circuit proves that this payload hash correctly corresponds to a `PsyUserProvingSessionSignatureDataCompact` structure containing:
         *   `start_user_leaf_hash`: Matches the `start_session_user_leaf_hash` from the `previous_step_header.session_start_context`.
         *   `end_user_leaf_hash`: Matches the hash of the `previous_step_header.current_state.user_leaf`.
         *   `checkpoint_leaf_hash`: Matches the `checkpoint_leaf_hash` from the `previous_step_header.session_start_context`.
@@ -168,7 +168,7 @@ The DPN receives End Cap proofs and potentially other state change proofs (like 
 *   **Input:** Data for users being registered, including proofs linking their public keys to a `user_registration_tree_root`, and delta proofs for `GUSR` updates. Also needs the target `guta_circuit_whitelist` and `checkpoint_tree_root`.
 *   **What it Proves:**
     *   **Valid Registration:** Each user's provided `public_key` is present in the `user_registration_tree_root`.
-    *   **Correct GUSR Insertion:** For each user, the `GUSR` tree correctly transitioned at the `user_id` index from an empty hash to the new `QEDUserLeaf` hash (initialized with the verified `public_key` and `default_user_state_tree_root`). This is verified using delta proofs.
+    *   **Correct GUSR Insertion:** For each user, the `GUSR` tree correctly transitioned at the `user_id` index from an empty hash to the new `PsyUserLeaf` hash (initialized with the verified `public_key` and `default_user_state_tree_root`). This is verified using delta proofs.
     *   **GUTA Header Output:** Correctly constructs a `GlobalUserTreeAggregatorHeader` representing the combined state transition for all registered users. `stats` are typically zero for pure registrations. The header uses the input `guta_circuit_whitelist` and `checkpoint_tree_root`.
 *   **Assumptions Made:**
     1.  Witness data (registration proofs, user data, delta proofs) is accurate initially.
@@ -235,8 +235,8 @@ The DPN receives End Cap proofs and potentially other state change proofs (like 
 *   **Input:** The final aggregated proof from the GUTA layer (representing all `GUSR` changes), potentially proofs for `GCON` changes (e.g., new contract deployments via `VerifyAggUserRegistrationDeployGuta` logic), and the **previous block's finalized `CHKP` root hash**.
 *   **What it Proves:**
     *   **Top-Level Proof Validity:** The input proofs (e.g., final GUTA proof) are valid and adhere to their respective whitelists and checkpoint contexts.
-    *   **State Root Consistency:** The final roots of `GUSR`, `GCON`, etc., derived from the input proofs are correctly assembled into the `QEDCheckpointGlobalStateRoots` for the *new* block.
-    *   **New Checkpoint Leaf Construction:** The new `QEDCheckpointLeaf` is correctly constructed using the new global state roots and other block metadata (e.g., block number, timestamp).
+    *   **State Root Consistency:** The final roots of `GUSR`, `GCON`, etc., derived from the input proofs are correctly assembled into the `PsyCheckpointGlobalStateRoots` for the *new* block.
+    *   **New Checkpoint Leaf Construction:** The new `PsyCheckpointLeaf` is correctly constructed using the new global state roots and other block metadata (e.g., block number, timestamp).
     *   **New Checkpoint Root Computation:** The new `CHKP` root hash is correctly computed based on the new leaf and its position in the Checkpoint Tree.
     *   **Final State Link:** The **critical verification**: it proves that the state transitions represented by the input proofs (originating from potentially millions of user transactions) correctly and validly transform the state anchored by the **input `previous_block_chkp_root`** into the state represented by the **computed `new_chkp_root`**.
 *   **Assumptions Made:**
@@ -249,7 +249,7 @@ The DPN receives End Cap proofs and potentially other state change proofs (like 
 
 ## 7. Assumption Reduction Summary: The Journey to Trustlessness
 
-The QED circuit flow demonstrates a progressive reduction and discharge of assumptions:
+The Psy circuit flow demonstrates a progressive reduction and discharge of assumptions:
 
 1.  **Start UPS:** Assumes initial state fetched from the last block is correct *locally* and that the *last block's CHKP root* was valid. Verifies local consistency.
 2.  **UPS Transactions:** Assumes previous step was valid, assumes current step's witness is correct. Verifies previous proof, verifies current CFC/debt logic, verifies state delta. Passes on proof tree root assumption and the *original* starting CHKP root assumption.
@@ -262,7 +262,7 @@ This journey transforms broad initial assumptions about state correctness into a
 
 ## 8. Conclusion: Scalability Through Parallelism and Proofs
 
-QED achieves true horizontal scalability by combining:
+Psy achieves true horizontal scalability by combining:
 
 1.  **PARTH Architecture:** Isolates user state modifications, enabling conflict-free parallel transaction execution *within* a block.
 2.  **User Proving Sessions (UPS):** Allows users to locally prove their own transaction sequences, offloading initial proving work.

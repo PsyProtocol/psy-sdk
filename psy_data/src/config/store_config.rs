@@ -16,8 +16,8 @@ use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use crate::{
     models::{
         checkpoint::{
-            block_state::L2BlockStatesModel, checkpoint_hash::QEDCheckpointHashHelperModel, checkpoint_leaf::QEDCheckpointLeafModel,
-            sync_info::QEDCheckpointSyncInfoModel, user_public_keys::QEDUserPublicKeyHelperModel,
+            block_state::L2BlockStatesModel, checkpoint_hash::PsyCheckpointHashHelperModel, checkpoint_leaf::PsyCheckpointLeafModel,
+            sync_info::PsyCheckpointSyncInfoModel, user_public_keys::PsyUserPublicKeyHelperModel,
         },
         contract::{contract_code::ContractCodeModel, contract_leaf::ContractLeafModel},
         kvq_merkle::{
@@ -29,10 +29,10 @@ use crate::{
         user::user_leaf::UserLeafModel,
     },
     qdata::{
-        checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
+        checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
         checkpoint_id_key::CheckpointTableIdKey,
-        contract::{ContractCodeDefinition, QEDContractLeaf},
-        hash_cache_result::QEDHashHelperResult,
+        contract::{ContractCodeDefinition, PsyContractLeaf},
+        hash_cache_result::PsyHashHelperResult,
         hash_key::Hash4x64Key,
         hash_key_with_id::Hash4x64KeyWithId,
         realm_id_key::RealmTableIdKey,
@@ -41,10 +41,10 @@ use crate::{
         staging_checkpoint_key::StagingCheckpointKey,
         staging_delta_record_key::StagingDeltaRecordKey,
         u64_key::U64TableKey,
-        user::QEDUserLeaf,
-        user_public_key::QEDUserPublicKeyRecord,
+        user::PsyUserLeaf,
+        user_public_key::PsyUserPublicKeyRecord,
     },
-    qsync::coordinator::QEDCheckpointSyncInfoCompact,
+    qsync::coordinator::PsyCheckpointSyncInfoCompact,
 };
 pub const MAX_CHECKPOINT: u64 = 0xfffffffffffffff1u64;
 pub const CHECKPOINT_TREE_ID: u8 = 1u8;
@@ -90,38 +90,38 @@ pub const REALM_STATUS_TABLE_TYPE: u16 = 20;
 // Legacy - kept for backward compatibility, should not be used for new trees
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 100;
 
-pub type QEDFelt = GoldilocksField;
-pub type QEDHash = QHashOut<QEDFelt>;
-pub type QEDHasher = PoseidonHash;
-pub type QEDMerkleProof = MerkleProofCore<QEDHash>;
-pub type QEDDeltaMerkleProof = DeltaMerkleProofCore<QEDHash>;
-pub type QCheckpointLeaf = QEDCheckpointLeaf<QEDFelt>;
-pub type QCheckpointSyncInfoCompact = QEDCheckpointSyncInfoCompact<QEDFelt>;
-pub type QUserPublicKeyRecord = QEDUserPublicKeyRecord<QEDFelt>;
-pub type QEDPlonky2Config = PoseidonGoldilocksConfig;
-pub type QEDProof = ProofWithPublicInputs<QEDFelt, QEDPlonky2Config, 2>;
+pub type PsyFelt = GoldilocksField;
+pub type PsyHash = QHashOut<PsyFelt>;
+pub type PsyHasher = PoseidonHash;
+pub type PsyMerkleProof = MerkleProofCore<PsyHash>;
+pub type PsyDeltaMerkleProof = DeltaMerkleProofCore<PsyHash>;
+pub type QCheckpointLeaf = PsyCheckpointLeaf<PsyFelt>;
+pub type QCheckpointSyncInfoCompact = PsyCheckpointSyncInfoCompact<PsyFelt>;
+pub type QUserPublicKeyRecord = PsyUserPublicKeyRecord<PsyFelt>;
+pub type PsyPlonky2Config = PoseidonGoldilocksConfig;
+pub type PsyProof = ProofWithPublicInputs<PsyFelt, PsyPlonky2Config, 2>;
 
-pub type UserLeafTableStore<S, IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>> =
+pub type UserLeafTableStore<S, IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, PsyUserLeaf<PsyFelt>>> =
     UserLeafModel<USER_LEAF_TABLE_TYPE, S, IDKVA>;
-pub type ContractLeafTableStore<S, IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, QEDContractLeaf<QEDFelt>>> =
+pub type ContractLeafTableStore<S, IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, PsyContractLeaf<PsyFelt>>> =
     ContractLeafModel<CONTRACT_LEAF_TABLE_TYPE, S, IDKVA>;
 pub type ContractCodeTableStore<S, IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<CONTRACT_CODE_TABLE_TYPE>, ContractCodeDefinition>> =
     ContractCodeModel<CONTRACT_CODE_TABLE_TYPE, S, IDKVA>;
 
 pub type CheckpointLeafTableStore<S, IDKVA = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>> =
-    QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, IDKVA>;
+    PsyCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, IDKVA>;
 
-pub type L2BlockStateTableStore<S, IDKVA = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>> =
+pub type L2BlockStateTableStore<S, IDKVA = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, PsyL2BlockState>> =
     L2BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, IDKVA>;
 
 pub type CheckpointSyncInfoTableStore<S, IDKVA = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>> =
-    QEDCheckpointSyncInfoModel<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, IDKVA>;
+    PsyCheckpointSyncInfoModel<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, IDKVA>;
 
-pub type CheckpointHashHelperTableStore<S, IDKVA = KVQStandardAdapter<S, Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>, QEDHashHelperResult>> =
-    QEDCheckpointHashHelperModel<CHECKPOINT_HASH_HELPER_TABLE_TYPE, S, IDKVA>;
+pub type CheckpointHashHelperTableStore<S, IDKVA = KVQStandardAdapter<S, Hash4x64Key<CHECKPOINT_HASH_HELPER_TABLE_TYPE>, PsyHashHelperResult>> =
+    PsyCheckpointHashHelperModel<CHECKPOINT_HASH_HELPER_TABLE_TYPE, S, IDKVA>;
 
 pub type UserPublicKeyTableStore<S, IDKVA = KVQStandardAdapter<S, Hash4x64KeyWithId<USER_PUBLIC_KEY_HELPER_TABLE_TYPE>, QUserPublicKeyRecord>> =
-    QEDUserPublicKeyHelperModel<USER_PUBLIC_KEY_HELPER_TABLE_TYPE, S, IDKVA>;
+    PsyUserPublicKeyHelperModel<USER_PUBLIC_KEY_HELPER_TABLE_TYPE, S, IDKVA>;
 
 // Staging stores for dirty data
 pub type StagingCheckpointInfoStore<
@@ -129,7 +129,7 @@ pub type StagingCheckpointInfoStore<
     IDKVA = KVQStandardAdapter<S, StagingCheckpointKey<STAGING_CHECKPOINT_INFO_TABLE_TYPE>, StagingCheckpointInfo>,
 > = StagingCheckpointInfoModel<STAGING_CHECKPOINT_INFO_TABLE_TYPE, S, IDKVA>;
 
-pub type StagingDeltaRecordStore<S, IDKVA = KVQStandardAdapter<S, StagingDeltaRecordKey<QEDFelt, STAGING_DELTA_RECORD_TABLE_TYPE>, Vec<u8>>> =
+pub type StagingDeltaRecordStore<S, IDKVA = KVQStandardAdapter<S, StagingDeltaRecordKey<PsyFelt, STAGING_DELTA_RECORD_TABLE_TYPE>, Vec<u8>>> =
     StagingDeltaRecordModelCore<STAGING_DELTA_RECORD_TABLE_TYPE, S, IDKVA>;
 
 pub type RealmStatusTableStore<F, S, IDKVA = KVQStandardAdapter<S, RealmTableIdKey<REALM_STATUS_TABLE_TYPE>, BasicRealmStatus<F>>> =
@@ -141,10 +141,10 @@ pub type ProtocolTreeStore<
     const TREE_ID: u8,
     const HEIGHT: u8,
     const TABLE_TYPE: u16,
-    IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<TABLE_TYPE>, QEDHash>,
-> = KVQFixedConfigMerkleTreeModel<TREE_ID, HEIGHT, 0, 0, TABLE_TYPE, false, S, IDKVA, QEDHash, QEDHasher>;
+    IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<TABLE_TYPE>, PsyHash>,
+> = KVQFixedConfigMerkleTreeModel<TREE_ID, HEIGHT, 0, 0, TABLE_TYPE, false, S, IDKVA, PsyHash, PsyHasher>;
 
-pub type UserContractTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_TREE_TABLE_TYPE>, QEDHash>> =
+pub type UserContractTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_TREE_TABLE_TYPE>, PsyHash>> =
     KVQSemiFixedConfigMerkleTreeModel<
         USER_CONTRACT_TREE_ID,
         GLOBAL_CONTRACT_TREE_HEIGHT,
@@ -153,24 +153,24 @@ pub type UserContractTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey
         false,
         S,
         IDKVA,
-        QEDHash,
-        QEDHasher,
+        PsyHash,
+        PsyHasher,
     >;
 
-pub type BaseContractStateTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QEDHash>> =
-    KVQMerkleTreeModel<USER_CONTRACT_STATE_TREE_TABLE_TYPE, false, S, IDKVA, QEDHash, QEDHasher>;
+pub type BaseContractStateTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, PsyHash>> =
+    KVQMerkleTreeModel<USER_CONTRACT_STATE_TREE_TABLE_TYPE, false, S, IDKVA, PsyHash, PsyHasher>;
 
 // Protocol tree stores with their own table types
-pub type UserRegistrationTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_REGISTRATION_TREE_TABLE_TYPE>, QEDHash>> =
+pub type UserRegistrationTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_REGISTRATION_TREE_TABLE_TYPE>, PsyHash>> =
     ProtocolTreeStore<S, USER_REGISTRATION_TREE_ID, GLOBAL_USER_TREE_HEIGHT, USER_REGISTRATION_TREE_TABLE_TYPE, IDKVA>;
-pub type CheckpointTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<CHECKPOINT_TREE_TABLE_TYPE>, QEDHash>> =
+pub type CheckpointTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<CHECKPOINT_TREE_TABLE_TYPE>, PsyHash>> =
     ProtocolTreeStore<S, CHECKPOINT_TREE_ID, CHECKPOINT_TREE_HEIGHT, CHECKPOINT_TREE_TABLE_TYPE, IDKVA>;
-pub type UserTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_TREE_TABLE_TYPE>, QEDHash>> =
+pub type UserTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_TREE_TABLE_TYPE>, PsyHash>> =
     ProtocolTreeStore<S, USER_TREE_ID, GLOBAL_USER_TREE_HEIGHT, USER_TREE_TABLE_TYPE, IDKVA>;
-pub type ContractTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<CONTRACT_TREE_TABLE_TYPE>, QEDHash>> =
+pub type ContractTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<CONTRACT_TREE_TABLE_TYPE>, PsyHash>> =
     ProtocolTreeStore<S, CONTRACT_TREE_ID, GLOBAL_CONTRACT_TREE_HEIGHT, CONTRACT_TREE_TABLE_TYPE, IDKVA>;
 
-pub type ContractFunctionTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<CONTRACT_FUNCTION_TREE_TABLE_TYPE>, QEDHash>> =
+pub type ContractFunctionTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<CONTRACT_FUNCTION_TREE_TABLE_TYPE>, PsyHash>> =
     KVQSemiFixedConfigMerkleTreeModel<
         CONTRACT_FUNCTION_TREE_ID,
         CONTRACT_FUNCTION_TREE_HEIGHT,
@@ -179,18 +179,18 @@ pub type ContractFunctionTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNod
         false,
         S,
         IDKVA,
-        QEDHash,
-        QEDHasher,
+        PsyHash,
+        PsyHasher,
     >;
 
-pub type DepositTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<DEPOSIT_TREE_TABLE_TYPE>, QEDHash>> =
+pub type DepositTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<DEPOSIT_TREE_TABLE_TYPE>, PsyHash>> =
     ProtocolTreeStore<S, DEPOSIT_TREE_ID, GLOBAL_DEPOSIT_TREE_HEIGHT, DEPOSIT_TREE_TABLE_TYPE, IDKVA>;
-pub type WithdrawalTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<WITHDRAWAL_TREE_TABLE_TYPE>, QEDHash>> =
+pub type WithdrawalTreeStore<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<WITHDRAWAL_TREE_TABLE_TYPE>, PsyHash>> =
     ProtocolTreeStore<S, WITHDRAWAL_TREE_ID, GLOBAL_WITHDRAWAL_TREE_HEIGHT, WITHDRAWAL_TREE_TABLE_TYPE, IDKVA>;
 
 pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 pub const D: usize = 2;
-pub type F = crate::config::store_config::QEDFelt;
+pub type F = crate::config::store_config::PsyFelt;
 
 // GLOBAL_CONTRACT_TREE_HEIGHT-th zero hash
 #[cfg(test)]

@@ -14,7 +14,7 @@ use plonky2::{
 };
 use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
-    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager},
+    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
     hash::merkle::gadgets::merkle_proof::MerkleProofGadget,
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
     treeprover::qrecursion::standard::manager::portable::{circuits::PortableQTreeRecursionCircuits, core::PortableQTreeRecursionManager},
@@ -23,7 +23,7 @@ use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_crypto::{
     common::witnesses::qrecursion::proof_data::InputLeafProof,
     hash::merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
-    signature::zk::wallet::SimpleQEDPrivateKey,
+    signature::zk::wallet::SimplePsyPrivateKey,
 };
 
 pub struct SimpleLeafCircuit<C: GenericConfig<D> + 'static, const D: usize>
@@ -74,11 +74,11 @@ async fn run_prove_agg_example_2() -> anyhow::Result<()> {
     const D: usize = 2;
 
     let proof_tree_height: usize = 16;
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+    let mut wallet = SimplePsyZKSignatureManager::<C, D>::new();
     let private_key_0 = QHashOut::rand();
-    wallet.add_private_key(SimpleQEDPrivateKey::new(private_key_0));
+    wallet.add_private_key(SimplePsyPrivateKey::new(private_key_0));
 
-    timer.lap("built SimpleQEDZKSignatureManager");
+    timer.lap("built SimplePsyZKSignatureManager");
 
     let circuits = PortableQTreeRecursionCircuits::new(
         proof_tree_height,

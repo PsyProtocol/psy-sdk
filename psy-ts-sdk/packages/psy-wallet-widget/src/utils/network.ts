@@ -1,4 +1,4 @@
-import { NetworkId } from "@qed/psy-sdk/src/action";
+import { NetworkId } from "@psy/psy-sdk/src/action";
 
 function getNetworkNameById(id: NetworkId) {
     if (id === "mainnet") {

@@ -9,17 +9,17 @@ use psy_common_circuit::{
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
 use psy_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
-use psy_data::qdata::contract::QEDContractLeaf;
+use psy_data::qdata::contract::PsyContractLeaf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
-pub struct QEDContractLeafGadget {
+pub struct PsyContractLeafGadget {
     pub deployer: HashOutTarget,
     pub function_tree_root: HashOutTarget,
     pub state_tree_height: Target,
 }
 
-impl QEDContractLeafGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDContractLeaf<F>) -> anyhow::Result<()> {
+impl PsyContractLeafGadget {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PsyContractLeaf<F>) -> anyhow::Result<()> {
         witness.set_hash_target(self.deployer, target.deployer.0)?;
         witness.set_hash_target(self.function_tree_root, target.function_tree_root.0)?;
         witness.set_target(self.state_tree_height, target.state_tree_height)
@@ -28,7 +28,7 @@ impl QEDContractLeafGadget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
     }
 }
-impl AlgebraicHashableTarget for QEDContractLeafGadget {
+impl AlgebraicHashableTarget for PsyContractLeafGadget {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -36,7 +36,7 @@ impl AlgebraicHashableTarget for QEDContractLeafGadget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl CreatableTarget for QEDContractLeafGadget {
+impl CreatableTarget for PsyContractLeafGadget {
     fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let deployer = builder.add_virtual_hash();
         let function_tree_root = builder.add_virtual_hash();
@@ -63,7 +63,7 @@ impl CreatableTarget for QEDContractLeafGadget {
         }
     }
 }
-impl ToTargets for QEDContractLeafGadget {
+impl ToTargets for PsyContractLeafGadget {
     fn to_targets(&self) -> Vec<Target> {
         vec![
             self.deployer.elements[0],
@@ -78,11 +78,11 @@ impl ToTargets for QEDContractLeafGadget {
         ]
     }
 }
-impl FromTargets for QEDContractLeafGadget {
+impl FromTargets for PsyContractLeafGadget {
     fn from_targets(targets: &[Target]) -> Self {
         if targets.len() != 9 {
             panic!(
-                "tried to create QEDContractLeafGadget from an array of {} targets, but expected an array of 9 targets",
+                "tried to create PsyContractLeafGadget from an array of {} targets, but expected an array of 9 targets",
                 targets.len()
             );
         }
@@ -101,14 +101,14 @@ impl FromTargets for QEDContractLeafGadget {
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDContractLeafGadget, F, true> for QEDContractLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractLeafGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyContractLeafGadget, F, true> for PsyContractLeaf<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyContractLeafGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDContractLeafGadget, F, false> for QEDContractLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractLeafGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyContractLeafGadget, F, false> for PsyContractLeaf<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyContractLeafGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

@@ -1,6 +1,6 @@
 use kvq::traits::KVQSerializable;
 
-pub trait QEDBlobStoreReader {
+pub trait PsyBlobStoreReader {
     fn get_bin(&self, key: Vec<u8>) -> anyhow::Result<Vec<u8>>;
     fn exists_bin(&self, key: Vec<u8>) -> anyhow::Result<bool>;
     fn get<K: KVQSerializable, V: KVQSerializable>(&self, key: &K) -> anyhow::Result<V> {
@@ -10,7 +10,7 @@ pub trait QEDBlobStoreReader {
         self.exists_bin(key.to_bytes()?)
     }
 }
-pub trait QEDBlobStoreMut: QEDBlobStoreReader {
+pub trait PsyBlobStoreMut: PsyBlobStoreReader {
     fn set_bin_mut(&mut self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
     fn remove_bin_mut(&mut self, key: Vec<u8>) -> anyhow::Result<bool>;
     fn pop_bin_mut(&mut self, key: Vec<u8>) -> anyhow::Result<Option<Vec<u8>>>;
@@ -29,7 +29,7 @@ pub trait QEDBlobStoreMut: QEDBlobStoreReader {
     }
 }
 
-pub trait QEDBlobStoreImm: QEDBlobStoreReader {
+pub trait PsyBlobStoreImm: PsyBlobStoreReader {
     fn set_bin_imm(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
     fn get_bin_imm(&self, key: Vec<u8>) -> anyhow::Result<Vec<u8>>;
     fn remove_bin_imm(&self, key: Vec<u8>) -> anyhow::Result<bool>;

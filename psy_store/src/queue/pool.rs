@@ -23,8 +23,8 @@ pub async fn new_fred_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<
 
     pool.init().await?;
     {
-        //use QED_ROLE env var to set client name for redis-cli tool
-        let role = std::env::var("QED_ROLE").unwrap_or_else(|_| "unknown-role".to_string());
+        //use Psy_ROLE env var to set client name for redis-cli tool
+        let role = std::env::var("Psy_ROLE").unwrap_or_else(|_| "unknown-role".to_string());
 
         let clients = pool.clients();
         for (index, client) in clients.iter().enumerate() {
@@ -75,7 +75,7 @@ pub async fn new_redis_async_pool(redis_url: &str, pool_size: usize) -> anyhow::
 
     // Optionally add client identification (if supported by redis-rs)
     // This may require getting a connection and executing a command
-    if let Ok(role) = std::env::var("QED_ROLE") {
+    if let Ok(role) = std::env::var("Psy_ROLE") {
         // Try to set a similar client name if possible
         // Note: bb8-redis doesn't directly expose CLIENT SETNAME
         if let Ok(mut conn) = pool.get().await {

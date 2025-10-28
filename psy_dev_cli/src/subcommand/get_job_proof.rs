@@ -11,8 +11,8 @@ use psy_core::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
-use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-use psy_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
+use psy_crypto::signature::zk::wallet::SimplePsyPrivateKey;
+use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
 use psy_node::worker::job_tracker::{JobInfo, JobLocation, WorkerJobTracker};
 use psy_prover::{
     local::provider::{RpcConfig, RpcProvider},

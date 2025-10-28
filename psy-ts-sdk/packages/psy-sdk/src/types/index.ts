@@ -1,5 +1,5 @@
-import { QEDCheckpointLeaf } from "./QEDCheckpointLeaf";
-import { QEDUserLeaf } from "./QEDUserLeaf";
+import { PsyCheckpointLeaf } from "./PsyCheckpointLeaf";
+import { PsyUserLeaf } from "./PsyUserLeaf";
 import { PrivateKey, QHashOut } from "../core";
 
 /**
@@ -47,16 +47,16 @@ export * from "./QDepositTreeMerkleProofFRPCRequest";
 export * from "./QDepositTreeMerkleProofRPCRequest";
 export * from "./QDepositTreeRootFRPCRequest";
 export * from "./QDepositTreeRootRPCRequest";
-export * from "./QEDCheckpointGlobalStateRoots";
-export * from "./QEDCheckpointLeaf";
-export * from "./QEDCheckpointLeafCompact";
-export * from "./QEDCheckpointLeafCompactWithStateRoots";
-export * from "./QEDCheckpointLeafStats";
-export * from "./QEDContractLeaf";
-export * from "./QEDContractStateUpdateHistory";
-export * from "./QEDL2BlockState";
-export * from "./QEDUserLeaf";
-export * from "./QEDUserPublicKeyRecord";
+export * from "./PsyCheckpointGlobalStateRoots";
+export * from "./PsyCheckpointLeaf";
+export * from "./PsyCheckpointLeafCompact";
+export * from "./PsyCheckpointLeafCompactWithStateRoots";
+export * from "./PsyCheckpointLeafStats";
+export * from "./PsyContractLeaf";
+export * from "./PsyContractStateUpdateHistory";
+export * from "./PsyL2BlockState";
+export * from "./PsyUserLeaf";
+export * from "./PsyUserPublicKeyRecord";
 export * from "./QHashOut";
 export * from "./QL2BlockStateFRPCRequest";
 export * from "./QL2BlockStateRPCRequest";
@@ -121,7 +121,7 @@ export interface WalletKeyPair {
 }
 
 // Contract state updates
-export interface QEDContractStateUpdateHistory {
+export interface PsyContractStateUpdateHistory {
     contract_id: bigint;
     updates: any[]; // This is a placeholder, replace with actual type if needed
 }
@@ -131,19 +131,19 @@ export interface SubmitUserEndCapNonProofCoreInput {
     checkpoint_id: bigint;
     stats: any; // GUTAStats
     state_transition: any; // UPSEndCapResultCompact
-    new_user_leaf: QEDUserLeaf;
+    new_user_leaf: PsyUserLeaf;
 }
 
 // Full NonProof input
 export interface SubmitUserEndCapNonProofInput {
     core: SubmitUserEndCapNonProofCoreInput;
-    contract_state_updates: QEDContractStateUpdateHistory[];
+    contract_state_updates: PsyContractStateUpdateHistory[];
 }
 
 /**
  * L2 Block State structure
  */
-export interface QEDL2BlockState {
+export interface PsyL2BlockState {
     checkpoint_id: bigint;
     next_add_withdrawal_id: bigint;
     next_process_withdrawal_id: bigint;
@@ -155,9 +155,9 @@ export interface QEDL2BlockState {
 }
 
 /**
- * QED Checkpoint Global State Roots
+ * Psy Checkpoint Global State Roots
  */
-export interface QEDCheckpointGlobalStateRoots {
+export interface PsyCheckpointGlobalStateRoots {
     contract_tree_root: QHashOut;
     deposit_tree_root: QHashOut;
     user_tree_root: QHashOut;
@@ -166,13 +166,13 @@ export interface QEDCheckpointGlobalStateRoots {
 }
 
 /**
- * QED Checkpoint Sync Info Compact
+ * Psy Checkpoint Sync Info Compact
  */
-export interface QEDCheckpointSyncInfoCompact {
+export interface PsyCheckpointSyncInfoCompact {
     checkpoint_id: bigint;
     checkpoint_tree_root: QHashOut;
-    checkpoint_leaf_data: QEDCheckpointLeaf;
-    global_state_roots: QEDCheckpointGlobalStateRoots;
+    checkpoint_leaf_data: PsyCheckpointLeaf;
+    global_state_roots: PsyCheckpointGlobalStateRoots;
 }
 
 /**
@@ -183,7 +183,7 @@ export interface CheckpointSyncInfo {
     description: string | null;
     source_coordinator_edge_id: string | null;
     sync_timestamp: bigint;
-    compact: QEDCheckpointSyncInfoCompact;
+    compact: PsyCheckpointSyncInfoCompact;
 }
 
 /**

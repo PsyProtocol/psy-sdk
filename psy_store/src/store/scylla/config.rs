@@ -9,7 +9,7 @@ pub struct ScyllaDBConfig {
     #[arg(long = "scylla-uri", env = "SCYLLA_URI", default_value = "127.0.0.1:9042")]
     pub uri: String,
 
-    #[arg(long = "scylla-keyspace", env = "SCYLLA_KEYSPACE", default_value = "qed_storage")]
+    #[arg(long = "scylla-keyspace", env = "SCYLLA_KEYSPACE", default_value = "psy_storage")]
     pub keyspace: String,
 
     #[arg(long = "scylla-consistency-level", env = "SCYLLA_CONSISTENCY_LEVEL", default_value = "ONE")]
@@ -38,7 +38,7 @@ impl Default for ScyllaDBConfig {
     fn default() -> Self {
         Self {
             uri: "127.0.0.1:9042".to_string(),
-            keyspace: "qed_storage".to_string(),
+            keyspace: "psy_storage".to_string(),
             consistency_level: "ONE".to_string(),
             timeout_ms: 30000,
             max_retries: 3,
@@ -105,8 +105,8 @@ pub struct StoreConfig {
 impl Default for StoreConfig {
     fn default() -> Self {
         Self {
-            coordinator_scylla: ScyllaDBConfig::new("127.0.0.1:9042".to_string(), "qed_coordinator".to_string()),
-            realm_scylla: ScyllaDBConfig::new("127.0.0.1:9042".to_string(), "qed_realm".to_string()),
+            coordinator_scylla: ScyllaDBConfig::new("127.0.0.1:9042".to_string(), "psy_coordinator".to_string()),
+            realm_scylla: ScyllaDBConfig::new("127.0.0.1:9042".to_string(), "psy_realm".to_string()),
         }
     }
 }
@@ -121,7 +121,7 @@ mod tests {
     fn test_scylla_config_default() {
         let config = ScyllaDBConfig::default();
         assert_eq!(config.uri, "127.0.0.1:9042");
-        assert_eq!(config.keyspace, "qed_storage");
+        assert_eq!(config.keyspace, "psy_storage");
         assert_eq!(config.consistency_level, "ONE");
         assert_eq!(config.timeout_ms, 30000);
     }

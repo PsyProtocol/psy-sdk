@@ -15,7 +15,7 @@ use super::ser_data::VTFriParams;
 use crate::circuits::traits::qstandard::QStandardCircuit;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct QEDCircuitVerifyTemplate {
+pub struct PsyCircuitVerifyTemplate {
     pub verifier_data_cap_height: usize,
     pub fri_cap_height: usize,
     pub num_public_inputs: usize,
@@ -56,7 +56,7 @@ pub fn luts_to_string(luts: &Vec<Vec<[u16; 2]>>) -> String {
     string_base.push_str("]");
     string_base
 }
-impl QEDCircuitVerifyTemplate {
+impl PsyCircuitVerifyTemplate {
     pub fn from_common_and_verifier_only<C: GenericConfig<D>, const D: usize>(
         common_data: &CommonCircuitData<C::F, D>,
         verifier_only: &VerifierOnlyCircuitData<C, D>,
@@ -124,7 +124,7 @@ impl QEDCircuitVerifyTemplate {
     pub fn to_code(&self) -> String {
         let luts_str = luts_to_string(&self.luts);
         format!(
-            "QEDCircuitVerifyTemplate {{
+            "PsyCircuitVerifyTemplate {{
             verifier_data_cap_height: {},
             fri_cap_height: {},
             num_public_inputs: {},

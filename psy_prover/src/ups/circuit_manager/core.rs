@@ -11,7 +11,7 @@ use plonky2::{
 };
 use psy_common_circuit::{
     circuits::{
-        l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::QEDBasicZKSignatureCircuit,
+        l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
     },
     treeprover::qrecursion::standard::manager::{
         leaf_circuit_set::QStandardBinaryRecursionTreeCircuitSet,
@@ -35,7 +35,7 @@ use psy_crypto::{
         merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
         traits::hasher::MerkleZeroHasher,
     },
-    signature::secp256k1::core::QEDCompressedSecp256K1Signature,
+    signature::secp256k1::core::PsyCompressedSecp256K1Signature,
 };
 use psy_data::{
     qdata::contract::ContractCodeDefinition,
@@ -64,7 +64,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct QEDUPSStepCircuitManager<C: GenericConfig<D> + 'static, const D: usize>
+pub struct PsyUPSStepCircuitManager<C: GenericConfig<D> + 'static, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -82,11 +82,11 @@ where
     // contract circuits
     pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
 
-    pub zk_circuit: QEDBasicZKSignatureCircuit<C, D>,
+    pub zk_circuit: PsyBasicZKSignatureCircuit<C, D>,
     pub secp_circuit: L1Secp256K1SignatureCircuit<C, D>,
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> QEDUPSStepCircuitManager<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PsyUPSStepCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -151,7 +151,7 @@ where
             ups_cfc_standard_tx_whitelist_proof,
             ups_cfc_deferred_tx_whitelist_proof,
             contract_circuits: DashMap::new(),
-            zk_circuit: QEDBasicZKSignatureCircuit::new(),
+            zk_circuit: PsyBasicZKSignatureCircuit::new(),
             secp_circuit: L1Secp256K1SignatureCircuit::new(),
         }
     }
@@ -225,7 +225,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManagerTrait<C, D> for QEDUPSStepCircuitManager<C, D>
+impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManagerTrait<C, D> for PsyUPSStepCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -350,7 +350,7 @@ where
         self.zk_circuit.prove_base(private_key, sig_hash)
     }
 
-    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    async fn prove_secp_sign(&self, signature: PsyCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.secp_circuit.prove(&signature)
     }
 
@@ -505,7 +505,7 @@ pub fn register_qtree_recursion_circuits_whitelist_proofs<F: RichField>(
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D> for QEDUPSStepCircuitManager<C, D>
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D> for PsyUPSStepCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -552,7 +552,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D> for QEDUPSStepCircuitManager<C, D>
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D> for PsyUPSStepCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -672,7 +672,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D> for QEDUPSStepCircuitManager<C, D>
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D> for PsyUPSStepCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -686,7 +686,7 @@ pub enum QCircuitManager<C: GenericConfig<D> + 'static, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    Local(QEDUPSStepCircuitManager<C, D>),
+    Local(PsyUPSStepCircuitManager<C, D>),
     Rpc(ProveProxyRpcProvider<C, D>),
 }
 
@@ -773,7 +773,7 @@ where
         }
     }
 
-    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    async fn prove_secp_sign(&self, signature: PsyCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self {
             QCircuitManager::Local(manager) => manager.prove_secp_sign(signature).await,
             QCircuitManager::Rpc(provider) => provider.prove_secp_sign(signature).await,
@@ -1223,7 +1223,7 @@ where
 
 // // impl<C: GenericConfig<D>, const D: usize>
 // PortableQTreeRecursionCircuitsTrait<C, D> //     for
-// QEDUPSStepCircuitManager<C, D> // where
+// PsyUPSStepCircuitManager<C, D> // where
 // //     C::Hasher:
 // //         AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> +
 // MerkleZeroHasher<QHashOut<C::F>>, // {

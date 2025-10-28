@@ -11,7 +11,7 @@ use plonky2::{
 };
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_core::{
-    config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, Psy_NETWORK_MAGIC_REGTEST, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     traits::to_qfelts::ToQFelts,
@@ -22,16 +22,16 @@ use psy_crypto::{
     signature::zk::data::ZKPublicKeyInfo,
 };
 use psy_data::{
-    config::store_config::QEDHasher,
+    config::store_config::PsyHasher,
     qblock::cmds::deploy_contract::QBCDeployContract,
-    qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition, user_contract_state::UserContractState},
+    qdata::{checkpoint::PsyL2BlockState, contract::ContractCodeDefinition, user_contract_state::UserContractState},
     qstore::imm::{
         cmd::{QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot},
-        cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut},
+        cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
-use psy_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
+use psy_store::controllers::local::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
 use psy_vm::dpn::{
     contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function},
     vm::def::DPNFunctionCircuitDefinition,
@@ -48,11 +48,11 @@ use crate::{
     },
     session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint, MINING_REWARDS_CONTRACT_ID},
     ups::{
-        circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
+        circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
         session::UserProvingSessionManager,
     },
     wallet::{
-        memory_wallet::QEDMemoryWallet,
+        memory_wallet::PsyMemoryWallet,
         simple_sign::StateReader,
         software_defined_circuit::{
             PSoftwareDefinedSignatureWitnessInput, QSoftwareDefinedSignatureGadget, QSoftwareDefinedSignatureWitnessInput, SoftwareDefinedSignature,
@@ -104,7 +104,7 @@ type F = GoldilocksField;
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync, CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+pub async fn prove_func<R: PsyReadCommandProcessorSync<F> + Send + Sync, CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
     st: &R,
     circuit_mgr: &CM,
     mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
@@ -153,7 +153,7 @@ impl UserSessionStateManager {
         tracing::info!("create local proving session store");
         let mut rpc_provider = st_provider.clone();
         rpc_provider.current_user_id = user_id;
-        let lps = QEDLocalProvingSessionStore::new_at(
+        let lps = PsyLocalProvingSessionStore::new_at(
             rpc_provider.clone(),
             F::from_noncanonical_u64(checkpoint_id),
             F::from_canonical_u64(user_id),
@@ -168,7 +168,7 @@ impl UserSessionStateManager {
             checkpoint_id
         );
         let mgr =
-            UserProvingSessionManager::<F, QEDHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?).await?;
+            UserProvingSessionManager::<F, PsyHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?).await?;
 
         Ok(UserSessionStateManager {
             user_state: UserState::Active,
@@ -186,7 +186,7 @@ impl UserSessionStateManager {
         circuit_info: SessionCircuitInfoStore<F>,
     ) -> anyhow::Result<UserSessionStateManager> {
         tracing::info!("create dummy local proving session store");
-        let lps = QEDLocalProvingSessionStore::new_at(
+        let lps = PsyLocalProvingSessionStore::new_at(
             st_provider.clone(),
             F::from_noncanonical_u64(0),
             F::from_canonical_u64(0),
@@ -195,7 +195,7 @@ impl UserSessionStateManager {
         );
 
         tracing::info!("create ups manager");
-        let mgr = UserProvingSessionManager::<F, QEDHasher, _, C, D>::new_dummy(lps, circuit_info).await?;
+        let mgr = UserProvingSessionManager::<F, PsyHasher, _, C, D>::new_dummy(lps, circuit_info).await?;
 
         Ok(UserSessionStateManager {
             user_state,
@@ -235,7 +235,7 @@ pub enum TxStatus {
 }
 
 pub struct WalletSession {
-    pub wallet: QEDMemoryWallet,
+    pub wallet: PsyMemoryWallet,
     wallet_keys_store: DashMap<QHashOut<F>, ZKPublicKeyInfo<F>>,
     // pub main_circuits: QCircuitManager<C, D>,
     pub circuit_info: SessionCircuitInfoStore<F>,
@@ -264,7 +264,7 @@ impl WalletSession {
         }
         if main_circuits.is_empty() {
             tracing::warn!("no valid prove proxy url, use local circuit manager");
-            main_circuits.push(Box::new(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST)));
+            main_circuits.push(Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(Psy_NETWORK_MAGIC_REGTEST)));
         }
 
         let mut circuit_info = SessionCircuitInfoStore::new();
@@ -286,7 +286,7 @@ impl WalletSession {
             main_circuit.as_ref().register_info(&mut circuit_info).await;
         }
 
-        let wallet = QEDMemoryWallet::new(main_circuits);
+        let wallet = PsyMemoryWallet::new(main_circuits);
 
         Ok(WalletSession {
             wallet,
@@ -320,7 +320,7 @@ impl WalletSession {
                     .await?
             }
         };
-        let public_key = pk_info.qfhash::<QEDHasher>();
+        let public_key = pk_info.qfhash::<PsyHasher>();
 
         if let Ok(user_id) = self.st_provider.get_user_id(public_key).await {
             tracing::info!("user `{}` already registered with id {}", public_key, user_id);
@@ -356,7 +356,7 @@ impl WalletSession {
                     .await?
             }
         };
-        let public_key = pk_info.qfhash::<QEDHasher>();
+        let public_key = pk_info.qfhash::<PsyHasher>();
         let checkpoint_id = self.st_provider.get_latest_l2_block_state().await?.checkpoint_id;
         tracing::info!(
             "add user {} with type {:?}, on checkpoint_id {}",
@@ -413,9 +413,9 @@ impl WalletSession {
                 }
             }
 
-            tracing::info!("user {} added", pk_info.qfhash::<QEDHasher>().to_string());
+            tracing::info!("user {} added", pk_info.qfhash::<PsyHasher>().to_string());
         } else {
-            tracing::info!("user {} already added", pk_info.qfhash::<QEDHasher>().to_string());
+            tracing::info!("user {} already added", pk_info.qfhash::<PsyHasher>().to_string());
         }
 
         Ok(public_key)
@@ -447,7 +447,7 @@ impl WalletSession {
 
     pub async fn check_tx_is_confirmed(&self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<F>) -> anyhow::Result<bool> {
         let user_leaf_data = self.st_provider.get_user_leaf_data(checkpoint_id, user_id).await?;
-        Ok(user_leaf_data.qfhash::<QEDHasher>() == tx_hash)
+        Ok(user_leaf_data.qfhash::<PsyHasher>() == tx_hash)
     }
 
     pub async fn start_session(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
@@ -619,7 +619,7 @@ impl WalletSession {
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
 
-        let sighash = user_session_mgr.mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, user_session_mgr.nonce);
+        let sighash = user_session_mgr.mgr.get_sighash(Psy_NETWORK_MAGIC_REGTEST, user_session_mgr.nonce);
 
         tracing::info!("zk sign for signhash: {}", sighash.to_string());
         let signature_proof = match sign_type {
@@ -639,7 +639,7 @@ impl WalletSession {
                     let cfc_call_inputs = sign_data.sign_inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
 
                     let input = match &sdc.signature_gadget {
-                        SoftwareDefinedSignatureGadget::QED(q_gadget) => {
+                        SoftwareDefinedSignatureGadget::Psy(q_gadget) => {
                             let cfc_proof_input = user_session_mgr
                                 .mgr
                                 .exec_contract_call(
@@ -648,7 +648,7 @@ impl WalletSession {
                                     cfc_call_inputs,
                                 )
                                 .await?;
-                            SoftwareDefinedSignatureWitnessInput::QED(QSoftwareDefinedSignatureWitnessInput { cfc_input: cfc_proof_input })
+                            SoftwareDefinedSignatureWitnessInput::Psy(QSoftwareDefinedSignatureWitnessInput { cfc_input: cfc_proof_input })
                         }
                         SoftwareDefinedSignatureGadget::PLONKY2(_p_gadget) => {
                             let user_id = user_session_mgr.user_id;
@@ -747,7 +747,7 @@ impl WalletSession {
 
         tracing::info!(
             "prove end cap with network magic {:x}, nonce {}, fingerprint {}, public key param {}, signature proof {:?}",
-            QED_NETWORK_MAGIC_REGTEST,
+            Psy_NETWORK_MAGIC_REGTEST,
             user_session_mgr.nonce,
             circuit_fingerprint,
             public_key_param,
@@ -758,7 +758,7 @@ impl WalletSession {
             .mgr
             .prove_end_cap(
                 self.wallet.random_circuit_manager().as_ref(),
-                QED_NETWORK_MAGIC_REGTEST,
+                Psy_NETWORK_MAGIC_REGTEST,
                 nonce,
                 circuit_fingerprint,
                 public_key_param,
@@ -772,7 +772,7 @@ impl WalletSession {
 
         let end_user_leaf_hash = user_ec_input.core.state_transition.end_user_leaf_hash;
         let new_user_leaf = user_ec_input.core.new_user_leaf;
-        if end_user_leaf_hash != new_user_leaf.qfhash::<QEDHasher>() {
+        if end_user_leaf_hash != new_user_leaf.qfhash::<PsyHasher>() {
             anyhow::bail!("end user leaf hash not match");
         }
 
@@ -1014,7 +1014,7 @@ mod tests {
         let mut wallet_session = super::WalletSession::new(&rpc_config)?;
 
         let deployer_pk_info = wallet_session.get_zk_public_key(private_key0)?;
-        wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
+        wallet_session.deploy_contract(deployer_pk_info.qfhash::<PsyHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
         let user1 = wallet_session.register_user(private_key0)?;
@@ -1117,8 +1117,8 @@ mod tests {
         let mut wallet_session = super::WalletSession::new(&rpc_config)?;
 
         let deployer_pk_info = wallet_session.get_zk_public_key(private_key0)?;
-        wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs.clone())?;
-        wallet_session.deploy_contract(deployer_pk_info.qfhash::<QEDHasher>(), circuit_defs)?;
+        wallet_session.deploy_contract(deployer_pk_info.qfhash::<PsyHasher>(), circuit_defs.clone())?;
+        wallet_session.deploy_contract(deployer_pk_info.qfhash::<PsyHasher>(), circuit_defs)?;
 
         let user0 = wallet_session.register_user(private_key0)?;
         let user1 = wallet_session.register_user(private_key0)?;

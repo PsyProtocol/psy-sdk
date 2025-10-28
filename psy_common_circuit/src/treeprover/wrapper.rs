@@ -12,7 +12,7 @@ use crate::{
     circuits::traits::qstandard::{
         QStandardCircuit, QStandardCircuitProvableWithProofStoreSync, QStandardCircuitWithDefault, QStandardCircuitWithDefaultMinified,
     },
-    proof_minifier::pm_chain_dynamic::QEDProofMinifierDynamicChain,
+    proof_minifier::pm_chain_dynamic::PsyProofMinifierDynamicChain,
 };
 
 pub struct TreeProverLeafCircuitWrapper<AC, C: 'static + GenericConfig<D>, const D: usize>
@@ -20,7 +20,7 @@ where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     pub circuit: AC,
-    pub minifier: QEDProofMinifierDynamicChain<D, C::F, C>,
+    pub minifier: PsyProofMinifierDynamicChain<D, C::F, C>,
     pub network_magic: u64,
 }
 
@@ -29,7 +29,7 @@ where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new(circuit: AC, network_magic: u64, n_minifiers: usize) -> Self {
-        let minifier = QEDProofMinifierDynamicChain::new(circuit.get_verifier_config_ref(), circuit.get_common_circuit_data_ref(), n_minifiers);
+        let minifier = PsyProofMinifierDynamicChain::new(circuit.get_verifier_config_ref(), circuit.get_common_circuit_data_ref(), n_minifiers);
         Self {
             circuit,
             minifier,
@@ -61,7 +61,7 @@ where
 {
     fn new_default_with_minifiers(network_magic: u64, n_minifiers: usize) -> Self {
         let circuit = AC::new_default(network_magic);
-        let minifier = QEDProofMinifierDynamicChain::new(circuit.get_verifier_config_ref(), circuit.get_common_circuit_data_ref(), n_minifiers);
+        let minifier = PsyProofMinifierDynamicChain::new(circuit.get_verifier_config_ref(), circuit.get_common_circuit_data_ref(), n_minifiers);
         Self {
             circuit,
             minifier,
@@ -76,7 +76,7 @@ where
 {
     fn clone(&self) -> Self {
         let circuit = AC::new_default(self.network_magic);
-        let minifier = QEDProofMinifierDynamicChain::new(
+        let minifier = PsyProofMinifierDynamicChain::new(
             circuit.get_verifier_config_ref(),
             circuit.get_common_circuit_data_ref(),
             self.minifier.minifiers.len(),

@@ -1,11 +1,11 @@
 # Coordinator Edge RPC Provider
 
-The Coordinator Edge RPC Provider is a powerful TypeScript client for interacting with QED Coordinator nodes. It extends the basic RPC functionality with advanced features including caching, retry logic, multi-provider support, and load balancing.
+The Coordinator Edge RPC Provider is a powerful TypeScript client for interacting with Psy Coordinator nodes. It extends the basic RPC functionality with advanced features including caching, retry logic, multi-provider support, and load balancing.
 
 ## Installation
 
 ```bash
-npm install @qed/sdk
+npm install @psy/sdk
 ```
 
 ## Quick Start
@@ -13,7 +13,7 @@ npm install @qed/sdk
 ### Basic Usage (Backward Compatible)
 
 ```typescript
-import { CoordinatorEdgeRpcProvider } from "@qed/sdk";
+import { CoordinatorEdgeRpcProvider } from "@psy/sdk";
 
 // Simple usage - no enhanced features
 const client = new CoordinatorEdgeRpcProvider("http://localhost:8545");
@@ -25,15 +25,15 @@ console.log("Latest checkpoint:", checkpoint);
 ### Enhanced Usage with Caching
 
 ```typescript
-import { CoordinatorEdgeRpcProvider, EnhancedClientConfig } from "@qed/sdk";
+import { CoordinatorEdgeRpcProvider, EnhancedClientConfig } from "@psy/sdk";
 
 const config: EnhancedClientConfig = {
     cache: {
         ttl: 60000, // 1 minute default cache
         maxSize: 1000,
         customTtl: new Map([
-            ["qed_get_latest_checkpoint", 10000], // 10 seconds
-            ["qed_get_checkpoint_leaf_data", 300000], // 5 minutes
+            ["psy_get_latest_checkpoint", 10000], // 10 seconds
+            ["psy_get_checkpoint_leaf_data", 300000], // 5 minutes
         ]),
     },
 };
@@ -197,15 +197,15 @@ const productionConfig: EnhancedClientConfig = {
         maxSize: 1000,
         customTtl: new Map([
             // Fast-changing data
-            ["qed_get_latest_checkpoint", 5000],
-            ["qed_get_latest_l2_block_state", 5000],
+            ["psy_get_latest_checkpoint", 5000],
+            ["psy_get_latest_l2_block_state", 5000],
 
             // Slow-changing data
-            ["qed_get_checkpoint_leaf_data", 300000], // 5 minutes
-            ["qed_get_contract_leaf_data", 300000],
+            ["psy_get_checkpoint_leaf_data", 300000], // 5 minutes
+            ["psy_get_contract_leaf_data", 300000],
 
             // Static data
-            ["qed_get_contract_code_definition", 3600000], // 1 hour
+            ["psy_get_contract_code_definition", 3600000], // 1 hour
         ]),
     },
     retry: {
@@ -296,4 +296,4 @@ For issues and questions:
 
 - Check the [examples](./examples.ts) for common patterns
 - Review the [type definitions](./types.ts) for API details
-- Consult the main QED documentation
+- Consult the main Psy documentation

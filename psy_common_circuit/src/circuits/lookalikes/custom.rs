@@ -7,7 +7,7 @@ use psy_core::job::id::QCircuitCommonGatesType;
 
 use crate::builder::{
     hash::core::CircuitBuilderHashCore,
-    pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+    pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
 };
 
 pub fn get_lookalike_custom<C: GenericConfig<D>, const D: usize>(
@@ -28,13 +28,13 @@ where
     }
     match common_gates_type {
         QCircuitCommonGatesType::A => {
-            builder.add_qed_type_a_common_gates(None);
+            builder.add_psy_type_a_common_gates(None);
         }
-        QCircuitCommonGatesType::B => builder.add_qed_type_b_common_gates(),
-        QCircuitCommonGatesType::C => builder.add_qed_type_c_common_gates(),
-        QCircuitCommonGatesType::D => builder.add_qed_type_d_common_gates(),
-        QCircuitCommonGatesType::E => builder.add_qed_type_e_common_gates(),
-        QCircuitCommonGatesType::F => builder.add_qed_type_f_common_gates(),
+        QCircuitCommonGatesType::B => builder.add_psy_type_b_common_gates(),
+        QCircuitCommonGatesType::C => builder.add_psy_type_c_common_gates(),
+        QCircuitCommonGatesType::D => builder.add_psy_type_d_common_gates(),
+        QCircuitCommonGatesType::E => builder.add_psy_type_e_common_gates(),
+        QCircuitCommonGatesType::F => builder.add_psy_type_f_common_gates(),
     };
     pad_circuit_degree(&mut builder, degree - 1);
     let circuit_data = builder.build::<C>();

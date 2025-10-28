@@ -1,13 +1,13 @@
 import { Hash256, SCNumberLike } from "../core";
 
-interface IPreparedQedSigAction {
+interface IPreparedPsySigAction {
     network_magic: bigint;
     user: bigint;
     sig_action: bigint;
     nonce: bigint;
     action_arguments: bigint[];
 }
-interface IQedSigAction {
+interface IPsySigAction {
     network_magic: string;
     user: string;
     sig_action: string;
@@ -15,7 +15,7 @@ interface IQedSigAction {
     action_arguments: string[];
 }
 
-interface IQedClaimDepositRequest {
+interface IPsyClaimDepositRequest {
     network_magic: string;
     user: number;
     transaction_id: Hash256;
@@ -23,7 +23,7 @@ interface IQedClaimDepositRequest {
     deposit_fee: number;
 }
 
-interface IQedTransferRequest {
+interface IPsyTransferRequest {
     network_magic: string;
     user: number;
     nonce: SCNumberLike;
@@ -31,7 +31,7 @@ interface IQedTransferRequest {
     amount: SCNumberLike;
 }
 
-interface IQedWithdrawalRequest {
+interface IPsyWithdrawalRequest {
     network_magic: string;
     user: number;
     nonce: SCNumberLike;
@@ -41,9 +41,9 @@ interface IQedWithdrawalRequest {
 }
 
 export type {
-    IQedSigAction,
-    IQedClaimDepositRequest,
-    IQedTransferRequest,
-    IQedWithdrawalRequest,
-    IPreparedQedSigAction,
+    IPsySigAction,
+    IPsyClaimDepositRequest,
+    IPsyTransferRequest,
+    IPsyWithdrawalRequest,
+    IPreparedPsySigAction,
 };

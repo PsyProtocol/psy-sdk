@@ -15,10 +15,10 @@ use plonky2::{
 use psy_common_circuit::{
     builder::{
         hash::core::CircuitBuilderHashCore,
-        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+        pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     },
     circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync},
-    proof_minifier::{pm_chain::QEDProofMinifierChain, pm_core::get_circuit_fingerprint_generic},
+    proof_minifier::{pm_chain::PsyProofMinifierChain, pm_core::get_circuit_fingerprint_generic},
     u32::gates::comparison::ComparisonGate,
 };
 use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
@@ -26,7 +26,7 @@ use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
-use crate::dpn::vm::compile::QEDContractFunctionBuilderGadget;
+use crate::dpn::vm::compile::PsyContractFunctionBuilderGadget;
 
 #[derive(Debug)]
 pub struct DapenContractFunctionCircuit<C: GenericConfig<D>, const D: usize>
@@ -34,12 +34,12 @@ where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     pub inputs: Vec<Target>,
-    pub fn_builder_gadget: QEDContractFunctionBuilderGadget,
+    pub fn_builder_gadget: PsyContractFunctionBuilderGadget,
 
     // end circuit targets
     pub circuit_data: CircuitData<C::F, C, D>,
     // pub fingerprint: QHashOut<C::F>,
-    pub minifier_chain: QEDProofMinifierChain<D, C::F, C>,
+    pub minifier_chain: PsyProofMinifierChain<D, C::F, C>,
 
     // end circuit data
     pub fn_def: DPNFunctionCircuitDefinition,
@@ -73,7 +73,7 @@ where
         let config = CircuitConfig::standard_ecc_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
         let inputs = builder.add_virtual_targets(fn_def.circuit_inputs.len());
-        let fn_builder_gadget = QEDContractFunctionBuilderGadget::add_virtual_to::<C::Hasher, C::F, D>(
+        let fn_builder_gadget = PsyContractFunctionBuilderGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,
             fn_def,
             contract_state_tree_height,
@@ -86,8 +86,8 @@ where
         let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(fn_builder_gadget.session_proof_tree_root, inner_public_inputs_hash);
 
         builder.register_public_inputs(&public_inputs_hash.elements);
-        //builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
-        builder.add_qed_type_b_common_gates();
+        //builder.add_psy_type_a_common_gates(Some(coset_gate.clone()));
+        builder.add_psy_type_b_common_gates();
         pad_circuit_degree::<C::F, D>(&mut builder, 11);
 
         let circuit_data = builder.build::<C>();
@@ -98,7 +98,7 @@ where
         let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
 
         let minifier_chain =
-            QEDProofMinifierChain::<D, C::F, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
+            PsyProofMinifierChain::<D, C::F, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
 
         Self {
             inputs,

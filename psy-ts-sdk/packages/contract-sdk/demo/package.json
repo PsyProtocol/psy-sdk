@@ -1,5 +1,5 @@
 {
-  "name": "@qed/contract-sdk-demo",
+  "name": "@psy/contract-sdk-demo",
   "version": "1.0.0",
   "description": "Demo for generated ZK Contract SDK",
   "main": "src/index.js",

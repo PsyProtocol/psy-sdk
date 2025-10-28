@@ -4,7 +4,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@qed/*": ["packages/*/src"]
+      "@psy/*": ["packages/*/src"]
     },
     "noEmit": true,
     "noUnusedLocals": true,

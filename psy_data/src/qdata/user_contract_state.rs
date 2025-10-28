@@ -8,14 +8,14 @@ use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::qdata::user::QEDUserLeaf;
+use crate::qdata::user::PsyUserLeaf;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct UserContractState<F: RichField> {
     pub checkpoint_tree_root: QHashOut<F>,
-    pub user_leaf: QEDUserLeaf<F>,
+    pub user_leaf: PsyUserLeaf<F>,
     pub start_contract_state_root: QHashOut<F>,
     pub contract_id: F,
     pub checkpoint_id: F,
@@ -24,7 +24,7 @@ pub struct UserContractState<F: RichField> {
 impl<F: RichField> UserContractState<F> {
     pub fn new(
         checkpoint_tree_root: QHashOut<F>,
-        user_leaf: QEDUserLeaf<F>,
+        user_leaf: PsyUserLeaf<F>,
         start_contract_state_root: QHashOut<F>,
         contract_id: F,
         checkpoint_id: F,
@@ -89,7 +89,7 @@ impl<F: RichField> ToQFelts<F> for UserContractState<F> {
 
         UserContractState {
             checkpoint_tree_root: QHashOut::from_qfelts(&felts[0..4]),
-            user_leaf: QEDUserLeaf::from_qfelts(&felts[8..]),
+            user_leaf: PsyUserLeaf::from_qfelts(&felts[8..]),
             start_contract_state_root: QHashOut::from_qfelts(&felts[13..17]),
             contract_id: felts[17],
             checkpoint_id: felts[18],
@@ -162,11 +162,11 @@ impl<F: RichField> UserContractState<F> {
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct SignContext<F: RichField> {
     pub checkpoint_tree_root: QHashOut<F>,
-    pub user_leaf: QEDUserLeaf<F>,
+    pub user_leaf: PsyUserLeaf<F>,
 }
 
 impl<F: RichField> SignContext<F> {
-    pub fn new(checkpoint_tree_root: QHashOut<F>, user_leaf: QEDUserLeaf<F>) -> Self {
+    pub fn new(checkpoint_tree_root: QHashOut<F>, user_leaf: PsyUserLeaf<F>) -> Self {
         Self {
             checkpoint_tree_root,
             user_leaf,
@@ -218,7 +218,7 @@ impl<F: RichField> ToQFelts<F> for SignContext<F> {
 
         SignContext {
             checkpoint_tree_root: QHashOut::from_qfelts(&felts[0..4]),
-            user_leaf: QEDUserLeaf::from_qfelts(&felts[8..]),
+            user_leaf: PsyUserLeaf::from_qfelts(&felts[8..]),
         }
     }
 }

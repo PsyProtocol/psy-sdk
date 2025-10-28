@@ -1,13 +1,13 @@
 import React, { useMemo, useCallback, useState, useEffect } from "react";
 import { Combobox, Group, Input, InputBase, Text, useCombobox } from "@mantine/core";
-import { BlokiesIcon } from "@qed/blokies-react";
+import { BlokiesIcon } from "@psy/blokies-react";
 import { getNetworkNameById } from "../../utils/network";
 import { useWalletState } from "../../hooks/useWalletState";
 import { TfiImport, TfiPlus, TfiReload } from "react-icons/tfi";
 import { formatBalance } from "../../utils/balance";
 import { AddressModalType, useAddressModal } from "../../hooks/useAddressModal";
-import { sha256Buffer } from "@qed/utils";
-import { NetworkId } from "@qed/psy-sdk/src/action";
+import { sha256Buffer } from "@psy/utils";
+import { NetworkId } from "@psy/psy-sdk/src/action";
 import { useWalletConfig } from "../../config";
 import { useBlockNumber, useUserBalance } from "../../utils/data";
 
@@ -104,7 +104,7 @@ const ControlledAddressSelector: React.FC<IControlledAddressSelectorProps> = ({
                                     New Wallet...
                                 </Text>
                                 <Text fz="xs" opacity={0.6}>
-                                    Create a new Qed wallet.
+                                    Create a new Psy wallet.
                                 </Text>
                             </div>
                         </Group>

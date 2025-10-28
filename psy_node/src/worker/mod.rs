@@ -19,7 +19,7 @@ use psy_core::{
 use psy_crypto::common::{
     generic_circuit_verifier::GenericCircuitVerifier, simple_circuit_library::SimpleCircuitLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
 };
-use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
 use psy_prover::wallet::secp_wallet::Wallet;
 use tokio::{sync::Mutex, time::timeout};
 use tracing::{debug, error, info, trace, warn};
@@ -36,7 +36,7 @@ pub async fn run_worker(
     edge_url: String,
     location: JobLocation,
     job_tracker: Arc<Mutex<WorkerJobTracker>>,
-    prover: Arc<QEDCoordinatorCircuitManager<C, D>>,
+    prover: Arc<PsyCoordinatorCircuitManager<C, D>>,
     verifier: Arc<GenericCircuitVerifier<C, D>>,
     wallet: Arc<Wallet>,
     worker_public_key: QHashOut<F>,
@@ -127,7 +127,7 @@ async fn process_job_with_retry<S, R>(
     store: &S,
     job_receiver: &R,
     job: psy_store::queue::task_queue::QJob,
-    prover: &Arc<QEDCoordinatorCircuitManager<C, D>>,
+    prover: &Arc<PsyCoordinatorCircuitManager<C, D>>,
     verifier: &Arc<GenericCircuitVerifier<C, D>>,
     wallet: Arc<Wallet>,
     worker_pk_str: &str,

@@ -24,7 +24,7 @@ use psy_common_circuit::{
     },
 };
 use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
-use psy_data::config::store_config::QEDHasher;
+use psy_data::config::store_config::PsyHasher;
 use psy_vm::dpn::ops::op_types::{decode_indexed_op_id, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType};
 
 const COMPARISON_BITS: usize = 63;
@@ -360,7 +360,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
             }
             DPNOpType::HashNoPad => {
                 let targets = self.resolve_targets(&op.inputs);
-                let output = builder.hash_n_to_hash_no_pad::<QEDHasher>(targets);
+                let output = builder.hash_n_to_hash_no_pad::<PsyHasher>(targets);
                 self.hashes.push(output);
             }
             DPNOpType::HashTwoToOne => {
@@ -381,7 +381,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleDPNBuilder<F, D> {
                         self.resolve_target(op.inputs[7]),
                     ],
                 };
-                let output = builder.hash_two_to_one::<QEDHasher>(left, right);
+                let output = builder.hash_two_to_one::<PsyHasher>(left, right);
                 self.hashes.push(output);
             }
             DPNOpType::HashPad => unimplemented!(),

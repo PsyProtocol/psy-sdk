@@ -1,7 +1,7 @@
-import { IQedCompleteUserInfo, IQedUserWallet } from "@qed/psy-sdk";
+import { IPsyCompleteUserInfo, IPsyUserWallet } from "@psy/psy-sdk";
 
-interface IQedWidgetWallet extends IQedCompleteUserInfo {
-  wallet: IQedUserWallet;
+interface IPsyWidgetWallet extends IPsyCompleteUserInfo {
+  wallet: IPsyUserWallet;
   name: string;
   address: string;
   isActive: boolean;
@@ -10,4 +10,4 @@ interface IQedWidgetWallet extends IQedCompleteUserInfo {
 export const DEFAULT_WALLET_NAME = "******";
 
 
-export type { IQedWidgetWallet };
+export type { IPsyWidgetWallet };

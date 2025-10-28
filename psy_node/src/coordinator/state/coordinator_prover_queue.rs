@@ -9,24 +9,24 @@ use psy_core::{
 };
 use psy_crypto::hash::merkle::{spiderman::SpidermanUpdateProof, treeprover::data::CircuitInputWithJobId};
 use psy_data::{
-    config::store_config::QEDFelt,
+    config::store_config::PsyFelt,
     proof_store::builder::ProofStoreBuilder,
     protocol::circuit_inputs::{
         append_user_registration_tree::QCAppendUserRegistrationTreeCircuitInput, deploy_contracts::QCBatchDeployContractsCircuitInput,
     },
-    qdata::contract::QEDContractLeaf,
+    qdata::contract::PsyContractLeaf,
 };
 use psy_store::{
-    node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
+    node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition, task_queue::QProvingTaskStore},
     store::journal::Journal,
 };
 
 use super::processor::CoordinatorProcessorContext;
 
-type F = QEDFelt;
+type F = PsyFelt;
 impl<
-        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
+        SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F> + Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
@@ -67,7 +67,7 @@ impl<
         task_index: u32,
         psb: &mut ProofStoreBuilder,
         update_proof: SpidermanUpdateProof<QHashOut<F>>,
-        contract_leaves: Vec<QEDContractLeaf<F>>,
+        contract_leaves: Vec<PsyContractLeaf<F>>,
     ) -> anyhow::Result<CircuitInputWithJobId<QCBatchDeployContractsCircuitInput<F>>> {
         let op_result = QCBatchDeployContractsCircuitInput {
             deploy_contract_circuit_whitelist: self.coordinator_config.deploy_contracts_circuit_whitelist,

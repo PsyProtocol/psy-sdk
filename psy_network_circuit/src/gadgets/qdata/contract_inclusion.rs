@@ -15,25 +15,25 @@ use psy_core::{
 };
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::qdata::{
-    contract::QEDContractLeaf,
-    contract_inclusion::{QEDContractFunctionInclusionProof, QEDContractInclusionProof},
+    contract::PsyContractLeaf,
+    contract_inclusion::{PsyContractFunctionInclusionProof, PsyContractInclusionProof},
 };
 
-use super::contract::QEDContractLeafGadget;
+use super::contract::PsyContractLeafGadget;
 
 #[derive(Clone, Debug)]
-pub struct QEDContractInclusionProofGadget {
-    pub contract_leaf: QEDContractLeafGadget,
+pub struct PsyContractInclusionProofGadget {
+    pub contract_leaf: PsyContractLeafGadget,
     pub contract_tree_merkle_proof: MerkleProofGadget,
 
     // computed
     pub contract_leaf_hash: HashOutTarget,
 }
 
-impl QEDContractInclusionProofGadget {
+impl PsyContractInclusionProofGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         // START: create targets that require witness
-        let contract_leaf = QEDContractLeafGadget::create_virtual::<F, D>(builder);
+        let contract_leaf = PsyContractLeafGadget::create_virtual::<F, D>(builder);
         let contract_tree_merkle_proof = MerkleProofGadget::add_virtual_to::<H, F, D>(builder, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
         // END: create targets that require witness
 
@@ -54,38 +54,38 @@ impl QEDContractInclusionProofGadget {
     pub fn set_witness_params<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,
-        contract_leaf: &QEDContractLeaf<F>,
+        contract_leaf: &PsyContractLeaf<F>,
         contract_tree_merkle_proof: &MerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
         self.contract_leaf.set_witness(witness, contract_leaf)?;
         self.contract_tree_merkle_proof
             .set_witness_core_proof_q_generic(witness, contract_tree_merkle_proof)
     }
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDContractInclusionProof<F>) -> anyhow::Result<()> {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PsyContractInclusionProof<F>) -> anyhow::Result<()> {
         self.set_witness_params(witness, &target.contract_leaf, &target.contract_tree_merkle_proof)
     }
 }
-impl CreatableWithHasherTarget for QEDContractInclusionProofGadget {
+impl CreatableWithHasherTarget for PsyContractInclusionProofGadget {
     fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         Self::add_virtual_to::<H, F, D>(builder)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDContractInclusionProofGadget, F, true> for QEDContractInclusionProof<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractInclusionProofGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyContractInclusionProofGadget, F, true> for PsyContractInclusionProof<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyContractInclusionProofGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDContractInclusionProofGadget, F, false> for QEDContractInclusionProof<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractInclusionProofGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyContractInclusionProofGadget, F, false> for PsyContractInclusionProof<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyContractInclusionProofGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct QEDContractFunctionInclusionProofGadget {
-    pub contract_inclusion_proof: QEDContractInclusionProofGadget,
+pub struct PsyContractFunctionInclusionProofGadget {
+    pub contract_inclusion_proof: PsyContractInclusionProofGadget,
     pub contract_function_merkle_proof: MerkleProofGadget,
 
     // computed
@@ -100,10 +100,10 @@ pub struct QEDContractFunctionInclusionProofGadget {
      */
 }
 
-impl QEDContractFunctionInclusionProofGadget {
+impl PsyContractFunctionInclusionProofGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         // START: create targets that require witness
-        let contract_inclusion_proof = QEDContractInclusionProofGadget::add_virtual_to::<H, F, D>(builder);
+        let contract_inclusion_proof = PsyContractInclusionProofGadget::add_virtual_to::<H, F, D>(builder);
 
         let (contract_function_merkle_proof, cf_merkle_proof_index_bits) =
             MerkleProofGadget::add_virtual_to_get_index_bits::<H, F, D>(builder, CONTRACT_FUNCTION_TREE_HEIGHT as usize);
@@ -146,31 +146,31 @@ impl QEDContractFunctionInclusionProofGadget {
     pub fn set_witness_params<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,
-        contract_inclusion_proof: &QEDContractInclusionProof<F>,
+        contract_inclusion_proof: &PsyContractInclusionProof<F>,
         contract_function_merkle_proof: &MerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
         self.contract_inclusion_proof.set_witness(witness, contract_inclusion_proof)?;
         self.contract_function_merkle_proof
             .set_witness_core_proof_q_generic(witness, contract_function_merkle_proof)
     }
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDContractFunctionInclusionProof<F>) -> anyhow::Result<()> {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PsyContractFunctionInclusionProof<F>) -> anyhow::Result<()> {
         self.set_witness_params(witness, &target.contract_inclusion_proof, &target.contract_function_merkle_proof)
     }
 }
-impl CreatableWithHasherTarget for QEDContractFunctionInclusionProofGadget {
+impl CreatableWithHasherTarget for PsyContractFunctionInclusionProofGadget {
     fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         Self::add_virtual_to::<H, F, D>(builder)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDContractFunctionInclusionProofGadget, F, true> for QEDContractFunctionInclusionProof<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractFunctionInclusionProofGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyContractFunctionInclusionProofGadget, F, true> for PsyContractFunctionInclusionProof<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyContractFunctionInclusionProofGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDContractFunctionInclusionProofGadget, F, false> for QEDContractFunctionInclusionProof<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractFunctionInclusionProofGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyContractFunctionInclusionProofGadget, F, false> for PsyContractFunctionInclusionProof<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyContractFunctionInclusionProofGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

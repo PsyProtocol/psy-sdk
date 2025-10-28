@@ -2,8 +2,8 @@ use std::{ops::Deref, sync::Arc};
 
 use async_trait::async_trait;
 use psy_crypto::common::{generic_circuit_verifier::GenericCircuitVerifier, simple_circuit_library::SimpleCircuitLibrary};
-use psy_data::config::store_config::QEDHasher;
-use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_data::config::store_config::PsyHasher;
+use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
 use psy_store::queue::{new_fred_pool, new_redis_async_pool, ProofStoreFred, ProofStoreRedisAsync};
 
 use crate::{
@@ -13,15 +13,15 @@ use crate::{
 
 pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 pub const D: usize = 2;
-pub type F = psy_data::config::store_config::QEDFelt;
+pub type F = psy_data::config::store_config::PsyFelt;
 
-pub type H = QEDHasher;
+pub type H = PsyHasher;
 
 #[derive(Debug)]
 pub struct WorkerState {
     pub queue: ProofStoreRedisAsync,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+    pub coordinator_worker_circuits: PsyCoordinatorCircuitManager<C, D>,
 }
 
 impl WorkerState {
@@ -33,7 +33,7 @@ impl WorkerState {
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
         let coordinator_worker_circuits =
-            QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<F>());
+            PsyCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<F>());
         let processor = WorkerState {
             queue: realm_qps,
             proof_verifier,
@@ -82,7 +82,7 @@ pub trait Worker {
 #[async_trait]
 impl Worker for RealmWorker {
     async fn run(&self) -> anyhow::Result<()> {
-        SimpleAsyncRealmWorker::run_worker::<_, _, SimpleCircuitLibrary<F>, QEDCoordinatorCircuitManager<C, D>, C, D>(
+        SimpleAsyncRealmWorker::run_worker::<_, _, SimpleCircuitLibrary<F>, PsyCoordinatorCircuitManager<C, D>, C, D>(
             &self.queue,
             &self.queue,
             &self.coordinator_worker_circuits,
@@ -95,7 +95,7 @@ impl Worker for RealmWorker {
 #[async_trait]
 impl Worker for CoordinatorWorker {
     async fn run(&self) -> anyhow::Result<()> {
-        SimpleAsyncCoordinatorWorker::run_worker::<_, _, SimpleCircuitLibrary<F>, QEDCoordinatorCircuitManager<C, D>, C, D>(
+        SimpleAsyncCoordinatorWorker::run_worker::<_, _, SimpleCircuitLibrary<F>, PsyCoordinatorCircuitManager<C, D>, C, D>(
             &self.queue,
             &self.queue,
             &self.coordinator_worker_circuits,

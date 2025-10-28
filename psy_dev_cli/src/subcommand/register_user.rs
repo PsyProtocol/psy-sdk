@@ -3,13 +3,13 @@ use std::str::FromStr;
 
 use anyhow::Ok;
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
-    signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
+    signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey},
 };
-use psy_data::config::store_config::QEDHasher;
+use psy_data::config::store_config::PsyHasher;
 use psy_prover::local::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
@@ -32,11 +32,11 @@ pub async fn run(args: super::RegisterUserArgs) -> anyhow::Result<()> {
     }
 
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key).map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(private_key));
+    let mut wallet = SimplePsyZKSignatureManager::<C, D>::new();
+    let public_key = wallet.add_private_key_get_info(SimplePsyPrivateKey::new(private_key));
 
     println!("{}", serde_json::to_string_pretty(&public_key)?);
-    println!("{:?}", public_key.qfhash::<QEDHasher>().to_string());
+    println!("{:?}", public_key.qfhash::<PsyHasher>().to_string());
     provider.register_user(QRegisterUserRPCRequest { public_key: public_key }).await?;
 
     println!("{}", serde_json::to_string_pretty(&public_key).unwrap());
@@ -47,11 +47,11 @@ pub async fn run(args: super::RegisterUserArgs) -> anyhow::Result<()> {
 pub async fn run_random(args: super::RandomArgs) -> anyhow::Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
 
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+    let mut wallet = SimplePsyZKSignatureManager::<C, D>::new();
 
     for i in 0..args.total_user {
         let private_key = QHashOut::<GoldilocksField>::rand();
-        let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(private_key));
+        let public_key = wallet.add_private_key_get_info(SimplePsyPrivateKey::new(private_key));
 
         provider.register_user(QRegisterUserRPCRequest { public_key: public_key }).await?;
 

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     config::store_config::{
-        BaseContractStateTreeStore, QEDDeltaMerkleProof, QEDFelt, QEDHash, QEDMerkleProof, CONTRACT_STATE_TREE_ID,
+        BaseContractStateTreeStore, PsyDeltaMerkleProof, PsyFelt, PsyHash, PsyMerkleProof, CONTRACT_STATE_TREE_ID,
         USER_CONTRACT_STATE_TREE_TABLE_TYPE,
     },
     models::kvq_merkle::{
@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct UserContractStateTreeId<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QEDHash>> {
+pub struct UserContractStateTreeId<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, PsyHash>> {
     pub user_id: u64,
     pub contract_id: u32,
     pub height: u8,
@@ -27,7 +27,7 @@ pub struct UserContractStateTreeId<S, IDKVA = KVQStandardAdapter<S, KVQMerkleNod
     _adapter: PhantomData<(S, IDKVA)>,
 }
 
-impl<S, IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QEDHash>> UserContractStateTreeId<S, IDKVA> {
+impl<S, IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, PsyHash>> UserContractStateTreeId<S, IDKVA> {
     pub fn new(user_id: u64, contract_id: u32, height: u8) -> Self {
         Self {
             user_id,
@@ -46,16 +46,16 @@ impl<S, IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABL
             checkpoint_id,
         }
     }
-    pub fn get_leaf_ucs(&self, store: &S, checkpoint_id: u64, index: u64) -> anyhow::Result<QEDMerkleProof> {
+    pub fn get_leaf_ucs(&self, store: &S, checkpoint_id: u64, index: u64) -> anyhow::Result<PsyMerkleProof> {
         BaseContractStateTreeStore::<S, IDKVA>::get_leaf(store, &self.get_leaf_key(checkpoint_id, index))
     }
-    pub fn get_leaf_value_ucs(&self, store: &S, checkpoint_id: u64, index: u64) -> anyhow::Result<QHashOut<QEDFelt>> {
+    pub fn get_leaf_value_ucs(&self, store: &S, checkpoint_id: u64, index: u64) -> anyhow::Result<QHashOut<PsyFelt>> {
         BaseContractStateTreeStore::<S, IDKVA>::get_node(store, self.height.into(), &self.get_leaf_key(checkpoint_id, index))
     }
-    pub fn set_leaf_ucs(&self, store: &S, checkpoint_id: u64, index: u64, value: QEDHash) -> anyhow::Result<QEDDeltaMerkleProof> {
+    pub fn set_leaf_ucs(&self, store: &S, checkpoint_id: u64, index: u64, value: PsyHash) -> anyhow::Result<PsyDeltaMerkleProof> {
         BaseContractStateTreeStore::<S, IDKVA>::set_leaf(store, &self.get_leaf_key(checkpoint_id, index), value)
     }
-    pub fn injest_merkle_proof_ucs(&self, store: &S, checkpoint_id: u64, merkle_proof: &QEDMerkleProof) -> anyhow::Result<()> {
+    pub fn injest_merkle_proof_ucs(&self, store: &S, checkpoint_id: u64, merkle_proof: &PsyMerkleProof) -> anyhow::Result<()> {
         BaseContractStateTreeStore::<S, IDKVA>::injest_merkle_proof(
             store,
             CONTRACT_STATE_TREE_ID,
@@ -65,7 +65,7 @@ impl<S, IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABL
             merkle_proof,
         )
     }
-    pub fn get_root(&self, store: &S, checkpoint_id: u64) -> anyhow::Result<QEDHash> {
+    pub fn get_root(&self, store: &S, checkpoint_id: u64) -> anyhow::Result<PsyHash> {
         BaseContractStateTreeStore::<S, IDKVA>::get_node(
             store,
             self.height.into(),

@@ -1,13 +1,13 @@
 use clap::Args;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
-use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
-use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+use psy_crypto::signature::zk::wallet::SimplePsyPrivateKey;
 use psy_data::{
-    config::store_config::{QEDHasher, C, D},
+    config::store_config::{PsyHasher, C, D},
     qblock::cmds::register_user::QBCRegisterUser,
 };
-use psy_exec::vm::exec::QEDEvalSessionResult;
+use psy_exec::vm::exec::PsyEvalSessionResult;
 use psy_package::Workspace;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use psy_store::controllers::local::prepare_environment_with_real_contract;
@@ -45,9 +45,9 @@ pub(crate) async fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate
     let compile_results = compile_workspace_full(&workspace, &args.compile_options)?;
 
     let priv_key = QHashOut::rand();
-    let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    let priv_key_w = SimpleQEDPrivateKey::new(priv_key);
-    let pub_key_param = priv_key_w.get_public_key_param::<QEDHasher>();
+    let wallet = SimplePsyZKSignatureManager::<C, D>::new();
+    let priv_key_w = SimplePsyPrivateKey::new(priv_key);
+    let pub_key_param = priv_key_w.get_public_key_param::<PsyHasher>();
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
     let deployer = QHashOut::rand();
@@ -70,7 +70,7 @@ pub(crate) async fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate
         .zip(args.parameters.into_iter())
         .zip(circuits.into_iter())
     {
-        let cfc_input = QEDEvalSessionResult::new()
+        let cfc_input = PsyEvalSessionResult::new()
             .exec_contract_call(
                 &mut lps,
                 contract_id,

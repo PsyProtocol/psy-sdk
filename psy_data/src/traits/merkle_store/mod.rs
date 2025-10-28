@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 pub use backing_store::{MerkleNodeStoreImmutableAsync, MerkleNodeStoreReaderImmutableAsync, MerkleNodeStoreWriterImmutableAsync};
 use kvq::traits::KVQSerializable;
 use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
-pub use reader_core::QEDMerkleTreeModelReaderCoreAsync;
+pub use reader_core::PsyMerkleTreeModelReaderCoreAsync;
 use serde::Serialize;
 pub use tree_core::QMerkleTreeModelCoreImmutableAsync;
 
@@ -30,7 +30,7 @@ impl<
         Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
         const TABLE_TYPE: u16,
         const MARK_LEAVES: bool,
-    > QEDMerkleTreeModelReaderCoreAsync<S, Hash, Hasher, TABLE_TYPE, MARK_LEAVES> for QMerkleTreeModel<S, Hash, Hasher, TABLE_TYPE, MARK_LEAVES>
+    > PsyMerkleTreeModelReaderCoreAsync<S, Hash, Hasher, TABLE_TYPE, MARK_LEAVES> for QMerkleTreeModel<S, Hash, Hasher, TABLE_TYPE, MARK_LEAVES>
 {
 }
 

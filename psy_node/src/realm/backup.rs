@@ -47,7 +47,7 @@ impl RealmS3BackupClient {
     }
 
     pub async fn new_from_env(realm_id: u32) -> Result<Self> {
-        let bucket = std::env::var("QED_BACKUP_BUCKET").context("QED_BACKUP_BUCKET environment variable not set")?;
+        let bucket = std::env::var("Psy_BACKUP_BUCKET").context("Psy_BACKUP_BUCKET environment variable not set")?;
         Self::new(realm_id, bucket).await
     }
 

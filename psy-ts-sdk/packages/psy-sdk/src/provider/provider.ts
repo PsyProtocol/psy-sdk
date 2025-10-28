@@ -1,5 +1,5 @@
 import { FetchHTTPClient, IHTTPClient } from "../http";
-import { QedJSON } from "../utils";
+import { PsyJSON } from "../utils";
 
 /**
  * Cache configuration interface
@@ -268,7 +268,7 @@ export abstract class Provider {
      * Generate cache key for a request
      */
     private getCacheKey(method: string, params: any): string {
-        return `${method}:${QedJSON.stringify(params)}`;
+        return `${method}:${PsyJSON.stringify(params)}`;
     }
 
     /**
@@ -495,7 +495,7 @@ export abstract class Provider {
             method: "POST",
             url,
             headers,
-            body: QedJSON.stringify({
+            body: PsyJSON.stringify({
                 jsonrpc,
                 method,
                 params,
@@ -505,13 +505,13 @@ export abstract class Provider {
         });
 
         if (response.statusCode >= 400) {
-            throw new Error("Error in RPC call: " + QedJSON.stringify(response.body));
+            throw new Error("Error in RPC call: " + PsyJSON.stringify(response.body));
         }
 
-        const result = QedJSON.parse(response.body);
+        const result = PsyJSON.parse(response.body);
 
         if (result.error) {
-            throw new Error(`RPC error: ${result.error.message || QedJSON.stringify(result.error)}`);
+            throw new Error(`RPC error: ${result.error.message || PsyJSON.stringify(result.error)}`);
         }
 
         return result.result as T;

@@ -7,21 +7,21 @@ use super::{
         QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetL2BlockState, QSRCmdGetUserLeafData,
         QSRHashCmd, QSRMerkleCmd,
     },
-    cmd_processor::{QEDReadCommandBatchInput, QEDReadCommandBatchOutput, QEDReadCommandProcessorSync},
+    cmd_processor::{PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync},
 };
 use crate::{
     qdata::{
-        checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
-        contract::{ContractCodeDefinition, QEDContractLeaf},
-        user::QEDUserLeaf,
+        checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+        contract::{ContractCodeDefinition, PsyContractLeaf},
+        user::PsyUserLeaf,
     },
-    traits::qdatastore::qtreedata::QEDComboDataStoreReaderSync,
+    traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync,
 };
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, R: QEDComboDataStoreReaderSync<F> + Sync> QEDReadCommandProcessorSync<F> for R {
-    async fn resolve_batch(&self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>> {
+impl<F: RichField, R: PsyComboDataStoreReaderSync<F> + Sync> PsyReadCommandProcessorSync<F> for R {
+    async fn resolve_batch(&self, input: &PsyReadCommandBatchInput) -> anyhow::Result<PsyReadCommandBatchOutput<F>> {
         let mut get_user_leaf = Vec::new();
         for x in &input.get_user_leaf {
             get_user_leaf.push(self.resolve_get_user_leaf(x).await?);
@@ -50,7 +50,7 @@ impl<F: RichField, R: QEDComboDataStoreReaderSync<F> + Sync> QEDReadCommandProce
         for x in &input.get_hash {
             get_hash.push(self.resolve_get_hash(x).await?);
         }
-        Ok(QEDReadCommandBatchOutput {
+        Ok(PsyReadCommandBatchOutput {
             get_user_leaf: get_user_leaf,
             get_contract_leaf: get_contract_leaf,
             get_contract_code: get_contract_code,
@@ -112,11 +112,11 @@ impl<F: RichField, R: QEDComboDataStoreReaderSync<F> + Sync> QEDReadCommandProce
         }
     }
 
-    async fn resolve_get_user_leaf(&self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<QEDUserLeaf<F>> {
+    async fn resolve_get_user_leaf(&self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<PsyUserLeaf<F>> {
         self.get_user_leaf_data(input.checkpoint_id, input.user_id).await
     }
 
-    async fn resolve_get_contract_leaf(&self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<QEDContractLeaf<F>> {
+    async fn resolve_get_contract_leaf(&self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<PsyContractLeaf<F>> {
         self.get_contract_leaf_data(input.contract_id).await
     }
 
@@ -124,15 +124,15 @@ impl<F: RichField, R: QEDComboDataStoreReaderSync<F> + Sync> QEDReadCommandProce
         self.get_contract_code_definition(input.contract_id).await
     }
 
-    async fn resolve_get_checkpoint_leaf(&self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+    async fn resolve_get_checkpoint_leaf(&self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<PsyCheckpointLeaf<F>> {
         self.get_checkpoint_leaf_data(input.checkpoint_id).await
     }
 
-    async fn resolve_get_l2_block_state(&self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<QEDL2BlockState> {
+    async fn resolve_get_l2_block_state(&self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<PsyL2BlockState> {
         self.get_l2_block_state(input.checkpoint_id).await
     }
 
-    async fn resolve_get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
+    async fn resolve_get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState> {
         self.get_latest_l2_block_state().await
     }
 }

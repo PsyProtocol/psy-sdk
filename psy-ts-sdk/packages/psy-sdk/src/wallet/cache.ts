@@ -1,8 +1,8 @@
 import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { SCNumberLike } from "../core";
 import { IRealmEdgeRpcProvider } from "../realm-edge-rpc";
-import { QEDUserLeaf } from "../types";
-import { qedFelt } from "../utils";
+import { PsyUserLeaf } from "../types";
+import { psyFelt } from "../utils";
 
 interface IUserCacheRecord {
     localNonce: bigint;
@@ -35,7 +35,7 @@ class UserWalletCache {
     async refreshUserFull(
         rpc: IRealmEdgeRpcProvider,
         userId: number
-    ): Promise<{ cache: IUserCacheRecord; user: QEDUserLeaf }> {
+    ): Promise<{ cache: IUserCacheRecord; user: PsyUserLeaf }> {
         const currentBlock = await rpc.getLatestL2BlockState();
         const user = await rpc.getUserLeafData(currentBlock.checkpoint_id, userId);
         const cachedUser = this.getUserCached(userId);
@@ -43,10 +43,10 @@ class UserWalletCache {
             cachedUser.unprocessedCheckpointId = BigInt(currentBlock.checkpoint_id);
             cachedUser.unprocessedOutflows = BigInt(0);
             cachedUser.unprocessedInflows = BigInt(0);
-            cachedUser.localBalance = qedFelt(user.balance);
+            cachedUser.localBalance = psyFelt(user.balance);
         }
-        cachedUser.remoteBalance = qedFelt(user.balance);
-        cachedUser.remoteNonce = qedFelt(user.nonce);
+        cachedUser.remoteBalance = psyFelt(user.balance);
+        cachedUser.remoteNonce = psyFelt(user.nonce);
 
         if (cachedUser.localNonce < cachedUser.remoteNonce) {
             cachedUser.localNonce = cachedUser.remoteNonce;
@@ -72,8 +72,8 @@ class UserWalletCache {
     ): Promise<bigint> {
         const senderUser = await this.refreshUser(rpc, Number(sender + ""));
         const recipientUser = await this.refreshUser(rpc, Number(recipient + ""));
-        senderUser.localBalance -= qedFelt(amount);
-        recipientUser.localBalance += qedFelt(amount);
+        senderUser.localBalance -= psyFelt(amount);
+        recipientUser.localBalance += psyFelt(amount);
         return this.incNonce(Number(sender + ""));
     }
 }

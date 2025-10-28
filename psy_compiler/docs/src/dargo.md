@@ -1,14 +1,14 @@
 
 # Basic Dargo Commands
 
-Dargo is qed-lang's package manager and build system that handles project creation, dependency management, and
+Dargo is psy-lang's package manager and build system that handles project creation, dependency management, and
 development workflows.
 
 ## Common Commands
 
 ### `dargo new`
 
-Creates a new qed-lang project.
+Creates a new psy-lang project.
 
 ```bash
 dargo new my_project
@@ -16,7 +16,7 @@ dargo new my_project
 
 ### `dargo init`
 
-Initializes a qed-lang project in an current directory.
+Initializes a psy-lang project in an current directory.
 
 ```bash
 dargo init
@@ -43,7 +43,7 @@ dargo execute --contract-name=<contract_name> \
 
 ### `dargo fmt`
 
-Formats your qed-lang code.
+Formats your psy-lang code.
 
 ```bash
 dargo fmt <file_name>

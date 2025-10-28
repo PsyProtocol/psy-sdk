@@ -1,34 +1,34 @@
-import { getQedNetworkMagicForNetworkId, NetworkId } from "../action";
+import { getPsyNetworkMagicForNetworkId, NetworkId } from "../action";
 import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
-import { IQedUserProverProvider } from "../local-prover-rpc";
+import { IPsyUserProverProvider } from "../local-prover-rpc";
 import { IRealmEdgeRpcProvider } from "../realm-edge-rpc";
-import { IQedTransactionSignerProvider } from "../zksigner";
-import { IQedUserWallet, IQedUserWalletProvider } from "./types";
-import { QedUserWallet } from "./userWallet";
+import { IPsyTransactionSignerProvider } from "../zksigner";
+import { IPsyUserWallet, IPsyUserWalletProvider } from "./types";
+import { PsyUserWallet } from "./userWallet";
 
-class QedUserWalletProvider implements IQedUserWalletProvider {
+class PsyUserWalletProvider implements IPsyUserWalletProvider {
     networkId: NetworkId;
     l2NetworkMagic: bigint;
-    signerProvider: IQedTransactionSignerProvider;
-    // rpc: IQedRPCProvider;
+    signerProvider: IPsyTransactionSignerProvider;
+    // rpc: IPsyRPCProvider;
     coordinatorEdgeRpcProvider: ICoordinatorEdgeRpcProvider;
     realmEdgeRpcProvider: IRealmEdgeRpcProvider;
-    prover: IQedUserProverProvider;
+    prover: IPsyUserProverProvider;
     constructor(
         networkId: NetworkId,
         coordinatorEdgeRpcProvider: ICoordinatorEdgeRpcProvider,
         realmEdgeRpcProvider: IRealmEdgeRpcProvider,
-        signerProvider: IQedTransactionSignerProvider,
-        prover: IQedUserProverProvider
+        signerProvider: IPsyTransactionSignerProvider,
+        prover: IPsyUserProverProvider
     ) {
         this.networkId = networkId;
         this.coordinatorEdgeRpcProvider = coordinatorEdgeRpcProvider;
         this.realmEdgeRpcProvider = realmEdgeRpcProvider;
-        this.l2NetworkMagic = getQedNetworkMagicForNetworkId(networkId);
+        this.l2NetworkMagic = getPsyNetworkMagicForNetworkId(networkId);
         this.signerProvider = signerProvider;
         this.prover = prover;
     }
-    async getUserWallets(): Promise<IQedUserWallet[]> {
+    async getUserWallets(): Promise<IPsyUserWallet[]> {
         const signers = await this.signerProvider.getSigners();
         const publicKeys = await Promise.all(signers.map((signer) => signer.getPublicKeyHex()));
         const userIds = await Promise.all(
@@ -43,7 +43,7 @@ class QedUserWalletProvider implements IQedUserWalletProvider {
         );
         return userIds.map(
             ({ userId, status }, index) =>
-                new QedUserWallet(
+                new PsyUserWallet(
                     this.networkId,
                     signers[index],
                     this.coordinatorEdgeRpcProvider,
@@ -56,4 +56,4 @@ class QedUserWalletProvider implements IQedUserWalletProvider {
     }
 }
 
-export { QedUserWalletProvider };
+export { PsyUserWalletProvider };

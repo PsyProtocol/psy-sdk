@@ -1,5 +1,5 @@
 use psy_core::data::qhashout::QHashOut;
-use psy_data::config::store_config::QEDFelt;
+use psy_data::config::store_config::PsyFelt;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -8,7 +8,7 @@ pub enum CoordinatorError {
     UserAlreadyRegistered { user_id: u64 },
 
     #[error("User not found for public key: {public_key:?}")]
-    UserNotFound { public_key: QHashOut<QEDFelt> },
+    UserNotFound { public_key: QHashOut<PsyFelt> },
 
     #[error("Store error: {0}")]
     StoreError(#[from] anyhow::Error),

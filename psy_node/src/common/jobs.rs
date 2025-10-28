@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::common::QEDProof;
+use crate::common::PsyProof;
 
 pub const MESSAGE_CLAIM_JOB: &str = "CLAIM_JOB";
 use alloy_primitives::{keccak256, B256};
@@ -22,10 +22,10 @@ use psy_prover::wallet::{
 use psy_store::queue::task_queue::QJob;
 use tracing::{debug, info, trace, warn};
 
-#[rpc(server, client, namespace = "qed")]
+#[rpc(server, client, namespace = "psy")]
 pub trait JobSchedulerRpc {
     #[method(name = "get_pending_job")]
-    async fn get_pending_job(&self, signed: SignedRequest<psy_data::config::store_config::QEDHash>) -> RpcResult<Option<QJob>>;
+    async fn get_pending_job(&self, signed: SignedRequest<psy_data::config::store_config::PsyHash>) -> RpcResult<Option<QJob>>;
 
     #[method(name = "get_proof_by_id")]
     async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
@@ -34,7 +34,7 @@ pub trait JobSchedulerRpc {
     async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
 
     #[method(name = "set_proof_by_id")]
-    async fn set_proof_by_id(&self, job: QJob, proof: QEDProof, signed: SignedRequest<psy_data::config::store_config::QEDHash>) -> RpcResult<()>;
+    async fn set_proof_by_id(&self, job: QJob, proof: PsyProof, signed: SignedRequest<psy_data::config::store_config::PsyHash>) -> RpcResult<()>;
 }
 
 #[derive(Clone)]
@@ -62,7 +62,7 @@ impl JobReceiver for JobClient {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
     }
-    async fn submit_job_proof(&self, job: QJob, proof: QEDProof, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<()> {
+    async fn submit_job_proof(&self, job: QJob, proof: PsyProof, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<()> {
         trace!("Submitted job proof for job_id: {:?}", job);
         let mut signed = psy_prover::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &proof)?;
         signed.worker_public_key = worker_public_key.to_string();
@@ -99,5 +99,5 @@ impl QProofStoreReaderAsync for JobClient {
 pub trait JobReceiver {
     async fn get_next_job(&self, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<QJob>;
 
-    async fn submit_job_proof(&self, job: QJob, proof: QEDProof, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<()>;
+    async fn submit_job_proof(&self, job: QJob, proof: PsyProof, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<()>;
 }

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tree_planner::BinaryTreePlanner;
 
 use crate::hash::merkle::treeprover::tree_planner::BinaryTreeJob;
-pub type QEDStateTrackingHash = PoseidonHash;
+pub type PsyStateTrackingHash = PoseidonHash;
 
 pub trait WithDummyStateTransition<F: RichField> {
     fn get_dummy_value(state_root: QHashOut<F>) -> Self;

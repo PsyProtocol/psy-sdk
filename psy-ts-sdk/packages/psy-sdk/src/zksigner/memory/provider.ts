@@ -1,42 +1,42 @@
-import { getQedNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ContractCallArgs, IQedUserProverProvider } from "../../local-prover-rpc";
+import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
+import { ContractCallArgs, IPsyUserProverProvider } from "../../local-prover-rpc";
 import { JobInfo } from "../../types";
 import { cryptoRandomHashOutHex } from "../../utils";
-import { IQedTransactionSigner, IQedTransactionSignerProvider, TQedTransactionSignerProviderAbility } from "../types";
-import { QedMemoryTransactionSigner } from "./signer";
+import { IPsyTransactionSigner, IPsyTransactionSignerProvider, TPsyTransactionSignerProviderAbility } from "../types";
+import { PsyMemoryTransactionSigner } from "./signer";
 
-class QedMemoryTransactionSignerProvider implements IQedTransactionSignerProvider {
+class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvider {
     networkId: NetworkId;
     l2NetworkMagic: bigint;
-    signers: QedMemoryTransactionSigner[] = [];
-    proverProvider: IQedUserProverProvider;
-    constructor(proverProvider: IQedUserProverProvider, networkId: NetworkId) {
+    signers: PsyMemoryTransactionSigner[] = [];
+    proverProvider: IPsyUserProverProvider;
+    constructor(proverProvider: IPsyUserProverProvider, networkId: NetworkId) {
         this.networkId = networkId;
-        this.l2NetworkMagic = getQedNetworkMagicForNetworkId(networkId);
+        this.l2NetworkMagic = getPsyNetworkMagicForNetworkId(networkId);
         this.proverProvider = proverProvider;
     }
-    getSigners(): Promise<IQedTransactionSigner[]> {
+    getSigners(): Promise<IPsyTransactionSigner[]> {
         return Promise.resolve(this.signers);
     }
     getPublicKeysHex(): Promise<string[]> {
         return Promise.resolve(this.signers.map((signer) => signer.publicKeyHex));
     }
-    getSignerByPublicKeyHex(publicKeyHex: string): Promise<IQedTransactionSigner> {
+    getSignerByPublicKeyHex(publicKeyHex: string): Promise<IPsyTransactionSigner> {
         const signer = this.signers.find((signer) => signer.publicKeyHex === publicKeyHex);
         if (!signer) return Promise.reject(new Error("Signer not found"));
         return Promise.resolve(signer);
     }
-    getAbilities(): TQedTransactionSignerProviderAbility[] {
+    getAbilities(): TPsyTransactionSignerProviderAbility[] {
         return ["import-private-key", "add-random-private-key"];
     }
-    async importPrivateKey(privateKeyHex: string, signType: string, fingerprint?: string): Promise<IQedTransactionSigner> {
+    async importPrivateKey(privateKeyHex: string, signType: string, fingerprint?: string): Promise<IPsyTransactionSigner> {
         const existing = this.signers.find((signer) => signer.privateKeyHex === privateKeyHex && signer.signType === signType && signer.fingerprint == fingerprint);
         if (existing) return existing;
-        const signer = await QedMemoryTransactionSigner.create(this.proverProvider, this.networkId, privateKeyHex, signType, fingerprint);
+        const signer = await PsyMemoryTransactionSigner.create(this.proverProvider, this.networkId, privateKeyHex, signType, fingerprint);
         this.signers.push(signer);
         return signer;
     }
-    async addRandomPrivateKey(signType: string, fingerprint?: string): Promise<IQedTransactionSigner> {
+    async addRandomPrivateKey(signType: string, fingerprint?: string): Promise<IPsyTransactionSigner> {
         return this.importPrivateKey(cryptoRandomHashOutHex(), signType, fingerprint);
     }
 
@@ -57,4 +57,4 @@ class QedMemoryTransactionSignerProvider implements IQedTransactionSignerProvide
     }
 }
 
-export { QedMemoryTransactionSignerProvider };
+export { PsyMemoryTransactionSignerProvider };

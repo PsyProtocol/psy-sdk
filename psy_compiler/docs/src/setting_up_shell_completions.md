@@ -1,7 +1,7 @@
 # Setting up Shell Completions
 
 Shell completions allow you to use the Tab key to autocomplete commands, options, and arguments when working with the
-QED CLI tools. This makes development faster and more convenient.
+Psy CLI tools. This makes development faster and more convenient.
 
 This guide will help you set up shell completions for the Dargo CLI.
 

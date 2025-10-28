@@ -7,12 +7,12 @@ use plonky2::{
 use psy_common_circuit::traits::CreatableTarget;
 use psy_data::qdata::user_contract_state::UserContractState;
 
-use super::user::QEDUserLeafGadget;
+use super::user::PsyUserLeafGadget;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UserContractStateGadget {
     pub checkpoint_tree_root: HashOutTarget,
-    pub user_leaf: QEDUserLeafGadget,
+    pub user_leaf: PsyUserLeafGadget,
     pub start_contract_state_root: HashOutTarget,
     pub contract_id: Target,
     pub checkpoint_id: Target,
@@ -21,7 +21,7 @@ pub struct UserContractStateGadget {
 impl UserContractStateGadget {
     pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let checkpoint_tree_root = builder.add_virtual_hash();
-        let user_leaf = QEDUserLeafGadget::create_virtual(builder);
+        let user_leaf = PsyUserLeafGadget::create_virtual(builder);
         let start_contract_state_root = builder.add_virtual_hash();
         let contract_id = builder.add_virtual_target();
         let checkpoint_id = builder.add_virtual_target();
@@ -77,13 +77,13 @@ impl UserContractStateGadget {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SignContextGadget {
     pub checkpoint_tree_root: HashOutTarget,
-    pub user_leaf: QEDUserLeafGadget,
+    pub user_leaf: PsyUserLeafGadget,
 }
 
 impl SignContextGadget {
     pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let checkpoint_tree_root = builder.add_virtual_hash();
-        let user_leaf = QEDUserLeafGadget::create_virtual(builder);
+        let user_leaf = PsyUserLeafGadget::create_virtual(builder);
 
         Self {
             checkpoint_tree_root,

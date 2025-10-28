@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
     psy_common::setup_logging()?;
-    tracing::info!("qed user cli");
+    tracing::info!("psy user cli");
     match cli.command {
         Commands::GetPublicKey(args) => get_public_key::run(args).await?,
         Commands::RandomWallet(args) => random_wallet::run(args)?,
@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::GetUserLeaf(user_leaf_args) => {
             use psy_crypto::hash::traits::qhashable::QFieldHashable;
-            use psy_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
+            use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
             use psy_prover::local::provider::RpcProvider;
 
             use crate::subcommand::args::UserLeafArgs;
@@ -74,7 +74,7 @@ async fn main() -> anyhow::Result<()> {
             println!("Query method: {}", query_method);
             println!("Resolved user_id: {}", user_id);
             println!("user_leaf_data: {}", serde_json::to_string_pretty(&user_leaf_data)?);
-            println!("user_leaf_hash: {}", user_leaf_data.qfhash::<QEDHasher>().to_string());
+            println!("user_leaf_hash: {}", user_leaf_data.qfhash::<PsyHasher>().to_string());
         }
 
         // Tree commands

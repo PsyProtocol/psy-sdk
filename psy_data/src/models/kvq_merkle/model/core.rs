@@ -1022,7 +1022,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        config::store_config::{QEDHasher, UserTreeStore},
+        config::store_config::{PsyHasher, UserTreeStore},
         models::kvq_merkle::key::KVQMerkleNodeKey,
     };
 
@@ -1190,7 +1190,7 @@ mod tests {
 
                 let mut all_valid = true;
                 for (i, proof) in nca_result.nca_proofs.iter().enumerate() {
-                    let is_valid = proof.verify::<QEDHasher>();
+                    let is_valid = proof.verify::<PsyHasher>();
                     let is_solo = proof.is_solo_filler();
                     all_valid &= is_valid;
 
@@ -1263,7 +1263,7 @@ mod tests {
 
                 let mut all_valid = true;
                 for (i, proof) in nca_result.nca_proofs.iter().enumerate() {
-                    let is_valid = proof.verify::<QEDHasher>();
+                    let is_valid = proof.verify::<PsyHasher>();
                     let is_solo = proof.is_solo_filler();
                     all_valid &= is_valid;
 

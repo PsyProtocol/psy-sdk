@@ -79,7 +79,7 @@ impl TryFrom<u8> for QAPIWriteRequestBlobType {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
-pub struct QEDAPIWriteRequestId {
+pub struct PsyAPIWriteRequestId {
     pub request_type: QAPIWriteRequestType,
     pub data_type: QAPIWriteRequestBlobType,
     pub realm_id: u32,
@@ -88,7 +88,7 @@ pub struct QEDAPIWriteRequestId {
     pub random: u64,
 }
 
-impl KVQSerializable for QEDAPIWriteRequestId {
+impl KVQSerializable for PsyAPIWriteRequestId {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -98,7 +98,7 @@ impl KVQSerializable for QEDAPIWriteRequestId {
     }
 }
 
-impl QEDAPIWriteRequestId {
+impl PsyAPIWriteRequestId {
     pub fn new(request_type: QAPIWriteRequestType, data_type: QAPIWriteRequestBlobType, realm_id: u32, node_id: u32, time: u64, random: u64) -> Self {
         Self {
             request_type,
@@ -113,7 +113,7 @@ impl QEDAPIWriteRequestId {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct WithRequestId<T> {
-    pub id: QEDAPIWriteRequestId,
+    pub id: PsyAPIWriteRequestId,
     pub payload: T,
 }
 

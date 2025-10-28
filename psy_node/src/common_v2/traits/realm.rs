@@ -25,7 +25,7 @@ use psy_crypto::hash::{
     },
 };
 use psy_data::{
-    config::store_config::{QEDHash, QEDProof},
+    config::store_config::{PsyHash, PsyProof},
     guta::{
         api::SubmitGUTARealmResultAPINoProofInput,
         header::GlobalUserTreeAggregatorHeader,
@@ -34,14 +34,14 @@ use psy_data::{
     },
     models::checkpoint::block_state::L2BlockStatesModel,
     qdata::{
-        checkpoint::{CheckpointSyncInfo, QEDL2BlockState},
+        checkpoint::{CheckpointSyncInfo, PsyL2BlockState},
         staging_checkpoint_info::StagingCheckpointInfo,
         ups_end_cap_result::UPSEndCapResultCompact,
-        user::QEDUserLeaf,
+        user::PsyUserLeaf,
     },
 };
 use psy_store::{
-    node::realm::QEDRealmStoreReaderAsync,
+    node::realm::PsyRealmStoreReaderAsync,
     queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, Status},
 };
 use rand::Rng;
@@ -156,8 +156,8 @@ pub struct RealmEdgeUserUpdateSubmission<F: RichField> {
     pub proof_id: QProvingJobDataID,
     pub contract_state_tree_updates: Vec<RealmEdgeContractStateTreeUpdate<F>>,
     pub user_contract_tree_updates: Vec<RealmEdgeUserContractTreeUpdate<F>>,
-    pub old_user_leaf: QEDUserLeaf<F>,
-    pub new_user_leaf: QEDUserLeaf<F>,
+    pub old_user_leaf: PsyUserLeaf<F>,
+    pub new_user_leaf: PsyUserLeaf<F>,
     pub misc_data: VerifyEndCapSimpleStandardInput<F>,
 }
 
@@ -175,7 +175,7 @@ pub struct RealmProcessorCombinedUpdate<F: RichField> {
     pub contract_state_tree_updates: Vec<RealmEdgeContractStateTreeUpdate<F>>,
     pub user_contract_tree_updates: Vec<RealmEdgeUserContractTreeUpdate<F>>,
     pub global_user_tree_updates: Vec<GenericTreeNodeUpdate<F>>,
-    pub updated_users: Vec<QEDUserLeaf<F>>,
+    pub updated_users: Vec<PsyUserLeaf<F>>,
     pub root_job_id: QProvingJobDataID,
     pub header: RealmDataForCoordinatorHeader<F>,
 }
@@ -617,7 +617,7 @@ pub trait RealmEdgeStateHelper {
     async fn get_shared_checkpoint_id(&self) -> anyhow::Result<UniqueQueueId>;
     async fn has_submitted_end_cap_for_checkpoint(&self, queue_uuid: u128, user_id: u64) -> anyhow::Result<bool>;
     async fn put_submitted_end_cap_for_checkpoint(&self, queue_uuid: u128, user_id: u64) -> anyhow::Result<()>;
-    async fn put_proof_id(&self, job_id: QProvingJobDataID, proof: QEDProof) -> anyhow::Result<()>;
+    async fn put_proof_id(&self, job_id: QProvingJobDataID, proof: PsyProof) -> anyhow::Result<()>;
 }
 pub trait GraphDependencyBuilder {
     async fn register_dependencies(&self, parent: QProvingJobDataID, dependencies: &[QProvingJobDataID]);
@@ -631,7 +631,7 @@ pub fn random_uuid_for_checkpoint() -> u128 {
 }
 
 #[async_trait::async_trait]
-impl<F: RichField, R: QEDRealmStoreReaderAsync<F> + Sync> GlobalUserTreeMerkleReader<F> for R {
+impl<F: RichField, R: PsyRealmStoreReaderAsync<F> + Sync> GlobalUserTreeMerkleReader<F> for R {
     async fn get_sub_tree_merkle_proof<H: MerkleHasher<QHashOut<F>>>(
         &self,
         checkpoint_id: u64,

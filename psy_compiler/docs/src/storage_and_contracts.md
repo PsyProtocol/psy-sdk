@@ -1,10 +1,10 @@
 # Storage and Contracts
 
-[QED Smart Contract Language] supports storage for persistent state, useful for blockchain applications.
+[Psy Smart Contract Language] supports storage for persistent state, useful for blockchain applications.
 
 ## Defining a Contract
 
-```qed
+```psy
 #[storage]
 struct Contract {
 }

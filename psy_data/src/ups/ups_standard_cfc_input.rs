@@ -12,7 +12,7 @@ use ts_rs::TS;
 
 use crate::{
     dpn::cfc_context_input::DapenCFCUserTransactionInputContext,
-    qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, contract_inclusion::QEDContractFunctionInclusionProof},
+    qdata::{checkpoint::PsyCheckpointLeafCompactWithStateRoots, contract_inclusion::PsyContractFunctionInclusionProof},
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
@@ -39,9 +39,9 @@ impl<F: RichField> KVQSerializable for UPSCFCStandardStateDeltaInput<F> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct UPSVerifyCFCStandardStepInput<F: RichField> {
-    pub checkpoint_state: QEDCheckpointLeafCompactWithStateRoots<F>,
+    pub checkpoint_state: PsyCheckpointLeafCompactWithStateRoots<F>,
     pub verify_cfc_proof_input: AttestTreeAwareProofInTreeInput<F>,
-    pub cfc_inclusion_proof: QEDContractFunctionInclusionProof<F>,
+    pub cfc_inclusion_proof: PsyContractFunctionInclusionProof<F>,
 
     pub process_cfc_state_delta_input: UPSCFCStandardStateDeltaInput<F>,
 }

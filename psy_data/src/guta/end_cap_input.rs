@@ -5,7 +5,7 @@ use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::api::{QEDContractStateUpdateHistory, SimpleContractHeightCache, SubmitUserEndCapNonProofCoreInput};
+use super::api::{PsyContractStateUpdateHistory, SimpleContractHeightCache, SubmitUserEndCapNonProofCoreInput};
 use crate::qstore::uct_merkle_nodes::{CSTUserUpdate, CSTUserUpdateStore};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
@@ -13,7 +13,7 @@ use crate::qstore::uct_merkle_nodes::{CSTUserUpdate, CSTUserUpdateStore};
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct SubmitUserEndCapNonProofInput<F: RichField> {
     pub core: SubmitUserEndCapNonProofCoreInput<F>,
-    pub contract_state_updates: Vec<QEDContractStateUpdateHistory<F>>,
+    pub contract_state_updates: Vec<PsyContractStateUpdateHistory<F>>,
 }
 impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
     pub fn ensure_simple_self_consistent<H: FieldQHasher<F>>(

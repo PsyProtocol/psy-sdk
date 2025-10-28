@@ -6,7 +6,7 @@ use anyhow::Result;
 use plonky2::hash::hash_types::RichField;
 use psy_store::{
     queue::{new_redis_async_pool, RsmqQueue},
-    store::QEDStore,
+    store::PsyStore,
 };
 
 use crate::realm::state::{duplicate_tracker::RedisDuplicateTracker, edge_queue_helper::RealmEdgeQueueHelper, queue_impl_rsmq::SubmissionQueue};
@@ -18,7 +18,7 @@ impl QueueFactory {
         redis_url: &str,
         pool_size: usize,
         realm_id: u32,
-        store: Arc<QEDStore>,
+        store: Arc<PsyStore>,
     ) -> Result<RealmEdgeQueueHelper<F>> {
         let rsmq = Arc::new(RsmqQueue::new(redis_url, pool_size, format!("realm_{}_queue", realm_id)).await?);
 

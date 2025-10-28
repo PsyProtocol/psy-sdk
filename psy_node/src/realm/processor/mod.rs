@@ -39,13 +39,13 @@ use psy_crypto::{
     },
 };
 use psy_data::{
-    config::{genesis_config::GenesisConfig, store_config::QEDHasher},
+    config::{genesis_config::GenesisConfig, store_config::PsyHasher},
     guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput},
-    qdata::{checkpoint::CheckpointSyncInfo, user::QEDUserLeaf},
+    qdata::{checkpoint::CheckpointSyncInfo, user::PsyUserLeaf},
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
 use psy_store::{
-    node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
+    node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm},
     queue::{
         new_redis_async_pool,
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
@@ -53,7 +53,7 @@ use psy_store::{
     },
     store::{
         journal::{Journal, JournalStore},
-        QEDStore,
+        PsyStore,
     },
 };
 use tokio::{sync::mpsc, task::JoinHandle, time, time::Instant};
@@ -97,7 +97,7 @@ struct RealmBackupRequest {
 }
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
-    JournalStore<QEDStore>,
+    JournalStore<PsyStore>,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
@@ -110,7 +110,7 @@ pub struct RealmProcessor {
     pub max_processed_end_caps_per_block: Option<isize>,
     pub sync_proof: ProofStoreRedisAsync,
     pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
-    pub store: QEDStore,
+    pub store: PsyStore,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub task_store: Arc<QProvingTaskStoreImpl>,
     pub slot_timer: SlotTimer<LocalClock>,
@@ -140,7 +140,7 @@ impl RealmProcessor {
         )
         .await?;
         let realm_qps = ProofStoreRedisAsync::new(&config.redis.redis_uri, config.queue.queue_biz_key).await?;
-        let store = QEDStore::new(&config.backend.to_backend()).await?;
+        let store = PsyStore::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.realm_id);
         let sync_checkpoint = Arc::new(realm_qps.clone());
@@ -202,7 +202,7 @@ impl RealmProcessor {
     async fn context(&self) -> anyhow::Result<ConcreteRealmProcessorContext> {
         let realm_qps = Arc::new(self.sync_proof.clone());
         RealmProcessorContext::<
-            JournalStore<QEDStore>,
+            JournalStore<PsyStore>,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
@@ -485,7 +485,7 @@ impl RealmProcessor {
         // Wait for the next checkpoint sync info
         self.sync_checkpoint
             .wait_for_next_item_imm::<CheckpointSyncInfo<F>>(
-                psy_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+                psy_core::config::network_constants::Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
                 expected_checkpoint,
             )
             .await
@@ -627,7 +627,7 @@ impl RealmProcessor {
         Ok(state.checkpoint_id)
     }
 
-    pub async fn initialize_store(store: &QEDStore, genesis_config: Option<GenesisConfig<GoldilocksField>>, realm_id: u32) -> anyhow::Result<()> {
+    pub async fn initialize_store(store: &PsyStore, genesis_config: Option<GenesisConfig<GoldilocksField>>, realm_id: u32) -> anyhow::Result<()> {
         if let Some(genesis_config) = genesis_config {
             info!("Processing genesis state for realm {}", realm_id);
 
@@ -665,10 +665,10 @@ impl RealmProcessor {
             for (user_id, contracts) in user_contract_states {
                 let register_id = user_id_to_register_id[&user_id];
 
-                let mut user_contract_tree_root = QEDHasher::get_zero_hash(GLOBAL_CONTRACT_TREE_HEIGHT.into());
+                let mut user_contract_tree_root = PsyHasher::get_zero_hash(GLOBAL_CONTRACT_TREE_HEIGHT.into());
 
                 for (contract_id, slots) in contracts {
-                    let mut contract_state_root = QEDHasher::get_zero_hash(MAX_CONTRACT_STATE_TREE_HEIGHT.into());
+                    let mut contract_state_root = PsyHasher::get_zero_hash(MAX_CONTRACT_STATE_TREE_HEIGHT.into());
                     for (slot_id, slot_value) in slots {
                         contract_state_root = store
                             .set_user_state_tree_leaf_hash(0, user_id, contract_id as u32, MAX_CONTRACT_STATE_TREE_HEIGHT, slot_id, slot_value)?
@@ -680,8 +680,8 @@ impl RealmProcessor {
                         .new_root;
                 }
 
-                let user_leaf = QEDUserLeaf {
-                    public_key: genesis_users[register_id as usize].get_public_key::<QEDHasher>(),
+                let user_leaf = PsyUserLeaf {
+                    public_key: genesis_users[register_id as usize].get_public_key::<PsyHasher>(),
                     user_state_tree_root: user_contract_tree_root,
                     balance: F::ZERO,
                     nonce: F::ZERO,
@@ -690,7 +690,7 @@ impl RealmProcessor {
                     user_id: F::from_canonical_u64(user_id),
                 };
 
-                let user_leaf_hash = user_leaf.qfhash::<QEDHasher>();
+                let user_leaf_hash = user_leaf.qfhash::<PsyHasher>();
 
                 store
                     .set_user_leaf_data(0, &user_leaf)

@@ -9,25 +9,25 @@ use super::{
         QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetL2BlockState, QSRCmdGetUserLeafData,
         QSRHashCmd, QSRMerkleCmd,
     },
-    cmd_processor::{QEDReadCommandBatchInput, QEDReadCommandBatchOutput, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut},
+    cmd_processor::{PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
 };
 use crate::qdata::{
-    checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
-    contract::{ContractCodeDefinition, QEDContractLeaf},
-    user::QEDUserLeaf,
+    checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+    contract::{ContractCodeDefinition, PsyContractLeaf},
+    user::PsyUserLeaf,
 };
 
 #[derive(Clone, Debug)]
-pub struct QEDCmdDataStoreCache<F: RichField> {
-    pub user_leaf_cache: HashMap<QSRCmdGetUserLeafData, QEDUserLeaf<F>>,
-    pub contract_leaf_cache: HashMap<u64, QEDContractLeaf<F>>,
-    pub checkpoint_leaf_cache: HashMap<u64, QEDCheckpointLeaf<F>>,
+pub struct PsyCmdDataStoreCache<F: RichField> {
+    pub user_leaf_cache: HashMap<QSRCmdGetUserLeafData, PsyUserLeaf<F>>,
+    pub contract_leaf_cache: HashMap<u64, PsyContractLeaf<F>>,
+    pub checkpoint_leaf_cache: HashMap<u64, PsyCheckpointLeaf<F>>,
     pub contract_code_definition_cache: HashMap<u64, ContractCodeDefinition>,
-    pub l2_block_state_cache: HashMap<u64, QEDL2BlockState>,
+    pub l2_block_state_cache: HashMap<u64, PsyL2BlockState>,
     pub hash_cmd_cache: HashMap<QSRHashCmd, QHashOut<F>>,
     pub merkle_cmd_cache: HashMap<QSRMerkleCmd, MerkleProofCore<QHashOut<F>>>,
 }
-impl<F: RichField> QEDCmdDataStoreCache<F> {
+impl<F: RichField> PsyCmdDataStoreCache<F> {
     pub fn new() -> Self {
         Self {
             user_leaf_cache: HashMap::new(),
@@ -41,32 +41,32 @@ impl<F: RichField> QEDCmdDataStoreCache<F> {
     }
 }
 #[derive(Debug, Clone)]
-pub struct QEDCmdStoreWithCache<F: RichField, S: QEDReadCommandProcessorSync<F>> {
+pub struct PsyCmdStoreWithCache<F: RichField, S: PsyReadCommandProcessorSync<F>> {
     pub last_checkpoint: F,
     pub last_checkpoint_u64: u64,
-    pub cache: QEDCmdDataStoreCache<F>,
+    pub cache: PsyCmdDataStoreCache<F>,
     pub read_store: S,
 }
 
-impl<F: RichField, S: QEDReadCommandProcessorSync<F>> QEDCmdStoreWithCache<F, S> {
+impl<F: RichField, S: PsyReadCommandProcessorSync<F>> PsyCmdStoreWithCache<F, S> {
     pub fn new(last_checkpoint_u64: u64, read_store: S) -> Self {
         Self {
             last_checkpoint: F::from_noncanonical_u64(last_checkpoint_u64),
             last_checkpoint_u64,
-            cache: QEDCmdDataStoreCache::new(),
+            cache: PsyCmdDataStoreCache::new(),
             read_store,
         }
     }
     pub fn clear_cache_mut(&mut self) {
-        self.cache = QEDCmdDataStoreCache::new();
+        self.cache = PsyCmdDataStoreCache::new();
     }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, S: QEDReadCommandProcessorSync<F> + Send> QEDReadCommandProcessorSyncMut<F> for QEDCmdStoreWithCache<F, S> {
-    async fn resolve_batch_mut(&mut self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>> {
-        let filtered_get = QEDReadCommandBatchInput {
+impl<F: RichField, S: PsyReadCommandProcessorSync<F> + Send> PsyReadCommandProcessorSyncMut<F> for PsyCmdStoreWithCache<F, S> {
+    async fn resolve_batch_mut(&mut self, input: &PsyReadCommandBatchInput) -> anyhow::Result<PsyReadCommandBatchOutput<F>> {
+        let filtered_get = PsyReadCommandBatchInput {
             get_user_leaf: input
                 .get_user_leaf
                 .iter()
@@ -162,7 +162,7 @@ impl<F: RichField, S: QEDReadCommandProcessorSync<F> + Send> QEDReadCommandProce
                 .map(|(i, x)| (i.clone(), x.clone())),
         );
 
-        Ok(QEDReadCommandBatchOutput {
+        Ok(PsyReadCommandBatchOutput {
             get_user_leaf: input
                 .get_user_leaf
                 .iter()
@@ -217,7 +217,7 @@ impl<F: RichField, S: QEDReadCommandProcessorSync<F> + Send> QEDReadCommandProce
         }
     }
 
-    async fn resolve_get_user_leaf_mut(&mut self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<QEDUserLeaf<F>> {
+    async fn resolve_get_user_leaf_mut(&mut self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<PsyUserLeaf<F>> {
         if self.cache.user_leaf_cache.contains_key(input) {
             Ok(self.cache.user_leaf_cache.get(input).unwrap().clone())
         } else {
@@ -227,7 +227,7 @@ impl<F: RichField, S: QEDReadCommandProcessorSync<F> + Send> QEDReadCommandProce
         }
     }
 
-    async fn resolve_get_contract_leaf_mut(&mut self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<QEDContractLeaf<F>> {
+    async fn resolve_get_contract_leaf_mut(&mut self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<PsyContractLeaf<F>> {
         if self.cache.contract_leaf_cache.contains_key(&input.contract_id) {
             Ok(self.cache.contract_leaf_cache.get(&input.contract_id).unwrap().clone())
         } else {
@@ -247,7 +247,7 @@ impl<F: RichField, S: QEDReadCommandProcessorSync<F> + Send> QEDReadCommandProce
         }
     }
 
-    async fn resolve_get_checkpoint_leaf_mut(&mut self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+    async fn resolve_get_checkpoint_leaf_mut(&mut self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<PsyCheckpointLeaf<F>> {
         if self.cache.checkpoint_leaf_cache.contains_key(&input.checkpoint_id) {
             Ok(self.cache.checkpoint_leaf_cache.get(&input.checkpoint_id).unwrap().clone())
         } else {
@@ -257,7 +257,7 @@ impl<F: RichField, S: QEDReadCommandProcessorSync<F> + Send> QEDReadCommandProce
         }
     }
 
-    async fn resolve_get_l2_block_state_mut(&mut self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<QEDL2BlockState> {
+    async fn resolve_get_l2_block_state_mut(&mut self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<PsyL2BlockState> {
         if self.cache.l2_block_state_cache.contains_key(&input.checkpoint_id) {
             Ok(self.cache.l2_block_state_cache.get(&input.checkpoint_id).unwrap().clone())
         } else {
@@ -267,7 +267,7 @@ impl<F: RichField, S: QEDReadCommandProcessorSync<F> + Send> QEDReadCommandProce
         }
     }
 
-    async fn resolve_get_latest_l2_block_state_mut(&mut self) -> anyhow::Result<QEDL2BlockState> {
+    async fn resolve_get_latest_l2_block_state_mut(&mut self) -> anyhow::Result<PsyL2BlockState> {
         self.read_store.resolve_get_latest_l2_block_state().await
     }
 }

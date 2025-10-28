@@ -21,15 +21,15 @@ export function activate(context: vscode.ExtensionContext) {
     };
 
     const clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: 'file', language: 'qed' }],
+        documentSelector: [{ scheme: 'file', language: 'psy' }],
         synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.qed')
+            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.psy')
         }
     };
 
     client = new LanguageClient(
-        'qedLanguageServer',
-        'Qed Language Server',
+        'psyLanguageServer',
+        'Psy Language Server',
         serverOptions,
         clientOptions
     );

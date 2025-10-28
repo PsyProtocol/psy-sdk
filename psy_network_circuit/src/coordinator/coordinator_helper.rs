@@ -38,12 +38,12 @@ use psy_crypto::{
 use super::circuits::{
     agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTACircuit,
     batch_append_user_registration_tree::BatchAppendUserRegistrationTreeCircuit, batch_deploy_contract::BatchDeployContractsCircuit,
-    checkpoint_state_transition::QEDCheckpointStateTransitionCircuit,
+    checkpoint_state_transition::PsyCheckpointStateTransitionCircuit,
 };
-use crate::guta::guta_helper::QEDGUTACircuitManager;
+use crate::guta::guta_helper::PsyGUTACircuitManager;
 
 #[derive(Debug)]
-pub struct QEDCoordinatorCircuitManager<C: GenericConfig<D> + 'static, const D: usize>
+pub struct PsyCoordinatorCircuitManager<C: GenericConfig<D> + 'static, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -55,20 +55,20 @@ where
     pub agg_state_transition: AggStateTransitionCircuit<C, D>,
     pub dummy_agg_state_transition: AggStateTransitionDummyCircuit<C, D>,
     pub agg_user_register_deploy_contracts_guta: VerifyAggUserRegistartionDeployContractsGUTACircuit<C, D>,
-    pub guta_circuits: QEDGUTACircuitManager<C, D>,
-    pub checkpoint_root_transition: QEDCheckpointStateTransitionCircuit<C, D>,
+    pub guta_circuits: PsyGUTACircuitManager<C, D>,
+    pub checkpoint_root_transition: PsyCheckpointStateTransitionCircuit<C, D>,
     pub public_key: QHashOut<C::F>,
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> QEDCoordinatorCircuitManager<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PsyCoordinatorCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
     pub fn new_with_library<T: CircuitInfoLibrary<C, D>>(library: &T, public_key: QHashOut<C::F>) -> Self {
-        let guta_circuits = QEDGUTACircuitManager::<C, D>::new_with_library(library, public_key);
+        let guta_circuits = PsyGUTACircuitManager::<C, D>::new_with_library(library, public_key);
         Self::new_with_guta(guta_circuits, public_key)
     }
-    pub fn new_with_guta(guta_circuits: QEDGUTACircuitManager<C, D>, public_key: QHashOut<C::F>) -> Self {
+    pub fn new_with_guta(guta_circuits: PsyGUTACircuitManager<C, D>, public_key: QHashOut<C::F>) -> Self {
         let append_user_registration_tree = BatchAppendUserRegistrationTreeCircuit::new(
             GLOBAL_USER_TREE_HEIGHT as usize,
             BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT,
@@ -111,7 +111,7 @@ where
             guta_circuits.guta_circuit_whitelist_root,
         );
 
-        let checkpoint_root_transition = QEDCheckpointStateTransitionCircuit::<C, D>::new(
+        let checkpoint_root_transition = PsyCheckpointStateTransitionCircuit::<C, D>::new(
             agg_user_register_deploy_contracts_guta.get_common_circuit_data_ref(),
             agg_user_register_deploy_contracts_guta
                 .get_verifier_config_ref()
@@ -210,7 +210,7 @@ where
     }
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> QNextGenWorkerGenericInfo for QEDCoordinatorCircuitManager<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> QNextGenWorkerGenericInfo for PsyCoordinatorCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -230,7 +230,7 @@ where
 }
 #[async_trait]
 impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
-    QNextGenWorkerGenericProverAsyncMut<S, L, C, D> for QEDCoordinatorCircuitManager<C, D>
+    QNextGenWorkerGenericProverAsyncMut<S, L, C, D> for PsyCoordinatorCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {

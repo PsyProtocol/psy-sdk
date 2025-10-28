@@ -1,11 +1,11 @@
 # Realm Edge RPC Client
 
-The **RealmEdgeRpcProvider** is an enhanced RPC client for interacting with QED Realm Edge nodes. It extends the shared `Provider` base class and provides advanced features including caching, retry logic, multi-provider support, and automatic failover.
+The **RealmEdgeRpcProvider** is an enhanced RPC client for interacting with Psy Realm Edge nodes. It extends the shared `Provider` base class and provides advanced features including caching, retry logic, multi-provider support, and automatic failover.
 
 ## Installation
 
 ```bash
-npm install @qed/sdk
+npm install @psy/sdk
 ```
 
 ## Quick Start
@@ -13,7 +13,7 @@ npm install @qed/sdk
 ### Basic Usage
 
 ```typescript
-import { RealmEdgeRpcProvider } from "@qed/sdk";
+import { RealmEdgeRpcProvider } from "@psy/sdk";
 
 // Simple usage
 const client = new RealmEdgeRpcProvider("http://localhost:8547");
@@ -26,15 +26,15 @@ console.log("Checkpoint tree root:", root);
 ### Enhanced Configuration
 
 ```typescript
-import { RealmEdgeRpcProvider, ClientConfig } from "@qed/sdk";
+import { RealmEdgeRpcProvider, ClientConfig } from "@psy/sdk";
 
 const config: ClientConfig = {
     cache: {
         ttl: 60000, // 1 minute default cache
         maxSize: 1000,
         customTtl: new Map([
-            ["qed_get_latest_checkpoint_tree_root", 5000], // 5 seconds
-            ["qed_get_checkpoint_leaf_data", 300000], // 5 minutes
+            ["psy_get_latest_checkpoint_tree_root", 5000], // 5 seconds
+            ["psy_get_checkpoint_leaf_data", 300000], // 5 minutes
         ]),
     },
     retry: {
@@ -268,15 +268,15 @@ const config: ClientConfig = {
         ttl: 60000, // Default 1 minute
         customTtl: new Map([
             // Fast-changing data
-            ["qed_get_latest_checkpoint_tree_root", 5000],
-            ["qed_get_latest_l2_block_state", 5000],
+            ["psy_get_latest_checkpoint_tree_root", 5000],
+            ["psy_get_latest_l2_block_state", 5000],
 
             // Slow-changing data
-            ["qed_get_checkpoint_leaf_data", 300000], // 5 minutes
-            ["qed_get_user_leaf_data", 300000],
+            ["psy_get_checkpoint_leaf_data", 300000], // 5 minutes
+            ["psy_get_user_leaf_data", 300000],
 
             // Static data
-            ["qed_get_user_registration_tree_root", 3600000], // 1 hour
+            ["psy_get_user_registration_tree_root", 3600000], // 1 hour
         ]),
     },
 };
@@ -333,12 +333,12 @@ import {
     ClientConfig,
     IRealmEdgeRpcProvider,
     RealmEdgeRPCCommand,
-    QEDUserLeaf,
-    QEDCheckpointLeaf,
-    QEDL2BlockState,
+    PsyUserLeaf,
+    PsyCheckpointLeaf,
+    PsyL2BlockState,
     MerkleProofCore,
     QHashOut,
-} from "@qed/sdk";
+} from "@psy/sdk";
 ```
 
 ## Architecture Benefits

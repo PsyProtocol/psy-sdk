@@ -11,14 +11,14 @@ use super::cmd::{
 use crate::{
     dpn::proving_session::DPNProvingSessionSimpleMethodCall,
     qdata::{
-        checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
-        contract::{ContractCodeDefinition, QEDContractLeaf},
-        user::QEDUserLeaf,
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyL2BlockState},
+        contract::{ContractCodeDefinition, PsyContractLeaf},
+        user::PsyUserLeaf,
     },
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct QEDReadCommandBatchInput {
+pub struct PsyReadCommandBatchInput {
     pub get_user_leaf: Vec<QSRCmdGetUserLeafData>,
     pub get_contract_leaf: Vec<QSRCmdGetContractLeafData>,
     pub get_contract_code: Vec<QSRCmdGetContractCodeDefinition>,
@@ -27,7 +27,7 @@ pub struct QEDReadCommandBatchInput {
     pub get_merkle_proof: Vec<QSRMerkleCmd>,
     pub get_hash: Vec<QSRHashCmd>,
 }
-impl QEDReadCommandBatchInput {
+impl PsyReadCommandBatchInput {
     pub fn new() -> Self {
         Self {
             get_user_leaf: Vec::new(),
@@ -78,12 +78,12 @@ impl QEDReadCommandBatchInput {
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDReadCommandBatchOutput<F: RichField> {
-    pub get_user_leaf: Vec<QEDUserLeaf<F>>,
-    pub get_contract_leaf: Vec<QEDContractLeaf<F>>,
+pub struct PsyReadCommandBatchOutput<F: RichField> {
+    pub get_user_leaf: Vec<PsyUserLeaf<F>>,
+    pub get_contract_leaf: Vec<PsyContractLeaf<F>>,
     pub get_contract_code: Vec<ContractCodeDefinition>,
-    pub get_checkpoint_leaf: Vec<QEDCheckpointLeaf<F>>,
-    pub get_l2_block_state: Vec<QEDL2BlockState>,
+    pub get_checkpoint_leaf: Vec<PsyCheckpointLeaf<F>>,
+    pub get_l2_block_state: Vec<PsyL2BlockState>,
     pub get_merkle_proof: Vec<MerkleProofCore<QHashOut<F>>>,
     pub get_hash: Vec<QHashOut<F>>,
 }
@@ -93,7 +93,7 @@ pub struct QEDReadCommandBatchOutput<F: RichField> {
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNReadOtherUserLeafMerkleProof<F: RichField> {
     pub user_tree_proof: MerkleProofCore<QHashOut<F>>,
-    pub user_leaf: QEDUserLeaf<F>,
+    pub user_leaf: PsyUserLeaf<F>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -116,8 +116,8 @@ pub struct DPNInvokeDeferredMethodCallWitness<F: RichField> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct DPNCheckpointLeafStatsWitness<F: RichField> {
-    pub checkpoint_leaf_stats: QEDCheckpointLeafStats<F>,
-    pub checkpoint_state_roots: QEDCheckpointGlobalStateRoots<F>,
+    pub checkpoint_leaf_stats: PsyCheckpointLeafStats<F>,
+    pub checkpoint_state_roots: PsyCheckpointGlobalStateRoots<F>,
     pub checkpoint_historical_proof: MerkleProofCore<QHashOut<F>>, // Proves this checkpoint existed historically
 }
 
@@ -295,7 +295,7 @@ impl<F: RichField> DPNStateCmdWitness<F> {
         }
     }
 }
-impl<F: RichField> QEDReadCommandBatchOutput<F> {
+impl<F: RichField> PsyReadCommandBatchOutput<F> {
     pub fn new() -> Self {
         Self {
             get_user_leaf: Vec::new(),
@@ -325,30 +325,30 @@ impl<F: RichField> QEDReadCommandBatchOutput<F> {
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-pub trait QEDReadCommandProcessorSync<F: RichField> {
-    async fn resolve_batch(&self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>>;
+pub trait PsyReadCommandProcessorSync<F: RichField> {
+    async fn resolve_batch(&self, input: &PsyReadCommandBatchInput) -> anyhow::Result<PsyReadCommandBatchOutput<F>>;
     async fn resolve_get_hash(&self, input: &QSRHashCmd) -> anyhow::Result<QHashOut<F>>;
     async fn resolve_get_merkle_proof(&self, input: &QSRMerkleCmd) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    async fn resolve_get_user_leaf(&self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<QEDUserLeaf<F>>;
-    async fn resolve_get_contract_leaf(&self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<QEDContractLeaf<F>>;
+    async fn resolve_get_user_leaf(&self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<PsyUserLeaf<F>>;
+    async fn resolve_get_contract_leaf(&self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<PsyContractLeaf<F>>;
     async fn resolve_get_contract_code(&self, input: &QSRCmdGetContractCodeDefinition) -> anyhow::Result<ContractCodeDefinition>;
-    async fn resolve_get_checkpoint_leaf(&self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<QEDCheckpointLeaf<F>>;
-    async fn resolve_get_l2_block_state(&self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<QEDL2BlockState>;
-    async fn resolve_get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState>;
+    async fn resolve_get_checkpoint_leaf(&self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<PsyCheckpointLeaf<F>>;
+    async fn resolve_get_l2_block_state(&self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<PsyL2BlockState>;
+    async fn resolve_get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-pub trait QEDReadCommandProcessorSyncMut<F: RichField> {
-    async fn resolve_batch_mut(&mut self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>>;
+pub trait PsyReadCommandProcessorSyncMut<F: RichField> {
+    async fn resolve_batch_mut(&mut self, input: &PsyReadCommandBatchInput) -> anyhow::Result<PsyReadCommandBatchOutput<F>>;
     async fn resolve_get_hash_mut(&mut self, input: &QSRHashCmd) -> anyhow::Result<QHashOut<F>>;
     async fn resolve_get_merkle_proof_mut(&mut self, input: &QSRMerkleCmd) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
-    async fn resolve_get_user_leaf_mut(&mut self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<QEDUserLeaf<F>>;
-    async fn resolve_get_contract_leaf_mut(&mut self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<QEDContractLeaf<F>>;
+    async fn resolve_get_user_leaf_mut(&mut self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<PsyUserLeaf<F>>;
+    async fn resolve_get_contract_leaf_mut(&mut self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<PsyContractLeaf<F>>;
     async fn resolve_get_contract_code_mut(&mut self, input: &QSRCmdGetContractCodeDefinition) -> anyhow::Result<ContractCodeDefinition>;
-    async fn resolve_get_checkpoint_leaf_mut(&mut self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<QEDCheckpointLeaf<F>>;
-    async fn resolve_get_l2_block_state_mut(&mut self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<QEDL2BlockState>;
-    async fn resolve_get_latest_l2_block_state_mut(&mut self) -> anyhow::Result<QEDL2BlockState>;
+    async fn resolve_get_checkpoint_leaf_mut(&mut self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<PsyCheckpointLeaf<F>>;
+    async fn resolve_get_l2_block_state_mut(&mut self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<PsyL2BlockState>;
+    async fn resolve_get_latest_l2_block_state_mut(&mut self) -> anyhow::Result<PsyL2BlockState>;
 }
 /*
  */

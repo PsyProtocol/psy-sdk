@@ -1,8 +1,8 @@
 use plonky2::{hash::hash_types::RichField, iop::witness::Witness};
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use psy_data::{qdata::user::QEDUserLeaf, qstore::imm::cmd_processor::DPNStateCmdWitness};
-use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDCmdWithInputAndWitness};
+use psy_data::{qdata::user::PsyUserLeaf, qstore::imm::cmd_processor::DPNStateCmdWitness};
+use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyCmdWithInputAndWitness};
 use psy_vm::dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionCircuitDefinition};
 
 use super::state_readers::{CKInvokeDeferredMethodCall, StateCommandCacheKey, StateReaderGadget, StateReaderReferenceKeyType};
@@ -102,7 +102,7 @@ impl StateReaderGadget {
         &self,
         witness: &mut W,
         ck: &StateCommandCacheKey,
-        witness_value: &QEDUserLeaf<F>,
+        witness_value: &PsyUserLeaf<F>,
     ) -> anyhow::Result<()> {
         let reader_ref_key = self.gadget_map.get(ck);
         if reader_ref_key.is_some() {
@@ -123,7 +123,7 @@ impl StateReaderGadget {
         &self,
         witness: &mut W,
         def_cmd: &DPNStateCmd<u64>,
-        cmd_witness: &QEDCmdWithInputAndWitness<F>,
+        cmd_witness: &PsyCmdWithInputAndWitness<F>,
         wb_state: &mut StateReaderGadgetWitnessBuilderState,
     ) -> anyhow::Result<()> {
         match &def_cmd {

@@ -6,38 +6,38 @@ use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
     config::store_config::{CheckpointSyncInfoTableStore, RealmStatusTableStore, UserPublicKeyTableStore, UserTreeStore},
     models::{
-        checkpoint::{sync_info::QEDCheckpointSyncInfoModelReaderCore, user_public_keys::QEDUserPublicKeyHelperModelReaderCore},
+        checkpoint::{sync_info::PsyCheckpointSyncInfoModelReaderCore, user_public_keys::PsyUserPublicKeyHelperModelReaderCore},
         kvq_merkle::model::{KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelReaderCore},
         realm_status::RealmStatusModelReaderCore,
     },
     qdata::{
-        checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState},
-        contract::{ContractCodeDefinition, QEDContractLeaf},
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        contract::{ContractCodeDefinition, PsyContractLeaf},
         realm_status::BasicRealmStatus,
     },
-    qsync::coordinator::QEDCheckpointSyncInfoCompact,
+    qsync::coordinator::PsyCheckpointSyncInfoCompact,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
 use tracing::info;
 
-use crate::node::coordinator::QEDCoordinatorStoreReaderAsync;
+use crate::node::coordinator::PsyCoordinatorStoreReaderAsync;
 type F = GoldilocksField;
 
 // #[cfg(feature = "is_sync")]
 #[async_trait]
-impl<T: KVQBinaryStore> QEDCoordinatorStoreReaderAsync<F> for T {
-    async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>> {
+impl<T: KVQBinaryStore> PsyCoordinatorStoreReaderAsync<F> for T {
+    async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<PsyContractLeaf<F>> {
         <Self as QMetaDataStoreReaderSync<F>>::get_contract_leaf_data(self, contract_id).await
     }
 
-    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointLeaf<F>> {
         <Self as QMetaDataStoreReaderSync<F>>::get_checkpoint_leaf_data(self, checkpoint_id).await
     }
 
     async fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<ContractCodeDefinition> {
         <Self as QMetaDataStoreReaderSync<F>>::get_contract_code_definition(self, contract_id).await
     }
-    async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
+    async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState> {
         let latest_l2_block_state = <Self as QMetaDataStoreReaderSync<F>>::get_latest_l2_block_state(self).await?;
 
         // println!("got latest_l2_block_state.checkpoint_id:
@@ -45,7 +45,7 @@ impl<T: KVQBinaryStore> QEDCoordinatorStoreReaderAsync<F> for T {
         Ok(latest_l2_block_state)
     }
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
+    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyL2BlockState> {
         <Self as QMetaDataStoreReaderSync<F>>::get_l2_block_state(self, checkpoint_id).await
     }
 
@@ -150,13 +150,13 @@ impl<T: KVQBinaryStore> QEDCoordinatorStoreReaderAsync<F> for T {
     async fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         <Self as QTreeDataStoreReaderSync<F>>::get_checkpoint_tree_merkle_proof(self, checkpoint_id, leaf_checkpoint_id).await
     }
-    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>> {
+    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointGlobalStateRoots<F>> {
         let contract_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_root(self, checkpoint_id).await?;
         let deposit_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_root(self, checkpoint_id).await?;
         let user_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_root(self, checkpoint_id).await?;
         let withdrawal_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_root(self, checkpoint_id).await?;
         let user_registration_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_root(self, checkpoint_id).await?;
-        Ok(QEDCheckpointGlobalStateRoots {
+        Ok(PsyCheckpointGlobalStateRoots {
             contract_tree_root,
             deposit_tree_root,
             user_tree_root,
@@ -164,7 +164,7 @@ impl<T: KVQBinaryStore> QEDCoordinatorStoreReaderAsync<F> for T {
             user_registration_tree_root,
         })
     }
-    async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>> {
+    async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointSyncInfoCompact<F>> {
         CheckpointSyncInfoTableStore::<Self>::get_checkpoint_sync_info_compact(self, checkpoint_id)
     }
 

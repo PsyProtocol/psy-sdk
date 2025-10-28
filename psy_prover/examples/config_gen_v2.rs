@@ -8,10 +8,10 @@ use psy_common_circuit::circuits::{
     },
     traits::qstandard::QStandardCircuit,
 };
-use psy_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
+use psy_core::{config::network_constants::Psy_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use psy_network_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitManager, guta::guta_helper::QEDGUTACircuitManager};
-use psy_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
+use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};
+use psy_prover::ups::circuit_manager::core::PsyUPSStepCircuitManager;
 
 fn write_file(path: PathBuf, content: &str) -> anyhow::Result<()> {
     let mut file = File::create(path).map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -37,12 +37,12 @@ fn run_gen_config() -> anyhow::Result<(String, String)> {
         get_agg_user_registration_deploy_guta_type_f_common_data::<C, D>(),
     );
 
-    let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(Psy_NETWORK_MAGIC_REGTEST);
 
     gcv.register_circuit_triplet(ProvingJobCircuitType::UserEndCap, main_circuits.ups_end_cap.get_verifier_triplet());
 
     use psy_core::config::network_constants::get_default_worker_public_key;
-    let guta_circuits = QEDGUTACircuitManager::<C, D>::new_with_config(
+    let guta_circuits = PsyGUTACircuitManager::<C, D>::new_with_config(
         main_circuits.ups_end_cap.get_common_circuit_data_ref(),
         main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),
         main_circuits.ups_end_cap.get_fingerprint(),
@@ -90,7 +90,7 @@ fn run_gen_config() -> anyhow::Result<(String, String)> {
         guta_circuits.only_register_users.get_verifier_triplet(),
     );
     gcv.register_circuit_triplet(ProvingJobCircuitType::GUTANoChange, guta_circuits.no_change.get_verifier_triplet());
-    let coordinator_circuits = QEDCoordinatorCircuitManager::<C, D>::new_with_guta(guta_circuits, get_default_worker_public_key::<F>());
+    let coordinator_circuits = PsyCoordinatorCircuitManager::<C, D>::new_with_guta(guta_circuits, get_default_worker_public_key::<F>());
 
     coordinator_circuits.register_library(&mut gcv.library);
 

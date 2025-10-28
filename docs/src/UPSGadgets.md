@@ -23,9 +23,9 @@ These gadgets are primarily used within the circuits executed locally by users (
 *   **Purpose:** Verifies two critical aspects of a Contract Function Call (CFC) within a UPS: (1) That the ZK proof for the CFC execution exists and is valid within the user's current UPS proof tree, and (2) That the specific function being called is officially registered within the contract's definition on the blockchain (via checkpoint context).
 *   **Technical Function:** Combines proof attestation within the UPS tree with function inclusion verification against global contract state.
 *   **Inputs/Witness:**
-    *   `checkpoint_state_gadget`: Witness for `QEDCheckpointLeafCompactWithStateRoots` providing context (global roots).
+    *   `checkpoint_state_gadget`: Witness for `PsyCheckpointLeafCompactWithStateRoots` providing context (global roots).
     *   `verify_cfc_proof_gadget`: Witness (`AttestTreeAwareProofInTreeInput`) for the CFC proof itself, including its Merkle proof within the `session_proof_tree`.
-    *   `cfc_inclusion_proof_gadget`: Witness (`QEDContractFunctionInclusionProof`) proving the function's fingerprint exists in the contract's function tree (`CFT`).
+    *   `cfc_inclusion_proof_gadget`: Witness (`PsyContractFunctionInclusionProof`) proving the function's fingerprint exists in the contract's function tree (`CFT`).
     *   `ups_session_proof_tree_height`: Parameter.
 *   **Outputs/Computed:**
     *   `attested_proof_tree_root`: Root of the UPS session proof tree containing the CFC proof.
@@ -35,7 +35,7 @@ These gadgets are primarily used within the circuits executed locally by users (
     *   `cfc_contract_id`, `cfc_method_id`, `cfc_num_inputs`, `cfc_num_outputs`: Metadata extracted from the function inclusion proof.
 *   **Constraints:**
     *   Verifies CFC proof validity and inclusion in the session tree via `AttestTreeAwareProofInTreeGadget`.
-    *   Verifies function inclusion in the contract's `CFT` via `QEDContractFunctionInclusionProofGadget`.
+    *   Verifies function inclusion in the contract's `CFT` via `PsyContractFunctionInclusionProofGadget`.
     *   Connects `cfc_inclusion_proof.contract_inclusion_proof.contract_tree_merkle_proof.root` to `checkpoint_state_gadget.global_state_roots.contract_tree_root` (ensuring CFC inclusion is checked against the correct global contract state).
     *   Connects `cfc_inclusion_proof.function_verifier_fingerprint` to `verify_cfc_proof_gadget.fingerprint` (ensuring the proven function matches the verified CFC circuit).
 *   **Assumptions:** Assumes witness data (proofs, state, inclusion proofs) is valid initially. Assumes `ups_session_proof_tree_height` is correct.
@@ -122,14 +122,14 @@ These gadgets are primarily used within the circuits executed locally by users (
 
 ---
 
-### `QEDUserProvingSessionSignatureDataCompactGadget`
+### `PsyUserProvingSessionSignatureDataCompactGadget`
 
 *   **File:** `ups_signature_data_rs.txt`
 *   **Purpose:** Defines the precise data structure that is cryptographically signed by the user to authorize the submission of their completed User Proving Session.
 *   **Technical Function:** Aggregates key state identifiers from the start and end of the UPS into a single, hashable structure, then combines it with context (network, user, nonce) for signing.
 *   **Inputs/Witness:** `start_user_leaf_hash`, `end_user_leaf_hash`, `checkpoint_leaf_hash`, `tx_stack_hash`, `tx_count`.
 *   **Outputs/Computed:** `ups_end_cap_sighash` (via `get_sig_action_with_user_info`).
-*   **Constraints:** Internal hashing logic (`to_hash` method) combines inputs. `get_sig_action_with_user_info` uses `compute_sig_action_hash_circuit` to combine the data hash with `network_magic`, `user_id`, `nonce`, and the `QED_SIG_ACTION_SIGN_UPS_END_CAP` constant.
+*   **Constraints:** Internal hashing logic (`to_hash` method) combines inputs. `get_sig_action_with_user_info` uses `compute_sig_action_hash_circuit` to combine the data hash with `network_magic`, `user_id`, `nonce`, and the `Psy_SIG_ACTION_SIGN_UPS_END_CAP` constant.
 *   **Assumptions:** Assumes input hash/target values correctly represent the final UPS state.
 *   **Role:** Standardizes the payload for UPS authorization, ensuring all critical state transition elements are committed to before the user signs off.
 
@@ -164,7 +164,7 @@ These gadgets are primarily used within the circuits executed locally by users (
     *   Nonce Check: `nonce` > `start_user_leaf.nonce`. Updates final leaf nonce.
     *   PK Check: Derives expected PK from sig proof params, ensures start/end user leaves have this same PK.
     *   User ID Check: Start/End user IDs match.
-    *   Sig Data Check: Instantiates `QEDUserProvingSessionSignatureDataCompactGadget`, computes expected `sig_proof_public_inputs_hash`, connects it to the input hash from the sig proof.
+    *   Sig Data Check: Instantiates `PsyUserProvingSessionSignatureDataCompactGadget`, computes expected `sig_proof_public_inputs_hash`, connects it to the input hash from the sig proof.
     *   Checkpoint Check: Ensures `end_user_leaf.last_checkpoint_id` == session `checkpoint_id` > `start_user_leaf.last_checkpoint_id`.
     *   Debt Check: Connects `last_header.current_state` debt roots to empty root constants.
     *   Output Generation: Instantiates `UPSEndCapResultCompactGadget` and `GUTAStatsGadget`.

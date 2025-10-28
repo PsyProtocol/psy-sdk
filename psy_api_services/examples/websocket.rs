@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize the WebSocket client
     let client = WebSocketClient::new();
 
-    println!("🎯 QED API Services WebSocket Client Example (New Specialized Endpoints)");
+    println!("🎯 Psy API Services WebSocket Client Example (New Specialized Endpoints)");
     println!("Server address: localhost:3000\n");
 
     // Connect to both WebSocket endpoints

@@ -6,7 +6,7 @@ use super::{deploy_contract::QBCDeployContract, register_user::QBCRegisterUser, 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 
-pub struct QEDBlockCommands<F: RichField> {
+pub struct PsyBlockCommands<F: RichField> {
     pub register_users: Vec<QBCRegisterUser<F>>,
     pub deploy_contracts: Vec<QBCDeployContract<F>>,
     pub update_users: Vec<QBCUpdateUser<F>>,

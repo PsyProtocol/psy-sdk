@@ -22,7 +22,7 @@ use ts_rs::TS;
 
 use super::{end_cap_input::SubmitUserEndCapNonProofInput, proof_input::VerifyEndCapSimpleStandardInput, stats::GUTAStats};
 use crate::{
-    qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf},
+    qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
     qstore::uct_merkle_nodes::CSTUserUpdateStore,
 };
 
@@ -55,12 +55,12 @@ impl<F: RichField> SimpleContractHeightCache<F> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
-pub struct QEDContractStateUpdateHistory<F: RichField> {
+pub struct PsyContractStateUpdateHistory<F: RichField> {
     pub user_contract_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
     pub contract_state_tree_updates: Vec<DeltaMerkleProofCore<QHashOut<F>>>,
 }
 
-impl<F: RichField> QEDContractStateUpdateHistory<F> {
+impl<F: RichField> PsyContractStateUpdateHistory<F> {
     pub fn ensure_basic_consistency(&self, contract_helper: &SimpleContractHeightCache<F>) -> anyhow::Result<()> {
         if self.contract_state_tree_updates.len() == 0 {
             anyhow::bail!("contract_state_tree_updates cannot be empty")
@@ -147,7 +147,7 @@ pub struct SubmitUserEndCapNonProofCoreInput<F: RichField> {
     pub checkpoint_id: F,
     pub stats: GUTAStats<F>,
     pub state_transition: UPSEndCapResultCompact<F>,
-    pub new_user_leaf: QEDUserLeaf<F>,
+    pub new_user_leaf: PsyUserLeaf<F>,
 }
 impl<F: RichField> SubmitUserEndCapNonProofCoreInput<F> {
     pub fn get_proof_public_inputs_hash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {

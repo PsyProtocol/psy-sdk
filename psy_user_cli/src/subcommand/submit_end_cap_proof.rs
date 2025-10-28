@@ -93,7 +93,7 @@ pub async fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
             .unwrap_or(MAX_CONTRACT_STATE_TREE_HEIGHT);
 
         // let sdc_input =
-        // SoftwareDefinedSignatureInput::QED(QSoftwareDefinedSignatureInput {
+        // SoftwareDefinedSignatureInput::Psy(QSoftwareDefinedSignatureInput {
         //     fn_def: user_sdc,
         //     contract_id: args.contract_id,
         //     contract_state_tree_height: contract_state_tree_height,

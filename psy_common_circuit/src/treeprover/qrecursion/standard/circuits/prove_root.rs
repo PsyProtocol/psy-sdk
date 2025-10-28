@@ -17,7 +17,7 @@ use psy_crypto::{
 use crate::{
     builder::hash::core::CircuitBuilderHashCore,
     circuits::traits::qstandard::QStandardCircuit,
-    proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
+    proof_minifier::{pm_chain_dynamic::PsyProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
     treeprover::qrecursion::standard::gadgets::verify_agg_proof::VerifyAggProofGadget,
 };
 #[derive(Debug)]
@@ -30,7 +30,7 @@ where
     // end circuit targets
     base_circuit_data: CircuitData<C::F, C, D>,
     base_fingerprint: QHashOut<C::F>,
-    minifier_chain: Option<QEDProofMinifierDynamicChain<D, C::F, C>>,
+    minifier_chain: Option<PsyProofMinifierDynamicChain<D, C::F, C>>,
     enable_minifier: bool,
     // end circuit data
 }
@@ -101,7 +101,7 @@ where
         let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(&base_circuit_data.verifier_only));
 
         let minifier_chain = if has_minifier {
-            Some(QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
+            Some(PsyProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
                 &base_circuit_data.verifier_only,
                 &base_circuit_data.common,
                 &[true, true, true, true],

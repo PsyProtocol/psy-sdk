@@ -1,13 +1,13 @@
 /**
- * Jest setup file for QED SDK tests
+ * Jest setup file for Psy SDK tests
  */
 import { beforeAll } from "@jest/globals";
 
 // Global test configuration
 beforeAll(() => {
     // Log test environment info
-    console.log("🧪 QED SDK Test Environment Setup");
-    console.log("📡 RPC URL:", process.env.QED_RPC_URL || "http://localhost:8545");
+    console.log("🧪 Psy SDK Test Environment Setup");
+    console.log("📡 RPC URL:", process.env.Psy_RPC_URL || "http://localhost:8545");
     console.log("🌍 Node Environment:", process.env.NODE_ENV || "test");
     console.log("⏱️  Default Timeout: 30000ms");
 });

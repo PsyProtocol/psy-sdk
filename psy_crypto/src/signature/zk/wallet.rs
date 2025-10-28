@@ -27,7 +27,7 @@ fn public_key_enc_to_felts<F: RichField>(hash: &[u8; 33]) -> [F; 9] {
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDClaimDepositAction<F: RichField> {
+pub struct PsyClaimDepositAction<F: RichField> {
     transaction_id: Hash256,
     transaction_hash_224: HashOut<F>,
     amount: F,
@@ -35,7 +35,7 @@ pub struct QEDClaimDepositAction<F: RichField> {
     user: F,
     nonce: F,
 }
-impl<F: RichField> QEDClaimDepositAction<F> {
+impl<F: RichField> PsyClaimDepositAction<F> {
     pub fn new(network_magic: u64, user: u64, nonce: u64, transaction_id: Hash256, amount: u64) -> Self {
         let network_magic = F::from_canonical_u64(network_magic);
         let nonce = F::from_canonical_u64(nonce);
@@ -54,7 +54,7 @@ impl<F: RichField> QEDClaimDepositAction<F> {
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDSigAction<F: RichField> {
+pub struct PsySigAction<F: RichField> {
     pub network_magic: F,
     pub user: F,
     pub sig_action: F,
@@ -65,7 +65,7 @@ pub struct QEDSigAction<F: RichField> {
 // SENDDOGE (little-endian)
 const SIG_ACTION_TRANSFER_MAGIC: u64 = 0x45474F44444E4553u64;
 
-impl<F: RichField> QEDSigAction<F> {
+impl<F: RichField> PsySigAction<F> {
     pub fn new_transfer_action(network_magic: u64, user: u64, nonce: u64, recipient: u64, amount: u64) -> Self {
         let network_magic = F::from_canonical_u64(network_magic);
         let nonce = F::from_canonical_u64(nonce);
@@ -165,17 +165,17 @@ impl<F: RichField> SimpleL2PrivateKey<F> {
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Hash, Eq, Debug)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct SimpleQEDPrivateKey<F: RichField> {
+pub struct SimplePsyPrivateKey<F: RichField> {
     pub private_key: QHashOut<F>,
 }
 
-impl<F: RichField> From<QHashOut<F>> for SimpleQEDPrivateKey<F> {
+impl<F: RichField> From<QHashOut<F>> for SimplePsyPrivateKey<F> {
     fn from(value: QHashOut<F>) -> Self {
         Self { private_key: value }
     }
 }
 
-impl<F: RichField> SimpleQEDPrivateKey<F> {
+impl<F: RichField> SimplePsyPrivateKey<F> {
     pub fn new(private_key: QHashOut<F>) -> Self {
         Self { private_key }
     }

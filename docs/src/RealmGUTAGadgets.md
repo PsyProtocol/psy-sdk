@@ -137,7 +137,7 @@ These gadgets are used within the circuits run by the network's Realm and Coordi
 *   **Inputs/Witness:**
     *   `guta_circuit_whitelist`: Input constant/parameter.
     *   `checkpoint_tree_proof`: Witness proving `checkpoint_leaf` existence.
-    *   `checkpoint_leaf_gadget`: Witness for the `QEDCheckpointLeafCompactWithStateRoots`.
+    *   `checkpoint_leaf_gadget`: Witness for the `PsyCheckpointLeafCompactWithStateRoots`.
 *   **Outputs/Computed:** `new_guta_header` (indicating no GUSR change).
 *   **Constraints:** Verifies checkpoint proof (`MerkleProofGadget`). Verifies consistency between proof value and leaf hash. Constructs header with no-op transition and zero stats.
 *   **Assumptions:** Assumes witness proof/leaf data is valid initially. Assumes input `guta_circuit_whitelist` is correct.

@@ -51,9 +51,9 @@ fn main() -> Result<()> {
             continue;
         }
 
-        let main_qed = contract_dir.join("src/main.qed");
-        if !main_qed.exists() {
-            println!("cargo:warning=src/main.qed not found at {}", main_qed.display());
+        let main_psy = contract_dir.join("src/main.psy");
+        if !main_psy.exists() {
+            println!("cargo:warning=src/main.psy not found at {}", main_psy.display());
             continue;
         }
 
@@ -71,7 +71,7 @@ fn main() -> Result<()> {
         let compile_options = CompileOptions {
             contract_name: Some(contract.contract_name.clone()),
             method_names: contract.method_names.clone(),
-            entry_path: Some(main_qed),
+            entry_path: Some(main_psy),
             debug: false,
         };
 

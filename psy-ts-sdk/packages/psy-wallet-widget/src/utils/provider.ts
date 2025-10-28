@@ -1,15 +1,15 @@
-// import {QedRPCProvider, QedUserWalletProvider, QedMemoryTransactionSignerProvider, QedRPCUserProverProvider, IQedUserProverProvider} from "@qstudio/Qed-sdk";
+// import {PsyRPCProvider, PsyUserWalletProvider, PsyMemoryTransactionSignerProvider, PsyRPCUserProverProvider, IPsyUserProverProvider} from "@qstudio/Psy-sdk";
 import {
-    IQedUserProverProvider,
+    IPsyUserProverProvider,
     MultiCoordinatorRpcProvider,
     MultiRealmRpcProvider,
-    QedRPCUserProverProvider,
-    QedWasmWebProverProvider,
+    PsyRPCUserProverProvider,
+    PsyWasmWebProverProvider,
     RpcConfig,
-} from "@qed/psy-sdk";
+} from "@psy/psy-sdk";
 
-import { QedUserWalletProvider } from "@qed/psy-sdk/src/wallet/provider";
-import { QedMemoryTransactionSignerProvider } from "@qed/psy-sdk/src/zksigner/memory/provider";
+import { PsyUserWalletProvider } from "@psy/psy-sdk/src/wallet/provider";
+import { PsyMemoryTransactionSignerProvider } from "@psy/psy-sdk/src/zksigner/memory/provider";
 
 function createMemoryWalletProvider(
     globalUserTreeHeight: number,
@@ -19,16 +19,16 @@ function createMemoryWalletProvider(
     userPerRealm: number,
     proverUrl?: string,
     prove_proxy_url: string[],
-): QedUserWalletProvider {
+): PsyUserWalletProvider {
     const networkId = "regtest";
     const coordinator_rpc = new MultiCoordinatorRpcProvider(coordinatorRpcConfigs);
     const realm_rpc = new MultiRealmRpcProvider(realmRpcConfigs, userPerRealm);
-    let userProver: IQedUserProverProvider | undefined;
+    let userProver: IPsyUserProverProvider | undefined;
     if (proverUrl != null && proverUrl.length > 0) {
-        userProver = new QedRPCUserProverProvider(proverUrl);
+        userProver = new PsyRPCUserProverProvider(proverUrl);
     } else {
         // Synchronously initialize WASM before creating provider
-        userProver = new QedWasmWebProverProvider({
+        userProver = new PsyWasmWebProverProvider({
             global_user_tree_height: globalUserTreeHeight,
             realm_user_tree_height: realmUserTreeHeight,
             users_per_realm: userPerRealm,
@@ -38,9 +38,9 @@ function createMemoryWalletProvider(
         });
     }
 
-    const transactionSignerProvider = new QedMemoryTransactionSignerProvider(userProver, networkId);
+    const transactionSignerProvider = new PsyMemoryTransactionSignerProvider(userProver, networkId);
 
-    return new QedUserWalletProvider(
+    return new PsyUserWalletProvider(
         networkId,
         coordinator_rpc,
         realm_rpc,

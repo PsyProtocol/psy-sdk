@@ -10,7 +10,7 @@ use plonky2::{
     },
 };
 use psy_common_circuit::{
-    circuits::zk_signature3::core::QEDBasicZKSignatureInnerCircuit,
+    circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit,
     treeprover::qrecursion::standard::manager::portable::circuits::{
         PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait, PortableQTreeRecursionCircuitsTrait,
     },
@@ -28,11 +28,11 @@ use psy_crypto::{
         merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
         traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     },
-    signature::secp256k1::core::QEDCompressedSecp256K1Signature,
+    signature::secp256k1::core::PsyCompressedSecp256K1Signature,
 };
 use psy_data::{
-    config::store_config::{QEDFelt, QEDHasher},
-    qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition, user},
+    config::store_config::{PsyFelt, PsyHasher},
+    qdata::{checkpoint::PsyL2BlockState, contract::ContractCodeDefinition, user},
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
     ups::{
         start_step::UPSStartStepInput,
@@ -134,7 +134,7 @@ impl RpcProvider {
 
 // #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
 // #[macro_export]
-// macro_rules! qed_rpc_call {
+// macro_rules! psy_rpc_call {
 //     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
 //         let response = $instance
 //             .client
@@ -152,14 +152,14 @@ impl RpcProvider {
 //                 tracing::info!("{:?}", s);
 //                 Ok(())
 //             }
-//             ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call
+//             ResponseResult::Error(e) => Err(anyhow::format_err!("psy rpc call
 // failed `{:?}`", e)),         }
 //     }};
 // }
 
 // #[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
-macro_rules! qed_rpc_call {
+macro_rules! psy_rpc_call {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
         async move {
             let request = RpcRequest {
@@ -174,7 +174,7 @@ macro_rules! qed_rpc_call {
                     tracing::info!("{:?}", s);
                     Ok(())
                 }
-                ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
+                ResponseResult::Error(e) => Err(anyhow::format_err!("psy rpc call failed `{:?}`", e)),
             }
         }
         .await
@@ -183,7 +183,7 @@ macro_rules! qed_rpc_call {
 
 // #[cfg(target_arch = "wasm32")]
 // #[macro_export]
-// macro_rules! qed_rpc_call {
+// macro_rules! psy_rpc_call {
 //     ($instance:ident, $rpc_url:expr, $rpc_params:expr) => {{
 //         use std::sync::mpsc;
 //         use std::sync::mpsc::{Sender, Receiver};
@@ -198,7 +198,7 @@ macro_rules! qed_rpc_call {
 
 //         spawn_local(async move {
 //             let result: Result<()> = {
-//                 tracing::info!("qed rpc call (wasm): {}", rpc_url);
+//                 tracing::info!("psy rpc call (wasm): {}", rpc_url);
 //                 let response = client
 //                     .post(&rpc_url)
 //                     .timeout(std::time::Duration::from_secs(360))
@@ -209,7 +209,7 @@ macro_rules! qed_rpc_call {
 //                     })
 //                     .send()
 //                     .await
-//                     .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}",
+//                     .map_err(|e| anyhow::anyhow!("psy rpc call failed: {}",
 // e));
 
 //                 match response {
@@ -219,7 +219,7 @@ macro_rules! qed_rpc_call {
 //                             Err(e) => Err(anyhow::anyhow!("parse reponse
 // failed: {}", e)),                         }
 //                     }
-//                     Err(e) => Err(anyhow::anyhow!("qed rpc call failed: {}",
+//                     Err(e) => Err(anyhow::anyhow!("psy rpc call failed: {}",
 // e)),                 }
 //             };
 
@@ -232,9 +232,9 @@ macro_rules! qed_rpc_call {
 
 // #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
 // #[macro_export]
-// macro_rules! qed_rpc_call_back {
+// macro_rules! psy_rpc_call_back {
 //     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
-//         tracing::info!("qed rpc call: {}", $rpc_url);
+//         tracing::info!("psy rpc call: {}", $rpc_url);
 //         let request = RpcRequest {
 //             jsonrpc: Version::V2,
 //             request: $rpc_params,
@@ -252,10 +252,10 @@ macro_rules! qed_rpc_call {
 
 // #[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
-macro_rules! qed_rpc_call_back {
+macro_rules! psy_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
         async move {
-            tracing::info!("qed rpc call: {}", $rpc_url);
+            tracing::info!("psy rpc call: {}", $rpc_url);
             $instance
                 .client
                 .post($rpc_url)
@@ -276,7 +276,7 @@ macro_rules! qed_rpc_call_back {
 
 // #[cfg(target_arch = "wasm32")]
 // #[macro_export]
-// macro_rules! qed_rpc_call_back {
+// macro_rules! psy_rpc_call_back {
 //     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
 //         use std::sync::mpsc;
 //         use std::sync::mpsc::{Sender, Receiver};
@@ -291,7 +291,7 @@ macro_rules! qed_rpc_call_back {
 
 //         spawn_local(async move {
 //             let result: Result<RpcResponse<$ret_ty>> = {
-//                 tracing::info!("qed rpc call (wasm): {}", rpc_url);
+//                 tracing::info!("psy rpc call (wasm): {}", rpc_url);
 //                 let response = client
 //                     .post(&rpc_url)
 //                     .timeout(std::time::Duration::from_secs(360))
@@ -302,7 +302,7 @@ macro_rules! qed_rpc_call_back {
 //                     })
 //                     .send()
 //                     .await
-//                     .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}",
+//                     .map_err(|e| anyhow::anyhow!("psy rpc call failed: {}",
 // e));
 
 //                 match response {
@@ -312,7 +312,7 @@ macro_rules! qed_rpc_call_back {
 //                             Err(e) => Err(anyhow::anyhow!("parse reponse
 // failed: {}", e)),                         }
 //                     }
-//                     Err(e) => Err(anyhow::anyhow!("qed rpc call failed: {}",
+//                     Err(e) => Err(anyhow::anyhow!("psy rpc call failed: {}",
 // e)),                 }
 //             };
 
@@ -323,7 +323,7 @@ macro_rules! qed_rpc_call_back {
 //             .map_err(|e| anyhow::anyhow!("通道接收失败: {}", e))?;
 
 //         rpc_result
-//             .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}", e))?
+//             .map_err(|e| anyhow::anyhow!("psy rpc call failed: {}", e))?
 //     }};
 // }
 
@@ -349,12 +349,12 @@ impl QUserRpcProvider for RpcProvider {
     async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()> {
         tracing::info!("register user: {:?}", req);
         let url = self.get_coordinator_url()?;
-        qed_rpc_call!(self, url, RequestParams::<F>::RegisterUser(req))
+        psy_rpc_call!(self, url, RequestParams::<F>::RegisterUser(req))
     }
     async fn produce_block<F: RichField>(&self) -> anyhow::Result<()> {
         tracing::info!("produce block");
         let url = self.get_coordinator_url()?;
-        qed_rpc_call!(self, url, RequestParams::<F>::ProduceBlock)
+        psy_rpc_call!(self, url, RequestParams::<F>::ProduceBlock)
     }
     async fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()> {
         unimplemented!()
@@ -370,12 +370,12 @@ impl QUserRpcProvider for RpcProvider {
 
     async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<()> {
         let url = self.get_coordinator_url()?;
-        qed_rpc_call!(self, url, RequestParams::<F>::DeployContract(req))
+        psy_rpc_call!(self, url, RequestParams::<F>::DeployContract(req))
     }
 
     async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<()> {
         let rpc_url = self.get_realm_url(self.current_user_id)?;
-        qed_rpc_call!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req))
+        psy_rpc_call!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req))
     }
 }
 
@@ -385,7 +385,7 @@ impl RpcProvider {
     pub async fn get_user_id<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
         tracing::info!("user: {}", public_key);
         let url = self.get_coordinator_url()?;
-        let response = qed_rpc_call_back!(self, url, RequestParams::<F>::GetUserId(QGetUserIdRPCRequest { public_key }), u64);
+        let response = psy_rpc_call_back!(self, url, RequestParams::<F>::GetUserId(QGetUserIdRPCRequest { public_key }), u64);
         match response.result {
             ResponseResult::Success(user_id) => {
                 tracing::info!("get user id: {:?}", user_id);
@@ -395,15 +395,15 @@ impl RpcProvider {
         }
     }
 
-    pub async fn get_realm_latest_l2_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::QEDL2BlockState> {
+    pub async fn get_realm_latest_l2_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyL2BlockState> {
         tracing::info!("Fetching latest realm L2 block state");
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QLatestL2BlockStateRPCRequest {};
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             rpc_url,
             RequestParams::<GoldilocksField>::GetLatestL2BlockState(input),
-            QEDL2BlockState
+            PsyL2BlockState
         );
         match response.result {
             ResponseResult::Success(block_state) => {
@@ -420,11 +420,11 @@ impl RpcProvider {
         }
     }
 
-    pub async fn get_realm_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::QEDL2BlockState> {
+    pub async fn get_realm_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyL2BlockState> {
         tracing::info!("Fetching realm L2 block state at checkpoint {}", checkpoint_id);
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QL2BlockStateRPCRequest { checkpoint_id };
-        let response = qed_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetL2BlockState(input), QEDL2BlockState);
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetL2BlockState(input), PsyL2BlockState);
         match response.result {
             ResponseResult::Success(block_state) => {
                 tracing::debug!(
@@ -454,7 +454,7 @@ impl RpcProvider {
             leaf_level,
             leaf_index,
         };
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             rpc_url,
             RequestParams::<GoldilocksField>::GetUserSubTreeMerkleProof(input),
@@ -514,7 +514,7 @@ impl RpcProvider {
                 let output_job_ids: Vec<_> = jobs.iter().map(|j| j.job_id.get_output_id()).collect();
                 let request = serde_json::json!({
                     "jsonrpc": "2.0",
-                    "method": "qed_generate_batch_variable_height_reward_proofs",
+                    "method": "psy_generate_batch_variable_height_reward_proofs",
                     "params": [checkpoint_id, output_job_ids],
                     "id": 1
                 });
@@ -571,7 +571,7 @@ impl RpcProvider {
 
     pub async fn check_tx_is_confirmed(&self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<GoldilocksField>) -> anyhow::Result<bool> {
         let user_leaf_data = self.get_user_leaf_data(checkpoint_id, user_id).await?;
-        Ok(user_leaf_data.qfhash::<QEDHasher>() == tx_hash)
+        Ok(user_leaf_data.qfhash::<PsyHasher>() == tx_hash)
     }
 
     pub async fn get_tx_status(&self, user_id: u64, nonce: u64) -> anyhow::Result<TxStatus> {
@@ -579,7 +579,7 @@ impl RpcProvider {
         let rpc_url = self.get_realm_url(user_id)?;
 
         let input = QGetTxStatusRPCRequest { user_id, nonce };
-        let response = qed_rpc_call_back!(self, rpc_url, RequestParams::<QEDFelt>::GetTxStatus(input), TxStatus);
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<PsyFelt>::GetTxStatus(input), TxStatus);
         match response.result {
             ResponseResult::Success(status) => {
                 tracing::info!(
@@ -723,7 +723,7 @@ where
 
     async fn prove_zk_sign(&self, private_key: QHashOut<C::F>, sig_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    async fn prove_secp_sign(&self, signature: PsyCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
     async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>>;
 
@@ -836,7 +836,7 @@ where
         (**self).prove_zk_sign(private_key, sig_hash).await
     }
 
-    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    async fn prove_secp_sign(&self, signature: PsyCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         (**self).prove_secp_sign(signature).await
     }
 
@@ -926,7 +926,7 @@ where
     pub client: Arc<Client>,
     pub proof_proxy_url: String,
     pub common_circuits_data: LocalCommonCircuitsData<C::F>,
-    pub zk_sign_inner_circuit: QEDBasicZKSignatureInnerCircuit<C, D>,
+    pub zk_sign_inner_circuit: PsyBasicZKSignatureInnerCircuit<C, D>,
     pub _marker: PhantomData<C>,
 }
 
@@ -1010,7 +1010,7 @@ where
         Ok(Self {
             client: Arc::new(client),
             common_circuits_data,
-            zk_sign_inner_circuit: QEDBasicZKSignatureInnerCircuit::new(),
+            zk_sign_inner_circuit: PsyBasicZKSignatureInnerCircuit::new(),
             proof_proxy_url,
             _marker: PhantomData,
         })
@@ -1122,7 +1122,7 @@ where
 
     async fn prove_ups_start(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove ups start: {}", serde_json::to_string_pretty(&input)?);
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::ProveUpsStart(QProveUpsStartRPCRequest {
@@ -1141,7 +1141,7 @@ where
 
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()> {
         tracing::info!("register contract {} circuits", contract_id);
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::RegisterCircuits(QRegisterCircuitsRPCRequest {
@@ -1158,7 +1158,7 @@ where
 
     async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
         tracing::info!("get method `{}` of contract {}", method_name, contract_id);
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::GetMethodId(QGetMethodIdRPCRequest { contract_id, method_name }),
@@ -1179,7 +1179,7 @@ where
         method_id: u32,
     ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
         tracing::info!("get method `{}` common data of contract {}", method_id, contract_id);
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::GetContractMethodCommonData(QGetContractMethodCommonDataRPCRequest { contract_id, method_id }),
@@ -1207,7 +1207,7 @@ where
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove contract call: {}", serde_json::to_string_pretty(&input)?);
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::ProveContractCall(QProveContractCallRPCRequest {
@@ -1231,7 +1231,7 @@ where
         input: &UPSCFCStandardTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove ups cfc standard tx: {}", serde_json::to_string_pretty(&input)?);
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::UpsCfcStandardTx(QUpsCfcStandardTxRPCRequest {
@@ -1253,7 +1253,7 @@ where
         input: &UPSCFCDeferredTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove ups cfc deferred tx: {}", serde_json::to_string_pretty(&input)?);
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::UpsCfcDeferredTx(QUpsCfcDeferredTxRPCRequest {
@@ -1275,7 +1275,7 @@ where
         let inner_proof = self.zk_sign_inner_circuit.prove_base(private_key, sig_hash)?;
         let inner_proof_str = serde_json::to_string(&inner_proof)?;
 
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::ZKSignatureMinifierProof(QSignatureMinifierProofRPCRequest {
@@ -1292,9 +1292,9 @@ where
         }
     }
 
-    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    async fn prove_secp_sign(&self, signature: PsyCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove_secp_sign: {}", serde_json::to_string_pretty(&signature)?);
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::SECPSignatureProof(QSecpSignatureProofRPCRequest {
@@ -1314,10 +1314,10 @@ where
     async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
         tracing::info!("register_software_defined_circuit: ");
         let input = match input {
-            SoftwareDefinedSignatureInput::QED(input) => input,
+            SoftwareDefinedSignatureInput::Psy(input) => input,
             SoftwareDefinedSignatureInput::PLONKY2(_) => unimplemented!(),
         };
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::RegisterSoftwareDefinedCircuit(QRegisterSoftwareDefinedCircuitRPCRequest { input }),
@@ -1341,10 +1341,10 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove_software_defined_sign:");
         let input = match input {
-            SoftwareDefinedSignatureWitnessInput::QED(input) => input,
+            SoftwareDefinedSignatureWitnessInput::Psy(input) => input,
             SoftwareDefinedSignatureWitnessInput::PLONKY2(_) => unimplemented!(),
         };
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::SoftwareDefinedSignatureProof(QSoftwareDefinedSignatureProofRPCRequest {
@@ -1371,7 +1371,7 @@ where
         agg_proof_record: &AggProofRecord<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove ups end cap: {}", serde_json::to_string_pretty(&end_cap_from_proof_tree_input)?);
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParamsV2::<C, D>::UpsEndCap(QUpsEndCapRPCRequestV2 {
@@ -1539,7 +1539,7 @@ where
             serde_json::to_string_pretty(&agg_circuit_whitelist_root)?
         );
         // todo fix bug
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParamsV2::<C,D>::SingleLeaf(QSingleLeafRpcRequestV2 {
@@ -1569,7 +1569,7 @@ where
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove two leaf circuit: {}", serde_json::to_string_pretty(&agg_circuit_whitelist_root)?);
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParamsV2::<C,D>::TwoLeaf(QTwoLeafRpcRequestV2{
@@ -1603,7 +1603,7 @@ where
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove two agg circuit:");
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParamsV2::<C,D>::TwoAgg(QTwoAggRpcRequsetV2{
@@ -1637,7 +1637,7 @@ where
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove leaf leaf right agg circuit:");
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParamsV2::<C, D>::LeftLeafRightAgg(QLeftLeafRightAggRpcRequestV2{
@@ -1670,7 +1670,7 @@ where
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove left agg right leaf circuit:");
-        let response = qed_rpc_call_back!(
+        let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
             RequestParamsV2::<C,D>::LeftAggRightLeaf(QLeftAggRightLeafRpcRequestV2{

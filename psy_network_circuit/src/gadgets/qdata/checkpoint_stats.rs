@@ -6,7 +6,7 @@ use plonky2::{
 };
 use psy_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor};
 use psy_core::config::network_constants::DA_CHALLENGE_WINDOW;
-use psy_data::qdata::checkpoint::QEDCheckpointLeafStats;
+use psy_data::qdata::checkpoint::PsyCheckpointLeafStats;
 
 use super::{
     pm_jobs_completed_stats::{PMJobsCompletedStatsGadget, PM_JOBS_COMPLETED_STATS_TARGET_SIZE},
@@ -14,7 +14,7 @@ use super::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
-pub struct QEDCheckpointLeafStatsGadget {
+pub struct PsyCheckpointLeafStatsGadget {
     pub fees_collected: Target,
 
     pub user_ops_processed: Target,
@@ -32,8 +32,8 @@ pub struct QEDCheckpointLeafStatsGadget {
     pub da_challenges_claimed: [Target; DA_CHALLENGE_WINDOW],
 }
 
-impl QEDCheckpointLeafStatsGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafStats<F>) -> anyhow::Result<()> {
+impl PsyCheckpointLeafStatsGadget {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafStats<F>) -> anyhow::Result<()> {
         witness.set_target(self.fees_collected, target.fees_collected)?;
 
         witness.set_target(self.user_ops_processed, target.user_ops_processed)?;
@@ -54,7 +54,7 @@ impl QEDCheckpointLeafStatsGadget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
     }
 }
-impl AlgebraicHashableTarget for QEDCheckpointLeafStatsGadget {
+impl AlgebraicHashableTarget for PsyCheckpointLeafStatsGadget {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -62,7 +62,7 @@ impl AlgebraicHashableTarget for QEDCheckpointLeafStatsGadget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl CreatableTarget for QEDCheckpointLeafStatsGadget {
+impl CreatableTarget for PsyCheckpointLeafStatsGadget {
     fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let fees_collected = builder.add_virtual_target();
         let user_ops_processed = builder.add_virtual_target();
@@ -88,7 +88,7 @@ impl CreatableTarget for QEDCheckpointLeafStatsGadget {
         }
     }
 }
-impl ToTargets for QEDCheckpointLeafStatsGadget {
+impl ToTargets for PsyCheckpointLeafStatsGadget {
     fn to_targets(&self) -> Vec<Target> {
         let mut result = vec![self.fees_collected, self.user_ops_processed, self.total_transactions, self.slots_modified];
         result.extend_from_slice(&self.pm_jobs_completed.to_targets());
@@ -104,12 +104,12 @@ impl ToTargets for QEDCheckpointLeafStatsGadget {
         result
     }
 }
-impl FromTargets for QEDCheckpointLeafStatsGadget {
+impl FromTargets for PsyCheckpointLeafStatsGadget {
     fn from_targets(targets: &[Target]) -> Self {
         let expected_len = 4 + PM_JOBS_COMPLETED_STATS_TARGET_SIZE + 5 + PM_REWARD_COMMITMENT_TARGET_SIZE + DA_CHALLENGE_WINDOW;
         if targets.len() != expected_len {
             panic!(
-                "Invalid number of elements for QEDCheckpointLeafStatsGadget, expected {} got {}",
+                "Invalid number of elements for PsyCheckpointLeafStatsGadget, expected {} got {}",
                 expected_len,
                 targets.len()
             );
@@ -140,7 +140,7 @@ impl FromTargets for QEDCheckpointLeafStatsGadget {
 
         let da_challenges_claimed = targets[offset..].try_into().unwrap();
 
-        QEDCheckpointLeafStatsGadget {
+        PsyCheckpointLeafStatsGadget {
             fees_collected,
             user_ops_processed,
             total_transactions,
@@ -154,14 +154,14 @@ impl FromTargets for QEDCheckpointLeafStatsGadget {
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDCheckpointLeafStatsGadget, F, true> for QEDCheckpointLeafStats<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafStatsGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyCheckpointLeafStatsGadget, F, true> for PsyCheckpointLeafStats<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafStatsGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDCheckpointLeafStatsGadget, F, false> for QEDCheckpointLeafStats<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafStatsGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyCheckpointLeafStatsGadget, F, false> for PsyCheckpointLeafStats<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafStatsGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

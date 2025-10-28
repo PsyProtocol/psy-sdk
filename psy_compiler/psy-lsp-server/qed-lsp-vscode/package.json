@@ -1,6 +1,6 @@
 {
-  "name": "qed-lsp-vscode",
-  "displayName": "qed-lsp-vscode",
+  "name": "psy-lsp-vscode",
+  "displayName": "psy-lsp-vscode",
   "description": "lsp for vscode",
   "version": "0.0.1",
   "engines": {
@@ -13,27 +13,27 @@
   "contributes": {
     "languages": [
       {
-        "id": "qed",
+        "id": "psy",
         "aliases": [
-          "qed-lang",
-          "qed"
+          "psy-lang",
+          "psy"
         ],
         "extensions": [
-          ".qed"
+          ".psy"
         ],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "qed",
-        "scopeName": "source.qed",
-        "path": "./syntaxes/qed.tmLanguage.json"
+        "language": "psy",
+        "scopeName": "source.psy",
+        "path": "./syntaxes/psy.tmLanguage.json"
       }
     ]
   },
   "activationEvents": [
-    "onLanguage:qed"
+    "onLanguage:psy"
   ],
   "dependencies": {
     "vscode-languageclient": "^9.0.1"

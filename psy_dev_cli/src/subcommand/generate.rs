@@ -366,7 +366,7 @@ pub async fn run_deployment(args: RunArgs) -> Result<()> {
 }
 
 async fn run_deployment_impl(config: &Config, args: RunArgs) -> Result<()> {
-    info!("Starting QED network deployment...");
+    info!("Starting Psy network deployment...");
 
     // Override backend type if specified
     let database = args.backend.as_ref().map(|s| s.as_str()).unwrap_or_else(|| {
@@ -430,7 +430,7 @@ async fn run_deployment_impl(config: &Config, args: RunArgs) -> Result<()> {
         if let Some(api_config) = &global_services.api_service {
             if api_config.enabled {
                 info!("Starting API service on port 3000...");
-                start_service("qed-api-service", build_api_service_command(api_config)?, &api_config.env)?;
+                start_service("psy-api-service", build_api_service_command(api_config)?, &api_config.env)?;
 
                 // Wait for API service to be ready
                 std::thread::sleep(std::time::Duration::from_secs(5));
@@ -445,7 +445,7 @@ async fn run_deployment_impl(config: &Config, args: RunArgs) -> Result<()> {
     start_realm_services(config, database, &args)?;
 
     start_independent_workers(config, &args)?;
-    info!("✅ QED network deployment started successfully!");
+    info!("✅ Psy network deployment started successfully!");
 
     // Print deployment summary
     print_deployment_summary2(config, database);
@@ -525,7 +525,7 @@ fn start_redis_instance(port: u16, name: &str) -> Result<()> {
             "run",
             "-d",
             "--name",
-            &format!("qed-redis-{}", name),
+            &format!("psy-redis-{}", name),
             "-p",
             &format!("{}:{}", port, port),
             "redis:7-alpine",
@@ -554,7 +554,7 @@ fn start_scylladb(config: &Config) -> Result<()> {
             "run",
             "-d",
             "--name",
-            "qed-scylladb",
+            "psy-scylladb",
             "-p",
             "9042:9042",
             "scylladb/scylla:2025.1",
@@ -586,14 +586,14 @@ fn start_scylladb(config: &Config) -> Result<()> {
 }
 
 fn create_scylla_keyspaces(config: &Config) -> Result<()> {
-    let keyspaces = vec!["qed_coordinator", "qed_realm_0", "qed_realm_1"];
+    let keyspaces = vec!["psy_coordinator", "psy_realm_0", "psy_realm_1"];
 
     for keyspace in keyspaces {
         info!("Creating keyspace: {}", keyspace);
         let output = Command::new("docker")
             .args(&[
                 "exec",
-                "qed-scylladb",
+                "psy-scylladb",
                 "cqlsh",
                 "-e",
                 &format!(
@@ -909,9 +909,9 @@ fn build_service_command(
                 cmd.push(scylla_config.endpoints[0].clone());
 
                 let keyspace = if let Some(realm) = realm_node {
-                    format!("qed_realm_{}", realm.id)
+                    format!("psy_realm_{}", realm.id)
                 } else {
-                    "qed_coordinator".to_string()
+                    "psy_coordinator".to_string()
                 };
                 cmd.push("--scylla-keyspace".to_string());
                 cmd.push(keyspace);
@@ -994,9 +994,9 @@ fn add_database_config(cmd: &mut Vec<String>, database: &str, backend_config: Op
                 cmd.push(scylla_config.endpoints[0].clone());
 
                 let keyspace = if let Some(realm) = realm_node {
-                    format!("qed_realm_{}", realm.id)
+                    format!("psy_realm_{}", realm.id)
                 } else {
-                    "qed_coordinator".to_string()
+                    "psy_coordinator".to_string()
                 };
                 cmd.push("--scylla-keyspace".to_string());
                 cmd.push(keyspace);
@@ -1082,13 +1082,13 @@ fn start_timescaledb() -> Result<()> {
             "run",
             "-d",
             "--name",
-            "qed-timescaledb",
+            "psy-timescaledb",
             "-p",
             "5432:5432",
             "-e",
             "POSTGRES_PASSWORD=password",
             "-e",
-            "POSTGRES_DB=qed",
+            "POSTGRES_DB=psy",
             "timescale/timescaledb:latest-pg17",
         ])
         .output()
@@ -1100,11 +1100,11 @@ fn start_timescaledb() -> Result<()> {
             warn!("TimescaleDB container already exists, checking if it's running...");
 
             // Check if container is running
-            let check = Command::new("docker").args(&["ps", "-q", "-f", "name=qed-timescaledb"]).output()?;
+            let check = Command::new("docker").args(&["ps", "-q", "-f", "name=psy-timescaledb"]).output()?;
 
             if check.stdout.is_empty() {
                 // Container exists but not running, start it
-                Command::new("docker").args(&["start", "qed-timescaledb"]).output()?;
+                Command::new("docker").args(&["start", "psy-timescaledb"]).output()?;
             }
         } else {
             return Err(anyhow::anyhow!("Failed to start TimescaleDB: {}", stderr));
@@ -1131,7 +1131,7 @@ fn run_database_migrations() -> Result<()> {
     let output = Command::new("cargo")
         .args(&["sqlx", "migrate", "run"])
         .current_dir("./psy_api_services")
-        .env("DATABASE_URL", "postgres://postgres:password@localhost:5432/qed")
+        .env("DATABASE_URL", "postgres://postgres:password@localhost:5432/psy")
         .output()
         .context("Failed to run database migrations")?;
 
@@ -1181,26 +1181,26 @@ fn start_service(name: &str, command: Vec<String>, env: &HashMap<String, String>
 }
 
 async fn stop_deployment() -> Result<()> {
-    info!("Stopping QED network deployment...");
+    info!("Stopping Psy network deployment...");
 
-    // Stop all QED services
+    // Stop all Psy services
     let output = Command::new("pkill")
         .args(&["-f", "psy_node_cli"])
         .output()
-        .context("Failed to stop QED services")?;
+        .context("Failed to stop Psy services")?;
 
     if !output.status.success() {
-        warn!("No QED services found to stop");
+        warn!("No Psy services found to stop");
     }
 
     // Stop Docker containers
-    let containers = vec!["qed-redis-coordinator", "qed-redis-realm_0", "qed-redis-realm_1", "qed-scylladb"];
+    let containers = vec!["psy-redis-coordinator", "psy-redis-realm_0", "psy-redis-realm_1", "psy-scylladb"];
     for container in containers {
         let _ = Command::new("docker").args(&["stop", container]).output();
         let _ = Command::new("docker").args(&["rm", container]).output();
     }
 
-    info!("QED network deployment stopped");
+    info!("Psy network deployment stopped");
     Ok(())
 }
 
@@ -1245,7 +1245,7 @@ async fn generate_docker_compose(config: &Config, args: GenerateDockerComposeArg
 }
 
 fn print_deployment_summary(config: &Config, recommendations: &[SimpleInstanceRecommendation]) -> Result<()> {
-    info!("\n📊 QED Network Deployment Summary");
+    info!("\n📊 Psy Network Deployment Summary");
     info!("┌─────────────────┬──────────────────────────────────┬──────────┬──────────────┬───────────────────────┬──────────────────────────┐");
     info!("│ Component       │ Services (Proc/Edge/Worker)      │ Total CPU│ Total Memory │ Instance Count        │ Instance Types           │");
     info!("├─────────────────┼──────────────────────────────────┼──────────┼──────────────┼───────────────────────┼──────────────────────────┤");

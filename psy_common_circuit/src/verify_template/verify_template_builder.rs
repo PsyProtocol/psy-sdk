@@ -7,16 +7,16 @@ use plonky2::{
     },
 };
 
-use super::circuit_template::QEDCircuitVerifyTemplate;
+use super::circuit_template::PsyCircuitVerifyTemplate;
 
-pub trait QEDVerifyTemplateCircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
-    fn add_virtual_opening_set_vt(&mut self, template: &QEDCircuitVerifyTemplate) -> OpeningSetTarget<D>;
-    fn add_virtual_proof_vt(&mut self, template: &QEDCircuitVerifyTemplate) -> ProofTarget<D>;
-    fn add_virtual_proof_with_pis_vt(&mut self, template: &QEDCircuitVerifyTemplate) -> ProofWithPublicInputsTarget<D>;
+pub trait PsyVerifyTemplateCircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
+    fn add_virtual_opening_set_vt(&mut self, template: &PsyCircuitVerifyTemplate) -> OpeningSetTarget<D>;
+    fn add_virtual_proof_vt(&mut self, template: &PsyCircuitVerifyTemplate) -> ProofTarget<D>;
+    fn add_virtual_proof_with_pis_vt(&mut self, template: &PsyCircuitVerifyTemplate) -> ProofWithPublicInputsTarget<D>;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> QEDVerifyTemplateCircuitBuilder<F, D> for CircuitBuilder<F, D> {
-    fn add_virtual_opening_set_vt(&mut self, template: &QEDCircuitVerifyTemplate) -> OpeningSetTarget<D> {
+impl<F: RichField + Extendable<D>, const D: usize> PsyVerifyTemplateCircuitBuilder<F, D> for CircuitBuilder<F, D> {
+    fn add_virtual_opening_set_vt(&mut self, template: &PsyCircuitVerifyTemplate) -> OpeningSetTarget<D> {
         OpeningSetTarget {
             constants: self.add_virtual_extension_targets(template.num_constants),
             plonk_sigmas: self.add_virtual_extension_targets(template.num_routed_wires),
@@ -30,7 +30,7 @@ impl<F: RichField + Extendable<D>, const D: usize> QEDVerifyTemplateCircuitBuild
         }
     }
 
-    fn add_virtual_proof_vt(&mut self, template: &QEDCircuitVerifyTemplate) -> ProofTarget<D> {
+    fn add_virtual_proof_vt(&mut self, template: &PsyCircuitVerifyTemplate) -> ProofTarget<D> {
         ProofTarget {
             wires_cap: self.add_virtual_cap(template.fri_cap_height),
             plonk_zs_partial_products_cap: self.add_virtual_cap(template.fri_cap_height),
@@ -40,7 +40,7 @@ impl<F: RichField + Extendable<D>, const D: usize> QEDVerifyTemplateCircuitBuild
         }
     }
 
-    fn add_virtual_proof_with_pis_vt(&mut self, template: &QEDCircuitVerifyTemplate) -> ProofWithPublicInputsTarget<D> {
+    fn add_virtual_proof_with_pis_vt(&mut self, template: &PsyCircuitVerifyTemplate) -> ProofWithPublicInputsTarget<D> {
         let public_inputs = self.add_virtual_targets(template.num_public_inputs);
         let proof = self.add_virtual_proof_vt(template);
         ProofWithPublicInputsTarget { proof, public_inputs }

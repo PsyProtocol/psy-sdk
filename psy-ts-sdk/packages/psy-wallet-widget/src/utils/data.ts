@@ -1,12 +1,12 @@
-import { Felt, QedJSON, QedUserWalletProvider } from "@qed/psy-sdk";
+import { Felt, PsyJSON, PsyUserWalletProvider } from "@psy/psy-sdk";
 import { useCallback, useEffect, useState } from "react";
 
 
-const fetchBlockNumber = async (walletProvider: QedUserWalletProvider) => {
+const fetchBlockNumber = async (walletProvider: PsyUserWalletProvider) => {
     try {
         console.log("Fetching latest L2 block state from coordinator...");
         const latestBlockState = await walletProvider.coordinatorEdgeRpcProvider.getLatestL2BlockState();
-        console.log("Latest block state:", QedJSON.stringify(latestBlockState, null, 2));
+        console.log("Latest block state:", PsyJSON.stringify(latestBlockState, null, 2));
         if (latestBlockState) {
             return Number(latestBlockState.checkpoint_id);
         }
@@ -17,7 +17,7 @@ const fetchBlockNumber = async (walletProvider: QedUserWalletProvider) => {
     }
 };
 
-export const useBlockNumber = (walletProvider: QedUserWalletProvider, interval: number) => {
+export const useBlockNumber = (walletProvider: PsyUserWalletProvider, interval: number) => {
     const [blockNumber, setBlockNumber] = useState<number>(0);
 
     const fetchData = useCallback(async () => {
@@ -46,7 +46,7 @@ export const useBlockNumber = (walletProvider: QedUserWalletProvider, interval: 
     return blockNumber;
 };
 
-export const fetchUserBalance = async (walletProvider: QedUserWalletProvider, checkpointId: Felt, userId: Felt, userContractId: Felt) => {
+export const fetchUserBalance = async (walletProvider: PsyUserWalletProvider, checkpointId: Felt, userId: Felt, userContractId: Felt) => {
     const merkleProof = await walletProvider.realmEdgeRpcProvider.getRpcProviderByUserId(userId).getUserContractStateTreeMerkleProof(
         checkpointId,
         userId,
@@ -65,7 +65,7 @@ export const fetchUserBalance = async (walletProvider: QedUserWalletProvider, ch
     return 0;
 };
 
-export const useUserBalance = (walletProvider: QedUserWalletProvider, checkpointId: Felt, userId: Felt, userContractId: Felt, interval: number) => {
+export const useUserBalance = (walletProvider: PsyUserWalletProvider, checkpointId: Felt, userId: Felt, userContractId: Felt, interval: number) => {
     const [balance, setBalance] = useState<Felt>(0);
 
     const fetchData = useCallback(async () => {
@@ -101,11 +101,11 @@ export const useUserBalance = (walletProvider: QedUserWalletProvider, checkpoint
     return balance;
 };
 
-const fetchUserId = async (walletProvider: QedUserWalletProvider, publicKeyHex: string) => {
+const fetchUserId = async (walletProvider: PsyUserWalletProvider, publicKeyHex: string) => {
     return await walletProvider.coordinatorEdgeRpcProvider.getUserId(publicKeyHex);
 };
 
-export const useUserId = (walletProvider: QedUserWalletProvider, publicKeyHex: string, interval: number) => {
+export const useUserId = (walletProvider: PsyUserWalletProvider, publicKeyHex: string, interval: number) => {
     const [userId, setUserId] = useState<number>(0);
 
     const fetchData = useCallback(async () => {

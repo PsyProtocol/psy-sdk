@@ -39,7 +39,7 @@ importers:
         specifier: ~4.9.0
         version: 4.9.5
 
-  app/qed-wallet:
+  app/psy-wallet:
     dependencies:
       '@mantine/core':
         specifier: ^7.10.2
@@ -47,10 +47,10 @@ importers:
       '@mantine/hooks':
         specifier: ^7.10.2
         version: 7.17.8(react@18.2.0)
-      '@qed/psy-sdk':
+      '@psy/psy-sdk':
         specifier: workspace:*
         version: link:../../packages/psy-sdk
-      '@qed/psy-wallet-widget':
+      '@psy/psy-wallet-widget':
         specifier: workspace:*
         version: link:../../packages/psy-wallet-widget
       '@tabler/icons-react':
@@ -133,10 +133,10 @@ importers:
 
   packages/contract-sdk:
     dependencies:
-      '@qed/psy-sdk':
+      '@psy/psy-sdk':
         specifier: workspace:*
         version: link:../psy-sdk
-      '@qed/utils':
+      '@psy/utils':
         specifier: workspace:*
         version: link:../utils
       commander:
@@ -226,13 +226,13 @@ importers:
       '@noble/secp256k1':
         specifier: ^2.1.0
         version: 2.1.0
-      '@qed/blokies-react':
+      '@psy/blokies-react':
         specifier: workspace:*
         version: link:../blokies-react
-      '@qed/psy-sdk':
+      '@psy/psy-sdk':
         specifier: workspace:*
         version: link:../psy-sdk
-      '@qed/utils':
+      '@psy/utils':
         specifier: workspace:*
         version: link:../utils
       '@tabler/icons-react':
@@ -2549,7 +2549,7 @@ packages:
     resolution: {integrity: sha512-RGdriMmQQvZ2aqaQq3awNA6dCGtKpiDFcOzrTWrDAT2MiWrKQVPmxLGHl7Y2nNu6led0kEyoX0enY0qXYsv9zw==}
 
   is-extglob@2.1.1:
-    resolution: {integrity: sha512-SbKbANkN603Vi4jEZv49LeVJMn4yGwsbzZworEoyEiutsN3nJYdbO36zfhGJ6QEDpOZIFkDtnq5JRxmvl3jsoQ==}
+    resolution: {integrity: sha512-SbKbANkN603Vi4jEZv49LeVJMn4yGwsbzZworEoyEiutsN3nJYdbO36zfhGJ6PsypOZIFkDtnq5JRxmvl3jsoQ==}
     engines: {node: '>=0.10.0'}
 
   is-fullwidth-code-point@3.0.0:

@@ -25,7 +25,7 @@ Circuits which need to have the same common circuit data as:
 Identifier: **Type B**
 <description>
 Circuits which need to have the same common circuit data as:
-    - A QED ZK Signature3 Circuit
+    - A Psy ZK Signature3 Circuit
 </description>
 ======================================
 Identifier: **Type C**
@@ -110,18 +110,18 @@ pub fn pad_circuit_degree<F: RichField + Extendable<D>, const D: usize>(builder:
     }
 }
 
-pub trait CircuitBuilderQEDCommonGates<F: RichField + Extendable<D>, const D: usize> {
-    fn add_qed_type_a_common_gates(&mut self, coset_gate: Option<GateRef<F, D>>);
-    fn add_qed_type_a_common_gates_with_coset(&mut self, subgroup_bits: usize, max_degree: usize);
-    fn add_qed_type_b_common_gates(&mut self);
-    fn add_qed_type_c_common_gates(&mut self);
-    fn add_qed_type_d_common_gates(&mut self);
-    fn add_qed_type_e_common_gates(&mut self);
-    fn add_qed_type_f_common_gates(&mut self);
+pub trait CircuitBuilderPsyCommonGates<F: RichField + Extendable<D>, const D: usize> {
+    fn add_psy_type_a_common_gates(&mut self, coset_gate: Option<GateRef<F, D>>);
+    fn add_psy_type_a_common_gates_with_coset(&mut self, subgroup_bits: usize, max_degree: usize);
+    fn add_psy_type_b_common_gates(&mut self);
+    fn add_psy_type_c_common_gates(&mut self);
+    fn add_psy_type_d_common_gates(&mut self);
+    fn add_psy_type_e_common_gates(&mut self);
+    fn add_psy_type_f_common_gates(&mut self);
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<F, D> for CircuitBuilder<F, D> {
-    fn add_qed_type_a_common_gates(&mut self, coset_gate: Option<GateRef<F, D>>) {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPsyCommonGates<F, D> for CircuitBuilder<F, D> {
+    fn add_psy_type_a_common_gates(&mut self, coset_gate: Option<GateRef<F, D>>) {
         self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
         self.add_gate_to_gate_set(GateRef::new(ComparisonGate::new(32, 16)));
         self.add_gate_to_gate_set(GateRef::new(RandomAccessGate::new_from_config(&self.config, 4)));
@@ -138,12 +138,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
         }
     }
 
-    fn add_qed_type_a_common_gates_with_coset(&mut self, subgroup_bits: usize, max_degree: usize) {
+    fn add_psy_type_a_common_gates_with_coset(&mut self, subgroup_bits: usize, max_degree: usize) {
         let coset_gate = GateRef::new(new_coset_gate_with_max_degree::<F, D>(subgroup_bits, max_degree));
-        self.add_qed_type_a_common_gates(Some(coset_gate));
+        self.add_psy_type_a_common_gates(Some(coset_gate));
     }
 
-    fn add_qed_type_b_common_gates(&mut self) {
+    fn add_psy_type_b_common_gates(&mut self) {
         self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
         self.add_gate_to_gate_set(GateRef::new(ComparisonGate::new(32, 16)));
         self.add_gate_to_gate_set(GateRef::new(RandomAccessGate::new_from_config(&self.config, 4)));
@@ -161,7 +161,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
         self.add_gate_to_gate_set(GateRef::new(BaseSumGate::<2>::new_from_config::<F>(&self.config)));
     }
 
-    fn add_qed_type_c_common_gates(&mut self) {
+    fn add_psy_type_c_common_gates(&mut self) {
         self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
         self.add_gate_to_gate_set(GateRef::new(RandomAccessGate::new_from_config(&self.config, 4)));
 
@@ -178,7 +178,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
         self.add_gate_to_gate_set(GateRef::new(BaseSumGate::<2>::new_from_config::<F>(&self.config)));
     }
 
-    fn add_qed_type_d_common_gates(&mut self) {
+    fn add_psy_type_d_common_gates(&mut self) {
         self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
         self.add_gate_to_gate_set(GateRef::new(ComparisonGate::new(32, 16)));
         self.add_gate_to_gate_set(GateRef::new(RandomAccessGate::new_from_config(&self.config, 4)));
@@ -196,7 +196,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
         self.add_gate_to_gate_set(GateRef::new(BaseSumGate::<2>::new_from_config::<F>(&self.config)));
     }
 
-    fn add_qed_type_e_common_gates(&mut self) {
+    fn add_psy_type_e_common_gates(&mut self) {
         self.add_gate_to_gate_set(GateRef::new(ConstantGate::new(self.config.num_constants)));
         self.add_gate_to_gate_set(GateRef::new(RandomAccessGate::new_from_config(&self.config, 4)));
 
@@ -213,7 +213,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderQEDCommonGates<
         self.add_gate_to_gate_set(GateRef::new(BaseSumGate::<2>::new_from_config::<F>(&self.config)));
     }
 
-    fn add_qed_type_f_common_gates(&mut self) {
-        self.add_qed_type_e_common_gates();
+    fn add_psy_type_f_common_gates(&mut self) {
+        self.add_psy_type_e_common_gates();
     }
 }

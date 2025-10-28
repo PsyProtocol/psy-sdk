@@ -1,6 +1,6 @@
 # Hello, World!
 
-This chapter walks you through creating your first [QED Smart Contract Language] program.
+This chapter walks you through creating your first [Psy Smart Contract Language] program.
 
 ## Creating a New Program
 
@@ -31,7 +31,7 @@ run the program using the compiler:
 dargo compile
 ```
 
-You will see a target directory. Open the `hello_world.json` inside and you'll be able to see the target code for qed. The qed smart contract language generates this code for each function in the contract and deploys it to the blockchain.
+You will see a target directory. Open the `hello_world.json` inside and you'll be able to see the target code for psy. The psy smart contract language generates this code for each function in the contract and deploys it to the blockchain.
 
 ```
 [

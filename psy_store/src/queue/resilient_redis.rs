@@ -176,7 +176,7 @@ impl ResilientRedisConnection {
     }
 
     async fn set_client_name(&self) -> Result<()> {
-        if let Ok(role) = std::env::var("QED_ROLE") {
+        if let Ok(role) = std::env::var("Psy_ROLE") {
             let client_name = format!("resilient-{}-{}", role, std::process::id());
 
             self.execute(move |mut conn| {

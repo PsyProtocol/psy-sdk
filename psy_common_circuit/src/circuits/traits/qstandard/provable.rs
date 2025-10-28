@@ -9,7 +9,7 @@ use psy_core::data::qhashout::QHashOut;
 use serde::Serialize;
 
 use super::QStandardCircuit;
-use crate::proof_minifier::pm_chain::QEDProofMinifierChain;
+use crate::proof_minifier::pm_chain::PsyProofMinifierChain;
 
 pub trait QStandardCircuitProvable<I: Serialize + Clone, C: GenericConfig<D>, const D: usize>: QStandardCircuit<C, D> {
     fn prove_standard(&self, input: &I) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
@@ -46,7 +46,7 @@ pub struct QStandardCircuitProvableWrapped<
     C::Hasher: AlgebraicHasher<C::F>,
 {
     pub circuit: IC,
-    pub minifier: QEDProofMinifierChain<D, C::F, C>,
+    pub minifier: PsyProofMinifierChain<D, C::F, C>,
     _phantom_i: PhantomData<I>,
 }
 
@@ -56,7 +56,7 @@ where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new_wrapped(inner_circuit: IC) -> Self {
-        let minifier = QEDProofMinifierChain::new(inner_circuit.get_verifier_config_ref(), inner_circuit.get_common_circuit_data_ref(), M);
+        let minifier = PsyProofMinifierChain::new(inner_circuit.get_verifier_config_ref(), inner_circuit.get_common_circuit_data_ref(), M);
         Self {
             circuit: inner_circuit,
             minifier,

@@ -6,27 +6,27 @@ use plonky2::{
     },
 };
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey};
+use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey};
 
-use super::core::QEDBasicZKSignatureCircuit;
+use super::core::PsyBasicZKSignatureCircuit;
 use crate::circuits::traits::qstandard::QStandardCircuit;
 
 #[derive(Debug, Clone)]
-pub struct SimpleQEDZKSignatureManager<C: GenericConfig<D> + 'static, const D: usize>
+pub struct SimplePsyZKSignatureManager<C: GenericConfig<D> + 'static, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
-    pub circuit: QEDBasicZKSignatureCircuit<C, D>,
-    public_key_to_private_key_store: hashbrown::HashMap<QHashOut<C::F>, SimpleQEDPrivateKey<C::F>>,
+    pub circuit: PsyBasicZKSignatureCircuit<C, D>,
+    public_key_to_private_key_store: hashbrown::HashMap<QHashOut<C::F>, SimplePsyPrivateKey<C::F>>,
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> SimpleQEDZKSignatureManager<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> SimplePsyZKSignatureManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         Self {
-            circuit: QEDBasicZKSignatureCircuit::new(),
+            circuit: PsyBasicZKSignatureCircuit::new(),
             public_key_to_private_key_store: hashbrown::HashMap::new(),
         }
     }
@@ -61,7 +61,7 @@ where
     pub fn get_zksig_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.circuit.get_fingerprint()
     }
-    pub fn add_private_key_get_info(&mut self, private_key: SimpleQEDPrivateKey<C::F>) -> ZKPublicKeyInfo<C::F> {
+    pub fn add_private_key_get_info(&mut self, private_key: SimplePsyPrivateKey<C::F>) -> ZKPublicKeyInfo<C::F> {
         let public_key_param = private_key.get_public_key_param::<C::Hasher>();
 
         let fingerprint = self.get_zksig_circuit_fingerprint();
@@ -73,7 +73,7 @@ where
         }
     }
 
-    pub fn get_public_key_info(&self, private_key: SimpleQEDPrivateKey<C::F>) -> ZKPublicKeyInfo<C::F> {
+    pub fn get_public_key_info(&self, private_key: SimplePsyPrivateKey<C::F>) -> ZKPublicKeyInfo<C::F> {
         let public_key_param = private_key.get_public_key_param::<C::Hasher>();
         let fingerprint = self.get_zksig_circuit_fingerprint();
 
@@ -83,7 +83,7 @@ where
         }
     }
 
-    pub fn add_private_key(&mut self, private_key: SimpleQEDPrivateKey<C::F>) -> QHashOut<C::F> {
+    pub fn add_private_key(&mut self, private_key: SimplePsyPrivateKey<C::F>) -> QHashOut<C::F> {
         let public_key = private_key.get_public_key_for_fingerprint::<C::Hasher>(self.get_zksig_circuit_fingerprint());
         self.public_key_to_private_key_store.insert(public_key, private_key);
         public_key
@@ -114,7 +114,7 @@ where
         self.public_key_to_private_key_store.contains_key(&public_key)
     }
 
-    pub fn get_private_key(&self, public_key: QHashOut<C::F>) -> anyhow::Result<&SimpleQEDPrivateKey<C::F>> {
+    pub fn get_private_key(&self, public_key: QHashOut<C::F>) -> anyhow::Result<&SimplePsyPrivateKey<C::F>> {
         self.public_key_to_private_key_store
             .get(&public_key)
             .ok_or(anyhow::format_err!("public key {} not found", public_key.to_string()))
@@ -135,9 +135,9 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         let mut timer = DebugTimer::new("test_zk_sign");
 
-        let mut mgr = SimpleQEDZKSignatureManager::<C, D>::new();
+        let mut mgr = SimplePsyZKSignatureManager::<C, D>::new();
         timer.lap("built circuit");
-        let private_key = SimpleQEDPrivateKey::new(QHashOut::rand());
+        let private_key = SimplePsyPrivateKey::new(QHashOut::rand());
         let expected_public_param = private_key.get_public_key_param::<PoseidonHash>();
         let expected_public_key = private_key.get_public_key_for_fingerprint::<PoseidonHash>(mgr.circuit.get_fingerprint());
 

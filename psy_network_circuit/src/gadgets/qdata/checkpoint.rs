@@ -9,28 +9,28 @@ use psy_common_circuit::{
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
 use psy_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::QHashOut};
-use psy_data::qdata::checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafCompact};
+use psy_data::qdata::checkpoint::{PsyCheckpointLeaf, PsyCheckpointLeafCompact};
 
-use super::{checkpoint_stats::QEDCheckpointLeafStatsGadget, pm_reward_commitment::PM_REWARD_COMMITMENT_TARGET_SIZE};
+use super::{checkpoint_stats::PsyCheckpointLeafStatsGadget, pm_reward_commitment::PM_REWARD_COMMITMENT_TARGET_SIZE};
 
-pub const QED_CHECKPOINT_LEAF_GADGET_TARGET_SIZE: usize = 10 + PM_REWARD_COMMITMENT_TARGET_SIZE + DA_CHALLENGE_WINDOW + 4;
+pub const Psy_CHECKPOINT_LEAF_GADGET_TARGET_SIZE: usize = 10 + PM_REWARD_COMMITMENT_TARGET_SIZE + DA_CHALLENGE_WINDOW + 4;
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
-pub struct QEDCheckpointLeafGadget {
+pub struct PsyCheckpointLeafGadget {
     pub global_chain_root: HashOutTarget,
-    pub stats: QEDCheckpointLeafStatsGadget,
+    pub stats: PsyCheckpointLeafStatsGadget,
 }
 
-impl QEDCheckpointLeafGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeaf<F>) -> anyhow::Result<()> {
+impl PsyCheckpointLeafGadget {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeaf<F>) -> anyhow::Result<()> {
         witness.set_hash_target(self.global_chain_root, target.global_chain_root.0)?;
         self.stats.set_witness(witness, &target.stats)
     }
     pub fn to_compact<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> QEDCheckpointLeafCompactGadget {
+    ) -> PsyCheckpointLeafCompactGadget {
         let stats_hash = self.stats.to_hash::<H, F, D>(builder);
-        QEDCheckpointLeafCompactGadget {
+        PsyCheckpointLeafCompactGadget {
             global_chain_root: self.global_chain_root,
             stats_hash,
         }
@@ -39,7 +39,7 @@ impl QEDCheckpointLeafGadget {
         self.to_compact::<H, F, D>(builder).to_hash::<H, F, D>(builder)
     }
 }
-impl AlgebraicHashableTarget for QEDCheckpointLeafGadget {
+impl AlgebraicHashableTarget for PsyCheckpointLeafGadget {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -47,59 +47,59 @@ impl AlgebraicHashableTarget for QEDCheckpointLeafGadget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl CreatableTarget for QEDCheckpointLeafGadget {
+impl CreatableTarget for PsyCheckpointLeafGadget {
     fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let global_chain_root = builder.add_virtual_hash();
-        let stats = QEDCheckpointLeafStatsGadget::create_virtual(builder);
+        let stats = PsyCheckpointLeafStatsGadget::create_virtual(builder);
         Self { global_chain_root, stats }
     }
 }
-impl ToTargets for QEDCheckpointLeafGadget {
+impl ToTargets for PsyCheckpointLeafGadget {
     fn to_targets(&self) -> Vec<Target> {
-        let mut result = Vec::with_capacity(QED_CHECKPOINT_LEAF_GADGET_TARGET_SIZE);
+        let mut result = Vec::with_capacity(Psy_CHECKPOINT_LEAF_GADGET_TARGET_SIZE);
         result.extend_from_slice(&self.global_chain_root.elements);
         result.extend_from_slice(&self.stats.to_targets());
         result
     }
 }
-impl FromTargets for QEDCheckpointLeafGadget {
+impl FromTargets for PsyCheckpointLeafGadget {
     fn from_targets(targets: &[Target]) -> Self {
-        if targets.len() != QED_CHECKPOINT_LEAF_GADGET_TARGET_SIZE {
+        if targets.len() != Psy_CHECKPOINT_LEAF_GADGET_TARGET_SIZE {
             panic!(
-                "tried to create QEDCheckpointLeafGadget from an array of {} targets, but expected an array of {} targets",
+                "tried to create PsyCheckpointLeafGadget from an array of {} targets, but expected an array of {} targets",
                 targets.len(),
-                QED_CHECKPOINT_LEAF_GADGET_TARGET_SIZE
+                Psy_CHECKPOINT_LEAF_GADGET_TARGET_SIZE
             );
         }
         let global_chain_root = HashOutTarget {
             elements: [targets[0], targets[1], targets[2], targets[3]],
         };
-        let stats = QEDCheckpointLeafStatsGadget::from_targets(&targets[4..]);
+        let stats = PsyCheckpointLeafStatsGadget::from_targets(&targets[4..]);
 
         Self { global_chain_root, stats }
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDCheckpointLeafGadget, F, true> for QEDCheckpointLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyCheckpointLeafGadget, F, true> for PsyCheckpointLeaf<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDCheckpointLeafGadget, F, false> for QEDCheckpointLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyCheckpointLeafGadget, F, false> for PsyCheckpointLeaf<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
-pub struct QEDCheckpointLeafCompactGadget {
+pub struct PsyCheckpointLeafCompactGadget {
     pub global_chain_root: HashOutTarget,
     pub stats_hash: HashOutTarget,
 }
 
-impl QEDCheckpointLeafCompactGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompact<F>) -> anyhow::Result<()> {
+impl PsyCheckpointLeafCompactGadget {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafCompact<F>) -> anyhow::Result<()> {
         witness.set_hash_target(self.global_chain_root, target.global_chain_root.0)?;
         witness.set_hash_target(self.stats_hash, target.stats_hash.0)
     }
@@ -116,7 +116,7 @@ impl QEDCheckpointLeafCompactGadget {
         builder.hash_two_to_one::<H>(self.global_chain_root, self.stats_hash)
     }
 }
-impl AlgebraicHashableTarget for QEDCheckpointLeafCompactGadget {
+impl AlgebraicHashableTarget for PsyCheckpointLeafCompactGadget {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -124,7 +124,7 @@ impl AlgebraicHashableTarget for QEDCheckpointLeafCompactGadget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl CreatableTarget for QEDCheckpointLeafCompactGadget {
+impl CreatableTarget for PsyCheckpointLeafCompactGadget {
     fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let global_chain_root = builder.add_virtual_hash();
         let stats_hash = builder.add_virtual_hash();
@@ -134,7 +134,7 @@ impl CreatableTarget for QEDCheckpointLeafCompactGadget {
         }
     }
 }
-impl ToTargets for QEDCheckpointLeafCompactGadget {
+impl ToTargets for PsyCheckpointLeafCompactGadget {
     fn to_targets(&self) -> Vec<Target> {
         let mut result = Vec::with_capacity(8);
         result.extend_from_slice(&self.global_chain_root.elements);
@@ -142,11 +142,11 @@ impl ToTargets for QEDCheckpointLeafCompactGadget {
         result
     }
 }
-impl FromTargets for QEDCheckpointLeafCompactGadget {
+impl FromTargets for PsyCheckpointLeafCompactGadget {
     fn from_targets(targets: &[Target]) -> Self {
         if targets.len() != 8 {
             panic!(
-                "tried to create QEDCheckpointLeafCompactGadget from an array of {} targets, but expected an array of {} targets",
+                "tried to create PsyCheckpointLeafCompactGadget from an array of {} targets, but expected an array of {} targets",
                 targets.len(),
                 8
             );
@@ -164,14 +164,14 @@ impl FromTargets for QEDCheckpointLeafCompactGadget {
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDCheckpointLeafCompactGadget, F, true> for QEDCheckpointLeafCompact<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompactGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyCheckpointLeafCompactGadget, F, true> for PsyCheckpointLeafCompact<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafCompactGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDCheckpointLeafCompactGadget, F, false> for QEDCheckpointLeafCompact<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompactGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyCheckpointLeafCompactGadget, F, false> for PsyCheckpointLeafCompact<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafCompactGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

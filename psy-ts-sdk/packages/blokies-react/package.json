@@ -1,5 +1,5 @@
 {
-  "name": "@qed/blokies-react",
+  "name": "@psy/blokies-react",
   "version": "1.0.0",
   "scripts": {
     "build": "pnpm run clean && pnpm run compile",

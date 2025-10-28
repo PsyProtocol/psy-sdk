@@ -12,7 +12,7 @@ use psy_common_circuit::{
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
 
-use crate::gadgets::qdata::user::QEDUserLeafGadget;
+use crate::gadgets::qdata::user::PsyUserLeafGadget;
 
 #[derive(Clone, Debug)]
 pub struct GUTARegisterUserCoreGadget {
@@ -21,7 +21,7 @@ pub struct GUTARegisterUserCoreGadget {
 
     // computed
     pub user_id: Target,
-    pub user_leaf_gadget: QEDUserLeafGadget,
+    pub user_leaf_gadget: PsyUserLeafGadget,
     pub user_leaf_hash: HashOutTarget,
 
     pub needs_public_key_witness: bool,
@@ -45,7 +45,7 @@ impl GUTARegisterUserCoreGadget {
 
         let user_id = global_user_tree_update_proof.index;
 
-        let user_leaf_gadget = QEDUserLeafGadget::create_new_user_default::<F, D>(builder, user_id, public_key, default_user_state_tree_root);
+        let user_leaf_gadget = PsyUserLeafGadget::create_new_user_default::<F, D>(builder, user_id, public_key, default_user_state_tree_root);
 
         let user_leaf_hash = user_leaf_gadget.to_hash::<H, F, D>(builder);
 

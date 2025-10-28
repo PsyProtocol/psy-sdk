@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_msg_bytes_processing() -> anyhow::Result<()> {
-        // Test the specific message processing in DogeQEDSignatureGadget
+        // Test the specific message processing in DogePsySignatureGadget
         let msg_qhashout = QHashOut::<F>::from_str("83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186")?;
 
         println!("Message QHashOut: {}", msg_qhashout);

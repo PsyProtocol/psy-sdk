@@ -25,17 +25,17 @@ These gadgets are components used within circuits run by the Coordinator nodes.
 *   **Key Inputs/Witness:**
     *   `contract_tree_height`, `batch_sub_tree_height`: Parameters.
     *   `SpidermanUpdateProof`: Witness for the batch append operation on `GCON`.
-    *   `QEDContractLeaf[]`: Array witness containing the data for each deployed contract leaf in the batch.
+    *   `PsyContractLeaf[]`: Array witness containing the data for each deployed contract leaf in the batch.
 *   **Key Outputs/Computed Values:**
     *   `old_root`, `new_root`: Start and end roots of the `GCON` tree for this batch append (from `spiderman_gadget`).
 *   **Core Logic/Constraints:**
     *   Instantiates `SpidermanAppendProofGadget`.
-    *   Instantiates `QEDContractLeafGadget` for each potential leaf slot in the batch.
+    *   Instantiates `PsyContractLeafGadget` for each potential leaf slot in the batch.
     *   For each leaf slot marked as added (`is_added` from Spiderman proof):
-        *   Computes the hash of the corresponding `QEDContractLeafGadget` witness.
+        *   Computes the hash of the corresponding `PsyContractLeafGadget` witness.
         *   Asserts this computed hash matches the `new_leaves[i]` value from the Spiderman proof.
     *   Handles witness padding for unused leaf slots.
-*   **Assumptions:** Assumes witness `SpidermanUpdateProof` and `QEDContractLeaf` array are valid initially. Assumes `old_root` of the Spiderman gadget matches the `GCON` state before this operation.
+*   **Assumptions:** Assumes witness `SpidermanUpdateProof` and `PsyContractLeaf` array are valid initially. Assumes `old_root` of the Spiderman gadget matches the `GCON` state before this operation.
 *   **Role:** Securely proves the batch addition of new contracts to the global contract tree, verifying consistency between the state update and the provided contract metadata.
 
 ### `VerifyAggUserRegistartionDeployContractsGUTAHeaderGadget`
@@ -72,13 +72,13 @@ These gadgets are components used within circuits run by the Coordinator nodes.
 *   **Assumptions:** Assumes witness proofs, headers, and verifier data are valid initially. Assumes input configuration (common data, fingerprint configs, whitelist root) is correct.
 *   **Role:** Securely combines the results of the three major parallel state update processes (User Reg, Deploy Contract, GUTA) into a single verifiable unit, discharging assumptions about their individual validity and circuit usage.
 
-### `QEDPart1StateDeltaResultGadget`
+### `PsyPart1StateDeltaResultGadget`
 
 *   **File:** `checkpoint_state_transition_proofs.rs`
 *   **Purpose:** Takes the verified combined header from the Part 1 aggregation (`VerifyAggUserRegistartionDeployContractsGUTAHeaderGadget`) and combines it with previous block stats and new block info (time, randomness) to calculate the *new* Checkpoint Leaf state.
 *   **Key Inputs/Witness:**
     *   `part_1_header`: Output from the Part 1 aggregation gadget.
-    *   `old_stats`: `QEDCheckpointLeafStatsGadget` witness for the previous block's stats.
+    *   `old_stats`: `PsyCheckpointLeafStatsGadget` witness for the previous block's stats.
     *   `block_time`: Target witness for the current block's timestamp.
     *   `final_random_seed_contribution`: Hash witness for randomness.
 *   **Key Outputs/Computed Values:**
@@ -97,17 +97,17 @@ These gadgets are components used within circuits run by the Coordinator nodes.
 ### `CheckpointStateTransitionChildProofsGadget`
 
 *   **File:** `checkpoint_state_transition_proofs.rs`
-*   **Purpose:** Verifies the "Part 1" aggregation proof within the final block circuit and instantiates the gadget (`QEDPart1StateDeltaResultGadget`) that calculates the Checkpoint Leaf transition.
+*   **Purpose:** Verifies the "Part 1" aggregation proof within the final block circuit and instantiates the gadget (`PsyPart1StateDeltaResultGadget`) that calculates the Checkpoint Leaf transition.
 *   **Key Inputs/Witness:**
     *   Parameters for verifying the Part 1 proof (common data, cap height, known fingerprint).
     *   Part 1 proof object and verifier data.
-    *   Witnesses needed by `QEDPart1StateDeltaResultGadget` (`old_stats`, `block_time`, `random_seed`).
+    *   Witnesses needed by `PsyPart1StateDeltaResultGadget` (`old_stats`, `block_time`, `random_seed`).
 *   **Key Outputs/Computed Values:**
-    *   `state_delta_gadget`: The instantiated `QEDPart1StateDeltaResultGadget`.
+    *   `state_delta_gadget`: The instantiated `PsyPart1StateDeltaResultGadget`.
 *   **Core Logic/Constraints:**
     *   Verifies the `part_1_proof_target` against `part_1_verifier_data`.
     *   Checks the fingerprint of `part_1_verifier_data` against `known_part_1_fingerprint`.
-    *   Instantiates `QEDPart1StateDeltaResultGadget`.
+    *   Instantiates `PsyPart1StateDeltaResultGadget`.
     *   Computes the expected public inputs hash for the Part 1 proof using the `state_delta_gadget.part_1_header`.
     *   Asserts this computed hash matches the actual public inputs from `part_1_proof_target`.
 *   **Assumptions:** Assumes witness proofs, verifier data, and state delta inputs are correct initially. Assumes `known_part_1_fingerprint` constant is correct.

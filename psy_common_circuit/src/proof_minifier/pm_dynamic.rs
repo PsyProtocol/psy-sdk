@@ -17,7 +17,7 @@ use super::{pm_core::get_circuit_fingerprint_generic, pm_custom::PMCircuitCustom
 use crate::builder::verify::CircuitBuilderVerifyProofHelpers;
 
 #[derive(Debug)]
-pub struct QEDProofMinifierDynamic<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
+pub struct PsyProofMinifierDynamic<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
@@ -28,7 +28,7 @@ where
     pub verifier_data: Option<VerifierOnlyCircuitData<C, D>>,
 }
 
-impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>> QEDProofMinifierDynamic<D, F, C>
+impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>> PsyProofMinifierDynamic<D, F, C>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {

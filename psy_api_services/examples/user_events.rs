@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "public_key": "0x1234567890abcdef1234567890abcdef12345678",
                 "tx_type": "REGISTER_USER",
                 "metadata": {
-                    "twitter_handle": "alice_qed",
+                    "twitter_handle": "alice_psy",
                     "label": "Alpha Tester",
                     "registration_method": "web"
                 },

@@ -17,33 +17,33 @@ use psy_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::Q
 use psy_crypto::hash::merkle::treeprover::AggStateTransition;
 use psy_data::{
     guta::header::GlobalUserTreeAggregatorHeader,
-    qdata::{checkpoint::QEDCheckpointLeafStats, pm_reward_commitment::PMRewardCommitment},
+    qdata::{checkpoint::PsyCheckpointLeafStats, pm_reward_commitment::PMRewardCommitment},
 };
 
 use super::verify_agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTAHeaderGadget;
 use crate::gadgets::qdata::{
-    checkpoint::QEDCheckpointLeafGadget, checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, checkpoint_stats::QEDCheckpointLeafStatsGadget,
+    checkpoint::PsyCheckpointLeafGadget, checkpoint_state_roots::PsyCheckpointGlobalStateRootsGadget, checkpoint_stats::PsyCheckpointLeafStatsGadget,
     pm_jobs_completed_stats::PMJobsCompletedStatsGadget, pm_reward_commitment::PMRewardCommitmentGadget,
 };
 
 #[derive(Debug, Clone)]
-pub struct QEDPart1StateDeltaResultGadget {
+pub struct PsyPart1StateDeltaResultGadget {
     pub part_1_header: VerifyAggUserRegistartionDeployContractsGUTAHeaderGadget,
 
-    pub old_stats: QEDCheckpointLeafStatsGadget,
+    pub old_stats: PsyCheckpointLeafStatsGadget,
     pub block_time: Target,
     pub final_random_seed_contribution: HashOutTarget,
     pub pm_rewards_commitment: PMRewardCommitmentGadget,
 
     // computed
-    pub old_state_roots: QEDCheckpointGlobalStateRootsGadget,
-    pub new_state_roots: QEDCheckpointGlobalStateRootsGadget,
-    pub new_stats: QEDCheckpointLeafStatsGadget,
-    pub old_checkpoint_leaf: QEDCheckpointLeafGadget,
-    pub new_checkpoint_leaf: QEDCheckpointLeafGadget,
+    pub old_state_roots: PsyCheckpointGlobalStateRootsGadget,
+    pub new_state_roots: PsyCheckpointGlobalStateRootsGadget,
+    pub new_stats: PsyCheckpointLeafStatsGadget,
+    pub old_checkpoint_leaf: PsyCheckpointLeafGadget,
+    pub new_checkpoint_leaf: PsyCheckpointLeafGadget,
 }
 
-impl QEDPart1StateDeltaResultGadget {
+impl PsyPart1StateDeltaResultGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let empty_pm_jobs = PMJobsCompletedStatsGadget::new_empty(builder);
         Self::add_virtual_to_with_pm_jobs::<H, F, D>(builder, empty_pm_jobs)
@@ -62,14 +62,14 @@ impl QEDPart1StateDeltaResultGadget {
         let todo_add_withdrawals_root = builder.constant_qhash(QHashOut::from_string_or_panic(
             "d65af5933a094e8329332a714327ba72b1e4dac93c0cde8ee479b9bb36c3fc43",
         ));
-        let old_state_roots = QEDCheckpointGlobalStateRootsGadget {
+        let old_state_roots = PsyCheckpointGlobalStateRootsGadget {
             contract_tree_root: part_1_header.global_contract_tree_delta.state_transition_start,
             deposit_tree_root: todo_add_deposits_root,
             user_tree_root: part_1_header.global_user_tree_delta.state_transition.old_node_value,
             withdrawal_tree_root: todo_add_withdrawals_root,
             user_registration_tree_root: part_1_header.user_registration_tree_delta.state_transition_start,
         };
-        let new_state_roots = QEDCheckpointGlobalStateRootsGadget {
+        let new_state_roots = PsyCheckpointGlobalStateRootsGadget {
             contract_tree_root: part_1_header.global_contract_tree_delta.state_transition_end,
             deposit_tree_root: todo_add_deposits_root,
             user_tree_root: part_1_header.global_user_tree_delta.state_transition.new_node_value,
@@ -77,7 +77,7 @@ impl QEDPart1StateDeltaResultGadget {
             user_registration_tree_root: part_1_header.user_registration_tree_delta.state_transition_end,
         };
 
-        let old_stats = QEDCheckpointLeafStatsGadget::create_virtual(builder);
+        let old_stats = PsyCheckpointLeafStatsGadget::create_virtual(builder);
         let block_time = builder.add_virtual_target();
         let final_random_seed_contribution = builder.add_virtual_hash();
         let pm_rewards_commitment = PMRewardCommitmentGadget::create_virtual(builder);
@@ -87,7 +87,7 @@ impl QEDPart1StateDeltaResultGadget {
 
         let zero = builder.zero();
 
-        let new_stats = QEDCheckpointLeafStatsGadget {
+        let new_stats = PsyCheckpointLeafStatsGadget {
             fees_collected: part_1_header.global_user_tree_delta.stats.fees_collected,
             user_ops_processed: part_1_header.global_user_tree_delta.stats.user_ops_processed,
             total_transactions: part_1_header.global_user_tree_delta.stats.total_transactions,
@@ -99,11 +99,11 @@ impl QEDPart1StateDeltaResultGadget {
             da_challenges_claimed: [zero; DA_CHALLENGE_WINDOW],
         };
 
-        let old_checkpoint_leaf = QEDCheckpointLeafGadget {
+        let old_checkpoint_leaf = PsyCheckpointLeafGadget {
             stats: old_stats,
             global_chain_root: old_state_roots_hash,
         };
-        let new_checkpoint_leaf = QEDCheckpointLeafGadget {
+        let new_checkpoint_leaf = PsyCheckpointLeafGadget {
             stats: new_stats,
             global_chain_root: new_state_roots_hash,
         };
@@ -131,7 +131,7 @@ impl QEDPart1StateDeltaResultGadget {
         user_registration_tree_delta: &AggStateTransition<F>,
         global_contract_tree_delta: &AggStateTransition<F>,
         global_user_tree_delta: &GlobalUserTreeAggregatorHeader<F>,
-        old_stats: &QEDCheckpointLeafStats<F>,
+        old_stats: &PsyCheckpointLeafStats<F>,
         block_time: F,
         final_random_seed_contribution: QHashOut<F>,
         pm_rewards_commitment: &PMRewardCommitment<F>,
@@ -152,7 +152,7 @@ impl QEDPart1StateDeltaResultGadget {
 pub struct CheckpointStateTransitionChildProofsGadget<const D: usize> {
     pub part_1_verifier_data: VerifierCircuitTarget,
     pub part_1_proof_target: ProofWithPublicInputsTarget<D>,
-    pub state_delta_gadget: QEDPart1StateDeltaResultGadget,
+    pub state_delta_gadget: PsyPart1StateDeltaResultGadget,
     pub combined_pm_jobs_completed: PMJobsCompletedStatsGadget,
 }
 
@@ -182,7 +182,7 @@ impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
         };
 
         let state_delta_gadget =
-            QEDPart1StateDeltaResultGadget::add_virtual_to_with_pm_jobs::<C::Hasher, C::F, D>(builder, combined_pm_jobs_completed_from_proof);
+            PsyPart1StateDeltaResultGadget::add_virtual_to_with_pm_jobs::<C::Hasher, C::F, D>(builder, combined_pm_jobs_completed_from_proof);
 
         let part_1_header_hash = state_delta_gadget.part_1_header.get_combined_hash::<C::Hasher, C::F, D>(builder);
 
@@ -245,7 +245,7 @@ impl<const D: usize> CheckpointStateTransitionChildProofsGadget<D> {
         user_registration_tree_delta: &AggStateTransition<F>,
         global_contract_tree_delta: &AggStateTransition<F>,
         global_user_tree_delta: &GlobalUserTreeAggregatorHeader<F>,
-        old_stats: &QEDCheckpointLeafStats<F>,
+        old_stats: &PsyCheckpointLeafStats<F>,
         block_time: F,
         final_random_seed_contribution: QHashOut<F>,
         pm_rewards_commitment: &PMRewardCommitment<F>,

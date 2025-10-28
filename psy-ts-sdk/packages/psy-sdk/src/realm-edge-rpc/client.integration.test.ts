@@ -11,13 +11,13 @@ import {
     FriInitialTreeProof,
     FriQueryRound,
     FriQueryStep,
-    QEDUserLeaf,
+    PsyUserLeaf,
     SubmitUserEndCapNonProofInput,
     SubmitUserEndCapNonProofCoreInput,
-    QEDContractStateUpdateHistory, // For potential direct rpc calls if needed, or reference
+    PsyContractStateUpdateHistory, // For potential direct rpc calls if needed, or reference
 } from "../types";
 
-// Note: These tests are integration tests and require a running QED Realm Edge RPC endpoint.
+// Note: These tests are integration tests and require a running Psy Realm Edge RPC endpoint.
 // Configure the endpoint URL via the TEST_REALM_EDGE_RPC_URL environment variable.
 // You might need to set up Jest and ts-jest in your project if not already done.
 // e.g., yarn add jest @types/jest ts-jest -D
@@ -42,7 +42,7 @@ const mockLeafLevel = 1; // Typically number
 const mockLeafIndexNum = 8;
 const mockLeafIndexBigInt = 8n;
 
-const mockUserLeafInstance: QEDUserLeaf = {
+const mockUserLeafInstance: PsyUserLeaf = {
     public_key: "",
     user_state_tree_root: "",
     balance: 0n,
@@ -59,7 +59,7 @@ const mockSubmitUserEndCapNonProofCoreInput: SubmitUserEndCapNonProofCoreInput =
     new_user_leaf: mockUserLeafInstance,
 };
 
-const mockContractStateUpdateHistory: QEDContractStateUpdateHistory = {
+const mockContractStateUpdateHistory: PsyContractStateUpdateHistory = {
     contract_id: mockContractIdBigInt,
     updates: [{ mock_update_field: "mock_update_value" }], // Mock for actual update type
 };
@@ -122,7 +122,7 @@ function expectMerkleProofCoreQHashOut(value: any) {
     value.siblings.forEach((sibling: any) => expectQHashOut(sibling));
 }
 
-// function expectQEDCheckpointLeaf(value: any) {
+// function expectPsyCheckpointLeaf(value: any) {
 //     expect(value).toBeDefined();
 //     expect(typeof value.checkpoint_id).toBe("number");
 //     expect(typeof value.next_add_withdrawal_id).toBe("number");
@@ -133,12 +133,12 @@ function expectMerkleProofCoreQHashOut(value: any) {
 //     expect(typeof value.end_balance).toBe("number");
 // }
 
-// function expectQEDL2BlockState(value: any) {
-//     // QEDL2BlockState has the same structure as QEDCheckpointLeaf as per types.ts
-//     expectQEDCheckpointLeaf(value);
+// function expectPsyL2BlockState(value: any) {
+//     // PsyL2BlockState has the same structure as PsyCheckpointLeaf as per types.ts
+//     expectPsyCheckpointLeaf(value);
 // }
 
-// function expectQEDCheckpointGlobalStateRoots(value: any) {
+// function expectPsyCheckpointGlobalStateRoots(value: any) {
 //     expect(value).toBeDefined();
 //     expectQHashOut(value.user_tree_root);
 //     expectQHashOut(value.checkpoint_tree_root);
@@ -146,7 +146,7 @@ function expectMerkleProofCoreQHashOut(value: any) {
 //     expectQHashOut(value.deposit_tree_root);
 // }
 
-// function expectQEDUserLeaf(value: any) {
+// function expectPsyUserLeaf(value: any) {
 //     expect(value).toBeDefined();
 //     expect(typeof value.user_id).toBe("bigint");
 //     expect(typeof value.nonce).toBe("bigint");
@@ -189,33 +189,33 @@ describe("RealmEdgeRpcProvider Integration Tests", () => {
         }
     });
 
-    it("getCheckpointLeafData should return QEDCheckpointLeaf", async () => {
+    it("getCheckpointLeafData should return PsyCheckpointLeaf", async () => {
         const result = await client.getCheckpointLeafData(mockCheckpointIdNum);
         console.log("getCheckpointLeafData result:", result);
-        // expectQEDCheckpointLeaf(result);
+        // expectPsyCheckpointLeaf(result);
     });
 
-    it("getCheckpointLeafDataF should return QEDCheckpointLeaf", async () => {
+    it("getCheckpointLeafDataF should return PsyCheckpointLeaf", async () => {
         const result = await client.getCheckpointLeafDataF(mockCheckpointIdBigInt); // todo  check
         console.log("getCheckpointLeafDataF result:", result);
-        // expectQEDCheckpointLeaf(result);
+        // expectPsyCheckpointLeaf(result);
     });
 
-    it("getLatestL2BlockState should return QEDL2BlockState", async () => {
+    it("getLatestL2BlockState should return PsyL2BlockState", async () => {
         const result = await client.getLatestL2BlockState();
         console.log("getLatestL2BlockState result:", result);
     });
 
-    it("getL2BlockState should return QEDL2BlockState", async () => {
+    it("getL2BlockState should return PsyL2BlockState", async () => {
         const result = await client.getL2BlockState(mockCheckpointIdNum);
         console.log("getL2BlockState result:", result);
-        // expectQEDL2BlockState(result);
+        // expectPsyL2BlockState(result);
     });
 
-    it("getL2BlockStateF should return QEDL2BlockState", async () => {
+    it("getL2BlockStateF should return PsyL2BlockState", async () => {
         const result = await client.getL2BlockStateF(mockCheckpointIdBigInt);
         console.log("getL2BlockStateF result:", result);
-        // expectQEDL2BlockState(result);
+        // expectPsyL2BlockState(result);
     });
 
     it("getUserRegistrationTreeRoot should return QHashOut", async () => {
@@ -268,23 +268,23 @@ describe("RealmEdgeRpcProvider Integration Tests", () => {
         // expectMerkleProofCoreQHashOut(result);
     });
 
-    it("getCheckpointGlobalStateRoots should return QEDCheckpointGlobalStateRoots", async () => {
+    it("getCheckpointGlobalStateRoots should return PsyCheckpointGlobalStateRoots", async () => {
         const result = await client.getCheckpointGlobalStateRoots(mockCheckpointIdNum);
         console.log("getCheckpointGlobalStateRoots result:", result);
-        // expectQEDCheckpointGlobalStateRoots(result);
+        // expectPsyCheckpointGlobalStateRoots(result);
     });
     // Note: getCheckpointGlobalStateRootsF does not exist.
 
-    it("getUserLeafData should return QEDUserLeaf", async () => {
+    it("getUserLeafData should return PsyUserLeaf", async () => {
         const result = await client.getUserLeafData(mockCheckpointIdNum, mockUserIdNum);
         console.log("getUserLeafData result:", result);
-        // expectQEDUserLeaf(result);
+        // expectPsyUserLeaf(result);
     });
 
-    it("getUserLeafDataF should return QEDUserLeaf", async () => {
+    it("getUserLeafDataF should return PsyUserLeaf", async () => {
         const result = await client.getUserLeafDataF(mockCheckpointIdBigInt, mockUserIdBigInt);
         console.log("getUserLeafDataF result:", result); //todo
-        // expectQEDUserLeaf(result);
+        // expectPsyUserLeaf(result);
     });
 
     it("getUserContractStateTreeRoot should return QHashOut", async () => {

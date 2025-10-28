@@ -12,9 +12,9 @@ use bb8_redis::RedisConnectionManager;
 use chrono::{DateTime, Utc};
 use psy_core::job::id::QProvingJobDataID;
 use psy_store::{
-    node::{coordinator::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync},
+    node::{coordinator::PsyCoordinatorStoreReaderAsync, realm::PsyRealmStoreReaderAsync},
     queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, QueueId, RsmqQueue},
-    store::QEDStore,
+    store::PsyStore,
 };
 use redis::AsyncCommands;
 use rsmq::RsmqMessage;
@@ -43,7 +43,7 @@ const FAILURE_BACKOFF_DURATION: u64 = 30;
 
 pub struct WatcherService {
     config: WatcherConfig,
-    psy_store: Arc<QEDStore>,
+    psy_store: Arc<PsyStore>,
     redis_pool: Arc<Pool<RedisConnectionManager>>,
     rsmq_queue: Arc<RsmqQueue>,
     rsmq_queue_id: QueueId,
@@ -64,7 +64,7 @@ impl WatcherService {
         });
 
         let psy_store = Arc::new(
-            QEDStore::from_backend(config.backend.to_backend())
+            PsyStore::from_backend(config.backend.to_backend())
                 .await
                 .map_err(|e| anyhow!("Database initialization failed: {}", e))?,
         );
@@ -496,8 +496,8 @@ impl WatcherService {
 
     async fn fetch_block_height_from_db(&self) -> Result<u64> {
         let block_state = match self.config.node_type {
-            NodeType::Coordinator => QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?,
-            NodeType::Realm => QEDRealmStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?,
+            NodeType::Coordinator => PsyCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?,
+            NodeType::Realm => PsyRealmStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?,
         };
 
         Ok(block_state.checkpoint_id)
@@ -583,10 +583,10 @@ impl WatcherService {
     }
 }
 
-async fn fetch_initial_block_height(node_type: &NodeType, store: &QEDStore) -> Result<u64> {
+async fn fetch_initial_block_height(node_type: &NodeType, store: &PsyStore) -> Result<u64> {
     let block_state = match node_type {
-        NodeType::Coordinator => QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(store).await?,
-        NodeType::Realm => QEDRealmStoreReaderAsync::get_latest_l2_block_state(store).await?,
+        NodeType::Coordinator => PsyCoordinatorStoreReaderAsync::get_latest_l2_block_state(store).await?,
+        NodeType::Realm => PsyRealmStoreReaderAsync::get_latest_l2_block_state(store).await?,
     };
 
     Ok(block_state.checkpoint_id)

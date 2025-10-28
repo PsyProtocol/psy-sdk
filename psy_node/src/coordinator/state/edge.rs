@@ -8,20 +8,20 @@ use psy_core::job::{
 };
 use psy_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, signature::zk::data::ZKPublicKeyInfo};
 use psy_data::{
-    config::store_config::{QEDFelt, QEDHasher},
+    config::store_config::{PsyFelt, PsyHasher},
     guta::api::SubmitGUTARealmResultAPINoProofInput,
     qblock::cmds::deploy_contract::QBCDeployContract,
 };
-use psy_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
+use psy_store::node::coordinator::PsyCoordinatorStoreReaderAsync;
 use rand::{thread_rng, RngCore};
 
 use super::processor::CoordinatorConfig;
 
-type F = QEDFelt;
+type F = PsyFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 #[derive(Clone)]
-pub struct CoordinatorEdgeContext<SR: QEDCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> {
+pub struct CoordinatorEdgeContext<SR: PsyCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> {
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub proof_store: Arc<PS>,
@@ -32,7 +32,7 @@ pub struct CoordinatorEdgeContext<SR: QEDCoordinatorStoreReaderAsync<F>, DQ: Che
     //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
 }
 
-impl<SR: QEDCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> CoordinatorEdgeContext<SR, DQ, PS> {
+impl<SR: PsyCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> CoordinatorEdgeContext<SR, DQ, PS> {
     pub async fn new(
         coordinator_config: CoordinatorConfig,
         store_reader: Arc<SR>,
@@ -68,7 +68,7 @@ impl<SR: QEDCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsync
 
     pub async fn handle_deploy_contract(&self, contract_data: QBCDeployContract<F>) -> anyhow::Result<()> {
         let checkpoint_id = self.get_next_checkpoint_id_async().await?;
-        let with_root = contract_data.into_with_whitelist_root::<QEDHasher>()?;
+        let with_root = contract_data.into_with_whitelist_root::<PsyHasher>()?;
 
         let cd_for_queue = WithDrainQueueMetadata::new_params(
             self.coordinator_config.deploy_contract_channel_id,
@@ -86,7 +86,7 @@ impl<SR: QEDCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsync
         input: SubmitGUTARealmResultAPINoProofInput<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
-        if !input.top_line_proof.verify::<QEDHasher>() {
+        if !input.top_line_proof.verify::<PsyHasher>() {
             anyhow::bail!("invalid top line proof from realm");
         }
 

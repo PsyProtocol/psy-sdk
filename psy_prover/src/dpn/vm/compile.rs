@@ -14,20 +14,20 @@ use psy_vm::dpn::{
 use super::{gadgets::state_readers::StateReaderGadget, ops::SimpleDPNBuilder};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct QEDCmdWithInputAndResultTargets {
+pub struct PsyCmdWithInputAndResultTargets {
     pub state_cmd: DPNStateCmd<u64>,
     pub result: Vec<Target>,
 }
 
 #[derive(Clone, Debug)]
-pub struct QEDContractFunctionBuilderGadget {
-    pub cmd_results: Vec<QEDCmdWithInputAndResultTargets>,
+pub struct PsyContractFunctionBuilderGadget {
+    pub cmd_results: Vec<PsyCmdWithInputAndResultTargets>,
     pub state_reader: StateReaderGadget,
     pub session_proof_tree_root: HashOutTarget,
     pub tx_ctx_header: DapenCFCUserTransactionInputContextGadget,
     pub outputs: Vec<Target>,
 }
-impl QEDContractFunctionBuilderGadget {
+impl PsyContractFunctionBuilderGadget {
     pub fn add_virtual_to<
         H: AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
         F: RichField + Extendable<D>,
@@ -79,7 +79,7 @@ impl QEDContractFunctionBuilderGadget {
         cmd: &DPNStateCmd<u64>,
     ) {
         let result = self.state_reader.injest_symbolic_state_command::<H, F, D>(builder, dpn, cmd);
-        self.cmd_results.push(QEDCmdWithInputAndResultTargets {
+        self.cmd_results.push(PsyCmdWithInputAndResultTargets {
             state_cmd: cmd.clone(),
             result,
         });

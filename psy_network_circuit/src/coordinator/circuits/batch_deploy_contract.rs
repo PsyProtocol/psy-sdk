@@ -14,7 +14,7 @@ use psy_common_circuit::{
     builder::{
         comparison::CircuitBuilderComparison,
         hash::core::CircuitBuilderHashCore,
-        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+        pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     },
     circuits::traits::qstandard::{
         provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
@@ -37,7 +37,7 @@ use psy_crypto::{
 };
 use psy_data::{
     protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput,
-    qdata::{contract::QEDContractLeaf, pm_jobs_completed_stats::PMJobsCompletedStats},
+    qdata::{contract::PsyContractLeaf, pm_jobs_completed_stats::PMJobsCompletedStats},
 };
 
 use crate::{coordinator::gadgets::deploy_contract::BatchDeployContractsGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
@@ -86,7 +86,7 @@ where
         builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&deploy_contract_circuit_whitelist.elements);
         builder.register_public_inputs(&state_transition_hash.elements);
-        builder.add_qed_type_d_common_gates();
+        builder.add_psy_type_d_common_gates();
         pad_circuit_degree(&mut builder, 12);
 
         let circuit_data = builder.build::<C>();
@@ -109,7 +109,7 @@ where
         deploy_contract_circuit_whitelist: QHashOut<C::F>,
         worker_public_key: QHashOut<C::F>,
         spiderman_append_proof: &SpidermanUpdateProof<QHashOut<C::F>>,
-        contract_leaves: &[QEDContractLeaf<C::F>],
+        contract_leaves: &[PsyContractLeaf<C::F>],
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.deploy_contract_circuit_whitelist, deploy_contract_circuit_whitelist.0)?;

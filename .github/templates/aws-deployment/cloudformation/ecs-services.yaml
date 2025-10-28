@@ -1,10 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'QED Protocol ECS Services - Generated from config.json'
+Description: 'Psy Protocol ECS Services - Generated from config.json'
 
 Parameters:
   ProjectName:
     Type: String
-    Default: qed-protocol
+    Default: psy-protocol
 
   Environment:
     Type: String
@@ -107,7 +107,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/qed-protocol
+              awslogs-group: /ecs/psy-protocol
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: coordinator-processor
 
@@ -174,7 +174,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/qed-protocol
+              awslogs-group: /ecs/psy-protocol
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: coordinator-edge
 
@@ -245,7 +245,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/qed-protocol
+              awslogs-group: /ecs/psy-protocol
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: coordinator-worker
 
@@ -303,7 +303,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/qed-protocol
+              awslogs-group: /ecs/psy-protocol
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: realm-0-processor
 
@@ -348,7 +348,7 @@ Resources:
             - '0'
             - --coordinator-addr
 
-            - 'http://coordinator-edge.qed.local:8545'
+            - 'http://coordinator-edge.psy.local:8545'
 
 
 
@@ -382,7 +382,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/qed-protocol
+              awslogs-group: /ecs/psy-protocol
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: realm-0-edge
 
@@ -442,7 +442,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/qed-protocol
+              awslogs-group: /ecs/psy-protocol
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: realm-0-worker
 
@@ -498,7 +498,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/qed-protocol
+              awslogs-group: /ecs/psy-protocol
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: realm-1-processor
 
@@ -543,7 +543,7 @@ Resources:
             - '1'
             - --coordinator-addr
 
-            - 'http://coordinator-edge.qed.local:8545'
+            - 'http://coordinator-edge.psy.local:8545'
 
 
 
@@ -577,7 +577,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/qed-protocol
+              awslogs-group: /ecs/psy-protocol
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: realm-1-edge
 
@@ -637,7 +637,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/qed-protocol
+              awslogs-group: /ecs/psy-protocol
               awslogs-region: !Ref 'AWS::Region'
               awslogs-stream-prefix: realm-1-worker
 

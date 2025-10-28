@@ -1,8 +1,8 @@
 use anyhow::Result;
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+use psy_crypto::signature::zk::wallet::SimplePsyPrivateKey;
 use serde::{Deserialize, Serialize};
 
 use super::args::RandomWalletArgs;
@@ -18,8 +18,8 @@ struct RandomWalletOutputJSON {
 pub fn run(_: RandomWalletArgs) -> Result<()> {
     let private_key = QHashOut::<GoldilocksField>::rand();
     println!("private key: {}", private_key);
-    let mut debug_wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    let zkey_info = debug_wallet.add_private_key_get_info(SimpleQEDPrivateKey { private_key: private_key });
+    let mut debug_wallet = SimplePsyZKSignatureManager::<C, D>::new();
+    let zkey_info = debug_wallet.add_private_key_get_info(SimplePsyPrivateKey { private_key: private_key });
 
     println!(
         "{}",

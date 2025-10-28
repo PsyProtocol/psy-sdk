@@ -1,6 +1,6 @@
 # Basic Syntax
 
-[QED Smart Contract Language] uses a syntax inspired by [Rust]. Here are the basics:
+[Psy Smart Contract Language] uses a syntax inspired by [Rust]. Here are the basics:
 
 ## Variables
 

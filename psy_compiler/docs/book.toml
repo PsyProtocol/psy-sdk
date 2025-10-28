@@ -3,7 +3,7 @@ authors = ["PsyProtocol"]
 language = "en"
 multilingual = false
 src = "src"
-title = "QED Smart Contract Language"
+title = "Psy Smart Contract Language"
 
 [preprocessor]
 

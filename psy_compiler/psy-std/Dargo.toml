@@ -2,9 +2,9 @@
 name = "std"
 version = "0.1.0"
 type = "lib"
-entry = "std.qed"
+entry = "std.psy"
 description = "std module"
-author = "QEDProtocol"
+author = "PsyProtocol"
 
 [dependencies]
 

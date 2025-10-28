@@ -9,7 +9,7 @@ use plonky2::plonk::{
 };
 use psy_common_circuit::circuits::{
     l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature::inner,
-    zk_signature3::core::QEDBasicZKSignatureCircuit,
+    zk_signature3::core::PsyBasicZKSignatureCircuit,
 };
 use psy_core::{
     config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT,
@@ -22,11 +22,11 @@ use psy_crypto::{
     },
     hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     signature,
-    signature::{secp256k1, secp256k1::core::QEDCompressedSecp256K1Signature},
+    signature::{secp256k1, secp256k1::core::PsyCompressedSecp256K1Signature},
 };
 use psy_data::{
     qdata::contract::ContractCodeDefinition,
-    qstore::imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync},
+    qstore::imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::PsyReadCommandProcessorSync},
     ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
@@ -42,7 +42,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::local::provider::{QCommonCircuitData, RpcConfig, RpcProvider, UPSCircuitManagerTrait};
 use crate::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
-    ups::circuit_manager::core::QEDUPSStepCircuitManager,
+    ups::circuit_manager::core::PsyUPSStepCircuitManager,
     wallet::software_defined_circuit::{
         QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput, SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget,
         SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
@@ -53,7 +53,7 @@ type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
 const D: usize = 2;
 
-#[rpc(server, client, namespace = "qed")]
+#[rpc(server, client, namespace = "psy")]
 pub trait ProveProxyRpc {
     /// local proving proof generate
     #[method(name = "prove_ups_start")]
@@ -101,7 +101,7 @@ pub trait ProveProxyRpc {
     async fn prove_zk_sign_minifier(&self, inner_proof: String) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     #[method(name = "prove_secp_sign")]
-    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+    async fn prove_secp_sign(&self, signature: PsyCompressedSecp256K1Signature) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     #[method(name = "register_software_defined_circuit")]
     async fn register_software_defined_circuit(&self, input: QSoftwareDefinedSignatureInput) -> Result<QHashOut<F>, ErrorObjectOwned>;
@@ -227,7 +227,7 @@ pub struct ProveProxyServerProvider {
     pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
     pub software_defined_circuits: DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
 
-    pub circuit_manager: Arc<QEDUPSStepCircuitManager<C, D>>,
+    pub circuit_manager: Arc<PsyUPSStepCircuitManager<C, D>>,
     pub circuit_info: Arc<SessionCircuitInfoStore<F>>,
     pub circuits_data: LocalCommonCircuitsData,
 }
@@ -240,7 +240,7 @@ impl ProveProxyServerProvider {
 
         let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;
 
-        let circuit_manager = QEDUPSStepCircuitManager::<C, D>::new_with_config(network_magic);
+        let circuit_manager = PsyUPSStepCircuitManager::<C, D>::new_with_config(network_magic);
         let mut circuit_info = SessionCircuitInfoStore::new();
 
         // circuit_info.register_circuit(
@@ -670,7 +670,7 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         })
     }
 
-    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
+    async fn prove_secp_sign(&self, signature: PsyCompressedSecp256K1Signature) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_secp_sign");
 
         let circuit_manager = self.circuit_manager.clone();
@@ -696,7 +696,7 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
 
     async fn register_software_defined_circuit(&self, input: QSoftwareDefinedSignatureInput) -> Result<QHashOut<F>, ErrorObjectOwned> {
         todo!("register_software_defined_circuit");
-        // let input = SoftwareDefinedSignatureInput::QED(input);
+        // let input = SoftwareDefinedSignatureInput::Psy(input);
         // let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
 
         // let fingerprint = sdc.get_fingerprint();
@@ -717,7 +717,7 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
         tracing::info!("🔔 prove_software_defined_sign");
         todo!("prove_software_defined_sign");
-        // let input = SoftwareDefinedSignatureWitnessInput::QED(input);
+        // let input = SoftwareDefinedSignatureWitnessInput::Psy(input);
 
         // if let Some(mut sdc) =
         // self.software_defined_circuits.get_mut(&fingerprint) {

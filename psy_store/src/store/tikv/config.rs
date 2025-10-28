@@ -12,7 +12,7 @@ pub struct TiKVConfig {
     )]
     pub pd_endpoints: String,
 
-    #[clap(long = "tikv-namespace", env = "TIKV_NAMESPACE", default_value = "qed")]
+    #[clap(long = "tikv-namespace", env = "TIKV_NAMESPACE", default_value = "psy")]
     pub namespace: String,
     #[clap(long = "tikv-timeout", env = "TIKV_TIMEOUT", default_value = "2")]
     pub timeout: u64,
@@ -49,7 +49,7 @@ impl Default for TiKVConfig {
     fn default() -> Self {
         Self {
             pd_endpoints: "127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383".to_string(),
-            namespace: "qed".to_string(),
+            namespace: "psy".to_string(),
             timeout: 10,
             grpc_max_decoding_message_size: 20 * 1024 * 1024, // 20MB => 20971520
             enable_grpc_gzip_compression: true,

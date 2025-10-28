@@ -5,7 +5,7 @@ use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::qdata::user::QEDUserLeaf;
+use crate::qdata::user::PsyUserLeaf;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -84,7 +84,7 @@ pub struct UserProvingSessionStartContext<F: RichField> {
     pub checkpoint_id: F,
     pub checkpoint_tree_root: QHashOut<F>,
     pub checkpoint_leaf_hash: QHashOut<F>,
-    pub start_session_user_leaf: QEDUserLeaf<F>,
+    pub start_session_user_leaf: PsyUserLeaf<F>,
 }
 
 impl<F: RichField> QFieldHashable<F> for UserProvingSessionStartContext<F> {
@@ -117,7 +117,7 @@ impl<F: RichField> KVQSerializable for UserProvingSessionStartContext<F> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct UserProvingSessionCurrentState<F: RichField> {
-    pub user_leaf: QEDUserLeaf<F>,
+    pub user_leaf: PsyUserLeaf<F>,
 
     pub deferred_tx_debt_tree_root: QHashOut<F>,
     pub inline_tx_debt_tree_root: QHashOut<F>,

@@ -16,7 +16,7 @@ use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, UserError>;
 
-lalrpop_mod!(pub qed);
+lalrpop_mod!(pub psy);
 
 #[derive(Debug)]
 pub struct Parser<'a, 'b, F: Clone + From<u32>, C> {
@@ -65,7 +65,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         let lexer = Lexer::new(file_content);
         let transformer = GenericTokenTransformer::new(lexer);
         let tokens: Vec<_> = transformer.collect::<psy_lexer::Result<Vec<_>>>()?;
-        let module = qed::ModuleParser::new()
+        let module = psy::ModuleParser::new()
             .parse(
                 file_content,
                 file_id,
@@ -228,7 +228,7 @@ fn std_path() -> PathBuf {
     let current_file = std::path::Path::new(file!());
 
     if let Some(parser_dir) = current_file.parent().and_then(|p| p.parent()).and_then(|p| p.parent()) {
-        let std_path = parser_dir.join("psy-std/std.qed");
+        let std_path = parser_dir.join("psy-std/std.psy");
         if std_path.exists() {
             return std_path;
         }
@@ -236,11 +236,11 @@ fn std_path() -> PathBuf {
 
     if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
         let candidates = [
-            "../psy-std/std.qed",
-            "../../psy-std/std.qed",
-            "../../../psy-std/std.qed",
-            "../psy_compiler/psy-std/std.qed",
-            "../../psy_compiler/psy-std/std.qed",
+            "../psy-std/std.psy",
+            "../../psy-std/std.psy",
+            "../../../psy-std/std.psy",
+            "../psy_compiler/psy-std/std.psy",
+            "../../psy_compiler/psy-std/std.psy",
         ];
 
         for candidate in &candidates {
@@ -253,7 +253,7 @@ fn std_path() -> PathBuf {
         }
     }
 
-    panic!("Cannot find psy-std/std.qed. Please set DARGO_STD_PATH environment variable or ensure psy-std is in the expected location relative to psy-parser.");
+    panic!("Cannot find psy-std/std.psy. Please set DARGO_STD_PATH environment variable or ensure psy-std is in the expected location relative to psy-parser.");
 }
 
 #[cfg(test)]
@@ -270,7 +270,7 @@ mod tests {
         let mut program = Program::new();
         let mut ctx = QExecContext::new();
         let mut crate_path_graph = Graph::new();
-        crate_path_graph.add_node(PathBuf::from("../tests/storage_test.qed"));
+        crate_path_graph.add_node(PathBuf::from("../tests/storage_test.psy"));
         let mut parser = Parser::new(&mut program, &mut ctx, crate_path_graph);
         parser.parse().unwrap();
     }

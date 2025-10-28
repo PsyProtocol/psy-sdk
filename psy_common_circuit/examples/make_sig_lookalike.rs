@@ -11,9 +11,9 @@ use plonky2::{
 use psy_common_circuit::{
     builder::{
         hash::core::CircuitBuilderHashCore,
-        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+        pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     },
-    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager},
+    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
 };
 use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
@@ -37,7 +37,7 @@ where
         let output_hash = builder.hash_two_to_one::<C::Hasher>(input_hash, input_hash);
 
         builder.register_public_inputs(&output_hash.elements);
-        //builder.add_qed_type_b_common_gates();
+        //builder.add_psy_type_b_common_gates();
         //pad_circuit_degree(&mut builder, 11);
         let circuit_data = builder.build::<C>();
 
@@ -76,7 +76,7 @@ where
         let output_hash = builder.hash_two_to_one::<C::Hasher>(input_hash, input_hash);
 
         builder.register_public_inputs(&output_hash.elements);
-        builder.add_qed_type_b_common_gates();
+        builder.add_psy_type_b_common_gates();
         pad_circuit_degree(&mut builder, 11);
         let circuit_data = builder.build::<C>();
 
@@ -106,7 +106,7 @@ where
     let output_hash = builder.hash_two_to_one::<C::Hasher>(input_hash, input_hash);
 
     builder.register_public_inputs(&output_hash.elements);
-    builder.add_qed_type_b_common_gates();
+    builder.add_psy_type_b_common_gates();
     pad_circuit_degree(&mut builder, 4);
     let circuit_data = builder.build::<C>();
 
@@ -127,7 +127,7 @@ fn run_check_sig_lookalike() -> anyhow::Result<()> {
     timer.lap("built simpler circuit");
     let lookalike_circuit = SimpleSigLookalikeCircuit::<C, D>::new();
     timer.lap("built lookalike_circuit");
-    let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
+    let wallet = SimplePsyZKSignatureManager::<C, D>::new();
     timer.lap("built wallet");
 
     let get_lookalike_fast = get_simple_sig_common_data::<C, D>();

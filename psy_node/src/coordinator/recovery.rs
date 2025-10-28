@@ -4,10 +4,10 @@ use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_data::config::genesis_config::GenesisConfig;
 use psy_store::{
-    node::coordinator::QEDCoordinatorStoreReaderAsync,
+    node::coordinator::PsyCoordinatorStoreReaderAsync,
     store::{
         journal::{Journal, JournalStore},
-        QEDStore,
+        PsyStore,
     },
 };
 use tracing::{error, info, warn};
@@ -16,7 +16,7 @@ use super::backup::CoordinatorS3BackupClient;
 use crate::coordinator::CoordinatorProcessNode;
 
 pub struct CoordinatorRecoveryManager {
-    store: JournalStore<QEDStore>,
+    store: JournalStore<PsyStore>,
     backup_client: CoordinatorS3BackupClient,
     current_checkpoint_id: u64,
     config_path: String,
@@ -26,8 +26,8 @@ impl CoordinatorRecoveryManager {
     pub async fn new(backend: psy_store::store::backend::Backend, bucket: String, config_path: String) -> Result<Self> {
         let backup_client = CoordinatorS3BackupClient::new(bucket).await?;
         info!("Initialized S3BackupClient for recovery");
-        let psy_store = QEDStore::from_backend(backend).await?;
-        info!("Initialized QEDStore for recovery");
+        let psy_store = PsyStore::from_backend(backend).await?;
+        info!("Initialized PsyStore for recovery");
         let store = JournalStore::new(psy_store);
         info!("Initialized JournalStore for recovery");
         let current_checkpoint_id = 0;

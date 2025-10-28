@@ -6,29 +6,29 @@ use plonky2::{
 };
 use psy_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, CreatableWithHasherTarget, WitnessValueFor};
 use psy_core::data::qhashout::QHashOut;
-use psy_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeafCompactWithStateRoots};
+use psy_data::qdata::checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeafCompactWithStateRoots};
 
-use super::{checkpoint::QEDCheckpointLeafCompactGadget, checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget};
+use super::{checkpoint::PsyCheckpointLeafCompactGadget, checkpoint_state_roots::PsyCheckpointGlobalStateRootsGadget};
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
-pub struct QEDCheckpointLeafCompactWithStateRootsGadget {
-    pub checkpoint_leaf: QEDCheckpointLeafCompactGadget,
-    pub global_state_roots: QEDCheckpointGlobalStateRootsGadget,
+pub struct PsyCheckpointLeafCompactWithStateRootsGadget {
+    pub checkpoint_leaf: PsyCheckpointLeafCompactGadget,
+    pub global_state_roots: PsyCheckpointGlobalStateRootsGadget,
 
     // fully computed
     pub checkpoint_leaf_hash: HashOutTarget,
 }
 
-impl QEDCheckpointLeafCompactWithStateRootsGadget {
+impl PsyCheckpointLeafCompactWithStateRootsGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         // START: create targets that require witness
-        let global_state_roots = QEDCheckpointGlobalStateRootsGadget::create_virtual(builder);
+        let global_state_roots = PsyCheckpointGlobalStateRootsGadget::create_virtual(builder);
         let stats_hash = builder.add_virtual_hash();
         // END: create targets that require witness
 
         // START: setup computed targets
         let global_chain_root = global_state_roots.to_hash::<H, F, D>(builder);
-        let checkpoint_leaf = QEDCheckpointLeafCompactGadget {
+        let checkpoint_leaf = PsyCheckpointLeafCompactGadget {
             global_chain_root,
             stats_hash,
         };
@@ -45,13 +45,13 @@ impl QEDCheckpointLeafCompactWithStateRootsGadget {
     pub fn set_witness_params<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,
-        global_state_roots: &QEDCheckpointGlobalStateRoots<F>,
+        global_state_roots: &PsyCheckpointGlobalStateRoots<F>,
         stats_hash: QHashOut<F>,
     ) -> anyhow::Result<()> {
         self.global_state_roots.set_witness(witness, &global_state_roots)?;
         witness.set_hash_target(self.checkpoint_leaf.stats_hash, stats_hash.0)
     }
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompactWithStateRoots<F>) -> anyhow::Result<()> {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafCompactWithStateRoots<F>) -> anyhow::Result<()> {
         self.set_witness_params(witness, &target.global_state_roots, target.checkpoint_leaf.stats_hash)
     }
     pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, _builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
@@ -60,7 +60,7 @@ impl QEDCheckpointLeafCompactWithStateRootsGadget {
         self.checkpoint_leaf_hash
     }
 }
-impl AlgebraicHashableTarget for QEDCheckpointLeafCompactWithStateRootsGadget {
+impl AlgebraicHashableTarget for PsyCheckpointLeafCompactWithStateRootsGadget {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -68,20 +68,20 @@ impl AlgebraicHashableTarget for QEDCheckpointLeafCompactWithStateRootsGadget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl CreatableWithHasherTarget for QEDCheckpointLeafCompactWithStateRootsGadget {
+impl CreatableWithHasherTarget for PsyCheckpointLeafCompactWithStateRootsGadget {
     fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         Self::add_virtual_to::<H, F, D>(builder)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDCheckpointLeafCompactWithStateRootsGadget, F, true> for QEDCheckpointLeafCompactWithStateRoots<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompactWithStateRootsGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyCheckpointLeafCompactWithStateRootsGadget, F, true> for PsyCheckpointLeafCompactWithStateRoots<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafCompactWithStateRootsGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDCheckpointLeafCompactWithStateRootsGadget, F, false> for QEDCheckpointLeafCompactWithStateRoots<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointLeafCompactWithStateRootsGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyCheckpointLeafCompactWithStateRootsGadget, F, false> for PsyCheckpointLeafCompactWithStateRoots<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafCompactWithStateRootsGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

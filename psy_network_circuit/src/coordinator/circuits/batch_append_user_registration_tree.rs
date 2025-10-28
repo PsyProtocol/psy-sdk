@@ -11,7 +11,7 @@ use plonky2::{
     },
 };
 use psy_common_circuit::{
-    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates},
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderPsyCommonGates},
     circuits::traits::qstandard::{
         provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
         QStandardCircuitProvableWithProofStoreSync,
@@ -86,7 +86,7 @@ where
         builder.register_public_inputs(&register_users_circuit_whitelist.elements);
         builder.register_public_inputs(&state_transition_hash.elements);
 
-        builder.add_qed_type_d_common_gates();
+        builder.add_psy_type_d_common_gates();
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));

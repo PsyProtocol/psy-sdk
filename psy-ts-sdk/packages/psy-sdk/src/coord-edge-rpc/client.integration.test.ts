@@ -2,7 +2,7 @@ import { CoordinatorEdgeRpcProvider } from "./client";
 import { ICoordinatorEdgeRpcProvider } from "./types";
 import { QBCDeployContract, ZKPublicKeyInfo } from "../types";
 
-// Note: These tests are integration tests and require a running QED Coordinator Edge RPC endpoint.
+// Note: These tests are integration tests and require a running Psy Coordinator Edge RPC endpoint.
 // Configure the endpoint URL via the TEST_COORD_EDGE_RPC_URL environment variable.
 // You might need to set up Jest and ts-jest in your project if not already done.
 // e.g., yarn add jest @types/jest ts-jest -D
@@ -62,7 +62,7 @@ function expectMerkleProofCoreQHashOut(value: any) {
     value.siblings.forEach((sibling: any) => expectQHashOut(sibling));
 }
 
-function expectQEDUserLeaf(value: any) {
+function expectPsyUserLeaf(value: any) {
     expect(value).toBeDefined();
     expect(typeof value.user_id).toBe("bigint");
     expect(typeof value.nonce).toBe("bigint");
@@ -72,14 +72,14 @@ function expectQEDUserLeaf(value: any) {
     expectQHashOut(value.user_pk_hash);
 }
 
-function expectQEDContractLeaf(value: any) {
+function expectPsyContractLeaf(value: any) {
     expect(value).toBeDefined();
     expectQHashOut(value.deployer);
     expectQHashOut(value.function_tree_root);
     expect(typeof value.state_tree_height).toBe("bigint");
 }
 
-function expectQEDCheckpointLeaf(value: any) {
+function expectPsyCheckpointLeaf(value: any) {
     expect(value).toBeDefined();
     // expect(typeof value.checkpoint_id).toBe("number");
     // expect(typeof value.next_add_withdrawal_id).toBe("number");
@@ -90,12 +90,12 @@ function expectQEDCheckpointLeaf(value: any) {
     // expect(typeof value.end_balance).toBe("number");
 }
 
-// function expectQEDL2BlockState(value: any) {
-//     // QEDL2BlockState has the same structure as QEDCheckpointLeaf
-//     expectQEDCheckpointLeaf(value);
+// function expectPsyL2BlockState(value: any) {
+//     // PsyL2BlockState has the same structure as PsyCheckpointLeaf
+//     expectPsyCheckpointLeaf(value);
 // }
 
-function expectQEDCheckpointGlobalStateRoots(_value: any) {
+function expectPsyCheckpointGlobalStateRoots(_value: any) {
     // expect(value).toBeDefined();
     // expectQHashOut(value.user_tree_root);
     // expectQHashOut(value.checkpoint_tree_root);
@@ -121,7 +121,7 @@ function expectContractCodeDefinition(value: any) {
     expect(typeof value.metadata).toBe("string");
 }
 
-function expectQEDCheckpointSyncInfoCompact(value: any) {
+function expectPsyCheckpointSyncInfoCompact(value: any) {
     expect(value).toBeDefined();
     // expect(typeof value.checkpoint_id).toBe("number");
     // expect(Array.isArray(value.compact_data)).toBe(true);
@@ -176,20 +176,20 @@ describe("CoordinatorEdgeRpcProvider Integration Tests", () => {
         }
     });
 
-    it("getContractLeafData should return QEDContractLeaf", async () => {
+    it("getContractLeafData should return PsyContractLeaf", async () => {
         try {
             const result = await client.getContractLeafData(mockContractIdNum);
-            expectQEDContractLeaf(result);
+            expectPsyContractLeaf(result);
             console.log("getContractLeafData result:", result);
         } catch (error) {
             console.warn("getContractLeafData failed:", error);
         }
     });
 
-    it("getContractLeafDataF should return QEDContractLeaf", async () => {
+    it("getContractLeafDataF should return PsyContractLeaf", async () => {
         try {
             const result = await client.getContractLeafDataF(mockContractIdNum);
-            expectQEDContractLeaf(result);
+            expectPsyContractLeaf(result);
             console.log("getContractLeafDataF result:", result);
         } catch (error) {
             console.warn("getContractLeafDataF failed:", error);
@@ -238,20 +238,20 @@ describe("CoordinatorEdgeRpcProvider Integration Tests", () => {
         }
     });
 
-    it("getCheckpointLeafData should return QEDCheckpointLeaf", async () => {
+    it("getCheckpointLeafData should return PsyCheckpointLeaf", async () => {
         try {
             const result = await client.getCheckpointLeafData(mockCheckpointIdNum);
-            expectQEDCheckpointLeaf(result);
+            expectPsyCheckpointLeaf(result);
             console.log("getCheckpointLeafData result:", result);
         } catch (error) {
             console.warn("getCheckpointLeafData failed:", error);
         }
     });
 
-    it("getCheckpointLeafDataF should return QEDCheckpointLeaf", async () => {
+    it("getCheckpointLeafDataF should return PsyCheckpointLeaf", async () => {
         try {
             const result = await client.getCheckpointLeafDataF(mockCheckpointIdBigInt);
-            // expectQEDCheckpointLeaf(result);
+            // expectPsyCheckpointLeaf(result);
             console.log("getCheckpointLeafDataF result:", result);
         } catch (error) {
             console.warn("getCheckpointLeafDataF failed:", error);
@@ -260,30 +260,30 @@ describe("CoordinatorEdgeRpcProvider Integration Tests", () => {
 
     // --- L2 Block State Tests ---
 
-    it("getLatestL2BlockState should return QEDL2BlockState", async () => {
+    it("getLatestL2BlockState should return PsyL2BlockState", async () => {
         try {
             const result = await client.getLatestL2BlockState();
-            // expectQEDL2BlockState(result);
+            // expectPsyL2BlockState(result);
             console.log("getLatestL2BlockState result:", result);
         } catch (error) {
             console.warn("getLatestL2BlockState failed:", error);
         }
     });
 
-    it("getL2BlockState should return QEDL2BlockState", async () => {
+    it("getL2BlockState should return PsyL2BlockState", async () => {
         try {
             const result = await client.getL2BlockState(mockCheckpointIdNum);
-            // expectQEDL2BlockState(result);
+            // expectPsyL2BlockState(result);
             console.log("getL2BlockState result:", result);
         } catch (error) {
             console.warn("getL2BlockState failed:", error);
         }
     });
 
-    it("getL2BlockStateF should return QEDL2BlockState", async () => {
+    it("getL2BlockStateF should return PsyL2BlockState", async () => {
         try {
             const result = await client.getL2BlockStateF(mockCheckpointIdBigInt);
-            // expectQEDL2BlockState(result);
+            // expectPsyL2BlockState(result);
             console.log("getL2BlockStateF result:", result);
         } catch (error) {
             console.warn("getL2BlockStateF failed:", error);
@@ -757,20 +757,20 @@ describe("CoordinatorEdgeRpcProvider Integration Tests", () => {
 
     // --- Global State Tests ---
 
-    it("getCheckpointGlobalStateRoots should return QEDCheckpointGlobalStateRoots", async () => {
+    it("getCheckpointGlobalStateRoots should return PsyCheckpointGlobalStateRoots", async () => {
         try {
             const result = await client.getCheckpointGlobalStateRoots(mockCheckpointIdNum);
-            expectQEDCheckpointGlobalStateRoots(result);
+            expectPsyCheckpointGlobalStateRoots(result);
             console.log("getCheckpointGlobalStateRoots result:", result);
         } catch (error) {
             console.warn("getCheckpointGlobalStateRoots failed:", error);
         }
     });
 
-    it("getCheckpointSyncInfoCompact should return QEDCheckpointSyncInfoCompact", async () => {
+    it("getCheckpointSyncInfoCompact should return PsyCheckpointSyncInfoCompact", async () => {
         try {
             const result = await client.getCheckpointSyncInfoCompact(mockCheckpointIdNum);
-            expectQEDCheckpointSyncInfoCompact(result);
+            expectPsyCheckpointSyncInfoCompact(result);
             console.log("getCheckpointSyncInfoCompact result:", result);
         } catch (error) {
             console.warn("getCheckpointSyncInfoCompact failed:", error);
@@ -789,10 +789,10 @@ describe("CoordinatorEdgeRpcProvider Integration Tests", () => {
 
     // --- User Leaf Data Tests ---
 
-    it("getUserLeafData should return QEDUserLeaf", async () => {
+    it("getUserLeafData should return PsyUserLeaf", async () => {
         try {
             const result = await client.getUserLeafData(mockCheckpointIdNum, mockUserIdNum);
-            expectQEDUserLeaf(result);
+            expectPsyUserLeaf(result);
             console.log("getUserLeafData result:", result);
         } catch (error) {
             console.warn("getUserLeafData failed:", error);

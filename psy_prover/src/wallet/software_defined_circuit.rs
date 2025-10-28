@@ -21,10 +21,10 @@ use plonky2::{
 use psy_common_circuit::{
     builder::{
         hash::core::CircuitBuilderHashCore,
-        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+        pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     },
     circuits::traits::qstandard::QStandardCircuit,
-    proof_minifier::pm_chain::QEDProofMinifierChain,
+    proof_minifier::pm_chain::PsyProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
 use psy_core::data::qhashout::QHashOut;
@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::{
-    dpn::vm::compile::QEDContractFunctionBuilderGadget,
+    dpn::vm::compile::PsyContractFunctionBuilderGadget,
     local::provider::RpcProvider,
     wallet::simple_sign::{SoftwareDefinedSignTrait, StateReader, StateReaderGadget},
 };
@@ -63,7 +63,7 @@ where
 
     pub circuit_data: CircuitData<C::F, C, D>,
 
-    pub minifier_chain: QEDProofMinifierChain<D, C::F, C>,
+    pub minifier_chain: PsyProofMinifierChain<D, C::F, C>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -97,7 +97,7 @@ where
 
         builder.register_public_inputs(&public_inputs_hash.elements);
 
-        builder.add_qed_type_b_common_gates();
+        builder.add_psy_type_b_common_gates();
         pad_circuit_degree::<C::F, D>(&mut builder, 11);
 
         let circuit_data = builder.build::<C>();
@@ -105,7 +105,7 @@ where
         let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
 
         let minifier_chain =
-            QEDProofMinifierChain::<D, C::F, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
+            PsyProofMinifierChain::<D, C::F, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
 
         Self {
             // input,
@@ -154,13 +154,13 @@ where
 
 #[derive(Debug)]
 pub enum SoftwareDefinedSignatureGadget {
-    QED(QSoftwareDefinedSignatureGadget),
+    Psy(QSoftwareDefinedSignatureGadget),
     PLONKY2(PSoftwareDefinedSignatureGadget),
 }
 
 #[derive(Debug)]
 pub enum SoftwareDefinedSignatureInput {
-    QED(QSoftwareDefinedSignatureInput),
+    Psy(QSoftwareDefinedSignatureInput),
     PLONKY2(PSoftwareDefinedSignatureInput),
 }
 
@@ -179,13 +179,13 @@ pub struct PSoftwareDefinedSignatureWitnessInput {
 }
 #[derive(Debug)]
 pub enum SoftwareDefinedSignatureWitnessInput {
-    QED(QSoftwareDefinedSignatureWitnessInput),
+    Psy(QSoftwareDefinedSignatureWitnessInput),
     PLONKY2(PSoftwareDefinedSignatureWitnessInput),
 }
 
 #[derive(Debug, Clone)]
 pub struct QSoftwareDefinedSignatureGadget {
-    pub fn_builder_gadget: QEDContractFunctionBuilderGadget,
+    pub fn_builder_gadget: PsyContractFunctionBuilderGadget,
     pub input: QSoftwareDefinedSignatureInput,
     pub circuit_inputs: Vec<Target>,
 }
@@ -216,7 +216,7 @@ impl SoftwareDefinedSignature<C, D> for QSoftwareDefinedSignatureGadget {
     type WitnessInput = QSoftwareDefinedSignatureWitnessInput;
     async fn add_signature_circuit(builder: &mut CircuitBuilder<GF, D>, input: &Self::Input) -> Self {
         let circuit_inputs = builder.add_virtual_targets(input.fn_def.circuit_inputs.len());
-        let fn_builder_gadget = QEDContractFunctionBuilderGadget::add_virtual_to::<PoseidonHash, GF, D>(
+        let fn_builder_gadget = PsyContractFunctionBuilderGadget::add_virtual_to::<PoseidonHash, GF, D>(
             builder,
             &input.fn_def,
             input.contract_state_tree_height as usize,
@@ -315,9 +315,9 @@ impl SoftwareDefinedSignature<C, D> for SoftwareDefinedSignatureGadget {
 
     async fn add_signature_circuit(builder: &mut CircuitBuilder<GF, D>, inputs: &Self::Input) -> Self {
         match inputs {
-            SoftwareDefinedSignatureInput::QED(input) => {
+            SoftwareDefinedSignatureInput::Psy(input) => {
                 let gadget = QSoftwareDefinedSignatureGadget::add_signature_circuit(builder, input).await;
-                Self::QED(gadget)
+                Self::Psy(gadget)
             }
             SoftwareDefinedSignatureInput::PLONKY2(input) => {
                 let gadget = PSoftwareDefinedSignatureGadget::add_signature_circuit(builder, input).await;
@@ -328,14 +328,14 @@ impl SoftwareDefinedSignature<C, D> for SoftwareDefinedSignatureGadget {
 
     fn get_circuit_builder_input(&self) -> Self::Input {
         match self {
-            Self::QED(gadget) => SoftwareDefinedSignatureInput::QED(gadget.get_circuit_builder_input()),
+            Self::Psy(gadget) => SoftwareDefinedSignatureInput::Psy(gadget.get_circuit_builder_input()),
             Self::PLONKY2(gadget) => SoftwareDefinedSignatureInput::PLONKY2(gadget.get_circuit_builder_input()),
         }
     }
 
     async fn set_signature_circuit_witness(&mut self, pw: &mut PartialWitness<GF>, input: &Self::WitnessInput) -> anyhow::Result<()> {
         match (self, input) {
-            (Self::QED(gadget), SoftwareDefinedSignatureWitnessInput::QED(input)) => {
+            (Self::Psy(gadget), SoftwareDefinedSignatureWitnessInput::Psy(input)) => {
                 gadget.set_signature_circuit_witness(pw, input).await?;
             }
             (Self::PLONKY2(gadget), SoftwareDefinedSignatureWitnessInput::PLONKY2(input)) => {

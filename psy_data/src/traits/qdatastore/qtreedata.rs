@@ -10,8 +10,8 @@ use psy_crypto::hash::{
 
 use super::qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync};
 use crate::{
-    config::store_config::QEDHasher,
-    qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
+    config::store_config::PsyHasher,
+    qdata::checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyL2BlockState},
 };
 
 pub trait ActiveCheckpointReaderSync<F: RichField> {
@@ -309,13 +309,13 @@ pub trait QTreeDataStoreReaderSync<F: RichField>: Send + Sync {
         .await
     }
 
-    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>> {
+    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointGlobalStateRoots<F>> {
         let contract_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_contract_tree_root(self, checkpoint_id).await?;
         let deposit_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_deposit_tree_root(self, checkpoint_id).await?;
         let user_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_root(self, checkpoint_id).await?;
         let withdrawal_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_withdrawal_tree_root(self, checkpoint_id).await?;
         let user_registration_tree_root = <Self as QTreeDataStoreReaderSync<F>>::get_user_registration_tree_root(self, checkpoint_id).await?;
-        Ok(QEDCheckpointGlobalStateRoots {
+        Ok(PsyCheckpointGlobalStateRoots {
             contract_tree_root,
             deposit_tree_root,
             user_tree_root,
@@ -492,9 +492,9 @@ pub trait QTreeDataStoreWriterSync<F: RichField> {
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-pub trait QEDComboDataStoreReaderSync<F: RichField>: QMetaDataStoreReaderSync<F> + QTreeDataStoreReaderSync<F> {}
-pub trait QEDComboDataStoreWriterSync<F: RichField>: QMetaDataStoreWriterSync<F> + QTreeDataStoreWriterSync<F> {}
+pub trait PsyComboDataStoreReaderSync<F: RichField>: QMetaDataStoreReaderSync<F> + QTreeDataStoreReaderSync<F> {}
+pub trait PsyComboDataStoreWriterSync<F: RichField>: QMetaDataStoreWriterSync<F> + QTreeDataStoreWriterSync<F> {}
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-pub trait QEDComboDataStoreReaderWriterSync<F: RichField>: QEDComboDataStoreReaderSync<F> + QEDComboDataStoreWriterSync<F> {}
+pub trait PsyComboDataStoreReaderWriterSync<F: RichField>: PsyComboDataStoreReaderSync<F> + PsyComboDataStoreWriterSync<F> {}

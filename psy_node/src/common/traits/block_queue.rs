@@ -6,16 +6,16 @@ use psy_core::{
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
 
-use crate::common::api_request_id::QEDAPIWriteRequestId;
+use crate::common::api_request_id::PsyAPIWriteRequestId;
 
 pub trait CoordinatorBlockAPIInputQueueImm<F: RichField> {
     fn add_user_registration_request_imm(
         &self,
-        request_id: QEDAPIWriteRequestId,
+        request_id: PsyAPIWriteRequestId,
         fingerprint: QHashOut<F>,
         public_key_param: QHashOut<F>,
     ) -> anyhow::Result<()>;
-    fn add_contract_deploy_request_imm(&self, request_id: QEDAPIWriteRequestId, public_key: QHashOut<F>) -> anyhow::Result<()>;
+    fn add_contract_deploy_request_imm(&self, request_id: PsyAPIWriteRequestId, public_key: QHashOut<F>) -> anyhow::Result<()>;
 }
 
 pub trait CoordinatorBlockAPINodeImmRead<F: RichField> {
@@ -24,7 +24,7 @@ pub trait CoordinatorBlockAPINodeImmRead<F: RichField> {
 pub trait CoordinatorBlockAPINodeImm<F: RichField> {
     fn report_guta_update(
         &self,
-        request_id: QEDAPIWriteRequestId,
+        request_id: PsyAPIWriteRequestId,
         proof_id: QProvingJobDataID,
         proof_to_sub_root: MerkleProofCore<QHashOut<F>>,
         header: GlobalUserTreeAggregatorHeader<F>,

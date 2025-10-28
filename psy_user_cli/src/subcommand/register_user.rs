@@ -13,9 +13,9 @@ use psy_core::{
 };
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
-    signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
+    signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey},
 };
-use psy_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
+use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
 use psy_prover::{
     local::{
         args::SignType,
@@ -62,10 +62,10 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
     };
     // Get public key info
     let public_key_param = match SignType::from(args.sign_type.clone()) {
-        SignType::ZKSign => SimpleQEDPrivateKey {
+        SignType::ZKSign => SimplePsyPrivateKey {
             private_key: private_key_base,
         }
-        .get_public_key_param::<QEDHasher>(),
+        .get_public_key_param::<PsyHasher>(),
         SignType::SECP256K1Sign => {
             let compressed_public_key = get_secp_public_key(private_key_base)?;
             tracing::info!("compressed public key {:?}", compressed_public_key);
@@ -90,7 +90,7 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
         }
         SignType::SoftwareDefinedSign => {
             // let sdc_input =
-            // SoftwareDefinedSignatureInput::QED(QSoftwareDefinedSignatureInput {
+            // SoftwareDefinedSignatureInput::Psy(QSoftwareDefinedSignatureInput {
             //     fn_def: user_sdc,
             //     contract_id: 0,
             //     contract_state_tree_height: contract_state_tree_height,
@@ -118,7 +118,7 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
     provider.register_user(QRegisterUserRPCRequest { public_key: public_key_info }).await?;
 
     // Output the result
-    let public_key_hash = public_key_info.qfhash::<QEDHasher>();
+    let public_key_hash = public_key_info.qfhash::<PsyHasher>();
     println!("{{");
     if args.private_key.is_none() {
         println!("  \"private_key\": \"{}\",", private_key_base);

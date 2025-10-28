@@ -9,11 +9,11 @@ use plonky2::{
     },
 };
 use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
-use psy_crypto::signature::secp256k1::core::{QEDCompressedSecp256K1Signature, QEDPreparedSecp256K1Signature};
+use psy_crypto::signature::secp256k1::core::{PsyCompressedSecp256K1Signature, PsyPreparedSecp256K1Signature};
 
 use super::traits::qstandard::QStandardCircuit;
 use crate::{
-    crypto::secp256k1::gadget::DogeQEDSignatureGadget, proof_minifier::pm_chain::QEDProofMinifierChain, u32::gates::comparison::ComparisonGate,
+    crypto::secp256k1::gadget::DogePsySignatureGadget, proof_minifier::pm_chain::PsyProofMinifierChain, u32::gates::comparison::ComparisonGate,
 };
 
 #[derive(Debug)]
@@ -21,9 +21,9 @@ pub struct L1Secp256K1SignatureCircuit<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
-    pub signature_gadget: DogeQEDSignatureGadget,
+    pub signature_gadget: DogePsySignatureGadget,
     pub base_circuit_data: CircuitData<C::F, C, D>,
-    pub minifier_chain: QEDProofMinifierChain<D, C::F, C>,
+    pub minifier_chain: PsyProofMinifierChain<D, C::F, C>,
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for L1Secp256K1SignatureCircuit<C, D>
 where
@@ -40,7 +40,7 @@ where
     pub fn new() -> Self {
         let config = CircuitConfig::standard_ecc_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
-        let signature_gadget = DogeQEDSignatureGadget::add_virtual_to::<C::Hasher, C::F, D>(&mut builder);
+        let signature_gadget = DogePsySignatureGadget::add_virtual_to::<C::Hasher, C::F, D>(&mut builder);
 
         builder.register_public_inputs(&signature_gadget.combined_hash.elements);
         let circuit_data = builder.build::<C>();
@@ -48,7 +48,7 @@ where
         let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
 
         let minifier_chain =
-            QEDProofMinifierChain::<D, C::F, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
+            PsyProofMinifierChain::<D, C::F, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
 
         Self {
             base_circuit_data: circuit_data,
@@ -56,8 +56,8 @@ where
             minifier_chain,
         }
     }
-    pub fn prove(&self, compressed_signature: &QEDCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let prepared_signature: QEDPreparedSecp256K1Signature<C::F> = compressed_signature.try_into()?;
+    pub fn prove(&self, compressed_signature: &PsyCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        let prepared_signature: PsyPreparedSecp256K1Signature<C::F> = compressed_signature.try_into()?;
 
         let mut timer = DebugTimer::new("DogeSecp256K1SignatureCircuit::Prove");
         tracing::info!("start prove base secp256k1 signature");

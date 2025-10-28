@@ -157,8 +157,8 @@ impl RewriterVisitor {
             if is_first {
                 let stmt: Stmt = parse_quote! {
                     {
-                        let qed_rwv_cond = #cond;
-                        ctx.start_if_block(qed_rwv_cond);
+                        let psy_rwv_cond = #cond;
+                        ctx.start_if_block(psy_rwv_cond);
                         #block
                     }
                 };
@@ -167,8 +167,8 @@ impl RewriterVisitor {
             } else {
                 let stmt: Stmt = parse_quote! {
                     {
-                        let qed_rwv_cond = #cond;
-                        ctx.start_else_if_block(qed_rwv_cond);
+                        let psy_rwv_cond = #cond;
+                        ctx.start_else_if_block(psy_rwv_cond);
                         #block
                     }
                 };
@@ -194,12 +194,12 @@ impl RewriterVisitor {
 
     fn collasce_else_if(&mut self, e: ExprIf) -> Expr {
         if e.else_branch.is_none() {
-            let qed_rwv_cond = self.fold_expr(*e.cond);
+            let psy_rwv_cond = self.fold_expr(*e.cond);
             let then_branch = self.fold_block(e.then_branch);
             parse_quote! {
                 {
-                    let qed_rwv_cond = #qed_rwv_cond;
-                    ctx.start_if_block(qed_rwv_cond);
+                    let psy_rwv_cond = #psy_rwv_cond;
+                    ctx.start_if_block(psy_rwv_cond);
                     #then_branch
                     ctx.end_if_block();
                 }
@@ -218,16 +218,16 @@ impl Fold for RewriterVisitor {
                 Expr::Range(r)
             }
             Expr::Loop(_) => {
-                panic!("loop {{ ... }} expressions are not allowed in qedlang");
+                panic!("loop {{ ... }} expressions are not allowed in psylang");
             }
             Expr::If(e) => self.collasce_else_if(e),
             Expr::Assign(ex) => {
                 let left = self.fold_expr(*ex.left);
                 let right = self.fold_expr(*ex.right);
                 parse_quote!({
-                    let qed_rwv_old_value = (#left).clone();
-                    let qed_rwv_new_value = (#right).clone();
-                    #left = ctx.cset(qed_rwv_old_value, qed_rwv_new_value);
+                    let psy_rwv_old_value = (#left).clone();
+                    let psy_rwv_new_value = (#right).clone();
+                    #left = ctx.cset(psy_rwv_old_value, psy_rwv_new_value);
                 })
             }
             Expr::Binary(e) => {

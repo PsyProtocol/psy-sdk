@@ -12,7 +12,7 @@ use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
 use psy_store::{
     queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedisAsync},
-    store::QEDStore,
+    store::PsyStore,
 };
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
@@ -57,7 +57,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let checkpoint_queue = proof_store.clone();
 
     // Create storage reader based on backend configuration
-    let store = QEDStore::new(&config.backend.to_backend()).await?;
+    let store = PsyStore::new(&config.backend.to_backend()).await?;
     let store_reader = Arc::new(store);
 
     let queue_helper = QueueFactory::create_rsmq_helper::<F>(

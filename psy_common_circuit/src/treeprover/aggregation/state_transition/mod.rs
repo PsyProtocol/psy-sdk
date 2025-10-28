@@ -28,7 +28,7 @@ use psy_crypto::{
 
 use crate::{
     builder::{
-        comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates,
+        comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderPsyCommonGates,
         verify::CircuitBuilderVerifyProofHelpers,
     },
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
@@ -257,7 +257,7 @@ where
         builder.register_public_inputs(&header_gadget.allowed_circuit_hashes_root.elements);
         builder.register_public_inputs(&header_gadget.state_transition_hash.elements);
 
-        builder.add_qed_type_d_common_gates();
+        builder.add_psy_type_d_common_gates();
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));

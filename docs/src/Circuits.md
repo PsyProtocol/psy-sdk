@@ -1,4 +1,4 @@
-This document describes the end-to-end flow of circuits involved in processing user transactions and aggregating them into a final block proof within the QED system. It highlights the assumptions made at each stage and how they are progressively verified, ultimately enabling horizontal scalability.
+This document describes the end-to-end flow of circuits involved in processing user transactions and aggregating them into a final block proof within the Psy system. It highlights the assumptions made at each stage and how they are progressively verified, ultimately enabling horizontal scalability.
 
 ### Phase 1: User Proving Session (UPS) - Local Execution
 
@@ -59,7 +59,7 @@ This phase happens locally on the user's device (or via a delegated prover). The
     *   The proof for the *last UPS transaction step* is valid and used an allowed circuit.
     *   The ZK proof for the user's signature (authorizing the session) is valid and exists in the same UPS proof tree.
     *   The signature corresponds to the user's registered public key (derived from signature proof parameters).
-    *   The signature payload (`QEDUserProvingSessionSignatureDataCompact`) correctly reflects the session's start/end user leaves, checkpoint, final tx stack, and tx count.
+    *   The signature payload (`PsyUserProvingSessionSignatureDataCompact`) correctly reflects the session's start/end user leaves, checkpoint, final tx stack, and tx count.
     *   The nonce used in the signature is valid (incremented).
     *   The final UPS state shows both `deferred_tx_debt_tree_root` and `inline_tx_debt_tree_root` are empty (all debts settled).
     *   The `last_checkpoint_id` in the final user leaf matches the session's `checkpoint_id` and has progressed correctly.

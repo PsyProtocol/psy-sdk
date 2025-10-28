@@ -14,7 +14,7 @@ use psy_core::{config::network_constants::get_default_worker_public_key, data::q
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 use psy_data::{
     guta::{header::GlobalUserTreeAggregatorHeader, proof_input::GUTARegisterUserFullInput},
-    qdata::user::QEDUserLeaf,
+    qdata::user::PsyUserLeaf,
 };
 
 use super::{
@@ -114,7 +114,7 @@ impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
             top_line_siblings,
         )?;
         let dummy_public_key = get_default_worker_public_key();
-        let dummy_user_leaf_hash = QEDUserLeaf::new_user_default(F::ZERO, dummy_public_key, default_user_state_tree_root).alghash::<C::Hasher>();
+        let dummy_user_leaf_hash = PsyUserLeaf::new_user_default(F::ZERO, dummy_public_key, default_user_state_tree_root).alghash::<C::Hasher>();
 
         self.register_users_gadget
             .set_witness_params(witness, guta_register_user_inputs, dummy_public_key, dummy_user_leaf_hash)

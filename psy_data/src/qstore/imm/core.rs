@@ -11,13 +11,13 @@ use psy_crypto::hash::merkle::{
 use crate::{
     config::store_config::{
         CheckpointLeafTableStore, CheckpointTreeStore, ContractCodeTableStore, ContractFunctionTreeStore, ContractLeafTableStore, ContractTreeStore,
-        DepositTreeStore, L2BlockStateTableStore, QEDFelt, UserContractTreeStore, UserLeafTableStore, UserRegistrationTreeStore, UserTreeStore,
+        DepositTreeStore, L2BlockStateTableStore, PsyFelt, UserContractTreeStore, UserLeafTableStore, UserRegistrationTreeStore, UserTreeStore,
         WithdrawalTreeStore, MAX_CHECKPOINT,
     },
     models::{
         checkpoint::{
             block_state::{L2BlockStatesModelCore, L2BlockStatesModelReaderCore},
-            checkpoint_leaf::{QEDCheckpointLeafModelCore, QEDCheckpointLeafModelReaderCore},
+            checkpoint_leaf::{PsyCheckpointLeafModelCore, PsyCheckpointLeafModelReaderCore},
         },
         contract::{
             contract_code::{ContractCodeModelCore, ContractCodeModelReaderCore},
@@ -33,33 +33,33 @@ use crate::{
         },
     },
     qdata::{
-        checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
-        contract::{ContractCodeDefinition, QEDContractLeaf},
-        user::QEDUserLeaf,
+        checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+        contract::{ContractCodeDefinition, PsyContractLeaf},
+        user::PsyUserLeaf,
     },
     traits::qdatastore::{
         qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync},
         qtreedata::{
-            QEDComboDataStoreReaderSync, QEDComboDataStoreReaderWriterSync, QEDComboDataStoreWriterSync, QTreeDataStoreReaderSync,
+            PsyComboDataStoreReaderSync, PsyComboDataStoreReaderWriterSync, PsyComboDataStoreWriterSync, QTreeDataStoreReaderSync,
             QTreeDataStoreWriterSync,
         },
     },
 };
 
-type F = QEDFelt;
+type F = PsyFelt;
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<T: KVQBinaryStore> QMetaDataStoreReaderSync<F> for T {
-    async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<F>> {
+    async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<PsyUserLeaf<F>> {
         UserLeafTableStore::<T>::get_user_by_id(self, checkpoint_id, user_id)
     }
 
-    async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>> {
+    async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<PsyContractLeaf<F>> {
         ContractLeafTableStore::<T>::get_contract_by_id(self, MAX_CHECKPOINT, contract_id)
     }
 
-    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointLeaf<F>> {
         CheckpointLeafTableStore::<T>::get_checkpoint_leaf_by_id(self, checkpoint_id)
     }
 
@@ -67,25 +67,25 @@ impl<T: KVQBinaryStore> QMetaDataStoreReaderSync<F> for T {
         ContractCodeTableStore::<T>::get_contract_code_by_id(self, MAX_CHECKPOINT, contract_id)
     }
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState> {
+    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyL2BlockState> {
         L2BlockStateTableStore::<T>::get_block_state_by_id(self, checkpoint_id)
     }
 
-    async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState> {
+    async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState> {
         L2BlockStateTableStore::<T>::get_latest_block_state(self)
     }
 }
 
 impl<T: KVQBinaryStore> QMetaDataStoreWriterSync<F> for T {
-    fn set_user_leaf_data(&self, checkpoint_id: u64, leaf_data: &QEDUserLeaf<F>) -> anyhow::Result<()> {
+    fn set_user_leaf_data(&self, checkpoint_id: u64, leaf_data: &PsyUserLeaf<F>) -> anyhow::Result<()> {
         UserLeafTableStore::<T>::set_user_ref(self, checkpoint_id, leaf_data)
     }
 
-    fn set_contract_leaf_data(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()> {
+    fn set_contract_leaf_data(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &PsyContractLeaf<F>) -> anyhow::Result<()> {
         ContractLeafTableStore::<T>::set_contract_ref(self, checkpoint_id, contract_id, leaf_data)
     }
 
-    fn set_checkpoint_leaf_data(&self, checkpoint_id: u64, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()> {
+    fn set_checkpoint_leaf_data(&self, checkpoint_id: u64, leaf_data: &PsyCheckpointLeaf<F>) -> anyhow::Result<()> {
         CheckpointLeafTableStore::<T>::set_checkpoint_leaf_ref(self, checkpoint_id, leaf_data)
     }
 
@@ -93,7 +93,7 @@ impl<T: KVQBinaryStore> QMetaDataStoreWriterSync<F> for T {
         ContractCodeTableStore::<T>::set_contract_code_ref(self, checkpoint_id, contract_id, definition)
     }
 
-    fn set_l2_block_state(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()> {
+    fn set_l2_block_state(&self, block_state: &PsyL2BlockState) -> anyhow::Result<()> {
         L2BlockStateTableStore::<T>::set_block_state_ref(self, block_state)
     }
 }
@@ -350,12 +350,12 @@ impl<T: KVQBinaryStore> QTreeDataStoreWriterSync<F> for T {
     }
 }
 
-impl<T: KVQBinaryStore> QEDComboDataStoreWriterSync<F> for T {}
+impl<T: KVQBinaryStore> PsyComboDataStoreWriterSync<F> for T {}
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<T: KVQBinaryStore> QEDComboDataStoreReaderSync<F> for T {}
+impl<T: KVQBinaryStore> PsyComboDataStoreReaderSync<F> for T {}
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<T: KVQBinaryStore> QEDComboDataStoreReaderWriterSync<F> for T {}
+impl<T: KVQBinaryStore> PsyComboDataStoreReaderWriterSync<F> for T {}

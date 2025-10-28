@@ -75,7 +75,7 @@ run_benchmark() {
 }
 
 # Benchmark suite based on your history
-echo "Starting QED Benchmark Suite..."
+echo "Starting Psy Benchmark Suite..."
 echo "================================="
 
 # Start all benchmarks in parallel

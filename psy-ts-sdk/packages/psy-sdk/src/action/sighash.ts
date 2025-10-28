@@ -1,10 +1,10 @@
 import { IHashOut, hashNoPad } from "poseidon-goldilocks-lite";
 import { SIG_ACTION_CLAIM_DEPOSIT_MAGIC, SIG_ACTION_TRANSFER_MAGIC, SIG_ACTION_WITHDRAW_MAGIC } from "./constants";
-import { IQedClaimDepositRequest, IQedSigAction, IQedTransferRequest, IQedWithdrawalRequest } from "./types";
+import { IPsyClaimDepositRequest, IPsySigAction, IPsyTransferRequest, IPsyWithdrawalRequest } from "./types";
 import { SCNumberLike } from "../core";
 import { getDecodedAddress } from "../utils/address";
 import { readBigIntU48FromBytesLE, readBigIntU56FromBytesLE } from "../utils/data";
-import { qedFelt, hash256ToHashOut224 } from "../utils/felt";
+import { psyFelt, hash256ToHashOut224 } from "../utils/felt";
 
 function getWithdrawalHashFromPublicKeyHash(
     value: bigint,
@@ -14,10 +14,10 @@ function getWithdrawalHashFromPublicKeyHash(
     const last48BitsWithFlag = readBigIntU48FromBytesLE(publicKeyHash, 14) | (BigInt(scriptTypeFlag) << BigInt(48));
 
     return [
-        qedFelt(value),
-        qedFelt(readBigIntU56FromBytesLE(publicKeyHash, 0)),
-        qedFelt(readBigIntU56FromBytesLE(publicKeyHash, 7)),
-        qedFelt(last48BitsWithFlag),
+        psyFelt(value),
+        psyFelt(readBigIntU56FromBytesLE(publicKeyHash, 0)),
+        psyFelt(readBigIntU56FromBytesLE(publicKeyHash, 7)),
+        psyFelt(last48BitsWithFlag),
     ];
 }
 
@@ -26,7 +26,7 @@ function getWithdrawalHashFromAddress(value: bigint, address: string) {
     return getWithdrawalHashFromPublicKeyHash(value, dAddress.publicKeyHash, dAddress.scriptTypeFlag);
 }
 
-function getClaimDepositSigAction(request: IQedClaimDepositRequest): IQedSigAction {
+function getClaimDepositSigAction(request: IPsyClaimDepositRequest): IPsySigAction {
     return {
         network_magic: request.network_magic + "",
         user: request.user + "",
@@ -40,7 +40,7 @@ function getClaimDepositSigAction(request: IQedClaimDepositRequest): IQedSigActi
     };
 }
 
-function getTransferSigAction(request: IQedTransferRequest): IQedSigAction {
+function getTransferSigAction(request: IPsyTransferRequest): IPsySigAction {
     return {
         network_magic: request.network_magic + "",
         user: request.user + "",
@@ -50,8 +50,8 @@ function getTransferSigAction(request: IQedTransferRequest): IQedSigAction {
     };
 }
 
-function getWithdrawalSigAction(request: IQedWithdrawalRequest): IQedSigAction {
-    const withdrawalHash = getWithdrawalHashFromAddress(qedFelt(BigInt(request.amount)), request.l1_address);
+function getWithdrawalSigAction(request: IPsyWithdrawalRequest): IPsySigAction {
+    const withdrawalHash = getWithdrawalHashFromAddress(psyFelt(BigInt(request.amount)), request.l1_address);
 
     return {
         network_magic: request.network_magic + "",
@@ -68,14 +68,14 @@ function getWithdrawalSigAction(request: IQedWithdrawalRequest): IQedSigAction {
     };
 }
 
-function computeSigActionHash(sigAction: IQedSigAction): IHashOut {
-    const actionArgumentsHash = hashNoPad(sigAction.action_arguments.map((x) => qedFelt(x)));
+function computeSigActionHash(sigAction: IPsySigAction): IHashOut {
+    const actionArgumentsHash = hashNoPad(sigAction.action_arguments.map((x) => psyFelt(x)));
 
     return hashNoPad([
-        qedFelt(sigAction.network_magic),
-        qedFelt(sigAction.user),
-        qedFelt(sigAction.sig_action),
-        qedFelt(sigAction.nonce),
+        psyFelt(sigAction.network_magic),
+        psyFelt(sigAction.user),
+        psyFelt(sigAction.sig_action),
+        psyFelt(sigAction.nonce),
         actionArgumentsHash[0],
         actionArgumentsHash[1],
         actionArgumentsHash[2],

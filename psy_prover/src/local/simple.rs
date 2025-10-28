@@ -20,15 +20,15 @@ use psy_data::{
         api::{SubmitUserEndCapProofAPIInput, SubmitUserEndCapProofIDAPIInput},
         proof_input::{VerifyEndCapSimpleStandardInput, VerifyTwoEndCapCircuitInput, VerifyTwoEndCapCircuitWithIdsInput},
     },
-    qdata::checkpoint::QEDL2BlockState,
-    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
+    qdata::checkpoint::PsyL2BlockState,
+    traits::qdatastore::qtreedata::PsyComboDataStoreReaderWriterSync,
 };
-use psy_network_circuit::guta::guta_helper::QEDGUTACircuitManager;
+use psy_network_circuit::guta::guta_helper::PsyGUTACircuitManager;
 
-pub struct QEDMemPoolUpdates {}
+pub struct PsyMemPoolUpdates {}
 pub struct SimpleAPI<
     PS: QProofStore,
-    SS: QEDComboDataStoreReaderWriterSync<F>,
+    SS: PsyComboDataStoreReaderWriterSync<F>,
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     const D: usize,
@@ -37,18 +37,18 @@ pub struct SimpleAPI<
 {
     proof_store: PS,
     state_store: SS,
-    pub guta_circuits: QEDGUTACircuitManager<C, D>,
+    pub guta_circuits: PsyGUTACircuitManager<C, D>,
 
     next_block_mempool_updates: HashMap<u64, SubmitUserEndCapProofIDAPIInput<F>>,
 
-    latest_l2_block_state: QEDL2BlockState,
+    latest_l2_block_state: PsyL2BlockState,
 
     _f: PhantomData<F>,
 }
 
 impl<
         PS: QProofStore,
-        SS: QEDComboDataStoreReaderWriterSync<F>,
+        SS: PsyComboDataStoreReaderWriterSync<F>,
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         const D: usize,
@@ -56,7 +56,7 @@ impl<
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    pub async fn new(proof_store: PS, state_store: SS, guta_circuits: QEDGUTACircuitManager<C, D>) -> anyhow::Result<Self> {
+    pub async fn new(proof_store: PS, state_store: SS, guta_circuits: PsyGUTACircuitManager<C, D>) -> anyhow::Result<Self> {
         let latest_l2_block_state = state_store.get_latest_l2_block_state().await?;
 
         Ok(Self {
@@ -71,7 +71,7 @@ where
 }
 type F = GoldilocksField;
 const D: usize = 2;
-impl<PS: QProofStore, SS: QEDComboDataStoreReaderWriterSync<F>, C: GenericConfig<D, F = F> + 'static> SimpleAPI<PS, SS, F, C, D>
+impl<PS: QProofStore, SS: PsyComboDataStoreReaderWriterSync<F>, C: GenericConfig<D, F = F> + 'static> SimpleAPI<PS, SS, F, C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {

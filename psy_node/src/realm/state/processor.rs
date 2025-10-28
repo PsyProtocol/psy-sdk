@@ -39,7 +39,7 @@ use psy_crypto::{
     },
 };
 use psy_data::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
+    config::store_config::{QCheckpointSyncInfoCompact, PsyFelt, PsyHasher},
     guta::{
         api::{GUTARealmCheckpointResult, UserEndCapNonProofCoreInputQueueItem},
         header::GlobalUserTreeAggregatorHeader,
@@ -50,11 +50,11 @@ use psy_data::{
         },
         stats::GUTAStats,
     },
-    qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, user::QEDUserLeaf},
+    qdata::{checkpoint::PsyCheckpointLeafCompactWithStateRoots, user::PsyUserLeaf},
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
 use psy_store::{
-    node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
+    node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm},
     queue::{
         redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, MAX_CHECKPOINT_COUNT},
         task_queue::QProvingTaskStore,
@@ -67,7 +67,7 @@ use tracing::{debug, error, info, trace};
 
 use crate::common::slot::SLOT_SIZE;
 
-type F = QEDFelt;
+type F = PsyFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
@@ -116,7 +116,7 @@ impl RealmConfig {
 }
 #[derive(Clone)]
 pub struct RealmProcessorContext<
-    SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F> + Journal,
+    SR: PsyRealmStoreWriterAsyncImm<F> + PsyRealmStoreReaderAsync<F> + Journal,
     DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
@@ -135,7 +135,7 @@ pub struct RealmProcessorContext<
 }
 
 impl<
-        SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F> + Journal,
+        SR: PsyRealmStoreWriterAsyncImm<F> + PsyRealmStoreReaderAsync<F> + Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
@@ -172,8 +172,8 @@ impl<
     }
 
     pub async fn handle_checkpoint_sync(&self, input: QCheckpointSyncInfoCompact) -> anyhow::Result<()> {
-        let dmps = input.get_registered_user_merkle_proofs::<QEDHasher>();
-        self.store.injest_checkpoint_sync_data_imm(input.to_sync_info::<QEDHasher>()).await?;
+        let dmps = input.get_registered_user_merkle_proofs::<PsyHasher>();
+        self.store.injest_checkpoint_sync_data_imm(input.to_sync_info::<PsyHasher>()).await?;
 
         // Filter users that belong to this realm
         let realm_users: Vec<_> = dmps
@@ -219,7 +219,7 @@ impl<
         self.handle_guta_state_updates_from_users(checkpoint_id).await?;
 
         let (jobs, guta, proof, mut guta_graph) = self.handle_guta_from_users(checkpoint_id, slot_id).await?;
-        tracing::debug!(guta = %serde_json::to_string_pretty(&guta)?, guta_hash = %guta.qfhash::<QEDHasher>(), jobs = ?jobs, "Processing GUTA and jobs");
+        tracing::debug!(guta = %serde_json::to_string_pretty(&guta)?, guta_hash = %guta.qfhash::<PsyHasher>(), jobs = ?jobs, "Processing GUTA and jobs");
 
         let bp = self
             .store
@@ -237,7 +237,7 @@ impl<
 
         let uleaves = pending_register_users
             .iter()
-            .map(|x| QEDUserLeaf {
+            .map(|x| PsyUserLeaf {
                 public_key: x.value,
                 user_state_tree_root: self.realm_config.default_user_state_tree_root,
                 balance: F::ZERO,
@@ -275,8 +275,8 @@ impl<
                 let checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_checkpoint_id).await?;
                 let input = GUTANoChangeFullInput {
                     checkpoint_tree_proof,
-                    checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
-                        checkpoint_leaf: checkpoint_leaf.to_compact::<QEDHasher>(),
+                    checkpoint_leaf: PsyCheckpointLeafCompactWithStateRoots {
+                        checkpoint_leaf: checkpoint_leaf.to_compact::<PsyHasher>(),
                         global_state_roots: roots,
                     },
                 };
@@ -313,7 +313,7 @@ impl<
                     },
                     stats: guta.stats,
                 };
-                tracing::debug!(guta_new = %serde_json::to_string_pretty(&guta_new)?, guta_new_hash = %guta_new.qfhash::<QEDHasher>(), "New GUTA after user registration");
+                tracing::debug!(guta_new = %serde_json::to_string_pretty(&guta_new)?, guta_new_hash = %guta_new.qfhash::<PsyHasher>(), "New GUTA after user registration");
                 let w = GUTAOnlyRegisterUsersInput {
                     checkpoint_tree_root: guta.checkpoint_tree_root,
                     guta_register_user_inputs: regs,
@@ -369,8 +369,8 @@ impl<
                     top_line_siblings: good_sibs,
                 };
                 tracing::debug!(input = %serde_json::to_string_pretty(&input)?, "GUTA to cap input");
-                let new_g = input.get_new_guta_header::<QEDHasher>();
-                tracing::debug!(new_g = %serde_json::to_string_pretty(&new_g)?, new_g_hash = %new_g.qfhash::<QEDHasher>(), "New GUTA after to cap");
+                let new_g = input.get_new_guta_header::<PsyHasher>();
+                tracing::debug!(new_g = %serde_json::to_string_pretty(&new_g)?, new_g_hash = %new_g.qfhash::<PsyHasher>(), "New GUTA after to cap");
                 let w = CircuitInputWithDependencies::<VerifyGUTAToCapCircuitInputSimple<F>> {
                     input,
                     dependencies: vec![jobs.last().as_ref().unwrap().last().unwrap().get_output_id()],
@@ -384,8 +384,8 @@ impl<
 
                 n_jobs.push(vec![w_id]);
 
-                let n_guta = w.input.get_new_guta_header::<QEDHasher>();
-                tracing::debug!(n_guta = %serde_json::to_string_pretty(&n_guta)?, n_guta_hash = %n_guta.qfhash::<QEDHasher>(), "New GUTA state");
+                let n_guta = w.input.get_new_guta_header::<PsyHasher>();
+                tracing::debug!(n_guta = %serde_json::to_string_pretty(&n_guta)?, n_guta_hash = %n_guta.qfhash::<PsyHasher>(), "New GUTA state");
 
                 guta_graph.add_edge(w_id.get_output_id(), w.dependencies[0]);
 
@@ -406,7 +406,7 @@ impl<
             guta_proof_header: guta,
             top_line_siblings: good_sibs.clone(),
         };
-        let new_g = verify_to_cap_input.get_new_guta_header::<QEDHasher>();
+        let new_g = verify_to_cap_input.get_new_guta_header::<PsyHasher>();
 
         let input = VerifyGUTARegisterUsersCircuitInputSimple {
             guta_proof_header: guta,
@@ -518,7 +518,7 @@ impl<
                 {
                     Ok(checkpoint_tree_proof) => {
                         let (historical_root, current_root) =
-                            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
+                            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, PsyHasher>(&checkpoint_tree_proof);
 
                         if current_root != checkpoint_tree_root || historical_root != guta_queue_item.input.state_transition.checkpoint_tree_root_hash
                         {
@@ -541,7 +541,7 @@ impl<
                 .await
             {
                 Ok(latest_user_leaf_data) => {
-                    let latest_user_leaf_hash = latest_user_leaf_data.qfhash::<QEDHasher>();
+                    let latest_user_leaf_hash = latest_user_leaf_data.qfhash::<PsyHasher>();
                     if latest_user_leaf_hash != guta_queue_item.input.state_transition.start_user_leaf_hash {
                         tracing::warn!(
                             "Invalid latest user leaf hash, stored: {}, expected: {}",
@@ -595,7 +595,7 @@ impl<
         } else if guta_queue_items.len() == 1 {
             debug!("Single GUTA queue item");
             let (historical_root, current_root) =
-                compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&guta_queue_items[0].checkpoint_tree_proof);
+                compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, PsyHasher>(&guta_queue_items[0].checkpoint_tree_proof);
             ensure!(current_root == guta_queue_items[0].checkpoint_tree_proof.root);
             ensure!(current_root == checkpoint_tree_root);
             ensure!(historical_root == guta_queue_items[0].input.state_transition.checkpoint_tree_root_hash);
@@ -676,7 +676,7 @@ impl<
         let mut graph = BidirectionalGraph::new();
 
         for (i, p) in res.nca_proofs.iter().enumerate() {
-            tracing::debug!(i = i, verify_result = ?res.nca_proofs[i].verify::<QEDHasher>(), "NCA proof verification");
+            tracing::debug!(i = i, verify_result = ?res.nca_proofs[i].verify::<PsyHasher>(), "NCA proof verification");
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind <= -1 && r_dep_ind <= -1 {
                 debug!("LeftRightEndCap");
@@ -852,7 +852,7 @@ impl<
             stats: combo_stats[res.root_proof_index].1,
         };
 
-        tracing::debug!(guta = %serde_json::to_string_pretty(&guta)?, guta_hash = %guta.qfhash::<QEDHasher>(), "Final aggregated GUTA");
+        tracing::debug!(guta = %serde_json::to_string_pretty(&guta)?, guta_hash = %guta.qfhash::<PsyHasher>(), "Final aggregated GUTA");
 
         Ok((levels, guta, res.link_proof, graph))
     }

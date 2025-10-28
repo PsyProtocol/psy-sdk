@@ -15,20 +15,20 @@ use psy_core::{
 use psy_crypto::hash::{traits::hasher::MerkleZeroHasher, utils::gen_dapen_contract_function_method_id};
 use psy_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
-    qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
+    qstore::imm::cmd_processor::PsyReadCommandProcessorSync,
 };
 use psy_prover::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
     session::gen_contract_deploy_and_circuits_for_functions,
     ups::{
-        circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
+        circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
         session::UserProvingSessionManager,
     },
 };
 use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
+    vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
 };
 use psylang_macros::qcontract;
 
@@ -131,7 +131,7 @@ fn compile_simple_mint_debug() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("amount".to_string(), 1usize)];
     let method_name = "simple_mint_debug".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec("simple_mint_debug".to_string(), method_id, &ctx.store, &ctx, &outputs);
+    let fn_circuit_def = PsyCompileResult::compile_exec("simple_mint_debug".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -145,7 +145,7 @@ fn compile_simple_transfer() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("recipient".to_string(), 1usize), ("amount".to_string(), 1usize)];
     let method_name = "simple_transfer".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec("simple_transfer".to_string(), method_id, &ctx.store, &ctx, &outputs);
+    let fn_circuit_def = PsyCompileResult::compile_exec("simple_transfer".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -159,7 +159,7 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("sender".to_string(), 1usize)];
     let method_name = "simple_claim".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec("simple_claim".to_string(), method_id, &ctx.store, &ctx, &outputs);
+    let fn_circuit_def = PsyCompileResult::compile_exec("simple_claim".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -210,7 +210,7 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 impl SimpleTestContract<C, D> {
-    pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn prove_func<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         circuit_mgr: &QCircuitManager<C, D>,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,

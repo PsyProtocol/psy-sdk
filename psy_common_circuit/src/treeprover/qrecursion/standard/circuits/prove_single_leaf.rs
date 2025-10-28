@@ -56,7 +56,7 @@ where
         let self_public_inputs_hash = self_header_gadget.get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
 
         builder.register_public_inputs(&self_public_inputs_hash.elements);
-        //builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
+        //builder.add_psy_type_a_common_gates(Some(coset_gate.clone()));
         pad_circuit_degree::<C::F, D>(&mut builder, 12);
         //pad_circuit_degree::<C::F, D>(&mut builder, 12);
 

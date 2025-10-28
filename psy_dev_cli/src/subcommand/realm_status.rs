@@ -3,20 +3,20 @@ use std::str::FromStr;
 
 use anyhow::Ok;
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_core::{config::network_constants::COORDINATOR_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
-    signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
+    signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey},
 };
-use psy_data::{config::store_config::QEDHasher, qdata::realm_status::BasicRealmStatus};
+use psy_data::{config::store_config::PsyHasher, qdata::realm_status::BasicRealmStatus};
 use psy_prover::local::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
 };
 use psy_store::{
-    node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
-    store::{backend::LmdbxConfig, journal::JournalStore, Backend, QEDStore},
+    node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
+    store::{backend::LmdbxConfig, journal::JournalStore, Backend, PsyStore},
 };
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
@@ -30,7 +30,7 @@ pub async fn run() -> anyhow::Result<()> {
         lmdbx_path: "realm-status".to_string(),
         lmdbx_mmap_size_gb: 100,
     });
-    let psy_store = QEDStore::from_backend(backend).await?;
+    let psy_store = PsyStore::from_backend(backend).await?;
     let psy_store = JournalStore::new(psy_store);
 
     let realm_ids = (0..1 << COORDINATOR_USER_TREE_HEIGHT).collect::<Vec<u64>>();

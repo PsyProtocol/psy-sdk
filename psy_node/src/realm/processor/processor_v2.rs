@@ -56,7 +56,7 @@ use psy_data::{
     config::{
         genesis_config::GenesisConfig,
         store_config::{
-            BaseContractStateTreeStore, QEDHash, QEDHasher, QEDProof, StagingCheckpointInfoStore, StagingDeltaRecordStore, UserContractTreeStore,
+            BaseContractStateTreeStore, PsyHash, PsyHasher, PsyProof, StagingCheckpointInfoStore, StagingDeltaRecordStore, UserContractTreeStore,
             CONTRACT_STATE_TREE_ID, MAX_CHECKPOINT, USER_CONTRACT_STATE_TREE_TABLE_TYPE,
         },
     },
@@ -77,12 +77,12 @@ use psy_data::{
         },
     },
     qdata::{
-        checkpoint::QEDL2BlockState, staging_checkpoint_info::StagingCheckpointInfo, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf,
+        checkpoint::PsyL2BlockState, staging_checkpoint_info::StagingCheckpointInfo, ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf,
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
 use psy_store::{
-    node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
+    node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm},
     queue::{
         new_redis_async_pool,
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
@@ -90,7 +90,7 @@ use psy_store::{
     },
     store::{
         journal::{Journal, JournalStore},
-        QEDStore,
+        PsyStore,
     },
 };
 use rand::Rng;
@@ -142,7 +142,7 @@ pub async fn run_realm_processor_v2(config: RealmNodeConfig) -> anyhow::Result<(
 
 pub struct RealmProcessorV2 {
     pub realm_config: RealmConfig,
-    pub store: QEDStore,
+    pub store: PsyStore,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub task_store: QProvingTaskStoreImpl,
     pub config_path: String,
@@ -184,7 +184,7 @@ impl RealmProcessorV2 {
 
         let realm_qps = ProofStoreRedisAsync::new(&config.redis.redis_uri.as_str(), config.queue.queue_biz_key).await?;
 
-        let store = QEDStore::new(&config.backend.to_backend()).await?;
+        let store = PsyStore::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.realm_id);
         let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(config.coordinator_addr)?);
@@ -388,7 +388,7 @@ impl RealmProcessorV2 {
             .iter()
             .map(|proof| {
                 let user_id = get_user_id_from_registration_id(proof.index);
-                let user_leaf = QEDUserLeaf {
+                let user_leaf = PsyUserLeaf {
                     public_key: proof.value,
                     user_state_tree_root: self.realm_config.default_user_state_tree_root,
                     balance: F::ZERO,
@@ -400,13 +400,13 @@ impl RealmProcessorV2 {
                 GenericTreeNodeUpdate {
                     level: GLOBAL_USER_TREE_HEIGHT,
                     index: user_id,
-                    new_value: user_leaf.qfhash::<QEDHasher>(),
+                    new_value: user_leaf.qfhash::<PsyHasher>(),
                 }
             })
             .collect();
 
         let (realm_root_update, delta_proofs) = self
-            .get_multiple_delta_merkle_proofs::<QEDHasher>(
+            .get_multiple_delta_merkle_proofs::<PsyHasher>(
                 &mut tree_update_builder,
                 current_checkpoint_id,
                 updates,
@@ -460,11 +460,11 @@ impl RealmProcessorV2 {
         combined_update.header.start_realm_root = delta_proofs.first().unwrap().old_root;
         combined_update.header.guta_stats = guta_stats;
 
-        let user_leaves: Vec<QEDUserLeaf<F>> = pending_users
+        let user_leaves: Vec<PsyUserLeaf<F>> = pending_users
             .iter()
             .map(|proof| {
                 let user_id = get_user_id_from_registration_id(proof.index);
-                QEDUserLeaf {
+                PsyUserLeaf {
                     public_key: proof.value,
                     user_state_tree_root: self.realm_config.default_user_state_tree_root,
                     balance: F::ZERO,
@@ -501,7 +501,7 @@ impl RealmProcessorV2 {
             .iter()
             .map(|proof| {
                 let user_id = get_user_id_from_registration_id(proof.index);
-                let user_leaf = QEDUserLeaf {
+                let user_leaf = PsyUserLeaf {
                     public_key: proof.value,
                     user_state_tree_root: self.realm_config.default_user_state_tree_root,
                     balance: F::ZERO,
@@ -513,13 +513,13 @@ impl RealmProcessorV2 {
                 GenericTreeNodeUpdate {
                     level: GLOBAL_USER_TREE_HEIGHT,
                     index: user_id,
-                    new_value: user_leaf.qfhash::<QEDHasher>(),
+                    new_value: user_leaf.qfhash::<PsyHasher>(),
                 }
             })
             .collect();
 
         let (_realm_root_update, delta_proofs) = self
-            .get_multiple_delta_merkle_proofs::<QEDHasher>(tree_update_builder, checkpoint_id, updates, None)
+            .get_multiple_delta_merkle_proofs::<PsyHasher>(tree_update_builder, checkpoint_id, updates, None)
             .await?;
 
         let regs: Vec<GUTARegisterUserFullInput<F>> = pending_users
@@ -625,11 +625,11 @@ impl RealmProcessorV2 {
         combined_update.header.root_job_id = final_root_job_id;
         combined_update.header.end_realm_root = delta_proofs.last().unwrap().new_root;
 
-        let user_leaves: Vec<QEDUserLeaf<F>> = pending_users
+        let user_leaves: Vec<PsyUserLeaf<F>> = pending_users
             .iter()
             .map(|proof| {
                 let user_id = get_user_id_from_registration_id(proof.index);
-                QEDUserLeaf {
+                PsyUserLeaf {
                     public_key: proof.value,
                     user_state_tree_root: self.realm_config.default_user_state_tree_root,
                     balance: F::ZERO,
@@ -820,7 +820,7 @@ impl RealmProcessorV2 {
                     .await?;
 
                 let (user_computed_historical_root, user_computed_current_root) =
-                    compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
+                    compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, PsyHasher>(&checkpoint_tree_proof);
                 ensure!(
                     user_computed_current_root == checkpoint_tree_proof.root,
                     "checkpoint_id: {}, user_update computed root: {}, store checkpoint tree root: {}",
@@ -910,10 +910,10 @@ impl RealmProcessorV2 {
             );
             info!(job_id = %w_id.to_hex_string(), "📝 Created GUTASingleEndCap job");
 
-            let end_user_leaf_hash = user_update.new_user_leaf.qfhash::<QEDHasher>();
+            let end_user_leaf_hash = user_update.new_user_leaf.qfhash::<PsyHasher>();
 
             let (root_addition, _) = self
-                .get_single_node_delta_merkle_proof::<QEDHasher>(
+                .get_single_node_delta_merkle_proof::<PsyHasher>(
                     &mut tree_update_builder,
                     current_checkpoint_id,
                     GenericTreeNodeUpdate {
@@ -929,7 +929,7 @@ impl RealmProcessorV2 {
                 "🌳 Generated single node delta merkle proof"
             );
 
-            let start_user_leaf_hash = user_update.old_user_leaf.qfhash::<QEDHasher>();
+            let start_user_leaf_hash = user_update.old_user_leaf.qfhash::<PsyHasher>();
 
             tree_update_builder.add_update(root_addition.level, root_addition.index, root_addition.new_value);
 
@@ -986,11 +986,11 @@ impl RealmProcessorV2 {
             );
             info!(job_id = %w_id.to_hex_string(), "📝 Created GUTATwoEndCap job");
 
-            let left_end_user_leaf_hash = left_user_update.new_user_leaf.qfhash::<QEDHasher>();
-            let right_end_user_leaf_hash = right_user_update.new_user_leaf.qfhash::<QEDHasher>();
+            let left_end_user_leaf_hash = left_user_update.new_user_leaf.qfhash::<PsyHasher>();
+            let right_end_user_leaf_hash = right_user_update.new_user_leaf.qfhash::<PsyHasher>();
 
             let (root_addition, dmp_left, dmp_right) = self
-                .get_nca_delta_merkle_proof::<QEDHasher>(
+                .get_nca_delta_merkle_proof::<PsyHasher>(
                     &mut tree_update_builder,
                     current_checkpoint_id,
                     GenericTreeNodeUpdate {
@@ -1095,11 +1095,11 @@ impl RealmProcessorV2 {
                     0,
                 );
 
-                let left_end_user_leaf_hash = left_user_update.new_user_leaf.qfhash::<QEDHasher>();
-                let right_end_user_leaf_hash = right_user_update.new_user_leaf.qfhash::<QEDHasher>();
+                let left_end_user_leaf_hash = left_user_update.new_user_leaf.qfhash::<PsyHasher>();
+                let right_end_user_leaf_hash = right_user_update.new_user_leaf.qfhash::<PsyHasher>();
 
                 let (root_addition, dmp_left, dmp_right) = self
-                    .get_nca_delta_merkle_proof::<QEDHasher>(
+                    .get_nca_delta_merkle_proof::<PsyHasher>(
                         &mut tree_update_builder,
                         current_checkpoint_id,
                         GenericTreeNodeUpdate {
@@ -1193,7 +1193,7 @@ impl RealmProcessorV2 {
                     let right_value = &guta_records[i * 2 + 1];
 
                     let (root_addition, dmp_left, dmp_right) = self
-                        .get_nca_delta_merkle_proof::<QEDHasher>(
+                        .get_nca_delta_merkle_proof::<PsyHasher>(
                             &mut tree_update_builder,
                             current_checkpoint_id,
                             GenericTreeNodeUpdate {
@@ -1282,10 +1282,10 @@ impl RealmProcessorV2 {
                 let odd_proof_right = odd_proofs.unwrap();
                 let last_guta_left = guta_records.pop().unwrap();
 
-                let new_user_leaf_hash = odd_proof_right.new_user_leaf.qfhash::<QEDHasher>();
+                let new_user_leaf_hash = odd_proof_right.new_user_leaf.qfhash::<PsyHasher>();
 
                 let (root_addition, dmp_left, dmp_right) = self
-                    .get_nca_delta_merkle_proof::<QEDHasher>(
+                    .get_nca_delta_merkle_proof::<PsyHasher>(
                         &mut tree_update_builder,
                         current_checkpoint_id,
                         GenericTreeNodeUpdate {
@@ -1638,10 +1638,10 @@ impl RealmProcessorV2 {
         for (user_id, contracts) in user_contract_states {
             let register_id = user_id_to_register_id[&user_id];
 
-            let mut user_contract_tree_root = QEDHasher::get_zero_hash(GLOBAL_CONTRACT_TREE_HEIGHT.into());
+            let mut user_contract_tree_root = PsyHasher::get_zero_hash(GLOBAL_CONTRACT_TREE_HEIGHT.into());
 
             for (contract_id, slots) in contracts {
-                let mut contract_state_root = QEDHasher::get_zero_hash(MAX_CONTRACT_STATE_TREE_HEIGHT.into());
+                let mut contract_state_root = PsyHasher::get_zero_hash(MAX_CONTRACT_STATE_TREE_HEIGHT.into());
                 for (slot_id, slot_value) in slots {
                     contract_state_root = self
                         .store
@@ -1655,8 +1655,8 @@ impl RealmProcessorV2 {
                     .new_root;
             }
 
-            let user_leaf = QEDUserLeaf {
-                public_key: genesis_users[register_id as usize].get_public_key::<QEDHasher>(),
+            let user_leaf = PsyUserLeaf {
+                public_key: genesis_users[register_id as usize].get_public_key::<PsyHasher>(),
                 user_state_tree_root: user_contract_tree_root,
                 balance: F::ZERO,
                 nonce: F::ZERO,
@@ -1665,7 +1665,7 @@ impl RealmProcessorV2 {
                 user_id: F::from_canonical_u64(user_id),
             };
 
-            let user_leaf_hash = user_leaf.qfhash::<QEDHasher>();
+            let user_leaf_hash = user_leaf.qfhash::<PsyHasher>();
 
             self.store
                 .set_user_leaf_data(0, &user_leaf)
@@ -1744,12 +1744,12 @@ impl GlobalUserTreeMerkleReader<F> for RealmProcessorV2 {
 
 impl RealmProcessorStateClient<F> for RealmProcessorV2 {
     async fn set_shared_checkpoint_info(&self, queue_id: UniqueQueueId, info: StagingCheckpointInfo) -> anyhow::Result<()> {
-        StagingCheckpointInfoStore::<QEDStore>::set_checkpoint_info(&self.store, queue_id.uuid, queue_id.id, &info)?;
+        StagingCheckpointInfoStore::<PsyStore>::set_checkpoint_info(&self.store, queue_id.uuid, queue_id.id, &info)?;
         Ok(())
     }
 
     async fn get_shared_queue_id(&self) -> anyhow::Result<UniqueQueueId> {
-        if let Some((uuid, checkpoint_id, _info)) = StagingCheckpointInfoStore::<QEDStore>::get_latest_checkpoint_info_with_uuid(&self.store)? {
+        if let Some((uuid, checkpoint_id, _info)) = StagingCheckpointInfoStore::<PsyStore>::get_latest_checkpoint_info_with_uuid(&self.store)? {
             Ok(UniqueQueueId { id: checkpoint_id, uuid })
         } else {
             anyhow::bail!("No staging checkpoint info found")
@@ -1757,7 +1757,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
     }
 
     async fn save_update_delta_record(&self, data: &RealmProcessorCombinedUpdate<F>) -> anyhow::Result<()> {
-        StagingDeltaRecordStore::<QEDStore>::set_delta_record(&self.store, data.new_realm_root, data.realm_id as u32, data)?;
+        StagingDeltaRecordStore::<PsyStore>::set_delta_record(&self.store, data.new_realm_root, data.realm_id as u32, data)?;
         Ok(())
     }
 
@@ -1766,7 +1766,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
         _realm_id: u64,
         target_realm_root: QHashOut<F>,
     ) -> anyhow::Result<Option<RealmProcessorCombinedUpdate<F>>> {
-        let records = StagingDeltaRecordStore::<QEDStore>::get_delta_records_for_realm_root(&self.store, target_realm_root)?;
+        let records = StagingDeltaRecordStore::<PsyStore>::get_delta_records_for_realm_root(&self.store, target_realm_root)?;
         if records.is_empty() {
             Ok(None)
         } else {
@@ -1775,7 +1775,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
     }
 
     async fn prune_update_delta_records_from_target_root(&self, realm_end_root: QHashOut<F>) -> anyhow::Result<usize> {
-        StagingDeltaRecordStore::<QEDStore>::delete_delta_records_for_realm_root(&self.store, realm_end_root)
+        StagingDeltaRecordStore::<PsyStore>::delete_delta_records_for_realm_root(&self.store, realm_end_root)
     }
 
     async fn propagate_update_delta_record_to_peers(&self, _data: &RealmProcessorCombinedUpdate<F>) -> anyhow::Result<()> {
@@ -1817,7 +1817,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
             .map(|update| {
                 trace!(
                     user_id = update.user_id.to_canonical_u64(),
-                    user_hash = %format!("{:?}", update.qfhash::<QEDHasher>()),
+                    user_hash = %format!("{:?}", update.qfhash::<PsyHasher>()),
                     "🌳 Processing user tree node"
                 );
                 QMerkleNode {
@@ -1825,7 +1825,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
                         level: GLOBAL_USER_TREE_HEIGHT,
                         index: update.user_id.to_canonical_u64(),
                     },
-                    value: update.qfhash::<QEDHasher>(),
+                    value: update.qfhash::<PsyHasher>(),
                 }
             })
             .collect();
@@ -1874,7 +1874,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
             .collect();
 
         if !contract_state_nodes.is_empty() {
-            BaseContractStateTreeStore::<QEDStore>::set_nodes(&self.store, &contract_state_nodes)?;
+            BaseContractStateTreeStore::<PsyStore>::set_nodes(&self.store, &contract_state_nodes)?;
         }
 
         info!(
@@ -1902,7 +1902,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
                 );
 
                 KVQPair {
-                    key: UserContractTreeStore::<QEDStore>::new_node_key_sfc(
+                    key: UserContractTreeStore::<PsyStore>::new_node_key_sfc(
                         canonical_checkpoint_id,
                         update.user_id,
                         update.level,
@@ -1914,7 +1914,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
             .collect();
 
         if !user_contract_nodes.is_empty() {
-            UserContractTreeStore::<QEDStore>::set_nodes(&self.store, &user_contract_nodes)?;
+            UserContractTreeStore::<PsyStore>::set_nodes(&self.store, &user_contract_nodes)?;
         }
 
         info!(
@@ -1956,7 +1956,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
     }
 
     async fn apply_only_global_block_update_dangerous(&self, global_block_update: &GlobalBlockUpdateFromCoordinator<F>) -> anyhow::Result<()> {
-        let merkle_proofs = global_block_update.compact.get_registered_user_merkle_proofs::<QEDHasher>();
+        let merkle_proofs = global_block_update.compact.get_registered_user_merkle_proofs::<PsyHasher>();
         let start_registration_user_id =
             global_block_update.compact.l2_block_state.next_user_id - (global_block_update.compact.registered_users.len() as u64);
         let realm_users: Vec<_> = merkle_proofs
@@ -1981,7 +1981,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
             );
         }
 
-        let sync_info = global_block_update.compact.clone().to_sync_info::<QEDHasher>();
+        let sync_info = global_block_update.compact.clone().to_sync_info::<PsyHasher>();
         self.store.injest_checkpoint_sync_data_imm(sync_info).await?;
         Ok(())
     }
@@ -1996,7 +1996,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
                     level: GLOBAL_USER_TREE_HEIGHT,
                     index: update.user_id.to_canonical_u64(),
                 },
-                value: update.qfhash::<QEDHasher>(),
+                value: update.qfhash::<PsyHasher>(),
             })
             .collect();
         self.store
@@ -2015,15 +2015,15 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
                 },
                 value: update.new_value,
             }];
-            BaseContractStateTreeStore::<QEDStore>::set_nodes(&self.store, &nodes)?;
+            BaseContractStateTreeStore::<PsyStore>::set_nodes(&self.store, &nodes)?;
         }
 
         for update in &delta.user_contract_tree_updates {
             let nodes = vec![KVQPair {
-                key: UserContractTreeStore::<QEDStore>::new_node_key_sfc(delta.queue_id, update.user_id, update.level, update.index as u64),
+                key: UserContractTreeStore::<PsyStore>::new_node_key_sfc(delta.queue_id, update.user_id, update.level, update.index as u64),
                 value: update.new_value,
             }];
-            UserContractTreeStore::<QEDStore>::set_nodes(&self.store, &nodes)?;
+            UserContractTreeStore::<PsyStore>::set_nodes(&self.store, &nodes)?;
         }
 
         Ok(())

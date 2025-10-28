@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use psy_core::{
-    config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+    config::network_constants::Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
     data::qhashout::QHashOut,
     job::{
         drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},
@@ -23,14 +23,14 @@ use psy_crypto::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState};
+use crate::qdata::checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyL2BlockState};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDCheckpointSyncInfoCompact<F: RichField> {
-    pub l2_block_state: QEDL2BlockState,
-    pub stats: QEDCheckpointLeafStats<F>,
-    pub state_roots: QEDCheckpointGlobalStateRoots<F>,
+pub struct PsyCheckpointSyncInfoCompact<F: RichField> {
+    pub l2_block_state: PsyL2BlockState,
+    pub stats: PsyCheckpointLeafStats<F>,
+    pub state_roots: PsyCheckpointGlobalStateRoots<F>,
     pub checkpoint_tree_update_siblings: Vec<QHashOut<F>>,
     pub regsitered_users_start_pivot_siblings: Vec<QHashOut<F>>,
     pub registered_users: Vec<ZKPublicKeyInfo<F>>,
@@ -38,7 +38,7 @@ pub struct QEDCheckpointSyncInfoCompact<F: RichField> {
     pub slot: u64,
 }
 
-impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
+impl<F: RichField> PsyCheckpointSyncInfoCompact<F> {
     pub fn get_registered_user_merkle_proofs<H: MerkleZeroHasher<QHashOut<F>> + FieldQHasher<F>>(&self) -> Vec<MerkleProofCore<QHashOut<F>>> {
         get_merkle_proofs_for_compact::<H, QHashOut<F>>(
             self.l2_block_state.next_user_id - (self.registered_users.len() as u64),
@@ -47,30 +47,30 @@ impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
         )
     }
 }
-impl<F: RichField> DrainQueueMetadataTagged for QEDCheckpointSyncInfoCompact<F> {
+impl<F: RichField> DrainQueueMetadataTagged for PsyCheckpointSyncInfoCompact<F> {
     fn get_dq_metadata(&self) -> DrainQueueMetadata {
         DrainQueueMetadata {
-            channel_id: QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            channel_id: Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
             checkpoint_id: self.l2_block_state.checkpoint_id,
             item_id: self.l2_block_state.checkpoint_id,
         }
     }
 }
 
-impl<F: RichField> HistoryQueueMetadataTagged for QEDCheckpointSyncInfoCompact<F> {
+impl<F: RichField> HistoryQueueMetadataTagged for PsyCheckpointSyncInfoCompact<F> {
     fn get_hq_metadata(&self) -> HistoryQueueMetadata {
         HistoryQueueMetadata {
-            channel_id: QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            channel_id: Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
             checkpoint_id: self.l2_block_state.checkpoint_id,
             item_id: self.l2_block_state.checkpoint_id,
         }
     }
 }
 
-impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
-    pub fn to_sync_info<H: FieldQHasher<F>>(self) -> QEDCheckpointSyncInfo<F> {
+impl<F: RichField> PsyCheckpointSyncInfoCompact<F> {
+    pub fn to_sync_info<H: FieldQHasher<F>>(self) -> PsyCheckpointSyncInfo<F> {
         let global_chain_root = self.state_roots.qfhash::<H>();
-        let checkpoint_leaf = QEDCheckpointLeaf {
+        let checkpoint_leaf = PsyCheckpointLeaf {
             global_chain_root,
             stats: self.stats,
         };
@@ -82,14 +82,14 @@ impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
             checkpoint_leaf_hash,
             self.checkpoint_tree_update_siblings,
         );
-        let core = QEDCheckpointCoreSyncInfo {
+        let core = PsyCheckpointCoreSyncInfo {
             checkpoint_tree_root: checkpoint_tree_update_proof.new_root,
             checkpoint_leaf_hash,
             l2_block_state: self.l2_block_state,
             checkpoint_leaf,
             state_roots: self.state_roots,
         };
-        QEDCheckpointSyncInfo {
+        PsyCheckpointSyncInfo {
             core,
             checkpoint_tree_update_proof,
             regsitered_users_start_pivot_siblings: self.regsitered_users_start_pivot_siblings,
@@ -99,8 +99,8 @@ impl<F: RichField> QEDCheckpointSyncInfoCompact<F> {
     }
 }
 
-impl<F: RichField> From<QEDCheckpointSyncInfo<F>> for QEDCheckpointSyncInfoCompact<F> {
-    fn from(value: QEDCheckpointSyncInfo<F>) -> Self {
+impl<F: RichField> From<PsyCheckpointSyncInfo<F>> for PsyCheckpointSyncInfoCompact<F> {
+    fn from(value: PsyCheckpointSyncInfo<F>) -> Self {
         Self {
             l2_block_state: value.core.l2_block_state,
             stats: value.core.checkpoint_leaf.stats,
@@ -113,8 +113,8 @@ impl<F: RichField> From<QEDCheckpointSyncInfo<F>> for QEDCheckpointSyncInfoCompa
         }
     }
 }
-impl<F: RichField> From<&QEDCheckpointSyncInfo<F>> for QEDCheckpointSyncInfoCompact<F> {
-    fn from(value: &QEDCheckpointSyncInfo<F>) -> Self {
+impl<F: RichField> From<&PsyCheckpointSyncInfo<F>> for PsyCheckpointSyncInfoCompact<F> {
+    fn from(value: &PsyCheckpointSyncInfo<F>) -> Self {
         Self {
             l2_block_state: value.core.l2_block_state,
             stats: value.core.checkpoint_leaf.stats,
@@ -128,7 +128,7 @@ impl<F: RichField> From<&QEDCheckpointSyncInfo<F>> for QEDCheckpointSyncInfoComp
     }
 }
 
-impl<F: RichField> KVQSerializable for QEDCheckpointSyncInfoCompact<F> {
+impl<F: RichField> KVQSerializable for PsyCheckpointSyncInfoCompact<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -140,15 +140,15 @@ impl<F: RichField> KVQSerializable for QEDCheckpointSyncInfoCompact<F> {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDCheckpointCoreSyncInfo<F: RichField> {
+pub struct PsyCheckpointCoreSyncInfo<F: RichField> {
     pub checkpoint_tree_root: QHashOut<F>,
     pub checkpoint_leaf_hash: QHashOut<F>,
-    pub l2_block_state: QEDL2BlockState,
-    pub checkpoint_leaf: QEDCheckpointLeaf<F>,
-    pub state_roots: QEDCheckpointGlobalStateRoots<F>,
+    pub l2_block_state: PsyL2BlockState,
+    pub checkpoint_leaf: PsyCheckpointLeaf<F>,
+    pub state_roots: PsyCheckpointGlobalStateRoots<F>,
 }
 
-impl<F: RichField> KVQSerializable for QEDCheckpointCoreSyncInfo<F> {
+impl<F: RichField> KVQSerializable for PsyCheckpointCoreSyncInfo<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -160,14 +160,14 @@ impl<F: RichField> KVQSerializable for QEDCheckpointCoreSyncInfo<F> {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDCheckpointSyncInfo<F: RichField> {
-    pub core: QEDCheckpointCoreSyncInfo<F>,
+pub struct PsyCheckpointSyncInfo<F: RichField> {
+    pub core: PsyCheckpointCoreSyncInfo<F>,
     pub checkpoint_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
     pub regsitered_users_start_pivot_siblings: Vec<QHashOut<F>>,
     pub registered_users: Vec<ZKPublicKeyInfo<F>>,
     pub slot: u64,
 }
-impl<F: RichField> QEDCheckpointSyncInfo<F> {
+impl<F: RichField> PsyCheckpointSyncInfo<F> {
     pub fn get_registered_user_merkle_proofs<H: MerkleZeroHasher<QHashOut<F>> + FieldQHasher<F>>(&self) -> Vec<MerkleProofCore<QHashOut<F>>> {
         get_merkle_proofs_for_compact::<H, QHashOut<F>>(
             self.core.l2_block_state.next_user_id - (self.registered_users.len() as u64),
@@ -176,7 +176,7 @@ impl<F: RichField> QEDCheckpointSyncInfo<F> {
         )
     }
 }
-impl<F: RichField> KVQSerializable for QEDCheckpointSyncInfo<F> {
+impl<F: RichField> KVQSerializable for PsyCheckpointSyncInfo<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }

@@ -17,7 +17,7 @@ use psy_crypto::{
     },
 };
 use psy_data::{
-    config::store_config::QEDHasher,
+    config::store_config::PsyHasher,
     guta::{
         header::GlobalUserTreeAggregatorHeader,
         proof_input::{
@@ -29,14 +29,14 @@ use psy_data::{
         stats::GUTAStats,
     },
     protocol::circuit_inputs::{
-        agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput, checkpoint_transition::QCQEDCheckpointStateTransitionInput,
+        agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput, checkpoint_transition::QCPsyCheckpointStateTransitionInput,
         deploy_contracts::QCBatchDeployContractsCircuitInput,
     },
 };
 
 pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 pub const D: usize = 2;
-pub type F = psy_data::config::store_config::QEDFelt;
+pub type F = psy_data::config::store_config::PsyFelt;
 
 pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
     proof_verifier: &GenericCircuitVerifier<C, D>,
@@ -64,7 +64,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 .top_line_proof
                 .new_root;
 
-            let state_transition_hash = QEDHasher::two_to_one(&old_root, &new_root);
+            let state_transition_hash = PsyHasher::two_to_one(&old_root, &new_root);
             if proof.public_inputs[15..19] != state_transition_hash.0.elements {
                 anyhow::bail!("invalid state transition hash");
             }
@@ -86,7 +86,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let agg_fingerprint = proof_verifier
                 .library
                 .get_fingerprint(ProvingJobCircuitType::AppendUserRegistrationTreeAggregate)?;
-            let allowed_circuit_hashes_root = QEDHasher::two_to_one(&leaf_fingerprint, &agg_fingerprint);
+            let allowed_circuit_hashes_root = PsyHasher::two_to_one(&leaf_fingerprint, &agg_fingerprint);
 
             if proof.public_inputs[11..15] != allowed_circuit_hashes_root.0.elements {
                 anyhow::bail!("invalid allowed circuit hashes root");
@@ -94,7 +94,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let left_state_transition_start = r.input.left_input.state_transition_start;
             let right_state_transition_end = r.input.right_input.state_transition_end;
-            let state_transition_hash = QEDHasher::two_to_one(&left_state_transition_start, &right_state_transition_end);
+            let state_transition_hash = PsyHasher::two_to_one(&left_state_transition_start, &right_state_transition_end);
             if proof.public_inputs[15..19] != state_transition_hash.0.elements {
                 anyhow::bail!("invalid state transition hash");
             }
@@ -108,7 +108,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let input: DummyAggStateTransition<F> =
                 bincode::deserialize(&proof_store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
 
-            let transition = QEDHasher::two_to_one(&input.state_transition_hash, &input.state_transition_hash);
+            let transition = PsyHasher::two_to_one(&input.state_transition_hash, &input.state_transition_hash);
 
             if input.allowed_circuit_hashes_root.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid allowed circuit hashes root");
@@ -127,7 +127,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let input: QCBatchDeployContractsCircuitInput<F> =
                 bincode::deserialize(&proof_store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
 
-            let state_transition_hash = QEDHasher::two_to_one(
+            let state_transition_hash = PsyHasher::two_to_one(
                 &input.spiderman_append_proof.top_line_proof.old_root,
                 &input.spiderman_append_proof.top_line_proof.new_root,
             );
@@ -157,7 +157,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let agg_fingerprint = proof_verifier
                 .library
                 .get_fingerprint(ProvingJobCircuitType::BatchDeployContractsAggregate)?;
-            let allowed_circuit_hashes_root = QEDHasher::two_to_one(&leaf_fingerprint, &agg_fingerprint);
+            let allowed_circuit_hashes_root = PsyHasher::two_to_one(&leaf_fingerprint, &agg_fingerprint);
 
             if proof.public_inputs[11..15] != allowed_circuit_hashes_root.0.elements {
                 anyhow::bail!("invalid allowed circuit hashes root");
@@ -165,7 +165,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let left_state_transition_start = r.input.left_input.state_transition_start;
             let right_state_transition_end = r.input.right_input.state_transition_end;
-            let state_transition_hash = QEDHasher::two_to_one(&left_state_transition_start, &right_state_transition_end);
+            let state_transition_hash = PsyHasher::two_to_one(&left_state_transition_start, &right_state_transition_end);
             if proof.public_inputs[15..19] != state_transition_hash.0.elements {
                 anyhow::bail!("invalid state transition hash");
             }
@@ -179,7 +179,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let input: DummyAggStateTransition<F> =
                 bincode::deserialize(&proof_store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
 
-            let transition = QEDHasher::two_to_one(&input.state_transition_hash, &input.state_transition_hash);
+            let transition = PsyHasher::two_to_one(&input.state_transition_hash, &input.state_transition_hash);
 
             if proof.public_inputs[11..15] != input.allowed_circuit_hashes_root.0.elements {
                 anyhow::bail!("invalid allowed circuit hashes root");
@@ -206,20 +206,20 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             let deploy_contracts_state_transition = r.input.deploy_contracts_state_transition;
             let guta_proof_header = r.input.guta_proof_header;
 
-            let user_regsitration_deploy_contract_start = QEDHasher::two_to_one(
+            let user_regsitration_deploy_contract_start = PsyHasher::two_to_one(
                 &register_users_state_transition.state_transition_start,
                 &deploy_contracts_state_transition.state_transition_start,
             );
-            let user_regsitration_deploy_contract_end = QEDHasher::two_to_one(
+            let user_regsitration_deploy_contract_end = PsyHasher::two_to_one(
                 &register_users_state_transition.state_transition_end,
                 &deploy_contracts_state_transition.state_transition_end,
             );
             let user_regsitration_deploy_contract_combo =
-                QEDHasher::two_to_one(&user_regsitration_deploy_contract_start, &user_regsitration_deploy_contract_end);
+                PsyHasher::two_to_one(&user_regsitration_deploy_contract_start, &user_regsitration_deploy_contract_end);
 
-            let guta_hash = guta_proof_header.qfhash::<QEDHasher>();
+            let guta_hash = guta_proof_header.qfhash::<PsyHasher>();
 
-            let state_transition_hash = QEDHasher::two_to_one(&user_regsitration_deploy_contract_combo, &guta_hash);
+            let state_transition_hash = PsyHasher::two_to_one(&user_regsitration_deploy_contract_combo, &guta_hash);
 
             let user_registration_proof: ProofWithPublicInputs<F, C, D> = proof_store.get_proof_by_id(r.dependencies[0]).await?;
             let deploy_contracts_proof: ProofWithPublicInputs<F, C, D> = proof_store.get_proof_by_id(r.dependencies[1]).await?;
@@ -232,21 +232,21 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             // expected value
             let user_registration_commitment = QHashOut::from_felt_slice(&user_registration_proof.public_inputs[0..4]);
             let user_registration_worker_pk = QHashOut::from_felt_slice(&user_registration_proof.public_inputs[4..8]);
-            let user_registration_final = QEDHasher::two_to_one(&user_registration_commitment, &user_registration_worker_pk);
+            let user_registration_final = PsyHasher::two_to_one(&user_registration_commitment, &user_registration_worker_pk);
             if user_registration_final.0.elements != proof.public_inputs[4..8] {
                 anyhow::bail!("invalid user registration proof");
             }
 
             let deploy_contracts_commitment = QHashOut::from_felt_slice(&deploy_contracts_proof.public_inputs[0..4]);
             let deploy_contracts_worker_pk = QHashOut::from_felt_slice(&deploy_contracts_proof.public_inputs[4..8]);
-            let deploy_contracts_final = QEDHasher::two_to_one(&deploy_contracts_commitment, &deploy_contracts_worker_pk);
+            let deploy_contracts_final = PsyHasher::two_to_one(&deploy_contracts_commitment, &deploy_contracts_worker_pk);
             if deploy_contracts_final.0.elements != proof.public_inputs[8..12] {
                 anyhow::bail!("invalid deploy contracts proof");
             }
 
             let guta_commitment = QHashOut::from_felt_slice(&guta_proof.public_inputs[0..4]);
             let guta_worker_pk = QHashOut::from_felt_slice(&guta_proof.public_inputs[4..8]);
-            let guta_final = QEDHasher::two_to_one(&guta_commitment, &guta_worker_pk);
+            let guta_final = PsyHasher::two_to_one(&guta_commitment, &guta_worker_pk);
             if guta_final.0.elements != proof.public_inputs[12..16] {
                 anyhow::bail!("invalid guta proof");
             }
@@ -257,7 +257,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 anyhow::bail!("invalid rollup state transition proof");
             }
 
-            let r: CircuitInputWithDependencies<QCQEDCheckpointStateTransitionInput<F>> =
+            let r: CircuitInputWithDependencies<QCPsyCheckpointStateTransitionInput<F>> =
                 bincode::deserialize(&proof_store.get_bytes_by_id(job_id.get_input_witness_id()).await?)?;
 
             if r.dependencies.len() != 1 {
@@ -289,7 +289,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             use psy_crypto::hash::traits::qhashable::QFieldHashable;
             let guta_header = r.input.get_new_guta_header();
 
-            let guta_header_hash = guta_header.qfhash::<QEDHasher>();
+            let guta_header_hash = guta_header.qfhash::<PsyHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
             if guta_header_hash.0.elements != proof.public_inputs[11..15] {
@@ -308,7 +308,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             }
 
             let guta_header_combine = r.input.get_new_guta_header();
-            let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
+            let guta_header_combine_hash = guta_header_combine.qfhash::<PsyHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
             if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
@@ -334,8 +334,8 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let nearest_common_ancestor_level = r.input.nca_proof.nearest_common_ancestor_level;
             let nearest_common_ancestor_index = r.input.nca_proof.get_nca_index();
-            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<QEDHasher>();
-            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<QEDHasher>();
+            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<PsyHasher>();
+            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<PsyHasher>();
 
             let combine_stats = r.input.stats_a.combine_with(&r.input.stats_b);
             let guta_header_combine = GlobalUserTreeAggregatorHeader {
@@ -350,7 +350,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 stats: combine_stats,
             };
 
-            let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
+            let guta_header_combine_hash = guta_header_combine.qfhash::<PsyHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
             if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
@@ -369,9 +369,9 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 anyhow::bail!("invalid dependency count in guta to cap input");
             }
 
-            let guta_header_combine = r.input.get_new_guta_header::<QEDHasher>();
+            let guta_header_combine = r.input.get_new_guta_header::<PsyHasher>();
 
-            let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
+            let guta_header_combine_hash = guta_header_combine.qfhash::<PsyHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
             if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
@@ -396,8 +396,8 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let nearest_common_ancestor_level = r.input.nca_proof.nearest_common_ancestor_level;
             let nearest_common_ancestor_index = r.input.nca_proof.get_nca_index();
-            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<QEDHasher>();
-            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<QEDHasher>();
+            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<PsyHasher>();
+            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<PsyHasher>();
 
             anyhow::ensure!(
                 r.input.historical_checkpoint_proof_a.root == r.input.historical_checkpoint_proof_b.root,
@@ -417,7 +417,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 stats: combine_stats,
             };
 
-            let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
+            let guta_header_combine_hash = guta_header_combine.qfhash::<PsyHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
             if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
@@ -442,8 +442,8 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let nearest_common_ancestor_level = r.input.nca_proof.nearest_common_ancestor_level;
             let nearest_common_ancestor_index = r.input.nca_proof.get_nca_index();
-            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<QEDHasher>();
-            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<QEDHasher>();
+            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<PsyHasher>();
+            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<PsyHasher>();
 
             anyhow::ensure!(
                 r.input.b_end_cap.checkpoint_historical_merkle_proof.root == r.input.checkpoint_tree_root,
@@ -463,7 +463,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 stats: combine_stats,
             };
 
-            let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
+            let guta_header_combine_hash = guta_header_combine.qfhash::<PsyHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
             if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
@@ -488,8 +488,8 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
 
             let nearest_common_ancestor_level = r.input.nca_proof.nearest_common_ancestor_level;
             let nearest_common_ancestor_index = r.input.nca_proof.get_nca_index();
-            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<QEDHasher>();
-            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<QEDHasher>();
+            let old_nca_value = r.input.nca_proof.compute_old_nca_value::<PsyHasher>();
+            let new_nca_value = r.input.nca_proof.compute_new_nca_value::<PsyHasher>();
 
             let combine_stats = r.input.a_end_cap.guta_stats.combine_with(&r.input.stats_b);
 
@@ -509,7 +509,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 stats: combine_stats,
             };
 
-            let guta_header_combine_hash = guta_header_combine.qfhash::<QEDHasher>();
+            let guta_header_combine_hash = guta_header_combine.qfhash::<PsyHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_combine_hash);
             if guta_header_combine_hash.0.elements != proof.public_inputs[11..15] {
@@ -531,7 +531,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 guta_proof_header: r.input.guta_proof_header.clone(),
                 top_line_siblings: r.input.top_line_siblings.clone(),
             };
-            let new_g = verify_to_cap_input.get_new_guta_header::<QEDHasher>();
+            let new_g = verify_to_cap_input.get_new_guta_header::<PsyHasher>();
 
             let guta_header = GlobalUserTreeAggregatorHeader {
                 guta_circuit_whitelist: new_g.guta_circuit_whitelist,
@@ -552,7 +552,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 stats: new_g.stats,
             };
             println!("new_guta_header: {:?}", guta_header);
-            let guta_header_hash = guta_header.qfhash::<QEDHasher>();
+            let guta_header_hash = guta_header.qfhash::<PsyHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
             if guta_header_hash.0.elements != proof.public_inputs[11..15] {
@@ -588,7 +588,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 stats: GUTAStats::default(),
             };
             println!("new_guta_header: {:?}", guta_header);
-            let guta_header_hash = guta_header.qfhash::<QEDHasher>();
+            let guta_header_hash = guta_header.qfhash::<PsyHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
             if guta_header_hash.0.elements != proof.public_inputs[11..15] {
@@ -606,8 +606,8 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 anyhow::bail!("invalid dependency count in two end guta input");
             }
 
-            let guta_header = r.input.get_new_guta_header::<QEDHasher>();
-            let guta_header_hash = guta_header.qfhash::<QEDHasher>();
+            let guta_header = r.input.get_new_guta_header::<PsyHasher>();
+            let guta_header_hash = guta_header.qfhash::<PsyHasher>();
 
             tracing::info!("guta_header_hash: {:?}", guta_header_hash);
             if guta_header_hash.0.elements != proof.public_inputs[11..15] {
@@ -639,7 +639,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 stats: GUTAStats::default(),
             };
 
-            let public_inputs_hash = new_guta_header.qfhash::<QEDHasher>();
+            let public_inputs_hash = new_guta_header.qfhash::<PsyHasher>();
             tracing::info!("guta_no_change public_inputs_hash: {:?}", public_inputs_hash);
             if public_inputs_hash.0.elements != proof.public_inputs[11..15] {
                 anyhow::bail!("invalid guta header hash");

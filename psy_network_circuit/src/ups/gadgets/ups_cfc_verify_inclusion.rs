@@ -6,18 +6,18 @@ use plonky2::{
 };
 use psy_common_circuit::treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::AttestTreeAwareProofInTreeGadget;
 use psy_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::traits::hasher::MerkleZeroHasher};
-use psy_data::qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, contract_inclusion::QEDContractFunctionInclusionProof};
+use psy_data::qdata::{checkpoint::PsyCheckpointLeafCompactWithStateRoots, contract_inclusion::PsyContractFunctionInclusionProof};
 
 use crate::gadgets::qdata::{
-    checkpoint_compact_with_state::QEDCheckpointLeafCompactWithStateRootsGadget, contract_inclusion::QEDContractFunctionInclusionProofGadget,
+    checkpoint_compact_with_state::PsyCheckpointLeafCompactWithStateRootsGadget, contract_inclusion::PsyContractFunctionInclusionProofGadget,
 };
 
 #[derive(Clone, Debug)]
 pub struct UPSVerifyCFCProofExistsAndValidGadget {
     // start require witness
-    pub checkpoint_state_gadget: QEDCheckpointLeafCompactWithStateRootsGadget,
+    pub checkpoint_state_gadget: PsyCheckpointLeafCompactWithStateRootsGadget,
     pub verify_cfc_proof_gadget: AttestTreeAwareProofInTreeGadget,
-    pub cfc_inclusion_proof_gadget: QEDContractFunctionInclusionProofGadget,
+    pub cfc_inclusion_proof_gadget: PsyContractFunctionInclusionProofGadget,
 
     // start computed
 
@@ -44,11 +44,11 @@ impl UPSVerifyCFCProofExistsAndValidGadget {
         let verify_cfc_proof_gadget = AttestTreeAwareProofInTreeGadget::add_virtual_to::<H, F, D>(builder, ups_session_proof_tree_height);
 
         // get the current checkpoint and contract state tree root
-        let checkpoint_state_gadget = QEDCheckpointLeafCompactWithStateRootsGadget::add_virtual_to::<H, F, D>(builder);
+        let checkpoint_state_gadget = PsyCheckpointLeafCompactWithStateRootsGadget::add_virtual_to::<H, F, D>(builder);
 
         // get a proof that the fingerprint for this function proof exists in its
         // contract function tree
-        let cfc_inclusion_proof_gadget = QEDContractFunctionInclusionProofGadget::add_virtual_to::<H, F, D>(builder);
+        let cfc_inclusion_proof_gadget = PsyContractFunctionInclusionProofGadget::add_virtual_to::<H, F, D>(builder);
 
         // -- end require_witnesss
 
@@ -129,9 +129,9 @@ impl UPSVerifyCFCProofExistsAndValidGadget {
     pub fn set_witness_params<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,
-        checkpoint_state: &QEDCheckpointLeafCompactWithStateRoots<F>,
+        checkpoint_state: &PsyCheckpointLeafCompactWithStateRoots<F>,
         verify_cfc_proof_input: &AttestTreeAwareProofInTreeInput<F>,
-        cfc_inclusion_proof: &QEDContractFunctionInclusionProof<F>,
+        cfc_inclusion_proof: &PsyContractFunctionInclusionProof<F>,
     ) -> anyhow::Result<()> {
         //self.checkpoint_state_gadget.set_witness_params(witness, global_state_roots,
         // stats_hash);

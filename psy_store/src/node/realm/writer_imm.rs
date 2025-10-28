@@ -21,13 +21,13 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::{
         BaseContractStateTreeStore, CheckpointHashHelperTableStore, CheckpointLeafTableStore, CheckpointSyncInfoTableStore, CheckpointTreeStore,
-        QEDHasher, UserContractTreeStore, UserPublicKeyTableStore, UserRegistrationTreeStore, UserTreeStore, CONTRACT_STATE_TREE_ID,
+        PsyHasher, UserContractTreeStore, UserPublicKeyTableStore, UserRegistrationTreeStore, UserTreeStore, CONTRACT_STATE_TREE_ID,
         USER_CONTRACT_STATE_TREE_TABLE_TYPE,
     },
     models::{
         checkpoint::{
-            checkpoint_hash::QEDCheckpointHashHelperModelCore, checkpoint_leaf::QEDCheckpointLeafModelCore,
-            sync_info::QEDCheckpointSyncInfoModelCore, user_public_keys::QEDUserPublicKeyHelperModelCore,
+            checkpoint_hash::PsyCheckpointHashHelperModelCore, checkpoint_leaf::PsyCheckpointLeafModelCore,
+            sync_info::PsyCheckpointSyncInfoModelCore, user_public_keys::PsyUserPublicKeyHelperModelCore,
         },
         kvq_merkle::{
             key::KVQMerkleNodeKey,
@@ -38,21 +38,21 @@ use psy_data::{
         },
     },
     qdata::{
-        contract::{ContractCodeDefinition, QEDContractLeaf},
-        user::QEDUserLeaf,
-        user_public_key::QEDUserPublicKeyRecord,
+        contract::{ContractCodeDefinition, PsyContractLeaf},
+        user::PsyUserLeaf,
+        user_public_key::PsyUserPublicKeyRecord,
     },
     qstore::uct_merkle_nodes::CSTUserUpdate,
-    qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact},
+    qsync::coordinator::{PsyCheckpointSyncInfo, PsyCheckpointSyncInfoCompact},
     traits::qdatastore::qmetadata::QMetaDataStoreWriterSync,
 };
 
-use crate::node::realm::QEDRealmStoreWriterAsyncImm;
+use crate::node::realm::PsyRealmStoreWriterAsyncImm;
 
 type F = GoldilocksField;
 #[async_trait]
-impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
-    async fn injest_user_leaves_batch_imm(&self, checkpoint_id: u64, leaves: &[QEDUserLeaf<F>]) -> anyhow::Result<()> {
+impl<T: KVQBinaryStore> PsyRealmStoreWriterAsyncImm<F> for T {
+    async fn injest_user_leaves_batch_imm(&self, checkpoint_id: u64, leaves: &[PsyUserLeaf<F>]) -> anyhow::Result<()> {
         for l in leaves.iter() {
             self.set_user_leaf_data(checkpoint_id, l)?;
         }
@@ -63,7 +63,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
         &self,
         checkpoint_id: u64,
         root_level: u8,
-        leaves: &[QEDUserLeaf<F>],
+        leaves: &[PsyUserLeaf<F>],
     ) -> anyhow::Result<Vec<DeltaMerkleProofCore<QHashOut<F>>>> {
         for l in leaves.iter() {
             self.set_user_leaf_data(checkpoint_id, l)?;
@@ -76,7 +76,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
                     index: l.user_id.to_canonical_u64(),
                     level: GLOBAL_USER_TREE_HEIGHT,
                 },
-                value: l.qfhash::<QEDHasher>(),
+                value: l.qfhash::<PsyHasher>(),
             });
         }
         UserTreeStore::<Self>::smart_injest_nca_at_height_dmp_fc(self, root_level, checkpoint_id, &nodes)
@@ -89,7 +89,7 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
     ) -> anyhow::Result<UpdateNCAProofsWithDependencies<QHashOut<F>>> {
         UserTreeStore::<Self>::smart_injest_nca_fc(self, root_level, checkpoint_id, nodes)
     }
-    async fn injest_checkpoint_sync_data_imm(&self, sync_info: QEDCheckpointSyncInfo<F>) -> anyhow::Result<()> {
+    async fn injest_checkpoint_sync_data_imm(&self, sync_info: PsyCheckpointSyncInfo<F>) -> anyhow::Result<()> {
         let checkpoint_id = sync_info.core.l2_block_state.checkpoint_id;
 
         let old_checkpoint_proof = MerkleProofCore {
@@ -122,10 +122,10 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
             .map(|(i, x)| {
                 let registration_id = start_registration_user_id + (i as u64);
                 let user_id = get_user_id_from_registration_id(registration_id);
-                QEDUserPublicKeyRecord {
+                PsyUserPublicKeyRecord {
                     public_key_param: x.public_key_param,
                     fingerprint: x.fingerprint,
-                    public_key: x.qfhash::<QEDHasher>(),
+                    public_key: x.qfhash::<PsyHasher>(),
                     user_id,
                     checkpoint_id,
                 }
@@ -148,13 +148,13 @@ impl<T: KVQBinaryStore> QEDRealmStoreWriterAsyncImm<F> for T {
             &new_user_records.iter().map(|x| x.public_key).collect::<Vec<_>>(),
         )?;
 
-        let checkpoint_sync_info: QEDCheckpointSyncInfoCompact<F> = sync_info.into();
+        let checkpoint_sync_info: PsyCheckpointSyncInfoCompact<F> = sync_info.into();
         CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, checkpoint_sync_info)?;
 
         Ok(())
     }
 
-    async fn set_contract_leaf_data_imm(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()> {
+    async fn set_contract_leaf_data_imm(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &PsyContractLeaf<F>) -> anyhow::Result<()> {
         <Self as QMetaDataStoreWriterSync<F>>::set_contract_leaf_data(&self, checkpoint_id, contract_id, leaf_data)
     }
 

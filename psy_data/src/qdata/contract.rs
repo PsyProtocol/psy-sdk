@@ -11,13 +11,13 @@ use ts_rs::TS;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDContractLeaf<F: RichField> {
+pub struct PsyContractLeaf<F: RichField> {
     pub deployer: QHashOut<F>,
     pub function_tree_root: QHashOut<F>,
     pub state_tree_height: F,
 }
 
-impl<F: RichField> KVQSerializable for QEDContractLeaf<F> {
+impl<F: RichField> KVQSerializable for PsyContractLeaf<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -27,12 +27,12 @@ impl<F: RichField> KVQSerializable for QEDContractLeaf<F> {
     }
 }
 
-impl<F: RichField> QFeltSized for QEDContractLeaf<F> {
+impl<F: RichField> QFeltSized for PsyContractLeaf<F> {
     fn q_felt_size() -> usize {
         9
     }
 }
-impl<F: RichField> ToQFelts<F> for QEDContractLeaf<F> {
+impl<F: RichField> ToQFelts<F> for PsyContractLeaf<F> {
     fn to_qfelts(&self) -> Vec<F> {
         vec![
             self.deployer.0.elements[0],
@@ -49,12 +49,12 @@ impl<F: RichField> ToQFelts<F> for QEDContractLeaf<F> {
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != 9 {
-            panic!("Invalid number of elements for QEDContractLeaf");
+            panic!("Invalid number of elements for PsyContractLeaf");
         }
         let deployer = QHashOut::from_qfelts(&felts[0..4]);
         let function_tree_root = QHashOut::from_qfelts(&felts[4..8]);
         let state_tree_height = felts[8];
-        QEDContractLeaf {
+        PsyContractLeaf {
             deployer,
             function_tree_root,
             state_tree_height,
@@ -62,7 +62,7 @@ impl<F: RichField> ToQFelts<F> for QEDContractLeaf<F> {
     }
 }
 
-impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
+impl<F: RichField> QFieldHashable<F> for PsyContractLeaf<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         H::q_hash_many(&[
             self.deployer.0.elements[0],

@@ -28,7 +28,7 @@ const TPS_WS_URL: &str = "ws://localhost:3000/ws/tps";
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = TpsTestClient::new();
 
-    println!("📊 QED API Services TPS WebSocket Client Example");
+    println!("📊 Psy API Services TPS WebSocket Client Example");
     println!("Server address: localhost:3000\n");
 
     // Connect to TPS WebSocket

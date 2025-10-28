@@ -154,7 +154,7 @@
         },
         "tikv": {
           "pd_endpoints": ["127.0.0.1:2379", "127.0.0.1:2381", "127.0.0.1:2383"],
-          "namespace": "qed",
+          "namespace": "psy",
           "aws": {
             "cpu": 4096,
             "memory": 16384,
@@ -274,7 +274,7 @@
           },
           "tikv": {
             "pd_endpoints": ["127.0.0.1:2379", "127.0.0.1:2381", "127.0.0.1:2383"],
-            "namespace": "qed_realm_0",
+            "namespace": "psy_realm_0",
             "aws": {
               "deployment_type": "ec2",
               "cpu": 2048,
@@ -480,24 +480,24 @@
     "deployment": {
       "aws": {
         "region": "ap-northeast-1",
-        "project_name": "qed-protocol",
+        "project_name": "psy-protocol",
         "vpc": {
           "cidr": "10.0.0.0/16",
           "availability_zones": 2
         },
         "ecs": {
-          "cluster_name": "qed-cluster",
-          "log_group": "/ecs/qed-protocol"
+          "cluster_name": "psy-cluster",
+          "log_group": "/ecs/psy-protocol"
         },
         "ecr": {
-          "repository_name": "qed-protocol"
+          "repository_name": "psy-protocol"
         },
         "s3": {
-          "bucket_prefix": "qed-protocol"
+          "bucket_prefix": "psy-protocol"
         }
       },
       "docker": {
-        "network_name": "qed-network",
+        "network_name": "psy-network",
         "network_subnet": "172.28.0.0/16"
       }
     }

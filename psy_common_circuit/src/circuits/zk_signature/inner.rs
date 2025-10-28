@@ -16,7 +16,7 @@ use super::{
     super::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit},
     ZKSignatureCircuitInput,
 };
-use crate::{builder::hash::core::CircuitBuilderHashCore, proof_minifier::pm_chain::QEDProofMinifierChain};
+use crate::{builder::hash::core::CircuitBuilderHashCore, proof_minifier::pm_chain::PsyProofMinifierChain};
 #[derive(Debug)]
 pub struct ZKSignatureCircuitInner<C: GenericConfig<D>, const D: usize>
 where
@@ -25,7 +25,7 @@ where
     pub private_key: HashOutTarget,
     pub action_hash: HashOutTarget,
     // end circuit targets
-    pub minifier_chain: QEDProofMinifierChain<D, C::F, C>,
+    pub minifier_chain: PsyProofMinifierChain<D, C::F, C>,
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
 }
@@ -88,7 +88,7 @@ where
         builder.register_public_inputs(&combined_hash.elements);
         let circuit_data = builder.build::<C>();
 
-        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new(&circuit_data.verifier_only, &circuit_data.common, 2);
+        let minifier_chain = PsyProofMinifierChain::<D, C::F, C>::new(&circuit_data.verifier_only, &circuit_data.common, 2);
         let fingerprint = QHashOut(minifier_chain.get_fingerprint());
         Self {
             private_key,

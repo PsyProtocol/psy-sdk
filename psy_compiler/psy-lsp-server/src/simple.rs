@@ -245,7 +245,7 @@ impl QLspSimple {
                             range: desc.text_range.map(to_lsp_range).unwrap_or_else(dummy_range),
                             severity: Some(DiagnosticSeverity::ERROR),
                             message: desc.message,
-                            source: Some("qed-lsp".into()),
+                            source: Some("psy-lsp".into()),
                             ..Default::default()
                         };
 
@@ -261,7 +261,7 @@ impl QLspSimple {
                             range: dummy_range(),
                             severity: Some(DiagnosticSeverity::ERROR),
                             message: msg,
-                            source: Some("qed-lsp".into()),
+                            source: Some("psy-lsp".into()),
                             ..Default::default()
                         };
                         DiagnosticBundle {

@@ -17,7 +17,7 @@ use psy_core::{
     },
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
-use psy_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
+use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
 use serde::{Deserialize, Serialize};
 
 use crate::local::{
@@ -40,7 +40,7 @@ pub fn hash_no_pad_compressed_public_key<F: RichField, P: PlonkyPermutation<F>>(
     QHashOut(hash_n_to_hash_no_pad::<F, P>(&secp256k1_public_key_f))
 }
 
-pub fn secp256k1_sign<F: RichField>(private_key: SigningKey, sighash: QHashOut<F>) -> anyhow::Result<QEDCompressedSecp256K1Signature> {
+pub fn secp256k1_sign<F: RichField>(private_key: SigningKey, sighash: QHashOut<F>) -> anyhow::Result<PsyCompressedSecp256K1Signature> {
     tracing::info!("🔔 prove_secp256k1_signature");
 
     // let private_key: Hash256 = private_key.into();
@@ -61,7 +61,7 @@ pub fn secp256k1_sign<F: RichField>(private_key: SigningKey, sighash: QHashOut<F
     rs_bytes[0..32].copy_from_slice(&r_bytes);
     rs_bytes[32..64].copy_from_slice(&s_bytes);
 
-    Ok(QEDCompressedSecp256K1Signature {
+    Ok(PsyCompressedSecp256K1Signature {
         public_key: pub_compressed.0,
         signature: rs_bytes,
         message: sighash.into(),

@@ -114,7 +114,7 @@ pub async fn launch(config_path: Option<String>, verbose: bool) -> Result<()> {
     let log_dir = work_dir.join("logs");
     fs::create_dir_all(&log_dir)?;
 
-    info!("🚀 QED Launch - Starting development environment");
+    info!("🚀 Psy Launch - Starting development environment");
     info!("📁 Working directory: {}", work_dir.display());
     info!("📝 Log directory: {}", log_dir.display());
 
@@ -460,9 +460,9 @@ fn add_backend_args(cmd: &mut Command, config: &Config, realm_id: Option<u64>) -
                     cmd.arg("--scylla-uri").arg(endpoint);
                 }
                 let keyspace = if let Some(realm) = realm_id {
-                    format!("qed_realm_{}", realm)
+                    format!("psy_realm_{}", realm)
                 } else {
-                    "qed_coordinator".to_string()
+                    "psy_coordinator".to_string()
                 };
                 cmd.arg("--scylla-keyspace").arg(keyspace);
             }
@@ -539,7 +539,7 @@ fn start_redis_docker(config: &Config, manager: &ProcessManager, log_dir: &Path)
         "run",
         "--rm",
         "--name",
-        "qed-redis-coordinator",
+        "psy-redis-coordinator",
         "-p",
         &format!("{}:6379", coordinator_port),
         "redis:7-alpine",
@@ -555,7 +555,7 @@ fn start_redis_docker(config: &Config, manager: &ProcessManager, log_dir: &Path)
                 "run",
                 "--rm",
                 "--name",
-                &format!("qed-redis-realm-{}", realm.id),
+                &format!("psy-redis-realm-{}", realm.id),
                 "-p",
                 &format!("{}:6379", port),
                 "redis:7-alpine",
@@ -573,7 +573,7 @@ fn start_scylla_docker(config: &Config, manager: &ProcessManager, log_dir: &Path
         "run",
         "--rm",
         "--name",
-        "qed-scylladb",
+        "psy-scylladb",
         "-p",
         "9042:9042",
         "scylladb/scylla:2025.1",
@@ -587,8 +587,8 @@ fn start_scylla_docker(config: &Config, manager: &ProcessManager, log_dir: &Path
 }
 
 fn create_keyspaces(config: &Config) -> Result<()> {
-    let mut keyspaces = vec!["qed_coordinator".to_string()];
-    let realm_keyspaces: Vec<String> = config.nodes.realms.iter().map(|r| format!("qed_realm_{}", r.id)).collect();
+    let mut keyspaces = vec!["psy_coordinator".to_string()];
+    let realm_keyspaces: Vec<String> = config.nodes.realms.iter().map(|r| format!("psy_realm_{}", r.id)).collect();
     keyspaces.extend(realm_keyspaces);
 
     for keyspace in &keyspaces {
@@ -596,7 +596,7 @@ fn create_keyspaces(config: &Config) -> Result<()> {
         let output = Command::new("docker")
             .args(&[
                 "exec",
-                "qed-scylladb",
+                "psy-scylladb",
                 "cqlsh",
                 "-e",
                 &format!(
@@ -730,7 +730,7 @@ async fn start_global_services(config: &Config, manager: &ProcessManager, work_d
                     "run",
                     "--rm",
                     "--name",
-                    "qed-timescaledb",
+                    "psy-timescaledb",
                     "-p",
                     "5432:5432",
                     "-e",
@@ -774,7 +774,7 @@ async fn start_global_services(config: &Config, manager: &ProcessManager, work_d
                     cmd.env(key, value);
                 }
 
-                manager.spawn("qed-api-service".to_string(), cmd, log_dir)?;
+                manager.spawn("psy-api-service".to_string(), cmd, log_dir)?;
 
                 // Wait for API service to be ready
                 wait_for_service("localhost", 3000, "API Service").await?;
@@ -806,11 +806,11 @@ fn extract_port_from_addr(addr: &str) -> Result<u16> {
 
 fn stop_docker_containers() {
     let containers = vec![
-        "qed-redis-coordinator",
-        "qed-redis-realm-0",
-        "qed-redis-realm-1",
-        "qed-scylladb",
-        "qed-timescaledb",
+        "psy-redis-coordinator",
+        "psy-redis-realm-0",
+        "psy-redis-realm-1",
+        "psy-scylladb",
+        "psy-timescaledb",
     ];
 
     for container in containers {

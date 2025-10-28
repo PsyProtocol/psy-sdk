@@ -1,10 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'QED Protocol Infrastructure - Generated from config.json'
+Description: 'Psy Protocol Infrastructure - Generated from config.json'
 
 Parameters:
   ProjectName:
     Type: String
-    Default: qed-protocol
+    Default: psy-protocol
     Description: Project name for resource naming
   
   Environment:
@@ -123,7 +123,7 @@ Resources:
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: qed-cluster
+      ClusterName: psy-cluster
       ClusterSettings:
         - Name: containerInsights
           Value: enabled
@@ -132,22 +132,22 @@ Resources:
   ServiceDiscoveryNamespace:
     Type: AWS::ServiceDiscovery::PrivateDnsNamespace
     Properties:
-      Name: qed.local
+      Name: psy.local
       Vpc: !Ref VPC
-      Description: Private namespace for QED services
+      Description: Private namespace for Psy services
 
   # CloudWatch Log Group
   LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /ecs/qed-protocol
+      LogGroupName: /ecs/psy-protocol
       RetentionInDays: 7
 
   # ECR Repository
   ECRRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: qed-protocol
+      RepositoryName: psy-protocol
       ImageScanningConfiguration:
         ScanOnPush: true
 
@@ -155,7 +155,7 @@ Resources:
   ArtifactsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'qed-protocol-${AWS::AccountId}-${AWS::Region}'
+      BucketName: !Sub 'psy-protocol-${AWS::AccountId}-${AWS::Region}'
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:

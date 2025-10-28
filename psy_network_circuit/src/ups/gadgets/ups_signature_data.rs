@@ -8,16 +8,16 @@ use psy_common_circuit::{
     builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore},
     traits::{AlgebraicHashableTarget, WitnessValueFor},
 };
-use psy_core::config::network_constants::QED_SIG_ACTION_SIGN_UPS_END_CAP;
-use psy_data::qdata::ups_signature::QEDUserProvingSessionSignatureDataCompact;
+use psy_core::config::network_constants::Psy_SIG_ACTION_SIGN_UPS_END_CAP;
+use psy_data::qdata::ups_signature::PsyUserProvingSessionSignatureDataCompact;
 
 use crate::gadgets::{
     qdata::user_contract_state::{SignContextGadget, UserContractStateGadget},
-    sig_action::{compute_sig_action_hash_circuit, SimpleQEDSigAction},
+    sig_action::{compute_sig_action_hash_circuit, SimplePsySigAction},
 };
 
 #[derive(Clone, Debug)]
-pub struct QEDUserProvingSessionSignatureDataCompactGadget {
+pub struct PsyUserProvingSessionSignatureDataCompactGadget {
     // start require witness
     pub start_user_leaf_hash: HashOutTarget,
     pub end_user_leaf_hash: HashOutTarget,
@@ -26,7 +26,7 @@ pub struct QEDUserProvingSessionSignatureDataCompactGadget {
     pub tx_count: Target,
     // start computed
 }
-impl QEDUserProvingSessionSignatureDataCompactGadget {
+impl PsyUserProvingSessionSignatureDataCompactGadget {
     pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let start_user_leaf_hash = builder.add_virtual_hash();
         let end_user_leaf_hash = builder.add_virtual_hash();
@@ -60,7 +60,7 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
     pub fn set_witness<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,
-        target: &QEDUserProvingSessionSignatureDataCompact<F>,
+        target: &PsyUserProvingSessionSignatureDataCompact<F>,
     ) -> anyhow::Result<()> {
         witness.set_hash_target(self.start_user_leaf_hash, target.start_user_leaf_hash.0)?;
         witness.set_hash_target(self.end_user_leaf_hash, target.end_user_leaf_hash.0)?;
@@ -90,9 +90,9 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
         user_id: Target,
         nonce: Target,
         sign_context: &SignContextGadget,
-    ) -> SimpleQEDSigAction {
+    ) -> SimplePsySigAction {
         let network_magic_target = builder.constant_u64(network_magic);
-        let sig_action = builder.constant_u64(QED_SIG_ACTION_SIGN_UPS_END_CAP);
+        let sig_action = builder.constant_u64(Psy_SIG_ACTION_SIGN_UPS_END_CAP);
         let ups_end_data_hash = self.to_hash::<H, F, D>(builder);
 
         let mut action_arguments = ups_end_data_hash.elements.to_vec();
@@ -101,7 +101,7 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
         let sig_action_hash =
             compute_sig_action_hash_circuit::<H, F, D>(builder, network_magic_target, user_id, sig_action, nonce, &action_arguments);
 
-        SimpleQEDSigAction {
+        SimplePsySigAction {
             network_magic: network_magic_target,
             user: user_id,
             sig_action,
@@ -111,7 +111,7 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
         }
     }
 }
-impl AlgebraicHashableTarget for QEDUserProvingSessionSignatureDataCompactGadget {
+impl AlgebraicHashableTarget for PsyUserProvingSessionSignatureDataCompactGadget {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -119,14 +119,14 @@ impl AlgebraicHashableTarget for QEDUserProvingSessionSignatureDataCompactGadget
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl<F: RichField> WitnessValueFor<QEDUserProvingSessionSignatureDataCompactGadget, F, true> for QEDUserProvingSessionSignatureDataCompact<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserProvingSessionSignatureDataCompactGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyUserProvingSessionSignatureDataCompactGadget, F, true> for PsyUserProvingSessionSignatureDataCompact<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyUserProvingSessionSignatureDataCompactGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDUserProvingSessionSignatureDataCompactGadget, F, false> for QEDUserProvingSessionSignatureDataCompact<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserProvingSessionSignatureDataCompactGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyUserProvingSessionSignatureDataCompactGadget, F, false> for PsyUserProvingSessionSignatureDataCompact<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyUserProvingSessionSignatureDataCompactGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

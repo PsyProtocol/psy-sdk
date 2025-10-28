@@ -1,6 +1,6 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::traits::to_qfelts::QFeltSized;
-use psy_data::qdata::checkpoint::QEDCheckpointLeafStats;
+use psy_data::qdata::checkpoint::PsyCheckpointLeafStats;
 
 use super::{
     context_trait::{DPNContext, ToFelts},
@@ -826,7 +826,7 @@ impl DPNContext<SymFeltRef> for QExecContext {
         let cmd = DPNStateCmd::GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats { checkpoint_id });
         let b = self.resolve_state_cmd_base(cmd);
         let mut result = Vec::new();
-        let stats_size = QEDCheckpointLeafStats::<GoldilocksField>::q_felt_size();
+        let stats_size = PsyCheckpointLeafStats::<GoldilocksField>::q_felt_size();
         for i in 0..stats_size {
             result.push(self.op_target_at(b, i as u64));
         }

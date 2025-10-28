@@ -1,5 +1,5 @@
-export type { IQedWidgetWallet } from "./types";
-export { QedWalletWidget } from "./components/QedWalletWidget";
+export type { IPsyWidgetWallet } from "./types";
+export { PsyWalletWidget } from "./components/PsyWalletWidget";
 export { useWalletState } from "./hooks/useWalletState";
 export { useAddressModal, AddressModalType } from "./hooks/useAddressModal";
 export type { IWalletWidgetRPC } from "./utils/rpc/types";

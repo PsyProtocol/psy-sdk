@@ -7,7 +7,7 @@ use ts_rs::TS;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDUserPublicKeyRecord<F: RichField> {
+pub struct PsyUserPublicKeyRecord<F: RichField> {
     pub public_key_param: QHashOut<F>,
     pub fingerprint: QHashOut<F>,
     pub public_key: QHashOut<F>,
@@ -15,7 +15,7 @@ pub struct QEDUserPublicKeyRecord<F: RichField> {
     pub checkpoint_id: u64,
 }
 
-impl<F: RichField> KVQSerializable for QEDUserPublicKeyRecord<F> {
+impl<F: RichField> KVQSerializable for PsyUserPublicKeyRecord<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }

@@ -197,8 +197,8 @@ mod tests {
                 - foo
                     - Dargo.toml
                     - src
-                        - main.qed
-                        - lib.qed
+                        - main.psy
+                        - lib.psy
                 - bar
                     - src
                         - dummy.txt

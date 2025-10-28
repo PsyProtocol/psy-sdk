@@ -8,23 +8,23 @@ use psy_crypto::hash::{
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::contract::QEDContractLeaf;
+use super::contract::PsyContractLeaf;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
-pub struct QEDContractInclusionProof<F: RichField> {
-    pub contract_leaf: QEDContractLeaf<F>,
+pub struct PsyContractInclusionProof<F: RichField> {
+    pub contract_leaf: PsyContractLeaf<F>,
     pub contract_tree_merkle_proof: MerkleProofCore<QHashOut<F>>,
 }
 
-impl<F: RichField> QEDContractInclusionProof<F> {
+impl<F: RichField> PsyContractInclusionProof<F> {
     pub fn verify<H: FieldQHasher<F>>(&self) -> bool {
         self.contract_tree_merkle_proof.value == self.contract_leaf.qfhash::<H>() && self.contract_tree_merkle_proof.verify::<H>()
     }
 }
 
-impl<F: RichField> KVQSerializable for QEDContractInclusionProof<F> {
+impl<F: RichField> KVQSerializable for PsyContractInclusionProof<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -37,12 +37,12 @@ impl<F: RichField> KVQSerializable for QEDContractInclusionProof<F> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
-pub struct QEDContractFunctionInclusionProof<F: RichField> {
-    pub contract_inclusion_proof: QEDContractInclusionProof<F>,
+pub struct PsyContractFunctionInclusionProof<F: RichField> {
+    pub contract_inclusion_proof: PsyContractInclusionProof<F>,
     pub contract_function_merkle_proof: MerkleProofCore<QHashOut<F>>,
 }
 
-impl<F: RichField> QEDContractFunctionInclusionProof<F> {
+impl<F: RichField> PsyContractFunctionInclusionProof<F> {
     pub fn verify<H: FieldQHasher<F>>(&self) -> bool {
         // must have a valid contract inclusion proof and a valid merkle proof with an
         // index divisible by 4 (each function uses four leaves: fingerprint,
@@ -70,7 +70,7 @@ impl<F: RichField> QEDContractFunctionInclusionProof<F> {
     }
 }
 
-impl<F: RichField> KVQSerializable for QEDContractFunctionInclusionProof<F> {
+impl<F: RichField> KVQSerializable for PsyContractFunctionInclusionProof<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }

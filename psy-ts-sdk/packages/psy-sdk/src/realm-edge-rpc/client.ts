@@ -4,10 +4,10 @@ import { IHTTPClient } from "../http";
 import { Provider, ClientConfig, RpcConfig } from "../provider";
 import {
     ProofWithPublicInputs,
-    QEDCheckpointGlobalStateRoots,
-    QEDCheckpointLeaf,
-    QEDL2BlockState,
-    QEDUserLeaf,
+    PsyCheckpointGlobalStateRoots,
+    PsyCheckpointLeaf,
+    PsyL2BlockState,
+    PsyUserLeaf,
     SubmitUserEndCapNonProofInput,
 } from "../types";
 
@@ -107,25 +107,25 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     }
 
     // Get checkpoint leaf data
-    async getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
+    async getCheckpointLeafData(checkpointId: Felt): Promise<PsyCheckpointLeaf> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointLeafData, [checkpointId]);
     }
 
-    async getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
+    async getCheckpointLeafDataF(checkpointId: Felt): Promise<PsyCheckpointLeaf> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointLeafDataF, [checkpointId]);
     }
 
     // Get L2 block state
-    async getLatestL2BlockState(): Promise<QEDL2BlockState> {
+    async getLatestL2BlockState(): Promise<PsyL2BlockState> {
         console.warn("getLatestL2BlockState");
         return this.rpc(RealmEdgeRPCCommand.GetLatestL2BlockState, []);
     }
 
-    async getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState> {
+    async getL2BlockState(checkpointId: Felt): Promise<PsyL2BlockState> {
         return this.rpc(RealmEdgeRPCCommand.GetL2BlockState, [checkpointId]);
     }
 
-    async getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState> {
+    async getL2BlockStateF(checkpointId: Felt): Promise<PsyL2BlockState> {
         return this.rpc(RealmEdgeRPCCommand.GetL2BlockStateF, [checkpointId]);
     }
 
@@ -169,16 +169,16 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     }
 
     // Get checkpoint global state roots
-    async getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots> {
+    async getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<PsyCheckpointGlobalStateRoots> {
         return this.rpc(RealmEdgeRPCCommand.GetCheckpointGlobalStateRoots, [checkpointId]);
     }
 
     // Get user leaf data
-    async getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
+    async getUserLeafData(checkpointId: Felt, userId: Felt): Promise<PsyUserLeaf> {
         return this.rpc(RealmEdgeRPCCommand.GetUserLeafData, [checkpointId, userId]);
     }
 
-    async getUserLeafDataF(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
+    async getUserLeafDataF(checkpointId: Felt, userId: Felt): Promise<PsyUserLeaf> {
         return this.rpc(RealmEdgeRPCCommand.GetUserLeafDataF, [checkpointId, userId]);
     }
 
@@ -406,20 +406,20 @@ export class MultiRealmRpcProvider implements IRealmEdgeRpcProvider {
     submitUserEndCap(userEcInput: SubmitUserEndCapNonProofInput, proof: ProofWithPublicInputs): Promise<string> {
         return this.rpcs.get(this.getRealmId(this.currentUserId))!.submitUserEndCap(userEcInput, proof);
     }
-    getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
+    getCheckpointLeafData(checkpointId: Felt): Promise<PsyCheckpointLeaf> {
         return this.rpcs.get(this.getRealmId(this.currentUserId))!.getCheckpointLeafData(checkpointId);
     }
-    getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
+    getCheckpointLeafDataF(checkpointId: Felt): Promise<PsyCheckpointLeaf> {
         return this.rpcs.get(this.getRealmId(this.currentUserId))!.getCheckpointLeafDataF(checkpointId);
     }
-    getLatestL2BlockState(): Promise<QEDL2BlockState> {
+    getLatestL2BlockState(): Promise<PsyL2BlockState> {
         console.warn("getLatestL2BlockState");
         return this.rpcs.get(this.getRealmId(this.currentUserId))!.getLatestL2BlockState();
     }
-    getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState> {
+    getL2BlockState(checkpointId: Felt): Promise<PsyL2BlockState> {
         return this.rpcs.get(this.getRealmId(this.currentUserId))!.getL2BlockState(checkpointId);
     }
-    getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState> {
+    getL2BlockStateF(checkpointId: Felt): Promise<PsyL2BlockState> {
         return this.rpcs.get(this.getRealmId(this.currentUserId))!.getL2BlockStateF(checkpointId);
     }
     getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut> {
@@ -454,13 +454,13 @@ export class MultiRealmRpcProvider implements IRealmEdgeRpcProvider {
             .get(this.getRealmId(this.currentUserId))!
             .getCheckpointTreeMerkleProofF(checkpointId, leafCheckpointId);
     }
-    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots> {
+    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<PsyCheckpointGlobalStateRoots> {
         return this.rpcs.get(this.getRealmId(this.currentUserId))!.getCheckpointGlobalStateRoots(checkpointId);
     }
-    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
+    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<PsyUserLeaf> {
         return this.rpcs.get(this.getRealmId(Number(userId)))!.getUserLeafData(checkpointId, userId);
     }
-    getUserLeafDataF(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
+    getUserLeafDataF(checkpointId: Felt, userId: Felt): Promise<PsyUserLeaf> {
         return this.rpcs.get(this.getRealmId(Number(userId)))!.getUserLeafDataF(checkpointId, userId);
     }
     getUserContractStateTreeRoot(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut> {

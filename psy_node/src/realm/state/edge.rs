@@ -29,21 +29,21 @@ use psy_crypto::{
     },
 };
 use psy_data::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDHasher},
+    config::store_config::{QCheckpointSyncInfoCompact, PsyHasher},
     guta::{
         api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
         end_cap_input::SubmitUserEndCapNonProofInput,
     },
 };
 use psy_prover::session::TxStatus;
-use psy_store::node::realm::QEDRealmStoreReaderAsync;
+use psy_store::node::realm::PsyRealmStoreReaderAsync;
 use tracing::debug;
 
 use super::processor::RealmConfig;
 use crate::realm::{C, D, F, H};
 
 #[derive(Clone)]
-pub struct RealmEdgeContext<SR: QEDRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> {
+pub struct RealmEdgeContext<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> {
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub proof_store: Arc<PS>,
@@ -51,7 +51,7 @@ pub struct RealmEdgeContext<SR: QEDRealmStoreReaderAsync<F> + Sync, DQ: Checkpoi
     pub realm_config: RealmConfig,
 }
 
-impl<SR: QEDRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> RealmEdgeContext<SR, DQ, PS> {
+impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> RealmEdgeContext<SR, DQ, PS> {
     pub async fn new(
         realm_config: RealmConfig,
         store_reader: Arc<SR>,
@@ -133,7 +133,7 @@ impl<SR: QEDRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
             .store_reader
             .get_checkpoint_tree_merkle_proof(checkpoint_id, end_cap_checkpoint_id)
             .await?;
-        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
+        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, PsyHasher>(&checkpoint_tree_proof);
         ensure!(current_root == checkpoint_tree_proof.root);
         ensure!(
             historical_root == input.core.state_transition.checkpoint_tree_root_hash,
@@ -209,7 +209,7 @@ impl<SR: QEDRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
         }
 
         // verify witness
-        let expected_proof_public_inputs_hash = input.core.get_proof_public_inputs_hash::<QEDHasher>();
+        let expected_proof_public_inputs_hash = input.core.get_proof_public_inputs_hash::<PsyHasher>();
         if expected_proof_public_inputs_hash != proof_public_inputs_hash {
             tracing::error!(
                 "ensure expected_proof_public_inputs_hash: {} == proof.public_inputs {}",

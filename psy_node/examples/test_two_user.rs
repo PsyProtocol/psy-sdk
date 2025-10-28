@@ -5,8 +5,8 @@ use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
 use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_crypto::{common::simple_circuit_library::SimpleCircuitLibrary, signature::zk::data::ZKPublicKeyInfo};
-use psy_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
-use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderWriterSync;
+use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
 use psy_node::{
     common::verifier::get_cached_generic_verifier,
     coordinator::state::{
@@ -16,7 +16,7 @@ use psy_node::{
     worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
 };
 use psy_store::{
-    node::coordinator::QEDCoordinatorStoreWriterAsyncImm,
+    node::coordinator::PsyCoordinatorStoreWriterAsyncImm,
     queue::{
         new_fred_pool,
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
@@ -61,7 +61,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     use psy_core::config::network_constants::get_default_worker_public_key;
     let coordinator_worker_circuits =
-        QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<GoldilocksField>());
+        PsyCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<GoldilocksField>());
     timer.lap("built coordinator worker circuits");
 
     let coordinator_edge_node =
@@ -102,7 +102,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("started up");
 
-    SimpleAsyncCoordinatorWorker::run_worker::<_, _, SimpleCircuitLibrary<GoldilocksField>, QEDCoordinatorCircuitManager<C, D>, C, D>(
+    SimpleAsyncCoordinatorWorker::run_worker::<_, _, SimpleCircuitLibrary<GoldilocksField>, PsyCoordinatorCircuitManager<C, D>, C, D>(
         &q,
         &q,
         &coordinator_worker_circuits,

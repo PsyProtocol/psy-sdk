@@ -35,25 +35,25 @@ use psy_crypto::{
     },
 };
 use psy_data::{
-    config::store_config::QEDHasher,
+    config::store_config::PsyHasher,
     dpn::proving_session::{
-        DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem, QEDLocalTransactionRecord,
+        DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem, PsyLocalTransactionRecord,
     },
     guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats},
     qdata::{
-        checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots},
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafCompact, PsyCheckpointLeafCompactWithStateRoots},
         ups_end_cap_result::UPSEndCapResultCompact,
-        ups_signature::QEDUserProvingSessionSignatureDataCompact,
-        user::QEDUserLeaf,
+        ups_signature::PsyUserProvingSessionSignatureDataCompact,
+        user::PsyUserLeaf,
         user_contract_state::{SignContext, UserContractState},
     },
     qstore::imm::{
-        cache::QEDCmdStoreWithCache,
+        cache::PsyCmdStoreWithCache,
         cmd::{
             QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof,
             QSRMerkleCmdGetUserTreeMerkleProof,
         },
-        cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut},
+        cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
     },
     ups::{
         start_step::UPSStartStepInput,
@@ -64,14 +64,14 @@ use psy_data::{
         verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput,
     },
 };
-use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
+use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
 use psy_store::controllers::local::{
-    proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::QEDUserSessionUpdateHistory,
+    proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::PsyUserSessionUpdateHistory,
 };
 use psy_vm::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition};
 use serde::Serialize;
 
-use super::circuit_manager::core::QEDUPSStepCircuitManager;
+use super::circuit_manager::core::PsyUPSStepCircuitManager;
 use crate::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::provider::UPSCircuitManagerTrait, ups::circuit_manager::core::QCircuitManager};
 
 const UPS_STEP_LEAF_TYPE: u64 = 1;
@@ -81,17 +81,17 @@ const ZK_SIG_LEAF_TYPE: u64 = 3;
 pub struct UserProvingSessionManager<
     F: RichField + Extendable<D>,
     H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
-    R: QEDReadCommandProcessorSync<F> + Send + Sync,
+    R: PsyReadCommandProcessorSync<F> + Send + Sync,
     C: GenericConfig<D, F = F, Hasher = H>,
     const D: usize,
 > {
-    pub lps: QEDLocalProvingSessionStore<F, R>,
+    pub lps: PsyLocalProvingSessionStore<F, R>,
     circuit_info: SessionCircuitInfoStore<F>,
     pub proof_tree_state: PortableQTreeRecursionManager<C, D>,
     pub current_ups_header: UserProvingSessionHeader<F>,
     pub previous_ups_header: UserProvingSessionHeader<F>,
-    current_checkpoint_leaf: QEDCheckpointLeaf<F>,
-    current_global_state_roots: QEDCheckpointGlobalStateRoots<F>,
+    current_checkpoint_leaf: PsyCheckpointLeaf<F>,
+    current_global_state_roots: PsyCheckpointGlobalStateRoots<F>,
     last_ups_step_proof_info: TreeAwareTreeProofRecord<F>,
 
     tx_log: Vec<DPNProvingSessionSimpleMethodCall<F>>,
@@ -104,11 +104,11 @@ const D: usize = 2;
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<
         H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F>,
-        R: QEDReadCommandProcessorSync<F> + Send + Sync,
+        R: PsyReadCommandProcessorSync<F> + Send + Sync,
         C: GenericConfig<D, F = F, Hasher = H> + Serialize,
     > UserProvingSessionManager<F, H, R, C, D>
 {
-    pub fn into_cmd_store(self) -> QEDCmdStoreWithCache<F, R> {
+    pub fn into_cmd_store(self) -> PsyCmdStoreWithCache<F, R> {
         self.lps.into_cmd_store()
     }
 
@@ -120,9 +120,9 @@ impl<
         Self::new(lps, circuit_info, ups_step_circuit_whitelist_root).await
     }
 
-    pub fn get_checkpoint_state(&self) -> QEDCheckpointLeafCompactWithStateRoots<F> {
-        QEDCheckpointLeafCompactWithStateRoots {
-            checkpoint_leaf: QEDCheckpointLeafCompact {
+    pub fn get_checkpoint_state(&self) -> PsyCheckpointLeafCompactWithStateRoots<F> {
+        PsyCheckpointLeafCompactWithStateRoots {
+            checkpoint_leaf: PsyCheckpointLeafCompact {
                 global_chain_root: self.current_checkpoint_leaf.global_chain_root,
                 stats_hash: self.current_checkpoint_leaf.stats.qfhash::<H>(),
             },
@@ -131,7 +131,7 @@ impl<
     }
 
     pub async fn new(
-        mut lps: QEDLocalProvingSessionStore<F, R>,
+        mut lps: PsyLocalProvingSessionStore<F, R>,
         circuit_info: SessionCircuitInfoStore<F>,
         ups_step_circuit_whitelist_root: QHashOut<F>,
     ) -> anyhow::Result<Self> {
@@ -195,7 +195,7 @@ impl<
         })
     }
 
-    pub async fn new_dummy(lps: QEDLocalProvingSessionStore<F, R>, circuit_info: SessionCircuitInfoStore<F>) -> anyhow::Result<Self> {
+    pub async fn new_dummy(lps: PsyLocalProvingSessionStore<F, R>, circuit_info: SessionCircuitInfoStore<F>) -> anyhow::Result<Self> {
         let proof_tree_state = PortableQTreeRecursionManager::<C, D>::new(UPS_SESSION_PROOF_TREE_HEIGHT as usize).await;
 
         Ok(Self {
@@ -203,8 +203,8 @@ impl<
             proof_tree_state,
             current_ups_header: UserProvingSessionHeader::default(),
             previous_ups_header: UserProvingSessionHeader::default(),
-            current_checkpoint_leaf: QEDCheckpointLeaf::default(),
-            current_global_state_roots: QEDCheckpointGlobalStateRoots::default(),
+            current_checkpoint_leaf: PsyCheckpointLeaf::default(),
+            current_global_state_roots: PsyCheckpointGlobalStateRoots::default(),
             last_ups_step_proof_info: TreeAwareTreeProofRecord::default(),
             circuit_info,
             tx_log: vec![],
@@ -268,7 +268,7 @@ impl<
         let input = self.get_ups_start_witness().await?;
 
         timer.lap("gen_witness");
-        if !input.checkpoint_tree_proof.verify::<QEDHasher>() {
+        if !input.checkpoint_tree_proof.verify::<PsyHasher>() {
             tracing::error!(
                 "input.checkpoint_tree_proof {}",
                 serde_json::to_string_pretty(&input.checkpoint_tree_proof)?
@@ -276,19 +276,19 @@ impl<
             anyhow::bail!("invalid checkpoint tree proof");
         }
 
-        if !input.user_tree_proof.verify::<QEDHasher>() {
+        if !input.user_tree_proof.verify::<PsyHasher>() {
             tracing::error!("input.user_tree_proof {}", serde_json::to_string_pretty(&input.user_tree_proof)?);
             anyhow::bail!("invalid user tree proof");
         }
 
-        if input.ups_header.session_start_context.start_session_user_leaf.qfhash::<QEDHasher>() != input.user_tree_proof.value {
+        if input.ups_header.session_start_context.start_session_user_leaf.qfhash::<PsyHasher>() != input.user_tree_proof.value {
             tracing::error!(
-                "input.ups_header.session_start_context.start_session_user_leaf.qfhash::<QEDHasher>()!= input.user_tree_proof.value\n{:?}!= {:?}",
+                "input.ups_header.session_start_context.start_session_user_leaf.qfhash::<PsyHasher>()!= input.user_tree_proof.value\n{:?}!= {:?}",
                 input
                     .ups_header
                     .session_start_context
                     .start_session_user_leaf
-                    .qfhash::<QEDHasher>()
+                    .qfhash::<PsyHasher>()
                     .to_string(),
                 input.user_tree_proof.value.to_string()
             );
@@ -440,7 +440,7 @@ impl<
             None => anyhow::bail!("error finding historical root proof in proof_tree_state"),
         };
         let checkpoint_state = self.get_checkpoint_state();
-        let last_tx_rec: &QEDLocalTransactionRecord<GoldilocksField> = self.lps.transaction_records.last().unwrap();
+        let last_tx_rec: &PsyLocalTransactionRecord<GoldilocksField> = self.lps.transaction_records.last().unwrap();
         let user_contract_tree_update_proof = last_tx_rec.user_contract_tree_update_proof.clone();
         let deferred_tx_debt_pivot_proof = self.lps.get_deferred_tx_tree_leaf(deferred_tx_pivot_index)?;
         let inline_tx_debt_pivot_proof = self.lps.get_inline_tx_tree_leaf(inline_tx_pivot_index)?;
@@ -465,7 +465,7 @@ impl<
             deferred_tx_debt_pivot_proof,
             inline_tx_debt_pivot_proof,
         };
-        let new_step_user_leaf = QEDUserLeaf {
+        let new_step_user_leaf = PsyUserLeaf {
             public_key: self.current_ups_header.current_state.user_leaf.public_key,
             user_state_tree_root: process_cfc_state_delta_input.user_contract_tree_update_proof.new_root,
             balance: process_cfc_state_delta_input
@@ -549,7 +549,7 @@ impl<
         let mut end_user_leaf = self.current_ups_header.current_state.user_leaf.clone();
         end_user_leaf.nonce = nonce;
 
-        let sig_data = QEDUserProvingSessionSignatureDataCompact {
+        let sig_data = PsyUserProvingSessionSignatureDataCompact {
             start_user_leaf_hash: self.current_ups_header.session_start_context.start_session_user_leaf.qfhash::<H>(),
             end_user_leaf_hash: end_user_leaf.qfhash::<H>(),
             checkpoint_leaf_hash: self.current_ups_header.session_start_context.checkpoint_leaf_hash,
@@ -690,7 +690,7 @@ impl<
         inputs: Vec<F>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
         self.lps.set_proof_tree_root(self.proof_tree_state.get_proof_tree_root().await);
-        QEDEvalSessionResult::new()
+        PsyEvalSessionResult::new()
             .exec_deferred_contract_call(&mut self.lps, contract_id, caller_contract_id, fn_circuit_def, inputs)
             .await
     }
@@ -811,7 +811,7 @@ impl<
         };
         let ups_proof = circuit_mgr.prove_ups_cfc_deferred_tx(&deferred_input).await?;
         self.last_ups_step_proof_info.circuit_id = LocalCircuitType::UPSCFCDeferred.into();
-        let new_step_user_leaf = QEDUserLeaf {
+        let new_step_user_leaf = PsyUserLeaf {
             public_key: self.current_ups_header.current_state.user_leaf.public_key,
             user_state_tree_root: process_cfc_state_delta_input.user_contract_tree_update_proof.new_root,
             balance: process_cfc_state_delta_input
@@ -908,10 +908,10 @@ impl<
         })
     }
 
-    pub async fn get_user_session_update_history(&mut self) -> anyhow::Result<QEDUserSessionUpdateHistory<F>> {
+    pub async fn get_user_session_update_history(&mut self) -> anyhow::Result<PsyUserSessionUpdateHistory<F>> {
         let (contract_updates, total_slots_modified) = self.lps.get_all_state_updates().await?;
 
-        Ok(QEDUserSessionUpdateHistory {
+        Ok(PsyUserSessionUpdateHistory {
             start_user_leaf: self.current_ups_header.session_start_context.start_session_user_leaf,
             end_user_leaf: self.current_ups_header.current_state.user_leaf,
             total_slots_modified,

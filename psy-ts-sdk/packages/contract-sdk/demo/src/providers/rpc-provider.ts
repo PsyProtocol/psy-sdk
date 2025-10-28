@@ -2,7 +2,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { IContractProvider, GUint } from '../sdk/types';
 import { config, getRpcUrls, getRealmRpcUrl, getCoordinatorRpcUrl, getKeyPairByPublicKey } from '../config';
-import { QedJSON } from '@qed/psy-sdk';
+import { PsyJSON } from '@psy/psy-sdk';
 
 export interface RpcRequest {
     jsonrpc: '2.0';
@@ -158,7 +158,7 @@ export class RpcProvider implements IContractProvider {
             for (const [slotIndex, offsetInfos] of offsetsBySlot) {
                 const request: RpcRequest = {
                     jsonrpc: '2.0',
-                    method: 'qed_get_user_contract_state_tree_merkle_proof',
+                    method: 'psy_get_user_contract_state_tree_merkle_proof',
                     params: [
                         Number(checkpointId),
                         Number(userId),
@@ -250,7 +250,7 @@ export class RpcProvider implements IContractProvider {
     async getUserContractTreeRoot(checkpointId: GUint, userId: GUint): Promise<string> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_get_user_contract_tree_root',
+            method: 'psy_get_user_contract_tree_root',
             params: [Number(checkpointId), Number(userId)],
             id: this.requestId++,
         };
@@ -266,7 +266,7 @@ export class RpcProvider implements IContractProvider {
     ): Promise<string> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_get_user_contract_state_tree_root',
+            method: 'psy_get_user_contract_state_tree_root',
             params: [Number(checkpointId), Number(userId), Number(contractId)],
             id: this.requestId++,
         };
@@ -278,7 +278,7 @@ export class RpcProvider implements IContractProvider {
     async checkUserIdInRealm(userId: GUint): Promise<boolean> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_check_user_id_in_realm',
+            method: 'psy_check_user_id_in_realm',
             params: [Number(userId)],
             id: this.requestId++,
         };
@@ -292,7 +292,7 @@ export class RpcProvider implements IContractProvider {
     async getLatestCheckpoint(): Promise<bigint> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_latest_checkpoint',
+            method: 'psy_latest_checkpoint',
             params: [],
             id: this.requestId++,
         };
@@ -310,7 +310,7 @@ export class RpcProvider implements IContractProvider {
     async registerUser(fingerprint: string, publicKeyParam: string): Promise<any> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_register_user',
+            method: 'psy_register_user',
             params: {
                 fingerprint: fingerprint,
                 public_key_param: publicKeyParam
@@ -330,7 +330,7 @@ export class RpcProvider implements IContractProvider {
     async deployContract(contractData: any): Promise<any> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_deploy_contract',
+            method: 'psy_deploy_contract',
             params: contractData,
             id: this.requestId++,
         };
@@ -347,7 +347,7 @@ export class RpcProvider implements IContractProvider {
     async buildBlock(): Promise<any> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_build_block',
+            method: 'psy_build_block',
             params: [],
             id: this.requestId++,
         };
@@ -359,7 +359,7 @@ export class RpcProvider implements IContractProvider {
     async getLatestL2BlockState(): Promise<any> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_get_latest_l2_block_state',
+            method: 'psy_get_latest_l2_block_state',
             params: [],
             id: this.requestId++,
         };
@@ -371,7 +371,7 @@ export class RpcProvider implements IContractProvider {
     async getContractLeafData(contractId: GUint): Promise<any> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_get_contract_leaf_data',
+            method: 'psy_get_contract_leaf_data',
             params: [Number(contractId)],
             id: this.requestId++,
         };
@@ -383,7 +383,7 @@ export class RpcProvider implements IContractProvider {
     async getUserLeafData(checkpointId: GUint, userId: GUint): Promise<any> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_get_user_leaf_data',
+            method: 'psy_get_user_leaf_data',
             params: [Number(checkpointId), Number(userId)],
             id: this.requestId++,
         };
@@ -395,7 +395,7 @@ export class RpcProvider implements IContractProvider {
     async getContractCodeDefinition(contractId: GUint): Promise<any> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'qed_get_contract_code_definition',
+            method: 'psy_get_contract_code_definition',
             params: [Number(contractId)],
             id: this.requestId++,
         };
@@ -434,7 +434,7 @@ export class RpcProvider implements IContractProvider {
                 console.log(`\n🔐 Signing transaction with public key: ${publicKey}`);
             }
 
-            // In the actual QED system, this would:
+            // In the actual Psy system, this would:
             // 1. Create the transaction payload
             // 2. Sign it with the private key
             // 3. Submit via psy_user_cli or appropriate RPC method
@@ -442,7 +442,7 @@ export class RpcProvider implements IContractProvider {
             // For now, we'll simulate the transaction submission
             const request: RpcRequest = {
                 jsonrpc: '2.0',
-                method: 'qed_submit_transaction', // Replace with actual method
+                method: 'psy_submit_transaction', // Replace with actual method
                 params: {
                     contractId: contractId.toString(),
                     methodName: functionName,
@@ -477,7 +477,7 @@ export class RpcProvider implements IContractProvider {
 
     private mockSign(privateKey: string, contractId: GUint, functionName: string, args: any[]): string {
         // Mock signature - in production, use actual cryptographic signing
-        const message = `${contractId}-${functionName}-${QedJSON.stringify(args)}`;
+        const message = `${contractId}-${functionName}-${PsyJSON.stringify(args)}`;
         return `sig-${privateKey.substring(0, 8)}-${message.substring(0, 8)}`;
     }
 

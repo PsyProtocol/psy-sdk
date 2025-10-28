@@ -26,8 +26,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{header::GlobalUserTreeAggregatorHeader, stats::GUTAStats};
 use crate::{
-    config::store_config::QEDHasher,
-    qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf},
+    config::store_config::PsyHasher,
+    qdata::{checkpoint::PsyCheckpointLeafCompactWithStateRoots, ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -120,9 +120,9 @@ impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<F> {
 impl VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<GoldilocksField> {
     pub fn check_witness(&self) -> anyhow::Result<()> {
         let (_historical_root_a, current_root_a) =
-            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.historical_checkpoint_proof_a);
+            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, PsyHasher>(&self.historical_checkpoint_proof_a);
         let (_historical_root_b, current_root_b) =
-            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.historical_checkpoint_proof_b);
+            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, PsyHasher>(&self.historical_checkpoint_proof_b);
         if current_root_a != self.historical_checkpoint_proof_a.root {
             return Err(anyhow::anyhow!("two guta upgrade checkpoint historical_checkpoint_proof_a not match"));
         }
@@ -225,7 +225,7 @@ pub struct VerifyEndCapSimpleStandardInput<F: RichField> {
 impl VerifyEndCapSimpleStandardInput<GoldilocksField> {
     pub fn check_witness(&self) -> anyhow::Result<()> {
         let (historical_root, current_root) =
-            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.checkpoint_historical_merkle_proof);
+            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, PsyHasher>(&self.checkpoint_historical_merkle_proof);
         if self.checkpoint_root != historical_root {
             return Err(anyhow::anyhow!("end result historical root not match"));
         }
@@ -289,8 +289,8 @@ impl<F: RichField> VerifyTwoEndCapCircuitInput<F> {
             guta_circuit_whitelist: self.guta_circuit_whitelist,
             checkpoint_tree_root: self.a_end_cap.checkpoint_historical_merkle_proof.root,
             state_transition: SubTreeNodeStateTransition {
-                old_node_value: self.nca_proof.compute_old_nca_value::<QEDHasher>(),
-                new_node_value: self.nca_proof.compute_new_nca_value::<QEDHasher>(),
+                old_node_value: self.nca_proof.compute_old_nca_value::<PsyHasher>(),
+                new_node_value: self.nca_proof.compute_new_nca_value::<PsyHasher>(),
                 node_index: F::from_canonical_u64(self.nca_proof.get_nca_index()),
                 node_level: F::from_canonical_u8(self.nca_proof.nearest_common_ancestor_level),
             },
@@ -381,7 +381,7 @@ impl VerifySingleEndCapInput<GoldilocksField> {
             return Err(anyhow::anyhow!("end result not match"));
         }
 
-        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(
+        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, PsyHasher>(
             &self.a_end_cap.checkpoint_historical_merkle_proof,
         );
         if historical_root != end_result.checkpoint_tree_root_hash {
@@ -416,7 +416,7 @@ pub struct VerifyLeftGUTARightEndCapInputSimple<F: RichField> {
 impl VerifyLeftGUTARightEndCapInputSimple<GoldilocksField> {
     pub fn check_witness(&self) -> anyhow::Result<()> {
         self.b_end_cap.check_witness()?;
-        let (_historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(
+        let (_historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, PsyHasher>(
             &self.b_end_cap.checkpoint_historical_merkle_proof,
         );
         if current_root != self.checkpoint_tree_root {
@@ -495,7 +495,7 @@ pub struct VerifyLeftEndCapRightGUTAInputSimple<F: RichField> {
 impl VerifyLeftEndCapRightGUTAInputSimple<GoldilocksField> {
     pub fn check_witness(&self) -> anyhow::Result<()> {
         self.a_end_cap.check_witness()?;
-        let (_historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(
+        let (_historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, PsyHasher>(
             &self.a_end_cap.checkpoint_historical_merkle_proof,
         );
         if current_root != self.checkpoint_tree_root {
@@ -567,7 +567,7 @@ impl<F: RichField> VerifyLeftEndCapRightGUTAInput<F> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct GUTANoChangeFullInput<F: RichField> {
     pub checkpoint_tree_proof: MerkleProofCore<QHashOut<F>>,
-    pub checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots<F>,
+    pub checkpoint_leaf: PsyCheckpointLeafCompactWithStateRoots<F>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -588,7 +588,7 @@ impl<F: RichField> GUTARegisterUserFullInput<F> {
         let siblings = (0..GLOBAL_USER_TREE_HEIGHT).map(|_| QHashOut::ZERO).collect::<Vec<_>>();
         let user_registration_tree_merkle_proof = MerkleProofCore::new_from_params::<H>(0, fake_public_key, siblings);
 
-        let user_leaf = QEDUserLeaf::new_user_default(F::ZERO, fake_public_key, user_state_tree_root);
+        let user_leaf = PsyUserLeaf::new_user_default(F::ZERO, fake_public_key, user_state_tree_root);
         let leaf_hash = user_leaf.qfhash::<H>();
 
         let dmp_siblings = (0..height).map(|_| QHashOut::ZERO).collect();

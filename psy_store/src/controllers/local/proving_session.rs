@@ -20,46 +20,46 @@ use psy_crypto::hash::{
     utils::safe_hash_fixed_length,
 };
 use psy_data::{
-    config::store_config::{QEDHasher, UserContractTreeStore},
+    config::store_config::{PsyHasher, UserContractTreeStore},
     dpn::{
         cfc_context_input::{DapenCFCProvingSessionStartContext, DapenCFCUserTransactionCallStartContext},
         proving_session::{
             DPNProvingSessionCompactMethodCall, DPNProvingSessionSignableMethodCall, DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem,
-            QEDLocalTransactionRecord,
+            PsyLocalTransactionRecord,
         },
     },
-    guta::api::QEDContractStateUpdateHistory,
+    guta::api::PsyContractStateUpdateHistory,
     models::{
         kvq_merkle::model::{KVQSemiFixedConfigMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore},
         user::contract_state_tree::UserContractStateTreeId,
     },
     qdata::{
-        checkpoint::QEDCheckpointGlobalStateRoots,
-        contract_inclusion::{QEDContractFunctionInclusionProof, QEDContractInclusionProof},
+        checkpoint::PsyCheckpointGlobalStateRoots,
+        contract_inclusion::{PsyContractFunctionInclusionProof, PsyContractInclusionProof},
     },
     qstore::imm::{
-        cache::QEDCmdStoreWithCache,
+        cache::PsyCmdStoreWithCache,
         cmd::{
             QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot,
             QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot,
             QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof,
             QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof,
         },
-        cmd_processor::{DPNReadOtherUserLeafMerkleProof, QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut},
+        cmd_processor::{DPNReadOtherUserLeafMerkleProof, PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
     },
     ups::{ups_context_input::UserProvingSessionStartContext, ups_standard_cfc_input::UPSCFCStandardStateDeltaInput},
 };
 
 use super::{
     session_store::{config::LPS_DEFERRED_TRANSACTION_TREE_ID, tx_tree::TransactionDebtTreeRef},
-    state_tracker::QEDLocalStateTracker,
+    state_tracker::PsyLocalStateTracker,
 };
 
-pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> {
-    pub cmd_store: QEDCmdStoreWithCache<F, R>,
+pub struct PsyLocalProvingSessionStore<F: RichField, R: PsyReadCommandProcessorSync<F> + Send + Sync> {
+    pub cmd_store: PsyCmdStoreWithCache<F, R>,
     pub state_tree_store: KVQSimpleMemoryBackingStore,
     pub active_tx_session_data_store: KVQSimpleMemoryBackingStore,
-    pub transaction_records: Vec<QEDLocalTransactionRecord<F>>,
+    pub transaction_records: Vec<PsyLocalTransactionRecord<F>>,
 
     pub deferred_tx_debt_store: TransactionDebtTreeRef<
         KVQSimpleMemoryBackingStore,
@@ -69,10 +69,10 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
         LPS_DEFERRED_TRANSACTION_TREE_ID,
     >,
 
-    //pub delta_merkle_proof_cache: Vec<QEDLocalStateSet<F>>,
-    active_transaction_record: QEDLocalTransactionRecord<F>,
+    //pub delta_merkle_proof_cache: Vec<PsyLocalStateSet<F>>,
+    active_transaction_record: PsyLocalTransactionRecord<F>,
 
-    local_state_tracker: QEDLocalStateTracker<F>,
+    local_state_tracker: PsyLocalStateTracker<F>,
 
     start_checkpoint: F,
     write_checkpoint: F,
@@ -91,7 +91,7 @@ pub struct QEDLocalProvingSessionStore<F: RichField, R: QEDReadCommandProcessorS
 // read helpers
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProvingSessionStore<F, R> {
+impl<F: RichField, R: PsyReadCommandProcessorSync<F> + Send + Sync> PsyLocalProvingSessionStore<F, R> {
     pub fn get_current_contract_id(&self) -> F {
         self.active_transaction_record.call_data.call_data.contract_id
     }
@@ -153,14 +153,14 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProv
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProvingSessionStore<F, R> {
+impl<F: RichField, R: PsyReadCommandProcessorSync<F> + Send + Sync> PsyLocalProvingSessionStore<F, R> {
     pub fn new_at(read_store: R, start_checkpoint: F, user_id: F, nonce: F, q_recursion_tree_height: usize) -> Self {
-        let cmd_store = QEDCmdStoreWithCache::new(start_checkpoint.to_canonical_u64(), read_store);
+        let cmd_store = PsyCmdStoreWithCache::new(start_checkpoint.to_canonical_u64(), read_store);
 
         Self::new_at_with_cmd_store(cmd_store, start_checkpoint, user_id, nonce, q_recursion_tree_height)
     }
     pub fn new_at_with_cmd_store(
-        cmd_store: QEDCmdStoreWithCache<F, R>,
+        cmd_store: PsyCmdStoreWithCache<F, R>,
         start_checkpoint: F,
         user_id: F,
         nonce: F,
@@ -170,7 +170,7 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProv
             cmd_store,
             state_tree_store: KVQSimpleMemoryBackingStore::new(),
             active_tx_session_data_store: KVQSimpleMemoryBackingStore::new(),
-            local_state_tracker: QEDLocalStateTracker::new(),
+            local_state_tracker: PsyLocalStateTracker::new(),
             deferred_tx_debt_store: TransactionDebtTreeRef::new(start_checkpoint.to_canonical_u64()),
             transaction_records: Vec::new(),
             //delta_merkle_proof_cache: Vec::new(),
@@ -188,7 +188,7 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProv
             session_proof_tree_root: QHashOut::ZERO,
         }
     }
-    pub fn into_cmd_store(self) -> QEDCmdStoreWithCache<F, R> {
+    pub fn into_cmd_store(self) -> PsyCmdStoreWithCache<F, R> {
         self.cmd_store
     }
     pub async fn into_clean_for_user(mut self, user_id: F) -> anyhow::Result<Self> {
@@ -241,7 +241,7 @@ type GF = GoldilocksField;
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProvingSessionStore<GoldilocksField, R> {
+impl<R: PsyReadCommandProcessorSync<GoldilocksField> + Send + Sync> PsyLocalProvingSessionStore<GoldilocksField, R> {
     pub fn get_deferred_tx_debt_latest_index(&self) -> u64 {
         self.deferred_tx_debt_store.get_latest_index()
     }
@@ -259,7 +259,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
             .get_tx_debt_leaf(&self.active_tx_session_data_store, leaf_index)
     }
     pub fn get_inline_tx_tree_leaf(&self, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
-        Ok(SimpleMerkleTree::<QEDHasher, QHashOut<GF>>::new(INLINE_TRANSACTION_TREE_HEIGHT).get_leaf(leaf_index))
+        Ok(SimpleMerkleTree::<PsyHasher, QHashOut<GF>>::new(INLINE_TRANSACTION_TREE_HEIGHT).get_leaf(leaf_index))
     }
     pub async fn init_transaction(&mut self, call_data: DPNProvingSessionSimpleMethodCall<GF>) -> anyhow::Result<()> {
         let uct_proof = self
@@ -275,12 +275,12 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
                 .await?
                 .state_tree_height
                 .to_canonical_u64() as usize;
-            QEDHasher::get_zero_hash(state_tree_height)
+            PsyHasher::get_zero_hash(state_tree_height)
         } else {
             uct_proof.old_value
         };
 
-        let record = QEDLocalTransactionRecord {
+        let record = PsyLocalTransactionRecord {
             start_checkpoint: self.start_checkpoint,
             write_checkpoint: self.write_checkpoint,
             call_data: DPNProvingSessionSignableMethodCall {
@@ -321,7 +321,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
                 .await?
                 .state_tree_height
                 .to_canonical_u64() as usize;
-            QEDHasher::get_zero_hash(state_tree_height)
+            PsyHasher::get_zero_hash(state_tree_height)
         } else {
             contract_state_root_proof.value
         };
@@ -331,7 +331,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
             contract_id,
             method_id,
             inputs_length: GF::from_canonical_u64(inputs.len() as u64),
-            inputs_hash: safe_hash_fixed_length::<QEDHasher, GF>(inputs),
+            inputs_hash: safe_hash_fixed_length::<PsyHasher, GF>(inputs),
         };
 
         let start_deferred_tx_debt_tree_root = self.get_latest_deferred_tx_leaf()?.root;
@@ -347,7 +347,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
             start_user_event_index,
         })
     }
-    pub async fn get_global_state_tree_roots(&mut self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<GF>> {
+    pub async fn get_global_state_tree_roots(&mut self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointGlobalStateRoots<GF>> {
         let contract_tree_root = self
             .cmd_store
             .resolve_get_hash_mut(&QSRHashCmd::GetContractTreeRoot(QSRHashCmdGetContractTreeRoot { checkpoint_id }))
@@ -372,7 +372,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
             }))
             .await?;
 
-        Ok(QEDCheckpointGlobalStateRoots {
+        Ok(PsyCheckpointGlobalStateRoots {
             contract_tree_root,
             deposit_tree_root,
             user_tree_root,
@@ -449,7 +449,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
             .await?;
         id.injest_merkle_proof_ucs(&mut self.state_tree_store, self.start_checkpoint_u64, &base_mp)?;
         let dmp = id.set_leaf_ucs(&mut self.state_tree_store, self.write_checkpoint_u64, slot.to_canonical_u64(), value)?;
-        /*let cache_value = QEDLocalStateSet{
+        /*let cache_value = PsyLocalStateSet{
             contract,
             slot,
             contract_state_transition_proof: dmp.clone(),
@@ -632,7 +632,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
          * [FIXED?] TODO/PERF: avoid clone as we just want to move this to
          * transaction records let record_for_storage =
          * self.active_transaction_record.clone();
-         * self.active_transaction_record = QEDLocalTransactionRecord::default();
+         * self.active_transaction_record = PsyLocalTransactionRecord::default();
          * self.transaction_records.push(record_for_storage);
          */
 
@@ -641,7 +641,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
         // Move the active record into `transaction_records`
         self.transaction_records.push(active_record);
         // Reset `active_transaction_record` to its default state
-        self.active_transaction_record = QEDLocalTransactionRecord::default();
+        self.active_transaction_record = PsyLocalTransactionRecord::default();
 
         Ok(())
     }
@@ -666,14 +666,14 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
         let start_ctx = UserProvingSessionStartContext::<GF> {
             checkpoint_id: self.start_checkpoint,
             checkpoint_tree_root,
-            checkpoint_leaf_hash: checkpoint_leaf.qfhash::<QEDHasher>(),
+            checkpoint_leaf_hash: checkpoint_leaf.qfhash::<PsyHasher>(),
             start_session_user_leaf: user_leaf,
         };
         tracing::debug!("ups_start_ctx: {}", serde_json::to_string_pretty(&start_ctx).unwrap());
         Ok(start_ctx)
     }
 
-    pub async fn get_contract_inclusion_proof(&mut self, contract_id: u32) -> anyhow::Result<QEDContractInclusionProof<GF>> {
+    pub async fn get_contract_inclusion_proof(&mut self, contract_id: u32) -> anyhow::Result<PsyContractInclusionProof<GF>> {
         let contract_leaf = self
             .cmd_store
             .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
@@ -688,7 +688,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
             }))
             .await?;
 
-        Ok(QEDContractInclusionProof {
+        Ok(PsyContractInclusionProof {
             contract_leaf,
             contract_tree_merkle_proof,
         })
@@ -698,7 +698,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
         &mut self,
         contract_id: u32,
         function_id: u32,
-    ) -> anyhow::Result<QEDContractFunctionInclusionProof<GF>> {
+    ) -> anyhow::Result<PsyContractFunctionInclusionProof<GF>> {
         let contract_inclusion_proof = self.get_contract_inclusion_proof(contract_id).await?;
         let contract_function_merkle_proof = self
             .cmd_store
@@ -711,13 +711,13 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
             ))
             .await?;
 
-        Ok(QEDContractFunctionInclusionProof {
+        Ok(PsyContractFunctionInclusionProof {
             contract_inclusion_proof,
             contract_function_merkle_proof,
         })
     }
 
-    pub async fn get_all_state_updates(&mut self) -> anyhow::Result<(Vec<QEDContractStateUpdateHistory<GF>>, u32)> {
+    pub async fn get_all_state_updates(&mut self) -> anyhow::Result<(Vec<PsyContractStateUpdateHistory<GF>>, u32)> {
         let total_slots_modified = self.local_state_tracker.total_slots_modified;
         let tracker_results = self.local_state_tracker.get_results();
 
@@ -759,7 +759,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
                 );
             }
             let user_contract_tree_update_proof = self.update_contract_state_root_in_user_contract_tree(c).await?;
-            update_results.push(QEDContractStateUpdateHistory {
+            update_results.push(PsyContractStateUpdateHistory {
                 user_contract_tree_update_proof,
                 contract_state_tree_updates,
             })
@@ -771,7 +771,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
         todo!()
     }
 
-    pub async fn get_checkpoint_state_roots(&mut self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<GF>> {
+    pub async fn get_checkpoint_state_roots(&mut self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointGlobalStateRoots<GF>> {
         let user_tree_root = self
             .cmd_store
             .resolve_get_hash_mut(&QSRHashCmd::GetUserTreeRoot(QSRHashCmdGetUserTreeRoot { checkpoint_id }))
@@ -799,7 +799,7 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync> QEDLocalProv
             }))
             .await?;
 
-        Ok(QEDCheckpointGlobalStateRoots {
+        Ok(PsyCheckpointGlobalStateRoots {
             contract_tree_root,
             deposit_tree_root,
             user_tree_root,

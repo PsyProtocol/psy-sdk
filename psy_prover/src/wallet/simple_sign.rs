@@ -27,7 +27,7 @@ use psy_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore},
     circuits::traits::qstandard::QStandardCircuit,
     hash::merkle::gadgets::merkle_proof::MerkleProofGadget,
-    proof_minifier::pm_chain::QEDProofMinifierChain,
+    proof_minifier::pm_chain::PsyProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
 use psy_core::{config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT, data::qhashout::QHashOut};
@@ -39,13 +39,13 @@ use psy_crypto::{
     signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
 };
 use psy_data::{
-    config::store_config::QEDHasher,
+    config::store_config::PsyHasher,
     models::user::contract_state_tree::UserContractStateTreeId,
     qdata::user_contract_state::UserContractState,
     qstore::imm::{
-        cache::QEDCmdStoreWithCache,
+        cache::PsyCmdStoreWithCache,
         cmd::{QSRCmdGetContractLeafData, QSRMerkleCmd, QSRMerkleCmdGetUserContractStateTreeMerkleProof},
-        cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut},
+        cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
     },
 };
 use psy_network_circuit::gadgets::qdata::user_contract_state::UserContractStateGadget;
@@ -76,7 +76,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StateReaderGadget<F, D> {
             // current_state_cmd_index: 0,
         }
     }
-    pub fn set_witness<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub fn set_witness<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         pw: &mut PartialWitness<F>,
         state_reader: &StateReader<F, D, R>,
@@ -447,9 +447,9 @@ impl<F: RichField + Extendable<D>, const D: usize> StateReaderGadget<F, D> {
 }
 
 #[derive(Debug, Clone)]
-pub struct StateReader<F: RichField + Extendable<D>, const D: usize, R: QEDReadCommandProcessorSync<F> + Send + Sync> {
+pub struct StateReader<F: RichField + Extendable<D>, const D: usize, R: PsyReadCommandProcessorSync<F> + Send + Sync> {
     pub state: UserContractState<F>,
-    pub cmd_store: QEDCmdStoreWithCache<F, R>,
+    pub cmd_store: PsyCmdStoreWithCache<F, R>,
     pub state_tree_store: KVQSimpleMemoryBackingStore,
     pub merkel_proofs: Vec<MerkleProofCore<QHashOut<F>>>,
     pub state_cmds: Vec<DPNStateCmd<F>>,
@@ -457,8 +457,8 @@ pub struct StateReader<F: RichField + Extendable<D>, const D: usize, R: QEDReadC
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField + Extendable<D>, const D: usize, R: QEDReadCommandProcessorSync<F> + Send + Sync> StateReader<F, D, R> {
-    pub async fn new(state: UserContractState<F>, cmd_store: QEDCmdStoreWithCache<F, R>, state_tree_store: KVQSimpleMemoryBackingStore) -> Self {
+impl<F: RichField + Extendable<D>, const D: usize, R: PsyReadCommandProcessorSync<F> + Send + Sync> StateReader<F, D, R> {
+    pub async fn new(state: UserContractState<F>, cmd_store: PsyCmdStoreWithCache<F, R>, state_tree_store: KVQSimpleMemoryBackingStore) -> Self {
         Self {
             state,
             cmd_store,

@@ -141,7 +141,7 @@ tail_all_logs() {
 # Function to display help
 show_help() {
     cat << EOF
-${GREEN}QED Prove Proxy Manager${NC}
+${GREEN}Psy Prove Proxy Manager${NC}
 
 ${YELLOW}Usage:${NC}
     $0 [NUM_PROXIES] [BASE_PORT]
@@ -215,7 +215,7 @@ main() {
 
     # Display configuration
     print_message "$GREEN" "========================================="
-    print_message "$GREEN" "     QED Prove Proxy Manager"
+    print_message "$GREEN" "     Psy Prove Proxy Manager"
     print_message "$GREEN" "========================================="
     print_message "$YELLOW" "\nConfiguration:"
     echo "  Number of proxies: ${NUM_PROXIES}"

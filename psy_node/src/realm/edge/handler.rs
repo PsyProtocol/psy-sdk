@@ -34,21 +34,21 @@ use psy_crypto::hash::{
     },
 };
 use psy_data::{
-    config::store_config::{QEDFelt, QEDHash, QEDHasher, QEDProof},
+    config::store_config::{PsyFelt, PsyHash, PsyHasher, PsyProof},
     guta::{
-        api::{QEDContractStateUpdateHistory, SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
+        api::{PsyContractStateUpdateHistory, SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
         end_cap_input::SubmitUserEndCapNonProofInput,
         proof_input::VerifyEndCapSimpleStandardInput,
     },
     qdata::{
-        checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState},
-        user::QEDUserLeaf,
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        user::PsyUserLeaf,
     },
 };
 use psy_network_circuit::verify_witness::verify_witness_and_proof;
 use psy_prover::{session::TxStatus, wallet::secp_sign::SignedRequest};
 use psy_store::{
-    node::realm::QEDRealmStoreReaderAsync,
+    node::realm::PsyRealmStoreReaderAsync,
     queue::{
         task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl},
         ProofStoreRedisAsync,
@@ -79,7 +79,7 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct RealmEdgeHandler<SR: QEDRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> {
+pub struct RealmEdgeHandler<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> {
     ctx: RealmEdgeContext<SR, DQ, PS>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
     task_store: Arc<QProvingTaskStoreImpl>,
@@ -91,7 +91,7 @@ pub struct RealmEdgeHandler<SR: QEDRealmStoreReaderAsync<F> + Sync, DQ: Checkpoi
 
 impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
 where
-    SR: QEDRealmStoreReaderAsync<F> + Sync,
+    SR: PsyRealmStoreReaderAsync<F> + Sync,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 {
@@ -126,9 +126,9 @@ where
 
     fn validate_contract_updates(
         &self,
-        contract_updates: &[QEDContractStateUpdateHistory<F>],
-        old_user_leaf: &QEDUserLeaf<F>,
-        new_user_leaf: &QEDUserLeaf<F>,
+        contract_updates: &[PsyContractStateUpdateHistory<F>],
+        old_user_leaf: &PsyUserLeaf<F>,
+        new_user_leaf: &PsyUserLeaf<F>,
     ) -> anyhow::Result<()> {
         if contract_updates.is_empty() {
             return Ok(());
@@ -180,14 +180,14 @@ where
 
         let old_user_leaf = self.ctx.store_reader.get_user_leaf_data(checkpoint_id, user_id).await?;
 
-        let old_leaf_hash = old_user_leaf.qfhash::<QEDHasher>();
+        let old_leaf_hash = old_user_leaf.qfhash::<PsyHasher>();
         ensure!(
             old_leaf_hash == user_ec_input.core.state_transition.start_user_leaf_hash,
             "Start leaf hash mismatch"
         );
 
         let new_user_leaf = user_ec_input.core.new_user_leaf;
-        let new_leaf_hash = new_user_leaf.qfhash::<QEDHasher>();
+        let new_leaf_hash = new_user_leaf.qfhash::<PsyHasher>();
 
         ensure!(
             new_leaf_hash == user_ec_input.core.state_transition.end_user_leaf_hash,
@@ -201,7 +201,7 @@ where
 
         //note: The checkpoint_id here is not used by the outside world and can be
         // passed in any value
-        let cst_update = user_ec_input.verify_and_generate_cst_updates::<QEDHasher>(checkpoint_id, old_user_leaf.user_state_tree_root)?;
+        let cst_update = user_ec_input.verify_and_generate_cst_updates::<PsyHasher>(checkpoint_id, old_user_leaf.user_state_tree_root)?;
 
         let contract_state_updates = cst_update
             .updates
@@ -232,7 +232,7 @@ where
             .get_checkpoint_tree_merkle_proof(checkpoint_id, endcap_checkpoint_id)
             .await?;
 
-        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_proof);
+        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, PsyHasher>(&checkpoint_proof);
         ensure!(current_root == checkpoint_proof.root);
         ensure!(historical_root == user_ec_input.core.state_transition.checkpoint_tree_root_hash);
 
@@ -308,7 +308,7 @@ where
             }
 
             let proof_hash = QHashOut::from_felt_slice(&proof.public_inputs);
-            user_ec_input.ensure_simple_self_consistent::<QEDHasher>(proof_hash, &contracts)?;
+            user_ec_input.ensure_simple_self_consistent::<PsyHasher>(proof_hash, &contracts)?;
 
             let current_checkpoint = self.ctx.get_checkpoint_id_async().await?;
             let end_cap_checkpoint = user_ec_input.core.checkpoint_id.to_canonical_u64();
@@ -322,7 +322,7 @@ where
             let user_leaf = self.ctx.store_reader.get_user_leaf_data(current_checkpoint, user_id).await?;
 
             ensure!(
-                user_leaf.qfhash::<QEDHasher>() == user_ec_input.core.state_transition.start_user_leaf_hash,
+                user_leaf.qfhash::<PsyHasher>() == user_ec_input.core.state_transition.start_user_leaf_hash,
                 "User state mismatch"
             );
 
@@ -381,7 +381,7 @@ where
 #[async_trait]
 impl<SR, DQ, PS> RealmEdgeRpcServer for RealmEdgeHandler<SR, DQ, PS>
 where
-    SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+    SR: PsyRealmStoreReaderAsync<F> + Sync + Send + 'static,
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
@@ -402,7 +402,7 @@ where
         Ok(self.ctx.get_tx_status(user_id, nonce).await.map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> RpcResult<QEDCheckpointLeaf<F>> {
+    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> RpcResult<PsyCheckpointLeaf<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -411,7 +411,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> RpcResult<QEDCheckpointLeaf<F>> {
+    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> RpcResult<PsyCheckpointLeaf<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -420,15 +420,15 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_latest_l2_block_state(&self) -> RpcResult<QEDL2BlockState> {
+    async fn get_latest_l2_block_state(&self) -> RpcResult<PsyL2BlockState> {
         Ok(self.ctx.store_reader.get_latest_l2_block_state().await.map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<QEDL2BlockState> {
+    async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<PsyL2BlockState> {
         Ok(self.ctx.store_reader.get_l2_block_state(checkpoint_id).await.map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<QEDL2BlockState> {
+    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyL2BlockState> {
         Ok(self
             .ctx
             .store_reader
@@ -503,7 +503,7 @@ where
             .await
             .map_err(RpcError::Anyhow)?)
     }
-    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> RpcResult<QEDCheckpointGlobalStateRoots<F>> {
+    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> RpcResult<PsyCheckpointGlobalStateRoots<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -512,7 +512,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QEDUserLeaf<F>> {
+    async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<PsyUserLeaf<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -521,7 +521,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<QEDUserLeaf<F>> {
+    async fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<PsyUserLeaf<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -831,7 +831,7 @@ where
                     let coordinator_proofs = self
                         .coordinator_client
                         .request::<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>, _>(
-                            "qed_generate_batch_variable_height_reward_proofs",
+                            "psy_generate_batch_variable_height_reward_proofs",
                             jsonrpsee::rpc_params![checkpoint_id, vec![root_job_id]],
                         )
                         .await
@@ -941,11 +941,11 @@ where
 #[async_trait]
 impl<SR, DQ, PS> JobSchedulerRpcServer for RealmEdgeHandler<SR, DQ, PS>
 where
-    SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+    SR: PsyRealmStoreReaderAsync<F> + Sync + Send + 'static,
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
-    async fn get_pending_job(&self, signed: SignedRequest<QEDHash>) -> RpcResult<Option<QJob>> {
+    async fn get_pending_job(&self, signed: SignedRequest<PsyHash>) -> RpcResult<Option<QJob>> {
         self.whitelist_cache
             .verify_request(&signed, &MESSAGE_CLAIM_JOB.to_string(), Some(Duration::from_secs(30)))
             .map_err(|e| RpcError::Anyhow(e.into()))?;
@@ -987,7 +987,7 @@ where
     }
 
     async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>> {
-        let proof: QEDProof = self
+        let proof: PsyProof = self
             .ctx
             .proof_store
             .get_proof_by_id(job_id)
@@ -1002,7 +1002,7 @@ where
         Ok(bytes)
     }
 
-    async fn set_proof_by_id(&self, job: QJob, proof: QEDProof, signed: SignedRequest<QEDHash>) -> RpcResult<()> {
+    async fn set_proof_by_id(&self, job: QJob, proof: PsyProof, signed: SignedRequest<PsyHash>) -> RpcResult<()> {
         // Verify signature and whitelist
         self.whitelist_cache
             .verify_request(&signed, &proof, Some(Duration::from_secs(300)))
@@ -1074,7 +1074,7 @@ where
 
 impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
 where
-    SR: QEDRealmStoreReaderAsync<F> + Sync,
+    SR: PsyRealmStoreReaderAsync<F> + Sync,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 {
@@ -1122,7 +1122,7 @@ where
 
 impl<SR, DQ, PS> RealmEdgeStateHelper for RealmEdgeHandler<SR, DQ, PS>
 where
-    SR: QEDRealmStoreReaderAsync<F> + Sync,
+    SR: PsyRealmStoreReaderAsync<F> + Sync,
     DQ: CheckpointDrainQueueEmitterAsyncImm,
     PS: QProofStoreAsyncImm,
 {
@@ -1149,7 +1149,7 @@ where
         Ok(())
     }
 
-    async fn put_proof_id(&self, job_id: QProvingJobDataID, proof: QEDProof) -> anyhow::Result<()> {
+    async fn put_proof_id(&self, job_id: QProvingJobDataID, proof: PsyProof) -> anyhow::Result<()> {
         self.ctx.proof_store.set_proof_by_id(job_id, &proof).await?;
 
         debug!(

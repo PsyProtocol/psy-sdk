@@ -13,7 +13,7 @@ use plonky2::{
 use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
-    proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
+    proof_minifier::{pm_chain_dynamic::PsyProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
     traits::ToTargets,
 };
 use psy_core::{
@@ -52,7 +52,7 @@ where
 
     pub base_circuit_data: CircuitData<C::F, C, D>,
     pub base_fingerprint: QHashOut<C::F>,
-    pub minifier_chain: Option<QEDProofMinifierDynamicChain<D, C::F, C>>,
+    pub minifier_chain: Option<PsyProofMinifierDynamicChain<D, C::F, C>>,
     pub enable_minifier: bool,
 }
 
@@ -182,7 +182,7 @@ where
         //println!("base_fingerprint: {:?}",base_fingerprint);
 
         let minifier_chain = if has_minifier {
-            Some(QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
+            Some(PsyProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
                 &base_circuit_data.verifier_only,
                 &base_circuit_data.common,
                 &[false, false],

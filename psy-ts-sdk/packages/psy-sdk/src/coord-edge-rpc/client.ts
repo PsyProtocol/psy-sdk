@@ -8,12 +8,12 @@ import {
     ContractCodeDefinition,
     LatestCheckpointResponse,
     QBCDeployContract,
-    QEDCheckpointGlobalStateRoots,
-    QEDCheckpointLeaf,
-    QEDCheckpointSyncInfoCompact,
-    QEDContractLeaf,
-    QEDUserLeaf,
-    QEDL2BlockState,
+    PsyCheckpointGlobalStateRoots,
+    PsyCheckpointLeaf,
+    PsyCheckpointSyncInfoCompact,
+    PsyContractLeaf,
+    PsyUserLeaf,
+    PsyL2BlockState,
     ZKPublicKeyInfo,
 } from "../types";
 
@@ -165,8 +165,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param contractId The contract ID
      * @returns Contract leaf data
      */
-    async getContractLeafData(contractId: Felt): Promise<QEDContractLeaf> {
-        return this.rpc<QEDContractLeaf>(CoordinatorEdgeRPCCommand.GetContractLeafData, [contractId]);
+    async getContractLeafData(contractId: Felt): Promise<PsyContractLeaf> {
+        return this.rpc<PsyContractLeaf>(CoordinatorEdgeRPCCommand.GetContractLeafData, [contractId]);
     }
 
     /**
@@ -174,8 +174,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param contractId The contract ID as a bigint
      * @returns Contract leaf data
      */
-    async getContractLeafDataF(contractId: Felt): Promise<QEDContractLeaf> {
-        return this.rpc<QEDContractLeaf>(CoordinatorEdgeRPCCommand.GetContractLeafDataF, [contractId]);
+    async getContractLeafDataF(contractId: Felt): Promise<PsyContractLeaf> {
+        return this.rpc<PsyContractLeaf>(CoordinatorEdgeRPCCommand.GetContractLeafDataF, [contractId]);
     }
 
     /**
@@ -183,8 +183,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param checkpointId The checkpoint ID
      * @returns Checkpoint leaf data
      */
-    async getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
-        return this.rpc<QEDCheckpointLeaf>(CoordinatorEdgeRPCCommand.GetCheckpointLeafData, [checkpointId]);
+    async getCheckpointLeafData(checkpointId: Felt): Promise<PsyCheckpointLeaf> {
+        return this.rpc<PsyCheckpointLeaf>(CoordinatorEdgeRPCCommand.GetCheckpointLeafData, [checkpointId]);
     }
 
     /**
@@ -192,8 +192,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param checkpointId The checkpoint ID as a bigint
      * @returns Checkpoint leaf data
      */
-    async getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
-        return this.rpc<QEDCheckpointLeaf>(CoordinatorEdgeRPCCommand.GetCheckpointLeafDataF, [checkpointId]);
+    async getCheckpointLeafDataF(checkpointId: Felt): Promise<PsyCheckpointLeaf> {
+        return this.rpc<PsyCheckpointLeaf>(CoordinatorEdgeRPCCommand.GetCheckpointLeafDataF, [checkpointId]);
     }
 
     /**
@@ -218,8 +218,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * Get latest L2 block state
      * @returns L2 block state
      */
-    async getLatestL2BlockState(): Promise<QEDL2BlockState> {
-        return this.rpc<QEDL2BlockState>(CoordinatorEdgeRPCCommand.GetLatestL2BlockState, []);
+    async getLatestL2BlockState(): Promise<PsyL2BlockState> {
+        return this.rpc<PsyL2BlockState>(CoordinatorEdgeRPCCommand.GetLatestL2BlockState, []);
     }
 
     /**
@@ -227,8 +227,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param checkpointId The checkpoint ID
      * @returns L2 block state
      */
-    async getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState> {
-        return this.rpc<QEDL2BlockState>(CoordinatorEdgeRPCCommand.GetL2BlockState, [checkpointId]);
+    async getL2BlockState(checkpointId: Felt): Promise<PsyL2BlockState> {
+        return this.rpc<PsyL2BlockState>(CoordinatorEdgeRPCCommand.GetL2BlockState, [checkpointId]);
     }
 
     /**
@@ -236,8 +236,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param checkpointId The checkpoint ID as a bigint
      * @returns L2 block state
      */
-    async getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState> {
-        return this.rpc<QEDL2BlockState>(CoordinatorEdgeRPCCommand.GetL2BlockStateF, [checkpointId]);
+    async getL2BlockStateF(checkpointId: Felt): Promise<PsyL2BlockState> {
+        return this.rpc<PsyL2BlockState>(CoordinatorEdgeRPCCommand.GetL2BlockStateF, [checkpointId]);
     }
 
     // User Registration Tree methods
@@ -539,14 +539,14 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     // Global state and checkpoint info methods
-    async getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots> {
-        return this.rpc<QEDCheckpointGlobalStateRoots>(CoordinatorEdgeRPCCommand.GetCheckpointGlobalStateRoots, [
+    async getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<PsyCheckpointGlobalStateRoots> {
+        return this.rpc<PsyCheckpointGlobalStateRoots>(CoordinatorEdgeRPCCommand.GetCheckpointGlobalStateRoots, [
             checkpointId,
         ]);
     }
 
-    async getCheckpointSyncInfoCompact(checkpointId: Felt): Promise<QEDCheckpointSyncInfoCompact> {
-        return this.rpc<QEDCheckpointSyncInfoCompact>(
+    async getCheckpointSyncInfoCompact(checkpointId: Felt): Promise<PsyCheckpointSyncInfoCompact> {
+        return this.rpc<PsyCheckpointSyncInfoCompact>(
             CoordinatorEdgeRPCCommand.GetCheckpointSyncInfoCompact,
             checkpointId
         );
@@ -557,8 +557,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     // User data methods
-    async getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
-        return this.rpc<QEDUserLeaf>(CoordinatorEdgeRPCCommand.GetUserLeafData, {
+    async getUserLeafData(checkpointId: Felt, userId: Felt): Promise<PsyUserLeaf> {
+        return this.rpc<PsyUserLeaf>(CoordinatorEdgeRPCCommand.GetUserLeafData, {
             checkpoint_id: checkpointId,
             user_id: userId,
         });
@@ -608,16 +608,16 @@ export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider 
     getCheckpointSyncInfo(checkpointId: Felt): Promise<CheckpointSyncInfo> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointSyncInfo(checkpointId);
     }
-    getContractLeafData(contractId: Felt): Promise<QEDContractLeaf> {
+    getContractLeafData(contractId: Felt): Promise<PsyContractLeaf> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractLeafData(contractId);
     }
-    getContractLeafDataF(contractId: Felt): Promise<QEDContractLeaf> {
+    getContractLeafDataF(contractId: Felt): Promise<PsyContractLeaf> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractLeafDataF(contractId);
     }
-    getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
+    getCheckpointLeafData(checkpointId: Felt): Promise<PsyCheckpointLeaf> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointLeafData(checkpointId);
     }
-    getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf> {
+    getCheckpointLeafDataF(checkpointId: Felt): Promise<PsyCheckpointLeaf> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointLeafDataF(checkpointId);
     }
     getContractCodeDefinition(contractId: Felt): Promise<ContractCodeDefinition> {
@@ -626,13 +626,13 @@ export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider 
     getContractCodeDefinitionF(contractId: Felt): Promise<ContractCodeDefinition> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractCodeDefinitionF(contractId);
     }
-    getLatestL2BlockState(): Promise<QEDL2BlockState> {
+    getLatestL2BlockState(): Promise<PsyL2BlockState> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getLatestL2BlockState();
     }
-    getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState> {
+    getL2BlockState(checkpointId: Felt): Promise<PsyL2BlockState> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getL2BlockState(checkpointId);
     }
-    getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState> {
+    getL2BlockStateF(checkpointId: Felt): Promise<PsyL2BlockState> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getL2BlockStateF(checkpointId);
     }
     getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut> {
@@ -803,16 +803,16 @@ export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider 
             .get(this.getCurrentCoordinatorId())!
             .getCheckpointTreeMerkleProofF(checkpointId, leafCheckpointId);
     }
-    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots> {
+    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<PsyCheckpointGlobalStateRoots> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointGlobalStateRoots(checkpointId);
     }
-    getCheckpointSyncInfoCompact(checkpointId: Felt): Promise<QEDCheckpointSyncInfoCompact> {
+    getCheckpointSyncInfoCompact(checkpointId: Felt): Promise<PsyCheckpointSyncInfoCompact> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointSyncInfoCompact(checkpointId);
     }
     latestCheckpoint(): Promise<number> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.latestCheckpoint();
     }
-    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf> {
+    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<PsyUserLeaf> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserLeafData(checkpointId, userId);
     }
     getUserTreeMerkleProof(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>> {

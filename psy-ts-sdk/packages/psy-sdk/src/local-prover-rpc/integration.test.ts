@@ -1,20 +1,20 @@
 import fs from "fs";
 import path from "path";
 
-import { QedRPCUserProverProvider } from "./client";
+import { PsyRPCUserProverProvider } from "./client";
 import { ContractCallArgs, WalletKeyPair, DPNFunctionCircuitDefinition } from "./types";
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
 import { ZKPublicKeyInfo } from "../types";
-import { QedJSON, waitMs } from "../utils";
+import { PsyJSON, waitMs } from "../utils";
 
 /**
- * Integration tests for QED User Prover RPC Client
- * These tests require a running QED User Prover RPC server
+ * Integration tests for Psy User Prover RPC Client
+ * These tests require a running Psy User Prover RPC server
  *
  * To run these tests:
- * 1. Start the QED User Prover RPC server on localhost:8545
- * 2. Set environment variable QED_RPC_URL if using different endpoint
+ * 1. Start the Psy User Prover RPC server on localhost:8545
+ * 2. Set environment variable Psy_RPC_URL if using different endpoint
  * 3. Run: npm test -- --testNamePattern="Integration"
  */
 
@@ -25,16 +25,16 @@ async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void>
     await waitMs(3000);
 }
 
-describe("QED User Prover RPC Integration Tests", () => {
-    let provider: QedRPCUserProverProvider;
-    const rpcUrl = process.env.QED_RPC_URL || "http://localhost:8888";
+describe("Psy User Prover RPC Integration Tests", () => {
+    let provider: PsyRPCUserProverProvider;
+    const rpcUrl = process.env.Psy_RPC_URL || "http://localhost:8888";
     const timeout = 30000; // 30 seconds timeout for RPC calls
 
     let coordinator: CoordinatorEdgeRpcProvider;
     const MOCK_RPC_URL = process.env.TEST_COORD_EDGE_RPC_URL || "http://localhost:8545";
 
     beforeAll(() => {
-        provider = new QedRPCUserProverProvider(rpcUrl);
+        provider = new PsyRPCUserProverProvider(rpcUrl);
         coordinator = new CoordinatorEdgeRpcProvider(MOCK_RPC_URL);
     });
 
@@ -417,7 +417,7 @@ describe("QED User Prover RPC Integration Tests", () => {
             "should deploy contract",
             async () => {
                 try {
-                    const circuitDefs = QedJSON.parse(
+                    const circuitDefs = PsyJSON.parse(
                         fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
                     );
                     console.log("circuitDefs: ", circuitDefs);
@@ -467,7 +467,7 @@ describe("QED User Prover RPC Integration Tests", () => {
             "should deploy contract",
             async () => {
                 try {
-                    const circuitDefs = QedJSON.parse(
+                    const circuitDefs = PsyJSON.parse(
                         fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
                     );
                     console.log("circuitDefs: ", circuitDefs);
@@ -689,7 +689,7 @@ describe("QED User Prover RPC Integration Tests", () => {
 
         it("should handle network timeouts", async () => {
             // Create a provider with a non-existent endpoint
-            const invalidProvider = new QedRPCUserProverProvider("http://localhost:9999");
+            const invalidProvider = new PsyRPCUserProverProvider("http://localhost:9999");
 
             try {
                 await invalidProvider.ping("test");

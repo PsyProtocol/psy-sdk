@@ -28,8 +28,8 @@ async function cachingExample() {
             ttl: 30000, // 30 seconds
             maxSize: 500,
             customTtl: new Map([
-                ["qed_get_latest_checkpoint_tree_root", 10000], // 10 seconds
-                ["qed_get_checkpoint_leaf_data", 60000], // 1 minute
+                ["psy_get_latest_checkpoint_tree_root", 10000], // 10 seconds
+                ["psy_get_checkpoint_leaf_data", 60000], // 1 minute
             ]),
         },
     };
@@ -206,15 +206,15 @@ async function fullConfigurationExample() {
             maxSize: 1000,
             customTtl: new Map([
                 // Fast-changing data
-                ["qed_get_latest_checkpoint_tree_root", 5000],
-                ["qed_get_latest_l2_block_state", 5000],
+                ["psy_get_latest_checkpoint_tree_root", 5000],
+                ["psy_get_latest_l2_block_state", 5000],
 
                 // Slow-changing data
-                ["qed_get_checkpoint_leaf_data", 300000], // 5 minutes
-                ["qed_get_user_leaf_data", 300000],
+                ["psy_get_checkpoint_leaf_data", 300000], // 5 minutes
+                ["psy_get_user_leaf_data", 300000],
 
                 // Static data
-                ["qed_get_user_registration_tree_root", 3600000], // 1 hour
+                ["psy_get_user_registration_tree_root", 3600000], // 1 hour
             ]),
         },
         retry: {

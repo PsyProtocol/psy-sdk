@@ -4,7 +4,7 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use psy_data::{config::store_config::QEDFelt, guta::api::SubmitGUTARealmResultAPINoProofInput, qdata::checkpoint::CheckpointSyncInfo};
+use psy_data::{config::store_config::PsyFelt, guta::api::SubmitGUTARealmResultAPINoProofInput, qdata::checkpoint::CheckpointSyncInfo};
 use tracing::{error, info, trace};
 
 use crate::{
@@ -12,11 +12,11 @@ use crate::{
     common_v2::traits::realm::*,
 };
 
-type F = QEDFelt;
+type F = PsyFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
-#[rpc(client, namespace = "qed")]
+#[rpc(client, namespace = "psy")]
 pub trait CoordinatorRpcV2 {
     #[method(name = "get_current_checkpoint_id")]
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64>;

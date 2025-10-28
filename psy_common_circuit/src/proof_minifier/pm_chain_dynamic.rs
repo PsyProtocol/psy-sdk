@@ -9,17 +9,17 @@ use plonky2::{
     },
 };
 
-use super::{pm_custom::PMCircuitCustomizer, pm_dynamic::QEDProofMinifierDynamic};
+use super::{pm_custom::PMCircuitCustomizer, pm_dynamic::PsyProofMinifierDynamic};
 
 #[derive(Debug)]
-pub struct QEDProofMinifierDynamicChain<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
+pub struct PsyProofMinifierDynamicChain<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub minifiers: Vec<QEDProofMinifierDynamic<D, F, C>>,
+    pub minifiers: Vec<PsyProofMinifierDynamic<D, F, C>>,
 }
 
-impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>> QEDProofMinifierDynamicChain<D, F, C>
+impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>> PsyProofMinifierDynamicChain<D, F, C>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
@@ -28,7 +28,7 @@ where
         base_circuit_common_data: &CommonCircuitData<F, D>,
         minifier_configs: Vec<CircuitConfig>,
     ) -> Self {
-        let mut minifiers = vec![QEDProofMinifierDynamic::<D, F, C>::new_with_cfg(
+        let mut minifiers = vec![PsyProofMinifierDynamic::<D, F, C>::new_with_cfg(
             minifier_configs[0].clone(),
             base_circuit_verifier_data,
             base_circuit_common_data,
@@ -36,7 +36,7 @@ where
             false,
         )];
         for i in 1..minifier_configs.len() {
-            minifiers.push(QEDProofMinifierDynamic::<D, F, C>::new_with_cfg(
+            minifiers.push(PsyProofMinifierDynamic::<D, F, C>::new_with_cfg(
                 minifier_configs[i].clone(),
                 &minifiers[i - 1].circuit_data.verifier_only,
                 &minifiers[i - 1].circuit_data.common,
@@ -60,7 +60,7 @@ where
         customizer: &PMCC,
     ) -> Self {
         let mut minifiers = vec![if n_minifiers == 1 {
-            QEDProofMinifierDynamic::<D, F, C>::new_with_cfg_customizer(
+            PsyProofMinifierDynamic::<D, F, C>::new_with_cfg_customizer(
                 CircuitConfig::standard_recursion_config(),
                 base_circuit_verifier_data,
                 base_circuit_common_data,
@@ -69,7 +69,7 @@ where
                 false,
             )
         } else {
-            QEDProofMinifierDynamic::<D, F, C>::new_with_cfg(
+            PsyProofMinifierDynamic::<D, F, C>::new_with_cfg(
                 CircuitConfig::standard_recursion_config(),
                 base_circuit_verifier_data,
                 base_circuit_common_data,
@@ -79,7 +79,7 @@ where
         }];
         for i in 1..n_minifiers {
             if i == (n_minifiers - 1) {
-                minifiers.push(QEDProofMinifierDynamic::<D, F, C>::new_with_cfg_customizer(
+                minifiers.push(PsyProofMinifierDynamic::<D, F, C>::new_with_cfg_customizer(
                     CircuitConfig::standard_recursion_config(),
                     &minifiers[i - 1].circuit_data.verifier_only,
                     &minifiers[i - 1].circuit_data.common,
@@ -88,7 +88,7 @@ where
                     false,
                 ));
             } else {
-                minifiers.push(QEDProofMinifierDynamic::<D, F, C>::new_with_cfg(
+                minifiers.push(PsyProofMinifierDynamic::<D, F, C>::new_with_cfg(
                     CircuitConfig::standard_recursion_config(),
                     &minifiers[i - 1].circuit_data.verifier_only,
                     &minifiers[i - 1].circuit_data.common,
@@ -114,7 +114,7 @@ where
         customizer: Option<&PMCC>,
     ) -> Self {
         let mut minifiers = vec![if n_minifiers == 1 {
-            QEDProofMinifierDynamic::<D, F, C>::new_with_cfg_customizer(
+            PsyProofMinifierDynamic::<D, F, C>::new_with_cfg_customizer(
                 CircuitConfig::standard_recursion_config(),
                 base_circuit_verifier_data,
                 base_circuit_common_data,
@@ -123,7 +123,7 @@ where
                 false,
             )
         } else {
-            QEDProofMinifierDynamic::<D, F, C>::new_with_cfg(
+            PsyProofMinifierDynamic::<D, F, C>::new_with_cfg(
                 CircuitConfig::standard_recursion_config(),
                 base_circuit_verifier_data,
                 base_circuit_common_data,
@@ -133,7 +133,7 @@ where
         }];
         for i in 1..n_minifiers {
             if i == (n_minifiers - 1) {
-                minifiers.push(QEDProofMinifierDynamic::<D, F, C>::new_with_cfg_customizer(
+                minifiers.push(PsyProofMinifierDynamic::<D, F, C>::new_with_cfg_customizer(
                     CircuitConfig::standard_recursion_config(),
                     &minifiers[i - 1].circuit_data.verifier_only,
                     &minifiers[i - 1].circuit_data.common,
@@ -142,7 +142,7 @@ where
                     false,
                 ));
             } else {
-                minifiers.push(QEDProofMinifierDynamic::<D, F, C>::new_with_cfg(
+                minifiers.push(PsyProofMinifierDynamic::<D, F, C>::new_with_cfg(
                     CircuitConfig::standard_recursion_config(),
                     &minifiers[i - 1].circuit_data.verifier_only,
                     &minifiers[i - 1].circuit_data.common,
@@ -167,12 +167,12 @@ where
         if n_minifiers == 0 {
             return Self { minifiers: vec![] };
         }
-        let mut minifiers = vec![QEDProofMinifierDynamic::<D, F, C>::new(
+        let mut minifiers = vec![PsyProofMinifierDynamic::<D, F, C>::new(
             base_circuit_verifier_data,
             base_circuit_common_data,
         )];
         for i in 1..n_minifiers {
-            minifiers.push(QEDProofMinifierDynamic::<D, F, C>::new(
+            minifiers.push(PsyProofMinifierDynamic::<D, F, C>::new(
                 &minifiers[i - 1].circuit_data.verifier_only,
                 &minifiers[i - 1].circuit_data.common,
             ));
@@ -193,13 +193,13 @@ where
         if n_minifiers == 0 {
             return Self { minifiers: vec![] };
         }
-        let mut minifiers = vec![QEDProofMinifierDynamic::<D, F, C>::new_with_dynamic_constant_verifier(
+        let mut minifiers = vec![PsyProofMinifierDynamic::<D, F, C>::new_with_dynamic_constant_verifier(
             base_circuit_verifier_data,
             base_circuit_common_data,
             constant_verifier_selection[0],
         )];
         for i in 1..n_minifiers {
-            minifiers.push(QEDProofMinifierDynamic::<D, F, C>::new_with_dynamic_constant_verifier(
+            minifiers.push(PsyProofMinifierDynamic::<D, F, C>::new_with_dynamic_constant_verifier(
                 &minifiers[i - 1].circuit_data.verifier_only,
                 &minifiers[i - 1].circuit_data.common,
                 constant_verifier_selection[i],
@@ -219,7 +219,7 @@ where
         add_gates: Option<&[GateRef<F, D>]>,
     ) -> Self {
         let mut minifiers = vec![if n_minifiers == 1 {
-            QEDProofMinifierDynamic::<D, F, C>::new_with_cfg(
+            PsyProofMinifierDynamic::<D, F, C>::new_with_cfg(
                 CircuitConfig::standard_recursion_config(),
                 base_circuit_verifier_data,
                 base_circuit_common_data,
@@ -227,7 +227,7 @@ where
                 false,
             )
         } else {
-            QEDProofMinifierDynamic::<D, F, C>::new_with_cfg(
+            PsyProofMinifierDynamic::<D, F, C>::new_with_cfg(
                 CircuitConfig::standard_recursion_config(),
                 base_circuit_verifier_data,
                 base_circuit_common_data,
@@ -237,7 +237,7 @@ where
         }];
         for i in 1..n_minifiers {
             if i == (n_minifiers - 1) {
-                minifiers.push(QEDProofMinifierDynamic::<D, F, C>::new_with_cfg(
+                minifiers.push(PsyProofMinifierDynamic::<D, F, C>::new_with_cfg(
                     CircuitConfig::standard_recursion_config(),
                     &minifiers[i - 1].circuit_data.verifier_only,
                     &minifiers[i - 1].circuit_data.common,
@@ -245,7 +245,7 @@ where
                     false,
                 ));
             } else {
-                minifiers.push(QEDProofMinifierDynamic::<D, F, C>::new_with_cfg(
+                minifiers.push(PsyProofMinifierDynamic::<D, F, C>::new_with_cfg(
                     CircuitConfig::standard_recursion_config(),
                     &minifiers[i - 1].circuit_data.verifier_only,
                     &minifiers[i - 1].circuit_data.common,

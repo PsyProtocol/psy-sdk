@@ -16,15 +16,15 @@ use psy_core::data::{
 use psy_crypto::{
     common::witnesses::qrecursion::{header::QRecursionAggStandardHeader, proof_data::QStandardBinaryTreeCircuitType},
     hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-    signature::{secp256k1::core::QEDCompressedSecp256K1Signature, zk::data::ZKPublicKeyInfo},
+    signature::{secp256k1::core::PsyCompressedSecp256K1Signature, zk::data::ZKPublicKeyInfo},
 };
 use psy_data::{
     guta::{api::SubmitGUTARealmResultAPINoProofInput, end_cap_input::SubmitUserEndCapNonProofInput},
     qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{
-        checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
-        contract::{ContractCodeDefinition, QEDContractLeaf},
-        user::QEDUserLeaf,
+        checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+        contract::{ContractCodeDefinition, PsyContractLeaf},
+        user::PsyUserLeaf,
     },
     ups::{
         start_step::UPSStartStepInput,
@@ -62,231 +62,231 @@ pub enum Id {
 #[serde(tag = "method", content = "params")]
 pub enum RequestParams<F: RichField> {
     /// for coordinator edge
-    #[serde(rename = "qed_deploy_contract")]
+    #[serde(rename = "psy_deploy_contract")]
     DeployContract(QDeployContractRPCRequest<F>),
-    #[serde(rename = "qed_register_user")]
+    #[serde(rename = "psy_register_user")]
     RegisterUser(QRegisterUserRPCRequest<F>),
-    #[serde(rename = "qed_build_block")]
+    #[serde(rename = "psy_build_block")]
     ProduceBlock,
-    #[serde(rename = "qed_get_user_id")]
+    #[serde(rename = "psy_get_user_id")]
     GetUserId(QGetUserIdRPCRequest<F>),
-    #[serde(rename = "qed_submit_guta")]
+    #[serde(rename = "psy_submit_guta")]
     SubmitGuta(QSubmitGutaRPCRequest<F>),
-    #[serde(rename = "qed_get_latest_checkpoint")]
+    #[serde(rename = "psy_get_latest_checkpoint")]
     GetLatestCheckpoint,
-    #[serde(rename = "qed_latest_checkpoint")]
+    #[serde(rename = "psy_latest_checkpoint")]
     LatestCheckpoint,
-    #[serde(rename = "qed_get_latest_checkpoint_id")]
+    #[serde(rename = "psy_get_latest_checkpoint_id")]
     GetLatestCheckpointId,
-    #[serde(rename = "qed_get_checkpoint_sync_info")]
+    #[serde(rename = "psy_get_checkpoint_sync_info")]
     GetCheckpointSyncInfo(QGetCheckpointSyncInfoRPCRequest),
-    #[serde(rename = "qed_get_checkpoint_sync_info_compact")]
+    #[serde(rename = "psy_get_checkpoint_sync_info_compact")]
     GetCheckpointSyncInfoCompact(QGetCheckpointSyncInfoCompactRPCRequest),
 
     /// for realm edge
     TokenTransfer(QTokenTransferRPCRequest),
-    #[serde(rename = "qed_claim_deposit")]
+    #[serde(rename = "psy_claim_deposit")]
     ClaimDeposit(QClaimDepositRPCRequest),
-    #[serde(rename = "qed_add_withdrawal")]
+    #[serde(rename = "psy_add_withdrawal")]
     AddWithdrawal(QAddWithdrawalRPCRequest),
-    #[serde(rename = "qed_submit_user_end_cap")]
+    #[serde(rename = "psy_submit_user_end_cap")]
     SubmitEndCap(QSubmitEndCapRPCRequest<F>),
-    #[serde(rename = "qed_get_tx_status")]
+    #[serde(rename = "psy_get_tx_status")]
     GetTxStatus(QGetTxStatusRPCRequest),
 
     // QTreeDataStoreReaderSync
-    #[serde(rename = "qed_get_user_contract_state_tree_root")]
+    #[serde(rename = "psy_get_user_contract_state_tree_root")]
     GetUserContractStateTreeRoot(QUserContractStateTreeRootRPCRequest),
-    #[serde(rename = "qed_get_user_contract_state_tree_root_f")]
+    #[serde(rename = "psy_get_user_contract_state_tree_root_f")]
     GetUserContractStateTreeRootF(QUserContractStateTreeRootFRPCRequest<F>),
-    #[serde(rename = "qed_get_user_contract_state_tree_leaf_hash")]
+    #[serde(rename = "psy_get_user_contract_state_tree_leaf_hash")]
     GetUserContractStateTreeLeafHash(QUserContractStateTreeLeafHashRPCRequest),
-    #[serde(rename = "qed_get_user_contract_state_tree_leaf_hash_f")]
+    #[serde(rename = "psy_get_user_contract_state_tree_leaf_hash_f")]
     GetUserContractStateTreeLeafHashF(QUserContractStateTreeLeafHashFRPCRequest<F>),
-    #[serde(rename = "qed_get_user_contract_state_tree_merkle_proof")]
+    #[serde(rename = "psy_get_user_contract_state_tree_merkle_proof")]
     GetUserContractStateTreeMerkleProof(QUserContractStateTreeMerkleProofRPCRequest),
-    #[serde(rename = "qed_get_user_contract_state_tree_merkle_proof_f")]
+    #[serde(rename = "psy_get_user_contract_state_tree_merkle_proof_f")]
     GetUserContractStateTreeMerkleProofF(QUserContractStateTreeMerkleProofFRPCRequest<F>),
 
-    #[serde(rename = "qed_get_user_contract_tree_root")]
+    #[serde(rename = "psy_get_user_contract_tree_root")]
     GetUserContractTreeRoot(QUserContractTreeRootRPCRequest),
-    #[serde(rename = "qed_get_user_contract_tree_root_f")]
+    #[serde(rename = "psy_get_user_contract_tree_root_f")]
     GetUserContractTreeRootF(QUserContractTreeRootFRPCRequest<F>),
-    #[serde(rename = "qed_get_user_contract_tree_leaf_hash")]
+    #[serde(rename = "psy_get_user_contract_tree_leaf_hash")]
     GetUserContractTreeLeafHash(QUserContractTreeLeafHashRPCRequest),
-    #[serde(rename = "qed_get_user_contract_tree_leaf_hash_f")]
+    #[serde(rename = "psy_get_user_contract_tree_leaf_hash_f")]
     GetUserContractTreeLeafHashF(QUserContractTreeLeafHashFRPCRequest<F>),
-    #[serde(rename = "qed_get_user_contract_tree_merkle_proof")]
+    #[serde(rename = "psy_get_user_contract_tree_merkle_proof")]
     GetUserContractTreeMerkleProof(QUserContractTreeMerkleProofRPCRequest),
-    #[serde(rename = "qed_get_user_contract_tree_merkle_proof_f")]
+    #[serde(rename = "psy_get_user_contract_tree_merkle_proof_f")]
     GetUserContractTreeMerkleProofF(QUserContractTreeMerkleProofFRPCRequest<F>),
 
-    #[serde(rename = "qed_get_user_registration_tree_root")]
+    #[serde(rename = "psy_get_user_registration_tree_root")]
     GetUserRegistrationTreeRoot(QUserRegistrationTreeRootRPCRequest),
-    #[serde(rename = "qed_get_user_registration_tree_root_f")]
+    #[serde(rename = "psy_get_user_registration_tree_root_f")]
     GetUserRegistrationTreeRootF(QUserRegistrationTreeRootFRPCRequest<F>),
-    #[serde(rename = "qed_get_user_registration_tree_leaf_hash")]
+    #[serde(rename = "psy_get_user_registration_tree_leaf_hash")]
     GetUserRegistrationTreeLeafHash(QUserRegistrationTreeLeafHashRPCRequest),
-    #[serde(rename = "qed_get_user_registration_tree_leaf_hash_f")]
+    #[serde(rename = "psy_get_user_registration_tree_leaf_hash_f")]
     GetUserRegistrationTreeLeafHashF(QUserRegistrationTreeLeafHashFRPCRequest<F>),
-    #[serde(rename = "qed_get_user_registration_tree_merkle_proof")]
+    #[serde(rename = "psy_get_user_registration_tree_merkle_proof")]
     GetUserRegistrationTreeMerkleProof(QUserRegistrationTreeMerkleProofRPCRequest),
-    #[serde(rename = "qed_get_user_registration_tree_merkle_proof_f")]
+    #[serde(rename = "psy_get_user_registration_tree_merkle_proof_f")]
     GetUserRegistrationTreeMerkleProofF(QUserRegistrationTreeMerkleProofFRPCRequest<F>),
 
-    #[serde(rename = "qed_get_user_tree_root")]
+    #[serde(rename = "psy_get_user_tree_root")]
     GetUserTreeRoot(QUserTreeRootRPCRequest),
-    #[serde(rename = "qed_get_user_tree_root_f")]
+    #[serde(rename = "psy_get_user_tree_root_f")]
     GetUserTreeRootF(QUserTreeRootFRPCRequest<F>),
-    #[serde(rename = "qed_get_user_tree_leaf_hash")]
+    #[serde(rename = "psy_get_user_tree_leaf_hash")]
     GetUserTreeLeafHash(QUserTreeLeafHashRPCRequest),
-    #[serde(rename = "qed_get_user_tree_leaf_hash_f")]
+    #[serde(rename = "psy_get_user_tree_leaf_hash_f")]
     GetUserTreeLeafHashF(QUserTreeLeafHashFRPCRequest<F>),
-    #[serde(rename = "qed_get_user_tree_merkle_proof")]
+    #[serde(rename = "psy_get_user_tree_merkle_proof")]
     GetUserTreeMerkleProof(QUserTreeMerkleProofRPCRequest),
-    #[serde(rename = "qed_get_user_tree_merkle_proof_f")]
+    #[serde(rename = "psy_get_user_tree_merkle_proof_f")]
     GetUserTreeMerkleProofF(QUserTreeMerkleProofFRPCRequest<F>),
-    #[serde(rename = "qed_get_user_sub_tree_merkle_proof")]
+    #[serde(rename = "psy_get_user_sub_tree_merkle_proof")]
     GetUserSubTreeMerkleProof(QUserSubTreeMerkleProofRPCRequest),
 
-    #[serde(rename = "qed_get_contract_function_tree_root")]
+    #[serde(rename = "psy_get_contract_function_tree_root")]
     GetContractFunctionTreeRoot(QContractFunctionTreeRootRPCRequest),
-    #[serde(rename = "qed_get_contract_function_tree_root_f")]
+    #[serde(rename = "psy_get_contract_function_tree_root_f")]
     GetContractFunctionTreeRootF(QContractFunctionTreeRootFRPCRequest<F>),
-    #[serde(rename = "qed_get_contract_function_tree_leaf_hash")]
+    #[serde(rename = "psy_get_contract_function_tree_leaf_hash")]
     GetContractFunctionTreeLeafHash(QContractFunctionTreeLeafHashRPCRequest),
-    #[serde(rename = "qed_get_contract_function_tree_leaf_hash_f")]
+    #[serde(rename = "psy_get_contract_function_tree_leaf_hash_f")]
     GetContractFunctionTreeLeafHashF(QContractFunctionTreeLeafHashFRPCRequest<F>),
-    #[serde(rename = "qed_get_contract_function_tree_merkle_proof")]
+    #[serde(rename = "psy_get_contract_function_tree_merkle_proof")]
     GetContractFunctionTreeMerkleProof(QContractFunctionTreeMerkleProofRPCRequest),
-    #[serde(rename = "qed_get_contract_function_tree_merkle_proof_f")]
+    #[serde(rename = "psy_get_contract_function_tree_merkle_proof_f")]
     GetContractFunctionTreeMerkleProofF(QContractFunctionTreeMerkleProofFRPCRequest<F>),
 
-    #[serde(rename = "qed_get_contract_tree_root")]
+    #[serde(rename = "psy_get_contract_tree_root")]
     GetContractTreeRoot(QContractTreeRootRPCRequest),
-    #[serde(rename = "qed_get_contract_tree_root_f")]
+    #[serde(rename = "psy_get_contract_tree_root_f")]
     GetContractTreeRootF(QContractTreeRootFRPCRequest<F>),
-    #[serde(rename = "qed_get_contract_tree_leaf_hash")]
+    #[serde(rename = "psy_get_contract_tree_leaf_hash")]
     GetContractTreeLeafHash(QContractTreeLeafHashRPCRequest),
-    #[serde(rename = "qed_get_contract_tree_leaf_hash_f")]
+    #[serde(rename = "psy_get_contract_tree_leaf_hash_f")]
     GetContractTreeLeafHashF(QContractTreeLeafHashFRPCRequest<F>),
-    #[serde(rename = "qed_get_contract_tree_merkle_proof")]
+    #[serde(rename = "psy_get_contract_tree_merkle_proof")]
     GetContractTreeMerkleProof(QContractTreeMerkleProofRPCRequest),
-    #[serde(rename = "qed_get_contract_tree_merkle_proof_f")]
+    #[serde(rename = "psy_get_contract_tree_merkle_proof_f")]
     GetContractTreeMerkleProofF(QContractTreeMerkleProofFRPCRequest<F>),
 
-    #[serde(rename = "qed_get_deposit_tree_root")]
+    #[serde(rename = "psy_get_deposit_tree_root")]
     GetDepositTreeRoot(QDepositTreeRootRPCRequest),
-    #[serde(rename = "qed_get_deposit_tree_root_f")]
+    #[serde(rename = "psy_get_deposit_tree_root_f")]
     GetDepositTreeRootF(QDepositTreeRootFRPCRequest<F>),
-    #[serde(rename = "qed_get_deposit_tree_leaf_hash")]
+    #[serde(rename = "psy_get_deposit_tree_leaf_hash")]
     GetDepositTreeLeafHash(QDepositTreeLeafHashRPCRequest),
-    #[serde(rename = "qed_get_deposit_tree_leaf_hash_f")]
+    #[serde(rename = "psy_get_deposit_tree_leaf_hash_f")]
     GetDepositTreeLeafHashF(QDepositTreeLeafHashFRPCRequest<F>),
-    #[serde(rename = "qed_get_deposit_tree_merkle_proof")]
+    #[serde(rename = "psy_get_deposit_tree_merkle_proof")]
     GetDepositTreeMerkleProof(QDepositTreeMerkleProofRPCRequest),
-    #[serde(rename = "qed_get_deposit_tree_merkle_proof_f")]
+    #[serde(rename = "psy_get_deposit_tree_merkle_proof_f")]
     GetDepositTreeMerkleProofF(QDepositTreeMerkleProofFRPCRequest<F>),
 
-    #[serde(rename = "qed_get_withdrawal_tree_root")]
+    #[serde(rename = "psy_get_withdrawal_tree_root")]
     GetWithdrawalTreeRoot(QWithdrawalTreeRootRPCRequest),
-    #[serde(rename = "qed_get_withdrawal_tree_root_f")]
+    #[serde(rename = "psy_get_withdrawal_tree_root_f")]
     GetWithdrawalTreeRootF(QWithdrawalTreeRootFRPCRequest<F>),
-    #[serde(rename = "qed_get_withdrawal_tree_leaf_hash")]
+    #[serde(rename = "psy_get_withdrawal_tree_leaf_hash")]
     GetWithdrawalTreeLeafHash(QWithdrawalTreeLeafHashRPCRequest),
-    #[serde(rename = "qed_get_withdrawal_tree_leaf_hash_f")]
+    #[serde(rename = "psy_get_withdrawal_tree_leaf_hash_f")]
     GetWithdrawalTreeLeafHashF(QWithdrawalTreeLeafHashFRPCRequest<F>),
-    #[serde(rename = "qed_get_withdrawal_tree_merkle_proof")]
+    #[serde(rename = "psy_get_withdrawal_tree_merkle_proof")]
     GetWithdrawalTreeMerkleProof(QWithdrawalTreeMerkleProofRPCRequest),
-    #[serde(rename = "qed_get_withdrawal_tree_merkle_proof_f")]
+    #[serde(rename = "psy_get_withdrawal_tree_merkle_proof_f")]
     GetWithdrawalTreeMerkleProofF(QWithdrawalTreeMerkleProofFRPCRequest<F>),
 
-    #[serde(rename = "qed_get_latest_checkpoint_tree_root")]
+    #[serde(rename = "psy_get_latest_checkpoint_tree_root")]
     GetLatestCheckpointTreeRoot(QLatestCheckpointTreeRootRPCRequest),
-    #[serde(rename = "qed_get_checkpoint_tree_root")]
+    #[serde(rename = "psy_get_checkpoint_tree_root")]
     GetCheckpointTreeRoot(QCheckpointTreeRootRPCRequest),
-    #[serde(rename = "qed_get_checkpoint_tree_root_f")]
+    #[serde(rename = "psy_get_checkpoint_tree_root_f")]
     GetCheckpointTreeRootF(QCheckpointTreeRootFRPCRequest<F>),
-    #[serde(rename = "qed_get_checkpoint_tree_leaf_hash")]
+    #[serde(rename = "psy_get_checkpoint_tree_leaf_hash")]
     GetCheckpointTreeLeafHash(QCheckpointTreeLeafHashRPCRequest),
-    #[serde(rename = "qed_get_checkpoint_tree_leaf_hash_f")]
+    #[serde(rename = "psy_get_checkpoint_tree_leaf_hash_f")]
     GetCheckpointTreeLeafHashF(QCheckpointTreeLeafHashFRPCRequest<F>),
-    #[serde(rename = "qed_get_checkpoint_tree_merkle_proof")]
+    #[serde(rename = "psy_get_checkpoint_tree_merkle_proof")]
     GetCheckpointTreeMerkleProof(QCheckpointTreeMerkleProofRPCRequest),
-    #[serde(rename = "qed_get_checkpoint_tree_merkle_proof_f")]
+    #[serde(rename = "psy_get_checkpoint_tree_merkle_proof_f")]
     GetCheckpointTreeMerkleProofF(QCheckpointTreeMerkleProofFRPCRequest<F>),
 
-    #[serde(rename = "qed_get_checkpoint_global_state_roots")]
+    #[serde(rename = "psy_get_checkpoint_global_state_roots")]
     GetCheckpointGlobalStateRoots(QCheckpointGlobalStateRootsRPCRequest),
 
     // QMetaDataStoreReaderSync
-    #[serde(rename = "qed_get_user_leaf_data")]
+    #[serde(rename = "psy_get_user_leaf_data")]
     GetUserLeafData(QUserLeafDataRPCRequest),
-    #[serde(rename = "qed_get_user_leaf_data_f")]
+    #[serde(rename = "psy_get_user_leaf_data_f")]
     GetUserLeafFData(QUserLeafDataFRPCRequest<F>),
-    #[serde(rename = "qed_get_contract_leaf_data")]
+    #[serde(rename = "psy_get_contract_leaf_data")]
     GetContractLeafData(QContractLeafDataRPCRequest),
-    #[serde(rename = "qed_get_contract_leaf_data_f")]
+    #[serde(rename = "psy_get_contract_leaf_data_f")]
     GetContractLeafDataF(QContractLeafDataFRPCRequest<F>),
-    #[serde(rename = "qed_get_checkpoint_leaf_data")]
+    #[serde(rename = "psy_get_checkpoint_leaf_data")]
     GetCheckpointLeafData(QCheckpointLeafDataRPCRequest),
-    #[serde(rename = "qed_get_checkpoint_leaf_data_f")]
+    #[serde(rename = "psy_get_checkpoint_leaf_data_f")]
     GetCheckpointLeafDataF(QCheckpointLeafDataFRPCRequest<F>),
-    #[serde(rename = "qed_get_contract_code_definition")]
+    #[serde(rename = "psy_get_contract_code_definition")]
     GetContractCodeDefinition(QContractCodeDefinitionRPCRequest),
-    #[serde(rename = "qed_get_contract_code_definition_f")]
+    #[serde(rename = "psy_get_contract_code_definition_f")]
     GetContractCodeDefinitionF(QContractCodeDefinitionFRPCRequest<F>),
-    #[serde(rename = "qed_get_latest_l2_block_state")]
+    #[serde(rename = "psy_get_latest_l2_block_state")]
     GetLatestL2BlockState(QLatestL2BlockStateRPCRequest),
-    #[serde(rename = "qed_get_l2_block_state")]
+    #[serde(rename = "psy_get_l2_block_state")]
     GetL2BlockState(QL2BlockStateRPCRequest),
-    #[serde(rename = "qed_get_l2_block_state_f")]
+    #[serde(rename = "psy_get_l2_block_state_f")]
     GetL2BlockStateF(QL2BlockStateFRPCRequest<F>),
 
     /// generate proof
-    #[serde(rename = "qed_get_circuits_data")]
+    #[serde(rename = "psy_get_circuits_data")]
     GetCircuitsData(),
-    #[serde(rename = "qed_prove_ups_start")]
+    #[serde(rename = "psy_prove_ups_start")]
     ProveUpsStart(QProveUpsStartRPCRequest<F>),
-    #[serde(rename = "qed_register_contract_circuits")]
+    #[serde(rename = "psy_register_contract_circuits")]
     RegisterCircuits(QRegisterCircuitsRPCRequest),
-    #[serde(rename = "qed_get_method_id")]
+    #[serde(rename = "psy_get_method_id")]
     GetMethodId(QGetMethodIdRPCRequest),
-    #[serde(rename = "qed_get_contract_method_common_data")]
+    #[serde(rename = "psy_get_contract_method_common_data")]
     GetContractMethodCommonData(QGetContractMethodCommonDataRPCRequest),
-    #[serde(rename = "qed_prove_contract_call")]
+    #[serde(rename = "psy_prove_contract_call")]
     ProveContractCall(QProveContractCallRPCRequest<F>),
-    #[serde(rename = "qed_prove_ups_cfc_standard_tx")]
+    #[serde(rename = "psy_prove_ups_cfc_standard_tx")]
     UpsCfcStandardTx(QUpsCfcStandardTxRPCRequest<F>),
-    #[serde(rename = "qed_prove_ups_cfc_deferred_tx")]
+    #[serde(rename = "psy_prove_ups_cfc_deferred_tx")]
     UpsCfcDeferredTx(QUpsCfcDeferredTxRPCRequest<F>),
-    #[serde(rename = "qed_prove_zk_sign")]
+    #[serde(rename = "psy_prove_zk_sign")]
     ZKSignatureProof(QSignatureProofRPCRequest<F>),
-    #[serde(rename = "qed_prove_zk_sign_inner")]
+    #[serde(rename = "psy_prove_zk_sign_inner")]
     ZKSignatureInnerProof(QSignatureInnerProofRPCRequest<F>),
-    #[serde(rename = "qed_prove_zk_sign_minifier")]
+    #[serde(rename = "psy_prove_zk_sign_minifier")]
     ZKSignatureMinifierProof(QSignatureMinifierProofRPCRequest),
-    #[serde(rename = "qed_prove_secp_sign")]
+    #[serde(rename = "psy_prove_secp_sign")]
     SECPSignatureProof(QSecpSignatureProofRPCRequest),
-    #[serde(rename = "qed_register_software_defined_circuit")]
+    #[serde(rename = "psy_register_software_defined_circuit")]
     RegisterSoftwareDefinedCircuit(QRegisterSoftwareDefinedCircuitRPCRequest),
-    #[serde(rename = "qed_prove_software_defined_sign")]
+    #[serde(rename = "psy_prove_software_defined_sign")]
     SoftwareDefinedSignatureProof(QSoftwareDefinedSignatureProofRPCRequest<F>),
-    // #[serde(rename = "qed_finalize_tree")]
+    // #[serde(rename = "psy_finalize_tree")]
     // FinalizeTree,
-    // #[serde(rename = "qed_prove_ups_end_cap")]
+    // #[serde(rename = "psy_prove_ups_end_cap")]
     // UpsEndCap(QUpsEndCapRPCRequest<F>),
 
     // tree proof
-    // #[serde(rename = "qed_prove_single_leaf_circuit")]
+    // #[serde(rename = "psy_prove_single_leaf_circuit")]
     // SingleLeaf(QSingleLeafRpcRequest<F>),
-    // #[serde(rename = "qed_prove_two_leaf_circuit")]
+    // #[serde(rename = "psy_prove_two_leaf_circuit")]
     // TwoLeaf(QTwoLeafRpcRequest<F>),
-    // #[serde(rename = "qed_prove_two_agg_circuit")]
+    // #[serde(rename = "psy_prove_two_agg_circuit")]
     // TwoAgg(QTwoAggRpcRequset<F>),
-    // #[serde(rename = "qed_prove_left_leaf_right_agg_circuit")]
+    // #[serde(rename = "psy_prove_left_leaf_right_agg_circuit")]
     // LeftLeafRightAgg(QLeftLeafRightAggRpcRequest<F>),
-    // #[serde(rename = "qed_prove_left_agg_right_leaf_circuit")]
+    // #[serde(rename = "psy_prove_left_agg_right_leaf_circuit")]
     // LeftAggRightLeaf(QLeftAggRightLeafRpcRequest<F>),
 }
 
@@ -295,19 +295,19 @@ pub enum RequestParams<F: RichField> {
 #[serde(bound = "")]
 #[serde(tag = "method", content = "params")]
 pub enum RequestParamsV2<C: GenericConfig<D>, const D: usize> {
-    #[serde(rename = "qed_prove_ups_end_cap")]
+    #[serde(rename = "psy_prove_ups_end_cap")]
     UpsEndCap(QUpsEndCapRPCRequestV2<C, D>),
 
     // tree proof
-    #[serde(rename = "qed_prove_single_leaf_circuit")]
+    #[serde(rename = "psy_prove_single_leaf_circuit")]
     SingleLeaf(QSingleLeafRpcRequestV2<C, D>),
-    #[serde(rename = "qed_prove_two_leaf_circuit")]
+    #[serde(rename = "psy_prove_two_leaf_circuit")]
     TwoLeaf(QTwoLeafRpcRequestV2<C, D>),
-    #[serde(rename = "qed_prove_two_agg_circuit")]
+    #[serde(rename = "psy_prove_two_agg_circuit")]
     TwoAgg(QTwoAggRpcRequsetV2<C, D>),
-    #[serde(rename = "qed_prove_left_leaf_right_agg_circuit")]
+    #[serde(rename = "psy_prove_left_leaf_right_agg_circuit")]
     LeftLeafRightAgg(QLeftLeafRightAggRpcRequestV2<C, D>),
-    #[serde(rename = "qed_prove_left_agg_right_leaf_circuit")]
+    #[serde(rename = "psy_prove_left_agg_right_leaf_circuit")]
     LeftAggRightLeaf(QLeftAggRightLeafRpcRequestV2<C, D>),
 }
 
@@ -352,18 +352,18 @@ type F = GoldilocksField;
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub enum LPSResponse {
-    // Batch(QEDReadCommandBatchOutput<F>),
+    // Batch(PsyReadCommandBatchOutput<F>),
     // QTreeDataStoreReaderSync
     GetHash(QHashOut<F>),
     GetMerkleProof(MerkleProofCore<QHashOut<F>>),
 
     // QMetaDataStoreReaderSync
-    GetUserLeaf(QEDUserLeaf<F>),
-    GetContractLeaf(QEDContractLeaf<F>),
+    GetUserLeaf(PsyUserLeaf<F>),
+    GetContractLeaf(PsyContractLeaf<F>),
     GetContractCode(ContractCodeDefinition),
-    GetCheckpointLeaf(QEDCheckpointLeaf<F>),
-    GetL2BlockState(QEDL2BlockState),
-    // GetLatestL2BlockState(QEDL2BlockState),
+    GetCheckpointLeaf(PsyCheckpointLeaf<F>),
+    GetL2BlockState(PsyL2BlockState),
+    // GetLatestL2BlockState(PsyL2BlockState),
     GetUserId(u64),
 }
 
@@ -1182,7 +1182,7 @@ pub struct QSignatureMinifierProofRPCRequest {
 #[serde(bound = "")]
 // #[ts(export, concrete(F = GoldilocksField))]
 pub struct QSecpSignatureProofRPCRequest {
-    pub signature: QEDCompressedSecp256K1Signature,
+    pub signature: PsyCompressedSecp256K1Signature,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

@@ -1,55 +1,55 @@
 import { QHashOut, MerkleProofCore, Felt } from "../core";
 import {
     ProofWithPublicInputs,
-    QEDCheckpointGlobalStateRoots,
-    QEDCheckpointLeaf,
-    QEDL2BlockState,
-    QEDUserLeaf,
+    PsyCheckpointGlobalStateRoots,
+    PsyCheckpointLeaf,
+    PsyL2BlockState,
+    PsyUserLeaf,
     SubmitUserEndCapNonProofInput,
 } from "../types";
 
 // RPC Method commands enum
 export enum RealmEdgeRPCCommand {
-    CheckUserIdInRealm = "qed_check_user_id_in_realm",
-    SubmitUserEndCap = "qed_submit_user_end_cap",
-    GetCheckpointLeafData = "qed_get_checkpoint_leaf_data",
-    GetCheckpointLeafDataF = "qed_get_checkpoint_leaf_data_f",
-    GetLatestL2BlockState = "qed_get_latest_l2_block_state",
-    GetL2BlockState = "qed_get_l2_block_state",
-    GetL2BlockStateF = "qed_get_l2_block_state_f",
-    GetUserRegistrationTreeRoot = "qed_get_user_registration_tree_root",
-    GetLatestCheckpointTreeRoot = "qed_get_latest_checkpoint_tree_root",
-    GetCheckpointTreeRoot = "qed_get_checkpoint_tree_root",
-    GetCheckpointTreeRootF = "qed_get_checkpoint_tree_root_f",
-    GetCheckpointTreeLeafHash = "qed_get_checkpoint_tree_leaf_hash",
-    GetCheckpointTreeLeafHashF = "qed_get_checkpoint_tree_leaf_hash_f",
-    GetCheckpointTreeMerkleProof = "qed_get_checkpoint_tree_merkle_proof",
-    GetCheckpointTreeMerkleProofF = "qed_get_checkpoint_tree_merkle_proof_f",
-    GetCheckpointGlobalStateRoots = "qed_get_checkpoint_global_state_roots",
-    GetUserLeafData = "qed_get_user_leaf_data",
-    GetUserLeafDataF = "qed_get_user_leaf_data_f",
-    GetUserContractStateTreeRoot = "qed_get_user_contract_state_tree_root",
-    GetUserContractStateTreeRootF = "qed_get_user_contract_state_tree_root_f",
-    GetUserContractStateTreeLeafHash = "qed_get_user_contract_state_tree_leaf_hash",
-    GetUserContractStateTreeLeafHashF = "qed_get_user_contract_state_tree_leaf_hash_f",
-    GetUserContractStateTreeMerkleProof = "qed_get_user_contract_state_tree_merkle_proof",
-    GetUserContractStateTreeMerkleProofF = "qed_get_user_contract_state_tree_merkle_proof_f",
-    GetUserContractTreeRoot = "qed_get_user_contract_tree_root",
-    GetUserContractTreeRootF = "qed_get_user_contract_tree_root_f",
-    GetUserContractTreeLeafHash = "qed_get_user_contract_tree_leaf_hash",
-    GetUserContractTreeLeafHashF = "qed_get_user_contract_tree_leaf_hash_f",
-    GetUserContractTreeMerkleProof = "qed_get_user_contract_tree_merkle_proof",
-    GetUserContractTreeMerkleProofF = "qed_get_user_contract_tree_merkle_proof_f",
-    GetUserTreeRoot = "qed_get_user_tree_root",
-    GetUserTreeRootF = "qed_get_user_tree_root_f",
-    GetUserTreeLeafHash = "qed_get_user_tree_leaf_hash",
-    GetUserTreeLeafHashF = "qed_get_user_tree_leaf_hash_f",
-    GetUserBottomTreeMerkleProof = "qed_get_user_bottom_tree_merkle_proof",
-    GetUserBottomTreeMerkleProofF = "qed_get_user_bottom_tree_merkle_proof_f",
-    GetUserSubTreeMerkleProof = "qed_get_user_sub_tree_merkle_proof",
-    GetUserSubTreeMerkleProofF = "qed_get_user_sub_tree_merkle_proof_f",
-    GetUserTreeMerkleProof = "qed_get_user_tree_merkle_proof",
-    GetUserTreeMerkleProofF = "qed_get_user_tree_merkle_proof_f",
+    CheckUserIdInRealm = "psy_check_user_id_in_realm",
+    SubmitUserEndCap = "psy_submit_user_end_cap",
+    GetCheckpointLeafData = "psy_get_checkpoint_leaf_data",
+    GetCheckpointLeafDataF = "psy_get_checkpoint_leaf_data_f",
+    GetLatestL2BlockState = "psy_get_latest_l2_block_state",
+    GetL2BlockState = "psy_get_l2_block_state",
+    GetL2BlockStateF = "psy_get_l2_block_state_f",
+    GetUserRegistrationTreeRoot = "psy_get_user_registration_tree_root",
+    GetLatestCheckpointTreeRoot = "psy_get_latest_checkpoint_tree_root",
+    GetCheckpointTreeRoot = "psy_get_checkpoint_tree_root",
+    GetCheckpointTreeRootF = "psy_get_checkpoint_tree_root_f",
+    GetCheckpointTreeLeafHash = "psy_get_checkpoint_tree_leaf_hash",
+    GetCheckpointTreeLeafHashF = "psy_get_checkpoint_tree_leaf_hash_f",
+    GetCheckpointTreeMerkleProof = "psy_get_checkpoint_tree_merkle_proof",
+    GetCheckpointTreeMerkleProofF = "psy_get_checkpoint_tree_merkle_proof_f",
+    GetCheckpointGlobalStateRoots = "psy_get_checkpoint_global_state_roots",
+    GetUserLeafData = "psy_get_user_leaf_data",
+    GetUserLeafDataF = "psy_get_user_leaf_data_f",
+    GetUserContractStateTreeRoot = "psy_get_user_contract_state_tree_root",
+    GetUserContractStateTreeRootF = "psy_get_user_contract_state_tree_root_f",
+    GetUserContractStateTreeLeafHash = "psy_get_user_contract_state_tree_leaf_hash",
+    GetUserContractStateTreeLeafHashF = "psy_get_user_contract_state_tree_leaf_hash_f",
+    GetUserContractStateTreeMerkleProof = "psy_get_user_contract_state_tree_merkle_proof",
+    GetUserContractStateTreeMerkleProofF = "psy_get_user_contract_state_tree_merkle_proof_f",
+    GetUserContractTreeRoot = "psy_get_user_contract_tree_root",
+    GetUserContractTreeRootF = "psy_get_user_contract_tree_root_f",
+    GetUserContractTreeLeafHash = "psy_get_user_contract_tree_leaf_hash",
+    GetUserContractTreeLeafHashF = "psy_get_user_contract_tree_leaf_hash_f",
+    GetUserContractTreeMerkleProof = "psy_get_user_contract_tree_merkle_proof",
+    GetUserContractTreeMerkleProofF = "psy_get_user_contract_tree_merkle_proof_f",
+    GetUserTreeRoot = "psy_get_user_tree_root",
+    GetUserTreeRootF = "psy_get_user_tree_root_f",
+    GetUserTreeLeafHash = "psy_get_user_tree_leaf_hash",
+    GetUserTreeLeafHashF = "psy_get_user_tree_leaf_hash_f",
+    GetUserBottomTreeMerkleProof = "psy_get_user_bottom_tree_merkle_proof",
+    GetUserBottomTreeMerkleProofF = "psy_get_user_bottom_tree_merkle_proof_f",
+    GetUserSubTreeMerkleProof = "psy_get_user_sub_tree_merkle_proof",
+    GetUserSubTreeMerkleProofF = "psy_get_user_sub_tree_merkle_proof_f",
+    GetUserTreeMerkleProof = "psy_get_user_tree_merkle_proof",
+    GetUserTreeMerkleProofF = "psy_get_user_tree_merkle_proof_f",
 }
 
 // Interface for the Realm Edge RPC client
@@ -65,13 +65,13 @@ export interface IRealmEdgeRpcProvider {
     submitUserEndCap(userEcInput: SubmitUserEndCapNonProofInput, proof: ProofWithPublicInputs): Promise<string>;
 
     // Get checkpoint leaf data
-    getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf>;
-    getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf>;
+    getCheckpointLeafData(checkpointId: Felt): Promise<PsyCheckpointLeaf>;
+    getCheckpointLeafDataF(checkpointId: Felt): Promise<PsyCheckpointLeaf>;
 
     // Get L2 block state
-    getLatestL2BlockState(): Promise<QEDL2BlockState>;
-    getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState>;
-    getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState>;
+    getLatestL2BlockState(): Promise<PsyL2BlockState>;
+    getL2BlockState(checkpointId: Felt): Promise<PsyL2BlockState>;
+    getL2BlockStateF(checkpointId: Felt): Promise<PsyL2BlockState>;
 
     // Get user registration tree root
     getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut>;
@@ -90,11 +90,11 @@ export interface IRealmEdgeRpcProvider {
     getCheckpointTreeMerkleProofF(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>>;
 
     // Get checkpoint global state roots
-    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots>;
+    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<PsyCheckpointGlobalStateRoots>;
 
     // Get user leaf data
-    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf>;
-    getUserLeafDataF(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf>;
+    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<PsyUserLeaf>;
+    getUserLeafDataF(checkpointId: Felt, userId: Felt): Promise<PsyUserLeaf>;
 
     // Get user contract state tree root
     getUserContractStateTreeRoot(checkpointId: Felt, userId: Felt, contractId: Felt): Promise<QHashOut>;

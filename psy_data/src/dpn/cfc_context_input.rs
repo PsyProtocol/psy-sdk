@@ -7,8 +7,8 @@ use ts_rs::TS;
 
 use super::proving_session::DPNProvingSessionCompactMethodCall;
 use crate::qdata::{
-    checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf},
-    user::QEDUserLeaf,
+    checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
+    user::PsyUserLeaf,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
@@ -17,9 +17,9 @@ use crate::qdata::{
 pub struct DapenCFCProvingSessionStartContext<F: RichField> {
     pub checkpoint_id: F,
     pub checkpoint_tree_root: QHashOut<F>,
-    pub checkpoint_leaf: QEDCheckpointLeaf<F>,
-    pub state_roots: QEDCheckpointGlobalStateRoots<F>,
-    pub start_session_user_leaf: QEDUserLeaf<F>,
+    pub checkpoint_leaf: PsyCheckpointLeaf<F>,
+    pub state_roots: PsyCheckpointGlobalStateRoots<F>,
+    pub start_session_user_leaf: PsyUserLeaf<F>,
 }
 
 impl<F: RichField> QFieldHashable<F> for DapenCFCProvingSessionStartContext<F> {

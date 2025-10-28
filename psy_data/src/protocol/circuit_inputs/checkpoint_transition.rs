@@ -9,16 +9,16 @@ use serde::{Deserialize, Serialize};
 
 use super::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput;
 use crate::qdata::{
-    checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats},
+    checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats},
     pm_jobs_completed_stats::PMJobsCompletedStats,
     pm_reward_commitment::PMRewardCommitment,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QCQEDCheckpointStateTransitionInputPartial<F: RichField> {
+pub struct QCPsyCheckpointStateTransitionInputPartial<F: RichField> {
     pub part_1_header: QCAggUserRegistartionDeployContractsGUTAInput<F>,
-    pub old_stats: QEDCheckpointLeafStats<F>,
+    pub old_stats: PsyCheckpointLeafStats<F>,
     pub block_time: F,
     pub final_random_seed_contribution: QHashOut<F>,
     pub pm_rewards_commitment: PMRewardCommitment<F>,
@@ -26,13 +26,13 @@ pub struct QCQEDCheckpointStateTransitionInputPartial<F: RichField> {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QCQEDCheckpointStateTransitionInput<F: RichField> {
-    pub partial: QCQEDCheckpointStateTransitionInputPartial<F>,
+pub struct QCPsyCheckpointStateTransitionInput<F: RichField> {
+    pub partial: QCPsyCheckpointStateTransitionInputPartial<F>,
     pub append_checkpoint_tree_proof: DeltaMerkleProofCore<QHashOut<F>>,
     pub previous_checkpoint_proof: MerkleProofCore<QHashOut<F>>,
 }
 
-impl<F: RichField> KVQSerializable for QCQEDCheckpointStateTransitionInput<F> {
+impl<F: RichField> KVQSerializable for QCPsyCheckpointStateTransitionInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -42,9 +42,9 @@ impl<F: RichField> KVQSerializable for QCQEDCheckpointStateTransitionInput<F> {
     }
 }
 
-impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
-    pub fn get_new_checkpoint_leaf<H: FieldQHasher<F>>(&self) -> QEDCheckpointLeaf<F> {
-        let new_state_roots = QEDCheckpointGlobalStateRoots {
+impl<F: RichField> QCPsyCheckpointStateTransitionInputPartial<F> {
+    pub fn get_new_checkpoint_leaf<H: FieldQHasher<F>>(&self) -> PsyCheckpointLeaf<F> {
+        let new_state_roots = PsyCheckpointGlobalStateRoots {
             contract_tree_root: self.part_1_header.deploy_contracts_state_transition.state_transition_end,
             deposit_tree_root: QHashOut(HashOut {
                 elements: [
@@ -65,9 +65,9 @@ impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
             }),
             user_registration_tree_root: self.part_1_header.register_users_state_transition.state_transition_end,
         };
-        QEDCheckpointLeaf {
+        PsyCheckpointLeaf {
             global_chain_root: new_state_roots.qfhash::<H>(),
-            stats: QEDCheckpointLeafStats {
+            stats: PsyCheckpointLeafStats {
                 fees_collected: self.part_1_header.guta_proof_header.stats.fees_collected,
                 user_ops_processed: self.part_1_header.guta_proof_header.stats.user_ops_processed,
                 total_transactions: self.part_1_header.guta_proof_header.stats.total_transactions,
@@ -81,15 +81,15 @@ impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
         }
     }
 
-    pub fn get_old_checkpoint_leaf<H: FieldQHasher<F>>(&self) -> QEDCheckpointLeaf<F> {
-        QEDCheckpointLeaf {
+    pub fn get_old_checkpoint_leaf<H: FieldQHasher<F>>(&self) -> PsyCheckpointLeaf<F> {
+        PsyCheckpointLeaf {
             global_chain_root: self.get_old_state_roots::<H>().qfhash::<H>(),
             stats: self.old_stats,
         }
     }
 
-    pub fn get_old_state_roots<H: FieldQHasher<F>>(&self) -> QEDCheckpointGlobalStateRoots<F> {
-        let old_state_roots = QEDCheckpointGlobalStateRoots {
+    pub fn get_old_state_roots<H: FieldQHasher<F>>(&self) -> PsyCheckpointGlobalStateRoots<F> {
+        let old_state_roots = PsyCheckpointGlobalStateRoots {
             contract_tree_root: self.part_1_header.deploy_contracts_state_transition.state_transition_start,
             deposit_tree_root: QHashOut(HashOut {
                 elements: [

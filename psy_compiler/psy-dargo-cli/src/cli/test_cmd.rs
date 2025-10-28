@@ -2,20 +2,20 @@ use std::path::PathBuf;
 
 use clap::Args;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
-use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
-use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+use psy_crypto::signature::zk::wallet::SimplePsyPrivateKey;
 use psy_data::{
-    config::store_config::{QEDHasher, C, D},
+    config::store_config::{PsyHasher, C, D},
     qblock::cmds::register_user::QBCRegisterUser,
 };
-use psy_exec::vm::exec::QEDEvalSessionResult;
+use psy_exec::vm::exec::PsyEvalSessionResult;
 use psy_interpreter::Interpreter;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use psy_store::controllers::local::prepare_environment_with_real_contract;
 use psy_vm::dpn::{
     ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::compile::QEDCompileResult,
+    vm::compile::PsyCompileResult,
 };
 
 /// Test the program file
@@ -28,14 +28,14 @@ pub(crate) async fn run(args: TestCommand) -> crate::errors::Result<()> {
     let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
     let (mut typechecker, mut ctx) = interpreter.typecheck_single(args.file.clone())?;
     let compile_results = interpreter.test(&mut typechecker, &mut ctx, |context, (method_name, method_id, outputs)| {
-        QEDCompileResult::compile_exec(method_name, method_id, &context.store, &context, &outputs)
+        PsyCompileResult::compile_exec(method_name, method_id, &context.store, &context, &outputs)
     })?;
     println!("compile_result: {:?}", compile_results);
 
     let priv_key = QHashOut::rand();
-    let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    let priv_key_w = SimpleQEDPrivateKey::new(priv_key);
-    let pub_key_param = priv_key_w.get_public_key_param::<QEDHasher>();
+    let wallet = SimplePsyZKSignatureManager::<C, D>::new();
+    let priv_key_w = SimplePsyPrivateKey::new(priv_key);
+    let pub_key_param = priv_key_w.get_public_key_param::<PsyHasher>();
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
     let deployer = QHashOut::rand();
@@ -53,7 +53,7 @@ pub(crate) async fn run(args: TestCommand) -> crate::errors::Result<()> {
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
     for (def, circuit) in compile_results.into_iter().zip(circuits.into_iter()) {
-        let cfc_input = QEDEvalSessionResult::new()
+        let cfc_input = PsyEvalSessionResult::new()
             .exec_contract_call(&mut lps, contract_id, &def, vec![])
             .await?;
         println!("result_vm: {:?}", cfc_input.outputs);
@@ -69,8 +69,8 @@ pub(crate) async fn run(args: TestCommand) -> crate::errors::Result<()> {
 mod tests {
     use super::*;
     #[tokio::test]
-    async fn qed_unit_test() {
-        insta::glob!("../../../tests", "*_test.qed", |path| {
+    async fn psy_unit_test() {
+        insta::glob!("../../../tests", "*_test.psy", |path| {
             let args = TestCommand { file: path.into() };
             tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(run(args))).unwrap();
             #[allow(static_mut_refs)]

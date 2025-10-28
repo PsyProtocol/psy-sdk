@@ -18,7 +18,7 @@ use crate::builder::{
     select::CircuitBuilderSelectHelpers,
 };
 
-type QEDHasher = PoseidonHash;
+type PsyHasher = PoseidonHash;
 
 pub struct BitsHelper {
     pub index_bits: Vec<BoolTarget>,
@@ -432,9 +432,9 @@ impl<F: RichField> VariableHeightDeltaMerkleProofOpt<F> {
             }
             let sibling = &self.siblings[i];
             current_hash = if bit {
-                QEDHasher::two_to_one(sibling, &current_hash)
+                PsyHasher::two_to_one(sibling, &current_hash)
             } else {
-                QEDHasher::two_to_one(&current_hash, sibling)
+                PsyHasher::two_to_one(&current_hash, sibling)
             };
             remaining_height -= 1;
         }
@@ -977,7 +977,7 @@ mod tests {
 
     #[test]
     fn test_variable_height_delta_merkle_proof_opt() -> anyhow::Result<()> {
-        use psy_data::config::store_config::QEDHasher;
+        use psy_data::config::store_config::PsyHasher;
 
         use super::{VariableHeightDeltaMerkleProofOpt, VariableHeightDeltaMerkleProofOptGadget};
         let max_height = 4;
@@ -997,7 +997,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let variable_height_delta_merkle_proof_opt_gadget =
-            VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<QEDHasher, F, D>(&mut builder, max_height, None);
+            VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<PsyHasher, F, D>(&mut builder, max_height, None);
 
         let old_root_target = builder.constant_hash(expected_old_root.0.clone());
         let new_root_target = builder.constant_hash(expected_new_root.0.clone());

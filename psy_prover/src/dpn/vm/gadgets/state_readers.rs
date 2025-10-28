@@ -23,8 +23,8 @@ use psy_core::{
 };
 use psy_crypto::hash::core::sha256;
 use psy_network_circuit::gadgets::qdata::{
-    checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, checkpoint_stats::QEDCheckpointLeafStatsGadget,
-    contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget,
+    checkpoint_state_roots::PsyCheckpointGlobalStateRootsGadget, checkpoint_stats::PsyCheckpointLeafStatsGadget,
+    contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::PsyUserLeafGadget,
 };
 use psy_vm::dpn::ops::state_cmd::data::DPNStateCmd;
 use serde::{Deserialize, Serialize};
@@ -444,16 +444,16 @@ impl StateCommandCacheKey {
 pub struct StateReaderGadget {
     pub merkle_proofs: Vec<MerkleProofGadget>,
     pub delta_merkle_proofs: Vec<DeltaMerkleProofGadget>,
-    pub user_leaves: Vec<QEDUserLeafGadget>,
-    pub checkpoint_stats_requests: Vec<QEDCheckpointLeafStatsGadget>,
-    pub checkpoint_state_roots_requests: Vec<QEDCheckpointGlobalStateRootsGadget>,
+    pub user_leaves: Vec<PsyUserLeafGadget>,
+    pub checkpoint_stats_requests: Vec<PsyCheckpointLeafStatsGadget>,
+    pub checkpoint_state_roots_requests: Vec<PsyCheckpointGlobalStateRootsGadget>,
     pub historical_proofs: Vec<HistoricalRootMerkleProofGadget>,
     pub clear_entire_tree_requests: Vec<ClearEntireTreeGadget>,
     pub start_contract_state_root: HashOutTarget,
     pub end_contract_state_root: HashOutTarget,
     pub user_contract_tree_state_root: HashOutTarget,
-    pub chain_state_roots: QEDCheckpointGlobalStateRootsGadget,
-    pub checkpoint_stats: QEDCheckpointLeafStatsGadget,
+    pub chain_state_roots: PsyCheckpointGlobalStateRootsGadget,
+    pub checkpoint_stats: PsyCheckpointLeafStatsGadget,
     pub checkpoint_tree_root: HashOutTarget,
 
     pub start_deferred_tx_tree_root: HashOutTarget,
@@ -477,7 +477,7 @@ pub struct StateReaderGadget {
 
 impl StateReaderGadget {
     pub fn new(
-        chain_state_roots: QEDCheckpointGlobalStateRootsGadget,
+        chain_state_roots: PsyCheckpointGlobalStateRootsGadget,
         user_contract_tree_state_root: HashOutTarget,
         deferred_tx_tree_root: HashOutTarget,
         contract_state_root: HashOutTarget,
@@ -485,7 +485,7 @@ impl StateReaderGadget {
         session_proof_tree_root: HashOutTarget,
         session_proof_tree_height: usize,
         force_four_align: bool,
-        checkpoint_stats: QEDCheckpointLeafStatsGadget,
+        checkpoint_stats: PsyCheckpointLeafStatsGadget,
         checkpoint_tree_root: HashOutTarget,
     ) -> Self {
         Self {
@@ -585,7 +585,7 @@ impl StateReaderGadget {
         self.delta_merkle_proofs.last().unwrap()
     }
 
-    pub fn resolve_user_leaf_gadget(&self, key: &StateCommandCacheKey) -> Option<&QEDUserLeafGadget> {
+    pub fn resolve_user_leaf_gadget(&self, key: &StateCommandCacheKey) -> Option<&PsyUserLeafGadget> {
         if self.gadget_map.contains_key(key) {
             let value = self.gadget_map[key];
             if value.gadget_type == StateReaderReferenceKeyType::UserLeaf {
@@ -594,7 +594,7 @@ impl StateReaderGadget {
         }
         None
     }
-    pub fn insert_user_leaf_gadget(&mut self, key: StateCommandCacheKey, gadget: QEDUserLeafGadget) -> StateReaderReferenceKey {
+    pub fn insert_user_leaf_gadget(&mut self, key: StateCommandCacheKey, gadget: PsyUserLeafGadget) -> StateReaderReferenceKey {
         let ref_key = StateReaderReferenceKey::new_user_leaf_key(self.user_leaves.len());
         self.user_leaves.push(gadget);
         self.gadget_map.insert(key, ref_key);
@@ -604,8 +604,8 @@ impl StateReaderGadget {
     pub fn insert_checkpoint_stats_gadget(
         &mut self,
         key: StateCommandCacheKey,
-        stats_gadget: QEDCheckpointLeafStatsGadget,
-        state_roots_gadget: QEDCheckpointGlobalStateRootsGadget,
+        stats_gadget: PsyCheckpointLeafStatsGadget,
+        state_roots_gadget: PsyCheckpointGlobalStateRootsGadget,
         historical_proof: HistoricalRootMerkleProofGadget,
     ) -> StateReaderReferenceKey {
         let index = self.checkpoint_stats_requests.len();
@@ -620,7 +620,7 @@ impl StateReaderGadget {
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         key: StateCommandCacheKey,
-    ) -> (bool, &QEDUserLeafGadget) {
+    ) -> (bool, &PsyUserLeafGadget) {
         if self.gadget_map.contains_key(&key) {
             let value = self.gadget_map[&key];
             if value.gadget_type == StateReaderReferenceKeyType::UserLeaf {
@@ -628,7 +628,7 @@ impl StateReaderGadget {
             }
         }
 
-        let g = QEDUserLeafGadget::create_virtual(builder);
+        let g = PsyUserLeafGadget::create_virtual(builder);
         self.insert_user_leaf_gadget(key, g);
         (true, self.user_leaves.last().unwrap())
     }
@@ -715,7 +715,7 @@ impl StateReaderGadget {
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
         user_target_id: u64,
-    ) -> &QEDUserLeafGadget {
+    ) -> &PsyUserLeafGadget {
         let expected_leaf_hash = { self.get_other_user_leaf_hash::<H, F, D>(builder, dpn, user_target_id) };
         let user_leaf_ck = StateCommandCacheKey::new_read_other_user_leaf(user_target_id);
 
@@ -1184,7 +1184,7 @@ impl StateReaderGadget {
                 } else {
                     let requested_checkpoint_id = dpn.resolve_target(c.checkpoint_id);
 
-                    let requested_checkpoint_stats = QEDCheckpointLeafStatsGadget::create_virtual(builder);
+                    let requested_checkpoint_stats = PsyCheckpointLeafStatsGadget::create_virtual(builder);
 
                     let historical_proof =
                         HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<H, F, D>(builder, CHECKPOINT_TREE_HEIGHT as usize);
@@ -1195,7 +1195,7 @@ impl StateReaderGadget {
 
                     let checkpoint_stats_hash = requested_checkpoint_stats.to_hash::<H, F, D>(builder);
 
-                    let requested_checkpoint_state_roots = QEDCheckpointGlobalStateRootsGadget::create_virtual(builder);
+                    let requested_checkpoint_state_roots = PsyCheckpointGlobalStateRootsGadget::create_virtual(builder);
                     let state_roots_hash = requested_checkpoint_state_roots.to_hash::<H, F, D>(builder);
 
                     let checkpoint_leaf_hash = builder.hash_two_to_one::<H>(state_roots_hash, checkpoint_stats_hash);

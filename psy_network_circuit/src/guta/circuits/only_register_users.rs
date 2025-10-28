@@ -14,7 +14,7 @@ use psy_common_circuit::{
     builder::{
         comparison::CircuitBuilderComparison,
         hash::core::CircuitBuilderHashCore,
-        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+        pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     },
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
@@ -96,7 +96,7 @@ where
         builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&public_inputs_hash.elements);
-        builder.add_qed_type_c_common_gates();
+        builder.add_psy_type_c_common_gates();
         //builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.
         // num_constants)));
         let circuit_data = builder.build::<C>();

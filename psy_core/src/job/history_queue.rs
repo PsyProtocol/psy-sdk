@@ -171,10 +171,10 @@ pub trait CheckpointHistoryQueueSyncMut: CheckpointHistoryQueueEmitterSyncMut + 
 impl<Q: CheckpointHistoryQueueEmitterSyncMut + CheckpointHistoryQueueConsumerSyncMut> CheckpointHistoryQueueSyncMut for Q {}
 
 #[derive(Clone)]
-pub struct QEDArcImmutableHistoryQueueWrapper<P> {
+pub struct PsyArcImmutableHistoryQueueWrapper<P> {
     pub inner: Arc<RwLock<P>>,
 }
-impl<P> QEDArcImmutableHistoryQueueWrapper<P> {
+impl<P> PsyArcImmutableHistoryQueueWrapper<P> {
     pub fn new(inner: P) -> Self {
         Self {
             inner: Arc::new(RwLock::new(inner)),

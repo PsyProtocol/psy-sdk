@@ -9,7 +9,7 @@ use plonky2::{
     },
 };
 use psy_common_circuit::{
-    builder::pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+    builder::pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
     treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs,
@@ -69,7 +69,7 @@ where
 
         builder.register_public_inputs(&public_inputs_hash.elements);
 
-        builder.add_qed_type_b_common_gates();
+        builder.add_psy_type_b_common_gates();
         pad_circuit_degree::<C::F, D>(&mut builder, 11);
 
         let circuit_data = builder.build::<C>();

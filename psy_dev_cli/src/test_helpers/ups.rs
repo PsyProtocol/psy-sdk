@@ -6,25 +6,25 @@ use plonky2::{
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_common_circuit::{
-    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager},
+    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
     wallet::zk::SimpleZKSignatureWallet,
 };
 use psy_core::{
-    config::network_constants::QED_NETWORK_MAGIC_REGTEST,
+    config::network_constants::Psy_NETWORK_MAGIC_REGTEST,
     data::qhashout::QHashOut,
     job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, traits::QProofStoreAsyncImm},
     utils::debug_timer::DebugTimer,
 };
-use psy_crypto::{common::user_id::get_user_id_from_registration_id, signature::zk::wallet::SimpleQEDPrivateKey};
+use psy_crypto::{common::user_id::get_user_id_from_registration_id, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::{
-    config::store_config::QEDHasher, guta::end_cap_input::SubmitUserEndCapNonProofInput, qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
+    config::store_config::PsyHasher, guta::end_cap_input::SubmitUserEndCapNonProofInput, qstore::imm::cmd_processor::PsyReadCommandProcessorSync,
 };
 use psy_node::{coordinator::state::edge::CoordinatorEdgeContext, realm::state::edge::RealmEdgeContext};
 use psy_prover::ups::{
-    circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
+    circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
     session::UserProvingSessionManager,
 };
-use psy_store::node::{coordinator::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync};
+use psy_store::node::{coordinator::PsyCoordinatorStoreReaderAsync, realm::PsyRealmStoreReaderAsync};
 
 use super::contract::SimpleTestContract;
 
@@ -35,7 +35,7 @@ const D: usize = 2;
 pub struct ExampleDemoUserInfoStore {
     pub user_private_keys: HashMap<u64, QHashOut<F>>,
     pub nonce_map: HashMap<u64, u64>,
-    pub wallet: SimpleQEDZKSignatureManager<C, D>,
+    pub wallet: SimplePsyZKSignatureManager<C, D>,
     //pub mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
     pub current_user: u64,
     pub awaiting_send_end_caps: Vec<(SubmitUserEndCapNonProofInput<F>, ProofWithPublicInputs<F, C, D>)>,
@@ -45,14 +45,14 @@ impl ExampleDemoUserInfoStore {
     pub fn new() -> Self {
         Self {
             user_private_keys: HashMap::new(),
-            wallet: SimpleQEDZKSignatureManager::new(),
+            wallet: SimplePsyZKSignatureManager::new(),
             current_user: 0,
             //mgr,
             nonce_map: HashMap::new(),
             awaiting_send_end_caps: Vec::new(),
         }
     }
-    pub async fn register_users<SR: QEDCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm>(
+    pub async fn register_users<SR: PsyCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm>(
         &mut self,
         edge: &CoordinatorEdgeContext<SR, DQ, PS>,
         start_registration_id: u64,
@@ -61,7 +61,7 @@ impl ExampleDemoUserInfoStore {
         let mut user_ids: Vec<u64> = Vec::with_capacity(user_private_keys.len());
         for (i, priv_key) in user_private_keys.iter().enumerate() {
             let user_id = get_user_id_from_registration_id(i as u64 + start_registration_id);
-            let info = self.wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(*priv_key));
+            let info = self.wallet.add_private_key_get_info(SimplePsyPrivateKey::new(*priv_key));
             self.user_private_keys.insert(user_id, *priv_key);
             edge.handle_process_regsiter_user(info).await?;
 
@@ -71,7 +71,7 @@ impl ExampleDemoUserInfoStore {
         Ok(user_ids)
     }
 
-    pub async fn run_tx_for_current_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn run_tx_for_current_user<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C, D>,
@@ -82,7 +82,7 @@ impl ExampleDemoUserInfoStore {
     ) -> anyhow::Result<()> {
         contract.prove_func(circuit_mgr, mgr, contract_id, fn_name, inputs).await
     }
-    pub async fn run_txs_for_current_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn run_txs_for_current_user<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C, D>,
@@ -96,7 +96,7 @@ impl ExampleDemoUserInfoStore {
         Ok(())
     }
 
-    pub async fn new_run_txs_for_user<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn new_run_txs_for_user<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
@@ -126,7 +126,7 @@ impl ExampleDemoUserInfoStore {
         let new_nonce = old_nonce + 1;
         self.nonce_map.insert(user_id_u64, new_nonce);
 
-        let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, F::from_canonical_u64(new_nonce));
+        let sighash = mgr.get_sighash(Psy_NETWORK_MAGIC_REGTEST, F::from_canonical_u64(new_nonce));
 
         let signature_proof = self
             .wallet
@@ -134,11 +134,11 @@ impl ExampleDemoUserInfoStore {
         timer.lap("generated zk signature for UPS transaction batch");
         mgr.proof_tree_state.finalize_tree(circuit_mgr).await?;
         timer.lap("aggregated all UPS proofs into a single proof");
-        let public_key_param = SimpleQEDPrivateKey::new(*self.user_private_keys.get(&user_id_u64).unwrap()).get_public_key_param::<QEDHasher>();
+        let public_key_param = SimplePsyPrivateKey::new(*self.user_private_keys.get(&user_id_u64).unwrap()).get_public_key_param::<PsyHasher>();
         let end_cap_proof = mgr
             .prove_end_cap(
                 &circuit_mgr,
-                QED_NETWORK_MAGIC_REGTEST,
+                Psy_NETWORK_MAGIC_REGTEST,
                 F::from_canonical_u64(new_nonce),
                 self.wallet.circuit.get_fingerprint(),
                 public_key_param,
@@ -161,7 +161,7 @@ impl ExampleDemoUserInfoStore {
         let api_input = mgr.get_api_input().await?;
         Ok((mgr, api_input, end_cap_proof))
     }
-    pub async fn run_txs_for_users<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn run_txs_for_users<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
@@ -194,7 +194,7 @@ impl ExampleDemoUserInfoStore {
             let new_nonce = old_nonce + 1;
             self.nonce_map.insert(user_id_u64, new_nonce);
 
-            let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, F::from_canonical_u64(new_nonce));
+            let sighash = mgr.get_sighash(Psy_NETWORK_MAGIC_REGTEST, F::from_canonical_u64(new_nonce));
 
             let signature_proof = self
                 .wallet
@@ -202,11 +202,11 @@ impl ExampleDemoUserInfoStore {
             timer.lap("generated zk signature for UPS transaction batch");
             mgr.proof_tree_state.finalize_tree(circuit_mgr).await?;
             timer.lap("aggregated all UPS proofs into a single proof");
-            let public_key_param = SimpleQEDPrivateKey::new(*self.user_private_keys.get(&user_id_u64).unwrap()).get_public_key_param::<QEDHasher>();
+            let public_key_param = SimplePsyPrivateKey::new(*self.user_private_keys.get(&user_id_u64).unwrap()).get_public_key_param::<PsyHasher>();
             let end_cap_proof = mgr
                 .prove_end_cap(
                     &circuit_mgr,
-                    QED_NETWORK_MAGIC_REGTEST,
+                    Psy_NETWORK_MAGIC_REGTEST,
                     F::from_canonical_u64(new_nonce),
                     self.wallet.circuit.get_fingerprint(),
                     public_key_param,
@@ -231,7 +231,7 @@ impl ExampleDemoUserInfoStore {
         }
         Ok((mgr, results))
     }
-    pub async fn run_txs_for_users_prep<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub async fn run_txs_for_users_prep<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &mut self,
         mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
@@ -244,7 +244,7 @@ impl ExampleDemoUserInfoStore {
         self.awaiting_send_end_caps.append(&mut results);
         Ok(new_mgr)
     }
-    pub async fn send_txs_to_edge<SR: QEDRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm>(
+    pub async fn send_txs_to_edge<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm>(
         &mut self,
         edge: &RealmEdgeContext<SR, DQ, PS>,
     ) -> anyhow::Result<()> {

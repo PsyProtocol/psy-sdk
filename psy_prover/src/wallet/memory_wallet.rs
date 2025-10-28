@@ -13,7 +13,7 @@ use plonky2::{
     },
 };
 use psy_common_circuit::circuits::{
-    l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::QEDBasicZKSignatureCircuit,
+    l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
 };
 use psy_core::{
     config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
@@ -22,11 +22,11 @@ use psy_core::{
 use psy_crypto::{
     hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     signature::{
-        secp256k1::core::QEDCompressedSecp256K1Signature,
-        zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
+        secp256k1::core::PsyCompressedSecp256K1Signature,
+        zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey},
     },
 };
-use psy_data::{config::store_config::QEDHasher, qstore::imm::cmd_processor::QEDReadCommandProcessorSync};
+use psy_data::{config::store_config::PsyHasher, qstore::imm::cmd_processor::PsyReadCommandProcessorSync};
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
@@ -48,8 +48,8 @@ const D: usize = 2;
 type F = GoldilocksField;
 
 // #[derive(Clone)]
-pub struct QEDMemoryWallet {
-    // pub zk_circuit: Option<QEDBasicZKSignatureCircuit<C, D>>,
+pub struct PsyMemoryWallet {
+    // pub zk_circuit: Option<PsyBasicZKSignatureCircuit<C, D>>,
     // pub secp_circuit: Option<L1Secp256K1SignatureCircuit<C, D>>,
     // figerprint, circuit
     pub software_defined_circuits: DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
@@ -61,7 +61,7 @@ pub struct QEDMemoryWallet {
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl QEDMemoryWallet {
+impl PsyMemoryWallet {
     pub fn new(circuit_manager: Vec<Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync>>) -> Self {
         Self {
             zk_public_key_to_private_key_store: DashMap::new(),
@@ -79,12 +79,12 @@ impl QEDMemoryWallet {
 
     pub async fn add_zk_private_key(&mut self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
         let pk_info = self.get_zk_pk_info(private_key).await?;
-        self.zk_public_key_to_private_key_store.insert(pk_info.qfhash::<QEDHasher>(), private_key);
+        self.zk_public_key_to_private_key_store.insert(pk_info.qfhash::<PsyHasher>(), private_key);
         Ok(pk_info)
     }
 
     pub async fn get_zk_pk_info(&self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
-        let private_key = SimpleQEDPrivateKey { private_key };
+        let private_key = SimplePsyPrivateKey { private_key };
         let public_key_param = private_key.get_public_key_param::<PoseidonHash>();
         let fingerprint = self.random_circuit_manager().zk_circuit_fingerprint().await?;
 
@@ -111,7 +111,7 @@ impl QEDMemoryWallet {
         tracing::info!("add secp user {}", serde_json::to_string_pretty(&pk_info)?);
 
         self.secp_public_key_to_private_key_store
-            .insert(pk_info.qfhash::<QEDHasher>(), private_key);
+            .insert(pk_info.qfhash::<PsyHasher>(), private_key);
         Ok(pk_info)
     }
 
@@ -128,7 +128,7 @@ impl QEDMemoryWallet {
         tracing::info!("add software defined user {}", serde_json::to_string_pretty(&pk_info)?);
 
         self.software_defined_public_key_to_private_key_store
-            .insert(pk_info.qfhash::<QEDHasher>(), private_key);
+            .insert(pk_info.qfhash::<PsyHasher>(), private_key);
         Ok(pk_info)
     }
 
@@ -160,7 +160,7 @@ impl QEDMemoryWallet {
         self.random_circuit_manager().prove_zk_sign(private_key, sig_hash).await
     }
 
-    pub fn sdc_sign_for_public_key<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub fn sdc_sign_for_public_key<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         state_reader: &mut StateReader<F, D, R>,
         public_key: QHashOut<F>,
@@ -169,7 +169,7 @@ impl QEDMemoryWallet {
         unimplemented!()
     }
 
-    pub fn sdc_sign_with_private_key<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+    pub fn sdc_sign_with_private_key<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &self,
         state_reader: &mut StateReader<F, D, R>,
         private_key: QHashOut<F>,
@@ -178,7 +178,7 @@ impl QEDMemoryWallet {
         unimplemented!()
     }
 
-    pub fn secp256k1_sign(&self, private_key: QHashOut<F>, sig_hash: QHashOut<F>) -> anyhow::Result<QEDCompressedSecp256K1Signature> {
+    pub fn secp256k1_sign(&self, private_key: QHashOut<F>, sig_hash: QHashOut<F>) -> anyhow::Result<PsyCompressedSecp256K1Signature> {
         let signing_key = k256::ecdsa::SigningKey::from_slice(&Hash256::from(private_key).0)?;
         let result: k256::ecdsa::Signature = signing_key.sign_prehash(&Hash256::from(sig_hash).0)?;
         let mut rs_bytes = [0u8; 64];
@@ -188,14 +188,14 @@ impl QEDMemoryWallet {
         rs_bytes[0..32].copy_from_slice(&r_bytes);
         rs_bytes[32..64].copy_from_slice(&s_bytes);
 
-        Ok(QEDCompressedSecp256K1Signature {
+        Ok(PsyCompressedSecp256K1Signature {
             public_key: self.get_secp_public_key(private_key)?.0,
             signature: rs_bytes,
             message: Hash256::from(sig_hash),
         })
     }
 
-    pub fn secp256k1_sign_with_public_key(&self, public_key: QHashOut<F>, sig_hash: QHashOut<F>) -> anyhow::Result<QEDCompressedSecp256K1Signature> {
+    pub fn secp256k1_sign_with_public_key(&self, public_key: QHashOut<F>, sig_hash: QHashOut<F>) -> anyhow::Result<PsyCompressedSecp256K1Signature> {
         let private_key = self.secp_public_key_to_private_key_store.get(&public_key).ok_or(anyhow::format_err!(
             "public key ({}) does not match any private keys",
             public_key.to_string()
@@ -203,7 +203,7 @@ impl QEDMemoryWallet {
         self.secp256k1_sign(*private_key, sig_hash)
     }
 
-    pub async fn zk_secp256k1_from_signature(&self, signature: &QEDCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    pub async fn zk_secp256k1_from_signature(&self, signature: &PsyCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         self.random_circuit_manager().prove_secp_sign(*signature).await
     }
 
@@ -216,7 +216,7 @@ impl QEDMemoryWallet {
 /// software defined circuit
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl QEDMemoryWallet {
+impl PsyMemoryWallet {
     pub async fn register_software_defined_circuit(&mut self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<F>> {
         self.random_circuit_manager().register_software_defined_circuit(input).await
         // if let QCircuitManager::Rpc(rpc_provider) =
@@ -258,7 +258,7 @@ mod tests {
     fn test_raw_secp256k1_sign() -> Result<()> {
         use k256::ecdsa::signature::hazmat::PrehashSigner;
         use psy_core::data::base_types::hash256::Hash256;
-        use psy_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
+        use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
 
         // Create a test private key and signature hash
         let private_key = QHashOut::<F>::from_str("17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a")?;
@@ -281,7 +281,7 @@ mod tests {
         let mut compressed_pk = [0u8; 33];
         compressed_pk.copy_from_slice(&pk_bytes);
 
-        let secp_signature = QEDCompressedSecp256K1Signature {
+        let secp_signature = PsyCompressedSecp256K1Signature {
             public_key: compressed_pk,
             signature: rs_bytes,
             message: Hash256::from(sig_hash),
@@ -319,14 +319,14 @@ mod tests {
         // Calculate expected combined hash: hash(sighash, public_key_param)
         use plonky2::hash::poseidon::PoseidonPermutation;
         use psy_crypto::hash::traits::hasher::FieldQHasher;
-        use psy_data::config::store_config::QEDHasher;
+        use psy_data::config::store_config::PsyHasher;
 
         let public_key_param = crate::wallet::utils::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
             psy_core::data::secp256k1::CompressedPublicKey(compressed_pk),
         );
         let message_hash: QHashOut<F> = QHashOut::from(Hash256::from(sig_hash));
 
-        let expected_combined_hash = QEDHasher::q_two_to_one(message_hash, public_key_param);
+        let expected_combined_hash = PsyHasher::q_two_to_one(message_hash, public_key_param);
 
         println!(
             "Expected combined hash: hash({}, {}) = {}",
@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn test_memory_wallet_secp256k1_sign() -> Result<()> {
         use psy_core::data::base_types::hash256::Hash256;
-        use psy_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
+        use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
 
         // Create a test private key and signature hash
         let private_key = QHashOut::<F>::from_str("17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a")?;
@@ -352,9 +352,9 @@ mod tests {
 
         // Create a mock memory wallet for testing
         let circuit_manager = crate::ups::circuit_manager::core::QCircuitManager::Local(
-            crate::ups::circuit_manager::core::QEDUPSStepCircuitManager::new_with_config(0x1337),
+            crate::ups::circuit_manager::core::PsyUPSStepCircuitManager::new_with_config(0x1337),
         );
-        let wallet = QEDMemoryWallet::new(vec![Box::new(circuit_manager)]);
+        let wallet = PsyMemoryWallet::new(vec![Box::new(circuit_manager)]);
 
         println!("Created memory wallet");
 
@@ -396,7 +396,7 @@ mod tests {
         // Verify this matches expected format: hash(message_hash, public_key_param)
         use plonky2::hash::poseidon::PoseidonPermutation;
         use psy_crypto::hash::traits::hasher::FieldQHasher;
-        use psy_data::config::store_config::QEDHasher;
+        use psy_data::config::store_config::PsyHasher;
 
         // Get public key param the same way as in memory wallet
         let public_key_param = crate::wallet::utils::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
@@ -404,7 +404,7 @@ mod tests {
         );
         let message_hash: QHashOut<F> = QHashOut::from(secp_signature.message);
 
-        let expected_combined_hash = QEDHasher::q_two_to_one(message_hash, public_key_param);
+        let expected_combined_hash = PsyHasher::q_two_to_one(message_hash, public_key_param);
 
         println!(
             "Expected combined hash: hash({}, {}) = {}",

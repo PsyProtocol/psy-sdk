@@ -3,7 +3,7 @@ import { useWalletState } from "../../../../hooks/useWalletState";
 import { TAddressModalComponent } from "../../index";
 import { FaucetFromWalletForm, FormControls, InputCon, HelpText } from "./Transfer.styles";
 import { Alert, Box, Button, Combobox, Input, InputBase, LoadingOverlay, TextInput, useCombobox } from "@mantine/core";
-import type { IQedWidgetWallet } from "../../../../types";
+import type { IPsyWidgetWallet } from "../../../../types";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { WalletWidgetRPC } from "../../../../utils/rpc/walletRPC";
 
@@ -11,7 +11,7 @@ interface ITransferFormProps {
     onSubmit: (params: { contract_id: bigint; method_name: string; inputs: bigint[] }) => Promise<any>;
     onComplete: () => void;
     className?: string;
-    wallet: IQedWidgetWallet;
+    wallet: IPsyWidgetWallet;
 }
 
 const FeeRateSelector = ({

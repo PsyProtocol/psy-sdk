@@ -3,7 +3,7 @@ use clap::{Args, Subcommand};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::hasher::FieldQHasher;
-use psy_data::config::store_config::QEDHasher;
+use psy_data::config::store_config::PsyHasher;
 
 type F = GoldilocksField;
 
@@ -90,7 +90,7 @@ pub fn run(args: QHashArgs) -> Result<()> {
 
         QHashCommands::Hash { value } => {
             let input = QHashOut::<F>::from_string_or_panic(&value);
-            let output = QEDHasher::q_hash_many(&[input.0.elements[0], input.0.elements[1], input.0.elements[2], input.0.elements[3]]);
+            let output = PsyHasher::q_hash_many(&[input.0.elements[0], input.0.elements[1], input.0.elements[2], input.0.elements[3]]);
             println!("{}", output.to_string());
             Ok(())
         }
@@ -99,7 +99,7 @@ pub fn run(args: QHashArgs) -> Result<()> {
             let left_hash = QHashOut::<F>::from_string_or_panic(&left);
             let right_hash = QHashOut::<F>::from_string_or_panic(&right);
 
-            let output = QEDHasher::q_two_to_one(left_hash, right_hash);
+            let output = PsyHasher::q_two_to_one(left_hash, right_hash);
             println!("{}", output.to_string());
             Ok(())
         }
@@ -118,7 +118,7 @@ pub fn run(args: QHashArgs) -> Result<()> {
                 inputs.push(hash.0.elements[3]);
             }
 
-            let output = QEDHasher::q_hash_many(&inputs);
+            let output = PsyHasher::q_hash_many(&inputs);
             println!("{}", output.to_string());
             Ok(())
         }
@@ -126,7 +126,7 @@ pub fn run(args: QHashArgs) -> Result<()> {
         QHashCommands::ZeroHash { height } => {
             use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
 
-            let empty_tree = SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(height);
+            let empty_tree = SimpleMerkleTree::<PsyHasher, QHashOut<F>>::new(height);
             let zero_hash = empty_tree.get_root();
             println!("Zero hash for height {}: {}", height, zero_hash.to_string());
             println!(
@@ -152,7 +152,7 @@ pub fn run(args: QHashArgs) -> Result<()> {
 
             for hash_str in &hash_strings[1..] {
                 let next_hash = QHashOut::<F>::from_string_or_panic(hash_str);
-                result = QEDHasher::q_two_to_one(result, next_hash);
+                result = PsyHasher::q_two_to_one(result, next_hash);
             }
 
             println!("{}", result.to_string());

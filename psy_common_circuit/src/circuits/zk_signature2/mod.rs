@@ -16,9 +16,9 @@ use plonky2::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    proof_minifier::pm_chain::QEDProofMinifierChain,
+    proof_minifier::pm_chain::PsyProofMinifierChain,
     verify_template::{
-        circuit_template::QEDCircuitVerifyTemplate,
+        circuit_template::PsyCircuitVerifyTemplate,
         ser_data::{VTFriConfig, VTFriParams, VTFriReductionStrategy},
     },
 };
@@ -28,8 +28,8 @@ use super::{
     zk_signature_wrapper::ZKSignatureWrapperCircuit,
 };
 
-pub fn get_verifier_template_zk_signature() -> QEDCircuitVerifyTemplate {
-    QEDCircuitVerifyTemplate {
+pub fn get_verifier_template_zk_signature() -> PsyCircuitVerifyTemplate {
+    PsyCircuitVerifyTemplate {
         verifier_data_cap_height: 4,
         fri_cap_height: 4,
         num_public_inputs: 4,
@@ -158,7 +158,7 @@ where
     pub private_key: HashOutTarget,
     pub action_hash: HashOutTarget,
     // end circuit targets
-    pub minifier_chain: QEDProofMinifierChain<D, C::F, C>,
+    pub minifier_chain: PsyProofMinifierChain<D, C::F, C>,
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
     pub public_key: QHashOut<C::F>,
@@ -222,7 +222,7 @@ where
         builder.register_public_inputs(&action_hash.elements);
         let circuit_data = builder.build::<C>();
 
-        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new(
+        let minifier_chain = PsyProofMinifierChain::<D, C::F, C>::new(
             &circuit_data.verifier_only,
             &circuit_data.common,
             2,

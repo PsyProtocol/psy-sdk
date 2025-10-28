@@ -39,7 +39,7 @@ bb8 = { workspace = true }
 rsmq = { workspace = true }
 url = { workspace = true }
 
-# Dependencies from other qed crates
+# Dependencies from other psy crates
 jsonrpsee = { workspace = true }
 clap = { workspace = true }
 thiserror = { workspace = true }

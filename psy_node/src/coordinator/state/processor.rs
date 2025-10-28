@@ -49,7 +49,7 @@ use psy_crypto::{
     signature::zk::data::ZKPublicKeyInfo,
 };
 use psy_data::{
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserPublicKeyTableStore, UserTreeStore},
+    config::store_config::{QCheckpointSyncInfoCompact, PsyFelt, PsyHasher, UserPublicKeyTableStore, UserTreeStore},
     guta::{
         api::SubmitGUTARealmResultAPIQueueItem,
         header::GlobalUserTreeAggregatorHeader,
@@ -59,35 +59,35 @@ use psy_data::{
         },
         stats::GUTAStats,
     },
-    models::{checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore, kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore},
+    models::{checkpoint::user_public_keys::PsyUserPublicKeyHelperModelCore, kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore},
     proof_store::builder::ProofStoreBuilder,
     protocol::circuit_inputs::{
         agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput,
-        checkpoint_transition::{QCQEDCheckpointStateTransitionInput, QCQEDCheckpointStateTransitionInputPartial},
+        checkpoint_transition::{QCPsyCheckpointStateTransitionInput, QCPsyCheckpointStateTransitionInputPartial},
     },
     qblock::cmds::deploy_contract::QBCDeployContractWithRoot,
     qdata::{
         checkpoint::{
-            CheckpointSyncInfo, QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompactWithStateRoots, QEDCheckpointLeafStats,
-            QEDL2BlockState,
+            CheckpointSyncInfo, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafCompactWithStateRoots, PsyCheckpointLeafStats,
+            PsyL2BlockState,
         },
-        contract::QEDContractLeaf,
+        contract::PsyContractLeaf,
         pm_jobs_completed_stats::PMJobsCompletedStats,
         pm_reward_commitment::PMRewardCommitment,
         realm_status::BasicRealmStatus,
-        user_public_key::QEDUserPublicKeyRecord,
+        user_public_key::PsyUserPublicKeyRecord,
     },
 };
 use psy_network_circuit::guta::gadgets::guta_header;
 use psy_store::{
-    node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
+    node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
         redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState, MAX_CHECKPOINT_COUNT},
         task_queue::QProvingTaskStore,
     },
     store::{
         journal::{Journal, JournalStore},
-        QEDStore,
+        PsyStore,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -95,7 +95,7 @@ use tracing::{debug, error, info, trace, warn};
 
 use crate::{common::slot::SLOT_SIZE, common_v2::traits::realm::BasicRealmStatusOnCoordinator};
 
-type F = QEDFelt;
+type F = PsyFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -139,11 +139,11 @@ impl CoordinatorConfig {
             register_user_tree_batch_size: BATCH_USER_REGISTRAITION_MAX_SUB_TREES,
             deploy_contracts_tree_batch_height: BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT as u8,
             register_users_circuit_whitelist: library
-                .get_agg_whitelist::<QEDHasher>(ProvingJobCircuitType::AppendUserRegistrationTree)
+                .get_agg_whitelist::<PsyHasher>(ProvingJobCircuitType::AppendUserRegistrationTree)
                 .unwrap(),
             register_user_dummy_state_root: QHashOut::ZERO,
             deploy_contracts_circuit_whitelist: library
-                .get_agg_whitelist::<QEDHasher>(ProvingJobCircuitType::BatchDeployContracts)
+                .get_agg_whitelist::<PsyHasher>(ProvingJobCircuitType::BatchDeployContracts)
                 .unwrap(),
             deploy_contracts_dummy_state_root: QHashOut::ZERO,
             guta_circuit_whitelist: library
@@ -155,7 +155,7 @@ impl CoordinatorConfig {
 }
 #[derive(Clone)]
 pub struct CoordinatorProcessorContext<
-    SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
+    SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F> + Journal,
     DQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueEmitterAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
@@ -175,7 +175,7 @@ pub struct CoordinatorProcessorContext<
 }
 
 impl<
-        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
+        SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F> + Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueEmitterAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
@@ -238,14 +238,14 @@ impl<
 
         let new_contract_leaves = deploy_contract_items
             .iter()
-            .map(|x| QEDContractLeaf {
+            .map(|x| PsyContractLeaf {
                 deployer: x.payload.deployer,
                 function_tree_root: x.payload.function_whitelist_root,
                 state_tree_height: F::from_canonical_u16(x.payload.code_definition.state_tree_height),
             })
             .collect::<Vec<_>>();
 
-        let new_hashes = new_contract_leaves.iter().map(|x| x.qfhash::<QEDHasher>()).collect::<Vec<_>>();
+        let new_hashes = new_contract_leaves.iter().map(|x| x.qfhash::<PsyHasher>()).collect::<Vec<_>>();
 
         let start_contract_id = last_l2_blockstate.next_contract_id;
 
@@ -285,7 +285,7 @@ impl<
             .enumerate()
             .map(|(i, (spiderman_proof, start_idx))| {
                 let leaves_per_subtree = 1 << self.coordinator_config.deploy_contracts_tree_batch_height;
-                let zero_hash = QEDHasher::get_zero_hash(0);
+                let zero_hash = PsyHasher::get_zero_hash(0);
                 let mut contract_leaves = Vec::with_capacity(leaves_per_subtree);
 
                 let mut new_contract_idx = start_idx;
@@ -300,12 +300,12 @@ impl<
                         contract_leaves.push(new_contract_leaves[new_contract_idx]);
                         new_contract_idx += 1;
                     } else {
-                        contract_leaves.push(QEDContractLeaf::default());
+                        contract_leaves.push(PsyContractLeaf::default());
                     }
                 }
 
                 while contract_leaves.len() < leaves_per_subtree {
-                    contract_leaves.push(QEDContractLeaf::default());
+                    contract_leaves.push(PsyContractLeaf::default());
                 }
 
                 self.push_deploy_contracts_request(
@@ -383,10 +383,10 @@ impl<
             .map(|(i, x)| {
                 let registration_id = start_registration_user_id + (i as u64);
                 let user_id = get_user_id_from_registration_id(registration_id);
-                QEDUserPublicKeyRecord {
+                PsyUserPublicKeyRecord {
                     public_key_param: x.public_key_param,
                     fingerprint: x.fingerprint,
-                    public_key: x.qfhash::<QEDHasher>(),
+                    public_key: x.qfhash::<PsyHasher>(),
                     user_id,
                     checkpoint_id,
                 }
@@ -399,7 +399,7 @@ impl<
         );
         self.store.set_user_public_key_records(&new_user_records).await?;
 
-        let new_public_keys = user_registrations.iter().map(|x| x.to_hash::<QEDHasher>()).collect::<Vec<_>>();
+        let new_public_keys = user_registrations.iter().map(|x| x.to_hash::<PsyHasher>()).collect::<Vec<_>>();
 
         let mut psb = ProofStoreBuilder::new();
         let now = Instant::now();
@@ -542,11 +542,11 @@ impl<
                     slots_modified: F::ZERO,
                 },
             };
-            tracing::debug!(guta_header = %serde_json::to_string_pretty(&guta_header).unwrap(), guta_header_hash = %guta_header.qfhash::<QEDHasher>(), "GUTA header");
+            tracing::debug!(guta_header = %serde_json::to_string_pretty(&guta_header).unwrap(), guta_header_hash = %guta_header.qfhash::<PsyHasher>(), "GUTA header");
             let input = GUTANoChangeFullInput {
                 checkpoint_tree_proof,
-                checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
-                    checkpoint_leaf: checkpoint_leaf.to_compact::<QEDHasher>(),
+                checkpoint_leaf: PsyCheckpointLeafCompactWithStateRoots {
+                    checkpoint_leaf: checkpoint_leaf.to_compact::<PsyHasher>(),
                     global_state_roots: roots,
                 },
             };
@@ -589,7 +589,7 @@ impl<
                     .await?;
                 ensure!(historical_checkpoint_proof.root == last_checkpoint_tree_root);
                 let (historical_root, current_root) =
-                    compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&historical_checkpoint_proof);
+                    compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, PsyHasher>(&historical_checkpoint_proof);
                 ensure!(current_root == historical_checkpoint_proof.root);
                 ensure!(current_root == last_checkpoint_tree_root);
                 ensure!(historical_root == guta_queue_items[0].checkpoint_tree_root);
@@ -662,7 +662,7 @@ impl<
                 for dep in &r_with_deps.dependencies {
                     graph.add_edge(id.get_output_id(), *dep);
                 }
-                return Ok((vec![vec![id]], r_with_deps.input.get_new_guta_header::<QEDHasher>(), graph));
+                return Ok((vec![vec![id]], r_with_deps.input.get_new_guta_header::<PsyHasher>(), graph));
             }
 
             let rw = VerifyGUTAToCapCircuitInputSimple {
@@ -733,7 +733,7 @@ impl<
             for dep in &r_with_deps.dependencies {
                 graph.add_edge(id.get_output_id(), *dep);
             }
-            return Ok((vec![vec![id]], r_with_deps.input.get_new_guta_header::<QEDHasher>(), graph));
+            return Ok((vec![vec![id]], r_with_deps.input.get_new_guta_header::<PsyHasher>(), graph));
         }
 
         // TODO: OPT: Maybe use a sorted queue/zset so we don't have to sort after we
@@ -764,7 +764,7 @@ impl<
         let mut combo_stats = Vec::with_capacity(res.nca_proofs.len());
 
         for (i, p) in res.nca_proofs.iter().enumerate() {
-            tracing::debug!(i = i, verify_result = ?res.nca_proofs[i].verify::<QEDHasher>(), "NCA proof verification");
+            tracing::debug!(i = i, verify_result = ?res.nca_proofs[i].verify::<PsyHasher>(), "NCA proof verification");
             let (l_dep_ind, r_dep_ind) = res.dependencies[i];
             if l_dep_ind <= -1 && r_dep_ind <= -1 {
                 let l_dep_ind = -(l_dep_ind + 1) as usize;
@@ -1087,7 +1087,7 @@ impl<
             },
             stats: combo_stats[res.root_proof_index].1,
         };
-        tracing::debug!(guta = %serde_json::to_string_pretty(&guta).unwrap(), guta_hash = %guta.qfhash::<QEDHasher>(), "Final GUTA");
+        tracing::debug!(guta = %serde_json::to_string_pretty(&guta).unwrap(), guta_hash = %guta.qfhash::<PsyHasher>(), "Final GUTA");
 
         if guta.state_transition.node_level != F::ZERO {
             let w = CircuitInputWithDependencies::<VerifyGUTAToCapCircuitInputSimple<F>> {
@@ -1127,7 +1127,7 @@ impl<
                 },
                 stats: guta.stats,
             };
-            tracing::debug!(guta = %serde_json::to_string_pretty(&guta).unwrap(), guta_hash = %guta.qfhash::<QEDHasher>(), "GUTA subtree");
+            tracing::debug!(guta = %serde_json::to_string_pretty(&guta).unwrap(), guta_hash = %guta.qfhash::<PsyHasher>(), "GUTA subtree");
         }
 
         Ok((levels, guta, graph))
@@ -1304,15 +1304,15 @@ impl<
         let gutas_worker_public_key = QHashOut::try_from(&guta_proof.public_inputs[4..8])?;
 
         let pm_rewards_commitment = PMRewardCommitment {
-            register_users_root: QHashOut(QEDHasher::two_to_one(
+            register_users_root: QHashOut(PsyHasher::two_to_one(
                 register_users_commitment.into(),
                 register_users_worker_public_key.into(),
             )),
-            deploy_contracts_root: QHashOut(QEDHasher::two_to_one(
+            deploy_contracts_root: QHashOut(PsyHasher::two_to_one(
                 deploy_contracts_commitment.into(),
                 deploy_contracts_worker_public_key.into(),
             )),
-            gutas_root: QHashOut(QEDHasher::two_to_one(gutas_commitment.into(), gutas_worker_public_key.into())),
+            gutas_root: QHashOut(PsyHasher::two_to_one(gutas_commitment.into(), gutas_worker_public_key.into())),
         };
 
         let register_users_stats = PMJobsCompletedStats {
@@ -1341,7 +1341,7 @@ impl<
             gutas_completed: register_users_stats.gutas_completed + deploy_contracts_stats.gutas_completed + guta_stats.gutas_completed,
         };
 
-        let partial_input = QCQEDCheckpointStateTransitionInputPartial {
+        let partial_input = QCPsyCheckpointStateTransitionInputPartial {
             part_1_header: part_1_input.input,
             old_stats: last_checkpoint_leaf.stats,
             block_time: F::from_canonical_u64(Utc::now().timestamp_millis() as u64),
@@ -1351,9 +1351,9 @@ impl<
         };
 
         tracing::debug!(partial_input = %serde_json::to_string_pretty(&partial_input).unwrap(), "Checkpoint state transition partial input");
-        let new_checkpoint_leaf = partial_input.get_new_checkpoint_leaf::<QEDHasher>();
+        let new_checkpoint_leaf = partial_input.get_new_checkpoint_leaf::<PsyHasher>();
         tracing::debug!(new_checkpoint_leaf = %serde_json::to_string_pretty(&new_checkpoint_leaf).unwrap(), "New checkpoint leaf");
-        let new_checkpoint_leaf_hash = new_checkpoint_leaf.qfhash::<QEDHasher>();
+        let new_checkpoint_leaf_hash = new_checkpoint_leaf.qfhash::<PsyHasher>();
         tracing::debug!(new_checkpoint_leaf_hash = %new_checkpoint_leaf_hash, "New checkpoint leaf hash");
 
         let previous_checkpoint_proof = self
@@ -1369,7 +1369,7 @@ impl<
         tracing::debug!(checkpoint_dmp = %serde_json::to_string_pretty(&checkpoint_dmp).unwrap(), "Checkpoint DMP");
 
         let witness_checkpoint_state_transition = CircuitInputWithDependencies {
-            input: QCQEDCheckpointStateTransitionInput::<F> {
+            input: QCPsyCheckpointStateTransitionInput::<F> {
                 partial: partial_input,
                 append_checkpoint_tree_proof: checkpoint_dmp.clone(),
                 previous_checkpoint_proof,
@@ -1393,7 +1393,7 @@ impl<
         debug!("Block proving jobs completed for checkpoint {}", new_checkpoint_id);
 
         // Update L2 block state
-        let new_l2_block_state = QEDL2BlockState {
+        let new_l2_block_state = PsyL2BlockState {
             checkpoint_id: last_l2_blockstate.checkpoint_id + 1,
             next_add_withdrawal_id: last_l2_blockstate.next_add_withdrawal_id,
             next_process_withdrawal_id: last_l2_blockstate.next_process_withdrawal_id,

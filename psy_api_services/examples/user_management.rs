@@ -1,6 +1,6 @@
 //! User Management API Example: /register and /user_info
 //!
-//! This example demonstrates how to use QED API service user registration and
+//! This example demonstrates how to use Psy API service user registration and
 //! query functionality
 
 use reqwest::Client;
@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let register_payload = json!({
         "public_key": "0x1234567890abcdef1234567890abcdef12345678",
         "twitter_handle": "@example_user",
-        "label": "QED Test User",
+        "label": "Psy Test User",
         "signature": "mock_signature_123456789"
     });
     println!("Payload: {}", serde_json::to_string_pretty(&register_payload)?);

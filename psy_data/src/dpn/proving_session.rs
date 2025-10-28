@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::qdata::{
-    checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf},
-    user::QEDUserLeaf,
+    checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
+    user::PsyUserLeaf,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
@@ -24,9 +24,9 @@ pub struct DPNProvingSessionCheckpointState<F: RichField> {
     pub checkpoint_tree_root: QHashOut<F>,
     pub checkpoint_hash: QHashOut<F>,
     pub checkpoint_id: F,
-    pub checkpoint_leaf: QEDCheckpointLeaf<F>,
-    pub last_global_tree_state_roots: QEDCheckpointGlobalStateRoots<F>,
-    pub session_start_user_leaf: QEDUserLeaf<F>,
+    pub checkpoint_leaf: PsyCheckpointLeaf<F>,
+    pub last_global_tree_state_roots: PsyCheckpointGlobalStateRoots<F>,
+    pub session_start_user_leaf: PsyUserLeaf<F>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
@@ -325,9 +325,9 @@ pub struct DPNProvingSessionCallStack<F: RichField> {
     pub checkpoint_tree_root: QHashOut<F>,
     pub checkpoint_hash: QHashOut<F>,
     pub checkpoint_id: F,
-    pub checkpoint_leaf: QEDCheckpointLeaf<F>,
-    pub last_global_tree_state_roots: QEDCheckpointGlobalStateRoots<F>,
-    pub session_start_user_leaf: QEDUserLeaf<F>,
+    pub checkpoint_leaf: PsyCheckpointLeaf<F>,
+    pub last_global_tree_state_roots: PsyCheckpointGlobalStateRoots<F>,
+    pub session_start_user_leaf: PsyUserLeaf<F>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -341,7 +341,7 @@ pub struct DPNTransactionDebtItem<TX: QFieldHashable<F> + Serialize, F: RichFiel
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDLocalTransactionRecord<F: RichField> {
+pub struct PsyLocalTransactionRecord<F: RichField> {
     pub start_checkpoint: F,
     pub write_checkpoint: F,
     pub call_data: DPNProvingSessionSignableMethodCall<F>,
@@ -356,7 +356,7 @@ pub struct QEDLocalTransactionRecord<F: RichField> {
     pub added_deferred_tx_items: Vec<DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>>,
 }
 
-impl<F: RichField> QEDLocalTransactionRecord<F> {
+impl<F: RichField> PsyLocalTransactionRecord<F> {
     pub fn new_base(
         start_checkpoint: F,
         write_checkpoint: F,

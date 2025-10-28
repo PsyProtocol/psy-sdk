@@ -22,7 +22,7 @@ use psy_vm::dpn::{
         op_types::DPNOpType,
         sym_felt::SymFeltRef,
     },
-    vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
+    vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
 };
 use tracing::instrument;
 
@@ -46,7 +46,7 @@ pub fn interpret(contract_name: Option<String>, method_names: Vec<String>, crate
         &mut ctx,
         contract_name,
         method_names,
-        |context, (method_name, method_id, outputs)| QEDCompileResult::compile_exec(method_name, method_id, &context.store, context, &outputs),
+        |context, (method_name, method_id, outputs)| PsyCompileResult::compile_exec(method_name, method_id, &context.store, context, &outputs),
     )?;
 
     Ok(InterpretResult {
@@ -1524,19 +1524,19 @@ mod tests {
 
     use insta::assert_snapshot;
     use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
-    use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+    use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
     use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
-    use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+    use psy_crypto::signature::zk::wallet::SimplePsyPrivateKey;
     use psy_data::{
-        config::store_config::{QEDHasher, C, D},
+        config::store_config::{PsyHasher, C, D},
         qblock::cmds::register_user::QBCRegisterUser,
     };
-    use psy_exec::vm::exec::QEDEvalSessionResult;
+    use psy_exec::vm::exec::PsyEvalSessionResult;
     use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
     use psy_store::controllers::local::prepare_environment_with_real_contract;
     use psy_vm::dpn::{
         ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
-        vm::compile::QEDCompileResult,
+        vm::compile::PsyCompileResult,
     };
     use serial_test::serial;
 
@@ -1545,8 +1545,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_crates_resolve() {
-        let entry: PathBuf = "../tests/module_test/foo/src/main.qed".into();
-        let dependency_entry: PathBuf = "../tests/module_test/bar/src/lib.qed".into();
+        let entry: PathBuf = "../tests/module_test/foo/src/main.psy".into();
+        let dependency_entry: PathBuf = "../tests/module_test/bar/src/lib.psy".into();
 
         let mut crate_path_graph = Graph::new();
         crate_path_graph.add_node(entry.clone());
@@ -1565,7 +1565,7 @@ mod tests {
     async fn test_interpreter() {
         psy_common::setup_logging().ok();
 
-        insta::glob!("../../tests", "{struct*.qed,fn_test.qed,fn_chain_call_test.qed}", |path| {
+        insta::glob!("../../tests", "{struct*.psy,fn_test.psy,fn_chain_call_test.psy}", |path| {
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
             let (mut typechecker, mut ctx) = interpreter.typecheck_single(path.into()).unwrap();
 
@@ -1576,15 +1576,15 @@ mod tests {
                     None,
                     vec!["main"],
                     |context, (method_name, method_id, outputs)| {
-                        QEDCompileResult::compile_exec(method_name, method_id, &context.store, &context, &outputs)
+                        PsyCompileResult::compile_exec(method_name, method_id, &context.store, &context, &outputs)
                     },
                 )
                 .unwrap();
 
             let priv_key = QHashOut::rand();
-            let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-            let priv_key_w = SimpleQEDPrivateKey::new(priv_key);
-            let pub_key_param = priv_key_w.get_public_key_param::<QEDHasher>();
+            let wallet = SimplePsyZKSignatureManager::<C, D>::new();
+            let priv_key_w = SimplePsyPrivateKey::new(priv_key);
+            let pub_key_param = priv_key_w.get_public_key_param::<PsyHasher>();
             let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
             let deployer = QHashOut::rand();
@@ -1608,7 +1608,7 @@ mod tests {
 
             let cfc_input = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async {
-                    QEDEvalSessionResult::new()
+                    PsyEvalSessionResult::new()
                         .exec_contract_call(&mut lps, contract_id, &compile_results[0], vec![])
                         .await
                 })
@@ -1630,7 +1630,7 @@ mod tests {
     fn test_format_file() {
         psy_common::setup_logging().ok();
 
-        insta::glob!("../../tests", "*_test.qed", |path| {
+        insta::glob!("../../tests", "*_test.psy", |path| {
             let entry: PathBuf = path.into();
             let mut interpreter = Interpreter::<SymFeltRef, _>::new(QExecContext::new());
             let (_typechecker, mut ctx) = interpreter.typecheck_single(entry.clone()).unwrap();

@@ -1,10 +1,10 @@
-# QED API Services
+# Psy API Services
 
-QED API Services provides REST and WebSocket APIs for the QED blockchain frontend, collecting and serving telemetry data from coordinator and realm nodes.
+Psy API Services provides REST and WebSocket APIs for the Psy blockchain frontend, collecting and serving telemetry data from coordinator and realm nodes.
 
 ## Architecture
 
-This service acts as a data aggregation and serving layer for the QED blockchain system:
+This service acts as a data aggregation and serving layer for the Psy blockchain system:
 
 - **Data Sources**: Coordinator and Realm nodes send telemetry events via HTTP
 - **Storage**: PostgreSQL with TimescaleDB for time-series data
@@ -301,7 +301,7 @@ curl "http://localhost:3000/worker_events_aggregations?start_time=2023-01-01T00:
 const ws = new WebSocket('ws://localhost:3000/ws/subscribe');
 
 // Configure filters
-ws.send(QedJSON.stringify({
+ws.send(PsyJSON.stringify({
   filters: {
     realm_ids: ["0"],
     event_types: ["worker_event"]
@@ -310,7 +310,7 @@ ws.send(QedJSON.stringify({
 
 // Receive real-time events
 ws.onmessage = (event) => {
-  const data = QedJSON.parse(event.data);
+  const data = PsyJSON.parse(event.data);
   console.log('Received event:', data);
 };
 ```
@@ -330,7 +330,7 @@ const tpsWs = new WebSocket('ws://localhost:3000/ws/tps');
 
 // Receive TPS updates every 12 seconds
 tpsWs.onmessage = (event) => {
-  const tpsEvent = QedJSON.parse(event.data);
+  const tpsEvent = PsyJSON.parse(event.data);
   console.log(`Current TPS: ${tpsEvent.data.tps}`);
   console.log(`Transactions in last 12s: ${tpsEvent.data.transaction_count}`);
 };

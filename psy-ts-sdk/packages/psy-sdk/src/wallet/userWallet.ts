@@ -1,28 +1,28 @@
 import { userWalletCache } from "./cache";
-import { IQedUserWallet, IQedCompleteUserInfo } from "./types";
+import { IPsyUserWallet, IPsyCompleteUserInfo } from "./types";
 import { CoordinatorEdgeRpcProvider, ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { PrivateKey, PublicKey } from "../core";
 import {
-    IQedUserProverProvider,
+    IPsyUserProverProvider,
     WalletKeyPair,
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
     QBCDeployContract,
-    QedRPCUserProverProvider,
+    PsyRPCUserProverProvider,
 } from "../local-prover-rpc";
-import { QEDUserLeaf } from "../types";
-import { qedFelt } from "../utils";
-import { IQedTransactionSigner, QedMemoryTransactionSigner } from "../zksigner";
+import { PsyUserLeaf } from "../types";
+import { psyFelt } from "../utils";
+import { IPsyTransactionSigner, PsyMemoryTransactionSigner } from "../zksigner";
 import { IRealmEdgeRpcProvider, RealmEdgeRpcProvider } from "../realm-edge-rpc";
-import { getQedNetworkMagicForNetworkId, NetworkId } from "../action";
+import { getPsyNetworkMagicForNetworkId, NetworkId } from "../action";
 
-class QedUserWallet implements IQedUserWallet {
+class PsyUserWallet implements IPsyUserWallet {
     networkId: NetworkId;
     networkMagic: bigint;
     coordinator: ICoordinatorEdgeRpcProvider;
     realm: IRealmEdgeRpcProvider;
-    // prover: IQedUserProverProvider;
-    signer: IQedTransactionSigner;
+    // prover: IPsyUserProverProvider;
+    signer: IPsyTransactionSigner;
 
     userId: number;
     publicKeyHex: string;
@@ -30,7 +30,7 @@ class QedUserWallet implements IQedUserWallet {
 
     constructor(
         networkId: NetworkId,
-        signer: IQedTransactionSigner,
+        signer: IPsyTransactionSigner,
         coordinator: ICoordinatorEdgeRpcProvider,
         realm: IRealmEdgeRpcProvider,
         userId: number,
@@ -38,7 +38,7 @@ class QedUserWallet implements IQedUserWallet {
         status: boolean,
     ) {
         this.networkId = networkId;
-        this.networkMagic = getQedNetworkMagicForNetworkId(this.networkId);
+        this.networkMagic = getPsyNetworkMagicForNetworkId(this.networkId);
         this.signer = signer;
         this.coordinator = coordinator;
         this.realm = realm;
@@ -48,7 +48,7 @@ class QedUserWallet implements IQedUserWallet {
         this.status = status;
     }
 
-    async refresh(): Promise<QEDUserLeaf> {
+    async refresh(): Promise<PsyUserLeaf> {
         const publicKeyHex = await this.signer.getPublicKeyHex();
         try {
             const userId = await this.coordinator.getUserId(publicKeyHex);
@@ -73,7 +73,7 @@ class QedUserWallet implements IQedUserWallet {
         }
     }
 
-    async getUserInfo(): Promise<IQedCompleteUserInfo> {
+    async getUserInfo(): Promise<IPsyCompleteUserInfo> {
         const user = await this.refresh();
         const publicKeyHex = await this.signer.getPublicKeyHex();
         return Promise.resolve({
@@ -88,7 +88,7 @@ class QedUserWallet implements IQedUserWallet {
 
     async getBalance(): Promise<bigint> {
         const b = await this.refresh();
-        return qedFelt(b.balance);
+        return psyFelt(b.balance);
     }
 
     async getBalanceString(): Promise<string> {
@@ -114,7 +114,7 @@ class QedUserWallet implements IQedUserWallet {
     //     if (!sk) {
     //         throw new Error("private key not found");
     //     }
-    //     this.singer = new QedMemoryTransactionSigner(this.prover, pkHash, sk);
+    //     this.singer = new PsyMemoryTransactionSigner(this.prover, pkHash, sk);
 
     //     const userId = await this.coordinator.getUserId(pkHash);
     //     this.realm.setUserId(userId)
@@ -162,4 +162,4 @@ class QedUserWallet implements IQedUserWallet {
     // }
 }
 
-export { QedUserWallet };
+export { PsyUserWallet };

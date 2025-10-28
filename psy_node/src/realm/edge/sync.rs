@@ -24,7 +24,7 @@ use psy_core::{
 };
 use psy_crypto::hash::{merkle::treeprover::subtree::SubTreeNodeStateTransition, traits::qhashable::QFieldHashable};
 use psy_data::{
-    config::store_config::{QEDFelt, QEDHasher},
+    config::store_config::{PsyFelt, PsyHasher},
     guta::{
         api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput},
         header::GlobalUserTreeAggregatorHeader,
@@ -33,7 +33,7 @@ use psy_data::{
     qdata::checkpoint::CheckpointSyncInfo,
 };
 use psy_node_utils::generate_jwt_token;
-use psy_store::{node::realm::QEDRealmStoreReaderAsync, queue::ProofStoreRedisAsync};
+use psy_store::{node::realm::PsyRealmStoreReaderAsync, queue::ProofStoreRedisAsync};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
 
@@ -46,7 +46,7 @@ const SYNC_INTERVAL: Duration = Duration::from_millis(200);
 
 pub struct CheckpointSyncManager<SR, IQ>
 where
-    SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+    SR: PsyRealmStoreReaderAsync<F> + Sync + Send + 'static,
     IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 {
     realm_id: u32,
@@ -60,7 +60,7 @@ where
 
 impl<SR, IQ> CheckpointSyncManager<SR, IQ>
 where
-    SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+    SR: PsyRealmStoreReaderAsync<F> + Sync + Send + 'static,
     IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 {
     pub fn new(realm_id: u32, store_reader: Arc<SR>, interval_sync_queue: Arc<IQ>, coordinator_addr: &str) -> Result<Self> {
@@ -129,7 +129,7 @@ where
     async fn fetch_coordinator_latest_checkpoint(&mut self) -> bool {
         match self
             .client
-            .request::<LatestCheckpointResponse, _>("qed_get_latest_checkpoint", rpc_params![])
+            .request::<LatestCheckpointResponse, _>("psy_get_latest_checkpoint", rpc_params![])
             .await
         {
             Ok(latest_checkpoint) => {
@@ -145,7 +145,7 @@ where
                 true
             }
             Err(e) => {
-                error!("RPC call to coordinator ('qed_get_latest_checkpoint') failed: {:?}", e);
+                error!("RPC call to coordinator ('psy_get_latest_checkpoint') failed: {:?}", e);
                 false
             }
         }
@@ -171,7 +171,7 @@ where
             let params = rpc_params![self.realm_id, next_checkpoint_id];
             match self
                 .client
-                .request::<Option<CheckpointSyncInfo<F>>, _>("qed_get_checkpoint_sync_info", params)
+                .request::<Option<CheckpointSyncInfo<F>>, _>("psy_get_checkpoint_sync_info", params)
                 .await
             {
                 Ok(Some(sync_info)) => {
@@ -184,7 +184,7 @@ where
                     break;
                 }
                 Err(e) => {
-                    error!("RPC call to coordinator ('qed_get_checkpoint_sync_info') failed: {:?}", e);
+                    error!("RPC call to coordinator ('psy_get_checkpoint_sync_info') failed: {:?}", e);
                     break;
                 }
             }
@@ -232,7 +232,7 @@ where
 }
 
 pub async fn spawn_active_checkpoint_sync_task<
-    SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+    SR: PsyRealmStoreReaderAsync<F> + Sync + Send + 'static,
     IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 >(
     realm_id: u32,
@@ -255,7 +255,7 @@ pub struct LatestCheckpointResponse {
 }
 
 pub async fn spawn_realm_job_update_task<
-    SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+    SR: PsyRealmStoreReaderAsync<F> + Sync + Send + 'static,
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 >(
@@ -340,7 +340,7 @@ impl RealmProofSender {
 
     /// Send realm proof to coordinator with unified retry mechanism
     pub async fn send_proof<
-        SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
+        SR: PsyRealmStoreReaderAsync<F> + Sync + Send + 'static,
         DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
         PS: QProofStoreAsyncImm + Sync + Send + 'static,
     >(
@@ -354,12 +354,12 @@ impl RealmProofSender {
         // job_info.job_id).await?;
         let bytes = ctx.proof_store.get_bytes_by_id(job_info.job_id).await?;
         // Deserialize realm result
-        let realm_result: GUTARealmCheckpointResult<QEDFelt> = bincode::deserialize(&bytes)?;
+        let realm_result: GUTARealmCheckpointResult<PsyFelt> = bincode::deserialize(&bytes)?;
         // Get proof with retry
         let proof = ctx.proof_store.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
         // let proof = self.get_proof_with_retry(proof_store,
         // realm_result.proof_id.get_output_id()).await?;
-        let input = SubmitGUTARealmResultAPINoProofInput::<QEDFelt> {
+        let input = SubmitGUTARealmResultAPINoProofInput::<PsyFelt> {
             realm_id: self.realm_id,
             checkpoint_id: realm_result.checkpoint_id,
             guta_stats: realm_result.guta_stats,
@@ -384,7 +384,7 @@ impl RealmProofSender {
         }
         if input.top_line_proof.old_root != input.top_line_proof.old_value
             || input.top_line_proof.new_root != input.top_line_proof.new_value
-            || !input.top_line_proof.verify::<QEDHasher>()
+            || !input.top_line_proof.verify::<PsyHasher>()
         {
             error!("invalid top line proof, expect: {}", serde_json::to_string_pretty(&input.top_line_proof)?);
             anyhow::bail!("invalid top line proof");
@@ -403,7 +403,7 @@ impl RealmProofSender {
             stats: input.guta_stats,
         };
         let proof_public_inputs_hash = QHashOut::from_qfelts(&proof.public_inputs[11..15]);
-        let expected_proof_public_inputs_hash = guta_header.qfhash::<QEDHasher>();
+        let expected_proof_public_inputs_hash = guta_header.qfhash::<PsyHasher>();
         if proof_public_inputs_hash != expected_proof_public_inputs_hash {
             tracing::error!(
                 "ensure expected_proof_public_inputs_hash: {} == proof.public_inputs[11..15] {}",
@@ -437,7 +437,7 @@ impl RealmProofSender {
         &self,
         proof_store: Arc<PS>,
         proof_id: QProvingJobDataID,
-    ) -> Result<ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>> {
+    ) -> Result<ProofWithPublicInputs<PsyFelt, PoseidonGoldilocksConfig, 2>> {
         self.retry_with_backoff("get_proof_by_id", || async { proof_store.get_proof_by_id(proof_id).await })
             .await
     }
@@ -445,13 +445,13 @@ impl RealmProofSender {
     /// Submit request to coordinator with retry mechanism
     async fn submit_with_retry(
         &self,
-        input: SubmitGUTARealmResultAPINoProofInput<QEDFelt>,
-        proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
+        input: SubmitGUTARealmResultAPINoProofInput<PsyFelt>,
+        proof: ProofWithPublicInputs<PsyFelt, PoseidonGoldilocksConfig, 2>,
     ) -> Result<()> {
         self.retry_with_backoff("submit_guta_proof", || async {
             info!("Sending job to coordinator");
             let params = rpc_params![input.clone(), proof.clone(), self.realm_id];
-            match self.http_client.request::<String, _>("qed_submit_guta", params).await {
+            match self.http_client.request::<String, _>("psy_submit_guta", params).await {
                 Ok(result) => {
                     info!("Successfully submitted job to coordinator, result: {}", result);
                     Ok(())

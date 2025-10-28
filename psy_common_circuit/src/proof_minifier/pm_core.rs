@@ -37,7 +37,7 @@ where
     output
 }
 #[derive(Debug)]
-pub struct QEDProofMinifier<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
+pub struct PsyProofMinifier<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
@@ -46,7 +46,7 @@ where
     pub proof_target: ProofWithPublicInputsTarget<D>,
 }
 
-impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>> QEDProofMinifier<D, F, C>
+impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>> PsyProofMinifier<D, F, C>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {

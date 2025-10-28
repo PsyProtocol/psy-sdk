@@ -9,7 +9,7 @@ use psy_core::config::network_constants::{
     CHECKPOINT_TREE_HEIGHT, DEFAULT_CALLER_CONTRACT_ID_U64, GUTA_FEE, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID,
 };
 
-use super::{ups_end_cap_result::UPSEndCapResultCompactGadget, ups_signature_data::QEDUserProvingSessionSignatureDataCompactGadget};
+use super::{ups_end_cap_result::UPSEndCapResultCompactGadget, ups_signature_data::PsyUserProvingSessionSignatureDataCompactGadget};
 use crate::{
     gadgets::qdata::{
         contract_function_call::DPNProvingSessionSimpleMethodCallGadget,
@@ -24,7 +24,7 @@ pub struct UPSEndCapCoreGadget {
     // start require witness
 
     // start computed
-    pub sig_data_compact_gadget: QEDUserProvingSessionSignatureDataCompactGadget,
+    pub sig_data_compact_gadget: PsyUserProvingSessionSignatureDataCompactGadget,
     pub end_cap_result_gadget: UPSEndCapResultCompactGadget,
     pub guta_stats: GUTAStatsGadget,
 }
@@ -105,7 +105,7 @@ impl UPSEndCapCoreGadget {
 
         let start_user_leaf_hash = last_header_gadget.session_start_context.start_session_user_leaf_hash;
 
-        let sig_data_compact_gadget = QEDUserProvingSessionSignatureDataCompactGadget {
+        let sig_data_compact_gadget = PsyUserProvingSessionSignatureDataCompactGadget {
             start_user_leaf_hash,
             end_user_leaf_hash,
             checkpoint_leaf_hash: last_header_gadget.session_start_context.checkpoint_leaf_hash,

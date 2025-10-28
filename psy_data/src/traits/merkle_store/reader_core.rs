@@ -6,7 +6,7 @@ use super::{MerkleNodeStoreImmutableAsync, MerkleNodeStoreReaderImmutableAsync};
 use crate::models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQMerkleTreeModelReaderCore};
 
 #[async_trait]
-pub trait QEDMerkleTreeModelReaderCoreAsync<
+pub trait PsyMerkleTreeModelReaderCoreAsync<
     S: MerkleNodeStoreReaderImmutableAsync<Hash, TABLE_TYPE> + Send + Sync,
     Hash: Copy + Clone + Send + Sync + KVQSerializable,
     Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,

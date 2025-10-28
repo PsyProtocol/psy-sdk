@@ -17,15 +17,15 @@ use psy_crypto::hash::traits::hasher::iterate_merkle_hasher_alg;
 use psy_data::ups::start_step::UPSStartStepInput;
 
 use crate::gadgets::qdata::{
-    checkpoint::QEDCheckpointLeafGadget, checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget,
+    checkpoint::PsyCheckpointLeafGadget, checkpoint_state_roots::PsyCheckpointGlobalStateRootsGadget,
     ups_context_input::UserProvingSessionHeaderGadget,
 };
 
 #[derive(Clone, Debug)]
 pub struct UPSStartStepGadget {
     pub header_gadget: UserProvingSessionHeaderGadget,
-    pub checkpoint_leaf_gadget: QEDCheckpointLeafGadget,
-    pub state_roots_gadget: QEDCheckpointGlobalStateRootsGadget,
+    pub checkpoint_leaf_gadget: PsyCheckpointLeafGadget,
+    pub state_roots_gadget: PsyCheckpointGlobalStateRootsGadget,
     pub checkpoint_tree_proof: MerkleProofGadget,
     pub user_tree_proof: MerkleProofGadget,
 }
@@ -39,8 +39,8 @@ pub fn get_empty_tree_root_for_tx_debt_trees<H: AlgebraicHasher<F>, F: RichField
 impl UPSStartStepGadget {
     fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let header_gadget = UserProvingSessionHeaderGadget::add_virtual_to::<H, F, D>(builder);
-        let checkpoint_leaf_gadget = QEDCheckpointLeafGadget::create_virtual::<F, D>(builder);
-        let state_roots_gadget = QEDCheckpointGlobalStateRootsGadget::create_virtual::<F, D>(builder);
+        let checkpoint_leaf_gadget = PsyCheckpointLeafGadget::create_virtual::<F, D>(builder);
+        let state_roots_gadget = PsyCheckpointGlobalStateRootsGadget::create_virtual::<F, D>(builder);
         let checkpoint_tree_proof = MerkleProofGadget::add_virtual_to::<H, F, D>(builder, CHECKPOINT_TREE_HEIGHT as usize);
         let user_tree_proof = MerkleProofGadget::add_virtual_to::<H, F, D>(builder, GLOBAL_USER_TREE_HEIGHT as usize);
 

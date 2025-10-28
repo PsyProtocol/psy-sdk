@@ -1,8 +1,8 @@
-# QED LSP Developer Tutorial
+# Psy LSP Developer Tutorial
 
-QED is a custom language with a dedicated Language Server Protocol (LSP) service, providing basic features such as `hover`, `goto definition`, `find references`, and `formatting`.
+Psy is a custom language with a dedicated Language Server Protocol (LSP) service, providing basic features such as `hover`, `goto definition`, `find references`, and `formatting`.
 
-This document introduces how to use the QED language server `psy-lsp-server` for a better development experience in **VSCode**, **Neovim**, and **RustRover**.
+This document introduces how to use the Psy language server `psy-lsp-server` for a better development experience in **VSCode**, **Neovim**, and **RustRover**.
 
 ## 🛠️ Preparation
 
@@ -10,7 +10,7 @@ This document introduces how to use the QED language server `psy-lsp-server` for
 
 ```bash
   git clone https://github.com/PsyProtocol/psy-v1.git
-  cd qed-lang
+  cd psy-lang
 ```
 
 2. Compile `psy-lsp-server`：
@@ -26,17 +26,17 @@ This document introduces how to use the QED language server `psy-lsp-server` for
 Developer debugging mode (recommended for developers)
 1. Start VSCode:
 ```bash
-  cd psy-lsp-server/qed-lsp-vscode
+  cd psy-lsp-server/psy-lsp-vscode
   code .
 ```
 2. Press F5 to enter plugin debugging mode. VSCode will start a new VSCode window and load the local plugin.
-3. In the new window, open a QED project containing Dargo.toml to enable plugin features, such as:
+3. In the new window, open a Psy project containing Dargo.toml to enable plugin features, such as:
    * Mouse hover → Show type information
    * Right click → Goto Definition / Find References / Format
 
 
 💡 Note:
-In the file `qed-lsp-vscode/src/extension.ts`, the path to the `psy-lsp-server` binary is currently hardcoded:
+In the file `psy-lsp-vscode/src/extension.ts`, the path to the `psy-lsp-server` binary is currently hardcoded:
 
 ```typescript
 const serverExecutable = path.join(
@@ -50,7 +50,7 @@ If you need to change the path (for example, to use a different build directory 
 ```
 
 ## 🧑‍💻 Neovim usage tutorial (based on Lazy.nvim)
-This guide demonstrates how to set up the **QED language server (`psy-lsp-server`)** in Neovim using the **lazy.nvim** plugin manager.
+This guide demonstrates how to set up the **Psy language server (`psy-lsp-server`)** in Neovim using the **lazy.nvim** plugin manager.
 
 > ⚠️ **Note**: The `psy-lsp-server` binary must be compiled first and accessible in your system. Ensure the path to the binary is correct.
 
@@ -67,29 +67,29 @@ require("lazy").setup({
   { "hrsh7th/cmp-nvim-lsp" },              -- LSP completion source
 })
 ```
-### 2️⃣ QED LSP Setup via Lazy
+### 2️⃣ Psy LSP Setup via Lazy
 ```lua
 local lspconfig = require("lspconfig")
 local configs = require("lspconfig.configs")
 
 -- Register custom LSP
-if not configs.qed_lsp then
-configs.qed_lsp = {
+if not configs.psy_lsp then
+configs.psy_lsp = {
    default_config = {
       cmd = {"/full path/to/psy-lsp-server" }, -- ⚠️ Note to fill in the full path
-      filetypes = {"qed"},
+      filetypes = {"psy"},
       root_dir = lspconfig.util.root_pattern("Dargo.toml"),
       settings = {},
    },
 }
 end
 
-lspconfig.qed_lsp.setup({})
+lspconfig.psy_lsp.setup({})
 
--- Let Neovim recognize the `.qed` file type
+-- Let Neovim recognize the `.psy` file type
 vim.filetype.add({
    extension = {
-      qed = "qed",
+      psy = "psy",
    },
 })
 ```
@@ -101,11 +101,11 @@ Create a file like `~/.config/nvim/lua/plugins/lsp.lua` and write:
 return {
   "neovim/nvim-lspconfig",
   opts = function(_, opts)
-    -- Tell Neovim `.qed` files are of type `qed`
-    vim.filetype.add({ extension = { qed = "qed" } })
+    -- Tell Neovim `.psy` files are of type `psy`
+    vim.filetype.add({ extension = { psy = "psy" } })
 
-    -- Reuse Rust Tree-sitter highlighting for `.qed` files
-    vim.treesitter.language.register("rust", "qed")
+    -- Reuse Rust Tree-sitter highlighting for `.psy` files
+    vim.treesitter.language.register("rust", "psy")
 
     -- Load LSP config
     local lspconfig = require("lspconfig")
@@ -116,8 +116,8 @@ return {
       configs.psy_lsp_server = {
         default_config = {
           cmd = { "/full/path/to/psy-lsp-server" }, -- 🔧 Replace with your built binary
-          filetypes = { "qed" },
-          root_dir = lspconfig.util.root_pattern("Dargo.toml", ".qed"),
+          filetypes = { "psy" },
+          root_dir = lspconfig.util.root_pattern("Dargo.toml", ".psy"),
           settings = {},
         },
       }
@@ -133,12 +133,12 @@ return {
  ✅ Once you’ve saved this config, reopen Neovim and run :Lazy sync to apply it.
 
 ✅ Additional Notes
-* 	`vim.filetype.add(...)` tells Neovim that `.qed` files should be handled as the qed filetype.
-* 	`vim.treesitter.language.register("rust", "qed")` means `.qed`files will reuse Rust’s highlighting engine via Tree-sitter.
+* 	`vim.filetype.add(...)` tells Neovim that `.psy` files should be handled as the psy filetype.
+* 	`vim.treesitter.language.register("rust", "psy")` means `.psy`files will reuse Rust’s highlighting engine via Tree-sitter.
 *	Make sure the `psy-lsp-server` binary is either in your PATH or referenced using the full path.
 
 ###  3️⃣ Navigation & Reference Lookup in Neovim
-Once your psy-lsp-server is properly registered and running in Neovim, you can use the following built-in LSP keybindings to navigate your QED code efficiently.
+Once your psy-lsp-server is properly registered and running in Neovim, you can use the following built-in LSP keybindings to navigate your Psy code efficiently.
 ```lua
 -- Place these in your init.lua or keymap config file if not already present
 vim.keymap.set("n", "gd", vim.lsp.buf.definition, { noremap = true, desc = "Go to Definition" })
@@ -163,7 +163,7 @@ vim.keymap.set("n", "<leader>f", vim.lsp.buf.format, { noremap = true, desc = "F
 
 This tutorial assumes that you have already completed the configuration of Rust in RustRover.
 
-We will use the LSP plugin `LSP Support (lsp4ij)` provided by RedHat to enable custom LSP support for `.qed` files, realizing functions such as jump, hover, reference lookup, code formatting, etc.
+We will use the LSP plugin `LSP Support (lsp4ij)` provided by RedHat to enable custom LSP support for `.psy` files, realizing functions such as jump, hover, reference lookup, code formatting, etc.
 
 ---
 
@@ -176,15 +176,15 @@ We will use the LSP plugin `LSP Support (lsp4ij)` provided by RedHat to enable c
 ---
 
 
-### ✅ Step 2: Create a QED file type
+### ✅ Step 2: Create a Psy file type
 
 1. Open `Settings` → `Editor` → `File Types`
 
 2. Click **"+" Add** at the top to create a new File Type
 
-3. Name: `QED`
+3. Name: `Psy`
 
-4. Description: `QED language`
+4. Description: `Psy language`
 
 5. Configure highlighting (optional)
  fill in the following fields:
@@ -203,7 +203,7 @@ We will use the LSP plugin `LSP Support (lsp4ij)` provided by RedHat to enable c
 
 Then click Save.
 
-### 🧠 Step 3: Configure the Language Server of QED language
+### 🧠 Step 3: Configure the Language Server of Psy language
 
 Open `Settings > Languages && Frameworks > Language Servers`, we need to add a new configuration, click the plus sign ➕, there are three tabs in the new interface: **Server**, **Mapping** and **Configuration**.
 
@@ -211,7 +211,7 @@ Open `Settings > Languages && Frameworks > Language Servers`, we need to add a n
 
 Used to register a new LSP service.
 
-- **Name**: Fill in `QED language server`.
+- **Name**: Fill in `Psy language server`.
 - **Environment Variables**: Leave it blank (optional, if you need to set `DARGO_STD_PATH`, you can fill it in here).
 - **Command**: Fill in the path of your compiled LSP executable file, for example: `/Users/UserName/bin/psy-lsp-server`
 
@@ -222,9 +222,9 @@ Used to register a new LSP service.
 Used to map file types to language services.
 
 - **Language**: Leave it blank.
-- **FileType**: Click ➕, select `QED` on the left, and enter `qed` on the right
-  - Note: If there is no `QED` option, please go back to step 2 and add the file type again.
-- **Filename Patterns**: Click ➕, enter `*.qed` on the left, and enter `qed` on the right
+- **FileType**: Click ➕, select `Psy` on the left, and enter `psy` on the right
+  - Note: If there is no `Psy` option, please go back to step 2 and add the file type again.
+- **Filename Patterns**: Click ➕, enter `*.psy` on the left, and enter `psy` on the right
 
 📌 Note:
 
@@ -245,8 +245,8 @@ You can set:
 
 ### ✅ Step 4: Verify if it works
 
-1. Open a QED project with `Dargo.toml`
-2. Open the `.qed` file
+1. Open a Psy project with `Dargo.toml`
+2. Open the `.psy` file
 3. You can try:
 - `Hover` to view the type
 - `Go to Definition`

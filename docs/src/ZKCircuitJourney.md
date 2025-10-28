@@ -1,6 +1,6 @@
-# QED ZK Circuit Journey: Tracing Proofs and Assumptions
+# Psy ZK Circuit Journey: Tracing Proofs and Assumptions
 
-This document provides a detailed walkthrough of the Zero-Knowledge proof lifecycle in QED, starting from a user's local actions to the final, globally verifiable block proof. We meticulously track what each circuit proves and, critically, the assumptions it makes and how those assumptions are discharged by subsequent circuits.
+This document provides a detailed walkthrough of the Zero-Knowledge proof lifecycle in Psy, starting from a user's local actions to the final, globally verifiable block proof. We meticulously track what each circuit proves and, critically, the assumptions it makes and how those assumptions are discharged by subsequent circuits.
 
 **Goal:** Illustrate the flow of cryptographic guarantees and the progressive reduction of trust assumptions, culminating in a block proof dependent only on the previous block's established state.
 
@@ -39,7 +39,7 @@ This document provides a detailed walkthrough of the Zero-Knowledge proof lifecy
     *   `current_state.inline_tx_debt_tree_root == EMPTY_TREE_ROOT`.
     *   `current_state.tx_count == 0`.
     *   `current_state.tx_hash_stack == ZERO_HASH`.
-*   **How:** `UPSStartStepGadget` uses `MerkleProofGadget`s to verify paths, `QED...Leaf/RootsGadget`s to hash witnesses and check consistency, direct comparisons and constant checks. Public inputs calculated via `compute_tree_aware_proof_public_inputs`.
+*   **How:** `UPSStartStepGadget` uses `MerkleProofGadget`s to verify paths, `Psy...Leaf/RootsGadget`s to hash witnesses and check consistency, direct comparisons and constant checks. Public inputs calculated via `compute_tree_aware_proof_public_inputs`.
 *   **Assumes:**
     *   `[A1.1]` The *root hash* used in witness Merkle proofs (`checkpoint_tree_root` in `ups_header.session_start_context`) accurately reflects the globally finalized state of the previous block.
     *   `[A1.4]` The *constant* `empty_ups_proof_tree_root` used for the tree-aware public inputs is correct for this session's start.
@@ -62,7 +62,7 @@ This document provides a detailed walkthrough of the Zero-Knowledge proof lifecy
         *   The computed `outputs_hash` and `outputs_length` match those recorded in `tx_ctx_header.transaction_end_ctx`.
         *   All `assertions` within the `fn_def` hold true.
     *   The public inputs hash (combining `session_proof_tree_root` and `tx_ctx_header` hash) is correctly computed.
-*   **How:** `QEDContractFunctionBuilderGadget` interprets `fn_def`, simulating execution using `SimpleDPNBuilder` and `StateReaderGadget`. Connects computed vs witnessed values in `tx_ctx_header`.
+*   **How:** `PsyContractFunctionBuilderGadget` interprets `fn_def`, simulating execution using `SimpleDPNBuilder` and `StateReaderGadget`. Connects computed vs witnessed values in `tx_ctx_header`.
 *   **Assumes:**
     *   `[A1.5.1]` The `DapenContractFunctionCircuitInput` witness (esp. `tx_input_ctx`) accurately reflects the state *before* this CFC execution (derived from the previous UPS step's output) and the correct function inputs/outputs.
     *   `[A1.5.3]` The `session_proof_tree_root` witness correctly represents the root of the user's recursive proof tree *at this point*.
@@ -104,7 +104,7 @@ This document provides a detailed walkthrough of the Zero-Knowledge proof lifecy
 *   **Proves:**
     *   Last UPS step proof valid & used correct whitelisted circuit (`[R_Last.5]` discharged against *constant* `known_ups_circuit_whitelist_root`).
     *   ZK Signature proof valid & in same proof tree (`[R_Last.4]` discharged).
-    *   Signature corresponds to user's key & authenticates `QEDUserProvingSessionSignatureDataCompact` derived from final UPS header state.
+    *   Signature corresponds to user's key & authenticates `PsyUserProvingSessionSignatureDataCompact` derived from final UPS header state.
     *   Nonce incremented correctly.
     *   `last_checkpoint_id` updated correctly in final `UserLeaf`.
     *   Final debt tree roots are empty.
@@ -276,7 +276,7 @@ This document provides a detailed walkthrough of the Zero-Knowledge proof lifecy
 
 **Step 9: Final Block Transition**
 
-*   **Circuit:** `QEDCheckpointStateTransitionCircuit`
+*   **Circuit:** `PsyCheckpointStateTransitionCircuit`
 *   **High-Level Purpose:** To generate the definitive proof for the block, verifying all aggregated work and cryptographically linking the block to its predecessor, thereby discharging all temporary assumptions made during parallel processing.
 *   **Proves:**
     *   Part 1 Agg proof (Step 8) valid & used correct circuit.

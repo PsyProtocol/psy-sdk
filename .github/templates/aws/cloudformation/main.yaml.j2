@@ -16,7 +16,7 @@
 {%- set has_api_service = config.global_api_services and config.global_api_services.api_service and config.global_api_services.api_service.enabled -%}
 
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'QED Protocol Infrastructure - TiKV Unified Storage with Independent Workers, Watchers, and API Service'
+Description: 'Psy Protocol Infrastructure - TiKV Unified Storage with Independent Workers, Watchers, and API Service'
 
 Parameters:
   ProjectName:
@@ -135,9 +135,9 @@ Resources:
   ServiceDiscoveryNamespace:
     Type: AWS::ServiceDiscovery::PrivateDnsNamespace
     Properties:
-      Name: qed.local
+      Name: psy.local
       Vpc: !Ref VPC
-      Description: Private namespace for QED services
+      Description: Private namespace for Psy services
 
   # CloudWatch Log Group
   LogGroup:
@@ -1191,7 +1191,7 @@ Resources:
 
           cp /etc/redis/redis.conf /etc/redis/redis.conf.orig
           
-          # Configure Redis for QED
+          # Configure Redis for Psy
           cat > /etc/redis/redis.conf <<EOF
           # Network
           bind 0.0.0.0
@@ -1275,7 +1275,7 @@ Resources:
 
           cp /etc/redis/redis.conf /etc/redis/redis.conf.orig
           
-          # Configure Redis for QED
+          # Configure Redis for Psy
           cat > /etc/redis/redis.conf <<EOF
           # Network
           bind 0.0.0.0
@@ -1778,13 +1778,13 @@ Resources:
             fi
 
             # Create mount directory and copy config
-            mkdir -p /qed-rollup
-            cp $TMP_CONFIG_PATH /qed-rollup/config.json
-            chmod 644 /qed-rollup/config.json
+            mkdir -p /psy-node
+            cp $TMP_CONFIG_PATH /psy-node/config.json
+            chmod 644 /psy-node/config.json
 
-            echo "Config ready at /qed-rollup/config.json"
+            echo "Config ready at /psy-node/config.json"
             echo "First 20 lines:"
-            head -20 /qed-rollup/config.json
+            head -20 /psy-node/config.json
 
             # Run coordinator processor with json-file logging
             # CloudWatch agent will collect these logs automatically
@@ -1793,7 +1793,7 @@ Resources:
               --log-driver=json-file \
               --log-opt max-size=100m \
               --log-opt max-file=5 \
-              -v /qed-rollup/config.json:/qed-rollup/config.json:ro \
+              -v /psy-node/config.json:/psy-node/config.json:ro \
               -e RUST_LOG='{{ config.nodes.coordinator.processor.env.RUST_LOG }}' \
               ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest \
               coordinator-processor \
@@ -1801,7 +1801,7 @@ Resources:
               --tikv-pd-endpoints "$PD_ENDPOINTS" \
               --tikv-namespace {{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator \
               --redis-uri "redis://$REDIS_ENDPOINT:6379" \
-              --config-path /qed-rollup/config.json \
+              --config-path /psy-node/config.json \
               {% for key, value in (config.nodes.coordinator.processor.args | default({}) | dictsort) %}
               {% if key != 'config_path' %}
               --{{ key | replace('_','-') }} '{{ value | string }}' \
@@ -1821,7 +1821,7 @@ Resources:
             # Create a systemd service to ensure coordinator starts on reboot
             cat > /etc/systemd/system/coordinator-processor.service <<EOF
             [Unit]
-            Description=QED Coordinator Processor
+            Description=Psy Coordinator Processor
             After=docker.service
             Requires=docker.service
 
@@ -1841,7 +1841,7 @@ Resources:
               --tikv-pd-endpoints "$PD_ENDPOINTS" \
               --tikv-namespace {{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator \
               --redis-uri "redis://$REDIS_ENDPOINT:6379" \
-              --config-path /qed-rollup/config.json
+              --config-path /psy-node/config.json
             ExecStop=/usr/bin/docker stop coordinator-processor
 
             [Install]
@@ -2038,22 +2038,22 @@ Resources:
             fi
 
             # Create mount directory and copy config
-            mkdir -p /qed-rollup
-            cp $TMP_CONFIG_PATH /qed-rollup/config.json
-            chmod 644 /qed-rollup/config.json
+            mkdir -p /psy-node
+            cp $TMP_CONFIG_PATH /psy-node/config.json
+            chmod 644 /psy-node/config.json
 
-            echo "Config ready at /qed-rollup/config.json"
+            echo "Config ready at /psy-node/config.json"
             echo "First 20 lines:"
-            head -20 /qed-rollup/config.json
+            head -20 /psy-node/config.json
 
             # Create config sync script
             cat > /usr/local/bin/sync-config.sh <<'SYNC_SCRIPT'
             #!/bin/bash
 
             CONFIG_URL="https://${ConfigBucket}.s3.${AWS::Region}.amazonaws.com/config.json"
-            LOCAL_CONFIG="/qed-rollup/config.json"
+            LOCAL_CONFIG="/psy-node/config.json"
             TMP_CONFIG="/tmp/config_new.json"
-            BACKUP_CONFIG="/qed-rollup/config.json.backup"
+            BACKUP_CONFIG="/psy-node/config.json.backup"
 
             echo "[$(date)] Starting config sync check..."
 
@@ -2104,7 +2104,7 @@ Resources:
             # Create systemd timer for periodic sync (every 5 minutes)
             cat > /etc/systemd/system/sync-config.service <<'EOF'
             [Unit]
-            Description=Sync QED config from S3
+            Description=Sync Psy config from S3
             After=network-online.target
             Wants=network-online.target
 
@@ -2359,13 +2359,13 @@ Resources:
             fi
 
             # Create mount directory and copy config
-            mkdir -p /qed-rollup
-            cp $TMP_CONFIG_PATH /qed-rollup/config.json
-            chmod 644 /qed-rollup/config.json
+            mkdir -p /psy-node
+            cp $TMP_CONFIG_PATH /psy-node/config.json
+            chmod 644 /psy-node/config.json
 
-            echo "Config ready at /qed-rollup/config.json"
+            echo "Config ready at /psy-node/config.json"
             echo "First 20 lines:"
-            head -20 /qed-rollup/config.json
+            head -20 /psy-node/config.json
 
 
             # Verify ECS agent started
@@ -2568,13 +2568,13 @@ Resources:
             fi
 
             # Create mount directory and copy config
-            mkdir -p /qed-rollup
-            cp $TMP_CONFIG_PATH /qed-rollup/config.json
-            chmod 644 /qed-rollup/config.json
+            mkdir -p /psy-node
+            cp $TMP_CONFIG_PATH /psy-node/config.json
+            chmod 644 /psy-node/config.json
 
-            echo "Config ready at /qed-rollup/config.json"
+            echo "Config ready at /psy-node/config.json"
             echo "First 20 lines:"
-            head -20 /qed-rollup/config.json
+            head -20 /psy-node/config.json
 
             echo "Prover ECS instance setup completed at $(date)"
 
@@ -2804,7 +2804,7 @@ Resources:
           version: '3.8'
 
           networks:
-            qed-network:
+            psy-network:
               driver: bridge
 
           services:
@@ -2814,7 +2814,7 @@ Resources:
               restart: unless-stopped
               environment:
                 POSTGRES_PASSWORD: DB_PASSWORD_PLACEHOLDER
-                POSTGRES_DB: qed
+                POSTGRES_DB: psy
                 POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=en_US.utf8 --lc-ctype=en_US.utf8"
               ports:
                 - "5432:5432"
@@ -2826,7 +2826,7 @@ Resources:
                 timeout: 5s
                 retries: 5
               networks:
-                - qed-network
+                - psy-network
 
             api-service:
               image: ECR_URI_PLACEHOLDER
@@ -2843,7 +2843,7 @@ Resources:
                 AWS_DEFAULT_REGION: AWS_REGION_PLACEHOLDER
               command:
                 - api-services
-                - --database-url=postgresql://postgres:DB_PASSWORD_PLACEHOLDER@timescaledb:5432/qed
+                - --database-url=postgresql://postgres:DB_PASSWORD_PLACEHOLDER@timescaledb:5432/psy
               healthcheck:
                 test: ["CMD-SHELL", "nc -z 127.0.0.1 3000 || exit 1"]
                 interval: 30s
@@ -2851,7 +2851,7 @@ Resources:
                 retries: 3
                 start_period: 60s
               networks:
-                - qed-network
+                - psy-network
               logging:
                 driver: json-file
                 options:
@@ -2878,7 +2878,7 @@ Resources:
           }
 
           # Build the database URL
-          DATABASE_URL="postgresql://postgres:$DB_PASSWORD@timescaledb:5432/qed"
+          DATABASE_URL="postgresql://postgres:$DB_PASSWORD@timescaledb:5432/psy"
           ECR_URI="${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/{{ config.nodes.deployment.aws.ecr.repository_name }}:latest"
           RUST_LOG="{{ config.global_api_services.api_service.env.RUST_LOG | default('info') }}"
 
@@ -2913,7 +2913,7 @@ Resources:
               echo "TimescaleDB is ready!"
 
               # Create TimescaleDB extension
-              docker exec api-service sh -c "cd /qed-rollup/psy_api_services && sqlx migrate run" || {
+              docker exec api-service sh -c "cd /psy-node/psy_api_services && sqlx migrate run" || {
                 echo "Migration status:"
                 docker logs api-service --tail 20
               }
@@ -2925,7 +2925,7 @@ Resources:
 
           # Run migrations (assumes your image has migrations)
           echo "Running database migrations..."
-          docker exec api-service /bin/bash -c "cd /qed-rollup && export DATABASE_URL=postgresql://postgres:$DB_PASSWORD@timescaledb:5432/qed && /usr/local/bin/sqlx database create || true && /usr/local/bin/sqlx migrate run" || true
+          docker exec api-service /bin/bash -c "cd /psy-node && export DATABASE_URL=postgresql://postgres:$DB_PASSWORD@timescaledb:5432/psy && /usr/local/bin/sqlx database create || true && /usr/local/bin/sqlx migrate run" || true
           echo "Setup completed at $(date)"
 
   {% endif %}

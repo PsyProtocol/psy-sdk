@@ -22,11 +22,11 @@ use psy_core::{
 use psy_store::queue::{new_fred_pool, ProofStoreFred};
 
 #[derive(Debug, Clone)]
-pub struct QEDFakeProver {
+pub struct PsyFakeProver {
     pub x: u32,
 }
 
-impl<C: GenericConfig<D>, const D: usize> QWorkerVerifyHelper<C, D> for QEDFakeProver {
+impl<C: GenericConfig<D>, const D: usize> QWorkerVerifyHelper<C, D> for PsyFakeProver {
     fn get_verifier_triplet_for_circuit_type(
         &self,
         _circuit_type: ProvingJobCircuitType,
@@ -34,14 +34,14 @@ impl<C: GenericConfig<D>, const D: usize> QWorkerVerifyHelper<C, D> for QEDFakeP
         todo!()
     }
 }
-impl<PS: QProofStore, C: GenericConfig<D>, const D: usize> QWorkerGenericProverMut<PS, C, D> for QEDFakeProver {
+impl<PS: QProofStore, C: GenericConfig<D>, const D: usize> QWorkerGenericProverMut<PS, C, D> for PsyFakeProver {
     fn worker_prove_mut(&mut self, _store: &PS, _job_id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         todo!()
     }
 }
 
 #[async_trait]
-impl<PS: QProofStoreReaderAsync, C: GenericConfig<D>, const D: usize> QWorkerGenericProverAsyncMut<PS, C, D> for QEDFakeProver {
+impl<PS: QProofStoreReaderAsync, C: GenericConfig<D>, const D: usize> QWorkerGenericProverAsyncMut<PS, C, D> for PsyFakeProver {
     async fn worker_prove_mut(&mut self, _store: &PS, _job_id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         todo!()
     }
@@ -164,7 +164,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     //let items_per_worker = 2000usize;
 
     timer.lap("started up");
-    let mut fake_prover = QEDFakeProver { x: 1 };
+    let mut fake_prover = PsyFakeProver { x: 1 };
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;

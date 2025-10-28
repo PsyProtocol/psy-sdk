@@ -2,26 +2,26 @@ import { Felt } from "../core";
 import {
     ContractCallArgs,
 } from "../local-prover-rpc";
-import { IQedTransactionSigner, IQedTransactionSignerProvider } from "../zksigner";
+import { IPsyTransactionSigner, IPsyTransactionSignerProvider } from "../zksigner";
 import { NetworkId } from "../action";
 
-interface ICoreQedUserInfo {
+interface ICorePsyUserInfo {
     networkId: NetworkId;
     l2NetworkMagic: bigint;
     userId: Felt;
     publicKeyHex: string;
 }
 
-interface IQedCompleteUserInfo extends ICoreQedUserInfo {
+interface IPsyCompleteUserInfo extends ICorePsyUserInfo {
     nonce: string;
     balance: Felt;
 }
 
-interface IQedUserWallet {
-    // prover: IQedUserProverProvider;
+interface IPsyUserWallet {
+    // prover: IPsyUserProverProvider;
     status: boolean;
-    signer: IQedTransactionSigner;
-    getUserInfo(): Promise<IQedCompleteUserInfo>;
+    signer: IPsyTransactionSigner;
+    getUserInfo(): Promise<IPsyCompleteUserInfo>;
     getBalance(): Promise<bigint>;
     getBalanceString(): Promise<string>;
     // getRandomKeypair(): Promise<WalletKeyPair>;
@@ -34,11 +34,11 @@ interface IQedUserWallet {
     // transfer(recipient: SCNumberLike, amount: SCNumberLike, nonce?: SCNumberLike): Promise<void>;
 }
 
-interface IQedUserWalletProvider {
+interface IPsyUserWalletProvider {
     networkId: NetworkId;
     l2NetworkMagic: bigint;
-    signerProvider: IQedTransactionSignerProvider;
-    getUserWallets(): Promise<IQedUserWallet[]>;
+    signerProvider: IPsyTransactionSignerProvider;
+    getUserWallets(): Promise<IPsyUserWallet[]>;
 }
 
-export type { ICoreQedUserInfo, IQedUserWallet, IQedCompleteUserInfo, IQedUserWalletProvider };
+export type { ICorePsyUserInfo, IPsyUserWallet, IPsyCompleteUserInfo, IPsyUserWalletProvider };

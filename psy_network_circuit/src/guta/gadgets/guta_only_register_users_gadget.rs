@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut};
-use psy_data::{guta::proof_input::GUTARegisterUserFullInput, qdata::user::QEDUserLeaf};
+use psy_data::{guta::proof_input::GUTARegisterUserFullInput, qdata::user::PsyUserLeaf};
 
 use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_register_users::GUTARegisterUsersGadget, helpers::ToGUTAHeader};
 use crate::guta::gadgets::guta_stats::GUTAStatsGadget;
@@ -62,7 +62,7 @@ impl GUTAOnlyRegisterUsersGadget {
         default_user_state_tree_root: QHashOut<F>,
     ) -> anyhow::Result<()> {
         let dummy_public_key = get_default_worker_public_key();
-        let dummy_user_leaf_hash = QEDUserLeaf::new_user_default(F::ZERO, dummy_public_key, default_user_state_tree_root).alghash::<H>();
+        let dummy_user_leaf_hash = PsyUserLeaf::new_user_default(F::ZERO, dummy_public_key, default_user_state_tree_root).alghash::<H>();
 
         self.register_users_gadget
             .set_witness_params(witness, guta_register_user_inputs, dummy_public_key, dummy_user_leaf_hash)

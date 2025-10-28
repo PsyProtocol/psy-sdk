@@ -11,7 +11,7 @@ use psy_crypto::hash::{
 };
 use serde::Serialize;
 
-use super::{reader_core::QEDMerkleTreeModelReaderCoreAsync, MerkleNodeStoreImmutableAsync};
+use super::{reader_core::PsyMerkleTreeModelReaderCoreAsync, MerkleNodeStoreImmutableAsync};
 use crate::models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQMerkleTreeModelReaderCore};
 
 #[async_trait]
@@ -21,7 +21,7 @@ pub trait QMerkleTreeModelCoreImmutableAsync<
     Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
     const TABLE_TYPE: u16,
     const MARK_LEAVES: bool,
->: QEDMerkleTreeModelReaderCoreAsync<S, Hash, Hasher, TABLE_TYPE, MARK_LEAVES>
+>: PsyMerkleTreeModelReaderCoreAsync<S, Hash, Hasher, TABLE_TYPE, MARK_LEAVES>
 {
     async fn set_node_kv(store: &S, kv: &KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>) -> anyhow::Result<()> {
         store.set_node(kv).await?;

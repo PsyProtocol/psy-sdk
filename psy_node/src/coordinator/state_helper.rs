@@ -6,12 +6,12 @@ use plonky2::{
 use psy_core::job::{id::QProvingJobDataID, traits::QProofStoreWriterSyncImm};
 use psy_crypto::common::user_id::get_user_id_from_registration_id;
 use psy_data::{
-    api::coordinator::register_user::QEDAPIRegisterUserRequestForUserId,
-    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
+    api::coordinator::register_user::PsyAPIRegisterUserRequestForUserId,
+    config::store_config::{QCheckpointSyncInfoCompact, PsyFelt, PsyHasher},
     guta::api::SubmitUserEndCapProofAPIInput,
 };
-use psy_store::node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm};
-type F = QEDFelt;
+use psy_store::node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm};
+type F = PsyFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
@@ -20,7 +20,7 @@ type QUserEndCapAPIInput = SubmitUserEndCapProofAPIInput<F, C, D>;
 
 #[async_trait]
 pub trait EdgeContext {
-    async fn get_checkpoint_u64<S: QEDRealmStoreReaderAsync<F> + Sync>(store: &S) -> anyhow::Result<u64> {
+    async fn get_checkpoint_u64<S: PsyRealmStoreReaderAsync<F> + Sync>(store: &S) -> anyhow::Result<u64> {
         Ok(store.get_latest_l2_block_state().await?.checkpoint_id)
     }
     fn get_node_id(&self) -> u32;
@@ -28,9 +28,9 @@ pub trait EdgeContext {
     async fn enqueue_user_registrations<PS: QProofStoreWriterSyncImm + Sync>(
         &self,
         ps: &PS,
-        user_registrations: Vec<QEDAPIRegisterUserRequestForUserId<F>>,
+        user_registrations: Vec<PsyAPIRegisterUserRequestForUserId<F>>,
     ) -> anyhow::Result<()>;
-    async fn enqueue_user_update<S: QEDRealmStoreReaderAsync<F> + Sync, PS: QProofStoreWriterSyncImm + Sync>(
+    async fn enqueue_user_update<S: PsyRealmStoreReaderAsync<F> + Sync, PS: QProofStoreWriterSyncImm + Sync>(
         &self,
         store: &S,
         ps: &PS,
@@ -56,7 +56,7 @@ pub trait EdgeContext {
 pub trait CoordinatorAPIStateHelperImm: EdgeContext {
     fn realm_contains_user_id(&self, user_id: u64) -> bool;
     async fn recv_checkpoint_sync_base<
-        S: QEDRealmStoreReaderAsync<F> + QEDRealmStoreWriterAsyncImm<F> + Sync,
+        S: PsyRealmStoreReaderAsync<F> + PsyRealmStoreWriterAsyncImm<F> + Sync,
         PS: QProofStoreWriterSyncImm + Sync,
     >(
         &self,
@@ -66,14 +66,14 @@ pub trait CoordinatorAPIStateHelperImm: EdgeContext {
     ) -> anyhow::Result<()> {
         //store.
         let start_registration_id = checkpoint_sync_info.l2_block_state.next_user_id - checkpoint_sync_info.registered_users.len() as u64;
-        let mut new_good_users: Vec<QEDAPIRegisterUserRequestForUserId<F>> = Vec::new();
+        let mut new_good_users: Vec<PsyAPIRegisterUserRequestForUserId<F>> = Vec::new();
 
         for (registration_id, reg) in
             (start_registration_id..checkpoint_sync_info.l2_block_state.next_user_id).zip(checkpoint_sync_info.registered_users.iter())
         {
             let user_id = get_user_id_from_registration_id(registration_id);
             if self.realm_contains_user_id(user_id) {
-                new_good_users.push(QEDAPIRegisterUserRequestForUserId {
+                new_good_users.push(PsyAPIRegisterUserRequestForUserId {
                     user_id: F::from_noncanonical_u64(user_id),
                     fingerprint: reg.fingerprint,
                     public_key_param: reg.public_key_param,
@@ -82,12 +82,12 @@ pub trait CoordinatorAPIStateHelperImm: EdgeContext {
         }
         self.enqueue_user_registrations(ps, new_good_users).await?;
         store
-            .injest_checkpoint_sync_data_imm(checkpoint_sync_info.to_sync_info::<QEDHasher>())
+            .injest_checkpoint_sync_data_imm(checkpoint_sync_info.to_sync_info::<PsyHasher>())
             .await?;
 
         Ok(())
     }
-    async fn recv_checkpoint_sync<S: QEDRealmStoreReaderAsync<F> + QEDRealmStoreWriterAsyncImm<F> + Sync, PS: QProofStoreWriterSyncImm + Sync>(
+    async fn recv_checkpoint_sync<S: PsyRealmStoreReaderAsync<F> + PsyRealmStoreWriterAsyncImm<F> + Sync, PS: QProofStoreWriterSyncImm + Sync>(
         &self,
         store: &S,
         ps: &PS,

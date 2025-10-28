@@ -1,18 +1,18 @@
-import { getQedNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ContractCallArgs, DPNFunctionCircuitDefinition, IQedUserProverProvider } from "../../local-prover-rpc";
+import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
+import { ContractCallArgs, DPNFunctionCircuitDefinition, IPsyUserProverProvider } from "../../local-prover-rpc";
 import { JobInfo } from "../../types";
-import { IQedTransactionSigner, TQedTransactionSignerAbility } from "../types";
+import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 
-class QedMemoryTransactionSigner implements IQedTransactionSigner {
+class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     networkId: NetworkId;
     networkMagic: bigint;
     publicKeyHex: string;
     privateKeyHex: string;
     signType: string;
     fingerprint?: string;
-    prover: IQedUserProverProvider;
+    prover: IPsyUserProverProvider;
     private constructor(
-        proverProvider: IQedUserProverProvider,
+        proverProvider: IPsyUserProverProvider,
         networkId: NetworkId,
         publicKeyHex: string,
         privateKeyHex: string,
@@ -20,16 +20,16 @@ class QedMemoryTransactionSigner implements IQedTransactionSigner {
         fingerprint?: string
     ) {
         this.networkId = networkId;
-        this.networkMagic = getQedNetworkMagicForNetworkId(networkId);
+        this.networkMagic = getPsyNetworkMagicForNetworkId(networkId);
         this.publicKeyHex = publicKeyHex;
         this.privateKeyHex = privateKeyHex;
         this.prover = proverProvider;
         this.signType = signType;
         this.fingerprint = fingerprint;
     }
-    static async create(proverProvider: IQedUserProverProvider, networkId: NetworkId, privateKeyHex: string, signType: string, fingerprint?: string) {
+    static async create(proverProvider: IPsyUserProverProvider, networkId: NetworkId, privateKeyHex: string, signType: string, fingerprint?: string) {
         const publicKeyHex = await proverProvider.addUserWithType(privateKeyHex, signType, fingerprint);
-        return new QedMemoryTransactionSigner(proverProvider, networkId, publicKeyHex, privateKeyHex, signType, fingerprint);
+        return new PsyMemoryTransactionSigner(proverProvider, networkId, publicKeyHex, privateKeyHex, signType, fingerprint);
     }
     getPrivateKeyHex(): Promise<string> {
         return Promise.resolve(this.privateKeyHex);
@@ -57,7 +57,7 @@ class QedMemoryTransactionSigner implements IQedTransactionSigner {
         return this.prover.deployContract(pk_hash, circuitDefs);
     }
 
-    getAbilities(): TQedTransactionSignerAbility[] {
+    getAbilities(): TPsyTransactionSignerAbility[] {
         return ["sign-hash", "export-private-key-hex"];
     }
 
@@ -82,4 +82,4 @@ class QedMemoryTransactionSigner implements IQedTransactionSigner {
     }
 }
 
-export { QedMemoryTransactionSigner };
+export { PsyMemoryTransactionSigner };

@@ -8,15 +8,15 @@ use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
     guta::end_cap_input::SubmitUserEndCapNonProofInput,
     qdata::{
-        checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState},
-        user::QEDUserLeaf,
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        user::PsyUserLeaf,
     },
 };
 use psy_prover::session::TxStatus;
 
 use crate::realm::{C, D, F};
 
-#[rpc(server, client, namespace = "qed")]
+#[rpc(server, client, namespace = "psy")]
 pub trait RealmEdgeRpc {
     /// Check if a user id belongs to this realm
     #[method(name = "check_user_id_in_realm")]
@@ -30,19 +30,19 @@ pub trait RealmEdgeRpc {
     async fn get_tx_status(&self, user_id: u64, nonce: u64) -> RpcResult<TxStatus>;
 
     #[method(name = "get_checkpoint_leaf_data")]
-    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> RpcResult<QEDCheckpointLeaf<F>>;
+    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> RpcResult<PsyCheckpointLeaf<F>>;
 
     #[method(name = "get_checkpoint_leaf_data_f")]
-    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> RpcResult<QEDCheckpointLeaf<F>>;
+    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> RpcResult<PsyCheckpointLeaf<F>>;
 
     #[method(name = "get_latest_l2_block_state")]
-    async fn get_latest_l2_block_state(&self) -> RpcResult<QEDL2BlockState>;
+    async fn get_latest_l2_block_state(&self) -> RpcResult<PsyL2BlockState>;
 
     #[method(name = "get_l2_block_state")]
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<QEDL2BlockState>;
+    async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<PsyL2BlockState>;
 
     #[method(name = "get_l2_block_state_f")]
-    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<QEDL2BlockState>;
+    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyL2BlockState>;
 
     #[method(name = "get_user_registration_tree_root")]
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
@@ -69,13 +69,13 @@ pub trait RealmEdgeRpc {
     async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "get_checkpoint_global_state_roots")]
-    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> RpcResult<QEDCheckpointGlobalStateRoots<F>>;
+    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> RpcResult<PsyCheckpointGlobalStateRoots<F>>;
 
     #[method(name = "get_user_leaf_data")]
-    async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QEDUserLeaf<F>>;
+    async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<PsyUserLeaf<F>>;
 
     #[method(name = "get_user_leaf_data_f")]
-    async fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<QEDUserLeaf<F>>;
+    async fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<PsyUserLeaf<F>>;
 
     #[method(name = "get_user_contract_state_tree_root")]
     async fn get_user_contract_state_tree_root(&self, checkpoint_id: u64, user_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>>;

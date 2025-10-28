@@ -37,7 +37,7 @@ pub fn secp256k1_base_from_bytes(bytes: &[u8], offset: usize) -> Secp256K1Base {
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug, TS)]
 #[ts(export)]
-pub struct QEDCompressedSecp256K1Signature {
+pub struct PsyCompressedSecp256K1Signature {
     #[serde_as(as = "serde_with::hex::Hex")]
     #[ts(as = "String")]
     pub public_key: [u8; 33],
@@ -65,7 +65,7 @@ pub fn u256_to_der(u256: &[u8]) -> Vec<u8> {
     result
 }
 
-impl QEDCompressedSecp256K1Signature {
+impl PsyCompressedSecp256K1Signature {
     pub fn to_btc_script(&self) -> Vec<u8> {
         let r = u256_to_der(&self.signature[0..32]);
         let s = u256_to_der(&self.signature[32..64]);
@@ -77,16 +77,16 @@ impl QEDCompressedSecp256K1Signature {
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDPreparedSecp256K1Signature<F: RichField> {
+pub struct PsyPreparedSecp256K1Signature<F: RichField> {
     pub message: QHashOut<F>,
     pub public_key: ECDSAPublicKey<Secp256K1>,
     pub signature: ECDSASignature<Secp256K1>,
 }
 
-impl<F: RichField> TryFrom<&QEDCompressedSecp256K1Signature> for QEDPreparedSecp256K1Signature<F> {
+impl<F: RichField> TryFrom<&PsyCompressedSecp256K1Signature> for PsyPreparedSecp256K1Signature<F> {
     type Error = anyhow::Error;
 
-    fn try_from(value: &QEDCompressedSecp256K1Signature) -> Result<Self, Self::Error> {
+    fn try_from(value: &PsyCompressedSecp256K1Signature) -> Result<Self, Self::Error> {
         let mut message = [F::ZERO; 4];
         for i in 0..4 {
             message[i] = F::from_noncanonical_u64(u64::from_le_bytes(value.message.0[i * 8..(i + 1) * 8].try_into().unwrap()));

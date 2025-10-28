@@ -1,18 +1,18 @@
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use psy_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
+use psy_core::{config::network_constants::Psy_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
 use psy_crypto::common::{circuit_library::CircuitInfoLibraryBuilder, simple_circuit_library::SimpleCircuitLibrary};
-use psy_data::config::store_config::QEDFelt;
-use psy_network_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitManager, guta::guta_helper::QEDGUTACircuitManager};
-use psy_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
+use psy_data::config::store_config::PsyFelt;
+use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};
+use psy_prover::ups::circuit_manager::core::PsyUPSStepCircuitManager;
 
 fn run_gen_config() -> anyhow::Result<()> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
-    type F = QEDFelt;
+    type F = PsyFelt;
     let mut library = SimpleCircuitLibrary::<F>::new();
 
-    let main_circuits = QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST);
+    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(Psy_NETWORK_MAGIC_REGTEST);
 
     library.register_circuit(
         ProvingJobCircuitType::UserEndCap,
@@ -22,14 +22,14 @@ fn run_gen_config() -> anyhow::Result<()> {
 
     use psy_core::config::network_constants::get_default_worker_public_key;
 
-    let guta_circuits = QEDGUTACircuitManager::<C, D>::new_with_config(
+    let guta_circuits = PsyGUTACircuitManager::<C, D>::new_with_config(
         main_circuits.ups_end_cap.get_common_circuit_data_ref(),
         main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),
         main_circuits.ups_end_cap.get_fingerprint(),
         get_default_worker_public_key::<F>(),
     );
 
-    let coordinator_circuits = QEDCoordinatorCircuitManager::<C, D>::new_with_guta(guta_circuits, get_default_worker_public_key::<F>());
+    let coordinator_circuits = PsyCoordinatorCircuitManager::<C, D>::new_with_guta(guta_circuits, get_default_worker_public_key::<F>());
 
     coordinator_circuits.register_library(&mut library);
 

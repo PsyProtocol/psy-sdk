@@ -4,10 +4,10 @@ use anyhow::Result;
 use num_cpus;
 use parking_lot::RwLock;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
+use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_core::{config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT, data::qhashout::QHashOut};
-use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimpleQEDPrivateKey};
-use psy_data::config::store_config::{QEDHasher, C, D};
+use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
+use psy_data::config::store_config::{PsyHasher, C, D};
 use psy_prover::{
     local::{
         args::ContractCallArgs,
@@ -127,7 +127,7 @@ impl Multicast {
                 let ret = { self.wallet_session.read().get_secp_public_key(pk.clone()).await };
                 match ret {
                     Ok(pk_info) => {
-                        let public_key = pk_info.qfhash::<QEDHasher>();
+                        let public_key = pk_info.qfhash::<PsyHasher>();
                         let ret = { self.wallet_session.read().st_provider.get_user_id(public_key).await };
                         match ret {
                             Ok(user_id) => {

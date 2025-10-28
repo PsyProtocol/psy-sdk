@@ -11,7 +11,7 @@ use ts_rs::TS;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
-pub struct QEDUserLeaf<F: RichField> {
+pub struct PsyUserLeaf<F: RichField> {
     pub public_key: QHashOut<F>,
     pub user_state_tree_root: QHashOut<F>,
     pub balance: F,
@@ -20,7 +20,7 @@ pub struct QEDUserLeaf<F: RichField> {
     pub event_index: F,
     pub user_id: F,
 }
-impl<F: RichField> QEDUserLeaf<F> {
+impl<F: RichField> PsyUserLeaf<F> {
     pub fn new_user_default(user_id: F, public_key: QHashOut<F>, user_state_tree_root: QHashOut<F>) -> Self {
         Self {
             public_key,
@@ -33,7 +33,7 @@ impl<F: RichField> QEDUserLeaf<F> {
         }
     }
 }
-impl<F: RichField> KVQSerializable for QEDUserLeaf<F> {
+impl<F: RichField> KVQSerializable for PsyUserLeaf<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -43,12 +43,12 @@ impl<F: RichField> KVQSerializable for QEDUserLeaf<F> {
     }
 }
 
-impl<F: RichField> QFeltSized for QEDUserLeaf<F> {
+impl<F: RichField> QFeltSized for PsyUserLeaf<F> {
     fn q_felt_size() -> usize {
         13
     }
 }
-impl<F: RichField> ToQFelts<F> for QEDUserLeaf<F> {
+impl<F: RichField> ToQFelts<F> for PsyUserLeaf<F> {
     fn to_qfelts(&self) -> Vec<F> {
         vec![
             self.public_key.0.elements[0],
@@ -69,7 +69,7 @@ impl<F: RichField> ToQFelts<F> for QEDUserLeaf<F> {
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != 13 {
-            panic!("Invalid number of elements for QEDUserLeaf");
+            panic!("Invalid number of elements for PsyUserLeaf");
         }
         let public_key = QHashOut::from_qfelts(&felts[0..4]);
         let user_state_tree_root = QHashOut::from_qfelts(&felts[4..8]);
@@ -78,7 +78,7 @@ impl<F: RichField> ToQFelts<F> for QEDUserLeaf<F> {
         let last_checkpoint_id = felts[10];
         let event_index = felts[11];
         let user_id = felts[12];
-        QEDUserLeaf {
+        PsyUserLeaf {
             public_key,
             user_state_tree_root,
             balance,
@@ -90,7 +90,7 @@ impl<F: RichField> ToQFelts<F> for QEDUserLeaf<F> {
     }
 }
 
-impl<F: RichField> QFieldHashable<F> for QEDUserLeaf<F> {
+impl<F: RichField> QFieldHashable<F> for PsyUserLeaf<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         H::q_hash_many(&[
             self.public_key.0.elements[0],
@@ -110,7 +110,7 @@ impl<F: RichField> QFieldHashable<F> for QEDUserLeaf<F> {
     }
 }
 
-impl<F: RichField> QEDUserLeaf<F> {
+impl<F: RichField> PsyUserLeaf<F> {
     pub fn alghash<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
         QHashOut(H::hash_no_pad(&[
             self.public_key.0.elements[0],

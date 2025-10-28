@@ -1,4 +1,4 @@
-export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.qed
+export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.psy
 export SQLX_OFFLINE=true
 
 PROFILE := release
@@ -8,7 +8,7 @@ LOG_LEVEL := psy_node_utils=trace,tikv_client=warn,psy_store=trace,psy_user_cli=
 BACKUP ?= false
 ifeq ($(BACKUP),true)
 	# you must set aws credentials and config in under ~/.aws folder or in environment variables if you want to enable backup
-	export QED_BACKUP_BUCKET=qed-backup
+	export Psy_BACKUP_BUCKET=psy-backup
 endif
 
 default: build wallet-build
@@ -42,59 +42,59 @@ DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo execute --pr
 DARGO_CLI_TEST    = RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo test --file
 
 ci:
-	@$(DARGO_CLI_TEST) psy_compiler/tests/in_mod_attr_test.qed
-	# @$(DARGO_CLI_TEST) psy_compiler/tests/should_panic_test.qed
-	@$(DARGO_CLI_TEST) psy_compiler/tests/for_if_test.qed
-	@$(DARGO_CLI_TEST) psy_compiler/tests/array_struct_modification_test.qed
-	@$(DARGO_CLI_TEST) psy_compiler/tests/conditional_assert_test.qed
-	@$(DARGO_CLI_TEST) psy_compiler/tests/guta_nullifier_calculation_test.qed
-	@$(DARGO_CLI_TEST) psy_compiler/tests/root_calculation_test.qed
+	@$(DARGO_CLI_TEST) psy_compiler/tests/in_mod_attr_test.psy
+	# @$(DARGO_CLI_TEST) psy_compiler/tests/should_panic_test.psy
+	@$(DARGO_CLI_TEST) psy_compiler/tests/for_if_test.psy
+	@$(DARGO_CLI_TEST) psy_compiler/tests/array_struct_modification_test.psy
+	@$(DARGO_CLI_TEST) psy_compiler/tests/conditional_assert_test.psy
+	@$(DARGO_CLI_TEST) psy_compiler/tests/guta_nullifier_calculation_test.psy
+	@$(DARGO_CLI_TEST) psy_compiler/tests/root_calculation_test.psy
 
-	@$(DARGO_CLI_COMPILE) ctx_test.qed
-	@$(DARGO_CLI_COMPILE) storage_test.qed --contract-name=SimpleContract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
-	@$(DARGO_CLI_COMPILE) basic_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
-	@$(DARGO_CLI_COMPILE) token.qed --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
-	@$(DARGO_CLI_COMPILE) two_user_ups.qed --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
+	@$(DARGO_CLI_COMPILE) ctx_test.psy
+	@$(DARGO_CLI_COMPILE) storage_test.psy --contract-name=SimpleContract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
+	@$(DARGO_CLI_COMPILE) basic_ups.psy --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
+	@$(DARGO_CLI_COMPILE) token.psy --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
+	@$(DARGO_CLI_COMPILE) two_user_ups.psy --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
 
-	@$(DARGO_CLI_EXECUTE) assert_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) ctx_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) inline_module_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) opcode_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) parameter_passing_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) pub_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) return_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) self_test.qed
-	@$(DARGO_CLI_EXECUTE) storage_test.qed
-	@$(DARGO_CLI_EXECUTE) trait_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) hash_test.qed
-	@$(DARGO_CLI_EXECUTE) hash_two_to_one_test.qed
-	@$(DARGO_CLI_EXECUTE) verify_proof_test.qed
-	@$(DARGO_CLI_EXECUTE) first_class_function_test.qed
-	@$(DARGO_CLI_EXECUTE) type_alias_test.qed
-	@$(DARGO_CLI_EXECUTE) const_test.qed --parameters 1
-	@$(DARGO_CLI_EXECUTE) while_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) for_test.qed
-	@$(DARGO_CLI_EXECUTE) lambda_test.qed
-	@$(DARGO_CLI_EXECUTE) generics_test.qed
-	@$(DARGO_CLI_EXECUTE) polymorphism.qed
-	@$(DARGO_CLI_EXECUTE) type_hint_test.qed
-	@$(DARGO_CLI_EXECUTE) exp_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) array_test.qed --parameters 1,1
-	@$(DARGO_CLI_EXECUTE) u32_test.qed --parameters 2,3
-	# @$(DARGO_CLI_EXECUTE) enum_test.qed
-	@$(DARGO_CLI_EXECUTE) tuple_test.qed
-	@$(DARGO_CLI_EXECUTE) ambiguity_test.qed
-	@$(DARGO_CLI_EXECUTE) match_test.qed --parameters 100
-	@$(DARGO_CLI_EXECUTE) if_test.qed
-	@$(DARGO_CLI_EXECUTE) block_test.qed
-	@$(DARGO_CLI_EXECUTE) path_test.qed
-	@$(DARGO_CLI_EXECUTE) should_panic_test.qed --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 133700 --parameters 2,1000
-	@$(DARGO_CLI_EXECUTE) basic_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters=2,100
-	@$(DARGO_CLI_EXECUTE) token.qed --contract-name=ContractRef --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
-	@$(DARGO_CLI_EXECUTE) two_user_ups.qed --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
-	@$(DARGO_CLI_EXECUTE) check_secp_sign_test.qed
-	@$(DARGO_CLI_EXECUTE) clear_entire_tree_test.qed
+	@$(DARGO_CLI_EXECUTE) assert_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) ctx_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) inline_module_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) opcode_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) parameter_passing_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) pub_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) return_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) self_test.psy
+	@$(DARGO_CLI_EXECUTE) storage_test.psy
+	@$(DARGO_CLI_EXECUTE) trait_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) hash_test.psy
+	@$(DARGO_CLI_EXECUTE) hash_two_to_one_test.psy
+	@$(DARGO_CLI_EXECUTE) verify_proof_test.psy
+	@$(DARGO_CLI_EXECUTE) first_class_function_test.psy
+	@$(DARGO_CLI_EXECUTE) type_alias_test.psy
+	@$(DARGO_CLI_EXECUTE) const_test.psy --parameters 1
+	@$(DARGO_CLI_EXECUTE) while_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) for_test.psy
+	@$(DARGO_CLI_EXECUTE) lambda_test.psy
+	@$(DARGO_CLI_EXECUTE) generics_test.psy
+	@$(DARGO_CLI_EXECUTE) polymorphism.psy
+	@$(DARGO_CLI_EXECUTE) type_hint_test.psy
+	@$(DARGO_CLI_EXECUTE) exp_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) array_test.psy --parameters 1,1
+	@$(DARGO_CLI_EXECUTE) u32_test.psy --parameters 2,3
+	# @$(DARGO_CLI_EXECUTE) enum_test.psy
+	@$(DARGO_CLI_EXECUTE) tuple_test.psy
+	@$(DARGO_CLI_EXECUTE) ambiguity_test.psy
+	@$(DARGO_CLI_EXECUTE) match_test.psy --parameters 100
+	@$(DARGO_CLI_EXECUTE) if_test.psy
+	@$(DARGO_CLI_EXECUTE) block_test.psy
+	@$(DARGO_CLI_EXECUTE) path_test.psy
+	@$(DARGO_CLI_EXECUTE) should_panic_test.psy --parameters 2,3
+	@$(DARGO_CLI_EXECUTE) basic_ups.psy --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 133700 --parameters 2,1000
+	@$(DARGO_CLI_EXECUTE) basic_ups.psy --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters=2,100
+	@$(DARGO_CLI_EXECUTE) token.psy --contract-name=ContractRef --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
+	@$(DARGO_CLI_EXECUTE) two_user_ups.psy --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
+	@$(DARGO_CLI_EXECUTE) check_secp_sign_test.psy
+	@$(DARGO_CLI_EXECUTE) clear_entire_tree_test.psy
 
 	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
 	       --package psy-ast \
@@ -127,7 +127,7 @@ config_gen_v2:
 #                                   TMP                                        #
 ################################################################################
 PROJECT_DIR              := $(PWD)/examples
-FILE                     := $(PWD)/psy_compiler/tests/opcode_test.qed
+FILE                     := $(PWD)/psy_compiler/tests/opcode_test.psy
 PARAMETERS               := 1,2
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
 USER0_PUBLIC_KEY         := cc92647d3a77819dec2f054a241d0863c9bd54cf5a1103ca560ed85ad59c460d
@@ -168,23 +168,23 @@ init:
 	@mkdir -p ${PROJECT_DIR}
 	# Create token contract subdirectory
 	@rm -rf ${PROJECT_DIR}/token && ./target/${PROFILE}/dargo new ${PROJECT_DIR}/token
-	@cp psy_compiler/tests/new_token.qed ${PROJECT_DIR}/token/src/main.qed
+	@cp psy_compiler/tests/new_token.psy ${PROJECT_DIR}/token/src/main.psy
 	@rm -rf ${PROJECT_DIR}/rewards && ./target/${PROFILE}/dargo new ${PROJECT_DIR}/rewards
-	@cp psy_compiler/tests/rewards.qed ${PROJECT_DIR}/rewards/src/main.qed
+	@cp psy_compiler/tests/rewards.psy ${PROJECT_DIR}/rewards/src/main.psy
 	@rm -rf ${PROJECT_DIR}/mining_rewards &&./target/${PROFILE}/dargo new ${PROJECT_DIR}/mining_rewards
-	@cp psy_compiler/tests/mining_rewards.qed ${PROJECT_DIR}/mining_rewards/src/main.qed
+	@cp psy_compiler/tests/mining_rewards.psy ${PROJECT_DIR}/mining_rewards/src/main.psy
 	@mkdir -p $(PWD)/db
 	@echo "Waiting for databases to be ready..."
 	# @echo "Starting Redis containers..."
-	# @docker run -d --name qed-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
-	# @docker run -d --name qed-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
-	# @docker run -d --name qed-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
+	# @docker run -d --name psy-redis-coordinator -p 6379:6379 redis:alpine redis-server --save ""
+	# @docker run -d --name psy-redis-realm0 -p 6380:6379 redis:alpine redis-server --save ""
+	# @docker run -d --name psy-redis-realm1 -p 6381:6379 redis:alpine redis-server --save ""
 	@docker-compose -f ./scripts/docker-compose.db.yml up -d --remove-orphans
 	@sleep 10
 	# @echo "Starting ScyllaDB containers..."
-	# @docker run -d --name qed-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
-	# @docker run -d --name qed-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
-	# @docker run -d --name qed-scylla-realm1 -p 9044:9042 scylladb/scylla:latest
+	# @docker run -d --name psy-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
+	# @docker run -d --name psy-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
+	# @docker run -d --name psy-scylla-realm1 -p 9044:9042 scylladb/scylla:latest
 	@cd ./psy_api_services && export DATABASE_URL="postgres://postgres:password@localhost/postgres" && cargo sqlx database create && cargo sqlx migrate run
 	@sleep 5
 
@@ -194,7 +194,7 @@ shutdown:
 	@redis-cli -p 6379 FLUSHALL > /dev/null 2>&1 || true
 	@docker-compose -f ./scripts/docker-compose.db.yml down -v --remove-orphans
 	@rm -rf ./target/redis-data > /dev/null 2>&1 || true
-	# @docker rm -f qed-scylla-coordinator qed-scylla-realm0 qed-scylla-realm1 > /dev/null 2>&1 || true
+	# @docker rm -f psy-scylla-coordinator psy-scylla-realm0 psy-scylla-realm1 > /dev/null 2>&1 || true
 	@sudo rm -fr ${PROJECT_DIR} ${PWD}/db logs > /dev/null 2>&1 || true
 	@echo "Removing user job tracker JSON files..."
 	@rm -f ${USER0_PUBLIC_KEY}.json ${USER0_SECP_ZK_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER1_SECP_ZK_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER2_SECP_ZK_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json ${USER3_SECP_ZK_PUBLIC_KEY}.json > /dev/null 2>&1 || true
@@ -213,9 +213,9 @@ interpret:
 
 compile:
 	# Compile token contract
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim batch_claim_pm_rewards
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/mining_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward claim_guta_proof
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.psy --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.psy --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim batch_claim_pm_rewards
+	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/mining_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.psy --contract-name=ContractRef --method-names advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward claim_guta_proof
 
 run-api-services:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli api-services
@@ -454,7 +454,7 @@ run-prove-proxy:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli prove-proxy
 
 run-web-wallet:
-	@cd psy-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
+	@cd psy-ts-sdk/app/psy-wallet && pnpm i && pnpm run dev
 
 run-benchmark:
 	@./scripts/run_benchmark.sh
@@ -580,10 +580,10 @@ reward-of-3:
 	@curl -s -X GET "http://localhost:3000/stats/workers/${USER3_SECP_ZK_PUBLIC_KEY}" | jq .
 
 build-block:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_build_block", "params": [], "id": 1 }' | jq .
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "psy_build_block", "params": [], "id": 1 }' | jq .
 
 latest-checkpoint:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_latest_checkpoint", "params": [], "id": 1 }' | jq .
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "psy_latest_checkpoint", "params": [], "id": 1 }' | jq .
 
 # Metadata RPC commands
 get-contract-leaf-data:
@@ -651,7 +651,7 @@ get-user-contract-tree-merkle-proof:
 get-user-contract-state-tree-merkle-proof:
 	@./target/${PROFILE}/psy_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
 
-AWS_S3_BUCKET := qed-backup
+AWS_S3_BUCKET := psy-backup
 
 sync-store-coordinator-processor:
 	@./target/${PROFILE}/psy_node_cli coordinator-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/coordinator
@@ -663,19 +663,19 @@ sync-store-realm-processor1:
 	@./target/${PROFILE}/psy_node_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm1 --realm-id 1 --queue-biz-key rwq1 --redis-uri redis://127.0.0.1:6379
 
 get-realm-status:
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_current_realm_status_on_coordinator", "params": {"realm_id": ${REALM_ID}}, "id": 1}' | jq .
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "psy_get_current_realm_status_on_coordinator", "params": {"realm_id": ${REALM_ID}}, "id": 1}' | jq .
 
 # Check if user exists in realm
 check-user-id:
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_check_user_id_in_realm", "params": [${USER_ID}], "id": 1 }' | jq .
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "psy_check_user_id_in_realm", "params": [${USER_ID}], "id": 1 }' | jq .
 
 get-graphviz-coordinator:
 	@echo "Getting graphviz from coordinator for checkpoint ${CHECKPOINT_ID}..."
-	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "qed_get_graphviz", "params": [${CHECKPOINT_ID}], "id": 1}' | jq -r '.result' | sed 's/\\n/\n/g'
+	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "psy_get_graphviz", "params": [${CHECKPOINT_ID}], "id": 1}' | jq -r '.result' | sed 's/\\n/\n/g'
 
 get-graphviz-realm:
 	@echo "Getting graphviz from realm0 for checkpoint ${CHECKPOINT_ID}..."
-	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "qed_get_graphviz", "params": [${CHECKPOINT_ID}], "id": 1}' | jq -r '.result' | sed 's/\\n/\n/g'
+	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "psy_get_graphviz", "params": [${CHECKPOINT_ID}], "id": 1}' | jq -r '.result' | sed 's/\\n/\n/g'
 
 get-user-id-from-registration-id:
 	@./target/${PROFILE}/psy_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY}
@@ -683,7 +683,7 @@ get-user-id-from-registration-id:
 image:
 	docker build \
 		-c 512 \
-		-t qedprotocol/qed-rollup:latest \
+		-t psyprotocol/psy-node:latest \
 		-f Dockerfile .
 
 wasm-build:
@@ -691,7 +691,7 @@ wasm-build:
 	@cd psy_prover && wasm-pack build --target nodejs --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-prover  --no-pack --release --no-default-features
 
 wallet-build: wasm-build
-	@cd psy-ts-sdk/app/qed-wallet && pnpm i && pnpm build:wasm && pnpm build:extension
+	@cd psy-ts-sdk/app/psy-wallet && pnpm i && pnpm build:wasm && pnpm build:extension
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

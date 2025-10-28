@@ -8,10 +8,10 @@ use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
-use psy_data::qdata::checkpoint::QEDCheckpointGlobalStateRoots;
+use psy_data::qdata::checkpoint::PsyCheckpointGlobalStateRoots;
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
-pub struct QEDCheckpointGlobalStateRootsGadget {
+pub struct PsyCheckpointGlobalStateRootsGadget {
     pub contract_tree_root: HashOutTarget,
     pub deposit_tree_root: HashOutTarget,
     pub user_tree_root: HashOutTarget,
@@ -19,8 +19,8 @@ pub struct QEDCheckpointGlobalStateRootsGadget {
     pub user_registration_tree_root: HashOutTarget,
 }
 
-impl QEDCheckpointGlobalStateRootsGadget {
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointGlobalStateRoots<F>) -> anyhow::Result<()> {
+impl PsyCheckpointGlobalStateRootsGadget {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointGlobalStateRoots<F>) -> anyhow::Result<()> {
         witness.set_hash_target(self.contract_tree_root, target.contract_tree_root.0)?;
         witness.set_hash_target(self.deposit_tree_root, target.deposit_tree_root.0)?;
         witness.set_hash_target(self.user_tree_root, target.user_tree_root.0)?;
@@ -36,7 +36,7 @@ impl QEDCheckpointGlobalStateRootsGadget {
         builder.hash_two_to_one::<H>(base_combo, self.user_registration_tree_root)
     }
 }
-impl AlgebraicHashableTarget for QEDCheckpointGlobalStateRootsGadget {
+impl AlgebraicHashableTarget for PsyCheckpointGlobalStateRootsGadget {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -44,7 +44,7 @@ impl AlgebraicHashableTarget for QEDCheckpointGlobalStateRootsGadget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl CreatableTarget for QEDCheckpointGlobalStateRootsGadget {
+impl CreatableTarget for PsyCheckpointGlobalStateRootsGadget {
     fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let contract_tree_root = builder.add_virtual_hash();
         let deposit_tree_root = builder.add_virtual_hash();
@@ -61,7 +61,7 @@ impl CreatableTarget for QEDCheckpointGlobalStateRootsGadget {
         }
     }
 }
-impl ToTargets for QEDCheckpointGlobalStateRootsGadget {
+impl ToTargets for PsyCheckpointGlobalStateRootsGadget {
     fn to_targets(&self) -> Vec<Target> {
         vec![
             self.contract_tree_root.elements[0],
@@ -87,11 +87,11 @@ impl ToTargets for QEDCheckpointGlobalStateRootsGadget {
         ]
     }
 }
-impl FromTargets for QEDCheckpointGlobalStateRootsGadget {
+impl FromTargets for PsyCheckpointGlobalStateRootsGadget {
     fn from_targets(targets: &[Target]) -> Self {
         if targets.len() != 20 {
             panic!(
-                "tried to create QEDCheckpointGlobalStateRootsGadget from an array of {} targets, but expected an array of 16 targets",
+                "tried to create PsyCheckpointGlobalStateRootsGadget from an array of {} targets, but expected an array of 16 targets",
                 targets.len()
             );
         }
@@ -120,14 +120,14 @@ impl FromTargets for QEDCheckpointGlobalStateRootsGadget {
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDCheckpointGlobalStateRootsGadget, F, true> for QEDCheckpointGlobalStateRoots<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointGlobalStateRootsGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyCheckpointGlobalStateRootsGadget, F, true> for PsyCheckpointGlobalStateRoots<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointGlobalStateRootsGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDCheckpointGlobalStateRootsGadget, F, false> for QEDCheckpointGlobalStateRoots<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDCheckpointGlobalStateRootsGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyCheckpointGlobalStateRootsGadget, F, false> for PsyCheckpointGlobalStateRoots<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointGlobalStateRootsGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

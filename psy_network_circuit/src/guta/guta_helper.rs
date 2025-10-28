@@ -46,7 +46,7 @@ use crate::guta::circuits::{
 };
 
 #[derive(Debug)]
-pub struct QEDGUTACircuitManager<C: GenericConfig<D> + 'static, const D: usize>
+pub struct PsyGUTACircuitManager<C: GenericConfig<D> + 'static, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -81,7 +81,7 @@ where
     pub no_change_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> QEDGUTACircuitManager<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PsyGUTACircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -397,7 +397,7 @@ where
     }
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> QNextGenWorkerGenericInfo for QEDGUTACircuitManager<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> QNextGenWorkerGenericInfo for PsyGUTACircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -420,7 +420,7 @@ where
 }
 #[async_trait]
 impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
-    QNextGenWorkerGenericProverAsyncMut<S, L, C, D> for QEDGUTACircuitManager<C, D>
+    QNextGenWorkerGenericProverAsyncMut<S, L, C, D> for PsyGUTACircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -487,7 +487,7 @@ mod tests {
     use psy_common_circuit::circuits::lookalikes::custom::get_lookalike_custom;
     use psy_core::{data::qhashout::QHashOut, job::id::QCircuitCommonGatesType};
 
-    use super::QEDGUTACircuitManager;
+    use super::PsyGUTACircuitManager;
 
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
@@ -495,7 +495,7 @@ mod tests {
     fn check_fingerprints() {
         let end_cap_info = get_lookalike_custom::<C, D>(QCircuitCommonGatesType::E, 12, 4);
 
-        let mgr = QEDGUTACircuitManager::<C, D>::new_with_config(
+        let mgr = PsyGUTACircuitManager::<C, D>::new_with_config(
             &end_cap_info.common,
             end_cap_info.verifier_only.constants_sigmas_cap.height(),
             QHashOut::rand(),

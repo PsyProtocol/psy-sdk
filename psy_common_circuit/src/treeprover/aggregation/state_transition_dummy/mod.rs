@@ -27,7 +27,7 @@ use crate::{
     builder::{
         comparison::CircuitBuilderComparison,
         hash::core::CircuitBuilderHashCore,
-        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+        pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     },
     circuits::traits::qstandard::{
         provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
@@ -83,7 +83,7 @@ where
         builder.register_public_inputs(&allowed_circuit_hashes_root.elements);
         builder.register_public_inputs(&transition.elements);
 
-        builder.add_qed_type_d_common_gates();
+        builder.add_psy_type_d_common_gates();
         pad_circuit_degree::<C::F, D>(&mut builder, 12);
         let circuit_data = builder.build::<C>();
 

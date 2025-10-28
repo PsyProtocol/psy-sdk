@@ -17,8 +17,8 @@ use psy_core::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
 };
 use psy_crypto::{common::simple_circuit_library::SimpleCircuitLibrary, hash::traits::qhashable::QFieldHashable};
-use psy_data::config::store_config::{QEDFelt, QEDHash, QEDHasher};
-use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_data::config::store_config::{PsyFelt, PsyHash, PsyHasher};
+use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
 use psy_node::{
     common::{
         retry::{retry_with_backoff, RetryConfig},
@@ -30,7 +30,7 @@ use psy_node::{
         run_worker,
     },
 };
-use psy_prover::{ups::circuit_manager::core::QEDUPSStepCircuitManager, wallet::secp_wallet::Wallet};
+use psy_prover::{ups::circuit_manager::core::PsyUPSStepCircuitManager, wallet::secp_wallet::Wallet};
 use tokio::{sync::Mutex, time::sleep};
 use tracing::{error, info, log::warn};
 
@@ -75,15 +75,15 @@ pub async fn run(
 
     let wallet = Arc::new(wallet);
 
-    let main_circuits = psy_prover::ups::circuit_manager::core::QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(
-        psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
+    let main_circuits = psy_prover::ups::circuit_manager::core::QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(
+        psy_core::config::network_constants::Psy_NETWORK_MAGIC_REGTEST,
     ));
 
-    let mut memory_wallet = psy_prover::wallet::memory_wallet::QEDMemoryWallet::new(vec![Box::new(main_circuits)]);
+    let mut memory_wallet = psy_prover::wallet::memory_wallet::PsyMemoryWallet::new(vec![Box::new(main_circuits)]);
 
     let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
     let public_key_info = memory_wallet.add_secp_private_key(private_key).await?;
-    let worker_public_key = public_key_info.qfhash::<QEDHasher>();
+    let worker_public_key = public_key_info.qfhash::<PsyHasher>();
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
@@ -109,7 +109,7 @@ pub async fn run(
 
     let recipient_user_id = recipient.unwrap_or(user_id);
 
-    let prover = Arc::new(QEDCoordinatorCircuitManager::<C, D>::new_with_library(
+    let prover = Arc::new(PsyCoordinatorCircuitManager::<C, D>::new_with_library(
         &proof_verifier.library,
         user_id_hash(recipient_user_id),
     ));

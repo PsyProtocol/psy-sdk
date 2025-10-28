@@ -5,7 +5,7 @@ use psy_data::dpn::cfc_context_input::DapenCFCUserTransactionInputContext;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::exec::QEDCmdWithInputAndWitness;
+use super::exec::PsyCmdWithInputAndWitness;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -13,7 +13,7 @@ use super::exec::QEDCmdWithInputAndWitness;
 pub struct DapenContractFunctionCircuitInput<F: RichField> {
     pub inputs: Vec<F>,
     pub outputs: Vec<F>,
-    pub cmd_witnesses: Vec<QEDCmdWithInputAndWitness<F>>,
+    pub cmd_witnesses: Vec<PsyCmdWithInputAndWitness<F>>,
     pub session_proof_tree_root: QHashOut<F>,
     pub tx_input_ctx: DapenCFCUserTransactionInputContext<F>,
 }

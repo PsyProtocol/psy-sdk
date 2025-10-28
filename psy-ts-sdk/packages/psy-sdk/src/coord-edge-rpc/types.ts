@@ -4,12 +4,12 @@ import {
     ContractCodeDefinition,
     LatestCheckpointResponse,
     QBCDeployContract,
-    QEDCheckpointGlobalStateRoots,
-    QEDCheckpointLeaf,
-    QEDCheckpointSyncInfoCompact,
-    QEDContractLeaf,
-    QEDL2BlockState,
-    QEDUserLeaf,
+    PsyCheckpointGlobalStateRoots,
+    PsyCheckpointLeaf,
+    PsyCheckpointSyncInfoCompact,
+    PsyContractLeaf,
+    PsyL2BlockState,
+    PsyUserLeaf,
     ZKPublicKeyInfo,
 } from "../types";
 
@@ -17,70 +17,70 @@ import {
  * Coordinator Edge RPC Command namespace
  */
 export enum CoordinatorEdgeRPCCommand {
-    RegisterUser = "qed_register_user",
-    GetUserId = "qed_get_user_id",
-    DeployContract = "qed_deploy_contract",
-    GetLatestCheckpoint = "qed_get_latest_checkpoint",
-    BuildBlock = "qed_build_block",
-    GetCheckpointSyncInfo = "qed_get_checkpoint_sync_info",
-    GetContractLeafData = "qed_get_contract_leaf_data",
-    GetContractLeafDataF = "qed_get_contract_leaf_data_f",
-    GetCheckpointLeafData = "qed_get_checkpoint_leaf_data",
-    GetCheckpointLeafDataF = "qed_get_checkpoint_leaf_data_f",
-    GetContractCodeDefinition = "qed_get_contract_code_definition",
-    GetContractCodeDefinitionF = "qed_get_contract_code_definition_f",
-    GetLatestL2BlockState = "qed_get_latest_l2_block_state",
-    GetL2BlockState = "qed_get_l2_block_state",
-    GetL2BlockStateF = "qed_get_l2_block_state_f",
-    GetUserRegistrationTreeRoot = "qed_get_user_registration_tree_root",
-    GetUserRegistrationTreeRootF = "qed_get_user_registration_tree_root_f",
-    GetUserRegistrationTreeLeafHash = "qed_get_user_registration_tree_leaf_hash",
-    GetUserRegistrationTreeLeafHashF = "qed_get_user_registration_tree_leaf_hash_f",
-    GetUserRegistrationTreeMerkleProof = "qed_get_user_registration_tree_merkle_proof",
-    GetUserRegistrationTreeMerkleProofF = "qed_get_user_registration_tree_merkle_proof_f",
-    GetUserTreeRoot = "qed_get_user_tree_root",
-    GetUserTreeRootF = "qed_get_user_tree_root_f",
-    GetUserSubTreeMerkleProof = "qed_get_user_sub_tree_merkle_proof",
-    GetUserTopTreeMerkleProof = "qed_get_user_top_tree_merkle_proof",
-    GetUserTopTreeCapRoot = "qed_get_user_top_tree_cap_root",
-    GetUserLatestTopTreeCapRoot = "qed_get_user_latest_top_tree_cap_root",
-    GetContractFunctionTreeRoot = "qed_get_contract_function_tree_root",
-    GetContractFunctionTreeRootF = "qed_get_contract_function_tree_root_f",
-    GetContractFunctionTreeLeafHash = "qed_get_contract_function_tree_leaf_hash",
-    GetContractFunctionTreeLeafHashF = "qed_get_contract_function_tree_leaf_hash_f",
-    GetContractFunctionTreeMerkleProof = "qed_get_contract_function_tree_merkle_proof",
-    GetContractFunctionTreeMerkleProofF = "qed_get_contract_function_tree_merkle_proof_f",
-    GetContractTreeRoot = "qed_get_contract_tree_root",
-    GetContractTreeRootF = "qed_get_contract_tree_root_f",
-    GetContractTreeLeafHash = "qed_get_contract_tree_leaf_hash",
-    GetContractTreeLeafHashF = "qed_get_contract_tree_leaf_hash_f",
-    GetContractTreeMerkleProof = "qed_get_contract_tree_merkle_proof",
-    GetContractTreeMerkleProofF = "qed_get_contract_tree_merkle_proof_f",
-    GetDepositTreeRoot = "qed_get_deposit_tree_root",
-    GetDepositTreeRootF = "qed_get_deposit_tree_root_f",
-    GetDepositTreeLeafHash = "qed_get_deposit_tree_leaf_hash",
-    GetDepositTreeLeafHashF = "qed_get_deposit_tree_leaf_hash_f",
-    GetDepositTreeMerkleProof = "qed_get_deposit_tree_merkle_proof",
-    GetDepositTreeMerkleProofF = "qed_get_deposit_tree_merkle_proof_f",
-    GetWithdrawalTreeRoot = "qed_get_withdrawal_tree_root",
-    GetWithdrawalTreeRootF = "qed_get_withdrawal_tree_root_f",
-    GetWithdrawalTreeLeafHash = "qed_get_withdrawal_tree_leaf_hash",
-    GetWithdrawalTreeLeafHashF = "qed_get_withdrawal_tree_leaf_hash_f",
-    GetWithdrawalTreeMerkleProof = "qed_get_withdrawal_tree_merkle_proof",
-    GetWithdrawalTreeMerkleProofF = "qed_get_withdrawal_tree_merkle_proof_f",
-    GetLatestCheckpointTreeRoot = "qed_get_latest_checkpoint_tree_root",
-    GetCheckpointTreeRoot = "qed_get_checkpoint_tree_root",
-    GetCheckpointTreeRootF = "qed_get_checkpoint_tree_root_f",
-    GetCheckpointTreeLeafHash = "qed_get_checkpoint_tree_leaf_hash",
-    GetCheckpointTreeLeafHashF = "qed_get_checkpoint_tree_leaf_hash_f",
-    GetCheckpointTreeMerkleProof = "qed_get_checkpoint_tree_merkle_proof",
-    GetCheckpointTreeMerkleProofF = "qed_get_checkpoint_tree_merkle_proof_f",
-    GetCheckpointGlobalStateRoots = "qed_get_checkpoint_global_state_roots",
-    GetCheckpointSyncInfoCompact = "qed_get_checkpoint_sync_info_compact",
-    LatestCheckpoint = "qed_latest_checkpoint",
-    GetUserLeafData = "qed_get_user_leaf_data",
-    GetUserTreeMerkleProof = "qed_get_user_tree_merkle_proof",
-    GetUserTreeMerkleProofF = "qed_get_user_tree_merkle_proof_f",
+    RegisterUser = "psy_register_user",
+    GetUserId = "psy_get_user_id",
+    DeployContract = "psy_deploy_contract",
+    GetLatestCheckpoint = "psy_get_latest_checkpoint",
+    BuildBlock = "psy_build_block",
+    GetCheckpointSyncInfo = "psy_get_checkpoint_sync_info",
+    GetContractLeafData = "psy_get_contract_leaf_data",
+    GetContractLeafDataF = "psy_get_contract_leaf_data_f",
+    GetCheckpointLeafData = "psy_get_checkpoint_leaf_data",
+    GetCheckpointLeafDataF = "psy_get_checkpoint_leaf_data_f",
+    GetContractCodeDefinition = "psy_get_contract_code_definition",
+    GetContractCodeDefinitionF = "psy_get_contract_code_definition_f",
+    GetLatestL2BlockState = "psy_get_latest_l2_block_state",
+    GetL2BlockState = "psy_get_l2_block_state",
+    GetL2BlockStateF = "psy_get_l2_block_state_f",
+    GetUserRegistrationTreeRoot = "psy_get_user_registration_tree_root",
+    GetUserRegistrationTreeRootF = "psy_get_user_registration_tree_root_f",
+    GetUserRegistrationTreeLeafHash = "psy_get_user_registration_tree_leaf_hash",
+    GetUserRegistrationTreeLeafHashF = "psy_get_user_registration_tree_leaf_hash_f",
+    GetUserRegistrationTreeMerkleProof = "psy_get_user_registration_tree_merkle_proof",
+    GetUserRegistrationTreeMerkleProofF = "psy_get_user_registration_tree_merkle_proof_f",
+    GetUserTreeRoot = "psy_get_user_tree_root",
+    GetUserTreeRootF = "psy_get_user_tree_root_f",
+    GetUserSubTreeMerkleProof = "psy_get_user_sub_tree_merkle_proof",
+    GetUserTopTreeMerkleProof = "psy_get_user_top_tree_merkle_proof",
+    GetUserTopTreeCapRoot = "psy_get_user_top_tree_cap_root",
+    GetUserLatestTopTreeCapRoot = "psy_get_user_latest_top_tree_cap_root",
+    GetContractFunctionTreeRoot = "psy_get_contract_function_tree_root",
+    GetContractFunctionTreeRootF = "psy_get_contract_function_tree_root_f",
+    GetContractFunctionTreeLeafHash = "psy_get_contract_function_tree_leaf_hash",
+    GetContractFunctionTreeLeafHashF = "psy_get_contract_function_tree_leaf_hash_f",
+    GetContractFunctionTreeMerkleProof = "psy_get_contract_function_tree_merkle_proof",
+    GetContractFunctionTreeMerkleProofF = "psy_get_contract_function_tree_merkle_proof_f",
+    GetContractTreeRoot = "psy_get_contract_tree_root",
+    GetContractTreeRootF = "psy_get_contract_tree_root_f",
+    GetContractTreeLeafHash = "psy_get_contract_tree_leaf_hash",
+    GetContractTreeLeafHashF = "psy_get_contract_tree_leaf_hash_f",
+    GetContractTreeMerkleProof = "psy_get_contract_tree_merkle_proof",
+    GetContractTreeMerkleProofF = "psy_get_contract_tree_merkle_proof_f",
+    GetDepositTreeRoot = "psy_get_deposit_tree_root",
+    GetDepositTreeRootF = "psy_get_deposit_tree_root_f",
+    GetDepositTreeLeafHash = "psy_get_deposit_tree_leaf_hash",
+    GetDepositTreeLeafHashF = "psy_get_deposit_tree_leaf_hash_f",
+    GetDepositTreeMerkleProof = "psy_get_deposit_tree_merkle_proof",
+    GetDepositTreeMerkleProofF = "psy_get_deposit_tree_merkle_proof_f",
+    GetWithdrawalTreeRoot = "psy_get_withdrawal_tree_root",
+    GetWithdrawalTreeRootF = "psy_get_withdrawal_tree_root_f",
+    GetWithdrawalTreeLeafHash = "psy_get_withdrawal_tree_leaf_hash",
+    GetWithdrawalTreeLeafHashF = "psy_get_withdrawal_tree_leaf_hash_f",
+    GetWithdrawalTreeMerkleProof = "psy_get_withdrawal_tree_merkle_proof",
+    GetWithdrawalTreeMerkleProofF = "psy_get_withdrawal_tree_merkle_proof_f",
+    GetLatestCheckpointTreeRoot = "psy_get_latest_checkpoint_tree_root",
+    GetCheckpointTreeRoot = "psy_get_checkpoint_tree_root",
+    GetCheckpointTreeRootF = "psy_get_checkpoint_tree_root_f",
+    GetCheckpointTreeLeafHash = "psy_get_checkpoint_tree_leaf_hash",
+    GetCheckpointTreeLeafHashF = "psy_get_checkpoint_tree_leaf_hash_f",
+    GetCheckpointTreeMerkleProof = "psy_get_checkpoint_tree_merkle_proof",
+    GetCheckpointTreeMerkleProofF = "psy_get_checkpoint_tree_merkle_proof_f",
+    GetCheckpointGlobalStateRoots = "psy_get_checkpoint_global_state_roots",
+    GetCheckpointSyncInfoCompact = "psy_get_checkpoint_sync_info_compact",
+    LatestCheckpoint = "psy_latest_checkpoint",
+    GetUserLeafData = "psy_get_user_leaf_data",
+    GetUserTreeMerkleProof = "psy_get_user_tree_merkle_proof",
+    GetUserTreeMerkleProofF = "psy_get_user_tree_merkle_proof_f",
 }
 
 /**
@@ -93,15 +93,15 @@ export interface ICoordinatorEdgeRpcProvider {
     getLatestCheckpoint(): Promise<LatestCheckpointResponse>;
     buildBlock(): Promise<string>;
     getCheckpointSyncInfo(checkpointId: Felt): Promise<CheckpointSyncInfo>;
-    getContractLeafData(contractId: Felt): Promise<QEDContractLeaf>;
-    getContractLeafDataF(contractId: Felt): Promise<QEDContractLeaf>;
-    getCheckpointLeafData(checkpointId: Felt): Promise<QEDCheckpointLeaf>;
-    getCheckpointLeafDataF(checkpointId: Felt): Promise<QEDCheckpointLeaf>;
+    getContractLeafData(contractId: Felt): Promise<PsyContractLeaf>;
+    getContractLeafDataF(contractId: Felt): Promise<PsyContractLeaf>;
+    getCheckpointLeafData(checkpointId: Felt): Promise<PsyCheckpointLeaf>;
+    getCheckpointLeafDataF(checkpointId: Felt): Promise<PsyCheckpointLeaf>;
     getContractCodeDefinition(contractId: Felt): Promise<ContractCodeDefinition>;
     getContractCodeDefinitionF(contractId: Felt): Promise<ContractCodeDefinition>;
-    getLatestL2BlockState(): Promise<QEDL2BlockState>;
-    getL2BlockState(checkpointId: Felt): Promise<QEDL2BlockState>;
-    getL2BlockStateF(checkpointId: Felt): Promise<QEDL2BlockState>;
+    getLatestL2BlockState(): Promise<PsyL2BlockState>;
+    getL2BlockState(checkpointId: Felt): Promise<PsyL2BlockState>;
+    getL2BlockStateF(checkpointId: Felt): Promise<PsyL2BlockState>;
     getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut>;
     getUserRegistrationTreeRootF(checkpointId: Felt): Promise<QHashOut>;
     getUserRegistrationTreeLeafHash(checkpointId: Felt, leafIndex: number): Promise<QHashOut>;
@@ -162,10 +162,10 @@ export interface ICoordinatorEdgeRpcProvider {
     getCheckpointTreeLeafHashF(checkpointId: Felt, leafCheckpointId: Felt): Promise<QHashOut>;
     getCheckpointTreeMerkleProof(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>>;
     getCheckpointTreeMerkleProofF(checkpointId: Felt, leafCheckpointId: Felt): Promise<MerkleProofCore<QHashOut>>;
-    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<QEDCheckpointGlobalStateRoots>;
-    getCheckpointSyncInfoCompact(checkpointId: Felt): Promise<QEDCheckpointSyncInfoCompact>;
+    getCheckpointGlobalStateRoots(checkpointId: Felt): Promise<PsyCheckpointGlobalStateRoots>;
+    getCheckpointSyncInfoCompact(checkpointId: Felt): Promise<PsyCheckpointSyncInfoCompact>;
     latestCheckpoint(): Promise<number>;
-    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<QEDUserLeaf>;
+    getUserLeafData(checkpointId: Felt, userId: Felt): Promise<PsyUserLeaf>;
     getUserTreeMerkleProof(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>>;
     getUserTreeMerkleProofF(checkpointId: Felt, userId: Felt): Promise<MerkleProofCore<QHashOut>>;
 }

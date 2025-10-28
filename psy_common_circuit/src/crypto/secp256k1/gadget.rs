@@ -155,12 +155,12 @@ impl Secp256K1CircuitGadget {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct DogeQEDSignatureCombinedHashGadget {
+pub struct DogePsySignatureCombinedHashGadget {
     pub compressed_public_key: [Target; 9],
     pub message_hash: HashOutTarget,
     pub combined_hash: HashOutTarget,
 }
-impl DogeQEDSignatureCombinedHashGadget {
+impl DogePsySignatureCombinedHashGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let compressed_public_key = builder.add_virtual_target_arr();
         let message_hash = builder.add_virtual_hash();
@@ -201,7 +201,7 @@ impl DogeQEDSignatureCombinedHashGadget {
 }
 
 #[derive(Debug, Clone)]
-pub struct DogeQEDSignatureGadget {
+pub struct DogePsySignatureGadget {
     pub msg_bytes_target: Hash256BytesTarget,
     pub msg_hash_target: HashOutTarget,
     pub msg_biguint_target: BigUintTarget,
@@ -212,7 +212,7 @@ pub struct DogeQEDSignatureGadget {
     pub combined_hash: HashOutTarget,
 }
 
-impl DogeQEDSignatureGadget {
+impl DogePsySignatureGadget {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         type CURVE = Secp256K1;
         let msg_bytes_target = builder.add_virtual_hash256_bytes_target();
@@ -259,7 +259,7 @@ impl DogeQEDSignatureGadget {
         let parity_byte = builder.add(two_target, y_parity.target);
         let compressed_public_key = core::array::from_fn(|i| if i == 0 { parity_byte } else { public_key_x_endian_reversed[i - 1] });
 
-        let combo_gadget = DogeQEDSignatureCombinedHashGadget::add_virtual_to_known::<H, F, D>(builder, compressed_public_key, msg_hash_target);
+        let combo_gadget = DogePsySignatureCombinedHashGadget::add_virtual_to_known::<H, F, D>(builder, compressed_public_key, msg_hash_target);
 
         Self {
             msg_bytes_target,
@@ -330,7 +330,7 @@ mod tests {
             ecdsa::{verify_message_circuit, ECDSAPublicKeyTarget, ECDSASignatureTarget},
             nonnative::CircuitBuilderNonNative,
         },
-        gadget::{DogeQEDSignatureGadget, Secp256K1CircuitGadget},
+        gadget::{DogePsySignatureGadget, Secp256K1CircuitGadget},
     };
 
     fn test_ecdsa_circuit_with_config(config: CircuitConfig) -> Result<()> {
@@ -447,7 +447,7 @@ mod tests {
         // 48141770895752452309672524515321122504921566623690759896527638748277211309772]
 
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let sig_gadget = DogeQEDSignatureGadget::add_virtual_to::<PoseidonHash, F, D>(&mut builder);
+        let sig_gadget = DogePsySignatureGadget::add_virtual_to::<PoseidonHash, F, D>(&mut builder);
         builder.register_public_inputs(&sig_gadget.msg_biguint_target.limbs.iter().map(|x| x.0).collect::<Vec<_>>());
         //builder.register_public_inputs(&sig_gadget.combined_hash.elements);
         let data = builder.build::<C>();

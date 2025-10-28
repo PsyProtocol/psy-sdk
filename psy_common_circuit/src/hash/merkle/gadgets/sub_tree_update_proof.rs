@@ -212,7 +212,7 @@ mod tests {
             index: node_index,
         }
     }*/
-    type QEDHash = QHashOut<F>;
+    type PsyHash = QHashOut<F>;
     type H = PoseidonHasher;
 
     fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>(
@@ -308,7 +308,7 @@ mod tests {
             .collect::<Vec<_>>()
     }
 
-    fn _gen_random_update_nca_with_additioanl_link_for_tree(tree: &mut SimpleMerkleTree<H, QEDHash>) -> UpdateNCAWithAdditionalLink<QEDHash> {
+    fn _gen_random_update_nca_with_additioanl_link_for_tree(tree: &mut SimpleMerkleTree<H, PsyHash>) -> UpdateNCAWithAdditionalLink<PsyHash> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
 
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());
@@ -317,7 +317,7 @@ mod tests {
         UpdateNCAWithAdditionalLink::from_delta_merkle_proof_pair::<H>(&dmp_a, &dmp_b)
     }
 
-    pub fn _generate_partial_nca_proof(tree: &mut SimpleMerkleTree<H, QEDHash>) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>> {
+    pub fn _generate_partial_nca_proof(tree: &mut SimpleMerkleTree<H, PsyHash>) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
 
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());
@@ -325,7 +325,7 @@ mod tests {
         PartialUpdateNearestCommonAncestorProof::from_delta_merkle_proof_pair::<H>(&dmp_a, &dmp_b)
     }
 
-    pub fn generate_partial_nca_proof_multi_level_b(tree: &mut SimpleMerkleTree<H, QEDHash>) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>> {
+    pub fn generate_partial_nca_proof_multi_level_b(tree: &mut SimpleMerkleTree<H, PsyHash>) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
 
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());

@@ -10,7 +10,7 @@ use psy_common_circuit::{
 };
 use psy_data::ups::ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader, UserProvingSessionStartContext};
 
-use super::user::QEDUserLeafGadget;
+use super::user::PsyUserLeafGadget;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UserProvingSessionStartContextGadget {
@@ -19,7 +19,7 @@ pub struct UserProvingSessionStartContextGadget {
     pub checkpoint_leaf_hash: HashOutTarget,
 
     // this is the user leaf as it was at the start of the proving session, not to be confused with start_user_leaf
-    pub start_session_user_leaf: QEDUserLeafGadget,
+    pub start_session_user_leaf: PsyUserLeafGadget,
 
     // computed
     pub start_session_user_leaf_hash: HashOutTarget,
@@ -30,7 +30,7 @@ impl UserProvingSessionStartContextGadget {
         let checkpoint_id = builder.add_virtual_target();
         let checkpoint_tree_root = builder.add_virtual_hash();
         let checkpoint_leaf_hash = builder.add_virtual_hash();
-        let start_session_user_leaf = QEDUserLeafGadget::create_virtual(builder);
+        let start_session_user_leaf = PsyUserLeafGadget::create_virtual(builder);
         let start_session_user_leaf_hash = start_session_user_leaf.to_hash::<H, F, D>(builder);
 
         Self {
@@ -103,7 +103,7 @@ impl<F: RichField> WitnessValueFor<UserProvingSessionStartContextGadget, F, fals
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UserProvingSessionCurrentStateGadget {
-    pub user_leaf: QEDUserLeafGadget,
+    pub user_leaf: PsyUserLeafGadget,
 
     pub deferred_tx_debt_tree_root: HashOutTarget,
     pub inline_tx_debt_tree_root: HashOutTarget,
@@ -114,7 +114,7 @@ pub struct UserProvingSessionCurrentStateGadget {
 
 impl UserProvingSessionCurrentStateGadget {
     pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
-        let user_leaf = QEDUserLeafGadget::create_virtual::<F, D>(builder);
+        let user_leaf = PsyUserLeafGadget::create_virtual::<F, D>(builder);
 
         let deferred_tx_debt_tree_root = builder.add_virtual_hash();
         let inline_tx_debt_tree_root = builder.add_virtual_hash();

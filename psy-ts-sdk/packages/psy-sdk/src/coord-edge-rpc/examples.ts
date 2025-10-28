@@ -25,8 +25,8 @@ export async function cachingExample() {
             ttl: 30000, // 30 seconds
             maxSize: 500,
             customTtl: new Map([
-                ["qed_get_latest_checkpoint", 10000], // 10 seconds for latest checkpoint
-                ["qed_get_checkpoint_leaf_data", 60000], // 1 minute for checkpoint data
+                ["psy_get_latest_checkpoint", 10000], // 10 seconds for latest checkpoint
+                ["psy_get_checkpoint_leaf_data", 60000], // 1 minute for checkpoint data
             ]),
         },
     };
@@ -200,16 +200,16 @@ export async function productionConfigExample() {
             maxSize: 1000,
             customTtl: new Map([
                 // Fast-changing data
-                ["qed_get_latest_checkpoint", 5000],
-                ["qed_get_latest_l2_block_state", 5000],
+                ["psy_get_latest_checkpoint", 5000],
+                ["psy_get_latest_l2_block_state", 5000],
 
                 // Slow-changing data
-                ["qed_get_checkpoint_leaf_data", 300000], // 5 minutes
-                ["qed_get_contract_leaf_data", 300000],
-                ["qed_get_user_registration_tree_root", 300000],
+                ["psy_get_checkpoint_leaf_data", 300000], // 5 minutes
+                ["psy_get_contract_leaf_data", 300000],
+                ["psy_get_user_registration_tree_root", 300000],
 
                 // Static data
-                ["qed_get_contract_code_definition", 3600000], // 1 hour
+                ["psy_get_contract_code_definition", 3600000], // 1 hour
             ]),
         },
         retry: {

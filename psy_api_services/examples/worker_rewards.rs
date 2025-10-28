@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
     let now = Utc::now();
 
-    println!("💰 QED Worker Rewards API Example (New System)");
+    println!("💰 Psy Worker Rewards API Example (New System)");
     println!("🚀 Creating sample worker events with GUTA circuit types...");
     println!("⏳ Background reward processing will automatically calculate rewards");
 

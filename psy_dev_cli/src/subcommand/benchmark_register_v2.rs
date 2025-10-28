@@ -6,9 +6,9 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
+use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
 use psy_core::{
-    config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{Psy_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
     ups::circuits::{LocalCircuitId, LocalCircuitType},
@@ -17,14 +17,14 @@ use psy_core::{
 use psy_crypto::{
     common::simple_circuit_library::SimpleCircuitLibrary,
     hash::traits::qhashable::QFieldHashable,
-    signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
+    signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey},
 };
 use psy_data::{
-    config::store_config::{QEDFelt, QEDHasher},
+    config::store_config::{PsyFelt, PsyHasher},
     guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput},
-    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
+    traits::qdatastore::qtreedata::PsyComboDataStoreReaderWriterSync,
 };
-use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
 use psy_node::{
     common::verifier::get_cached_generic_verifier,
     coordinator::state::{
@@ -40,13 +40,13 @@ use psy_node::{
 use psy_prover::{
     local::provider::UPSCircuitManagerTrait,
     ups::{
-        circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
+        circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
         session::UserProvingSessionManager,
     },
 };
 use psy_store::{
-    controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore},
-    node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
+    controllers::local::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore},
+    node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
         ProofStoreFred,
@@ -105,7 +105,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     use psy_core::config::network_constants::get_default_worker_public_key;
     let coordinator_worker_circuits =
-        QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<GoldilocksField>());
+        PsyCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<GoldilocksField>());
 
     timer.lap("built coordinator worker circuits");
 
@@ -128,16 +128,16 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let priv_key_0 = QHashOut::rand();
     let priv_key_1 = QHashOut::rand();
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    let pub_key_0 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_0));
-    let pub_alt_0 = SimpleQEDPrivateKey::new(priv_key_0).get_public_key_for_fingerprint::<QEDHasher>(wallet.circuit.get_fingerprint());
+    let mut wallet = SimplePsyZKSignatureManager::<C, D>::new();
+    let pub_key_0 = wallet.add_private_key_get_info(SimplePsyPrivateKey::new(priv_key_0));
+    let pub_alt_0 = SimplePsyPrivateKey::new(priv_key_0).get_public_key_for_fingerprint::<PsyHasher>(wallet.circuit.get_fingerprint());
 
-    println!("pub_key_0 {:?}, ({:?})", pub_key_0, pub_key_0.to_hash::<QEDHasher>());
+    println!("pub_key_0 {:?}, ({:?})", pub_key_0, pub_key_0.to_hash::<PsyHasher>());
     println!("pub_alt_0 {:?}", pub_alt_0);
 
-    let pub_key_1 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_1));
+    let pub_key_1 = wallet.add_private_key_get_info(SimplePsyPrivateKey::new(priv_key_1));
     timer.lap("finished building wallet/zksig circuits");
-    let (contract_helper, contract_deploy_cmd) = gen_test_contract::<C, D>(pub_key_1.qfhash::<QEDHasher>())?;
+    let (contract_helper, contract_deploy_cmd) = gen_test_contract::<C, D>(pub_key_1.qfhash::<PsyHasher>())?;
     coordinator_edge_node.handle_deploy_contract(contract_deploy_cmd).await?;
 
     coordinator_edge_node.handle_process_regsiter_user(pub_key_0).await?;
@@ -175,7 +175,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     realm_processor_node.handle_checkpoint_sync(sync1).await?;
     realm_processor_node.build_block(0).await?;
     let realm_worker_output_job_id =
-        SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, QEDCoordinatorCircuitManager<C, D>, C, D>(
+        SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, PsyCoordinatorCircuitManager<C, D>, C, D>(
             &realm_q.clone(),
             &realm_q.clone(),
             &coordinator_worker_circuits,
@@ -183,7 +183,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         )
         .await?;
 
-    let realm_result: GUTARealmCheckpointResult<QEDFelt> = {
+    let realm_result: GUTARealmCheckpointResult<PsyFelt> = {
         let bytes = realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?;
         bincode::deserialize(&bytes)
     }
@@ -218,23 +218,23 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     // await?; println!("[mainfnc] current_state_roots:
     // {}",serde_json::to_string_pretty(&stroots).unwrap());
 
-    timer.lap("start: init QEDUPSStepCircuitManager");
+    timer.lap("start: init PsyUPSStepCircuitManager");
 
-    let main_circuits = QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST));
+    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(Psy_NETWORK_MAGIC_REGTEST));
     //main_circuits.print_common_config();
 
-    timer.lap("end: init QEDUPSStepCircuitManager");
+    timer.lap("end: init PsyUPSStepCircuitManager");
 
     let user_0_pub_key = st.get_user_registration_tree_leaf_hash(latest_l2_block_state.checkpoint_id, 0).await?;
-    let priv_key_user_0 = if pub_key_0.qfhash::<QEDHasher>() == user_0_pub_key {
+    let priv_key_user_0 = if pub_key_0.qfhash::<PsyHasher>() == user_0_pub_key {
         priv_key_0
-    } else if pub_key_1.qfhash::<QEDHasher>() == user_0_pub_key {
+    } else if pub_key_1.qfhash::<PsyHasher>() == user_0_pub_key {
         priv_key_1
     } else {
         anyhow::bail!("missing private key!");
     };
 
-    let lps: QEDLocalProvingSessionStore<GoldilocksField, Arc<KVQSimpleMemoryBackingStore>> = QEDLocalProvingSessionStore::new_at(
+    let lps: PsyLocalProvingSessionStore<GoldilocksField, Arc<KVQSimpleMemoryBackingStore>> = PsyLocalProvingSessionStore::new_at(
         store_reader.clone(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
         GoldilocksField::from_noncanonical_u64(0),
@@ -254,7 +254,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     contract_helper.register_funcs(0, &mut circuit_info);
 
     let mut mgr =
-        UserProvingSessionManager::<GoldilocksField, QEDHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
+        UserProvingSessionManager::<GoldilocksField, PsyHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
             .await?;
 
     timer.lap("setup mgr");
@@ -289,17 +289,17 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
-    let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
+    let sighash = mgr.get_sighash(Psy_NETWORK_MAGIC_REGTEST, new_nonce);
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_user_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
     mgr.proof_tree_state.finalize_tree(&main_circuits).await?;
     timer.lap("aggregated all UPS proofs into a single proof");
-    let public_key_param = SimpleQEDPrivateKey::new(priv_key_user_0).get_public_key_param::<QEDHasher>();
+    let public_key_param = SimplePsyPrivateKey::new(priv_key_user_0).get_public_key_param::<PsyHasher>();
     let end_cap_proof = mgr
         .prove_end_cap(
             &main_circuits,
-            QED_NETWORK_MAGIC_REGTEST,
+            Psy_NETWORK_MAGIC_REGTEST,
             new_nonce,
             wallet.circuit.get_fingerprint(),
             public_key_param,
@@ -326,7 +326,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     realm_processor_node.build_block(0).await?;
     let realm_worker_output_job_id =
-        SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, QEDCoordinatorCircuitManager<C, D>, C, D>(
+        SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, PsyCoordinatorCircuitManager<C, D>, C, D>(
             &realm_q.clone(),
             &realm_q.clone(),
             &coordinator_worker_circuits,
@@ -334,7 +334,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         )
         .await?;
 
-    let realm_result: GUTARealmCheckpointResult<QEDFelt> = {
+    let realm_result: GUTARealmCheckpointResult<PsyFelt> = {
         let bytes = realm_qps.get_bytes_by_id(realm_worker_output_job_id).await?;
         bincode::deserialize(&bytes)
     }

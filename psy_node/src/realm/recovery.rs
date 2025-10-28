@@ -7,14 +7,14 @@ use psy_data::{
         genesis_config::GenesisConfig,
         store_config::{CheckpointSyncInfoTableStore, QCheckpointSyncInfoCompact},
     },
-    models::checkpoint::sync_info::QEDCheckpointSyncInfoModelReaderCore,
+    models::checkpoint::sync_info::PsyCheckpointSyncInfoModelReaderCore,
 };
 use psy_store::{
-    node::realm::QEDRealmStoreReaderAsync,
+    node::realm::PsyRealmStoreReaderAsync,
     queue::{new_redis_async_pool, ProofStoreRedisAsync, QPendingUserStoreAsyncImm},
     store::{
         journal::{Journal, JournalStore},
-        QEDStore,
+        PsyStore,
     },
 };
 use tracing::{error, info, warn};
@@ -24,8 +24,8 @@ use crate::realm::RealmProcessor;
 
 pub struct RealmRecoveryManager {
     realm_id: u32,
-    psy_store: QEDStore,
-    store: JournalStore<QEDStore>,
+    psy_store: PsyStore,
+    store: JournalStore<PsyStore>,
     backup_client: RealmS3BackupClient,
     sync_queue: std::sync::Arc<ProofStoreRedisAsync>,
     config_path: String,
@@ -41,7 +41,7 @@ impl RealmRecoveryManager {
         config_path: String,
     ) -> Result<Self> {
         let backup_client = RealmS3BackupClient::new(realm_id, bucket).await?;
-        let psy_store = QEDStore::from_backend(backend).await?;
+        let psy_store = PsyStore::from_backend(backend).await?;
         let store = JournalStore::new(psy_store.clone());
 
         // Initialize sync_queue using redis configuration
@@ -159,7 +159,7 @@ impl RealmRecoveryManager {
 
         if let Ok(sync_info) = self.get_checkpoint_sync_info(checkpoint_id).await {
             // Reference handle_checkpoint_sync method implementation
-            let dmps = sync_info.get_registered_user_merkle_proofs::<psy_data::config::store_config::QEDHasher>();
+            let dmps = sync_info.get_registered_user_merkle_proofs::<psy_data::config::store_config::PsyHasher>();
 
             // Filter users that belong to this realm (consistent with
             // handle_checkpoint_sync logic)
@@ -211,7 +211,7 @@ impl RealmRecoveryManager {
 
     // Helper method to get checkpoint sync info from store
     async fn get_checkpoint_sync_info(&self, checkpoint_id: u64) -> Result<QCheckpointSyncInfoCompact> {
-        CheckpointSyncInfoTableStore::<QEDStore>::get_checkpoint_sync_info_compact_or_latest(&self.psy_store, checkpoint_id)
+        CheckpointSyncInfoTableStore::<PsyStore>::get_checkpoint_sync_info_compact_or_latest(&self.psy_store, checkpoint_id)
     }
 
     pub async fn verify_recovery(&self, expected_checkpoint: Option<u64>) -> Result<()> {

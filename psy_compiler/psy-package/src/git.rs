@@ -27,7 +27,7 @@ pub(crate) fn clone_git_repo(url: &str, tag: &str) -> Result<PathBuf, String> {
 }
 
 /// Target directory to download dependencies into, e.g.
-/// `$HOME/dargo/github.com/QEDProtocol/qed-bigint/v0.1.17`
+/// `$HOME/dargo/github.com/PsyProtocol/psy-bigint/v0.1.17`
 fn git_dep_location(base: &url::Url, tag: &str) -> PathBuf {
     let folder_name = resolve_folder_name(base, tag);
 
@@ -80,9 +80,9 @@ mod tests {
         let test_fixture = |url: &str| {
             let tag = "v0.1.17";
             let dir = resolve_folder_name(&Url::parse(url).unwrap(), tag);
-            assert_eq!(dir, "github.com/QEDProtocol/qed-bigint/v0.1.17");
+            assert_eq!(dir, "github.com/PsyProtocol/psy-bigint/v0.1.17");
         };
-        test_fixture("https://github.com/QEDProtocol/qed-bigint/");
-        test_fixture("https://github.com/QEDProtocol/qed-bigint");
+        test_fixture("https://github.com/PsyProtocol/psy-bigint/");
+        test_fixture("https://github.com/PsyProtocol/psy-bigint");
     }
 }

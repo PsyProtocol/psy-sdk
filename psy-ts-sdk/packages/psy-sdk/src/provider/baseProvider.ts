@@ -1,5 +1,5 @@
 import { FetchHTTPClient, IHTTPClient } from "../http";
-import { QedJSON } from "../utils";
+import { PsyJSON } from "../utils";
 
 export class BaseProvider {
     httpClient: IHTTPClient;
@@ -17,7 +17,7 @@ export class BaseProvider {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: QedJSON.stringify({
+            body: PsyJSON.stringify({
                 jsonrpc,
                 method,
                 params,
@@ -27,11 +27,11 @@ export class BaseProvider {
         });
 
         if (response.statusCode >= 400) {
-            throw new Error("Error in RPC call: " + QedJSON.stringify(response.body));
+            throw new Error("Error in RPC call: " + PsyJSON.stringify(response.body));
         }
-        const result = QedJSON.parse(response.body);
+        const result = PsyJSON.parse(response.body);
         if (result.error) {
-            throw new Error("Error in RPC call: " + QedJSON.stringify(result.error));
+            throw new Error("Error in RPC call: " + PsyJSON.stringify(result.error));
         } else {
             return result.result as T;
         }

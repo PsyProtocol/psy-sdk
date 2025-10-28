@@ -1,4 +1,4 @@
-This document details the various gadgets used within the QED ZK circuits, primarily focusing on the User Proving Session (UPS) and Global User Tree Aggregation (GUTA) systems. Gadgets are reusable circuit components that enforce specific constraints and logic.
+This document details the various gadgets used within the Psy ZK circuits, primarily focusing on the User Proving Session (UPS) and Global User Tree Aggregation (GUTA) systems. Gadgets are reusable circuit components that enforce specific constraints and logic.
 
 ### UPS Gadgets (User Proving Session)
 
@@ -22,8 +22,8 @@ These gadgets are components used within the circuits that users run locally to 
 *   **Purpose:** To verify that a specific Contract Function Call (CFC) proof exists within the user's current UPS proof tree and that the function being called is validly registered within the global contract structure.
 *   **Key Inputs/Witness:**
     *   `AttestTreeAwareProofInTreeInput`: Witness for the CFC proof's existence and validity within the UPS proof tree.
-    *   `QEDCheckpointLeafCompactWithStateRoots`: Witness for the relevant checkpoint state.
-    *   `QEDContractFunctionInclusionProof`: Witness proving the function's fingerprint exists in the contract's function tree.
+    *   `PsyCheckpointLeafCompactWithStateRoots`: Witness for the relevant checkpoint state.
+    *   `PsyContractFunctionInclusionProof`: Witness proving the function's fingerprint exists in the contract's function tree.
     *   `ups_session_proof_tree_height`: Parameter.
 *   **Key Outputs/Computed Values:**
     *   `attested_proof_tree_root`: The root of the UPS proof tree the CFC proof is part of.
@@ -33,7 +33,7 @@ These gadgets are components used within the circuits that users run locally to 
     *   `cfc_contract_id`, `cfc_method_id`, `cfc_num_inputs`, `cfc_num_outputs`: Metadata about the contract function extracted from the inclusion proof.
 *   **Core Logic/Constraints:**
     *   Verifies the CFC proof using `AttestTreeAwareProofInTreeGadget`.
-    *   Verifies the function's inclusion in the contract tree using `QEDContractFunctionInclusionProofGadget`.
+    *   Verifies the function's inclusion in the contract tree using `PsyContractFunctionInclusionProofGadget`.
     *   Connects the contract tree root from the inclusion proof to the one in the checkpoint state.
     *   Connects the CFC fingerprint from the proof attestation to the one in the inclusion proof.
 *   **Assumptions:** Assumes the witness data provided (proofs, checkpoint state) is valid for the constraints to pass.
@@ -112,7 +112,7 @@ These gadgets are components used within the circuits that users run locally to 
 *   **Assumptions:** Relies on assumptions of sub-gadgets. Assumes witness data (proofs, context) is valid.
 *   **Role:** Enables verifiable settlement of deferred transaction debts within the UPS, ensuring the debt removed matches the transaction being executed.
 
-#### `QEDUserProvingSessionSignatureDataCompactGadget`
+#### `PsyUserProvingSessionSignatureDataCompactGadget`
 
 *   **File:** `ups_signature_data.rs`
 *   **Purpose:** Defines the data structure that gets signed by the user's private key (or equivalent signature scheme) to authorize the end of a User Proving Session.
@@ -129,7 +129,7 @@ These gadgets are components used within the circuits that users run locally to 
     *   Computes an intermediate hash combining tx stack and count.
     *   Computes an intermediate hash combining checkpoint leaf and user leaf combo.
     *   Computes the final data hash by combining the state context and tx combo hashes.
-    *   Uses `compute_sig_action_hash_circuit` to combine this data hash with network magic, user ID, nonce, and the specific signature action code (`QED_SIG_ACTION_SIGN_UPS_END_CAP`) to produce the final `ups_end_cap_sighash`.
+    *   Uses `compute_sig_action_hash_circuit` to combine this data hash with network magic, user ID, nonce, and the specific signature action code (`Psy_SIG_ACTION_SIGN_UPS_END_CAP`) to produce the final `ups_end_cap_sighash`.
 *   **Assumptions:** Assumes input hashes and targets are correctly provided.
 *   **Role:** Standardizes the data payload for UPS end cap signatures, ensuring all necessary state transition information is committed to before signing.
 
@@ -172,7 +172,7 @@ These gadgets are components used within the circuits that users run locally to 
         *   Asserts the start and end user leaves have the same public key.
         *   Asserts this public key matches the `expected_public_key`.
     *   Verifies user ID consistency.
-    *   Instantiates `QEDUserProvingSessionSignatureDataCompactGadget` using data from the `last_header_gadget`.
+    *   Instantiates `PsyUserProvingSessionSignatureDataCompactGadget` using data from the `last_header_gadget`.
     *   Computes the expected `ups_end_cap_sighash` using the signature data gadget, network magic, user ID, and nonce.
     *   Computes the expected `sig_proof_public_inputs_hash` by hashing the `ups_end_cap_sighash` with the `sig_proof_param_hash`.
     *   Asserts the computed `sig_proof_public_inputs_hash` matches the one provided as input.
@@ -261,8 +261,8 @@ These gadgets are components used within the circuits that users run locally to 
 *   **Key Inputs/Witness:**
     *   `UPSStartStepInput`: Witness containing:
         *   `UserProvingSessionHeader`: The *expected* starting header.
-        *   `QEDCheckpointLeaf`: Witness for the checkpoint leaf data.
-        *   `QEDCheckpointGlobalStateRoots`: Witness for the global state roots within the checkpoint.
+        *   `PsyCheckpointLeaf`: Witness for the checkpoint leaf data.
+        *   `PsyCheckpointGlobalStateRoots`: Witness for the global state roots within the checkpoint.
         *   `MerkleProof`: Proof linking the checkpoint leaf to the checkpoint tree root.
         *   `MerkleProof`: Proof linking the user's starting leaf hash to the global user tree root.
 *   **Key Outputs/Computed Values:**
@@ -442,7 +442,7 @@ These gadgets are components used within the circuits run by the decentralized p
 *   **Core Logic/Constraints:**
     *   Instantiates `VariableHeightDeltaMerkleProofOptGadget` for the `GUSR` update.
     *   Asserts the `old_value` in the proof is the zero hash (ensuring it's an insertion into an empty slot).
-    *   Creates the default `QEDUserLeafGadget` using the proof's `index` (user ID), the `public_key`, and `default_user_state_tree_root`.
+    *   Creates the default `PsyUserLeafGadget` using the proof's `index` (user ID), the `public_key`, and `default_user_state_tree_root`.
     *   Computes the `user_leaf_hash`.
     *   Asserts the `new_value` in the proof matches the computed `user_leaf_hash`.
     *   Calculates the `state_transition` based on the delta proof's old/new roots, height, and computed parent index.
@@ -542,7 +542,7 @@ These gadgets are components used within the circuits run by the decentralized p
     *   `guta_circuit_whitelist`: Input constant/parameter.
     *   `checkpoint_tree_height`: Parameter.
     *   `MerkleProofCore`: Witness proving a `checkpoint_leaf` exists in the `checkpoint_tree`.
-    *   `QEDCheckpointLeafCompactWithStateRoots`: Witness for the checkpoint leaf data.
+    *   `PsyCheckpointLeafCompactWithStateRoots`: Witness for the checkpoint leaf data.
 *   **Key Outputs/Computed Values:**
     *   `new_guta_header`: GUTA header indicating no user tree change but potentially a new checkpoint root.
 *   **Core Logic/Constraints:**
@@ -625,7 +625,7 @@ These files define complete ZK circuits, orchestrating various gadgets to perfor
 
 ## `Circuits.md`
 
-This document describes the end-to-end flow of circuits involved in processing user transactions and aggregating them into a final block proof within the QED system. It highlights the assumptions made at each stage and how they are progressively verified, ultimately enabling horizontal scalability.
+This document describes the end-to-end flow of circuits involved in processing user transactions and aggregating them into a final block proof within the Psy system. It highlights the assumptions made at each stage and how they are progressively verified, ultimately enabling horizontal scalability.
 
 ### Phase 1: User Proving Session (UPS) - Local Execution
 
@@ -686,7 +686,7 @@ This phase happens locally on the user's device (or via a delegated prover). The
     *   The proof for the *last UPS transaction step* is valid and used an allowed circuit.
     *   The ZK proof for the user's signature (authorizing the session) is valid and exists in the same UPS proof tree.
     *   The signature corresponds to the user's registered public key (derived from signature proof parameters).
-    *   The signature payload (`QEDUserProvingSessionSignatureDataCompact`) correctly reflects the session's start/end user leaves, checkpoint, final tx stack, and tx count.
+    *   The signature payload (`PsyUserProvingSessionSignatureDataCompact`) correctly reflects the session's start/end user leaves, checkpoint, final tx stack, and tx count.
     *   The nonce used in the signature is valid (incremented).
     *   The final UPS state shows both `deferred_tx_debt_tree_root` and `inline_tx_debt_tree_root` are empty (all debts settled).
     *   The `last_checkpoint_id` in the final user leaf matches the session's `checkpoint_id` and has progressed correctly.

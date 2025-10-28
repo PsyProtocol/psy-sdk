@@ -1,7 +1,7 @@
 ---
 source: psy_compiler/psy-interpreter/src/lib.rs
 expression: "ctx.debug_scope(ScopeId::root())"
-input_file: psy_compiler/tests/struct_field_test.qed
+input_file: psy_compiler/tests/struct_field_test.psy
 ---
 ScopeId(0) (Module)
     Types:

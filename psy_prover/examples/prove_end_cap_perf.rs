@@ -9,7 +9,7 @@ use plonky2::{
     },
 };
 use psy_core::{
-    config::network_constants::QED_NETWORK_MAGIC_REGTEST,
+    config::network_constants::Psy_NETWORK_MAGIC_REGTEST,
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
     utils::debug_timer::DebugTimer,
 };
@@ -18,7 +18,7 @@ use psy_crypto::{
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},
 };
 use psy_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
-use psy_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
+use psy_prover::ups::circuit_manager::core::PsyUPSStepCircuitManager;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,7 +94,7 @@ struct EndCapTestBench<C: GenericConfig<D> + 'static, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    step_circuit_mgr: QEDUPSStepCircuitManager<C, D>,
+    step_circuit_mgr: PsyUPSStepCircuitManager<C, D>,
     pub end_cap_proving_times: Vec<u64>,
     total_proving_time: u64,
     run_iterations: u64,
@@ -106,7 +106,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            step_circuit_mgr: QEDUPSStepCircuitManager::new_with_config(QED_NETWORK_MAGIC_REGTEST),
+            step_circuit_mgr: PsyUPSStepCircuitManager::new_with_config(Psy_NETWORK_MAGIC_REGTEST),
             end_cap_proving_times: Vec::new(),
             run_iterations: 0,
             total_proving_time: 0,

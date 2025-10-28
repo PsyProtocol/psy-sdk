@@ -13,12 +13,12 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{pm_jobs_completed_stats::PMJobsCompletedStats, pm_reward_commitment::PMRewardCommitment};
-use crate::{config::store_config::QEDFelt, qsync::coordinator::QEDCheckpointSyncInfoCompact};
+use crate::{config::store_config::PsyFelt, qsync::coordinator::PsyCheckpointSyncInfoCompact};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDCheckpointLeafStats<F: RichField> {
+pub struct PsyCheckpointLeafStats<F: RichField> {
     pub fees_collected: F,
 
     pub user_ops_processed: F,
@@ -36,7 +36,7 @@ pub struct QEDCheckpointLeafStats<F: RichField> {
     pub da_challenges_claimed: [F; DA_CHALLENGE_WINDOW],
 }
 
-impl<F: RichField> QEDCheckpointLeafStats<F> {
+impl<F: RichField> PsyCheckpointLeafStats<F> {
     pub fn new_empty() -> Self {
         Self {
             fees_collected: F::ZERO,
@@ -64,7 +64,7 @@ impl<F: RichField> QEDCheckpointLeafStats<F> {
         }
     }
 }
-impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafStats<F> {
+impl<F: RichField> ToQFelts<F> for PsyCheckpointLeafStats<F> {
     fn to_qfelts(&self) -> Vec<F> {
         let mut result = vec![self.fees_collected, self.user_ops_processed, self.total_transactions, self.slots_modified];
         result.extend_from_slice(&self.pm_jobs_completed.to_qfelts());
@@ -83,7 +83,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafStats<F> {
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != Self::q_felt_size() {
             panic!(
-                "Invalid number of elements for QEDCheckpointLeafStats, expected {} got {}",
+                "Invalid number of elements for PsyCheckpointLeafStats, expected {} got {}",
                 Self::q_felt_size(),
                 felts.len()
             );
@@ -92,7 +92,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafStats<F> {
         let pm_jobs_completed = PMJobsCompletedStats::from_qfelts(&felts[4..7]);
         let pm_rewards_commitment = PMRewardCommitment::from_qfelts(&felts[12..24]);
 
-        QEDCheckpointLeafStats {
+        PsyCheckpointLeafStats {
             fees_collected: felts[0],
             user_ops_processed: felts[1],
             total_transactions: felts[2],
@@ -107,7 +107,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafStats<F> {
         }
     }
 }
-impl<F: RichField> KVQSerializable for QEDCheckpointLeafStats<F> {
+impl<F: RichField> KVQSerializable for PsyCheckpointLeafStats<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -117,12 +117,12 @@ impl<F: RichField> KVQSerializable for QEDCheckpointLeafStats<F> {
     }
 }
 
-impl<F: RichField> QFeltSized for QEDCheckpointLeafStats<F> {
+impl<F: RichField> QFeltSized for PsyCheckpointLeafStats<F> {
     fn q_felt_size() -> usize {
         4 + PMJobsCompletedStats::<F>::q_felt_size() + 5 + PMRewardCommitment::<F>::q_felt_size() + DA_CHALLENGE_WINDOW
     }
 }
-impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafStats<F> {
+impl<F: RichField> QFieldHashable<F> for PsyCheckpointLeafStats<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         let felts = self.to_qfelts();
         H::q_hash_many(&felts)
@@ -132,7 +132,7 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafStats<F> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDCheckpointGlobalStateRoots<F: RichField> {
+pub struct PsyCheckpointGlobalStateRoots<F: RichField> {
     pub contract_tree_root: QHashOut<F>,
     pub deposit_tree_root: QHashOut<F>,
     pub user_tree_root: QHashOut<F>,
@@ -140,7 +140,7 @@ pub struct QEDCheckpointGlobalStateRoots<F: RichField> {
     pub user_registration_tree_root: QHashOut<F>,
 }
 
-impl<F: RichField> KVQSerializable for QEDCheckpointGlobalStateRoots<F> {
+impl<F: RichField> KVQSerializable for PsyCheckpointGlobalStateRoots<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -150,12 +150,12 @@ impl<F: RichField> KVQSerializable for QEDCheckpointGlobalStateRoots<F> {
     }
 }
 
-impl<F: RichField> QFeltSized for QEDCheckpointGlobalStateRoots<F> {
+impl<F: RichField> QFeltSized for PsyCheckpointGlobalStateRoots<F> {
     fn q_felt_size() -> usize {
         20
     }
 }
-impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
+impl<F: RichField> ToQFelts<F> for PsyCheckpointGlobalStateRoots<F> {
     fn to_qfelts(&self) -> Vec<F> {
         let mut result = Vec::with_capacity(Self::q_felt_size());
         result.extend_from_slice(&self.contract_tree_root.0.elements);
@@ -169,7 +169,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != Self::q_felt_size() {
-            panic!("Invalid number of elements for QEDCheckpointGlobalStateRoots");
+            panic!("Invalid number of elements for PsyCheckpointGlobalStateRoots");
         }
         let contract_tree_root = QHashOut(HashOut {
             elements: [felts[0], felts[1], felts[2], felts[3]],
@@ -186,7 +186,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
         let user_registration_tree_root = QHashOut(HashOut {
             elements: [felts[16], felts[17], felts[18], felts[19]],
         });
-        QEDCheckpointGlobalStateRoots {
+        PsyCheckpointGlobalStateRoots {
             contract_tree_root,
             deposit_tree_root,
             user_tree_root,
@@ -196,7 +196,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
     }
 }
 
-impl<F: RichField> QFieldHashable<F> for QEDCheckpointGlobalStateRoots<F> {
+impl<F: RichField> QFieldHashable<F> for PsyCheckpointGlobalStateRoots<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         let contract_and_deposit = H::q_two_to_one(self.contract_tree_root, self.deposit_tree_root);
 
@@ -211,22 +211,22 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointGlobalStateRoots<F> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDCheckpointLeaf<F: RichField> {
+pub struct PsyCheckpointLeaf<F: RichField> {
     pub global_chain_root: QHashOut<F>,
-    pub stats: QEDCheckpointLeafStats<F>,
+    pub stats: PsyCheckpointLeafStats<F>,
 }
 
-impl<F: RichField> QEDCheckpointLeaf<F> {
-    pub fn to_compact<H: FieldQHasher<F>>(&self) -> QEDCheckpointLeafCompact<F> {
+impl<F: RichField> PsyCheckpointLeaf<F> {
+    pub fn to_compact<H: FieldQHasher<F>>(&self) -> PsyCheckpointLeafCompact<F> {
         let stats_hash = self.stats.qfhash::<H>();
-        QEDCheckpointLeafCompact {
+        PsyCheckpointLeafCompact {
             global_chain_root: self.global_chain_root,
             stats_hash,
         }
     }
 }
 
-impl<F: RichField> KVQSerializable for QEDCheckpointLeaf<F> {
+impl<F: RichField> KVQSerializable for PsyCheckpointLeaf<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -236,12 +236,12 @@ impl<F: RichField> KVQSerializable for QEDCheckpointLeaf<F> {
     }
 }
 
-impl<F: RichField> QFeltSized for QEDCheckpointLeaf<F> {
+impl<F: RichField> QFeltSized for PsyCheckpointLeaf<F> {
     fn q_felt_size() -> usize {
-        4 + QEDCheckpointLeafStats::<F>::q_felt_size()
+        4 + PsyCheckpointLeafStats::<F>::q_felt_size()
     }
 }
-impl<F: RichField> ToQFelts<F> for QEDCheckpointLeaf<F> {
+impl<F: RichField> ToQFelts<F> for PsyCheckpointLeaf<F> {
     fn to_qfelts(&self) -> Vec<F> {
         let mut result = Vec::with_capacity(Self::q_felt_size());
         result.extend_from_slice(&self.global_chain_root.0.elements);
@@ -251,17 +251,17 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeaf<F> {
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != Self::q_felt_size() {
-            panic!("Invalid number of elements for QEDCheckpointLeaf");
+            panic!("Invalid number of elements for PsyCheckpointLeaf");
         }
         let global_chain_root = QHashOut(HashOut {
             elements: [felts[0], felts[1], felts[2], felts[3]],
         });
-        let stats = QEDCheckpointLeafStats::from_qfelts(&felts[4..]);
-        QEDCheckpointLeaf { global_chain_root, stats }
+        let stats = PsyCheckpointLeafStats::from_qfelts(&felts[4..]);
+        PsyCheckpointLeaf { global_chain_root, stats }
     }
 }
 
-impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeaf<F> {
+impl<F: RichField> QFieldHashable<F> for PsyCheckpointLeaf<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         let stats_hash = self.stats.qfhash::<H>();
         H::q_hash_many(&[
@@ -280,12 +280,12 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeaf<F> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDCheckpointLeafCompact<F: RichField> {
+pub struct PsyCheckpointLeafCompact<F: RichField> {
     pub global_chain_root: QHashOut<F>,
     pub stats_hash: QHashOut<F>,
 }
 
-impl<F: RichField> KVQSerializable for QEDCheckpointLeafCompact<F> {
+impl<F: RichField> KVQSerializable for PsyCheckpointLeafCompact<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -295,12 +295,12 @@ impl<F: RichField> KVQSerializable for QEDCheckpointLeafCompact<F> {
     }
 }
 
-impl<F: RichField> QFeltSized for QEDCheckpointLeafCompact<F> {
+impl<F: RichField> QFeltSized for PsyCheckpointLeafCompact<F> {
     fn q_felt_size() -> usize {
         8
     }
 }
-impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafCompact<F> {
+impl<F: RichField> ToQFelts<F> for PsyCheckpointLeafCompact<F> {
     fn to_qfelts(&self) -> Vec<F> {
         let mut result = Vec::with_capacity(Self::q_felt_size());
         result.extend_from_slice(&self.global_chain_root.0.elements);
@@ -310,7 +310,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafCompact<F> {
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != Self::q_felt_size() {
-            panic!("Invalid number of elements for QEDCheckpointLeafCompact");
+            panic!("Invalid number of elements for PsyCheckpointLeafCompact");
         }
         let global_chain_root = QHashOut(HashOut {
             elements: [felts[0], felts[1], felts[2], felts[3]],
@@ -318,14 +318,14 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafCompact<F> {
         let stats_hash = QHashOut(HashOut {
             elements: [felts[0], felts[1], felts[2], felts[3]],
         });
-        QEDCheckpointLeafCompact {
+        PsyCheckpointLeafCompact {
             global_chain_root,
             stats_hash,
         }
     }
 }
 
-impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafCompact<F> {
+impl<F: RichField> QFieldHashable<F> for PsyCheckpointLeafCompact<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         H::q_two_to_one(self.global_chain_root, self.stats_hash)
     }
@@ -333,7 +333,7 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafCompact<F> {
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Copy, Hash, Eq, PartialEq, TS)]
 #[ts(export)]
-pub struct QEDL2BlockState {
+pub struct PsyL2BlockState {
     pub checkpoint_id: u64,
 
     pub next_add_withdrawal_id: u64,
@@ -348,7 +348,7 @@ pub struct QEDL2BlockState {
 
     pub next_contract_id: u32,
 }
-impl QEDL2BlockState {
+impl PsyL2BlockState {
     pub fn get_genesis_value() -> Self {
         Self {
             checkpoint_id: 0,
@@ -362,7 +362,7 @@ impl QEDL2BlockState {
         }
     }
 }
-impl KVQSerializable for QEDL2BlockState {
+impl KVQSerializable for PsyL2BlockState {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         // 7 * 8 + 4 = 60 bytes
         let mut result = Vec::with_capacity(60);
@@ -379,7 +379,7 @@ impl KVQSerializable for QEDL2BlockState {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 60 {
-            anyhow::bail!("expected 60 bytes for deserializing QEDL2BlockState, got {} bytes", bytes.len());
+            anyhow::bail!("expected 60 bytes for deserializing PsyL2BlockState, got {} bytes", bytes.len());
         }
         let checkpoint_id = u64::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]);
         let next_add_withdrawal_id = u64::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]]);
@@ -406,12 +406,12 @@ impl KVQSerializable for QEDL2BlockState {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDCheckpointLeafCompactWithStateRoots<F: RichField> {
-    pub checkpoint_leaf: QEDCheckpointLeafCompact<F>,
-    pub global_state_roots: QEDCheckpointGlobalStateRoots<F>,
+pub struct PsyCheckpointLeafCompactWithStateRoots<F: RichField> {
+    pub checkpoint_leaf: PsyCheckpointLeafCompact<F>,
+    pub global_state_roots: PsyCheckpointGlobalStateRoots<F>,
 }
 
-impl<F: RichField> KVQSerializable for QEDCheckpointLeafCompactWithStateRoots<F> {
+impl<F: RichField> KVQSerializable for PsyCheckpointLeafCompactWithStateRoots<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -421,12 +421,12 @@ impl<F: RichField> KVQSerializable for QEDCheckpointLeafCompactWithStateRoots<F>
     }
 }
 
-impl<F: RichField> QFeltSized for QEDCheckpointLeafCompactWithStateRoots<F> {
+impl<F: RichField> QFeltSized for PsyCheckpointLeafCompactWithStateRoots<F> {
     fn q_felt_size() -> usize {
-        QEDCheckpointLeafCompact::<F>::q_felt_size() + QEDCheckpointGlobalStateRoots::<F>::q_felt_size()
+        PsyCheckpointLeafCompact::<F>::q_felt_size() + PsyCheckpointGlobalStateRoots::<F>::q_felt_size()
     }
 }
-impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafCompactWithStateRoots<F> {
+impl<F: RichField> ToQFelts<F> for PsyCheckpointLeafCompactWithStateRoots<F> {
     fn to_qfelts(&self) -> Vec<F> {
         let mut result = Vec::with_capacity(Self::q_felt_size());
         result.extend_from_slice(&self.checkpoint_leaf.to_qfelts());
@@ -436,19 +436,19 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafCompactWithStateRoots<F> {
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != Self::q_felt_size() {
-            panic!("Invalid number of elements for QEDCheckpointLeafCompactWithStateRoots");
+            panic!("Invalid number of elements for PsyCheckpointLeafCompactWithStateRoots");
         }
-        let checkpoint_part_size = QEDCheckpointLeafCompact::<F>::q_felt_size();
-        let checkpoint_leaf = QEDCheckpointLeafCompact::from_qfelts(&felts[0..checkpoint_part_size]);
-        let global_state_roots = QEDCheckpointGlobalStateRoots::from_qfelts(&felts[checkpoint_part_size..]);
-        QEDCheckpointLeafCompactWithStateRoots {
+        let checkpoint_part_size = PsyCheckpointLeafCompact::<F>::q_felt_size();
+        let checkpoint_leaf = PsyCheckpointLeafCompact::from_qfelts(&felts[0..checkpoint_part_size]);
+        let global_state_roots = PsyCheckpointGlobalStateRoots::from_qfelts(&felts[checkpoint_part_size..]);
+        PsyCheckpointLeafCompactWithStateRoots {
             checkpoint_leaf,
             global_state_roots,
         }
     }
 }
 
-impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafCompactWithStateRoots<F> {
+impl<F: RichField> QFieldHashable<F> for PsyCheckpointLeafCompactWithStateRoots<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         self.checkpoint_leaf.qfhash::<H>()
     }
@@ -462,7 +462,7 @@ pub struct CheckpointSyncInfo<F: RichField> {
     pub description: Option<String>,
     pub source_coordinator_edge_id: Option<String>,
     pub sync_timestamp: u64, // sync timestamp
-    pub compact: QEDCheckpointSyncInfoCompact<F>,
+    pub compact: PsyCheckpointSyncInfoCompact<F>,
     pub realm_root: QHashOut<F>,
 }
 
@@ -480,7 +480,7 @@ impl<F: RichField> psy_core::job::history_queue::HistoryQueueMetadataTagged for 
     fn get_hq_metadata(&self) -> psy_core::job::history_queue::HistoryQueueMetadata {
         // Use the same channel as the compact version for consistency
         psy_core::job::history_queue::HistoryQueueMetadata {
-            channel_id: psy_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            channel_id: psy_core::config::network_constants::Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
             checkpoint_id: self.compact.l2_block_state.checkpoint_id,
             item_id: self.compact.l2_block_state.checkpoint_id,
         }

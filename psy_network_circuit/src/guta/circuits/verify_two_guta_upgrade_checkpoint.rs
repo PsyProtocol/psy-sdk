@@ -14,7 +14,7 @@ use psy_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree},
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
     hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget,
-    proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
+    proof_minifier::{pm_chain_dynamic::PsyProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
     traits::{CreatableTarget, ToTargets},
 };
 use psy_core::{
@@ -52,7 +52,7 @@ where
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
 
-    pub minifier_chain: QEDProofMinifierDynamicChain<D, C::F, C>,
+    pub minifier_chain: PsyProofMinifierDynamicChain<D, C::F, C>,
 }
 
 impl<C: GenericConfig<D> + 'static, const D: usize> GUTAVerifyTwoGUTAUpgradeCheckpointCircuit<C, D>
@@ -189,7 +189,7 @@ where
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
 
-        let minifier_chain = QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
+        let minifier_chain = PsyProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
             &circuit_data.verifier_only,
             &circuit_data.common,
             &[true],

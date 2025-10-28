@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDWorkerToolboxCoreCircuitFingerprints<F: RichField> {
+pub struct PsyWorkerToolboxCoreCircuitFingerprints<F: RichField> {
     pub network_magic: u64,
 
     pub zk_signature_wrapper: QHashOut<F>,

@@ -10,7 +10,7 @@ use plonky2::{
     },
 };
 use psy_common_circuit::{
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates},
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderPsyCommonGates},
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
 };
@@ -23,14 +23,14 @@ use psy_crypto::{
     common::circuit_library::CircuitInfoLibrary,
     hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher},
 };
-use psy_data::protocol::circuit_inputs::checkpoint_transition::QCQEDCheckpointStateTransitionInput;
+use psy_data::protocol::circuit_inputs::checkpoint_transition::QCPsyCheckpointStateTransitionInput;
 
 use crate::coordinator::gadgets::{
     checkpoint_state_transition::CheckpointStateTransitionCoreGadget, checkpoint_state_transition_proofs::CheckpointStateTransitionChildProofsGadget,
 };
 
 #[derive(Debug)]
-pub struct QEDCheckpointStateTransitionCircuit<C: GenericConfig<D>, const D: usize> {
+pub struct PsyCheckpointStateTransitionCircuit<C: GenericConfig<D>, const D: usize> {
     pub child_proofs_gadget: CheckpointStateTransitionChildProofsGadget<D>,
     pub core_checkpoint_gadget: CheckpointStateTransitionCoreGadget,
     pub worker_public_key: HashOutTarget,
@@ -39,7 +39,7 @@ pub struct QEDCheckpointStateTransitionCircuit<C: GenericConfig<D>, const D: usi
     pub fingerprint: QHashOut<C::F>,
 }
 
-impl<C: GenericConfig<D>, const D: usize> QEDCheckpointStateTransitionCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> PsyCheckpointStateTransitionCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -111,7 +111,7 @@ where
         builder.register_public_inputs(&pm_stats_targets);
         builder.register_public_inputs(&core_checkpoint_gadget.old_checkpoint_tree_root.elements);
         builder.register_public_inputs(&new_checkpoint_root.elements);
-        builder.add_qed_type_d_common_gates();
+        builder.add_psy_type_d_common_gates();
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
@@ -128,7 +128,7 @@ where
     pub fn prove_base(
         &self,
         worker_public_key: QHashOut<C::F>,
-        input: &QCQEDCheckpointStateTransitionInput<C::F>,
+        input: &QCPsyCheckpointStateTransitionInput<C::F>,
         part_1_proof: &ProofWithPublicInputs<C::F, C, D>,
         part_1_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
@@ -161,7 +161,7 @@ where
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for QEDCheckpointStateTransitionCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for PsyCheckpointStateTransitionCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -179,7 +179,7 @@ where
 }
 #[async_trait]
 impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
-    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for QEDCheckpointStateTransitionCircuit<C, D>
+    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for PsyCheckpointStateTransitionCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -190,7 +190,7 @@ where
         job_id: QProvingJobDataID,
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let r: CircuitInputWithDependencies<QCQEDCheckpointStateTransitionInput<C::F>> =
+        let r: CircuitInputWithDependencies<QCPsyCheckpointStateTransitionInput<C::F>> =
             bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
 
         if r.dependencies.len() != 1 {

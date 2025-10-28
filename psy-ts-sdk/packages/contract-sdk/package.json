@@ -11,8 +11,8 @@
     "postgenerate": "prettier --write ./generated/**/*.ts"
   },
   "dependencies": {
-    "@qed/psy-sdk": "workspace:*",
-    "@qed/utils": "workspace:*",
+    "@psy/psy-sdk": "workspace:*",
+    "@psy/utils": "workspace:*",
     "commander": "^11.0.0",
     "ethers": "^6.9.0"
   },

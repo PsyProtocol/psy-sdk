@@ -33,21 +33,21 @@ use psy_crypto::{
 use psy_data::{
     config::{
         genesis_config::GenesisConfig,
-        store_config::{QEDFelt, QEDHasher, UserTreeStore},
+        store_config::{PsyFelt, PsyHasher, UserTreeStore},
     },
     qblock::cmds::deploy_contract::QBCDeployContractWithRoot,
     qdata::{
-        contract::{ContractCodeDefinition, ContractFunctionCodeDefinition, QEDContractLeaf},
+        contract::{ContractCodeDefinition, ContractFunctionCodeDefinition, PsyContractLeaf},
         realm_status::BasicRealmStatus,
-        user::QEDUserLeaf,
-        user_public_key::QEDUserPublicKeyRecord,
+        user::PsyUserLeaf,
+        user_public_key::PsyUserPublicKeyRecord,
     },
-    traits::qdatastore::qtreedata::{QEDComboDataStoreReaderWriterSync, QTreeDataStoreWriterSync},
+    traits::qdatastore::qtreedata::{PsyComboDataStoreReaderWriterSync, QTreeDataStoreWriterSync},
 };
-use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use psy_store::{
-    node::coordinator::{InitializeParams, QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
+    node::coordinator::{InitializeParams, PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
         new_redis_async_pool,
         redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue},
@@ -57,10 +57,10 @@ use psy_store::{
     },
     store::{
         journal::{Journal, JournalStore},
-        QEDStore,
+        PsyStore,
     },
 };
-use psy_vm::dpn::vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition};
+use psy_vm::dpn::vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition};
 use serde_json;
 use tokio::{
     sync::mpsc,
@@ -87,7 +87,7 @@ use crate::{
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
-type F = QEDFelt;
+type F = PsyFelt;
 
 struct CoordinatorBackupRequest {
     checkpoint_id: u64,
@@ -97,7 +97,7 @@ struct CoordinatorBackupRequest {
 
 pub struct CoordinatorProcessNode<
     JL: Journal,
-    SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
+    SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F> + Journal,
     DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
     WQ: WorkerEventTransmitterAsyncImm,
@@ -111,14 +111,14 @@ pub struct CoordinatorProcessNode<
     pub proof_store: PS,
     pub event_receiver: ER,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-    pub coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+    pub coordinator_worker_circuits: PsyCoordinatorCircuitManager<C, D>,
     pub task_store: Arc<QProvingTaskStoreImpl>,
     pub backup_tx: Option<mpsc::UnboundedSender<CoordinatorBackupRequest>>,
 }
 
 impl<
         JL: Journal,
-        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
+        SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F> + Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
         WQ: WorkerEventTransmitterAsyncImm,
@@ -134,7 +134,7 @@ impl<
         proof_store: PS,
         event_receiver: ER,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
-        coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
+        coordinator_worker_circuits: PsyCoordinatorCircuitManager<C, D>,
         task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
         let backup_tx = match CoordinatorS3BackupClient::new_from_env().await {
@@ -229,8 +229,8 @@ impl<
 
 impl
     CoordinatorProcessNode<
-        JournalStore<QEDStore>,
-        JournalStore<QEDStore>,
+        JournalStore<PsyStore>,
+        JournalStore<PsyStore>,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
         ProofStoreRedisAsync,
@@ -244,7 +244,7 @@ impl
             Arc::new(QProvingTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size, &cp_config.queue_args.queue_biz_key).await?);
         let q = ProofStoreRedisAsync::new(&cp_config.redis_uri, cp_config.queue_args.queue_biz_key.clone()).await?;
 
-        let psy_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
+        let psy_store = PsyStore::from_backend(cp_config.backend.to_backend()).await?;
         let psy_store = JournalStore::new(psy_store);
 
         let genesis_config = GenesisConfig::from_path(&cp_config.config_path)?;
@@ -286,7 +286,7 @@ impl
 
         use psy_core::config::network_constants::get_default_worker_public_key;
         let coordinator_worker_circuits =
-            QEDCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<F>());
+            PsyCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<F>());
 
         Ok(CoordinatorProcessNode::new(
             coordinator_processor_ctx,
@@ -301,7 +301,7 @@ impl
         .await)
     }
 
-    pub async fn initialize_store(psy_store: &JournalStore<QEDStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>) -> anyhow::Result<u64> {
+    pub async fn initialize_store(psy_store: &JournalStore<PsyStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>) -> anyhow::Result<u64> {
         let genesis_store_config = if let Some(ref config) = genesis_config {
             info!("initialize_store Some()");
             let deploy_root = Self::process_genesis_contracts(psy_store, config).await?;
@@ -431,7 +431,7 @@ impl
         try_backup_coordinator_checkpoint(backup_client, checkpoint_id, pair_to_set, removed_keys).await;
     }
 
-    async fn process_genesis_contracts<SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>>(
+    async fn process_genesis_contracts<SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F>>(
         store: &SR,
         genesis_config: &GenesisConfig<F>,
     ) -> anyhow::Result<QHashOut<F>> {
@@ -457,7 +457,7 @@ impl
                     .set_contract_function_whitelist_imm(0, contract_id, &deploy_cmd.function_whitelist)
                     .await?;
 
-                let contract_leaf = QEDContractLeaf {
+                let contract_leaf = PsyContractLeaf {
                     deployer: deploy_cmd.deployer,
                     function_tree_root,
                     state_tree_height: F::from_canonical_u32(deploy_cmd.code_definition.state_tree_height as u32),
@@ -468,7 +468,7 @@ impl
                     .set_contract_code_definition_imm(0, contract_id, &deploy_cmd.code_definition)
                     .await?;
 
-                let contract_leaf_hash = contract_leaf.qfhash::<QEDHasher>();
+                let contract_leaf_hash = contract_leaf.qfhash::<PsyHasher>();
                 store.set_contract_tree_leaf_hash_imm(0, contract_id, contract_leaf_hash).await?;
             }
         }
@@ -477,7 +477,7 @@ impl
     }
 
     async fn process_genesis_user_states<
-        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + QTreeDataStoreWriterSync<F>,
+        SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F> + QTreeDataStoreWriterSync<F>,
     >(
         store: &SR,
         genesis_config: &GenesisConfig<F>,
@@ -490,7 +490,7 @@ impl
                 let user_id = get_user_id_from_registration_id(*register_id);
                 user_id_to_register_id.insert(user_id, *register_id);
 
-                let mut contract_state_tree = SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(MAX_CONTRACT_STATE_TREE_HEIGHT);
+                let mut contract_state_tree = SimpleMerkleTree::<PsyHasher, QHashOut<F>>::new(MAX_CONTRACT_STATE_TREE_HEIGHT);
 
                 for (slot_id, slot_value) in &user_state.slots {
                     contract_state_tree.set_leaf(*slot_id, slot_value.clone());
@@ -505,13 +505,13 @@ impl
             }
         }
 
-        let mut realm_user_trees: HashMap<u64, SimpleMerkleTree<QEDHasher, QHashOut<F>>> = HashMap::new();
+        let mut realm_user_trees: HashMap<u64, SimpleMerkleTree<PsyHasher, QHashOut<F>>> = HashMap::new();
 
         let genesis_users = genesis_config.get_genesis_users();
         for (user_id, contract_states) in user_contract_states {
             let realm_id = user_id / USERS_PER_REALM;
 
-            let mut user_contracts_tree = SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(GLOBAL_CONTRACT_TREE_HEIGHT);
+            let mut user_contracts_tree = SimpleMerkleTree::<PsyHasher, QHashOut<F>>::new(GLOBAL_CONTRACT_TREE_HEIGHT);
 
             for (contract_id, contract_state_root) in &contract_states {
                 user_contracts_tree.set_leaf(*contract_id, *contract_state_root);
@@ -520,8 +520,8 @@ impl
             let user_state_root = user_contracts_tree.get_root();
 
             let register_id = user_id_to_register_id[&user_id];
-            let user_leaf = QEDUserLeaf {
-                public_key: genesis_users[register_id as usize].get_public_key::<QEDHasher>(),
+            let user_leaf = PsyUserLeaf {
+                public_key: genesis_users[register_id as usize].get_public_key::<PsyHasher>(),
                 user_state_tree_root: user_state_root,
                 balance: F::ZERO,
                 nonce: F::ZERO,
@@ -530,11 +530,11 @@ impl
                 user_id: F::from_canonical_u64(user_id),
             };
 
-            let user_leaf_hash = user_leaf.qfhash::<QEDHasher>();
+            let user_leaf_hash = user_leaf.qfhash::<PsyHasher>();
 
             let realm_tree = realm_user_trees
                 .entry(realm_id)
-                .or_insert_with(|| SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(GLOBAL_USER_TREE_HEIGHT));
+                .or_insert_with(|| SimpleMerkleTree::<PsyHasher, QHashOut<F>>::new(GLOBAL_USER_TREE_HEIGHT));
 
             realm_tree.set_leaf(user_id, user_leaf_hash);
         }
@@ -573,7 +573,7 @@ impl
         Ok(final_root)
     }
 
-    async fn process_genesis_user_registrations<S: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F>>(
+    async fn process_genesis_user_registrations<S: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F>>(
         store: &S,
         config: &GenesisConfig<F>,
     ) -> anyhow::Result<QHashOut<F>> {
@@ -586,10 +586,10 @@ impl
             .map(|(i, x)| {
                 let registration_id = start_registration_user_id + (i as u64);
                 let user_id = get_user_id_from_registration_id(registration_id);
-                QEDUserPublicKeyRecord {
+                PsyUserPublicKeyRecord {
                     public_key_param: x.public_key_param,
                     fingerprint: x.fingerprint,
-                    public_key: x.get_public_key::<QEDHasher>(),
+                    public_key: x.get_public_key::<PsyHasher>(),
                     user_id,
                     checkpoint_id: 0,
                 }
@@ -598,7 +598,7 @@ impl
 
         store.set_user_public_key_records(&new_user_records).await?;
 
-        let new_public_keys: Vec<QHashOut<F>> = user_registrations.iter().map(|x| x.get_public_key::<QEDHasher>()).collect();
+        let new_public_keys: Vec<QHashOut<F>> = user_registrations.iter().map(|x| x.get_public_key::<PsyHasher>()).collect();
 
         let _wits = store
             .batch_append_user_registration_tree_imm(
@@ -656,7 +656,7 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
 
 impl<
         JL: Journal,
-        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
+        SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F> + Journal,
         DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
         WQ: WorkerEventTransmitterAsyncImm,

@@ -4,23 +4,23 @@ import { StatefulAddressSelector } from "../AddressSelector";
 import { AddressModal } from "../AddressModal";
 import { StatefulAddressHeader } from "../AddressHeader";
 import { WalletActions } from "../WalletActions";
-import { QedUserWalletProvider } from "@qed/psy-sdk/src/wallet/provider";
+import { PsyUserWalletProvider } from "@psy/psy-sdk/src/wallet/provider";
 import { WalletThemeProvider } from "../../themes/ThemeProvider";
 import { GlobalStyles } from "../../themes/GlobalStyles";
 import {
     WalletWidgetContainer,
     WalletWidgetHeader,
     WalletWidgetBody
-} from "./QedWalletWidget.styles";
+} from "./PsyWalletWidget.styles";
 
-interface IQedWalletWidgetProps {
+interface IPsyWalletWidgetProps {
     className?: string;
-    provider: QedUserWalletProvider;
+    provider: PsyUserWalletProvider;
     children?: React.ReactNode;
     theme?: 'light' | 'dark' | 'extension';
 }
 
-const QedWalletWidgetInner: React.FC<Omit<IQedWalletWidgetProps, 'theme'>> = ({ 
+const PsyWalletWidgetInner: React.FC<Omit<IPsyWalletWidgetProps, 'theme'>> = ({ 
     className, 
     provider, 
     children 
@@ -49,7 +49,7 @@ const QedWalletWidgetInner: React.FC<Omit<IQedWalletWidgetProps, 'theme'>> = ({
     );
 };
 
-const QedWalletWidget: React.FC<IQedWalletWidgetProps> = ({ 
+const PsyWalletWidget: React.FC<IPsyWalletWidgetProps> = ({ 
     theme = 'dark',
     ...props 
 }) => {
@@ -59,9 +59,9 @@ const QedWalletWidget: React.FC<IQedWalletWidgetProps> = ({
     
     return (
         <WalletThemeProvider defaultTheme={defaultTheme}>
-            <QedWalletWidgetInner {...props} />
+            <PsyWalletWidgetInner {...props} />
         </WalletThemeProvider>
     );
 };
 
-export { QedWalletWidget };
+export { PsyWalletWidget };

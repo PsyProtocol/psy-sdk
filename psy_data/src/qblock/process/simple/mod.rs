@@ -7,19 +7,19 @@ use psy_core::{config::network_constants::DEFAULT_USER_STATE_TREE_ROOT, data::qh
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 
 use crate::{
-    config::store_config::{QEDFelt, QEDHasher},
+    config::store_config::{PsyFelt, PsyHasher},
     models::user::contract_state_tree::UserContractStateTreeId,
-    protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
+    protocol::circuit_fingerprints::PsyWorkerToolboxCoreCircuitFingerprints,
     qblock::{
-        cmds::{core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser},
+        cmds::{core::PsyBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser},
         process::witnesses::{
-            QEDCheckpointStateTransitionCircuitInput, QEDDeployContractCircuitInput, QEDInternalBlockCircuitInputs, QEDUserRegistrationCircuitInput,
+            PsyCheckpointStateTransitionCircuitInput, PsyDeployContractCircuitInput, PsyInternalBlockCircuitInputs, PsyUserRegistrationCircuitInput,
         },
     },
     qdata::{
-        checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats},
-        contract::{ContractCodeDefinition, ContractFunctionCodeDefinition, QEDContractLeaf},
-        user::QEDUserLeaf,
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats},
+        contract::{ContractCodeDefinition, ContractFunctionCodeDefinition, PsyContractLeaf},
+        user::PsyUserLeaf,
     },
     traits::qdatastore::{
         qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync},
@@ -34,14 +34,14 @@ pub struct SimpleBlockProcessor {}
 impl SimpleBlockProcessor {
     pub async fn process_block<S: KVQBinaryStore>(
         store: &S,
-        cmds: &QEDBlockCommands<QEDFelt>,
-        fingerprints: &QEDWorkerToolboxCoreCircuitFingerprints<QEDFelt>,
-    ) -> anyhow::Result<QEDInternalBlockCircuitInputs<QEDFelt>> {
+        cmds: &PsyBlockCommands<PsyFelt>,
+        fingerprints: &PsyWorkerToolboxCoreCircuitFingerprints<PsyFelt>,
+    ) -> anyhow::Result<PsyInternalBlockCircuitInputs<PsyFelt>> {
         let current_block_state = store.get_latest_l2_block_state().await?;
 
         let old_checkpoint_id = current_block_state.checkpoint_id;
         let old_checkpoint_leaf = store.get_checkpoint_leaf_data(old_checkpoint_id).await?;
-        let old_state_roots = QEDCheckpointGlobalStateRoots {
+        let old_state_roots = PsyCheckpointGlobalStateRoots {
             contract_tree_root: store.get_contract_tree_root(old_checkpoint_id).await?,
             deposit_tree_root: store.get_deposit_tree_root(old_checkpoint_id).await?,
             user_tree_root: store.get_user_tree_root(old_checkpoint_id).await?,
@@ -49,29 +49,29 @@ impl SimpleBlockProcessor {
             user_registration_tree_root: store.get_user_registration_tree_root(old_checkpoint_id).await?,
         };
         let new_checkpoint_id = old_checkpoint_id + 1;
-        let new_checkpoint_id_f = QEDFelt::from_canonical_u64(new_checkpoint_id);
+        let new_checkpoint_id_f = PsyFelt::from_canonical_u64(new_checkpoint_id);
 
         let mut new_block_state = current_block_state.clone();
-        let mut witness_register_users: Vec<QEDUserRegistrationCircuitInput<QEDFelt>> = Vec::with_capacity(cmds.register_users.len());
-        let mut witness_deploy_contracts: Vec<QEDDeployContractCircuitInput<QEDFelt>> = Vec::with_capacity(cmds.deploy_contracts.len());
+        let mut witness_register_users: Vec<PsyUserRegistrationCircuitInput<PsyFelt>> = Vec::with_capacity(cmds.register_users.len());
+        let mut witness_deploy_contracts: Vec<PsyDeployContractCircuitInput<PsyFelt>> = Vec::with_capacity(cmds.deploy_contracts.len());
 
         for (i, r) in cmds.register_users.iter().enumerate() {
             let user_id = current_block_state.next_user_id + i as u64;
-            let user = QEDUserLeaf {
-                public_key: r.get_public_key::<QEDHasher>(),
+            let user = PsyUserLeaf {
+                public_key: r.get_public_key::<PsyHasher>(),
                 user_state_tree_root: DEFAULT_USER_STATE_TREE_ROOT,
-                balance: QEDFelt::ZERO,
-                nonce: QEDFelt::ZERO,
+                balance: PsyFelt::ZERO,
+                nonce: PsyFelt::ZERO,
                 last_checkpoint_id: new_checkpoint_id_f,
-                event_index: QEDFelt::ZERO,
-                user_id: QEDFelt::from_canonical_u64(user_id),
+                event_index: PsyFelt::ZERO,
+                user_id: PsyFelt::from_canonical_u64(user_id),
             };
 
-            let leaf_hash = user.qfhash::<QEDHasher>();
+            let leaf_hash = user.qfhash::<PsyHasher>();
 
             store.set_user_leaf_data(new_checkpoint_id, &user)?;
             let user_reg_delta_merkle_proof = store.set_user_tree_leaf_hash(new_checkpoint_id, user_id, leaf_hash)?;
-            let user_reg_witness = QEDUserRegistrationCircuitInput {
+            let user_reg_witness = PsyUserRegistrationCircuitInput {
                 allowed_circuit_hashes_root: fingerprints.op_register_user.allowed_circuit_hashes_root,
                 user_tree_delta_merkle_proof: user_reg_delta_merkle_proof,
                 user_leaf: user,
@@ -86,17 +86,17 @@ impl SimpleBlockProcessor {
             let contract_id = (current_block_state.next_contract_id as u64) + i as u64;
             let function_tree_root = store.set_contract_function_whitelist(new_checkpoint_id, contract_id, &d.function_whitelist)?;
 
-            let contract_leaf = QEDContractLeaf {
+            let contract_leaf = PsyContractLeaf {
                 deployer: d.deployer,
                 function_tree_root,
-                state_tree_height: QEDFelt::from_canonical_u16(d.code_definition.state_tree_height),
+                state_tree_height: PsyFelt::from_canonical_u16(d.code_definition.state_tree_height),
             };
-            let contract_leaf_hash = contract_leaf.qfhash::<QEDHasher>();
+            let contract_leaf_hash = contract_leaf.qfhash::<PsyHasher>();
             store.set_contract_leaf_data(new_checkpoint_id, contract_id, &contract_leaf)?;
 
             store.set_contract_code_definition(new_checkpoint_id, contract_id, &d.code_definition)?;
             let contract_reg_delta_merkle_proof = store.set_contract_tree_leaf_hash(new_checkpoint_id, contract_id, contract_leaf_hash)?;
-            let contract_reg_witness = QEDDeployContractCircuitInput {
+            let contract_reg_witness = PsyDeployContractCircuitInput {
                 allowed_circuit_hashes_root: fingerprints.op_deploy_contract.allowed_circuit_hashes_root,
                 contract_tree_delta_merkle_proof: contract_reg_delta_merkle_proof,
                 contract_leaf,
@@ -141,7 +141,7 @@ impl SimpleBlockProcessor {
                 }
             }
             store.set_user_leaf_data(new_checkpoint_id, &upd_user.updated_leaf)?;
-            let user_leaf_hash = user.qfhash::<QEDHasher>();
+            let user_leaf_hash = user.qfhash::<PsyHasher>();
             let user_delta_merkle_proof =
                 store.set_user_tree_leaf_hash(new_checkpoint_id, upd_user.updated_leaf.user_id.to_canonical_u64(), user_leaf_hash)?;
 
@@ -152,32 +152,32 @@ impl SimpleBlockProcessor {
         new_block_state.checkpoint_id = new_checkpoint_id;
         store.set_l2_block_state(&new_block_state)?;
 
-        let new_state_roots = QEDCheckpointGlobalStateRoots {
+        let new_state_roots = PsyCheckpointGlobalStateRoots {
             contract_tree_root: store.get_contract_tree_root(new_checkpoint_id).await?,
             deposit_tree_root: store.get_deposit_tree_root(new_checkpoint_id).await?,
             user_tree_root: store.get_user_tree_root(new_checkpoint_id).await?,
             withdrawal_tree_root: store.get_withdrawal_tree_root(new_checkpoint_id).await?,
             user_registration_tree_root: store.get_user_registration_tree_root(new_checkpoint_id).await?,
         };
-        let mut new_leaf_stats = QEDCheckpointLeafStats::<QEDFelt>::new_empty();
-        new_leaf_stats.block_time = QEDFelt::from_canonical_u64(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs());
-        new_leaf_stats.user_ops_processed = QEDFelt::from_canonical_u64(cmds.update_users.len() as u64);
+        let mut new_leaf_stats = PsyCheckpointLeafStats::<PsyFelt>::new_empty();
+        new_leaf_stats.block_time = PsyFelt::from_canonical_u64(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs());
+        new_leaf_stats.user_ops_processed = PsyFelt::from_canonical_u64(cmds.update_users.len() as u64);
         new_leaf_stats.total_transactions =
-            QEDFelt::from_canonical_u64(cmds.update_users.len() as u64 + cmds.register_users.len() as u64 + cmds.deploy_contracts.len() as u64);
+            PsyFelt::from_canonical_u64(cmds.update_users.len() as u64 + cmds.register_users.len() as u64 + cmds.deploy_contracts.len() as u64);
 
-        let new_global_state_hash = new_state_roots.qfhash::<QEDHasher>();
-        let new_checkpoint_leaf = QEDCheckpointLeaf {
+        let new_global_state_hash = new_state_roots.qfhash::<PsyHasher>();
+        let new_checkpoint_leaf = PsyCheckpointLeaf {
             stats: new_leaf_stats,
             global_chain_root: new_global_state_hash,
         };
-        let new_checkpoint_leaf_hash = new_checkpoint_leaf.qfhash::<QEDHasher>();
+        let new_checkpoint_leaf_hash = new_checkpoint_leaf.qfhash::<PsyHasher>();
         store.set_checkpoint_leaf_data(new_checkpoint_id, &new_checkpoint_leaf)?;
 
         let checkpoint_delta_merkle_proof = store.set_checkpoint_tree_leaf_hash(new_checkpoint_id, new_checkpoint_leaf_hash)?;
         //println!("checkpoint_delta_merkle_proof: {}",
         // serde_json::to_string_pretty(&checkpoint_delta_merkle_proof).unwrap());
 
-        let checkpoint_state_transition = QEDCheckpointStateTransitionCircuitInput {
+        let checkpoint_state_transition = PsyCheckpointStateTransitionCircuitInput {
             old_state_roots,
             old_checkpoint_leaf,
             new_state_roots,
@@ -187,7 +187,7 @@ impl SimpleBlockProcessor {
             checkpoint_delta_merkle_proof,
         };
 
-        Ok(QEDInternalBlockCircuitInputs {
+        Ok(PsyInternalBlockCircuitInputs {
             register_users: witness_register_users,
             deploy_contracts: witness_deploy_contracts,
             checkpoint_state_transition,
@@ -195,8 +195,8 @@ impl SimpleBlockProcessor {
     }
 
     pub async fn prepare_environment_with_real_contract<S: KVQBinaryStore>(
-        new_user_public_keys: Vec<QBCRegisterUser<QEDFelt>>,
-        deploy_contracts: Vec<QBCDeployContract<QEDFelt>>,
+        new_user_public_keys: Vec<QBCRegisterUser<PsyFelt>>,
+        deploy_contracts: Vec<QBCDeployContract<PsyFelt>>,
         store: S,
     ) -> anyhow::Result<S> {
         let fake_code_hash = QHashOut::rand();
@@ -204,7 +204,7 @@ impl SimpleBlockProcessor {
         let fake_code_hash_2 = QHashOut::rand();
 
         // Initialize store with genesis state if not already initialized
-        let dummy_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
+        let dummy_fingerprints = PsyWorkerToolboxCoreCircuitFingerprints::default();
 
         let mut all_users = vec![
             QBCRegisterUser::new_from_u64s([1; 4], [1; 4]),
@@ -217,7 +217,7 @@ impl SimpleBlockProcessor {
 
         let mut all_contracts = vec![
             QBCDeployContract {
-                deployer: QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374]).get_public_key::<QEDHasher>(),
+                deployer: QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374]).get_public_key::<PsyHasher>(),
                 code_definition: ContractCodeDefinition {
                     state_tree_height: 12 as u16,
                     functions: vec![ContractFunctionCodeDefinition::default()],
@@ -225,7 +225,7 @@ impl SimpleBlockProcessor {
                 function_whitelist: whitelist_items_fake.clone(),
             },
             QBCDeployContract {
-                deployer: QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378]).get_public_key::<QEDHasher>(),
+                deployer: QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378]).get_public_key::<PsyHasher>(),
                 code_definition: ContractCodeDefinition {
                     state_tree_height: 13 as u16,
                     functions: vec![ContractFunctionCodeDefinition::default()],
@@ -237,7 +237,7 @@ impl SimpleBlockProcessor {
 
         Self::process_block(
             &store,
-            &QEDBlockCommands {
+            &PsyBlockCommands {
                 register_users: all_users,
                 deploy_contracts: all_contracts,
                 update_users: vec![],
@@ -249,7 +249,7 @@ impl SimpleBlockProcessor {
         // Process additional empty blocks for testing
         Self::process_block(
             &store,
-            &QEDBlockCommands {
+            &PsyBlockCommands {
                 register_users: vec![
                     QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
                     QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
@@ -263,7 +263,7 @@ impl SimpleBlockProcessor {
 
         Self::process_block(
             &store,
-            &QEDBlockCommands {
+            &PsyBlockCommands {
                 register_users: vec![
                     QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
                     QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),

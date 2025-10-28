@@ -16,17 +16,17 @@ use psy_crypto::hash::{
     merkle::core::MerkleProofCore,
     traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
 };
-use psy_data::qdata::checkpoint::QEDCheckpointLeafCompactWithStateRoots;
+use psy_data::qdata::checkpoint::PsyCheckpointLeafCompactWithStateRoots;
 
 use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, helpers::ToGUTAHeader};
 use crate::{
-    gadgets::qdata::checkpoint_compact_with_state::QEDCheckpointLeafCompactWithStateRootsGadget, guta::gadgets::guta_stats::GUTAStatsGadget,
+    gadgets::qdata::checkpoint_compact_with_state::PsyCheckpointLeafCompactWithStateRootsGadget, guta::gadgets::guta_stats::GUTAStatsGadget,
 };
 
 #[derive(Clone, Debug)]
 pub struct GUTANoChangeGadget {
     pub checkpoint_tree_proof: MerkleProofGadget,
-    pub checkpoint_leaf_gadget: QEDCheckpointLeafCompactWithStateRootsGadget,
+    pub checkpoint_leaf_gadget: PsyCheckpointLeafCompactWithStateRootsGadget,
 
     // computed
     pub new_guta_header: GlobalUserTreeAggregatorHeaderGadget,
@@ -40,7 +40,7 @@ impl GUTANoChangeGadget {
     ) -> Self {
         let checkpoint_tree_proof = MerkleProofGadget::add_virtual_to_append_only::<H, F, D>(builder, checkpoint_tree_height);
 
-        let checkpoint_leaf_gadget = QEDCheckpointLeafCompactWithStateRootsGadget::add_virtual_to::<H, F, D>(builder);
+        let checkpoint_leaf_gadget = PsyCheckpointLeafCompactWithStateRootsGadget::add_virtual_to::<H, F, D>(builder);
 
         let computed_checkpoint_leaf_hash = checkpoint_leaf_gadget.to_hash::<H, F, D>(builder);
         let expected_checkpoint_leaf_hash = checkpoint_tree_proof.value;
@@ -80,7 +80,7 @@ impl GUTANoChangeGadget {
         &self,
         witness: &mut W,
         checkpoint_tree_proof: &MerkleProofCore<QHashOut<F>>,
-        checkpoint_leaf: &QEDCheckpointLeafCompactWithStateRoots<F>,
+        checkpoint_leaf: &PsyCheckpointLeafCompactWithStateRoots<F>,
     ) -> anyhow::Result<()> {
         self.checkpoint_tree_proof
             .set_witness_core_proof_q_generic(witness, checkpoint_tree_proof)?;

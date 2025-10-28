@@ -1,15 +1,15 @@
 import { StoreApi, create } from "zustand";
-import { IQedWidgetWallet, DEFAULT_WALLET_NAME } from "../types";
+import { IPsyWidgetWallet, DEFAULT_WALLET_NAME } from "../types";
 import {
-    TQedTransactionSignerAbility,
-    TQedTransactionSignerProviderAbility,
+    TPsyTransactionSignerAbility,
+    TPsyTransactionSignerProviderAbility,
     ICoordinatorEdgeRpcProvider,
     IRealmEdgeRpcProvider,
-    IQedUserWallet,
-    QedJSON,
-} from "@qed/psy-sdk";
+    IPsyUserWallet,
+    PsyJSON,
+} from "@psy/psy-sdk";
 import { createMemoryWalletProvider } from "../utils/provider";
-import { QedUserWalletProvider } from "@qed/psy-sdk/src/wallet/provider";
+import { PsyUserWalletProvider } from "@psy/psy-sdk/src/wallet/provider";
 import { loadConfig } from "../config";
 
 enum WalletWidgetLoadingState {
@@ -19,23 +19,23 @@ enum WalletWidgetLoadingState {
 }
 interface IWalletStateStore {
     loadingState: WalletWidgetLoadingState;
-    provider: QedUserWalletProvider;
-    providerAbilities: TQedTransactionSignerProviderAbility[];
-    walletAbilities: TQedTransactionSignerAbility[];
-    wallets: IQedWidgetWallet[];
-    currentWallet?: IQedWidgetWallet;
+    provider: PsyUserWalletProvider;
+    providerAbilities: TPsyTransactionSignerProviderAbility[];
+    walletAbilities: TPsyTransactionSignerAbility[];
+    wallets: IPsyWidgetWallet[];
+    currentWallet?: IPsyWidgetWallet;
     currency: string;
     hasTriedRestore: boolean;
-    // rpc: IQedRPCProvider;
+    // rpc: IPsyRPCProvider;
     coordinatorEdgeRpcProvider: ICoordinatorEdgeRpcProvider;
     realmEdgeRpcProvider: IRealmEdgeRpcProvider;
     setRPC(coordinatorEdgeRpcProvider: ICoordinatorEdgeRpcProvider, realmEdgeRpcProvider: IRealmEdgeRpcProvider): void;
-    addWallet: (wallet: IQedWidgetWallet) => any;
+    addWallet: (wallet: IPsyWidgetWallet) => any;
     removeWallet: (userId: number) => any;
-    setWallets: (wallets: IQedWidgetWallet[]) => any;
+    setWallets: (wallets: IPsyWidgetWallet[]) => any;
     setActiveWallet: (userId: number) => any;
     setActiveWalletAsync: (userId: number) => Promise<any>;
-    setWalletProvider: (provider: QedUserWalletProvider) => any;
+    setWalletProvider: (provider: PsyUserWalletProvider) => any;
     refreshCurrentWallet: () => Promise<any>;
     refreshAllWallets: () => Promise<any>;
     addRandomWallet: (signType: string, fingerprint: string | null | undefined, registerUser?: boolean) => Promise<any>;
@@ -58,13 +58,13 @@ type AsyncWidgetStoreAction = (helpers: {
     storeApi: WidgetStoreAPI;
 }) => Promise<Partial<IWalletStateStore> | IWalletStateStore>;
 
-async function getAllIQWallets(provider: QedUserWalletProvider): Promise<IQedWidgetWallet[]> {
+async function getAllIQWallets(provider: PsyUserWalletProvider): Promise<IPsyWidgetWallet[]> {
     console.log("getAllIQWallets: Getting user wallets from provider...");
     const users = await provider.getUserWallets();
     console.log("getAllIQWallets: Found", users.length, "user wallets");
 
     return Promise.all(
-        users.map(async (user: IQedUserWallet, index) => {
+        users.map(async (user: IPsyUserWallet, index) => {
             console.log(`getAllIQWallets: Getting user info for wallet ${index}...`);
             const userInfo = await user.getUserInfo();
             console.log(`getAllIQWallets: Wallet ${index} info:`, userInfo);
@@ -74,7 +74,7 @@ async function getAllIQWallets(provider: QedUserWalletProvider): Promise<IQedWid
                 address: userInfo.publicKeyHex,
                 wallet: user,
                 isActive: false,
-            } as IQedWidgetWallet;
+            } as IPsyWidgetWallet;
         })
     );
 }
@@ -193,7 +193,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     }
                 }
             }),
-        addWallet: (wallet: IQedWidgetWallet) =>
+        addWallet: (wallet: IPsyWidgetWallet) =>
             set((state) => {
                 state.wallets.push(wallet);
                 return { wallets: state.wallets };
@@ -209,7 +209,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 }
                 return { wallets: state.wallets };
             }),
-        setWallets: (wallets: IQedWidgetWallet[]) =>
+        setWallets: (wallets: IPsyWidgetWallet[]) =>
             set((state) => {
                 if (state.currentWallet) {
                     const currentWallet = wallets.find((w) => w.userId === state.currentWallet?.userId);
@@ -357,7 +357,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                     wallets: iqWallets,
                 };
             }),
-        setWalletProvider: (provider: QedUserWalletProvider) =>
+        setWalletProvider: (provider: PsyUserWalletProvider) =>
             setAsync(async ({ set: _set, get: _get, state }) => {
                 if (provider === state.provider) {
                     return {};
@@ -369,7 +369,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                         const stored = localStorage.getItem(WALLET_STORAGE_KEY);
 
                         if (stored) {
-                            const data = QedJSON.parse(stored);
+                            const data = PsyJSON.parse(stored);
                             const isDataFresh = Date.now() - data.lastUpdated < 24 * 60 * 60 * 1000;
 
                             if (isDataFresh && data.wallets.length > 0) {

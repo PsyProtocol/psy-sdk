@@ -4,7 +4,7 @@ import { TAddressModalComponent } from "../../index";
 import { ImportPrivateKeyForm } from "../../forms/ImportPrivateKey";
 type ImportAbility = "import-private-key";
 import { ImportWalletModal as StyledImportWalletModal, ModalTitle, ImportForm } from "./ImportWallet.styles";
-import { TQedTransactionSignerProviderAbility } from "@qed/psy-sdk";
+import { TPsyTransactionSignerProviderAbility } from "@psy/psy-sdk";
 interface IImportWalletFormProps {
     onImport: (data: any) => void;
     className?: string;
@@ -26,7 +26,7 @@ const ImportForms: Record<string, TImportWalletForm> = {
 const ImportWalletModal: TAddressModalComponent = ({ onCancel, onComplete }) => {
     const providerAbilities = useWalletState((state) => state.providerAbilities);
     const supportedAbilities = Object.keys(ImportForms).filter((ability) =>
-        providerAbilities.includes(ability as TQedTransactionSignerProviderAbility)
+        providerAbilities.includes(ability as TPsyTransactionSignerProviderAbility)
     ) as ImportAbility[];
 
     if (supportedAbilities.length === 0) {

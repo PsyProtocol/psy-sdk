@@ -13,7 +13,7 @@ use crate::{
     worker::F,
 };
 
-#[rpc(server, client, namespace = "qed")]
+#[rpc(server, client, namespace = "psy")]
 pub trait CoordinatorRpc {
     #[method(name = "get_user_id")]
     async fn get_user_id(&self, public_key: String) -> RpcResult<u64>;

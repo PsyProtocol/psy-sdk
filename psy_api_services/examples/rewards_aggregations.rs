@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
     let now = Utc::now();
 
-    println!("📊 QED Worker Rewards Aggregations API Example");
+    println!("📊 Psy Worker Rewards Aggregations API Example");
     println!("🚀 Creating sample worker events across different time periods...");
     println!("⏳ Background reward processing will create continuous aggregates");
 

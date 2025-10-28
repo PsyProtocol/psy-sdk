@@ -1,6 +1,6 @@
 {
 	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-	"name": "qed-lang",
+	"name": "psy-lang",
 	"patterns": [
 		{
 			"include": "#keywords"
@@ -12,21 +12,21 @@
 	"repository": {
 		"keywords": {
 			"patterns": [{
-				"name": "keyword.control.qed",
+				"name": "keyword.control.psy",
 				"match": "\\b(if|while|for|return)\\b"
 			}]
 		},
 		"strings": {
-			"name": "string.quoted.double.qed",
+			"name": "string.quoted.double.psy",
 			"begin": "\"",
 			"end": "\"",
 			"patterns": [
 				{
-					"name": "constant.character.escape.qed",
+					"name": "constant.character.escape.psy",
 					"match": "\\\\."
 				}
 			]
 		}
 	},
-	"scopeName": "source.qed"
+	"scopeName": "source.psy"
 }

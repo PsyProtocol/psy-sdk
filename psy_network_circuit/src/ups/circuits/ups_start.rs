@@ -11,7 +11,7 @@ use plonky2::{
 use psy_common_circuit::{
     builder::{
         hash::core::CircuitBuilderHashCore,
-        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+        pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     },
     circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
@@ -57,7 +57,7 @@ where
 
         builder.register_public_inputs(&public_inputs_hash.elements);
 
-        builder.add_qed_type_b_common_gates();
+        builder.add_psy_type_b_common_gates();
         pad_circuit_degree::<C::F, D>(&mut builder, 11);
         let circuit_data = builder.build::<C>();
 

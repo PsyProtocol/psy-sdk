@@ -8,19 +8,19 @@ use psy_crypto::hash::merkle::{
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::{
-    checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf},
-    contract::QEDContractLeaf,
-    user::QEDUserLeaf,
+    checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
+    contract::PsyContractLeaf,
+    user::PsyUserLeaf,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDUserRegistrationCircuitInput<F: RichField> {
+pub struct PsyUserRegistrationCircuitInput<F: RichField> {
     pub user_tree_delta_merkle_proof: DeltaMerkleProofCore<QHashOut<F>>,
-    pub user_leaf: QEDUserLeaf<F>,
+    pub user_leaf: PsyUserLeaf<F>,
     pub allowed_circuit_hashes_root: QHashOut<F>,
 }
-impl<F: RichField> AggStateTrackableInput<F> for QEDUserRegistrationCircuitInput<F> {
+impl<F: RichField> AggStateTrackableInput<F> for PsyUserRegistrationCircuitInput<F> {
     fn get_state_transition(&self) -> AggStateTransition<F> {
         AggStateTransition {
             state_transition_start: self.user_tree_delta_merkle_proof.old_root,
@@ -29,7 +29,7 @@ impl<F: RichField> AggStateTrackableInput<F> for QEDUserRegistrationCircuitInput
     }
 }
 
-impl<F: RichField> KVQSerializable for QEDUserRegistrationCircuitInput<F> {
+impl<F: RichField> KVQSerializable for PsyUserRegistrationCircuitInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(Into::into)
     }
@@ -41,12 +41,12 @@ impl<F: RichField> KVQSerializable for QEDUserRegistrationCircuitInput<F> {
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDDeployContractCircuitInput<F: RichField> {
+pub struct PsyDeployContractCircuitInput<F: RichField> {
     pub allowed_circuit_hashes_root: QHashOut<F>,
     pub contract_tree_delta_merkle_proof: DeltaMerkleProofCore<QHashOut<F>>,
-    pub contract_leaf: QEDContractLeaf<F>,
+    pub contract_leaf: PsyContractLeaf<F>,
 }
-impl<F: RichField> AggStateTrackableInput<F> for QEDDeployContractCircuitInput<F> {
+impl<F: RichField> AggStateTrackableInput<F> for PsyDeployContractCircuitInput<F> {
     fn get_state_transition(&self) -> AggStateTransition<F> {
         AggStateTransition {
             state_transition_start: self.contract_tree_delta_merkle_proof.old_root,
@@ -55,7 +55,7 @@ impl<F: RichField> AggStateTrackableInput<F> for QEDDeployContractCircuitInput<F
     }
 }
 
-impl<F: RichField> KVQSerializable for QEDDeployContractCircuitInput<F> {
+impl<F: RichField> KVQSerializable for PsyDeployContractCircuitInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(Into::into)
     }
@@ -67,19 +67,19 @@ impl<F: RichField> KVQSerializable for QEDDeployContractCircuitInput<F> {
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDCheckpointStateTransitionCircuitInput<F: RichField> {
-    pub old_state_roots: QEDCheckpointGlobalStateRoots<F>,
-    pub old_checkpoint_leaf: QEDCheckpointLeaf<F>,
+pub struct PsyCheckpointStateTransitionCircuitInput<F: RichField> {
+    pub old_state_roots: PsyCheckpointGlobalStateRoots<F>,
+    pub old_checkpoint_leaf: PsyCheckpointLeaf<F>,
 
-    pub new_state_roots: QEDCheckpointGlobalStateRoots<F>,
-    pub new_checkpoint_leaf: QEDCheckpointLeaf<F>,
+    pub new_state_roots: PsyCheckpointGlobalStateRoots<F>,
+    pub new_checkpoint_leaf: PsyCheckpointLeaf<F>,
 
     pub boundry_user_registration_merkle_proof: MerkleProofCore<QHashOut<F>>,
     pub boundry_user_update_merkle_proof: MerkleProofCore<QHashOut<F>>,
 
     pub checkpoint_delta_merkle_proof: DeltaMerkleProofCore<QHashOut<F>>,
 }
-impl<F: RichField> AggStateTrackableInput<F> for QEDCheckpointStateTransitionCircuitInput<F> {
+impl<F: RichField> AggStateTrackableInput<F> for PsyCheckpointStateTransitionCircuitInput<F> {
     fn get_state_transition(&self) -> AggStateTransition<F> {
         AggStateTransition {
             state_transition_start: self.checkpoint_delta_merkle_proof.old_root,
@@ -88,7 +88,7 @@ impl<F: RichField> AggStateTrackableInput<F> for QEDCheckpointStateTransitionCir
     }
 }
 
-impl<F: RichField> KVQSerializable for QEDCheckpointStateTransitionCircuitInput<F> {
+impl<F: RichField> KVQSerializable for PsyCheckpointStateTransitionCircuitInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(Into::into)
     }
@@ -100,8 +100,8 @@ impl<F: RichField> KVQSerializable for QEDCheckpointStateTransitionCircuitInput<
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct QEDInternalBlockCircuitInputs<F: RichField> {
-    pub register_users: Vec<QEDUserRegistrationCircuitInput<F>>,
-    pub deploy_contracts: Vec<QEDDeployContractCircuitInput<F>>,
-    pub checkpoint_state_transition: QEDCheckpointStateTransitionCircuitInput<F>,
+pub struct PsyInternalBlockCircuitInputs<F: RichField> {
+    pub register_users: Vec<PsyUserRegistrationCircuitInput<F>>,
+    pub deploy_contracts: Vec<PsyDeployContractCircuitInput<F>>,
+    pub checkpoint_state_transition: PsyCheckpointStateTransitionCircuitInput<F>,
 }

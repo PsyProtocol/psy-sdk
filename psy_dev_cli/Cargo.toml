@@ -16,7 +16,7 @@ tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-# QED dependencies
+# Psy dependencies
 psy_node_utils = { workspace = true }
 psy-common = { workspace = true }
 psy_core = { workspace = true }

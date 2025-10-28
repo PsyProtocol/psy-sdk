@@ -23,7 +23,7 @@ use crate::gadgets::{
     qdata::{
         cfc_context_input::UPSInspectDapenCFCUserTransactionInputContextGadget,
         ups_context_input::{UserProvingSessionCurrentStateGadget, UserProvingSessionHeaderGadget},
-        user::QEDUserLeafGadget,
+        user::PsyUserLeafGadget,
     },
     stack_items::transaction_log::TransactionLogStackItemGadget,
 };
@@ -311,7 +311,7 @@ impl UPSCFCStandardStateDeltaGadget {
             new_step_tx_hash_stack
         );
 
-        let new_step_user_leaf = QEDUserLeafGadget {
+        let new_step_user_leaf = PsyUserLeafGadget {
             public_key: previous_step_header_gadget.current_state.user_leaf.public_key,
             user_state_tree_root: new_step_user_state_tree_root,
             balance: new_step_user_balance,

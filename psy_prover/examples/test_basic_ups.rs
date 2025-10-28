@@ -8,41 +8,41 @@ use plonky2::{
     },
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
+use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
 use psy_core::{
-    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, Psy_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     ups::circuits::{LocalCircuitId, LocalCircuitType},
     utils::debug_timer::DebugTimer,
 };
-use psy_crypto::{hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimpleQEDPrivateKey};
+use psy_crypto::{hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::{
-    config::store_config::QEDHasher,
-    protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
+    config::store_config::PsyHasher,
+    protocol::circuit_fingerprints::PsyWorkerToolboxCoreCircuitFingerprints,
     qblock::{
-        cmds::{core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser},
+        cmds::{core::PsyBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser},
         process::simple::SimpleBlockProcessor,
     },
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
-    traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync},
+    traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::PsyComboDataStoreReaderWriterSync},
 };
 use psy_prover::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
     local::provider::UPSCircuitManagerTrait,
     ups::{
-        circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
+        circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
         session::UserProvingSessionManager,
     },
 };
 use psy_store::{
     controllers::local::{
-        prepare_environment_with_real_contract, proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
+        prepare_environment_with_real_contract, proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
     },
-    node::coordinator::QEDCoordinatorStoreWriterAsyncImm,
+    node::coordinator::PsyCoordinatorStoreWriterAsyncImm,
 };
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
+    vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
 };
 use psylang_macros::qcontract;
 
@@ -161,13 +161,13 @@ type C = PoseidonGoldilocksConfig;
 
 /*
 
-fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField>>(
+fn test_run_contract_fn<R: PsyReadCommandProcessorSync<GoldilocksField>>(
     contract_id: GoldilocksField,
     fn_circuit_def: &DPNFunctionCircuitDefinition,
-    lps: &mut QEDLocalProvingSessionStore<GoldilocksField, R>,
+    lps: &mut PsyLocalProvingSessionStore<GoldilocksField, R>,
     inputs: &[GoldilocksField],
 ) -> anyhow::Result<DapenContractFunctionCircuitInput<GoldilocksField>> {
-    QEDEvalSessionResult::new()
+    PsyEvalSessionResult::new()
         .exec_contract_call( lps,contract_id, fn_circuit_def, inputs.to_vec())
 }
 */
@@ -181,7 +181,7 @@ fn compile_simple_mint_debug() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("amount".to_string(), 1usize)];
     let method_name = "simple_mint_debug".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec("simple_mint_debug".to_string(), method_id, &ctx.store, &ctx, &outputs);
+    let fn_circuit_def = PsyCompileResult::compile_exec("simple_mint_debug".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -195,7 +195,7 @@ fn compile_simple_transfer() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("recipient".to_string(), 1usize), ("amount".to_string(), 1usize)];
     let method_name = "simple_transfer".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec("simple_transfer".to_string(), method_id, &ctx.store, &ctx, &outputs);
+    let fn_circuit_def = PsyCompileResult::compile_exec("simple_transfer".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -209,7 +209,7 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("sender".to_string(), 1usize)];
     let method_name = "simple_claim".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec("simple_claim".to_string(), method_id, &ctx.store, &ctx, &outputs);
+    let fn_circuit_def = PsyCompileResult::compile_exec("simple_claim".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -241,9 +241,9 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     let mut result_circuits = result_circuits;
     timer.lap("finished building fn circuits");
     let priv_key = QHashOut::rand();
-    let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
-    let priv_key_obj = SimpleQEDPrivateKey::new(priv_key);
-    let pub_param = priv_key_obj.get_public_key_param::<QEDHasher>();
+    let mut wallet = SimplePsyZKSignatureManager::<C, D>::new();
+    let priv_key_obj = SimplePsyPrivateKey::new(priv_key);
+    let pub_param = priv_key_obj.get_public_key_param::<PsyHasher>();
     let fingerprint = wallet.get_zksig_circuit_fingerprint();
     let pub_key = wallet.add_private_key(priv_key_obj);
     timer.lap("finished building wallet/zksig circuits");
@@ -267,12 +267,12 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     println!("\n\n[simple_mint_debug_circuit.common]:\n{:?}\n\n",simple_mint_debug_circuit.get_common_circuit_data_ref());
     */
 
-    timer.lap("start: init QEDUPSStepCircuitManager");
+    timer.lap("start: init PsyUPSStepCircuitManager");
 
-    let main_circuits = QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST));
+    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(Psy_NETWORK_MAGIC_REGTEST));
     //main_circuits.print_common_config();
 
-    timer.lap("end: init QEDUPSStepCircuitManager");
+    timer.lap("end: init PsyUPSStepCircuitManager");
 
     let lps = prepare_environment_with_real_contract(
         vec![QBCRegisterUser::new(fingerprint, pub_param)],
@@ -308,7 +308,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     );
 
     let mut mgr =
-        UserProvingSessionManager::<GoldilocksField, QEDHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
+        UserProvingSessionManager::<GoldilocksField, PsyHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
             .await?;
 
     timer.lap("START USER PROVING SESSION");
@@ -337,17 +337,17 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("proved ups_cfc_standard_tx");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
-    let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
+    let sighash = mgr.get_sighash(Psy_NETWORK_MAGIC_REGTEST, new_nonce);
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
     mgr.proof_tree_state.finalize_tree(&main_circuits).await?;
     timer.lap("aggregated all UPS proofs into a single proof");
-    let public_key_param = SimpleQEDPrivateKey::new(priv_key).get_public_key_param::<QEDHasher>();
+    let public_key_param = SimplePsyPrivateKey::new(priv_key).get_public_key_param::<PsyHasher>();
     let end_cap_proof = mgr
         .prove_end_cap(
             &main_circuits,
-            QED_NETWORK_MAGIC_REGTEST,
+            Psy_NETWORK_MAGIC_REGTEST,
             new_nonce,
             wallet.circuit.get_fingerprint(),
             public_key_param,

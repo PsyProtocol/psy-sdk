@@ -1,4 +1,4 @@
-import { QedRPCUserProverProvider } from "./client";
+import { PsyRPCUserProverProvider } from "./client";
 import { ContractCallArgs, WalletKeyPair } from "./types";
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
@@ -13,19 +13,19 @@ async function waitBlock(coordinator: CoordinatorEdgeRpcProvider): Promise<void>
 
 /**
  * End-to-end workflow integration tests
- * These tests simulate real user workflows with the QED User Prover RPC server
+ * These tests simulate real user workflows with the Psy User Prover RPC server
  */
 
-describe("QED User Prover RPC Workflow Integration", () => {
-    let provider: QedRPCUserProverProvider;
-    const rpcUrl = process.env.QED_RPC_URL || "http://localhost:8888";
+describe("Psy User Prover RPC Workflow Integration", () => {
+    let provider: PsyRPCUserProverProvider;
+    const rpcUrl = process.env.Psy_RPC_URL || "http://localhost:8888";
     const timeout = 60000; // 60 seconds for complex workflows
 
     let coordinator: CoordinatorEdgeRpcProvider;
     const MOCK_RPC_URL = process.env.TEST_COORD_EDGE_RPC_URL || "http://localhost:8545";
 
     beforeAll(() => {
-        provider = new QedRPCUserProverProvider(rpcUrl);
+        provider = new PsyRPCUserProverProvider(rpcUrl);
         coordinator = new CoordinatorEdgeRpcProvider(MOCK_RPC_URL);
     });
 

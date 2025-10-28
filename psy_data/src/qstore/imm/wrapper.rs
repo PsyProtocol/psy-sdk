@@ -5,15 +5,15 @@ use std::{
 
 use plonky2::hash::hash_types::RichField;
 
-use super::cmd_processor::QEDReadCommandProcessorSyncMut;
+use super::cmd_processor::PsyReadCommandProcessorSyncMut;
 
 #[derive(Clone)]
-pub struct QEDReadCommandProcessorArcImmutableWrapper<F: RichField, P: QEDReadCommandProcessorSyncMut<F>> {
+pub struct PsyReadCommandProcessorArcImmutableWrapper<F: RichField, P: PsyReadCommandProcessorSyncMut<F>> {
     inner: Arc<RwLock<P>>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField, P: QEDReadCommandProcessorSyncMut<F>> QEDReadCommandProcessorArcImmutableWrapper<F, P> {
+impl<F: RichField, P: PsyReadCommandProcessorSyncMut<F>> PsyReadCommandProcessorArcImmutableWrapper<F, P> {
     pub fn new(inner: P) -> Self {
         Self {
             inner: Arc::new(RwLock::new(inner)),
@@ -33,8 +33,8 @@ impl<F: RichField, P: QEDReadCommandProcessorSyncMut<F>> QEDReadCommandProcessor
     }
 }
 /*
-impl<F: RichField, P: QEDReadCommandProcessorSyncMut<F>> QEDReadCommandProcessorSync<F> for QEDReadCommandProcessorArcImmutableWrapper<F, P> {
-    fn resolve_batch(&self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>> {
+impl<F: RichField, P: PsyReadCommandProcessorSyncMut<F>> PsyReadCommandProcessorSync<F> for PsyReadCommandProcessorArcImmutableWrapper<F, P> {
+    fn resolve_batch(&self, input: &PsyReadCommandBatchInput) -> anyhow::Result<PsyReadCommandBatchOutput<F>> {
         self.write()?.resolve_batch_mut(input)
     }
 
@@ -46,11 +46,11 @@ impl<F: RichField, P: QEDReadCommandProcessorSyncMut<F>> QEDReadCommandProcessor
         self.write()?.resolve_get_merkle_proof_mut(input)
     }
 
-    fn resolve_get_user_leaf(&self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<QEDUserLeaf<F>> {
+    fn resolve_get_user_leaf(&self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<PsyUserLeaf<F>> {
         self.write()?.resolve_get_user_leaf_mut(input)
     }
 
-    fn resolve_get_contract_leaf(&self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<QEDContractLeaf<F>> {
+    fn resolve_get_contract_leaf(&self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<PsyContractLeaf<F>> {
         self.write()?.resolve_get_contract_leaf_mut(input)
     }
 
@@ -58,11 +58,11 @@ impl<F: RichField, P: QEDReadCommandProcessorSyncMut<F>> QEDReadCommandProcessor
         self.write()?.resolve_get_contract_code_mut(input)
     }
 
-    fn resolve_get_checkpoint_leaf(&self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+    fn resolve_get_checkpoint_leaf(&self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<PsyCheckpointLeaf<F>> {
         self.write()?.resolve_get_checkpoint_leaf_mut(input)
     }
 
-    fn resolve_get_l2_block_state(&self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<QEDL2BlockState> {
+    fn resolve_get_l2_block_state(&self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<PsyL2BlockState> {
         self.write()?.resolve_get_l2_block_state_mut(input)
     }
 }

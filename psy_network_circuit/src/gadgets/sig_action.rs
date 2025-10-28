@@ -8,9 +8,9 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::{builder::core::CircuitBuilderHelpersCore, traits::AlgebraicHashableTarget};
-use psy_crypto::signature::zk::wallet::QEDSigAction;
+use psy_crypto::signature::zk::wallet::PsySigAction;
 
-pub struct SimpleQEDSigAction {
+pub struct SimplePsySigAction {
     pub network_magic: Target,
     pub user: Target,
     pub sig_action: Target,
@@ -40,7 +40,7 @@ pub fn compute_sig_action_hash_circuit<H: AlgebraicHasher<F>, F: RichField + Ext
     ])
 }
 
-impl SimpleQEDSigAction {
+impl SimplePsySigAction {
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         action_arguments_length: usize,
@@ -65,7 +65,7 @@ impl SimpleQEDSigAction {
             sig_action_hash,
         }
     }
-    pub fn set_witness<W: Witness<F>, F: RichField>(&self, witness: &mut PartialWitness<F>, sig_action_hint: &QEDSigAction<F>) -> anyhow::Result<()> {
+    pub fn set_witness<W: Witness<F>, F: RichField>(&self, witness: &mut PartialWitness<F>, sig_action_hint: &PsySigAction<F>) -> anyhow::Result<()> {
         witness.set_target(self.network_magic, sig_action_hint.network_magic)?;
         witness.set_target(self.user, sig_action_hint.user)?;
         witness.set_target(self.sig_action, sig_action_hint.sig_action)?;
@@ -74,7 +74,7 @@ impl SimpleQEDSigAction {
     }
 }
 
-impl AlgebraicHashableTarget for SimpleQEDSigAction {
+impl AlgebraicHashableTarget for SimplePsySigAction {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         _builder: &mut CircuitBuilder<F, D>,

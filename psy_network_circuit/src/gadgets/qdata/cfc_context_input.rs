@@ -14,27 +14,27 @@ use psy_data::dpn::cfc_context_input::{
 };
 
 use super::{
-    checkpoint::QEDCheckpointLeafGadget, checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget,
+    checkpoint::PsyCheckpointLeafGadget, checkpoint_state_roots::PsyCheckpointGlobalStateRootsGadget,
     contract_function_call::DPNProvingSessionCompactMethodCallGadget, ups_context_input::UserProvingSessionStartContextGadget,
-    user::QEDUserLeafGadget,
+    user::PsyUserLeafGadget,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DapenCFCProvingSessionStartContextGadget {
     pub checkpoint_id: Target,
     pub checkpoint_tree_root: HashOutTarget,
-    pub checkpoint_leaf: QEDCheckpointLeafGadget,
-    pub state_roots: QEDCheckpointGlobalStateRootsGadget,
-    pub start_session_user_leaf: QEDUserLeafGadget,
+    pub checkpoint_leaf: PsyCheckpointLeafGadget,
+    pub state_roots: PsyCheckpointGlobalStateRootsGadget,
+    pub start_session_user_leaf: PsyUserLeafGadget,
 }
 
 impl DapenCFCProvingSessionStartContextGadget {
     fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let checkpoint_id = builder.add_virtual_target();
         let checkpoint_tree_root = builder.add_virtual_hash();
-        let checkpoint_leaf = QEDCheckpointLeafGadget::create_virtual(builder);
-        let state_roots = QEDCheckpointGlobalStateRootsGadget::create_virtual(builder);
-        let start_session_user_leaf = QEDUserLeafGadget::create_virtual(builder);
+        let checkpoint_leaf = PsyCheckpointLeafGadget::create_virtual(builder);
+        let state_roots = PsyCheckpointGlobalStateRootsGadget::create_virtual(builder);
+        let start_session_user_leaf = PsyUserLeafGadget::create_virtual(builder);
 
         let expected_global_chain_root = checkpoint_leaf.global_chain_root;
         let computed_global_chain_root = state_roots.to_hash::<H, F, D>(builder);

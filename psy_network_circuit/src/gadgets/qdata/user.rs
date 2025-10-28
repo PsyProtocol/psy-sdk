@@ -9,10 +9,10 @@ use psy_common_circuit::{
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
 use psy_core::data::qhashout::QHashOut;
-use psy_data::qdata::user::QEDUserLeaf;
+use psy_data::qdata::user::PsyUserLeaf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
-pub struct QEDUserLeafGadget {
+pub struct PsyUserLeafGadget {
     pub public_key: HashOutTarget,
     pub user_state_tree_root: HashOutTarget,
 
@@ -23,7 +23,7 @@ pub struct QEDUserLeafGadget {
     pub user_id: Target,
 }
 
-impl QEDUserLeafGadget {
+impl PsyUserLeafGadget {
     pub fn create_new_user_default<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         user_id: Target,
@@ -42,7 +42,7 @@ impl QEDUserLeafGadget {
         }
     }
 
-    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &QEDUserLeaf<F>) -> anyhow::Result<()> {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PsyUserLeaf<F>) -> anyhow::Result<()> {
         witness.set_hash_target(self.public_key, target.public_key.0)?;
         witness.set_hash_target(self.user_state_tree_root, target.user_state_tree_root.0)?;
 
@@ -55,7 +55,7 @@ impl QEDUserLeafGadget {
     pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
     }
-    pub fn connect_to_other<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, other: QEDUserLeafGadget) {
+    pub fn connect_to_other<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, other: PsyUserLeafGadget) {
         builder.connect_hashes(self.public_key, other.public_key);
 
         builder.connect_hashes(self.user_state_tree_root, other.user_state_tree_root);
@@ -74,7 +74,7 @@ impl QEDUserLeafGadget {
     pub fn connect_to_all_except_state_balance_event_index<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        other: QEDUserLeafGadget,
+        other: PsyUserLeafGadget,
     ) {
         builder.connect_hashes(self.public_key, other.public_key);
 
@@ -109,7 +109,7 @@ impl QEDUserLeafGadget {
         builder.connect(self.user_id, other.user_id);
     }
 }
-impl AlgebraicHashableTarget for QEDUserLeafGadget {
+impl AlgebraicHashableTarget for PsyUserLeafGadget {
     fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -117,7 +117,7 @@ impl AlgebraicHashableTarget for QEDUserLeafGadget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl CreatableTarget for QEDUserLeafGadget {
+impl CreatableTarget for PsyUserLeafGadget {
     fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let public_key = builder.add_virtual_hash();
         let user_state_tree_root = builder.add_virtual_hash();
@@ -139,7 +139,7 @@ impl CreatableTarget for QEDUserLeafGadget {
         }
     }
 }
-impl ToTargets for QEDUserLeafGadget {
+impl ToTargets for PsyUserLeafGadget {
     fn to_targets(&self) -> Vec<Target> {
         vec![
             self.public_key.elements[0],
@@ -158,11 +158,11 @@ impl ToTargets for QEDUserLeafGadget {
         ]
     }
 }
-impl FromTargets for QEDUserLeafGadget {
+impl FromTargets for PsyUserLeafGadget {
     fn from_targets(targets: &[Target]) -> Self {
         if targets.len() != 13 {
             panic!(
-                "tried to create QEDUserLeafGadget from an array of {} targets, but expected an array of 13 targets",
+                "tried to create PsyUserLeafGadget from an array of {} targets, but expected an array of 13 targets",
                 targets.len()
             );
         }
@@ -189,14 +189,14 @@ impl FromTargets for QEDUserLeafGadget {
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDUserLeafGadget, F, true> for QEDUserLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserLeafGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyUserLeafGadget, F, true> for PsyUserLeaf<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyUserLeafGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<QEDUserLeafGadget, F, false> for QEDUserLeaf<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDUserLeafGadget) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<PsyUserLeafGadget, F, false> for PsyUserLeaf<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PsyUserLeafGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

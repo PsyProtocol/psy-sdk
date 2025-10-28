@@ -4,14 +4,14 @@ use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_data::{
-    protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
+    protocol::circuit_fingerprints::PsyWorkerToolboxCoreCircuitFingerprints,
     qblock::{
-        cmds::{core::QEDBlockCommands, register_user::QBCRegisterUser},
+        cmds::{core::PsyBlockCommands, register_user::QBCRegisterUser},
         process::simple::SimpleBlockProcessor,
     },
-    traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync},
+    traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::PsyComboDataStoreReaderWriterSync},
 };
-use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
+use psy_store::node::coordinator::PsyCoordinatorStoreWriterAsyncImm;
 
 type GF = GoldilocksField;
 
@@ -23,9 +23,9 @@ async fn test_simple_block_processor() -> anyhow::Result<()> {
     let cur_checkpoint = st.initialize_store(None).await?;
     t.event(format!("current_checkpoint: {}", cur_checkpoint));
 
-    let circuit_fingerprints = QEDWorkerToolboxCoreCircuitFingerprints::default();
+    let circuit_fingerprints = PsyWorkerToolboxCoreCircuitFingerprints::default();
 
-    let block_0_cmds = QEDBlockCommands::<GF> {
+    let block_0_cmds = PsyBlockCommands::<GF> {
         register_users: vec![
             QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374]),
             QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378]),

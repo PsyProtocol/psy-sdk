@@ -24,7 +24,7 @@ type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
 const D: usize = 2;
 
-#[rpc(server, client, namespace = "qed")]
+#[rpc(server, client, namespace = "psy")]
 pub trait Rpc {
     /// local proving operation
     #[method(name = "exec_contract_call")]

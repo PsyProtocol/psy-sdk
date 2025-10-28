@@ -70,11 +70,11 @@ interface SubmitUserEndCapNonProofCoreInput {
     checkpoint_id: bigint;
     stats: any; // GUTAStats
     state_transition: any; // UPSEndCapResultCompact
-    new_user_leaf: any; // QEDUserLeaf
+    new_user_leaf: any; // PsyUserLeaf
 }
 
 // Contract state update history
-interface QEDContractStateUpdateHistory {
+interface PsyContractStateUpdateHistory {
     contract_id: bigint;
     updates: any[]; // Array of contract state updates
 }
@@ -82,7 +82,7 @@ interface QEDContractStateUpdateHistory {
 // SubmitUserEndCapNonProofInput based on Rust definition
 interface SubmitUserEndCapNonProofInput {
     core: SubmitUserEndCapNonProofCoreInput;
-    contract_state_updates: QEDContractStateUpdateHistory[];
+    contract_state_updates: PsyContractStateUpdateHistory[];
 }
 
 export interface SignData {
@@ -91,33 +91,33 @@ export interface SignData {
     sign_inputs: bigint[];
 }
 
-// Namespace corresponds to "qed" in Rust
-enum QedUserProverRPCCommand {
+// Namespace corresponds to "psy" in Rust
+enum PsyUserProverRPCCommand {
     ExecContractCall = "psy_exec_contract_call",
     ExecContractCallWithSignData = "psy_exec_contract_call_with_sign_data",
-    StartSession = "qed_start_session",
-    ProveContractCall = "qed_prove_contract_call",
-    ProveContractCalls = "qed_prove_contract_calls",
-    SignAndSubmit = "qed_sign_and_submit",
-    SignAndSubmitWithData = "qed_sign_and_submit_with_sign_data",
-    RegisterUser = "qed_register_user",
-    RegisterUserWithType = "qed_register_user_with_sign_type",
-    AddUser = "qed_add_user",
-    AddUserWithType = "qed_add_user_with_sign_type",
-    SwitchUser = "qed_switch_user",
-    GetZKPublicKey = "qed_get_zk_public_key",
-    GetRandomKeypair = "qed_get_random_keypair",
-    DeployContract = "qed_deploy_contract",
-    GetDeployContractCmd = "qed_get_deploy_contract_cmd",
-    GetSigHash = "qed_get_sighash",
-    GetZKSignature = "qed_get_zk_signature",
-    GetEndCapProof = "qed_get_end_cap_proof",
-    GetUserECInput = "qed_get_user_ec_input",
-    Ping = "qed_ping",
-    GetResult = "qed_get_result",
+    StartSession = "psy_start_session",
+    ProveContractCall = "psy_prove_contract_call",
+    ProveContractCalls = "psy_prove_contract_calls",
+    SignAndSubmit = "psy_sign_and_submit",
+    SignAndSubmitWithData = "psy_sign_and_submit_with_sign_data",
+    RegisterUser = "psy_register_user",
+    RegisterUserWithType = "psy_register_user_with_sign_type",
+    AddUser = "psy_add_user",
+    AddUserWithType = "psy_add_user_with_sign_type",
+    SwitchUser = "psy_switch_user",
+    GetZKPublicKey = "psy_get_zk_public_key",
+    GetRandomKeypair = "psy_get_random_keypair",
+    DeployContract = "psy_deploy_contract",
+    GetDeployContractCmd = "psy_get_deploy_contract_cmd",
+    GetSigHash = "psy_get_sighash",
+    GetZKSignature = "psy_get_zk_signature",
+    GetEndCapProof = "psy_get_end_cap_proof",
+    GetUserECInput = "psy_get_user_ec_input",
+    Ping = "psy_ping",
+    GetResult = "psy_get_result",
 }
 
-interface IQedUserProverProvider {
+interface IPsyUserProverProvider {
     // Local proving operations
     execContractCall(pk_hash: string, contractCallArg: ContractCallArgs[]): Promise<QHashOut>;
     execContractCallWithSignData(pk_hash: string, contractCallArg: ContractCallArgs[], signData: SignData): Promise<QHashOut>;
@@ -167,9 +167,9 @@ export type {
     Proof,
     ProofWithPublicInputs,
     SubmitUserEndCapNonProofCoreInput,
-    QEDContractStateUpdateHistory,
+    PsyContractStateUpdateHistory,
     SubmitUserEndCapNonProofInput,
-    IQedUserProverProvider,
+    IPsyUserProverProvider,
 };
 
-export { QedUserProverRPCCommand };
+export { PsyUserProverRPCCommand };

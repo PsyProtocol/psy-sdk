@@ -518,7 +518,7 @@ mod tests {
     };
 
     type F = GoldilocksField;
-    type QEDHash = QHashOut<F>;
+    type PsyHash = QHashOut<F>;
     type H = PoseidonHasher;
 
     fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>(
@@ -614,7 +614,7 @@ mod tests {
             .collect::<Vec<_>>()
     }
 
-    fn gen_random_update_nca_with_additioanl_link_for_tree(tree: &mut SimpleMerkleTree<H, QEDHash>) -> UpdateNCAWithAdditionalLink<QEDHash> {
+    fn gen_random_update_nca_with_additioanl_link_for_tree(tree: &mut SimpleMerkleTree<H, PsyHash>) -> UpdateNCAWithAdditionalLink<PsyHash> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
 
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());
@@ -624,7 +624,7 @@ mod tests {
     }
     /*
     pub fn generate_partial_nca_proof_multi_level_b(
-        tree: &mut SimpleMerkleTree<H, QEDHash>,
+        tree: &mut SimpleMerkleTree<H, PsyHash>,
     ) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
 
@@ -650,7 +650,7 @@ mod tests {
         base
     }*/
 
-    pub fn generate_nca_proof_multi_level_link(tree: &mut SimpleMerkleTree<H, QEDHash>) -> UpdateNCAWithAdditionalLink<QHashOut<F>> {
+    pub fn generate_nca_proof_multi_level_link(tree: &mut SimpleMerkleTree<H, PsyHash>) -> UpdateNCAWithAdditionalLink<QHashOut<F>> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
 
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());
@@ -671,7 +671,7 @@ mod tests {
 
     #[test]
     fn test_verify_nca_proof() {
-        let mut tree = SimpleMerkleTree::<H, QEDHash>::new(32);
+        let mut tree = SimpleMerkleTree::<H, PsyHash>::new(32);
 
         for _ in 0..500 {
             let random_proof_0 = gen_random_update_nca_with_additioanl_link_for_tree(&mut tree);
@@ -681,7 +681,7 @@ mod tests {
     #[test]
     fn test_verify_nca_proof_multi_level() {
         for h in 1..32 {
-            let mut tree = SimpleMerkleTree::<H, QEDHash>::new(h);
+            let mut tree = SimpleMerkleTree::<H, PsyHash>::new(h);
 
             for _ in 0..50 {
                 let random_proof_0 = generate_nca_proof_multi_level_link(&mut tree);

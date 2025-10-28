@@ -11,7 +11,7 @@ use psy_crypto::hash::{
     traits::qhashable::QFieldHashable,
 };
 use psy_data::{
-    config::store_config::{QEDFelt, QEDHash, QEDHasher},
+    config::store_config::{PsyFelt, PsyHash, PsyHasher},
     dpn::proving_session::DPNTransactionDebtItem,
     models::kvq_merkle::{
         key::KVQMerkleNodeKey,
@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 
 use super::config::{LocalProvingSessionTreeStore, LOCAL_PROVING_SESSION_TREE_TABLE_TYPE};
 
-type GF = QEDFelt;
-type QHasher = QEDHasher;
+type GF = PsyFelt;
+type QHasher = PsyHasher;
 #[derive(Serialize)]
 #[serde(bound = "for<'de2> TX: Deserialize<'de2>")]
 pub struct TransactionDebtTreeRef<
@@ -32,7 +32,7 @@ pub struct TransactionDebtTreeRef<
     F: RichField,
     const HEIGHT: u8,
     const TREE_ID: u8,
-    IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>,
+    IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, PsyHash>,
 > {
     _tx: PhantomData<TX>,
     _f: PhantomData<F>,
@@ -49,7 +49,7 @@ impl<
         F: RichField,
         const HEIGHT: u8,
         const TREE_ID: u8,
-        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>,
+        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, PsyHash>,
     > TransactionDebtTreeRef<S, TX, F, HEIGHT, TREE_ID, IDKVA>
 {
     pub fn new(checkpoint_id: u64) -> Self {
@@ -108,7 +108,7 @@ impl<
         TX: KVQSerializable + QFieldHashable<GF> + Serialize,
         const HEIGHT: u8,
         const TREE_ID: u8,
-        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>,
+        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, PsyHash>,
     > TransactionDebtTreeRef<S, TX, GF, HEIGHT, TREE_ID, IDKVA>
 {
     pub fn get_latest_tx_debt_leaf(&self, store: &S) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {

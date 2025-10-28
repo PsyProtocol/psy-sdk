@@ -1,4 +1,4 @@
-# The QED User Proving Session (UPS) Proof Tree: Efficient Recursive Verification
+# The Psy User Proving Session (UPS) Proof Tree: Efficient Recursive Verification
 
 ## 1. Introduction: The Challenge of Recursive Verification Costs
 

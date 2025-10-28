@@ -17,7 +17,7 @@ use psy_crypto::signature::secp256k1::curve::{
 };
 
 use super::gadget::Secp256K1CircuitGadget;
-use crate::proof_minifier::pm_chain::QEDProofMinifierChain;
+use crate::proof_minifier::pm_chain::PsyProofMinifierChain;
 
 pub struct Secp256K1SignatureCircuit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
 where
@@ -25,7 +25,7 @@ where
 {
     pub signature_gadget: Secp256K1CircuitGadget,
     pub base_circuit_data: CircuitData<F, C, D>,
-    pub minifier_chain: QEDProofMinifierChain<D, F, C>,
+    pub minifier_chain: PsyProofMinifierChain<D, F, C>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize> Secp256K1SignatureCircuit<F, C, D>
@@ -40,7 +40,7 @@ where
         builder.register_public_inputs(&signature_gadget.combined_hash.elements);
         let circuit_data = builder.build::<C>();
 
-        let minifier_chain = QEDProofMinifierChain::<D, F, C>::new(&circuit_data.verifier_only, &circuit_data.common, 2);
+        let minifier_chain = PsyProofMinifierChain::<D, F, C>::new(&circuit_data.verifier_only, &circuit_data.common, 2);
 
         Self {
             base_circuit_data: circuit_data,

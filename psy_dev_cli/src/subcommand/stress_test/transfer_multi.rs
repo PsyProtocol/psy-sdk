@@ -11,7 +11,7 @@ use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable as _;
-use psy_data::config::store_config::QEDHasher;
+use psy_data::config::store_config::PsyHasher;
 use psy_prover::{
     local::{
         args::{ContractCallArgs, SignType},
@@ -129,7 +129,7 @@ struct StressTestReport {
 
 impl StressTestReport {
     fn print(&self) {
-        println!("\n📊 ===== QED STRESS TEST REPORT =====");
+        println!("\n📊 ===== Psy STRESS TEST REPORT =====");
         println!("🎯 Test Scenario: Full User Lifecycle (Register → Mint → Transfer → Claim)");
         println!("⏱️  Total Duration: {:.2} seconds", self.total_elapsed_ms as f64 / 1000.0);
         println!("📤 Total Scenarios Completed: {}", self.total_transactions);
@@ -364,20 +364,20 @@ async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSess
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;
     let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from).await?;
-    let pk_hash_from = pk_info_from.qfhash::<QEDHasher>();
+    let pk_hash_from = pk_info_from.qfhash::<PsyHasher>();
     // println!("pk_hash_from: {}", pk_hash_from);
     let user_id_from = wallet_session.st_provider.get_user_id(pk_hash_from).await?;
     info!("👥 Task {} - User_id_from: {}", task_id, user_id_from);
     let pk_info_to1 = wallet_session.wallet.get_secp_pk_info(private_key_to1).await?;
-    let pk_hash_to1 = pk_info_to1.qfhash::<QEDHasher>();
+    let pk_hash_to1 = pk_info_to1.qfhash::<PsyHasher>();
     let user_id_to1 = wallet_session.st_provider.get_user_id(pk_hash_to1).await?;
     info!("👥 Task {} - User_id_to1: {}", task_id, user_id_to1);
     let pk_info_to2 = wallet_session.wallet.get_secp_pk_info(private_key_to2).await?;
-    let pk_hash_to2 = pk_info_to2.qfhash::<QEDHasher>();
+    let pk_hash_to2 = pk_info_to2.qfhash::<PsyHasher>();
     let user_id_to2 = wallet_session.st_provider.get_user_id(pk_hash_to2).await?;
     info!("👥 Task {} - User_id_to2: {}", task_id, user_id_to2);
     // let pk_info_to3 = wallet_session.wallet.get_zk_pk_info(private_key_to3)?;
-    // let pk_hash_to3 = pk_info_to3.qfhash::<QEDHasher>();
+    // let pk_hash_to3 = pk_info_to3.qfhash::<PsyHasher>();
     // let user_id_to3 = wallet_session.st_provider.get_user_id(pk_hash_to3)?;
     // info!("👥 Task {} - User_id_to3: {}", task_id, user_id_to3);
 

@@ -29,10 +29,10 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    #[command(about = "Run test full group 1 (from qed_test_sandbox)")]
+    #[command(about = "Run test full group 1 (from psy_test_sandbox)")]
     TestFullGroup1(TestFullGroup1Args),
 
-    #[command(about = "Run test register v2 (from qed_test_sandbox)")]
+    #[command(about = "Run test register v2 (from psy_test_sandbox)")]
     TestRegisterV2(TestRegisterV2Args),
 
     #[command(about = "Run benchmark full group 1")]
@@ -65,10 +65,10 @@ pub enum Commands {
     #[command(about = "Generate deployment configurations from config.json")]
     Generate(GenerateArgs),
 
-    #[command(about = "Run the entire QED network locally")]
+    #[command(about = "Run the entire Psy network locally")]
     Run(RunArgs),
 
-    #[command(about = "Launch QED network for development (inspired by polkadot-launch)")]
+    #[command(about = "Launch Psy network for development (inspired by polkadot-launch)")]
     Launch(LaunchArgs),
 
     #[command(about = "Get job proof for reward claiming")]

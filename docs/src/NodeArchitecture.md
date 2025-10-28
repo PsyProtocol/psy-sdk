@@ -1,8 +1,8 @@
-# QED Architecture: Horizontally Scalable Blockchain via PARTH and ZK Proofs
+# Psy Architecture: Horizontally Scalable Blockchain via PARTH and ZK Proofs
 
 ## 1. Introduction: Beyond Sequential Limits
 
-The evolution of blockchain technology has been marked by a persistent challenge: **scalability**. Traditional designs, processing transactions sequentially within a monolithic state machine, hit a throughput ceiling that cannot be overcome simply by adding more network nodes. QED represents a fundamental leap forward, tackling this bottleneck through a revolutionary state architecture known as **PARTH** and a meticulously designed, end-to-end **Zero-Knowledge Proof (ZKP)** system. This architecture unlocks true horizontal scalability, enabling unprecedented transaction processing capacity while maintaining rigorous cryptographic security.
+The evolution of blockchain technology has been marked by a persistent challenge: **scalability**. Traditional designs, processing transactions sequentially within a monolithic state machine, hit a throughput ceiling that cannot be overcome simply by adding more network nodes. Psy represents a fundamental leap forward, tackling this bottleneck through a revolutionary state architecture known as **PARTH** and a meticulously designed, end-to-end **Zero-Knowledge Proof (ZKP)** system. This architecture unlocks true horizontal scalability, enabling unprecedented transaction processing capacity while maintaining rigorous cryptographic security.
 
 ## 2. The PARTH Architecture: A Foundation for Parallelism
 
@@ -10,7 +10,7 @@ PARTH (Parallelizable Account-based Recursive Transaction History) dismantles th
 
 ### 2.1 The Hierarchical State Forest
 
-QED's state is not a single tree, but a "forest" of interconnected Merkle trees, each with a specific domain:
+Psy's state is not a single tree, but a "forest" of interconnected Merkle trees, each with a specific domain:
 
 ```mermaid
 graph TD
@@ -97,7 +97,7 @@ These rules eliminate the core bottleneck of traditional blockchains:
 
 ## 3. End-to-End ZK Proof System: Securing Parallelism
 
-QED employs a multi-layered, recursive ZK proof system to cryptographically guarantee the integrity of every state transition, even those occurring concurrently.
+Psy employs a multi-layered, recursive ZK proof system to cryptographically guarantee the integrity of every state transition, even those occurring concurrently.
 
 ### 3.1 Contract Function Circuits (CFCs) & Dapen (DPN)
 
@@ -140,7 +140,7 @@ The network takes potentially millions of End Cap proofs and efficiently aggrega
             *   User Registrations (`BatchAppendUserRegistrationTreeCircuit`).
             *   Contract Deployments (`BatchDeployContractsCircuit`).
         3.  Combine these different types of state transitions using aggregation circuits like `VerifyAggUserRegistartionDeployContractsGUTACircuit`, ensuring consistency relative to the same checkpoint.
-        4.  Prepare the final inputs for the block proof circuit (`QEDCheckpointStateTransitionCircuit`).
+        4.  Prepare the final inputs for the block proof circuit (`PsyCheckpointStateTransitionCircuit`).
     *   **Scalability Impact:** Manages the convergence of parallel proof streams from different state components and realms.
 
 *   **Proving Workers:**
@@ -151,21 +151,21 @@ The network takes potentially millions of End Cap proofs and efficiently aggrega
 ### 3.4 Final Block Proof Generation
 
 *   **Role:** Creates the single, authoritative ZK proof for the entire block.
-*   **Circuit:** `QEDCheckpointStateTransitionCircuit`.
-*   **Function:** Takes the final aggregated state transition proofs from the Coordinator layer (representing net changes to `GUSR`, `GCON`, `URT`, etc.). Verifies these proofs. Computes the new global state roots and combines them with aggregated block statistics (`QEDCheckpointLeafStats`) to form the new `QEDCheckpointLeaf`. Proves the correct update of the `CHKP` tree by appending this new leaf hash. **Critically, it verifies that the entire process correctly transitioned from the state defined by the *previous block's finalized `CHKP` root* (provided as a public input).**
+*   **Circuit:** `PsyCheckpointStateTransitionCircuit`.
+*   **Function:** Takes the final aggregated state transition proofs from the Coordinator layer (representing net changes to `GUSR`, `GCON`, `URT`, etc.). Verifies these proofs. Computes the new global state roots and combines them with aggregated block statistics (`PsyCheckpointLeafStats`) to form the new `PsyCheckpointLeaf`. Proves the correct update of the `CHKP` tree by appending this new leaf hash. **Critically, it verifies that the entire process correctly transitioned from the state defined by the *previous block's finalized `CHKP` root* (provided as a public input).**
 *   **Output:** A highly succinct ZK proof whose public inputs are the previous `CHKP` root and the new `CHKP` root.
 
 ## 4. Node State Architecture: Redis & KVQ Backend
 
 Supporting this massive parallelism requires a high-performance, shared backend infrastructure.
 
-*   **Core Technology:** QED leverages **Redis**, a distributed in-memory key-value store known for its speed and scalability, as the primary backend. Redis Clusters allow horizontal scaling of storage and throughput.
+*   **Core Technology:** Psy leverages **Redis**, a distributed in-memory key-value store known for its speed and scalability, as the primary backend. Redis Clusters allow horizontal scaling of storage and throughput.
 *   **Abstraction Layer (KVQ):** A custom Rust library providing traits and adapters (`KVQSerializable`, `KVQStandardAdapter`, model types like `KVQFixedConfigMerkleTreeModel`) for structured, type-safe interaction with Redis. It simplifies key generation, serialization, and potentially caching.
 *   **Logical Components:**
     *   **Proof Store (`ProofStoreFred`, implements `QProofStore...` traits):** Stores ZK proofs and input witnesses, keyed by `QProvingJobDataID`. Uses Redis Hashes (`HSET`, `HGET`) and potentially atomic counters (`HINCRBY`) for managing job dependencies.
-    *   **State Store (Models implementing `QEDCoordinatorStore...`, `QEDRealmStore...` traits):** Stores the canonical blockchain state, primarily Merkle tree nodes (`KVQMerkleNodeKey`) and leaf data (`UserLeaf`, `ContractLeaf`, etc.). Uses standard Redis keys managed via KVQ models.
+    *   **State Store (Models implementing `PsyCoordinatorStore...`, `PsyRealmStore...` traits):** Stores the canonical blockchain state, primarily Merkle tree nodes (`KVQMerkleNodeKey`) and leaf data (`UserLeaf`, `ContractLeaf`, etc.). Uses standard Redis keys managed via KVQ models.
     *   **Queues (`CheckpointDrainQueue`, `CheckpointHistoryQueue`, `WorkerEventQueue` traits):** Implement messaging between components. Uses Redis Lists (`LPUSH`, `LPOP`/`BLPOP`, `LRANGE`) for job queues and potentially Pub/Sub or simple keys/sorted sets for history tracking and notifications. `ProofStoreFred` often implements these queue interaction traits.
-    *   **Local Caching (`QEDCmdStoreWithCache`, used within `QEDLocalProvingSessionStore`):** Provides an in-memory cache layer for frequently accessed state data (e.g., contract definitions, user leaves from the previous block) during local UPS execution or within Realm/Coordinator nodes, reducing load on the central Redis cluster.
+    *   **Local Caching (`PsyCmdStoreWithCache`, used within `PsyLocalProvingSessionStore`):** Provides an in-memory cache layer for frequently accessed state data (e.g., contract definitions, user leaves from the previous block) during local UPS execution or within Realm/Coordinator nodes, reducing load on the central Redis cluster.
 *   **Scalability:**
     *   **Redis Performance:** Provides low-latency access required for coordinating many workers.
     *   **Horizontal Scaling:** Redis clusters can scale to handle increased load.
@@ -216,15 +216,15 @@ graph TB
     
     %% External AWS Services
     subgraph AWS_Services["☁️ AWS Services"]
-        ECR[📦 ECR Repository<br/>qed-protocol]
+        ECR[📦 ECR Repository<br/>psy-protocol]
         S3[🪣 S3 Bucket<br/>Artifacts Storage]
-        CloudWatch[📊 CloudWatch Logs<br/>/ecs/qed-protocol]
+        CloudWatch[📊 CloudWatch Logs<br/>/ecs/psy-protocol]
         EFS[💾 EFS FileSystem<br/>LMDBX Storage]
-        ServiceDiscovery[🔍 Service Discovery<br/>qed.local]
+        ServiceDiscovery[🔍 Service Discovery<br/>psy.local]
     end
     
     %% ECS Cluster
-    subgraph ECS_Cluster["🚢 ECS Cluster qed-cluster"]
+    subgraph ECS_Cluster["🚢 ECS Cluster psy-cluster"]
         ECS_Coord
         ECS_R0
         ECS_R1
@@ -286,7 +286,7 @@ graph TB
 
 ## 5. Security Guarantees
 
-QED's security rests on multiple pillars:
+Psy's security rests on multiple pillars:
 
 1.  **ZK Proof Soundness:** Mathematical guarantee that invalid computations or state transitions cannot produce valid proofs.
 2.  **Circuit Whitelisting:** State trees (`GUSR`, `GCON`, `CFT`, etc.) can only be modified by proofs generated from circuits whose fingerprints are present in designated whitelist Merkle trees. This prevents unauthorized code execution. Aggregation circuits enforce these checks recursively.
@@ -295,6 +295,6 @@ QED's security rests on multiple pillars:
 
 ## 6. Conclusion: A New Era of Blockchain Scalability
 
-QED's architecture is a fundamental departure from sequential blockchain designs. By leveraging the **PARTH state model** for conflict-free parallel execution and securing it with an **end-to-end recursive ZKP system**, QED achieves true horizontal scalability. The intricate dance between local user proving (UPS/CFC), distributed network aggregation (Realms/Coordinators/GUTA), and a scalable backend (Redis/KVQ) allows the network's throughput to grow with the addition of computational resources (Proving Workers), paving the way for decentralized applications demanding high performance and robust security.
+Psy's architecture is a fundamental departure from sequential blockchain designs. By leveraging the **PARTH state model** for conflict-free parallel execution and securing it with an **end-to-end recursive ZKP system**, Psy achieves true horizontal scalability. The intricate dance between local user proving (UPS/CFC), distributed network aggregation (Realms/Coordinators/GUTA), and a scalable backend (Redis/KVQ) allows the network's throughput to grow with the addition of computational resources (Proving Workers), paving the way for decentralized applications demanding high performance and robust security.
 
 ---

@@ -4,7 +4,7 @@ import { cryptoRandomBytes } from "./random";
 import { SCNumberLike } from "../core";
 
 const GOLDILOCKS_FP = BigInt("18446744069414584321");
-function qedFelt(x: SCNumberLike): bigint {
+function psyFelt(x: SCNumberLike): bigint {
     return BigInt(x) % GOLDILOCKS_FP;
 }
 function cryptoRandomHashOut(): IHashOut {
@@ -57,7 +57,7 @@ function trimTrailingZeroes(hex: string): string {
     }
     return hex.substring(0, i + 1);
 }
-function qedFeltSatsToDoge(x: SCNumberLike): string {
+function psyFeltSatsToDoge(x: SCNumberLike): string {
     const decimalPart = BigInt(x) % BigInt(100_000_000);
     const integerPart = BigInt(x) / BigInt(100_000_000);
     if (decimalPart === BigInt(0)) {
@@ -68,13 +68,13 @@ function qedFeltSatsToDoge(x: SCNumberLike): string {
 }
 
 export {
-    qedFelt,
+    psyFelt,
     cryptoRandomHashOut,
     hashOutHex,
     cryptoRandomHashOutHex,
     hash256ToHashOut224,
     reverseHexBytes,
-    qedFeltSatsToDoge,
+    psyFeltSatsToDoge,
     publicKeyFeltsToBytes33,
     bytes33ToPublicKeyFelts,
 };

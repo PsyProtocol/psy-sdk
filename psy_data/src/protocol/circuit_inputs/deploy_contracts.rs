@@ -7,14 +7,14 @@ use psy_crypto::hash::merkle::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::contract::QEDContractLeaf;
+use crate::qdata::contract::PsyContractLeaf;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QCBatchDeployContractsCircuitInput<F: RichField> {
     pub deploy_contract_circuit_whitelist: QHashOut<F>,
     pub spiderman_append_proof: SpidermanUpdateProof<QHashOut<F>>,
-    pub contract_leaves: Vec<QEDContractLeaf<F>>,
+    pub contract_leaves: Vec<PsyContractLeaf<F>>,
 }
 
 impl<F: RichField> AggStateTrackableInput<F> for QCBatchDeployContractsCircuitInput<F> {

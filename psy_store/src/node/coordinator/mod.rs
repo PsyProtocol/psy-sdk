@@ -33,48 +33,48 @@ use psy_crypto::hash::merkle::{
 };
 use psy_data::{
     config::store_config::UserPublicKeyTableStore,
-    models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore,
+    models::checkpoint::user_public_keys::PsyUserPublicKeyHelperModelCore,
     qdata::{
-        checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState},
-        contract::{ContractCodeDefinition, QEDContractLeaf},
-        user_public_key::QEDUserPublicKeyRecord,
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        contract::{ContractCodeDefinition, PsyContractLeaf},
+        user_public_key::PsyUserPublicKeyRecord,
     },
-    qsync::coordinator::QEDCheckpointSyncInfoCompact,
+    qsync::coordinator::PsyCheckpointSyncInfoCompact,
 };
 
 pub mod reader_async;
 pub mod writer_imm;
 
 #[async_trait]
-pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
-    async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
-    async fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<QEDContractLeaf<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_contract_leaf_data(self, contract_id.to_canonical_u64()).await
+pub trait PsyCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
+    async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<PsyContractLeaf<F>>;
+    async fn get_contract_leaf_data_f(&self, contract_id: F) -> anyhow::Result<PsyContractLeaf<F>> {
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_contract_leaf_data(self, contract_id.to_canonical_u64()).await
     }
 
-    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>>;
-    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_checkpoint_leaf_data(self, checkpoint_id.to_canonical_u64()).await
+    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointLeaf<F>>;
+    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<PsyCheckpointLeaf<F>> {
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_checkpoint_leaf_data(self, checkpoint_id.to_canonical_u64()).await
     }
 
     async fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<ContractCodeDefinition>;
     async fn get_contract_code_definition_f(&self, contract_id: F) -> anyhow::Result<ContractCodeDefinition> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_contract_code_definition(self, contract_id.to_canonical_u64()).await
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_contract_code_definition(self, contract_id.to_canonical_u64()).await
     }
-    async fn get_latest_l2_block_state(&self) -> anyhow::Result<QEDL2BlockState>;
+    async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState>;
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<QEDL2BlockState>;
-    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<QEDL2BlockState> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_l2_block_state(self, checkpoint_id.to_canonical_u64()).await
+    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyL2BlockState>;
+    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<PsyL2BlockState> {
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_l2_block_state(self, checkpoint_id.to_canonical_u64()).await
     }
 
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     async fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_user_registration_tree_root(self, checkpoint_id.to_canonical_u64()).await
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_user_registration_tree_root(self, checkpoint_id.to_canonical_u64()).await
     }
     async fn get_user_registration_tree_leaf_hash(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<QHashOut<F>>;
     async fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_user_registration_tree_leaf_hash(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_user_registration_tree_leaf_hash(
             self,
             checkpoint_id.to_canonical_u64(),
             leaf_index.to_canonical_u64(),
@@ -83,7 +83,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
     }
     async fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     async fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_user_registration_tree_merkle_proof(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_user_registration_tree_merkle_proof(
             self,
             checkpoint_id.to_canonical_u64(),
             leaf_index.to_canonical_u64(),
@@ -93,7 +93,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
 
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     async fn get_user_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_user_tree_root(self, checkpoint_id.to_canonical_u64()).await
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_user_tree_root(self, checkpoint_id.to_canonical_u64()).await
     }
     async fn get_user_sub_tree_merkle_proof(
         &self,
@@ -113,7 +113,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
 
     async fn get_contract_function_tree_root(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<QHashOut<F>>;
     async fn get_contract_function_tree_root_f(&self, checkpoint_id: F, contract_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_contract_function_tree_root(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_contract_function_tree_root(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
@@ -122,7 +122,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
     }
     async fn get_contract_function_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> anyhow::Result<QHashOut<F>>;
     async fn get_contract_function_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_contract_function_tree_leaf_hash(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_contract_function_tree_leaf_hash(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
@@ -142,7 +142,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
         contract_id: F,
         function_id: F,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_contract_function_tree_merkle_proof(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_contract_function_tree_merkle_proof(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
@@ -153,11 +153,11 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
 
     async fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     async fn get_contract_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_contract_tree_root(self, checkpoint_id.to_canonical_u64()).await
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_contract_tree_root(self, checkpoint_id.to_canonical_u64()).await
     }
     async fn get_contract_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<QHashOut<F>>;
     async fn get_contract_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_contract_tree_leaf_hash(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_contract_tree_leaf_hash(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
@@ -166,7 +166,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
     }
     async fn get_contract_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     async fn get_contract_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_contract_tree_merkle_proof(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_contract_tree_merkle_proof(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64() as u32,
@@ -176,11 +176,11 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
 
     async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     async fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_deposit_tree_root(self, checkpoint_id.to_canonical_u64()).await
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_deposit_tree_root(self, checkpoint_id.to_canonical_u64()).await
     }
     async fn get_deposit_tree_leaf_hash(&self, checkpoint_id: u64, deposit_id: u32) -> anyhow::Result<QHashOut<F>>;
     async fn get_deposit_tree_leaf_hash_f(&self, checkpoint_id: F, deposit_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_deposit_tree_leaf_hash(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_deposit_tree_leaf_hash(
             self,
             checkpoint_id.to_canonical_u64(),
             deposit_id.to_canonical_u64() as u32,
@@ -189,7 +189,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
     }
     async fn get_deposit_tree_merkle_proof(&self, checkpoint_id: u64, deposit_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     async fn get_deposit_tree_merkle_proof_f(&self, checkpoint_id: F, deposit_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_deposit_tree_merkle_proof(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_deposit_tree_merkle_proof(
             self,
             checkpoint_id.to_canonical_u64(),
             deposit_id.to_canonical_u64() as u32,
@@ -199,11 +199,11 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
 
     async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     async fn get_withdrawal_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_withdrawal_tree_root(self, checkpoint_id.to_canonical_u64()).await
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_withdrawal_tree_root(self, checkpoint_id.to_canonical_u64()).await
     }
     async fn get_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u32) -> anyhow::Result<QHashOut<F>>;
     async fn get_withdrawal_tree_leaf_hash_f(&self, checkpoint_id: F, withdrawal_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_withdrawal_tree_leaf_hash(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_withdrawal_tree_leaf_hash(
             self,
             checkpoint_id.to_canonical_u64(),
             withdrawal_id.to_canonical_u64() as u32,
@@ -212,7 +212,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
     }
     async fn get_withdrawal_tree_merkle_proof(&self, checkpoint_id: u64, withdrawal_id: u32) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     async fn get_withdrawal_tree_merkle_proof_f(&self, checkpoint_id: F, withdrawal_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_withdrawal_tree_merkle_proof(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_withdrawal_tree_merkle_proof(
             self,
             checkpoint_id.to_canonical_u64(),
             withdrawal_id.to_canonical_u64() as u32,
@@ -223,11 +223,11 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
     async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<QHashOut<F>>;
     async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_checkpoint_tree_root(self, checkpoint_id.to_canonical_u64()).await
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_checkpoint_tree_root(self, checkpoint_id.to_canonical_u64()).await
     }
     async fn get_checkpoint_tree_leaf_hash(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
     async fn get_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_checkpoint_tree_leaf_hash(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_checkpoint_tree_leaf_hash(
             self,
             checkpoint_id.to_canonical_u64(),
             leaf_checkpoint_id.to_canonical_u64(),
@@ -236,7 +236,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
     }
     async fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
-        <Self as QEDCoordinatorStoreReaderAsync<F>>::get_checkpoint_tree_merkle_proof(
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_checkpoint_tree_merkle_proof(
             self,
             checkpoint_id.to_canonical_u64(),
             leaf_checkpoint_id.to_canonical_u64(),
@@ -244,8 +244,8 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
         .await
     }
 
-    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointGlobalStateRoots<F>>;
-    async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointSyncInfoCompact<F>>;
+    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointGlobalStateRoots<F>>;
+    async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointSyncInfoCompact<F>>;
 
     async fn get_first_user_id(&self, public_key: QHashOut<F>) -> anyhow::Result<u64>;
 
@@ -263,7 +263,7 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
 }
 
 #[async_trait]
-pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
+pub trait PsyCoordinatorStoreWriterAsyncImm<F: RichField> {
     async fn batch_append_user_registration_tree_imm(
         &self,
         checkpoint_id: u64,
@@ -278,7 +278,7 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
         sub_tree_height: u8,
         leaf_hashes: &[QHashOut<F>],
     ) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)> {
-        <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::batch_append_user_registration_tree_imm(
+        <Self as PsyCoordinatorStoreWriterAsyncImm<F>>::batch_append_user_registration_tree_imm(
             self,
             checkpoint_id.to_canonical_u64(),
             start_leaf_index.to_canonical_u64(),
@@ -307,7 +307,7 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
         deposit_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::set_deposit_tree_leaf_hash_imm(
+        <Self as PsyCoordinatorStoreWriterAsyncImm<F>>::set_deposit_tree_leaf_hash_imm(
             self,
             checkpoint_id.to_canonical_u64(),
             deposit_id.to_canonical_u64(),
@@ -328,7 +328,7 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
         withdrawal_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::set_withdrawal_tree_leaf_hash_imm(
+        <Self as PsyCoordinatorStoreWriterAsyncImm<F>>::set_withdrawal_tree_leaf_hash_imm(
             self,
             checkpoint_id.to_canonical_u64(),
             withdrawal_id.to_canonical_u64(),
@@ -339,7 +339,7 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
 
     async fn set_contract_function_whitelist_imm(&self, checkpoint_id: u64, contract_id: u64, leaves: &[QHashOut<F>]) -> anyhow::Result<QHashOut<F>>;
     async fn set_contract_function_whitelist_f_imm(&self, checkpoint_id: F, contract_id: F, leaves: &[QHashOut<F>]) -> anyhow::Result<QHashOut<F>> {
-        <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::set_contract_function_whitelist_imm(
+        <Self as PsyCoordinatorStoreWriterAsyncImm<F>>::set_contract_function_whitelist_imm(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64(),
@@ -368,7 +368,7 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
         contract_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::set_contract_tree_leaf_hash_imm(
+        <Self as PsyCoordinatorStoreWriterAsyncImm<F>>::set_contract_tree_leaf_hash_imm(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64(),
@@ -387,12 +387,12 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
         checkpoint_id: F,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::set_checkpoint_tree_leaf_hash_imm(self, checkpoint_id.to_canonical_u64(), leaf_hash).await
+        <Self as PsyCoordinatorStoreWriterAsyncImm<F>>::set_checkpoint_tree_leaf_hash_imm(self, checkpoint_id.to_canonical_u64(), leaf_hash).await
     }
 
-    async fn set_contract_leaf_data_imm(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()>;
-    async fn set_contract_leaf_data_f_imm(&self, checkpoint_id: F, contract_id: F, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()> {
-        <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::set_contract_leaf_data_imm(
+    async fn set_contract_leaf_data_imm(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &PsyContractLeaf<F>) -> anyhow::Result<()>;
+    async fn set_contract_leaf_data_f_imm(&self, checkpoint_id: F, contract_id: F, leaf_data: &PsyContractLeaf<F>) -> anyhow::Result<()> {
+        <Self as PsyCoordinatorStoreWriterAsyncImm<F>>::set_contract_leaf_data_imm(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64(),
@@ -401,15 +401,15 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
         .await
     }
 
-    async fn set_checkpoint_leaf_data_imm(&self, checkpoint_id: u64, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()>;
-    async fn set_checkpoint_leaf_data_f_imm(&self, checkpoint_id: F, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()> {
-        <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::set_checkpoint_leaf_data_imm(self, checkpoint_id.to_canonical_u64(), leaf_data).await
+    async fn set_checkpoint_leaf_data_imm(&self, checkpoint_id: u64, leaf_data: &PsyCheckpointLeaf<F>) -> anyhow::Result<()>;
+    async fn set_checkpoint_leaf_data_f_imm(&self, checkpoint_id: F, leaf_data: &PsyCheckpointLeaf<F>) -> anyhow::Result<()> {
+        <Self as PsyCoordinatorStoreWriterAsyncImm<F>>::set_checkpoint_leaf_data_imm(self, checkpoint_id.to_canonical_u64(), leaf_data).await
     }
 
     async fn set_contract_code_definition_imm(&self, checkpoint_id: u64, contract_id: u64, definition: &ContractCodeDefinition)
         -> anyhow::Result<()>;
     async fn set_contract_code_definition_f_imm(&self, checkpoint_id: F, contract_id: F, definition: &ContractCodeDefinition) -> anyhow::Result<()> {
-        <Self as QEDCoordinatorStoreWriterAsyncImm<F>>::set_contract_code_definition_imm(
+        <Self as PsyCoordinatorStoreWriterAsyncImm<F>>::set_contract_code_definition_imm(
             self,
             checkpoint_id.to_canonical_u64(),
             contract_id.to_canonical_u64(),
@@ -418,11 +418,11 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
         .await
     }
 
-    async fn set_l2_block_state_imm(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()>;
-    async fn set_checkpoint_sync_info_imm(&self, sync_info: QEDCheckpointSyncInfoCompact<F>) -> anyhow::Result<()>;
+    async fn set_l2_block_state_imm(&self, block_state: &PsyL2BlockState) -> anyhow::Result<()>;
+    async fn set_checkpoint_sync_info_imm(&self, sync_info: PsyCheckpointSyncInfoCompact<F>) -> anyhow::Result<()>;
     async fn initialize_store(&self, params: Option<InitializeParams<F>>) -> anyhow::Result<u64>;
 
-    async fn set_user_public_key_records(&self, records: &[QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()>;
+    async fn set_user_public_key_records(&self, records: &[PsyUserPublicKeyRecord<F>]) -> anyhow::Result<()>;
 
     async fn set_realm_status(&self, realm_id: u64, realm_status: &BasicRealmStatus<F>) -> anyhow::Result<()> {
         self.set_realm_statuses(&[realm_id], &[realm_status.clone()]).await

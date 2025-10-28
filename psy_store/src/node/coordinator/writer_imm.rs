@@ -11,26 +11,26 @@ use psy_crypto::hash::{
     traits::qhashable::QFieldHashable,
 };
 use psy_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore},
+    config::store_config::{CheckpointSyncInfoTableStore, PsyHasher, UserTreeStore},
     models::{
-        checkpoint::sync_info::QEDCheckpointSyncInfoModelCore, kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
+        checkpoint::sync_info::PsyCheckpointSyncInfoModelCore, kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
         realm_status::RealmStatusModelCore,
     },
     qdata::{
-        checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
-        contract::{ContractCodeDefinition, QEDContractLeaf},
+        checkpoint::{PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyL2BlockState},
+        contract::{ContractCodeDefinition, PsyContractLeaf},
         realm_status::BasicRealmStatus,
     },
-    qsync::coordinator::QEDCheckpointSyncInfoCompact,
+    qsync::coordinator::PsyCheckpointSyncInfoCompact,
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
 
 use super::InitializeParams;
-use crate::node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm};
+use crate::node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm};
 
 type F = GoldilocksField;
 #[async_trait]
-impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreWriterAsyncImm<F> for T {
+impl<T: KVQBinaryStore + PsyCoordinatorStoreReaderAsync<F>> PsyCoordinatorStoreWriterAsyncImm<F> for T {
     async fn batch_append_contract_tree_imm(
         &self,
         checkpoint_id: u64,
@@ -97,10 +97,10 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
         <Self as QTreeDataStoreWriterSync<F>>::set_checkpoint_tree_leaf_hash(self, checkpoint_id, leaf_hash)
     }
-    async fn set_contract_leaf_data_imm(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()> {
+    async fn set_contract_leaf_data_imm(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &PsyContractLeaf<F>) -> anyhow::Result<()> {
         <Self as QMetaDataStoreWriterSync<F>>::set_contract_leaf_data(self, checkpoint_id, contract_id, leaf_data)
     }
-    async fn set_checkpoint_leaf_data_imm(&self, checkpoint_id: u64, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()> {
+    async fn set_checkpoint_leaf_data_imm(&self, checkpoint_id: u64, leaf_data: &PsyCheckpointLeaf<F>) -> anyhow::Result<()> {
         <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data(self, checkpoint_id, leaf_data)
     }
     async fn set_contract_code_definition_imm(
@@ -111,10 +111,10 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
     ) -> anyhow::Result<()> {
         <Self as QMetaDataStoreWriterSync<F>>::set_contract_code_definition(self, checkpoint_id, contract_id, definition)
     }
-    async fn set_l2_block_state_imm(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()> {
+    async fn set_l2_block_state_imm(&self, block_state: &PsyL2BlockState) -> anyhow::Result<()> {
         <Self as QMetaDataStoreWriterSync<F>>::set_l2_block_state(self, block_state)
     }
-    async fn set_checkpoint_sync_info_imm(&self, sync_info: QEDCheckpointSyncInfoCompact<F>) -> anyhow::Result<()> {
+    async fn set_checkpoint_sync_info_imm(&self, sync_info: PsyCheckpointSyncInfoCompact<F>) -> anyhow::Result<()> {
         CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, sync_info)
     }
 
@@ -123,8 +123,8 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         if let Ok(v) = latest_l2_block_state_or_err {
             Ok(v.checkpoint_id)
         } else {
-            let mut genesis_l2_block_state = QEDL2BlockState::get_genesis_value();
-            let genesis_checkpoint_stats = QEDCheckpointLeafStats::get_genesis_value();
+            let mut genesis_l2_block_state = PsyL2BlockState::get_genesis_value();
+            let genesis_checkpoint_stats = PsyCheckpointLeafStats::get_genesis_value();
             let genesis_global_state_roots = self.get_checkpoint_global_state_roots(0).await?;
 
             if let Some(params) = params {
@@ -156,18 +156,18 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
                 }
             }
 
-            let genesis_checkpoint_leaf = QEDCheckpointLeaf {
-                global_chain_root: genesis_global_state_roots.qfhash::<QEDHasher>(),
+            let genesis_checkpoint_leaf = PsyCheckpointLeaf {
+                global_chain_root: genesis_global_state_roots.qfhash::<PsyHasher>(),
                 stats: genesis_checkpoint_stats,
             };
 
             self.set_l2_block_state_imm(&genesis_l2_block_state).await?;
             self.set_checkpoint_leaf_data_imm(0, &genesis_checkpoint_leaf).await?;
             let r = self
-                .set_checkpoint_tree_leaf_hash_imm(0, genesis_checkpoint_leaf.qfhash::<QEDHasher>())
+                .set_checkpoint_tree_leaf_hash_imm(0, genesis_checkpoint_leaf.qfhash::<PsyHasher>())
                 .await?;
 
-            let sync_info = QEDCheckpointSyncInfoCompact {
+            let sync_info = PsyCheckpointSyncInfoCompact {
                 l2_block_state: genesis_l2_block_state,
                 stats: genesis_checkpoint_stats,
                 state_roots: genesis_global_state_roots,
@@ -183,8 +183,8 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         }
     }
 
-    async fn set_user_public_key_records(&self, records: &[psy_data::qdata::user_public_key::QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()> {
-        use psy_data::{config::store_config::UserPublicKeyTableStore, models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore};
+    async fn set_user_public_key_records(&self, records: &[psy_data::qdata::user_public_key::PsyUserPublicKeyRecord<F>]) -> anyhow::Result<()> {
+        use psy_data::{config::store_config::UserPublicKeyTableStore, models::checkpoint::user_public_keys::PsyUserPublicKeyHelperModelCore};
 
         UserPublicKeyTableStore::<Self>::set_user_public_key_records(self, records)
     }

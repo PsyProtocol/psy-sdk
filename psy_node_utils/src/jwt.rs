@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 pub use tracing::Level;
 use tracing_subscriber::{prelude::*, EnvFilter};
 
-pub const JWT_COMPANY: &str = "QEDProtocol";
-pub const JWT_SUBJECT: &str = "qedlang-rust";
+pub const JWT_COMPANY: &str = "PsyProtocol";
+pub const JWT_SUBJECT: &str = "psylang-rust";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -46,12 +46,12 @@ pub fn decrypt_jwt_token(secret_key: &str, token: &str) -> Result<Claims, jsonwe
 mod tests {
     #[test]
     fn test_jwt_token() {
-        let secret_key = "qed-jwt-sk-test";
+        let secret_key = "psy-jwt-sk-test";
         let realm_id = 1;
         let token = super::generate_jwt_token(secret_key, realm_id).unwrap();
         let claims = super::decrypt_jwt_token(secret_key, &token).unwrap();
-        assert_eq!(claims.company, "QEDProtocol");
-        assert_eq!(claims.sub, "qedlang-rust");
+        assert_eq!(claims.company, "PsyProtocol");
+        assert_eq!(claims.sub, "psylang-rust");
         assert_eq!(claims.realm_id, realm_id);
     }
 }

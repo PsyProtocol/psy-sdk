@@ -13,7 +13,7 @@ pub use package::*;
 pub use package::{CrateName, Dependency, Package, PackageType};
 pub use workspace::{Workspace, *};
 
-pub const FILE_EXTENSION: &str = "qed";
+pub const FILE_EXTENSION: &str = "psy";
 
 // Re-exports for backward compatibility
 pub mod manifest {
@@ -40,11 +40,11 @@ struct PackageConfig {
     dependencies: BTreeMap<String, DependencyConfig>,
 }
 
-const STD_GIT_PATH_HTTPS: &str = "https://github.com/QEDProtocol/qedlang-rust";
-const STD_GIT_PATH_SSH: &str = "git@github.com:QEDProtocol/qedlang-rust.git";
+const STD_GIT_PATH_HTTPS: &str = "https://github.com/PsyProtocol/psy-v1";
+const STD_GIT_PATH_SSH: &str = "git@github.com:PsyProtocol/psy-v1.git";
 const STD_TAG: &str = "v0.0.1-rc";
 const TAG_LATEST: &str = "latest";
-const STD_FILE: &str = "psy_compiler/psy-std/std.qed";
+const STD_FILE: &str = "psy_compiler/psy-std/std.psy";
 
 impl PackageConfig {
     fn resolve_to_package(&self, root_dir: &Path, processed: &mut Vec<String>) -> Result<crate::package::Package, ManifestError> {
@@ -60,9 +60,9 @@ impl PackageConfig {
         };
 
         if std::env::var("DARGO_STD_PATH").is_err() {
-            let qed_path = try_clone_std("feature/qed-lang-realms")?;
+            let psy_path = try_clone_std("feature/psy-lang-realms")?;
             unsafe {
-                std::env::set_var("DARGO_STD_PATH", qed_path.join(STD_FILE));
+                std::env::set_var("DARGO_STD_PATH", psy_path.join(STD_FILE));
             }
         }
 
@@ -121,13 +121,13 @@ impl PackageConfig {
 pub fn try_clone_std(tag: &str) -> Result<PathBuf, ManifestError> {
     match clone_git_repo(STD_GIT_PATH_HTTPS, tag) {
         Ok(path) => return Ok(path),
-        Err(e) => eprintln!("[QED] HTTPS clone failed: {}", e),
+        Err(e) => eprintln!("[Psy] HTTPS clone failed: {}", e),
     }
 
     match clone_git_repo(STD_GIT_PATH_SSH, tag) {
         Ok(path) => Ok(path),
         Err(e) => {
-            eprintln!("[QED] SSH clone failed: {}", e);
+            eprintln!("[Psy] SSH clone failed: {}", e);
             Err(ManifestError::GitError(format!(
                 "Both HTTPS and SSH clone failed for psy-std (tag = {})",
                 tag

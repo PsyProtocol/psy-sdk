@@ -22,8 +22,8 @@ pub(crate) struct InitCommand {
     pub(crate) bin: bool,
 }
 
-const BIN_EXAMPLE: &str = include_str!("./template_files/binary.qed");
-const LIB_EXAMPLE: &str = include_str!("./template_files/library.qed");
+const BIN_EXAMPLE: &str = include_str!("./template_files/binary.psy");
+const LIB_EXAMPLE: &str = include_str!("./template_files/library.psy");
 
 pub(crate) fn run(args: InitCommand, config: DargoConfig) -> Result<()> {
     let package_name = match args.name {
@@ -57,10 +57,10 @@ authors = [""]
     // we add new package types (which likely need new template files)
     match package_type {
         PackageType::Binary => {
-            write_to_file(BIN_EXAMPLE.as_bytes(), &src_dir.join("main.qed")).unwrap();
+            write_to_file(BIN_EXAMPLE.as_bytes(), &src_dir.join("main.psy")).unwrap();
         }
         PackageType::Library => {
-            write_to_file(LIB_EXAMPLE.as_bytes(), &src_dir.join("lib.qed")).unwrap();
+            write_to_file(LIB_EXAMPLE.as_bytes(), &src_dir.join("lib.psy")).unwrap();
         }
     };
     println!("Project successfully created! It is located at {}", package_dir.display());

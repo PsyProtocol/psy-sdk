@@ -3,7 +3,7 @@ use plonky2::hash::hash_types::RichField;
 use psy_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::user::QEDUserLeaf;
+use crate::qdata::user::PsyUserLeaf;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -20,12 +20,12 @@ pub struct QBCUserContractStateUpdateKVPairs<F: RichField> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QBCUpdateUser<F: RichField> {
-    pub updated_leaf: QEDUserLeaf<F>,
+    pub updated_leaf: PsyUserLeaf<F>,
     pub contract_state_updates: Vec<QBCUserContractStateUpdateKVPairs<F>>,
 }
 
 impl<F: RichField> QBCUpdateUser<F> {
-    pub fn new(updated_leaf: QEDUserLeaf<F>, contract_state_updates: Vec<QBCUserContractStateUpdateKVPairs<F>>) -> Self {
+    pub fn new(updated_leaf: PsyUserLeaf<F>, contract_state_updates: Vec<QBCUserContractStateUpdateKVPairs<F>>) -> Self {
         Self {
             updated_leaf,
             contract_state_updates,

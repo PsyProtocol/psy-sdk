@@ -1,6 +1,6 @@
 import React from 'react';
 import * as rootConfig from '../../../../../config.json';
-import { QedJSON } from '@qed/psy-sdk';
+import { PsyJSON } from '@psy/psy-sdk';
 
 // Configuration interfaces
 export interface RealmConfig {
@@ -96,7 +96,7 @@ export const loadConfig = (): WalletConfig => {
   try {
     const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
     if (saved) {
-      const parsed = QedJSON.parse(saved);
+      const parsed = PsyJSON.parse(saved);
       // Merge with default config to ensure all properties exist
       return {
         ...defaultConfig,
@@ -140,7 +140,7 @@ export const loadConfig = (): WalletConfig => {
 // Save configuration to localStorage
 export const saveConfig = (config: WalletConfig): void => {
   try {
-    localStorage.setItem(CONFIG_STORAGE_KEY, QedJSON.stringify(config));
+    localStorage.setItem(CONFIG_STORAGE_KEY, PsyJSON.stringify(config));
   } catch (error) {
     console.error('Failed to save wallet config:', error);
   }

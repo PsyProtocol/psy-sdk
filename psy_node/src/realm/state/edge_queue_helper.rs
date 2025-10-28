@@ -8,7 +8,7 @@ use plonky2::hash::hash_types::RichField;
 use psy_data::config::store_config::StagingCheckpointInfoStore;
 use psy_store::{
     queue::{new_redis_async_pool, QueueId, RsmqQueue},
-    store::QEDStore,
+    store::PsyStore,
 };
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,7 @@ pub struct RealmEdgeQueueHelper<F: RichField> {
     tracker: Arc<dyn DuplicateTracker>,
     queue_uuid: Arc<RwLock<u128>>,
     redis_pool: Pool<RedisConnectionManager>,
-    store: Arc<QEDStore>,
+    store: Arc<PsyStore>,
     _phantom: PhantomData<F>,
 }
 
@@ -37,7 +37,7 @@ impl<F: RichField> RealmEdgeQueueHelper<F> {
         tracker: Arc<dyn DuplicateTracker>,
         redis_url: &str,
         pool_size: usize,
-        store: Arc<QEDStore>,
+        store: Arc<PsyStore>,
     ) -> Self {
         let redis_pool = match new_redis_async_pool(redis_url, pool_size).await {
             Ok(pool) => pool,
@@ -54,7 +54,7 @@ impl<F: RichField> RealmEdgeQueueHelper<F> {
         }
     }
     pub async fn get_shared_checkpoint_id(&self) -> Result<UniqueQueueId> {
-        if let Some((uuid, checkpoint_id, _info)) = StagingCheckpointInfoStore::<QEDStore>::get_latest_checkpoint_info_with_uuid(&self.store)? {
+        if let Some((uuid, checkpoint_id, _info)) = StagingCheckpointInfoStore::<PsyStore>::get_latest_checkpoint_info_with_uuid(&self.store)? {
             Ok(UniqueQueueId { id: checkpoint_id, uuid })
         } else {
             anyhow::bail!("No staging checkpoint info found")

@@ -2,7 +2,7 @@ use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
 
 use crate::{config::store_config::QCheckpointLeaf, models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE, qdata::u64_key::U64TableKey};
 
-pub trait QEDCheckpointLeafModelReaderCore<
+pub trait PsyCheckpointLeafModelReaderCore<
     const CHECKPOINT_LEAF_TABLE_TYPE: u16,
     S,
     KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
@@ -25,11 +25,11 @@ pub trait QEDCheckpointLeafModelReaderCore<
         KVA::get_many_exact(store, &keys)
     }
 }
-pub trait QEDCheckpointLeafModelCore<
+pub trait PsyCheckpointLeafModelCore<
     const CHECKPOINT_LEAF_TABLE_TYPE: u16,
     S,
     KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
->: QEDCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
+>: PsyCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
 {
     fn delete_checkpoint_leaf_by_id(store: &mut S, checkpoint_id: u64) -> anyhow::Result<Option<QCheckpointLeaf>> {
         let key_id = U64TableKey::<CHECKPOINT_LEAF_TABLE_TYPE>(checkpoint_id);
@@ -53,16 +53,16 @@ pub trait QEDCheckpointLeafModelCore<
         Ok(())
     }
 }
-pub struct QEDCheckpointLeafModel<const CHECKPOINT_LEAF_TABLE_TYPE: u16, S, KVA> {
+pub struct PsyCheckpointLeafModel<const CHECKPOINT_LEAF_TABLE_TYPE: u16, S, KVA> {
     _store: S,
     _kva: KVA,
 }
 
 impl<const CHECKPOINT_LEAF_TABLE_TYPE: u16, S, KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>>
-    QEDCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA> for QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
+    PsyCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA> for PsyCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
 {
 }
 impl<const CHECKPOINT_LEAF_TABLE_TYPE: u16, S, KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>>
-    QEDCheckpointLeafModelCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA> for QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
+    PsyCheckpointLeafModelCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA> for PsyCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
 {
 }

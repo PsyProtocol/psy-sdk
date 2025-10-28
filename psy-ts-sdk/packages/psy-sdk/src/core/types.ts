@@ -2,7 +2,7 @@ type SCNumberLike = bigint | number | string;
 type Felt = bigint | number;
 type HexString = string;
 
-type QedHash = string;
+type PsyHash = string;
 type Hash256 = string;
 type PrivateKey = string;
 type PublicKey = string;
@@ -25,9 +25,9 @@ interface IDeltaMerkleProofCore<T> {
     siblings: T[];
 }
 
-type QedMerkleProof = MerkleProofCore<QedHash>;
-type QedDeltaMerkleProof = IDeltaMerkleProofCore<QedHash>;
-type DeltaMerkleProofCore = IDeltaMerkleProofCore<QedHash>;
+type PsyMerkleProof = MerkleProofCore<PsyHash>;
+type PsyDeltaMerkleProof = IDeltaMerkleProofCore<PsyHash>;
+type DeltaMerkleProofCore = IDeltaMerkleProofCore<PsyHash>;
 
 interface ISimpleKVPair<K, V> {
     key: K;
@@ -35,7 +35,7 @@ interface ISimpleKVPair<K, V> {
 }
 
 export type {
-    QedHash,
+    PsyHash,
     Felt,
     SCNumberLike,
     Hash256,
@@ -45,8 +45,8 @@ export type {
     MerkleProofCore,
     IDeltaMerkleProofCore,
     DeltaMerkleProofCore,
-    QedMerkleProof,
-    QedDeltaMerkleProof,
+    PsyMerkleProof,
+    PsyDeltaMerkleProof,
     ISimpleKVPair,
     HexString,
     U8Bytes,
