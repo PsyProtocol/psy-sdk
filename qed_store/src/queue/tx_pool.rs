@@ -7,6 +7,7 @@ use qed_core::job::id::QProvingJobDataID;
 use qed_data::guta::api::UserEndCapNonProofCoreInputQueueItem;
 use crate::queue::{ProofStoreRedisAsync, QueuePrefixKey, PS_DRAIN_QUEUE_KEY_PREFIX};
 use crate::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState};
+use qed_core::job::drain_queue::DQSerializable;
 
 
 #[async_trait]
@@ -138,19 +139,19 @@ impl TxPoolAsyncImm for ProofStoreRedisAsync {
 #[async_trait]
 pub trait TxPoolAsyncImmV2: Send + Sync {
     async fn contains_tx(&self, channel_id: u64, id: u64) -> anyhow::Result<bool>;
-    async fn add_tx<C: GenericConfig<D>, const D: usize>(
+    async fn add_tx<C: GenericConfig<D>, const D: usize, T: DQSerializable>(
         &self,
         id: QProvingJobDataID,
         proof: &ProofWithPublicInputs<C::F, C, D>,
-        user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
+        tx: T,
     ) -> anyhow::Result<()>;
 
-    async fn get_txs<C: GenericConfig<D>, const D: usize>(
+    async fn get_txs<C: GenericConfig<D>, const D: usize, T: DQSerializable>(
         &self,
         count: Option<isize>,
         channel_id: u64,
         checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>>;
+    ) -> anyhow::Result<Vec<T>>;
 
     async fn remove_txs(&self, channel_id: u64) -> anyhow::Result<()>;
 
@@ -172,24 +173,24 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
         Ok(false)
     }
 
-    async fn add_tx<C: GenericConfig<D>, const D: usize>(
+    async fn add_tx<C: GenericConfig<D>, const D: usize, T: DQSerializable>(
         &self,
         id: QProvingJobDataID,
         proof: &ProofWithPublicInputs<C::F, C, D>,
-        tx: UserEndCapNonProofCoreInputQueueItem<C::F>,
+        tx: T,
     ) -> anyhow::Result<()> {
         let checkpoint_id = id.goal_id;
         let checkpoint_list_key = self.checkpoint_list_key();
         let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
-        let tx_key = self.tx_key(tx.channel_id);
-        let id_key = self.id_key(tx.channel_id);
+        let tx_key = self.tx_key(tx.get_dq_metadata().channel_id);
+        let id_key = self.id_key(tx.get_dq_metadata().channel_id);
         let public_inputs_key = self.public_inputs_key();
 
         let proof_bytes = bincode::serialize(proof)?;
         let public_inputs_data = bincode::serialize(&proof.public_inputs)?;
         let now = self.redis.server_time().await?;
         let mut builder = self.redis.cmd_builder();
-        let user_id = tx.cst_user_update.user_id;
+        let item_id = tx.get_dq_metadata().item_id;//user id or realm id
         builder = builder
             .sadd(checkpoint_list_key, checkpoint_id)
             .hset(
@@ -202,23 +203,23 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
                 public_inputs_data,
             ).hset(
                 tx_key,
-                user_id,
+                item_id,
                 tx.to_bytes()?,
             ).zadd(
-                id_key.clone(),
-                user_id,
-                now[0],
+                id_key.clone(),// zset name
+                item_id,
+                now[0], // score
             );
         builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
 
-    async fn get_txs<C: GenericConfig<D>, const D: usize>(
+    async fn get_txs<C: GenericConfig<D>, const D: usize, T: DQSerializable>(
         &self,
         count: Option<isize>,
         channel_id: u64,
         checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>> {
+    ) -> anyhow::Result<Vec<T>> {
         self.remove_expired_txs(channel_id).await?;
         let len= self.len(channel_id).await?;
         if len == 0 {
@@ -234,11 +235,11 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
 
         let ids: Vec<u64> = self.redis.zrange(self.id_key(channel_id), start_position as isize, stop).await?;
         let txs_data: Vec<Option<Vec<u8>>> = self.redis.hget(self.tx_key(channel_id), ids).await?;
-        let mut txs:Vec<UserEndCapNonProofCoreInputQueueItem<C::F>> = vec![];
-        for (i, user_end_cap_data) in txs_data.iter().enumerate() {
-            if let Some(user_end_cap_data) = user_end_cap_data {
-                let user_end_cap = UserEndCapNonProofCoreInputQueueItem::<C::F>::from_bytes(user_end_cap_data)?;
-                txs.push(user_end_cap);
+        let mut txs:Vec<T> = vec![];
+        for (i, tx_data) in txs_data.iter().enumerate() {
+            if let Some(tx_data) = tx_data {
+                let tx = T::from_bytes(tx_data)?;
+                txs.push(tx);
             }
         }
 

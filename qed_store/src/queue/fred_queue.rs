@@ -623,11 +623,11 @@ impl TxPoolAsyncImmV2 for ProofStoreFred {
         todo!()
     }
 
-    async fn add_tx<C: GenericConfig<D>, const D: usize>(&self, id: QProvingJobDataID, proof: &ProofWithPublicInputs<C::F, C, D>, user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>) -> anyhow::Result<()> {
+    async fn add_tx<C: GenericConfig<D>, const D: usize, T: DQSerializable>(&self, id: QProvingJobDataID, proof: &ProofWithPublicInputs<C::F, C, D>, tx: T) -> anyhow::Result<()> {
         todo!()
     }
 
-    async fn get_txs<C: GenericConfig<D>, const D: usize>(&self, count: Option<isize>, channel_id: u64, checkpoint_id: u64) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>> {
+    async fn get_txs<C: GenericConfig<D>, const D: usize, T: DQSerializable>(&self, count: Option<isize>, channel_id: u64, checkpoint_id: u64) -> anyhow::Result<Vec<T>> {
         todo!()
     }
 

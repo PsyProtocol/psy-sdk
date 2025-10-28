@@ -492,7 +492,7 @@ impl<
         DeltaMerkleProofCore<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
     )> {
-        let mut guta_queue_items = self.checkpoint_queue.get_txs::<C, D>(
+        let mut guta_queue_items = self.checkpoint_queue.get_txs::<C, D, UserEndCapNonProofCoreInputQueueItem<F>>(
             self.max_processed_end_caps_per_block,
             self.realm_config.guta_channel_id,
             checkpoint_id,
