@@ -427,6 +427,20 @@ impl ResilientRedisConnection {
         }).await
     }
 
+    pub async fn zscore<K,M, V>(&self, key: K, member: M) -> Result<V>
+
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        M: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        V: redis::FromRedisValue + Send + 'static,
+    {
+        let key_clone = key.clone();
+        let member_clone = member.clone();
+        self.execute(move |mut conn| async move {
+            conn.zscore(key_clone, member_clone).await
+        }).await
+    }
+
     pub async fn smembers<K, V>(&self, key: K) -> Result<Vec<V>>
     where
         K: redis::ToRedisArgs + Send + Sync + 'static,
@@ -456,6 +470,16 @@ impl ResilientRedisConnection {
     {
         self.execute(move |mut conn| async move {
             conn.zcard(key).await
+        }).await
+    }
+
+    pub async fn zremrangebyscore<K,M>(&self, key: K, min: M, max: M) -> Result<()>
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        M: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+    {
+        self.execute(move |mut conn| async move {
+            conn.zrembyscore(key, min, max).await
         }).await
     }
 
@@ -525,6 +549,14 @@ impl ResilientRedisConnection {
     pub async fn ping(&self) -> Result<String> {
         self.execute(|mut conn| async move {
             redis::cmd("PING").query_async::<String>(&mut conn).await
+        }).await
+    }
+
+    pub async fn server_time(&self) -> Result<Vec<i64>> {
+        self.execute(|mut conn| async move {
+            redis::cmd("TIME")
+                .query_async(&mut conn)
+                .await
         }).await
     }
 
@@ -743,8 +775,19 @@ impl CommandBuilder {
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
     {
-        let mut cmd = redis::cmd("ZREMRANGEBYSCORE");
+        let mut cmd = redis::cmd("ZREMRANGEBYRANK");
         cmd.arg(key).arg(start).arg(stop);
+        self.commands.push(cmd);
+        self
+    }
+
+    pub fn zremrangebyscore<K,M>(mut self, key: K, min: M, max: M) -> Self
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        M: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+    {
+        let mut cmd = redis::cmd("ZREMRANGEBYSCORE");
+        cmd.arg(key).arg(min).arg(max);
         self.commands.push(cmd);
         self
     }

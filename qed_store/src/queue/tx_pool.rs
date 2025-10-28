@@ -49,6 +49,7 @@ impl TxPoolAsyncImm for ProofStoreRedisAsync {
         let checkpoint_list_key = self.checkpoint_list_key();
         let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
         let public_inputs_key = self.public_inputs_key();
+        let user_end_cap_key = self.user_end_cap_key();
 
         let proof_bytes = bincode::serialize(proof)?;
         let public_inputs_data = bincode::serialize(&proof.public_inputs)?;
@@ -59,14 +60,14 @@ impl TxPoolAsyncImm for ProofStoreRedisAsync {
                 id.to_fixed_bytes().to_vec(),
                 proof_bytes,
             ).hset(
-            public_inputs_key,
-            id.to_fixed_bytes().to_vec(),
-            public_inputs_data,
-        ).set_ex(
-            id.to_fixed_bytes().to_vec(),   //QProvingJobDataID
-            2 * 60,                //2 minutes
-            user_end_cap.to_bytes()?,//UserEndCapNonProofCoreInputQueueItem
-        );
+                public_inputs_key,
+                id.to_fixed_bytes().to_vec(),
+                public_inputs_data,
+            ).set_ex(
+                id.to_fixed_bytes().to_vec(),   //QProvingJobDataID
+                2 * 60,                //2 minutes
+                user_end_cap.to_bytes()?,//UserEndCapNonProofCoreInputQueueItem
+            );
         // QProvingJobDataID
         let (key, bytes) = self.cdq_kv_pair(user_end_cap.channel_id, id)?;
         builder = builder.rpush(key, bytes);
@@ -137,48 +138,56 @@ impl TxPoolAsyncImm for ProofStoreRedisAsync {
 
 #[async_trait]
 pub trait TxPoolAsyncImmV2: Send + Sync {
-    async fn contains_tx_id_v2(&self, id: QProvingJobDataID) -> anyhow::Result<bool>;
-    async fn add_user_tx_v2<C: GenericConfig<D>, const D: usize>(
+    async fn contains_tx(&self, channel_id: u64, id: u64) -> anyhow::Result<bool>;
+    async fn add_tx<C: GenericConfig<D>, const D: usize>(
         &self,
         id: QProvingJobDataID,
         proof: &ProofWithPublicInputs<C::F, C, D>,
         user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
     ) -> anyhow::Result<()>;
 
-    async fn get_user_txs_v2<C: GenericConfig<D>, const D: usize>(
+    async fn get_txs<C: GenericConfig<D>, const D: usize>(
         &self,
         count: Option<isize>,
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>>;
 
-    async fn remove_user_txs_v2(&self, channel_id: u64) -> anyhow::Result<()>;
-    async fn pool_len_v2(&self, channel_id: u64) -> anyhow::Result<usize>;
+    async fn remove_txs(&self, channel_id: u64) -> anyhow::Result<()>;
+    async fn len(&self, channel_id: u64) -> anyhow::Result<usize>;
 }
 
 #[async_trait]
 impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
-    async fn contains_tx_id_v2(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
-        let checkpoint_proofs_key = self.checkpoint_proofs_key(id.goal_id);
-        let exists = self.redis.hexists(checkpoint_proofs_key, id.to_fixed_bytes().to_vec()).await?;
-        Ok(exists)
+    async fn contains_tx(&self, channel_id: u64, id: u64) -> anyhow::Result<bool> {
+        let server_time = self.redis.server_time().await?;
+        let id_key = self.id_key(channel_id);
+        let exists:Option<i64> = self.redis.zscore(id_key, id).await?;
+        if let Some(score) = exists {
+            if score >= server_time[0] - 1800 { // 30 minutes
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
-    async fn add_user_tx_v2<C: GenericConfig<D>, const D: usize>(
+    async fn add_tx<C: GenericConfig<D>, const D: usize>(
         &self,
         id: QProvingJobDataID,
         proof: &ProofWithPublicInputs<C::F, C, D>,
         user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
     ) -> anyhow::Result<()> {
-        let mut builder = self.redis.cmd_builder();
         let checkpoint_id = id.goal_id;
         let checkpoint_list_key = self.checkpoint_list_key();
         let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
         let user_end_cap_key = self.user_end_cap_key();
+        let id_key = self.id_key(user_end_cap.channel_id);
         let public_inputs_key = self.public_inputs_key();
 
         let proof_bytes = bincode::serialize(proof)?;
         let public_inputs_data = bincode::serialize(&proof.public_inputs)?;
+        let now = self.redis.server_time().await?;
+        let mut builder = self.redis.cmd_builder();
         builder = builder
             .sadd(checkpoint_list_key, checkpoint_id)
             .hset(
@@ -186,28 +195,31 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
                 id.to_fixed_bytes().to_vec(),
                 proof_bytes,
             ).hset(
-            public_inputs_key,
-            id.to_fixed_bytes().to_vec(),
-            public_inputs_data,
-        ).zadd(
-            user_end_cap_key,
-            user_end_cap.to_bytes()?,
-            Utc::now().timestamp_millis(),
-        );
+                public_inputs_key,
+                id.to_fixed_bytes().to_vec(),
+                public_inputs_data,
+            ).sadd(
+                user_end_cap_key,
+                user_end_cap.to_bytes()?,
+            ).zadd(
+                id_key,
+                user_end_cap.cst_user_update.user_id,
+                now[0],
+            );
         builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
 
-    async fn get_user_txs_v2<C: GenericConfig<D>, const D: usize>(
+    async fn get_txs<C: GenericConfig<D>, const D: usize>(
         &self,
         count: Option<isize>,
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>> {
-        let user_end_cap_key = self.user_end_cap_key();
-
-        // self.redis.zrembyscore(user_end_cap_key.clone(), 0, Utc::now().timestamp_millis() - 1000 * 60 * 2).await?;
-        let len= self.pool_len_v2(channel_id).await?;
+        let id_key = self.id_key(channel_id);
+        let now = self.redis.server_time().await?;
+        self.redis.zremrangebyscore(id_key, 0, now[0] - 1800).await?;
+        let len= self.len(channel_id).await?;
         if len == 0 {
             return Ok(vec![]);
         }
@@ -218,18 +230,12 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
             }
         }
 
+        let user_end_cap_key = self.user_end_cap_key();
         let txs: Vec<Vec<u8>> = self.redis.zrange(user_end_cap_key, 0, stop).await?;
         let txs:Vec<UserEndCapNonProofCoreInputQueueItem<C::F>> = txs.iter().map(|item| {
             UserEndCapNonProofCoreInputQueueItem::from_bytes(item)
         }).collect::<anyhow::Result<Vec<_>>>()?;
 
-        // remove old user end cap
-        let txs = txs.into_iter().filter(|item| {
-            item.checkpoint_id < checkpoint_id - 20 // todo
-        }).collect::<Vec<_>>();
-        if txs.len() == 0 {
-            return Ok(vec![]);
-        }
         let state = QueueOffsetState {
             start_position: 0i64,
             end_position: stop as i64,
@@ -248,23 +254,26 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
         Ok(txs)
     }
 
-    async fn remove_user_txs_v2(&self, channel_id: u64) -> anyhow::Result<()> {
+    async fn remove_txs(&self, channel_id: u64) -> anyhow::Result<()> {
         let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
         let state_data: Option<Vec<u8>> = self.redis.get(state_key.clone()).await.ok();
+        let mut builder = self.redis.cmd_builder();
+        let id_key = self.id_key(channel_id);
+        let now = self.redis.server_time().await?;
+        builder = builder.zremrangebyscore(id_key, 0, now[0] - 1800);
         if let Some(data) = state_data {
             if !data.is_empty() {
                 let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!("Failed to deserialize state: {}", e))?;
                 let user_end_cap_key = self.user_end_cap_key();
-                self.redis.cmd_builder()
-                    .zremrangebyrank(user_end_cap_key, state.start_position as isize, state.end_position as isize)
-                    .del(state_key)
-                    .execute_atomic(&self.redis).await?;
+                builder = builder.zremrangebyrank(user_end_cap_key, state.start_position as isize, state.end_position as isize);
+                builder = builder.del(state_key.clone());
             }
         }
+        builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
 
-    async fn pool_len_v2(&self, channel_id: u64) -> anyhow::Result<usize> {
-        self.redis.zcard(self.user_end_cap_key()).await
+    async fn len(&self, channel_id: u64) -> anyhow::Result<usize> {
+        self.redis.zcard(self.id_key(channel_id)).await
     }
 }

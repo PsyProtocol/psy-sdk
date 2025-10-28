@@ -60,6 +60,8 @@ pub trait QueuePrefixKey {
     fn checkpoint_proofs_key(&self, checkpoint_id: u64) -> String;
 
     fn user_end_cap_key(&self) -> String;
+
+    fn id_key(&self, channel_id: u64) -> String;
     // public inputs key
     fn public_inputs_key(&self) -> String;
 }
@@ -105,6 +107,10 @@ impl<T: BizKey> QueuePrefixKey for T {
 
     fn user_end_cap_key(&self) -> String {
         format!("user_end_caps:{}", self.biz_key())
+    }
+
+    fn id_key(&self, channel_id: u64) -> String {
+        format!("ids:{}:{}", channel_id, self.biz_key())
     }
 
 
