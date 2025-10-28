@@ -1,4 +1,4 @@
-use qed_crypto::field::qfield::QRichField;
+use psy_crypto::field::qfield::QRichField;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::target::BoolTarget;
@@ -452,7 +452,7 @@ mod tests {
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, Hasher, PoseidonGoldilocksConfig};
     use qed_core::utils::binary_helpers::{bytes_to_u32_vec_be, u32_vec_to_bytes_be};
-    use qed_crypto::hash::core::sha256::CoreSha256Hasher;
+    use psy_crypto::hash::core::sha256::CoreSha256Hasher;
 
     #[test]
     fn test_sha256_two_to_one() {

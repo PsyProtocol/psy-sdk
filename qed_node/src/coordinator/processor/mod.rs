@@ -8,8 +8,8 @@ use plonky2::field::types::Field;
 use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
 use qed_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
 use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
-use qed_crypto::common::user_id::get_user_id_from_registration_id;
-use qed_crypto::hash::merkle::utils::common::QMerkleNode;
+use psy_crypto::common::user_id::get_user_id_from_registration_id;
+use psy_crypto::hash::merkle::utils::common::QMerkleNode;
 use qed_data::config::genesis_config::GenesisConfig;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContractWithRoot;
 use qed_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
@@ -21,7 +21,7 @@ use qed_core::job::{
     traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
     worker_queue::WorkerEventTransmitterAsyncImm,
 };
-use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_data::qdata::contract::QEDContractLeaf;
 use qed_data::{
     config::store_config::QEDFelt,
@@ -44,10 +44,10 @@ use std::time::Duration;
 use qed_data::qdata::realm_status::BasicRealmStatus;
 use qed_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
-use qed_crypto::hash::merkle::utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey};
-use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
+use psy_crypto::hash::merkle::utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey};
+use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
 use qed_data::qdata::user::QEDUserLeaf;
-use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_data::qdata::user_public_key::QEDUserPublicKeyRecord;
 use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use qedlang_core::dpn::vm::compile::QEDCompileResult;

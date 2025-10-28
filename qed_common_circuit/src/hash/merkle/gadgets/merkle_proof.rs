@@ -10,7 +10,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore}, traits::hasher::MerkleZeroHasher};
+use psy_crypto::hash::{merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore}, traits::hasher::MerkleZeroHasher};
 
 use crate::builder::optional_inputs::CircuitBuilderOptionalInputs;
 
@@ -320,7 +320,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use qed_crypto::hash::merkle::core::MerkleProof;
+    use psy_crypto::hash::merkle::core::MerkleProof;
 
     use crate::hash::merkle::gadgets::merkle_proof::{
         MerkleProofGadget, OptionalMerkleProofGadget,

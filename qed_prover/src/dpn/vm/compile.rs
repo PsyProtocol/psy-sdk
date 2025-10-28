@@ -34,7 +34,7 @@ pub struct QEDContractFunctionBuilderGadget {
 }
 impl QEDContractFunctionBuilderGadget {
     pub fn add_virtual_to<
-        H:AlgebraicHasher<F> + qed_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
+        H:AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -75,7 +75,7 @@ impl QEDContractFunctionBuilderGadget {
         g
     }
      fn process_state_cmd<
-        H:AlgebraicHasher<F> + qed_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
+        H:AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -93,7 +93,7 @@ impl QEDContractFunctionBuilderGadget {
         });
     }
 
-    fn eval_session<H:AlgebraicHasher<F> + qed_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
+    fn eval_session<H:AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         fn_def: &DPNFunctionCircuitDefinition,

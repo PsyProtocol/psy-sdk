@@ -19,7 +19,7 @@ use qed_core::job::{
     id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, VariableHeightRewardMerkleProof},
     traits::QProofStoreAsyncImm,
 };
-use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore, compute_historical_and_current_merkle_roots_core_gt};
+use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore, compute_historical_and_current_merkle_roots_core_gt};
 use qed_data::config::store_config::{QEDFelt, QEDHash, QEDHasher, QEDProof};
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qdata::checkpoint::{
@@ -37,8 +37,8 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use tracing::{debug, error, info, warn};
 use qed_core::config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use qed_core::job::id::ProvingJobDataType;
-use qed_crypto::hash::traits::hasher::{MerkleHasher, MerkleZeroHasher, PoseidonHasher};
-use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use psy_crypto::hash::traits::hasher::{MerkleHasher, MerkleZeroHasher, PoseidonHasher};
+use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_data::guta::api::{QEDContractStateUpdateHistory, SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem};
 use qed_data::guta::proof_input::VerifyEndCapSimpleStandardInput;
 use qed_prover::wallet::secp_sign::SignedRequest;

@@ -14,7 +14,7 @@ use qed_core::{
     config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT,
     data::{alt::AltVerifierOnlyCircuitData, base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey},
 };
-use qed_crypto::{
+use psy_crypto::{
     common::witnesses::qrecursion::{
         header::QRecursionAggStandardHeader,
         proof_data::{QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},

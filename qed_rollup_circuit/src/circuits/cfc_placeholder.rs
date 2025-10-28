@@ -17,7 +17,7 @@ use qed_common_circuit::{
     },
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::{core::DeltaMerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree}, traits::hasher::MerkleZeroHasher};
+use psy_crypto::hash::{merkle::{core::DeltaMerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree}, traits::hasher::MerkleZeroHasher};
 
 #[derive(Debug)]
 pub struct CFCPlaceholderCircuit<C: GenericConfig<D> + 'static, const D: usize>

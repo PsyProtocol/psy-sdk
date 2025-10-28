@@ -11,7 +11,7 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use tokio::time::timeout;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use crate::session::{WalletKeyPair, WalletSession};

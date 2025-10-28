@@ -16,7 +16,7 @@ qed-common = { workspace = true }
 tracing = { workspace = true }
 serde_json = { workspace = true }
 qed_rollup_circuit = { workspace = true }
-qed_crypto = { workspace = true }
+psy_crypto = { workspace = true }
 qed_prover = { workspace = true }
 qed_store = { workspace = true }
 qed_data = { workspace = true }

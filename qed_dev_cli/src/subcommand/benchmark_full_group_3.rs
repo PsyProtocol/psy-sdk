@@ -25,7 +25,7 @@ use qed_core::{
     ups::circuits::{LocalCircuitId, LocalCircuitType},
     utils::debug_timer::DebugTimer,
 };
-use qed_crypto::{
+use psy_crypto::{
     common::{
         generic_circuit_verifier::GenericCircuitVerifier,
         simple_circuit_library::SimpleCircuitLibrary,

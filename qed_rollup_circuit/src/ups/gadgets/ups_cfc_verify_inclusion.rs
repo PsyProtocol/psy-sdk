@@ -7,7 +7,7 @@ use plonky2::{
 use qed_common_circuit::
     treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::AttestTreeAwareProofInTreeGadget
 ;
-use qed_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::traits::hasher::MerkleZeroHasher};
+use psy_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::traits::hasher::MerkleZeroHasher};
 use qed_data::qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, contract_inclusion::QEDContractFunctionInclusionProof};
 
 use crate::gadgets::qdata::{

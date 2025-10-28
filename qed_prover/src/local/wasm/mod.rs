@@ -4,7 +4,7 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::data::u8bytes::U8Bytes;
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;

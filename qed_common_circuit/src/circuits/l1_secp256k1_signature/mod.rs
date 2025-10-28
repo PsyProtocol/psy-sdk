@@ -1,5 +1,5 @@
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
-use qed_crypto::signature::secp256k1::core::{QEDCompressedSecp256K1Signature, QEDPreparedSecp256K1Signature};
+use psy_crypto::signature::secp256k1::core::{QEDCompressedSecp256K1Signature, QEDPreparedSecp256K1Signature};
 use plonky2::{
     gates::gate::GateRef, iop::witness::PartialWitness, plonk::{
         circuit_builder::CircuitBuilder,

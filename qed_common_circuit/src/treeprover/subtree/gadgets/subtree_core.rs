@@ -1,5 +1,5 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use qed_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
+use psy_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
 
 
 

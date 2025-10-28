@@ -1,6 +1,6 @@
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::treeprover::TPCircuitFingerprintConfig;
+use psy_crypto::hash::merkle::treeprover::TPCircuitFingerprintConfig;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

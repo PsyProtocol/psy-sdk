@@ -16,7 +16,7 @@ use qed_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore, circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager}, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, proof_minifier::pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::manager::portable::{circuits::PortableQTreeRecursionCircuits, core::PortableQTreeRecursionManager},
 };
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
-use qed_crypto::{
+use psy_crypto::{
     common::witnesses::qrecursion::proof_data::InputLeafProof,
     hash::merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree}, signature::zk::wallet::SimpleQEDPrivateKey,
 };

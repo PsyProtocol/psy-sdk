@@ -14,7 +14,7 @@ use qed_core::{
     data::qhashout::QHashOut,
     utils::debug_timer::DebugTimer,
 };
-use qed_crypto::{
+use psy_crypto::{
     hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimpleQEDPrivateKey,
 };
 use qed_data::{

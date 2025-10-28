@@ -4,7 +4,7 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, traits::to_qfelts::QFeltSized
 };
-use qed_crypto::hash::traits::{
+use psy_crypto::hash::traits::{
     hasher::FieldQHasher,
     qhashable::QFieldHashable,
 };

@@ -17,7 +17,7 @@ use plonky2::{
     },
 };
 use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
-use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::{data::CircuitInputWithDependencies, AggStateTransitionInput}};
+use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::{data::CircuitInputWithDependencies, AggStateTransitionInput}};
 
 use crate::{
     builder::{

@@ -5,7 +5,7 @@ use plonky2::plonk::{
     config::GenericConfig,
     proof::ProofWithPublicInputs,
 };
-use qed_crypto::common::circuit_library::CircuitInfoLibrary;
+use psy_crypto::common::circuit_library::CircuitInfoLibrary;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub mod provable;

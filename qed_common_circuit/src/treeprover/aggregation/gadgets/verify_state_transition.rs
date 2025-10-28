@@ -10,7 +10,7 @@ use plonky2::{
     },
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::
+use psy_crypto::hash::
     merkle::treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig, TPCircuitFingerprintConfig}
 ;
 

@@ -20,7 +20,7 @@ use qed_core::{
     },
     utils::graph::BidirectionalGraph,
 };
-use qed_crypto::{
+use psy_crypto::{
     common::{cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id},
     hash::{merkle::{
             core::{DeltaMerkleProofCore, MerkleProofCore, compute_historical_and_current_merkle_roots_core_gt},

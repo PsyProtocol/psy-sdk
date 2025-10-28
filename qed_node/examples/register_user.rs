@@ -5,7 +5,7 @@ use reqwest::Client;
 use std::time::{Duration, Instant};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_prover::local::request::{Id, QRegisterUserRPCRequest, RequestParams, RpcRequest, Version};
 
 //just copy from qed_user_cli/src/subcommand/register_user.rs

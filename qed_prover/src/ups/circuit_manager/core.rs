@@ -25,7 +25,7 @@ use qed_core::{
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
     ups::circuits::LocalCircuitType,
 };
-use qed_crypto::{
+use psy_crypto::{
     common::{
         circuit_library::CircuitInfoLibraryBuilder,
         witnesses::qrecursion::proof_data::{
@@ -663,7 +663,7 @@ where
 {
     async fn get_verifier_data_by_type(
         &self,
-        circuit_type: qed_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType,
+        circuit_type: psy_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType,
     ) -> VerifierOnlyCircuitData<C, D> {
         self.proof_tree_agg_circuits.get_verifier_data_by_type(circuit_type).await
     }
@@ -671,7 +671,7 @@ where
     async fn prove_single_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
-        single_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+        single_insert_leaf_proof: &psy_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
         >,
         single_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -689,12 +689,12 @@ where
     async fn prove_two_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
-        left_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+        left_insert_leaf_proof: &psy_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
         >,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
         left_verifier_data: &VerifierOnlyCircuitData<C, D>,
-        right_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+        right_insert_leaf_proof: &psy_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
         >,
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -715,11 +715,11 @@ where
     async fn prove_two_agg_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
-        left_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        left_agg_proof_header: &psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
         left_verifier_data: &VerifierOnlyCircuitData<C, D>,
         right_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
-        right_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        right_agg_proof_header: &psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
@@ -738,13 +738,13 @@ where
 
     async fn prove_left_leaf_right_agg_circuit(
         &self,
-        left_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+        left_insert_leaf_proof: &psy_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
         >,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
         left_verifier_data: &VerifierOnlyCircuitData<C, D>,
         right_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
-        right_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        right_agg_proof_header: &psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
@@ -763,10 +763,10 @@ where
     async fn prove_left_agg_right_leaf_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
-        left_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        left_agg_proof_header: &psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
         left_verifier_data: &VerifierOnlyCircuitData<C, D>,
-        right_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+        right_insert_leaf_proof: &psy_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
         >,
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -1281,7 +1281,7 @@ where
 {
     async fn get_verifier_data_by_type(
         &self,
-        circuit_type: qed_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType,
+        circuit_type: psy_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType,
     ) -> VerifierOnlyCircuitData<C, D> {
         match self {
             QCircuitManager::Local(manager) => {
@@ -1299,7 +1299,7 @@ where
     async fn prove_single_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
-        single_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+        single_insert_leaf_proof: &psy_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
         >,
         single_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -1333,12 +1333,12 @@ where
     async fn prove_two_leaf_circuit(
         &self,
         agg_circuit_whitelist_root: QHashOut<C::F>,
-        left_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+        left_insert_leaf_proof: &psy_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
         >,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
         left_verifier_data: &VerifierOnlyCircuitData<C, D>,
-        right_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+        right_insert_leaf_proof: &psy_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
         >,
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
@@ -1378,11 +1378,11 @@ where
     async fn prove_two_agg_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
-        left_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        left_agg_proof_header: &psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
         left_verifier_data: &VerifierOnlyCircuitData<C, D>,
         right_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
-        right_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        right_agg_proof_header: &psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
@@ -1421,13 +1421,13 @@ where
 
     async fn prove_left_leaf_right_agg_circuit(
         &self,
-        left_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+        left_insert_leaf_proof: &psy_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
         >,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
         left_verifier_data: &VerifierOnlyCircuitData<C, D>,
         right_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
-        right_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        right_agg_proof_header: &psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
@@ -1465,10 +1465,10 @@ where
     async fn prove_left_agg_right_leaf_circuit(
         &self,
         left_agg_whitelist_merkle_proof: &MerkleProofCore<QHashOut<C::F>>,
-        left_agg_proof_header: &qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
+        left_agg_proof_header: &psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader<C::F>,
         left_proof: &ProofWithPublicInputs<C::F, C, D>,
         left_verifier_data: &VerifierOnlyCircuitData<C, D>,
-        right_insert_leaf_proof: &qed_crypto::hash::merkle::core::DeltaMerkleProofCore<
+        right_insert_leaf_proof: &psy_crypto::hash::merkle::core::DeltaMerkleProofCore<
             QHashOut<C::F>,
         >,
         right_proof: &ProofWithPublicInputs<C::F, C, D>,

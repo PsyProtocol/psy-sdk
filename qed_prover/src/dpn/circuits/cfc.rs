@@ -25,7 +25,7 @@ use qed_common_circuit::{
     u32::gates::comparison::ComparisonGate,
 };
 use qed_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
-use qed_crypto::{
+use psy_crypto::{
     hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
 };
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;

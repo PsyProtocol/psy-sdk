@@ -4,7 +4,7 @@ use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
+use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_data::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
     qblock::cmds::{

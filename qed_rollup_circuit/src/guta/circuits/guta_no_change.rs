@@ -23,7 +23,7 @@ use qed_core::{
         traits::QProofStoreReaderAsync,
     },
 };
-use qed_crypto::{
+use psy_crypto::{
     common::circuit_library::CircuitInfoLibrary,
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},
 };

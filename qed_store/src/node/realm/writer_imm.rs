@@ -25,7 +25,7 @@ use qed_core::{
     config::network_constants::GLOBAL_USER_TREE_HEIGHT,
     data::qhashout::QHashOut,
 };
-use qed_crypto::{common::user_id::get_user_id_from_registration_id, hash::{
+use psy_crypto::{common::user_id::get_user_id_from_registration_id, hash::{
     merkle::{core::{DeltaMerkleProofCore, MerkleProofCore},
         utils::{common::{QMerkleNode, SimpleMerkleNode, SimpleMerkleNodeKey}, sub_tree_nca::UpdateNCAProofsWithDependencies}}
     ,

@@ -8,8 +8,8 @@ use qed_core::config::network_constants::{
     MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT,
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::traits::qhashable::QFieldHashable;
-use qed_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey};
+use psy_crypto::hash::traits::qhashable::QFieldHashable;
+use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey};
 use qed_data::config::store_config::QEDHasher;
 use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_prover::local::args::SignType;

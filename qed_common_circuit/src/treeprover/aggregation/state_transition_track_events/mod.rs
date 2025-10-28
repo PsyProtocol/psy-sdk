@@ -16,7 +16,7 @@ use plonky2::{
     },
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::treeprover::AggStateTransitionWithEventsInput;
+use psy_crypto::hash::merkle::treeprover::AggStateTransitionWithEventsInput;
 
 use crate::{
     builder::{

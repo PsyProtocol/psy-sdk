@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_crypto::common::user_id::get_user_id_from_registration_id;
+use psy_crypto::common::user_id::get_user_id_from_registration_id;
 use qed_data::{
     config::{
         genesis_config::GenesisConfig,

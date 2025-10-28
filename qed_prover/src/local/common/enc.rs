@@ -1,5 +1,5 @@
 use qed_core::data::base_types::hash256::Hash256;
-use qed_crypto::hash::core::sha256::CoreSha256Hasher;
+use psy_crypto::hash::core::sha256::CoreSha256Hasher;
 
 pub trait SimpleEncryptionHelper: Clone + Send + Sync {
     fn encrypt_32(&self, salt: Hash256, data: Hash256) -> Hash256;

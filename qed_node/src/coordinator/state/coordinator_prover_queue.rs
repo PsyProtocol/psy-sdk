@@ -5,7 +5,7 @@ use qed_core::{
         history_queue::CheckpointHistoryQueueEmitterAsyncImm, id::{ProvingJobCircuitType, QProvingJobDataID}, traits::{QProofStoreAsyncImm, QProofStoreWriterSync}, worker_queue::WorkerEventTransmitterAsyncImm
     },
 };
-use qed_crypto::hash::merkle::{
+use psy_crypto::hash::merkle::{
     spiderman::SpidermanUpdateProof, treeprover::data::CircuitInputWithJobId,
 };
 use qed_data::config::store_config::QEDFelt;

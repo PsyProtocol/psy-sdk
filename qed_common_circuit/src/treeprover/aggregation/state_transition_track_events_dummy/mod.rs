@@ -11,7 +11,7 @@ use plonky2::{
     },
 };
 use qed_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
-use qed_crypto::hash::merkle::treeprover::DummyAggStateTransitionWithEvents;
+use psy_crypto::hash::merkle::treeprover::DummyAggStateTransitionWithEvents;
 
 use crate::{
     builder::{

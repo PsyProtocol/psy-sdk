@@ -9,7 +9,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
+use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 
 /*
 this gadget helps you prove that an append only merkle tree with a current root `current_root` once had a root of `historical_root`
@@ -152,8 +152,8 @@ mod tests {
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use qed_core::data::qhashout::QHashOut;
-    use qed_crypto::hash::merkle::core::{compute_historical_and_current_merkle_roots_core, MerkleProofCore};
-    use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
+    use psy_crypto::hash::merkle::core::{compute_historical_and_current_merkle_roots_core, MerkleProofCore};
+    use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
 
     use crate::hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget;
 

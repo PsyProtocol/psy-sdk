@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use kvq::traits::KVQBinaryStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{
+use psy_crypto::hash::{
     merkle::{
         core::DeltaMerkleProofCore,
         spiderman::SpidermanUpdateProof,

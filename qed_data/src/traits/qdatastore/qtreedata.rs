@@ -1,6 +1,6 @@
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::{core::{ DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof}, traits::qhashable::QFieldHashable};
+use psy_crypto::hash::{merkle::{core::{ DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof}, traits::qhashable::QFieldHashable};
 use crate::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState};
 
 use crate::config::store_config::QEDHasher;

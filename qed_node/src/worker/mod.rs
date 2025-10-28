@@ -10,8 +10,8 @@ use qed_core::job::{
     id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
     traits::QProofStoreReaderAsync,
 };
-use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use qed_crypto::common::{
+use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use psy_crypto::common::{
     simple_circuit_library::SimpleCircuitLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
 };
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;

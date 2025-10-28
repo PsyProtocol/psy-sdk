@@ -16,7 +16,7 @@ use qed_core::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
-use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::{
     config::store_config::QEDHasher,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},

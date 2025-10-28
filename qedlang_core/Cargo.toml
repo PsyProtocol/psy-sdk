@@ -20,4 +20,4 @@ k256 = { workspace = true }
 
 qed_core = { workspace = true }
 qed_data = { workspace = true }
-qed_crypto = { workspace = true }
+psy_crypto = { workspace = true }

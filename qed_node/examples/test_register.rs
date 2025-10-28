@@ -4,7 +4,7 @@ use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use qed_core::
     utils::debug_timer::DebugTimer
 ;
-use qed_crypto::{
+use psy_crypto::{
     common::simple_circuit_library::SimpleCircuitLibrary, signature::zk::data::ZKPublicKeyInfo,
 };
 use qed_node::{

@@ -11,7 +11,7 @@ use qed_core::{
     },
     utils::trace_timer::TraceTimer,
 };
-use qed_crypto::common::{
+use psy_crypto::common::{
     circuit_library::CircuitInfoLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
 };
 

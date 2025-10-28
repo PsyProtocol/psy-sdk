@@ -20,7 +20,7 @@ use qed_core::{
     data::qhashout::QHashOut,
     job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
 };
-use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{
+use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{
     merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher,
 }};
 use qed_data::guta::proof_input::{

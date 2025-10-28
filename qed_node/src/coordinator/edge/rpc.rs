@@ -1,7 +1,7 @@
 use jsonrpsee::core::RpcResult;
 use jsonrpsee::proc_macros::rpc;
 use qed_core::job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof};
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::config::store_config::QEDFelt;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::plonk::proof::ProofWithPublicInputs;
@@ -11,7 +11,7 @@ use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::{QEDCheckpointLeaf, QEDL2BlockState, QEDCheckpointGlobalStateRoots};
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
 use qed_data::qdata::user::QEDUserLeaf;
-use qed_crypto::hash::merkle::core::MerkleProofCore;
+use psy_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_data::config::store_config::QCheckpointSyncInfoCompact;
 use crate::common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator, RealmDataForCoordinator};

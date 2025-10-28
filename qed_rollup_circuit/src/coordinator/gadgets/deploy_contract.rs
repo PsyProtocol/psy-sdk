@@ -9,7 +9,7 @@ use qed_common_circuit::{builder::connect::CircuitBuilderConnectHelpers, hash::m
     }
 ;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
+use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
 use qed_data::qdata::contract::QEDContractLeaf;
 
 use crate::gadgets::qdata::contract::QEDContractLeafGadget;

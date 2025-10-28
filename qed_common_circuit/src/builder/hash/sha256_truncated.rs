@@ -1,4 +1,4 @@
-use qed_crypto::field::qfield::QRichField;
+use psy_crypto::field::qfield::QRichField;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::HashOutTarget;
 use plonky2::iop::target::BoolTarget;

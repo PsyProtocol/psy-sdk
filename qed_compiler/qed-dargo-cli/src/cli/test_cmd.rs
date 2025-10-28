@@ -2,7 +2,7 @@ use clap::Args;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
-use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_data::{config::store_config::{C, D}, qblock::cmds::register_user::QBCRegisterUser};
 use qed_exec::vm::exec::QEDEvalSessionResult;
 use qed_interpreter::Interpreter;

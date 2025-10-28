@@ -3,7 +3,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::treeprover::subtree::SubTreeNodeStateTransition, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
+use psy_crypto::hash::{merkle::treeprover::subtree::SubTreeNodeStateTransition, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
 use super::stats::GUTAStats;

@@ -14,7 +14,7 @@ use qed_common_circuit::{
         pm_core::get_circuit_fingerprint_generic, traits::{ToTargets, WitnessValueFor}
 };
 use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
-use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher}};
+use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher}};
 use qed_data::{guta::proof_input::VerifySingleEndCapInput, qdata::pm_jobs_completed_stats::PMJobsCompletedStats};
 
 use crate::{guta::gadgets::{helpers::ToGUTAHeader, verify_end_cap::VerifyEndCapProofGadget}, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};

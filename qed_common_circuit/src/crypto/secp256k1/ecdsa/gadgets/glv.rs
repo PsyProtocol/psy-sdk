@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
-use qed_crypto::signature::secp256k1::curve::glv::{decompose_secp256k1_scalar, GLV_BETA, GLV_S};
-use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+use psy_crypto::signature::secp256k1::curve::glv::{decompose_secp256k1_scalar, GLV_BETA, GLV_S};
+use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
 use plonky2::field::extension::Extendable;
 use plonky2::field::secp256k1_base::Secp256K1Base;
 use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
@@ -217,9 +217,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use qed_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
-    use qed_crypto::signature::secp256k1::curve::glv::glv_mul;
-    use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+    use psy_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
+    use psy_crypto::signature::secp256k1::curve::glv::glv_mul;
+    use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
     use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
     use plonky2::field::types::Sample;
     use plonky2::iop::witness::PartialWitness;

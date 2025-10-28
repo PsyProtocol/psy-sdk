@@ -11,7 +11,7 @@ use plonky2::{
 };
 use qed_common_circuit::{builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore, verify::CircuitBuilderVerifyProofHelpers}, hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
 use qed_core::{config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
-use qed_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
+use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 use qed_data::{guta::stats::GUTAStats, qdata::ups_end_cap_result::UPSEndCapResultCompact};
 
 use crate::ups::gadgets::ups_end_cap_result::UPSEndCapResultCompactGadget;

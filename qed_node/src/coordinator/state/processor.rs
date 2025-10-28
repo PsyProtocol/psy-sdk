@@ -23,7 +23,7 @@ use qed_core::{
     },
     utils::graph::BidirectionalGraph,
 };
-use qed_crypto::{
+use psy_crypto::{
     common::{
         cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore,
         generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id,
@@ -74,7 +74,7 @@ use qed_store::{
         task_queue::QProvingTaskStore,
     },
 };
-use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
+use psy_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
 use crate::common_v2::traits::realm::BasicRealmStatusOnCoordinator;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};

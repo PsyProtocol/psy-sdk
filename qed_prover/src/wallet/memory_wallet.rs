@@ -15,9 +15,9 @@ use qed_core::config::network_constants::{
 use qed_core::data::{
     base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey,
 };
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
-use qed_crypto::hash::traits::qhashable::QFieldHashable;
-use qed_crypto::signature::{
+use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
+use psy_crypto::hash::traits::qhashable::QFieldHashable;
+use psy_crypto::signature::{
     secp256k1::core::QEDCompressedSecp256K1Signature,
     zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
@@ -308,7 +308,7 @@ mod tests {
 
     #[test]
     fn test_raw_secp256k1_sign() -> Result<()> {
-        use qed_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
+        use psy_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
         use k256::ecdsa::signature::hazmat::PrehashSigner;
         use qed_core::data::base_types::hash256::Hash256;
 
@@ -372,7 +372,7 @@ mod tests {
         println!("L1 circuit public inputs (combined hash): {}", combined_hash_from_proof);
 
         // Calculate expected combined hash: hash(sighash, public_key_param)
-        use qed_crypto::hash::traits::hasher::FieldQHasher;
+        use psy_crypto::hash::traits::hasher::FieldQHasher;
         use qed_data::config::store_config::QEDHasher;
         use plonky2::hash::poseidon::PoseidonPermutation;
 
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn test_memory_wallet_secp256k1_sign() -> Result<()> {
-        use qed_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
+        use psy_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
         use qed_core::data::base_types::hash256::Hash256;
 
         // Create a test private key and signature hash
@@ -447,7 +447,7 @@ mod tests {
         println!("L1 circuit combined hash output: {}", combined_hash_from_proof);
 
         // Verify this matches expected format: hash(message_hash, public_key_param)
-        use qed_crypto::hash::traits::hasher::FieldQHasher;
+        use psy_crypto::hash::traits::hasher::FieldQHasher;
         use qed_data::config::store_config::QEDHasher;
         use plonky2::hash::poseidon::PoseidonPermutation;
 

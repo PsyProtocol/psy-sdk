@@ -2,9 +2,9 @@ use kvq::traits::KVQBinaryStore;
 use kvq::traits::KVQSerializable;
 use kvq::traits::KVQStoreAdapter;
 use kvq::traits::KVQStoreAdapterReader;
-use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
-use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
+use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
+use psy_crypto::hash::merkle::core::MerkleProofCore;
+use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
 
 use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
 

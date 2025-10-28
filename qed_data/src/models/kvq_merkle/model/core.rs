@@ -7,12 +7,12 @@ use kvq::traits::KVQPair;
 use kvq::traits::KVQSerializable;
 use kvq::traits::KVQStoreAdapter;
 use kvq::traits::KVQStoreAdapterReader;
-use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
-use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
-use qed_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
-use qed_crypto::hash::merkle::utils::sub_tree_nca::UpdateNCAProofsWithDependencies;
-use qed_crypto::hash::merkle::utils::sub_tree_nca::UpdateNearestCommonAncestorProof;
+use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
+use psy_crypto::hash::merkle::core::MerkleProofCore;
+use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
+use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
+use psy_crypto::hash::merkle::utils::sub_tree_nca::UpdateNCAProofsWithDependencies;
+use psy_crypto::hash::merkle::utils::sub_tree_nca::UpdateNearestCommonAncestorProof;
 
 pub const CHECKPOINT_ID_FUZZY_SIZE: usize = 8;
 

@@ -9,7 +9,7 @@ use plonky2::{
     },
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use serde::{Deserialize, Serialize};
 
 use crate::{

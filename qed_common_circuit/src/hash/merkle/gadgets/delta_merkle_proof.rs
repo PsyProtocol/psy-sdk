@@ -8,7 +8,7 @@ use plonky2::{
 pub const NUM_HASH_OUT_ELEMENTS: usize = 4;
 use bitflags::bitflags;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::core::{DeltaMerkleProof, DeltaMerkleProofBase, DeltaMerkleProofCore}, traits::hasher::MerkleZeroHasher};
+use psy_crypto::hash::{merkle::core::{DeltaMerkleProof, DeltaMerkleProofBase, DeltaMerkleProofCore}, traits::hasher::MerkleZeroHasher};
 
 use crate::builder::{
     connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore,
@@ -561,7 +561,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use qed_crypto::hash::merkle::core::DeltaMerkleProof;
+    use psy_crypto::hash::merkle::core::DeltaMerkleProof;
 
     use crate::hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget;
 

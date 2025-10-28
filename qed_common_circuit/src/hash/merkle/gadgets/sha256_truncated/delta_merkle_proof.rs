@@ -1,4 +1,4 @@
-use qed_crypto::field::qfield::QRichField;
+use psy_crypto::field::qfield::QRichField;
 use plonky2::field::extension::Extendable;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -67,7 +67,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use qed_crypto::hash::base_types::DeltaMerkleProof192;
+    use psy_crypto::hash::base_types::DeltaMerkleProof192;
 
     use crate::hash::base_types::hash192::{CircuitBuilderHash192, WitnessHash192};
     use crate::hash::merkle::gadgets::sha256_truncated::delta_merkle_proof::DeltaMerkleProofTruncatedSha256Gadget;

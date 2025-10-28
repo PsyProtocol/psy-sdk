@@ -1,4 +1,4 @@
-use qed_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
+use psy_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Sample;
 use plonky2::hash::hash_types::RichField;
@@ -272,8 +272,8 @@ mod tests {
     use core::ops::Neg;
 
     use anyhow::Result;
-    use qed_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
-    use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+    use psy_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
+    use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
     use plonky2::field::secp256k1_base::Secp256K1Base;
     use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
     use plonky2::field::types::{Field, Sample};

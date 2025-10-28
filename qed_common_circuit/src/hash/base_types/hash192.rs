@@ -21,7 +21,7 @@ use plonky2::{
     },
     plonk::circuit_builder::CircuitBuilder,
 };
-use qed_crypto::hash::base_types::{DeltaMerkleProof192, MerkleProof192};
+use psy_crypto::hash::base_types::{DeltaMerkleProof192, MerkleProof192};
 
 pub type Hash192Target = [U32Target; 6];
 impl ToTargets for Hash192Target {

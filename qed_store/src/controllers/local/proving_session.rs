@@ -11,7 +11,7 @@ use qed_core::{
     config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };
-use qed_crypto::hash::{
+use psy_crypto::hash::{
     merkle::{
         core::{DeltaMerkleProofCore, MerkleProofCore},
         utils::simple_merkle_tree::SimpleMerkleTree,

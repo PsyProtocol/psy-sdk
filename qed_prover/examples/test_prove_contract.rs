@@ -5,7 +5,7 @@ use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
-use qed_crypto::hash::utils::gen_dapen_contract_function_method_id;
+use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_data::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
     qblock::cmds::{

@@ -31,7 +31,7 @@ qed_rollup_utils = { workspace = true }
 qed-common = { workspace = true }
 qedlang_core = { workspace = true }
 qed_data = { workspace = true, default-features = false }
-qed_crypto = { workspace = true }
+psy_crypto = { workspace = true }
 qed_exec = { workspace = true, default-features = false }
 qed_store = { workspace = true, default-features = false }
 qedlang_macros = { workspace = true }

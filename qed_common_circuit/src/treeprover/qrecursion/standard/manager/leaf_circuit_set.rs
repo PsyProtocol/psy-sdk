@@ -6,7 +6,7 @@ use plonky2::{
     },
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{
+use psy_crypto::{
     common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType,
     hash::traits::hasher::MerkleZeroHasher,
 };

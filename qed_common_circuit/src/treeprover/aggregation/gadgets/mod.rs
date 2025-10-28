@@ -10,7 +10,7 @@ use plonky2::{
     },
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::treeprover::{AggStateTransition, AggStateTransitionWithEvents, TPCircuitFingerprintConfig};
+use psy_crypto::hash::merkle::treeprover::{AggStateTransition, AggStateTransitionWithEvents, TPCircuitFingerprintConfig};
 
 use crate::builder::{
     connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore,

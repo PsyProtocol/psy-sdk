@@ -12,7 +12,7 @@ use qed_core::{
     config::network_constants::QED_NETWORK_MAGIC_REGTEST,
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut}, utils::debug_timer::DebugTimer,
 };
-use qed_crypto::{
+use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},
 };

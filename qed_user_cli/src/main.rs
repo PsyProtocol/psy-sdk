@@ -54,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::GetUserLeaf(user_leaf_args) => {
             use crate::subcommand::args::UserLeafArgs;
             use qed_prover::local::provider::RpcProvider;
-            use qed_crypto::hash::traits::qhashable::QFieldHashable;
+            use psy_crypto::hash::traits::qhashable::QFieldHashable;
             use qed_data::config::store_config::QEDHasher;
             use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 

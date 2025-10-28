@@ -11,7 +11,7 @@ use plonky2::{
 use qed_core::
     data::qhashout::QHashOut
 ;
-use qed_crypto::{
+use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
     hash::{
         merkle::

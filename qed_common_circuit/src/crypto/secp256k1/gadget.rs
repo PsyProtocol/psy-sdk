@@ -17,7 +17,7 @@ use crate::{
     u32::arithmetic_u32::CircuitBuilderU32,
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{
+use psy_crypto::{
     field::conversions::bytes33_to_public_key,
     signature::secp256k1::curve::{
         curve_types::Curve,
@@ -368,11 +368,11 @@ mod tests {
 
     use anyhow::Result;
     use qed_core::data::qhashout::QHashOut;
-    use qed_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
-    use qed_crypto::signature::secp256k1::curve::ecdsa::{
+    use psy_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
+    use psy_crypto::signature::secp256k1::curve::ecdsa::{
         sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature,
     };
-    use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+    use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
     use kvq::traits::KVQSerializable;
     use num::BigUint;
     use plonky2::field::secp256k1_base::Secp256K1Base;
@@ -626,7 +626,7 @@ mod tests {
             },
         };
         use qed_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
-        use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+        use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
 
         use crate::{
             crypto::secp256k1::{

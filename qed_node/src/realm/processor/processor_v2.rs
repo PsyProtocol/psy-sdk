@@ -13,7 +13,7 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
-use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
+use psy_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
 use qed_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTAToCapCircuitInputSimple};
 use qed_store::queue::task_queue::QProvingTaskStore;
 use tracing::{debug, error, info, trace, warn};
@@ -34,7 +34,7 @@ use qed_core::{
     },
     utils::graph::BidirectionalGraph,
 };
-use qed_crypto::{
+use psy_crypto::{
     common::{
         cached_circuit_library::get_cached_circuit_library,
         circuit_library::CircuitInfoLibraryCore,
@@ -473,10 +473,10 @@ impl RealmProcessorV2 {
         tree_update_builder: &mut SimpleTreeUpdateBuilder<F>,
         existing_root_job_id: QProvingJobDataID,
     ) -> anyhow::Result<RealmProcessorCombinedUpdate<F>> {
-        use qed_crypto::common::user_id::get_user_id_from_registration_id;
+        use psy_crypto::common::user_id::get_user_id_from_registration_id;
         use qed_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTARegisterUsersCircuitInputSimple};
         use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
-        use qed_crypto::hash::merkle::treeprover::data::CircuitInputWithDependencies;
+        use psy_crypto::hash::merkle::treeprover::data::CircuitInputWithDependencies;
 
         let realm_id = self.realm_config.realm_id as u64;
 

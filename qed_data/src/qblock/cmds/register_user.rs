@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use qed_core::{data::qhashout::QHashOut, traits::to_qfelts::QFeltSized};
-use qed_crypto::{hash::traits::hasher::FieldQHasher, signature::zk::data::ZKPublicKeyInfo};
+use psy_crypto::{hash::traits::hasher::FieldQHasher, signature::zk::data::ZKPublicKeyInfo};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]

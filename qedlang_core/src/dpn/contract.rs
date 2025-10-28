@@ -10,7 +10,7 @@ use plonky2::{
     hash::hash_types::RichField,
 };
 use qed_core::{config::network_constants::VM_TYPE_STANRDARD_DAPEN_V1, data::qhashout::QHashOut};
-use qed_crypto::hash::{traits::hasher::PoseidonHasher, utils::safe_hash_fixed_length};
+use psy_crypto::hash::{traits::hasher::PoseidonHasher, utils::safe_hash_fixed_length};
 use qed_data::qdata::contract::ContractFunctionCodeDefinition;
 
 pub fn dapen_fc_to_cfc_code_definition(

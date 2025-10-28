@@ -5,7 +5,7 @@ use qed_core::{
     data::qhashout::QHashOut,
     traits::to_qfelts::{QFeltSized, ToQFelts},
 };
-use qed_crypto::hash::traits::{
+use psy_crypto::hash::traits::{
     hasher::FieldQHasher,
     qhashable::QFieldHashable,
 };

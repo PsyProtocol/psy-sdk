@@ -5,7 +5,7 @@ members = [
     "qed_compiler/qedlang_macros",
     "kvq",
     "qed_core",
-    "qed_crypto",
+    "psy_crypto",
     "qed_store",
     "qed_prover",
     "qed_exec",
@@ -227,7 +227,7 @@ config = "0.15"
 
 qedlang_core = { path = "./qedlang_core" }
 qedlang_macros = { path = "./qed_compiler/qedlang_macros" }
-qed_crypto = { path = "./qed_crypto" }
+psy_crypto = { path = "./psy_crypto" }
 qed_exec = { path = "./qed_exec", default-features = false}
 qed_store = { path = "./qed_store", default-features = false}
 qed_data = { path = "./qed_data",default-features = false}

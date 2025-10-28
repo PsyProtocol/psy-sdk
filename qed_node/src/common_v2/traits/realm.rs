@@ -5,12 +5,12 @@ use async_trait::async_trait;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
 use qed_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID, QProvingTask, QProvingJobGraph}, utils::graph::BidirectionalGraph};
-use qed_crypto::hash::{merkle::{utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}, core::{compute_root_merkle_proof_generic, DeltaMerkleProofCore, MerkleProofCore}, treeprover::{data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition}, utils::common::SimpleMerkleNodeKey}, traits::hasher::{FieldQHasher, MerkleHasher}};
+use psy_crypto::hash::{merkle::{utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}, core::{compute_root_merkle_proof_generic, DeltaMerkleProofCore, MerkleProofCore}, treeprover::{data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition}, utils::common::SimpleMerkleNodeKey}, traits::hasher::{FieldQHasher, MerkleHasher}};
 use qed_data::{config::store_config::{QEDHash, QEDProof}, guta::{api::SubmitGUTARealmResultAPINoProofInput, header::GlobalUserTreeAggregatorHeader, proof_input::{VerifyEndCapSimpleStandardInput, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput}, stats::GUTAStats}, models::checkpoint::block_state::L2BlockStatesModel, qdata::{checkpoint::{CheckpointSyncInfo, QEDL2BlockState}, staging_checkpoint_info::StagingCheckpointInfo, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf}};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
-use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_store::{node::realm::QEDRealmStoreReaderAsync, queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, Status}};
 
 use crate::realm::state::processor::RealmConfig;
@@ -606,8 +606,8 @@ impl GraphDependencyBuilder for QProvingTaskStoreImpl {
 mod tests {
     use super::*;
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use qed_crypto::hash::traits::hasher::PoseidonHasher;
-    use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
+    use psy_crypto::hash::traits::hasher::PoseidonHasher;
+    use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
 
     type F = GoldilocksField;
 

@@ -10,7 +10,7 @@ use super::super::gadgets::curve::{AffinePointTarget, CircuitBuilderCurve};
 use super::super::gadgets::curve_windowed_mul::CircuitBuilderWindowedMul;
 use super::super::gadgets::nonnative::NonNativeTarget;
 use super::super::gadgets::split_nonnative::CircuitBuilderSplit;
-use qed_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
+use psy_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
 
 /// Compute windowed fixed-base scalar multiplication, using a 4-bit window.
 pub fn fixed_base_curve_mul_circuit<C: Curve, F: RichField + Extendable<D>, const D: usize>(
@@ -77,7 +77,7 @@ mod tests {
     use super::super::super::gadgets::curve::CircuitBuilderCurve;
     use super::super::super::gadgets::curve_fixed_base::fixed_base_curve_mul_circuit;
     use super::super::super::gadgets::nonnative::CircuitBuilderNonNative;
-    use qed_crypto::signature::secp256k1::curve::{
+    use psy_crypto::signature::secp256k1::curve::{
         curve_types::{Curve, CurveScalar},
         secp256k1::Secp256K1,
     };

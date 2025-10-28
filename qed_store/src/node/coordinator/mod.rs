@@ -23,7 +23,7 @@ impl<F: RichField> Default for InitializeParams<F> {
         }
     }
 }
-use qed_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
+use psy_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::{common::QMerkleNode, sub_tree_nca::{NCAProofsWithTopLine, UpdateNCAProofsWithDependencies}}};
 use qed_data::{config::store_config::UserPublicKeyTableStore, models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user_public_key::QEDUserPublicKeyRecord}, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 
 pub mod reader_async;

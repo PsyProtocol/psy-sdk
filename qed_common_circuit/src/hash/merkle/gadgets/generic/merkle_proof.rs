@@ -5,8 +5,8 @@ use plonky2::field::extension::Extendable;
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::Witness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use qed_crypto::field::qfield::QRichField;
-use qed_crypto::hash::merkle::treeprover::tree_planner::BinaryTreePlanner;
+use psy_crypto::field::qfield::QRichField;
+use psy_crypto::hash::merkle::treeprover::tree_planner::BinaryTreePlanner;
 
 use crate::traits::{GenericCircuitMerkleHasher, GenericHashTarget, WitnessValueFor};
 

@@ -11,7 +11,7 @@ use qed_core::{
     data::qhashout::QHashOut,
     traits::to_qfelts::ToQFelts,
 };
-use qed_crypto::hash::{
+use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::{qhashable::QFieldHashable, hasher::MerkleZeroHasher},
     utils::safe_hash_fixed_length,

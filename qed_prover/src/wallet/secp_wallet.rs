@@ -14,7 +14,7 @@ use k256::{
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::poseidon::PoseidonPermutation;
 use qed_core::data::{qhashout::QHashOut, secp256k1::CompressedPublicKey};
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use serde::Serialize;
 use std::{collections::HashMap, fmt, fs, path::Path};
 

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use kvq::{adapters::standard::KVQStandardAdapter, traits::{ KVQSerializable, KVQStoreAdapter}};
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
+use psy_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
 use qed_data::{config::store_config::QEDHash, dpn::proving_session::DPNTransactionDebtItem, models::kvq_merkle::key::KVQMerkleNodeKey};
 use serde::{Deserialize, Serialize};
 

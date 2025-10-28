@@ -7,7 +7,7 @@ use qed_core::{
     },
     data::qhashout::QHashOut,
 };
-use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
+use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use crate::{models::staging::{staging_checkpoint_info::StagingCheckpointInfoModel, staging_delta_record::StagingDeltaRecordModelCore}, qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, checkpoint_id_key::CheckpointTableIdKey, contract::{ContractCodeDefinition, QEDContractLeaf}, hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key, hash_key_with_id::Hash4x64KeyWithId, staging_checkpoint_info::StagingCheckpointInfo, staging_checkpoint_key::StagingCheckpointKey, staging_delta_record_key::StagingDeltaRecordKey, u64_key::U64TableKey, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
 }, qsync::coordinator::QEDCheckpointSyncInfoCompact};
@@ -215,8 +215,8 @@ pub type F = crate::config::store_config::QEDFelt;
 mod tests {
     use qed_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
     use qed_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
-    use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
-    use qed_crypto::hash::traits::hasher::PoseidonHasher;
+    use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
+    use psy_crypto::hash::traits::hasher::PoseidonHasher;
 
 
     #[test]

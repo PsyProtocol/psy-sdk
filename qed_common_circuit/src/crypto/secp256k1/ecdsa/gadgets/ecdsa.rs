@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
-use qed_crypto::signature::secp256k1::curve::curve_types::Curve;
-use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+use psy_crypto::signature::secp256k1::curve::curve_types::Curve;
+use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
 use plonky2::field::extension::Extendable;
 use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
 use plonky2::hash::hash_types::RichField;
@@ -55,8 +55,8 @@ pub fn verify_message_circuit<F: RichField + Extendable<D>, const D: usize>(
 mod tests {
     use anyhow::Result;
     use qed_core::utils::debug_timer::DebugTimer;
-    use qed_crypto::signature::secp256k1::curve::curve_types::CurveScalar;
-    use qed_crypto::signature::secp256k1::curve::ecdsa::{
+    use psy_crypto::signature::secp256k1::curve::curve_types::CurveScalar;
+    use psy_crypto::signature::secp256k1::curve::ecdsa::{
         sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature,
     };
     use plonky2::field::types::{PrimeField64, Sample};

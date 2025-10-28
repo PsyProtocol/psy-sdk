@@ -9,7 +9,7 @@ use qed_core::{
     config::network_constants::{GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };
-use qed_crypto::{
+use psy_crypto::{
     hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimpleQEDPrivateKey,
 };
 use qed_data::{

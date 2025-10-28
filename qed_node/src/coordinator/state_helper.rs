@@ -7,7 +7,7 @@ use qed_core::job::{
     id::QProvingJobDataID,
     traits::QProofStoreWriterSyncImm,
 };
-use qed_crypto::common::user_id::get_user_id_from_registration_id;
+use psy_crypto::common::user_id::get_user_id_from_registration_id;
 use qed_data::{
     api::coordinator::register_user::QEDAPIRegisterUserRequestForUserId, guta::api::SubmitUserEndCapProofAPIInput
 };

@@ -7,7 +7,7 @@ use plonky2::{
     ,
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{
+use psy_crypto::{
     common::witnesses::qrecursion::{
         header::QRecursionAggStandardHeader,
         proof_data::{InputLeafProof, LeafProofRecord},
@@ -24,7 +24,7 @@ use qed_crypto::{
 use crate::treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsProveTrait;
 use crate::treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsTrait;
 
-use qed_crypto::common::witnesses::qrecursion::proof_data::{
+use psy_crypto::common::witnesses::qrecursion::proof_data::{
     AggProofRecord, QStandardBinaryTreeCircuitType,
 };
 

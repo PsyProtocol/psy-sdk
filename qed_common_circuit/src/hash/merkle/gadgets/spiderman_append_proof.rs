@@ -1,6 +1,6 @@
 use plonky2::{field::{extension::Extendable, types::Field}, hash::hash_types::{HashOutTarget, RichField}, iop::{target::BoolTarget, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::{core::DeltaMerkleProofCore, spiderman::SpidermanUpdateProof};
+use psy_crypto::hash::merkle::{core::DeltaMerkleProofCore, spiderman::SpidermanUpdateProof};
 
 use super::{delta_merkle_proof::DeltaMerkleProofGadget, full_merkle_tree_append::FullMerkleTreeAppendGadget};
 
@@ -82,9 +82,9 @@ mod tests {
     use plonky2::plonk::proof::ProofWithPublicInputs;
     use qed_core::data::qhashout::QHashOut;
 
-    use qed_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
-    use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
-    use qed_crypto::hash::traits::hasher::PoseidonHasher;
+    use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
+    use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
+    use psy_crypto::hash::traits::hasher::PoseidonHasher;
     
 
     use super::SpidermanAppendProofGadget;

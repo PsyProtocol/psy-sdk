@@ -22,7 +22,7 @@ mod tests {
         },
         data::qhashout::QHashOut,
     };
-    use qed_crypto::hash::{
+    use psy_crypto::hash::{
         merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::PoseidonHasher,
     };
 

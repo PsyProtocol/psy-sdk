@@ -148,7 +148,7 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::proof::ProofWithPublicInputs;
     use qed_core::data::qhashout::QHashOut;
-    use qed_crypto::hash::merkle::core::compute_partial_merkle_root_from_leaves_algebraic;
+    use psy_crypto::hash::merkle::core::compute_partial_merkle_root_from_leaves_algebraic;
 
     use rand::{thread_rng, Rng};
 

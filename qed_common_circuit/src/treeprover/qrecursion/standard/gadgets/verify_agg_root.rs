@@ -9,7 +9,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 
 
 

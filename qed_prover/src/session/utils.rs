@@ -17,7 +17,7 @@ use qed_core::{
     },
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
-use qed_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
+use psy_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
 use serde::{Deserialize, Serialize};
 
 use crate::local::{

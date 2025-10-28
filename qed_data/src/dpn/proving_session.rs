@@ -5,7 +5,7 @@ use qed_core::{
     data::qhashout::QHashOut,
     traits::to_qfelts::ToQFelts,
 };
-use qed_crypto::hash::{
+use psy_crypto::hash::{
     merkle::core::DeltaMerkleProofCore,
     traits::{
         hasher::FieldQHasher,

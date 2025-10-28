@@ -35,7 +35,7 @@ use qed_core::{
     traits::to_qfelts::ToQFelts,
     ups::circuits::LocalCircuitType,
 };
-use qed_crypto::{hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable}, signature::zk::data::ZKPublicKeyInfo};
+use psy_crypto::{hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable}, signature::zk::data::ZKPublicKeyInfo};
 use qed_data::{
     config::store_config::QEDHasher,
     qdata::{user_contract_state::UserContractState, checkpoint::QEDL2BlockState},

@@ -3,7 +3,7 @@ use kvq::traits::KVQBinaryStore;
 use kvq::traits::KVQSerializable;
 use kvq::traits::KVQStoreAdapter;
 use kvq::traits::KVQStoreAdapterReader;
-use qed_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
+use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
 use std::marker::PhantomData;
 
 mod core;

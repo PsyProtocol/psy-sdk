@@ -4,7 +4,7 @@ use std::sync::Arc;
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use qed_core::{config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync}, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer}
 ;
-use qed_crypto::{
+use psy_crypto::{
     common::simple_circuit_library::SimpleCircuitLibrary, hash::traits::qhashable::QFieldHashable, signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey}
 };
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput};

@@ -9,7 +9,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore};
+use psy_crypto::hash::merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore};
 
 #[derive(Debug, Clone)]
 pub struct VariableHeightMerkleProofGadget {
@@ -372,10 +372,10 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::proof::ProofWithPublicInputs;
     use qed_core::data::qhashout::QHashOut;
-    use qed_crypto::hash::merkle::core::MerkleProofCore;
-    use qed_crypto::hash::merkle::utils::common::SimpleMerkleNodeKey;
-    use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
-    use qed_crypto::hash::traits::hasher::PoseidonHasher;
+    use psy_crypto::hash::merkle::core::MerkleProofCore;
+    use psy_crypto::hash::merkle::utils::common::SimpleMerkleNodeKey;
+    use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
+    use psy_crypto::hash::traits::hasher::PoseidonHasher;
     use rand::rngs::ThreadRng;
     use rand::Rng;
 

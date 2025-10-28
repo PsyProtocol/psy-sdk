@@ -8,7 +8,7 @@ use qed_ast::{ModuleId, VisitorContext};
 use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
+use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_package::Workspace;
 use qed_data::qblock::cmds::register_user::QBCRegisterUser;
 use qed_exec::vm::exec::QEDEvalSessionResult;

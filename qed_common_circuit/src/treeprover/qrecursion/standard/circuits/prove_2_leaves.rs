@@ -1,7 +1,7 @@
 use plonky2::{gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::witness::{PartialWitness, WitnessWrite}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
 use crate::{builder::core::CircuitBuilderHelpersCore, circuits::traits::qstandard::QStandardCircuit, proof_minifier::pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::{agg_proof_header::QRecursionAggStandardHeaderGadget, verify_leaf_proof::VerifyLeafProofGadget}};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleZeroHasher};
+use psy_crypto::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleZeroHasher};
 
 #[derive(Debug)]
 pub struct QRecursionStandardTwoLeafCircuit<C: GenericConfig<D>, const D: usize>

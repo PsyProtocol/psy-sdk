@@ -1,6 +1,6 @@
 use plonky2::hash::hash_types::RichField;
 use qed_core::{data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut}, ups::circuits::LocalCircuitId};
-use qed_crypto::hash::merkle::core::MerkleProofCore;
+use psy_crypto::hash::merkle::core::MerkleProofCore;
 use serde::{Deserialize, Serialize};
 
 

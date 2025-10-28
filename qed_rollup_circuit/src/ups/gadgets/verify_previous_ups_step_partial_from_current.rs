@@ -8,7 +8,7 @@ use qed_common_circuit::{
     hash::merkle::gadgets::merkle_proof::MerkleProofGadget, traits::WitnessValueFor,
     treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::AttestTreeAwareProofInTreeGadget,
 };
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use qed_data::ups::verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreePartialInput;
 
 use crate::gadgets::qdata::ups_context_input::{

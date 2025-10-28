@@ -16,7 +16,7 @@ tracing = { workspace = true }
 qed_core = { workspace = true }
 qed_common_circuit = { workspace = true, default-features = false }
 qed_data = { workspace = true, default-features = false }
-qed_crypto = { workspace = true }
+psy_crypto = { workspace = true }
 
 
 [features]

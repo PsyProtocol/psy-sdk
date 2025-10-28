@@ -2,7 +2,7 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use qed_common_circuit::circuits::{lookalikes::{get_agg_state_transition_type_d_common_data, get_agg_user_registration_deploy_guta_type_f_common_data, get_end_cap_type_e_common_data, get_guta_type_c_common_data}, traits::qstandard::QStandardCircuit};
 use qed_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
-use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use qed_rollup_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitManager, guta::guta_helper::QEDGUTACircuitManager};
 use std::{fs::File, path::PathBuf};
@@ -165,7 +165,7 @@ use qed_common_circuit::circuits::lookalikes::{{
     get_agg_state_transition_type_d_common_data, get_agg_user_registration_deploy_guta_type_f_common_data, get_end_cap_type_e_common_data,
     get_guta_type_c_common_data
 }};
-use qed_crypto::common::generic_circuit_verifier::{{
+use psy_crypto::common::generic_circuit_verifier::{{
     GenericCircuitCommonDataLibrary, SerializedGenericCircuitCommonDataLibraryInfo,
 }};
 
@@ -201,7 +201,7 @@ fn gen_write_config() -> anyhow::Result<()> {
     let (cached_circuit_library, cached_common_data) = run_gen_config()?;
 
 
-    write_file(PathBuf::from_iter(["qed_crypto","src","common","cached_circuit_library.rs"]), &cached_circuit_library)?;
+    write_file(PathBuf::from_iter(["psy_crypto","src","common","cached_circuit_library.rs"]), &cached_circuit_library)?;
     write_file(PathBuf::from_iter(["qed_node", "src", "common", "verifier" ,"cached_common_data.rs"]), &cached_common_data)?;
 
 

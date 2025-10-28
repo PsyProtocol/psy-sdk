@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_store::queue::task_queue::QProvingTaskStoreImpl;
 use qed_store::store::QEDStore;
 use crate::realm::state::processor::RealmConfig;

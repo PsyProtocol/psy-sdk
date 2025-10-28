@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
+use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
 use qed_data::{guta::api::QEDContractStateUpdateHistory, qdata::user::QEDUserLeaf};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;

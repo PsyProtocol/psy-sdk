@@ -6,7 +6,7 @@ use plonky2::{
 };
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::{data::qhashout::QHashOut, job::{drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID}}};
-use qed_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
+use psy_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
 use serde::{Deserialize, Serialize};
 
 use crate::{qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf}, qstore::uct_merkle_nodes::CSTUserUpdateStore};

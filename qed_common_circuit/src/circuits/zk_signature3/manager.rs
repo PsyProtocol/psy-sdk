@@ -1,6 +1,6 @@
 use plonky2::{hash::hash_types::HashOut, plonk::{config::{AlgebraicHasher, GenericConfig, Hasher}, proof::ProofWithPublicInputs}};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey};
+use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey};
 
 use crate::circuits::traits::qstandard::QStandardCircuit;
 

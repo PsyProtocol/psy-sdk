@@ -6,7 +6,7 @@ use std::time::Duration;
 use anyhow::{anyhow, bail};
 use chrono::Utc;
 use qed_core::traits::to_qfelts::ToQFelts;
-use qed_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
+use psy_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
 use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
@@ -28,8 +28,8 @@ use qed_core::job::id::{
 };
 use qed_core::job::traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm};
 
-use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use psy_crypto::hash::merkle::core::MerkleProofCore;
+use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 
 use qed_data::guta::api::{
     SubmitGUTARealmResultAPINoProofInput, SubmitGUTARealmResultAPIQueueItem,
@@ -63,9 +63,9 @@ use qed_store::queue::new_redis_async_pool;
 use qed_store::queue::rsmq_queue::CEQueueNotification;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::{Backend, QEDStore};
-use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use crate::common_v2::traits::realm::RealmDataForCoordinator;
-use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
+use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;

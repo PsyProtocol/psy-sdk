@@ -7,12 +7,12 @@ use qed_core::data::alt::AltVerifierOnlyCircuitData;
 use qed_core::data::base_types::hash160::Hash160;
 use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader;
-use qed_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType;
-use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
-use qed_crypto::hash::merkle::core::MerkleProofCore;
-use qed_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
-use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
+use psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader;
+use psy_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType;
+use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
+use psy_crypto::hash::merkle::core::MerkleProofCore;
+use psy_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
+use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
@@ -1214,7 +1214,7 @@ pub struct QAggProofRecord<F: RichField> {
     pub proof: String,
 }
 
-use qed_crypto::common::witnesses::qrecursion::proof_data::AggProofRecord;
+use psy_crypto::common::witnesses::qrecursion::proof_data::AggProofRecord;
 impl<C: GenericConfig<D>, const D: usize> From<AggProofRecord<C, D>> for QAggProofRecord<C::F> {
     fn from(agg_proof_record: AggProofRecord<C, D>) -> Self {
         Self {

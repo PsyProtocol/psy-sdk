@@ -19,7 +19,7 @@ use plonky2::{
     },
     plonk::circuit_builder::CircuitBuilder,
 };
-use qed_crypto::hash::base_types::{DeltaMerkleProof256, MerkleProof256};
+use psy_crypto::hash::base_types::{DeltaMerkleProof256, MerkleProof256};
 
 pub type Hash256Target = [U32Target; 8];
 

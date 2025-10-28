@@ -9,7 +9,7 @@ use plonky2::{
     },
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::SimpleL2PrivateKey};
+use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::SimpleL2PrivateKey};
 use serde::{Deserialize, Serialize};
 
 use self::{

@@ -1,6 +1,6 @@
 use cached_common_data::get_cached_common_data_library;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
-use qed_crypto::common::{cached_circuit_library::get_cached_circuit_library, generic_circuit_verifier::GenericCircuitVerifier};
+use psy_crypto::common::{cached_circuit_library::get_cached_circuit_library, generic_circuit_verifier::GenericCircuitVerifier};
 
 pub mod cached_common_data;
 

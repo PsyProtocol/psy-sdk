@@ -19,7 +19,7 @@ use qed_common_circuit::{
 use qed_core::{
     config::network_constants::CHECKPOINT_TREE_HEIGHT, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}
 };
-use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{
+use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{
     merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher,
 }};
 use qed_data::guta::proof_input::{

@@ -1,4 +1,4 @@
-use qed_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
+use psy_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
 use core::marker::PhantomData;
 use num::BigUint;
 use plonky2::field::extension::Extendable;
@@ -172,7 +172,7 @@ mod tests {
     use core::ops::Neg;
 
     use anyhow::Result;
-    use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+    use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
     use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_data::CircuitConfig;

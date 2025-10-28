@@ -1,7 +1,7 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::{builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore}, hash::merkle::gadgets::variable_height_delta_merkle_proof_opt::VariableHeightDeltaMerkleProofOptGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::DeltaMerkleProofCore;
+use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
 
 use crate::gadgets::qdata::user::QEDUserLeafGadget;
 

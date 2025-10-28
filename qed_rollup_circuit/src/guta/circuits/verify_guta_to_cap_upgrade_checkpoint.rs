@@ -13,7 +13,7 @@ use qed_common_circuit::{
         pm_core::get_circuit_fingerprint_generic, traits::ToTargets
 };
 use qed_core::{config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
-use qed_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::{core::MerkleProofCore, treeprover::data::CircuitInputWithDependencies}, traits::hasher::MerkleZeroHasher}};
+use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::{core::MerkleProofCore, treeprover::data::CircuitInputWithDependencies}, traits::hasher::MerkleZeroHasher}};
 use qed_data::guta::{header::GlobalUserTreeAggregatorHeader, proof_input::VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple};
 
 use crate::{guta::gadgets::verify_guta_proof_to_line::VerifyGUTAProofToLineGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};

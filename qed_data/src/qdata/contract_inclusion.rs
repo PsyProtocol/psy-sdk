@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::{
+use psy_crypto::hash::{
     merkle::core::MerkleProofCore,
     traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
 };

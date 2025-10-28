@@ -75,7 +75,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use qed_crypto::hash::base_types::MerkleProof256;
+    use psy_crypto::hash::base_types::MerkleProof256;
 
     use crate::hash::base_types::hash256::{CircuitBuilderHash256, WitnessHash256};
     use crate::hash::merkle::gadgets::sha256::merkle_proof::MerkleProofSha256Gadget;

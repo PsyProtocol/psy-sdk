@@ -11,7 +11,7 @@ use qed_core::{
     config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };
-use qed_crypto::hash::traits::hasher::iterate_merkle_hasher_alg;
+use psy_crypto::hash::traits::hasher::iterate_merkle_hasher_alg;
 use qed_data::ups::start_step::UPSStartStepInput;
 
 use crate::gadgets::qdata::{

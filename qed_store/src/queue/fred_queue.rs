@@ -21,7 +21,7 @@ use qed_core::job::{
 use tokio::time::sleep;
 
 use super::PS_DRAIN_QUEUE_KEY_PREFIX;
-use qed_crypto::hash::merkle::core::MerkleProofCore;
+use psy_crypto::hash::merkle::core::MerkleProofCore;
 use qed_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::RichField;
 use crate::queue::redis_queue::QueueOffsetState;

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use qed_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
+use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use psy_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use qed_store::queue::{new_fred_pool, new_redis_async_pool};
 use qed_store::queue::ProofStoreFred;
 use crate::worker::simple_async_coord::SimpleAsyncCoordinatorWorker;

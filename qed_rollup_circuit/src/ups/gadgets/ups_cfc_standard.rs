@@ -7,7 +7,7 @@ use plonky2::{
 use qed_common_circuit::
     traits::WitnessValueFor
 ;
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use qed_data::ups::ups_standard_cfc_input::UPSVerifyCFCStandardStepInput;
 
 use crate::gadgets::qdata::

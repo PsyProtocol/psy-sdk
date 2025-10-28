@@ -2,7 +2,7 @@ use clap::{Args, Subcommand};
 use qed_core::data::qhashout::QHashOut;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_data::config::store_config::QEDHasher;
-use qed_crypto::hash::traits::hasher::FieldQHasher;
+use psy_crypto::hash::traits::hasher::FieldQHasher;
 use anyhow::Result;
 
 type F = GoldilocksField;
@@ -133,7 +133,7 @@ pub fn run(args: QHashArgs) -> Result<()> {
         }
 
         QHashCommands::ZeroHash { height } => {
-            use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
+            use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
 
             let empty_tree = SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(height);
             let zero_hash = empty_tree.get_root();

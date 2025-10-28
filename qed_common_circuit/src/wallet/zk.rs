@@ -5,7 +5,7 @@ use plonky2::plonk::{
     config::{AlgebraicHasher, GenericConfig},
     proof::ProofWithPublicInputs,
 };
-use qed_crypto::signature::zk::wallet::SimpleL2PrivateKey;
+use psy_crypto::signature::zk::wallet::SimpleL2PrivateKey;
 
 use crate::circuits::{
     traits::qstandard::QStandardCircuit,

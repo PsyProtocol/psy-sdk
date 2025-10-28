@@ -10,13 +10,13 @@ use qed_common_circuit::{circuits::zk_signature3::core::QEDBasicZKSignatureInner
     PortableQTreeRecursionCircuitsTrait,
 }};
 use qed_core::{job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof}, traits::to_qfelts::ToQFelts};
-use qed_crypto::{
+use psy_crypto::{
     common::witnesses::qrecursion::proof_data::{
         AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs,
     },
     signature::secp256k1::core::QEDCompressedSecp256K1Signature,
 };
-use qed_crypto::{
+use psy_crypto::{
     common::witnesses::qrecursion::{
         header::QRecursionAggStandardHeader, proof_data::QStandardBinaryTreeCircuitType,
     },

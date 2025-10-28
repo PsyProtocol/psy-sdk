@@ -33,7 +33,7 @@ use qed_common_circuit::{
 use qed_core::{
     config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT, data::qhashout::QHashOut,
 };
-use qed_crypto::{
+use psy_crypto::{
     hash::{
         merkle::core::MerkleProofCore,
         traits::hasher::{MerkleHasher, MerkleZeroHasher},

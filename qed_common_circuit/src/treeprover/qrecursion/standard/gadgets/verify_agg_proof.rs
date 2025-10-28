@@ -10,7 +10,7 @@ use plonky2::{
     },
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{common::witnesses::qrecursion::header::QRecursionAggStandardHeader, hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher}};
+use psy_crypto::{common::witnesses::qrecursion::header::QRecursionAggStandardHeader, hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher}};
 
 use crate::{
     builder::verify::CircuitBuilderVerifyProofHelpers,

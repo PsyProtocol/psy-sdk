@@ -4,7 +4,7 @@ use plonky2::field::extension::Extendable;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::Witness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use qed_crypto::field::qfield::QRichField;
+use psy_crypto::field::qfield::QRichField;
 
 use crate::traits::GenericCircuitMerkleHasher;
 use crate::traits::GenericHashTarget;

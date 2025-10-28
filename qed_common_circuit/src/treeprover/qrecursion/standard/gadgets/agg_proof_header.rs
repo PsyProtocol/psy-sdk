@@ -1,6 +1,6 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader;
+use psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader;
 
 use crate::builder::hash::core::CircuitBuilderHashCore;
 

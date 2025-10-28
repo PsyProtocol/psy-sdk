@@ -18,7 +18,7 @@ qed-interpreter.workspace = true
 qedlang_core.workspace = true
 qed-common = { workspace = true }
 plonky2 = { workspace = true }
-qed_crypto = { workspace = true }
+psy_crypto = { workspace = true }
 qed_exec = { workspace = true }
 qed_data = { workspace = true, default-features = false }
 qed_core = { workspace = true }

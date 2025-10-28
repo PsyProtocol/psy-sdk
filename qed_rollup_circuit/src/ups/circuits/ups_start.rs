@@ -16,7 +16,7 @@ use qed_common_circuit::{
     , traits::CreatableWithHasherTarget, treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs,
 };
 use qed_core::{config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use qed_data::ups::start_step::UPSStartStepInput;
 
 use crate::ups::gadgets::ups_start::UPSStartStepGadget;

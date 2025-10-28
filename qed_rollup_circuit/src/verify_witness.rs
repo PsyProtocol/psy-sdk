@@ -6,14 +6,14 @@ use qed_core::data::qhashout::QHashOut;
 use qed_core::job::id::ProvingJobCircuitType;
 use qed_core::job::id::QProvingJobDataID;
 use qed_core::job::traits::QProofStoreAsyncImm;
-use qed_crypto::common::circuit_library::CircuitInfoLibraryCore;
-use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use qed_crypto::hash::merkle::treeprover::data::CircuitInputWithDependencies;
-use qed_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
-use qed_crypto::hash::merkle::treeprover::AggStateTransitionInput;
-use qed_crypto::hash::merkle::treeprover::DummyAggStateTransition;
-use qed_crypto::hash::traits::hasher::MerkleHasher;
-use qed_crypto::hash::traits::qhashable::QFieldHashable;
+use psy_crypto::common::circuit_library::CircuitInfoLibraryCore;
+use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
+use psy_crypto::hash::merkle::treeprover::data::CircuitInputWithDependencies;
+use psy_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
+use psy_crypto::hash::merkle::treeprover::AggStateTransitionInput;
+use psy_crypto::hash::merkle::treeprover::DummyAggStateTransition;
+use psy_crypto::hash::traits::hasher::MerkleHasher;
+use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use qed_data::config::store_config::QEDHasher;
 use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
 use qed_data::guta::proof_input::GUTANoChangeFullInput;
@@ -349,7 +349,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
                 anyhow::bail!("invalid dependency count in two end guta input");
             }
 
-            use qed_crypto::hash::traits::qhashable::QFieldHashable;
+            use psy_crypto::hash::traits::qhashable::QFieldHashable;
             let guta_header = r.input.get_new_guta_header();
 
             let guta_header_hash = guta_header.qfhash::<QEDHasher>();

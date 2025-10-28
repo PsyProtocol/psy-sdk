@@ -12,7 +12,7 @@ use qed_core::{
     ups::circuits::LocalCircuitId,
     utils::debug_timer::DebugTimer,
 };
-use qed_crypto::hash::{
+use psy_crypto::hash::{
     traits::hasher::MerkleZeroHasher, utils::gen_dapen_contract_function_method_id,
 };
 use qed_data::{

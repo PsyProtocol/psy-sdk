@@ -1,5 +1,5 @@
 use kvq::traits::{KVQPair, KVQSerializable};
-use qed_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasherWithMarkedLeaf};
+use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasherWithMarkedLeaf};
 
 use crate::models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQMerkleTreeModelReaderCore};
 

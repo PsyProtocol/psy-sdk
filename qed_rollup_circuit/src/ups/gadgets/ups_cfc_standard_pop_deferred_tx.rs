@@ -8,7 +8,7 @@ use qed_common_circuit::{hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleP
     traits::WitnessValueFor}
 ;
 use qed_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
-use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
+use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use qed_data::ups::ups_standard_cfc_input::UPSVerifyPopDeferredTxStepInput;
 
 use crate::gadgets::{qdata::

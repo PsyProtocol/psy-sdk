@@ -1,6 +1,6 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOut, HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher}};
+use psy_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher}};
 
 use crate::{builder::hash::core::CircuitBuilderHashCore, hash::merkle::gadgets::{historical_root_merkle_proof::HistoricalRootMerkleProofGadget, merkle_proof::MerkleProofGadget}};
 

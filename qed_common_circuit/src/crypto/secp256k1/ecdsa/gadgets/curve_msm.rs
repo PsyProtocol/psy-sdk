@@ -10,7 +10,7 @@ use super::super::gadgets::curve::{AffinePointTarget, CircuitBuilderCurve};
 use super::super::gadgets::curve_windowed_mul::CircuitBuilderWindowedMul;
 use super::super::gadgets::nonnative::NonNativeTarget;
 use super::super::gadgets::split_nonnative::CircuitBuilderSplit;
-use qed_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
+use psy_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
 
 /// Computes `n*p + m*q` using windowed MSM, with a 2-bit window.
 /// See Algorithm 9.23 in Handbook of Elliptic and Hyperelliptic Curve Cryptography for a
@@ -89,8 +89,8 @@ mod tests {
     use super::super::super::gadgets::curve::CircuitBuilderCurve;
     use super::super::super::gadgets::curve_msm::curve_msm_circuit;
     use super::super::super::gadgets::nonnative::CircuitBuilderNonNative;
-    use qed_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
-    use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+    use psy_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
+    use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
 
     #[test]
     #[ignore]

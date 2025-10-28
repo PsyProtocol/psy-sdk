@@ -3,7 +3,7 @@ use std::time::Instant;
 use auto_impl::auto_impl;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
-use qed_crypto::hash::merkle::core::MerkleProofCore;
+use psy_crypto::hash::merkle::core::MerkleProofCore;
 use redis::{AsyncCommands, HashFieldExpirationOptions, SetExpiry};
 use qed_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};

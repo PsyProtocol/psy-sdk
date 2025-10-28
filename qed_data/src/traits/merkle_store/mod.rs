@@ -11,7 +11,7 @@ pub use backing_store::{
     MerkleNodeStoreWriterImmutableAsync,
 };
 use kvq::traits::KVQSerializable;
-use qed_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
+use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
 use serde::Serialize;
 pub use tree_core::QMerkleTreeModelCoreImmutableAsync;
 pub use reader_core::QEDMerkleTreeModelReaderCoreAsync;

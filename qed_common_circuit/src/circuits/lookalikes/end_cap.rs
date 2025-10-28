@@ -42,7 +42,7 @@ mod tests {
     use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
     use qed_common_circuit::{circuits::traits::qstandard::QStandardCircuit, treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuits};
     use qed_core::{config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut};
-    use qed_crypto::hash::{merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::PoseidonHasher};
+    use psy_crypto::hash::{merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::PoseidonHasher};
 
     use crate::{lookalikes::end_cap::EndCapLookalikeCircuit, ups::circuits::{end_cap::UPSStandardEndCapCircuit, ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit, ups_cfc_standard::UPSCFCStandardTransactionCircuit, ups_start::UPSStartSessionCircuit}};
 

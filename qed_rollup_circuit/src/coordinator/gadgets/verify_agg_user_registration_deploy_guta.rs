@@ -8,7 +8,7 @@ use qed_common_circuit::{builder::hash::core::CircuitBuilderHashCore, treeprover
     }
 ;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::{core::MerkleProofCore, treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig}};
+use psy_crypto::hash::merkle::{core::MerkleProofCore, treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig}};
 use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
 
 use crate::{guta::gadgets::{guta_header::GlobalUserTreeAggregatorHeaderGadget, verify_guta_proof::VerifyGUTAProofGadget}, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};

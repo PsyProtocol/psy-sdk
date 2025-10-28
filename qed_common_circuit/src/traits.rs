@@ -11,7 +11,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::field::qfield::QRichField;
+use psy_crypto::field::qfield::QRichField;
 
 use crate::{
     builder::{hash::core::CircuitBuilderHashCore, select::CircuitBuilderSelectHelpers},

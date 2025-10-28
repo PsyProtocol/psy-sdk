@@ -15,7 +15,7 @@ use qed_core::utils::debug_timer::DebugTimer;
 use crate::proof_minifier::pm_chain::QEDProofMinifierChain;
 
 use super::gadget::Secp256K1CircuitGadget;
-use qed_crypto::signature::secp256k1::curve::{
+use psy_crypto::signature::secp256k1::curve::{
     ecdsa::{ECDSAPublicKey, ECDSASignature},
     secp256k1::Secp256K1,
 };
@@ -82,11 +82,11 @@ where
 mod tests {
 
     use anyhow::Result;
-    use qed_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
-    use qed_crypto::signature::secp256k1::curve::ecdsa::{
+    use psy_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
+    use psy_crypto::signature::secp256k1::curve::ecdsa::{
         sign_message, ECDSAPublicKey, ECDSASecretKey,
     };
-    use qed_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+    use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
     use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
     use plonky2::field::types::Sample;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

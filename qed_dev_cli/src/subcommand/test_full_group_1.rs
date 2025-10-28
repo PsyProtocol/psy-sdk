@@ -11,7 +11,7 @@ use qed_core::{
     ups::circuits::{LocalCircuitId, LocalCircuitType},
     utils::debug_timer::DebugTimer,
 };
-use qed_crypto::{
+use psy_crypto::{
     common::simple_circuit_library::SimpleCircuitLibrary,
     hash::traits::qhashable::QFieldHashable,
     signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},

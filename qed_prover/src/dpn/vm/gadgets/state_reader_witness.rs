@@ -1,6 +1,6 @@
 use plonky2::{hash::hash_types::RichField, iop::witness::Witness};
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
+use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDCmdWithInputAndWitness};
 use qed_data::qstore::imm::cmd_processor::DPNStateCmdWitness;

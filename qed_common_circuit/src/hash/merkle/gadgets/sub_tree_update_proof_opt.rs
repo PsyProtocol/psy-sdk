@@ -11,7 +11,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}, util::log2_ceil,
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::{
+use psy_crypto::hash::merkle::{
     core::DeltaMerkleProofCore,
     utils::sub_tree_nca::{
         PartialUpdateNearestCommonAncestorProof, UpdateNearestCommonAncestorProof,
@@ -236,10 +236,10 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::proof::ProofWithPublicInputs;
     use qed_core::data::qhashout::QHashOut;
-    use qed_crypto::hash::merkle::utils::common::SimpleMerkleNodeKey;
-    use qed_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
-    use qed_crypto::hash::merkle::utils::sub_tree_nca::{PartialUpdateNearestCommonAncestorProof, UpdateNCAWithAdditionalLink};
-    use qed_crypto::hash::traits::hasher::{MerkleZeroHasher, PoseidonHasher};
+    use psy_crypto::hash::merkle::utils::common::SimpleMerkleNodeKey;
+    use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
+    use psy_crypto::hash::merkle::utils::sub_tree_nca::{PartialUpdateNearestCommonAncestorProof, UpdateNCAWithAdditionalLink};
+    use psy_crypto::hash::traits::hasher::{MerkleZeroHasher, PoseidonHasher};
     use rand::{thread_rng, Rng, RngCore};
 
 

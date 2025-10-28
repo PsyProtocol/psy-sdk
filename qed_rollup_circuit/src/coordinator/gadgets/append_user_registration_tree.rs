@@ -8,7 +8,7 @@ use qed_common_circuit::hash::merkle::gadgets::spiderman_append_proof::Spiderman
 
 ;
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
+use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
 
 // we keep this separate from DPNProvingSessionCompactMethodCallGadget incase it changes in the future
 #[derive(Debug, Clone)]

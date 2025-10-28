@@ -17,7 +17,7 @@ kvq = { workspace = true }
 qed_core = { workspace = true }
 qedlang_core = { workspace = true }
 qed_data = { workspace = true, default-features = false }
-qed_crypto = { workspace = true }
+psy_crypto = { workspace = true }
 async-trait = { workspace = true }
 maybe-async = {workspace = true}
 tracing = { workspace = true }

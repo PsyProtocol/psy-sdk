@@ -7,7 +7,7 @@ use plonky2::{
     },
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_crypto::{common::witnesses::qrecursion::header::QRecursionAggStandardHeader, 
+use psy_crypto::{common::witnesses::qrecursion::header::QRecursionAggStandardHeader, 
     hash::{
         merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, 
             utils::simple_merkle_tree::SimpleMerkleTree}
@@ -23,7 +23,7 @@ use crate::{
     },
 };
 
-use qed_crypto::common::witnesses::qrecursion::proof_data::{
+use psy_crypto::common::witnesses::qrecursion::proof_data::{
     QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs,
 };
 #[derive(Debug)]

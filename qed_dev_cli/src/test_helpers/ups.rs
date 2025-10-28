@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, hash::poseidon::PoseidonHash, plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs}};
 use qed_common_circuit::{circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager}, wallet::zk::SimpleZKSignatureWallet};
 use qed_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, data::qhashout::QHashOut, job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, traits::QProofStoreAsyncImm}, utils::debug_timer::DebugTimer};
-use qed_crypto::{common::user_id::get_user_id_from_registration_id, signature::zk::wallet::SimpleQEDPrivateKey};
+use psy_crypto::{common::user_id::get_user_id_from_registration_id, signature::zk::wallet::SimpleQEDPrivateKey};
 use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_node::{coordinator::state::edge::CoordinatorEdgeContext, realm::state::edge::RealmEdgeContext};
 use qed_prover::ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager};
