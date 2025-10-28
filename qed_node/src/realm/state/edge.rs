@@ -11,14 +11,14 @@ use crate::realm::{C, D, F, H};
 use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
 use qed_crypto::hash::traits::hasher::FieldQHasher;
 use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
-use qed_store::queue::tx_pool::TxPoolAsyncImm;
+use qed_store::queue::tx_pool::TxPoolAsyncImmV2;
 use super::processor::RealmConfig;
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<
     SR: QEDRealmStoreReaderAsync<F> + Sync,
-    DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
-    PS: TxPoolAsyncImm + QProofStoreAsyncImm,
+    DQ: TxPoolAsyncImmV2 + CheckpointDrainQueueEmitterAsyncImm,
+    PS: TxPoolAsyncImmV2 + QProofStoreAsyncImm,
 > {
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
@@ -29,8 +29,8 @@ pub struct RealmEdgeContext<
 
 impl<
         SR: QEDRealmStoreReaderAsync<F> + Sync,
-        DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
-        PS: TxPoolAsyncImm + QProofStoreAsyncImm,
+        DQ: TxPoolAsyncImmV2 + CheckpointDrainQueueEmitterAsyncImm,
+        PS: TxPoolAsyncImmV2 + QProofStoreAsyncImm,
     > RealmEdgeContext<SR, DQ, PS>
 {
     pub async fn new(
@@ -242,7 +242,7 @@ impl<
             0,
         );
 
-        if self.proof_store.contains_tx_id(proof_id).await? {
+        if self.proof_store.contains_tx(self.realm_config.guta_channel_id, user_id_u64).await? {
             tracing::warn!("already submitted proof {:?} for this block", proof_id);
             anyhow::bail!("already submitted proof {:?} for this block", proof_id);
         }
@@ -269,7 +269,7 @@ impl<
             serde_json::to_string_pretty(&queue_item).unwrap()
         );
 
-        self.checkpoint_queue.add_user_tx(proof_id, proof, queue_item).await?;
+        self.checkpoint_queue.add_tx(proof_id, proof, queue_item).await?;
 
         debug!("enqueued queue item successfully");
 

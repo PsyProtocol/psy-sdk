@@ -29,7 +29,7 @@ use qed_data::config::store_config::{QEDFelt, QEDHasher};
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_rollup_utils::generate_jwt_token;
 use qed_store::queue::ProofStoreRedisAsync;
-use qed_store::queue::tx_pool::TxPoolAsyncImm;
+use qed_store::queue::tx_pool::TxPoolAsyncImmV2;
 use crate::common::retry::{RetryConfig, Retryable};
 use crate::realm::state::edge::RealmEdgeContext;
 
@@ -258,8 +258,8 @@ pub struct LatestCheckpointResponse {
 
 pub async fn spawn_realm_job_update_task<
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-    DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
-    PS: TxPoolAsyncImm + QProofStoreAsyncImm + Sync + Send + 'static,
+    DQ: TxPoolAsyncImmV2 + CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
+    PS: TxPoolAsyncImmV2 + QProofStoreAsyncImm + Sync + Send + 'static,
 >(
     proof_store: Arc<ProofStoreRedisAsync>,
     realm_id: u64,
@@ -344,8 +344,8 @@ impl RealmProofSender {
     /// Send realm proof to coordinator with unified retry mechanism
     pub async fn send_proof<
         SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-        DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
-        PS: TxPoolAsyncImm + QProofStoreAsyncImm + Sync + Send + 'static,
+        DQ: TxPoolAsyncImmV2 + CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
+        PS: TxPoolAsyncImmV2 + QProofStoreAsyncImm + Sync + Send + 'static,
     >(
         &self,
         ctx: Arc<RealmEdgeContext<SR, DQ, PS>>,

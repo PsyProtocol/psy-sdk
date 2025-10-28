@@ -282,13 +282,13 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
         Ok(())
     }
 
-    async fn len(&self, channel_id: u64) -> anyhow::Result<usize> {
-        self.redis.zcard(self.id_key(channel_id)).await
-    }
-
     async fn remove_expired_txs(&self, channel_id: u64) -> anyhow::Result<()> {
         let id_key = self.id_key(channel_id);
         let now = self.redis.server_time().await?;
         self.redis.zremrangebyscore(id_key, 0, now[0] - 1800).await
+    }
+
+    async fn len(&self, channel_id: u64) -> anyhow::Result<usize> {
+        self.redis.zcard(self.id_key(channel_id)).await
     }
 }
