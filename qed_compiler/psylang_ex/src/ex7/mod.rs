@@ -3,99 +3,113 @@ use std::marker::PhantomData;
 use psy_vm::dpn::ops::sym_felt::QStateInitializable;
 use psy_vm::dpn::ops::utils::SparseArray;
 use psy_vm::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
-use qedlang_macros::{qcontract, FeltSized};
+use psylang_macros::{qcontract, FeltSized, QStateInitializable};
 
 type Felt = SymFeltRef;
 use psy_vm::dpn::ops::context_trait::FeltSized;
-//use qedlang_macros::FeltSized;
+//use psylang_macros::FeltSized;
 
-#[derive(FeltSized)]
+#[derive(FeltSized, QStateInitializable)]
 pub struct SimpleContractState {
     pub x: Felt,
     pub y: Felt,
     pub z: SparseArray<Felt, 12>,
 }
-impl psy_vm::dpn::ops::sym_felt::QStateInitializable for SimpleContractState {
-    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(
-        context: &mut CTXT,
-        state_pointer: SymFeltRef,
-        contract_state_tree_height: u16,
-        contract_id: SymFeltRef,
-        user_id: SymFeltRef,
-    ) -> Self {
-        let mut cur_offset = 0u64;
-        let mut nw_pointer = SymFeltRef::new_constant(cur_offset);
-        nw_pointer = context.op_add(state_pointer, SymFeltRef::new_constant(cur_offset));
-        let r#f_t_0 = <Felt as QStateInitializable>::create_stateful_at(
-            context,
-            nw_pointer,
-            contract_state_tree_height,
-            contract_id,
-            user_id,
-        );
-        cur_offset = cur_offset + <Felt as FeltSized>::size();
-        nw_pointer = context.op_add(state_pointer, SymFeltRef::new_constant(cur_offset));
-        let r#f_t_1 = <Felt as QStateInitializable>::create_stateful_at(
-            context,
-            nw_pointer,
-            contract_state_tree_height,
-            contract_id,
-            user_id,
-        );
-        cur_offset = cur_offset + <Felt as FeltSized>::size();
-        nw_pointer = context.op_add(state_pointer, SymFeltRef::new_constant(cur_offset));
-        let r#f_t_2 = <SparseArray<Felt, 12> as QStateInitializable>::create_stateful_at(
-            context,
-            nw_pointer,
-            contract_state_tree_height,
-            contract_id,
-            user_id,
-        );
-        cur_offset = cur_offset + <SparseArray<Felt, 12> as FeltSized>::size();
-        Self {
-            x: r#f_t_0,
-            y: r#f_t_1,
-            z: r#f_t_2,
-        }
-    }
-}
-
 pub struct SimpleContractStateful<C: DPNContext<Felt>> {
+    state: SimpleContractState,
     _phantom: PhantomData<C>,
 }
 impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
-    pub fn new() -> Self {
+    pub fn new_with_ctx(context: &mut C) -> Self {
+        let contract_state_tree_height = SimpleContractState::size()
+            .next_power_of_two()
+            .trailing_zeros() as u16;
+
+        let user_id = context.get_user_id();
+        let contract_id = context.get_contract_id();
         Self {
             _phantom: PhantomData,
+            state: SimpleContractState::create_stateful_at(
+                context,
+                SymFeltRef::new_constant(0),
+                contract_state_tree_height,
+                contract_id,
+                user_id,
+            ),
         }
     }
 }
-
+/*
 #[qcontract]
 impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
-    pub fn simple_math(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
-        let k = (a + 2) * 4 * b - 3 * (a + b);
-        let z = k + a;
-
-        ctx.assert_true(z > 3, "z must be gt than 3");
-        z
-    }
-    pub fn if_test_2(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
-        let mut c = a * b;
-        let mut k = 123;
-        if a < b {
-            c = a + b;
-        } else if a == b {
-            c = a;
-        } else if a == 1337 {
-            c = b;
-        } else {
-            k = 456;
+    pub fn simple_set(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
+        if self.state.x > a {
+            self.state.x.set_state(ctx, a*b);
+        }else{
+            self.state.y.set_state(ctx, a*b);
         }
-        c + k
+        self.state.x
+    }
+}*/
+impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
+    pub fn simple_set(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {
+        {
+            {
+                let qed_rwv_cond = {
+                    let tmp_left = ({
+                        let q_tmp_index_result = a;
+                        self.state.z.q_get(ctx, q_tmp_index_result)
+                    });
+                    let tmp_right = (a);
+                    ctx.op_gt(tmp_left, tmp_right)
+                };
+                ctx.start_if_block(qed_rwv_cond);
+                {
+                    {
+                        let qed_rwv_old_value = ({
+                            let q_tmp_index_result = {
+                                let tmp_left = (SymFeltRef::cns(2));
+                                let tmp_right = (b);
+                                ctx.op_mul(tmp_left, tmp_right)
+                            };
+                            self.state.z.q_get(ctx, q_tmp_index_result)
+                        })
+                        .clone();
+                        let qed_rwv_new_value = ({
+                            let tmp_left = (a);
+                            let tmp_right = (b);
+                            ctx.op_mul(tmp_left, tmp_right)
+                        })
+                        .clone();
+                        ctx.cset_state(qed_rwv_old_value, qed_rwv_new_value);
+                    };
+                }
+            }
+            {
+                ctx.start_else_block();
+                {
+                    {
+                        let tmp_arg_1 = ({
+                            let tmp_left = (a);
+                            let tmp_right = (b);
+                            ctx.op_mul(tmp_left, tmp_right)
+                        });
+                        self.state.y.set_state(ctx, tmp_arg_1)
+                    };
+                }
+            }
+            ctx.end_if_block();
+        }
+        {
+            let q_tmp_index_result = {
+                let tmp_left = (a);
+                let tmp_right = (b);
+                ctx.op_add(tmp_left, tmp_right)
+            };
+            self.state.z.q_get(ctx, q_tmp_index_result)
+        }
     }
 }
-
 /*
 impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
     pub fn simple_math(&mut self, ctx: &mut C, a: Felt, b: Felt) -> Felt {

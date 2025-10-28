@@ -41,7 +41,7 @@ const STD_GIT_PATH_HTTPS: &str = "https://github.com/QEDProtocol/qedlang-rust";
 const STD_GIT_PATH_SSH: &str = "git@github.com:QEDProtocol/qedlang-rust.git";
 const STD_TAG: &str = "v0.0.1-rc";
 const TAG_LATEST: &str = "latest";
-const STD_FILE: &str = "qed_compiler/qed-std/std.qed";
+const STD_FILE: &str = "qed_compiler/psy-std/std.qed";
 
 impl PackageConfig {
     fn resolve_to_package(
@@ -144,7 +144,7 @@ pub fn try_clone_std(tag: &str) -> Result<PathBuf, ManifestError> {
         Err(e) => {
             eprintln!("[QED] SSH clone failed: {}", e);
             Err(ManifestError::GitError(format!(
-                "Both HTTPS and SSH clone failed for qed-std (tag = {})",
+                "Both HTTPS and SSH clone failed for psy-std (tag = {})",
                 tag
             )))
         }

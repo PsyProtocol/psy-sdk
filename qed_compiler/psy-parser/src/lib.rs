@@ -277,7 +277,7 @@ fn std_path() -> PathBuf {
         .and_then(|p| p.parent())
         .and_then(|p| p.parent())
     {
-        let std_path = parser_dir.join("qed-std/std.qed");
+        let std_path = parser_dir.join("psy-std/std.qed");
         if std_path.exists() {
             return std_path;
         }
@@ -285,11 +285,11 @@ fn std_path() -> PathBuf {
 
     if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
         let candidates = [
-            "../qed-std/std.qed",
-            "../../qed-std/std.qed",
-            "../../../qed-std/std.qed",
-            "../qed_compiler/qed-std/std.qed",
-            "../../qed_compiler/qed-std/std.qed"
+            "../psy-std/std.qed",
+            "../../psy-std/std.qed",
+            "../../../psy-std/std.qed",
+            "../qed_compiler/psy-std/std.qed",
+            "../../qed_compiler/psy-std/std.qed"
         ];
 
         for candidate in &candidates {
@@ -302,7 +302,7 @@ fn std_path() -> PathBuf {
         }
     }
 
-    panic!("Cannot find qed-std/std.qed. Please set DARGO_STD_PATH environment variable or ensure qed-std is in the expected location relative to psy-parser.");
+    panic!("Cannot find psy-std/std.qed. Please set DARGO_STD_PATH environment variable or ensure psy-std is in the expected location relative to psy-parser.");
 }
 
 #[cfg(test)]

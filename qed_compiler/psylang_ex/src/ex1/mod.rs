@@ -1,4 +1,4 @@
-use qedlang_macros::{show_streams, trace_var};
+use psylang_macros::{show_streams, trace_var};
 
 type Felt = u64;
 

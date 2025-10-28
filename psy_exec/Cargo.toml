@@ -22,7 +22,7 @@ async-trait = { workspace = true }
 maybe-async = {workspace = true}
 tracing = { workspace = true }
 psy_store = { workspace = true, default-features = false }
-qedlang_macros = { workspace = true }
+psylang_macros = { workspace = true }
 
 [features]
 # default = ["is_sync"]

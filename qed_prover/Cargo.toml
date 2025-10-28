@@ -34,7 +34,7 @@ psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 psy_exec = { workspace = true, default-features = false }
 psy_store = { workspace = true, default-features = false }
-qedlang_macros = { workspace = true }
+psylang_macros = { workspace = true }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
 wasm-logger = { workspace = true }

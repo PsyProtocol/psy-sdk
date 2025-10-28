@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use psy_vm::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
-use qedlang_macros::qcontract;
+use psylang_macros::qcontract;
 
 type Felt = SymFeltRef;
 

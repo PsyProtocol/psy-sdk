@@ -5888,7 +5888,7 @@ dependencies = [
  "psy_data",
  "psy_store",
  "psy_vm",
- "qedlang_macros",
+ "psylang_macros",
  "serde",
  "serde_json",
  "tokio",
@@ -6039,6 +6039,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "psylang_ex"
+version = "0.1.0"
+dependencies = [
+ "plonky2",
+ "psy_vm",
+ "psylang_macros",
+ "serde",
+]
+
+[[package]]
+name = "psylang_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "psy_vm",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "qed_api_services"
 version = "0.1.0"
 dependencies = [
@@ -6087,9 +6107,9 @@ dependencies = [
  "psy_node",
  "psy_store",
  "psy_vm",
+ "psylang_macros",
  "qed_prover",
  "qed_rollup_utils",
- "qedlang_macros",
  "scheduled-thread-pool",
  "serde",
  "serde_json",
@@ -6147,8 +6167,8 @@ dependencies = [
  "psy_network_circuit",
  "psy_store",
  "psy_vm",
+ "psylang_macros",
  "qed_rollup_utils",
- "qedlang_macros",
  "rand 0.8.5",
  "rayon",
  "reqwest",
@@ -6257,26 +6277,6 @@ dependencies = [
  "wasm-logger",
  "wasm-tracing",
  "web-sys",
-]
-
-[[package]]
-name = "qedlang_ex"
-version = "0.1.0"
-dependencies = [
- "plonky2",
- "psy_vm",
- "qedlang_macros",
- "serde",
-]
-
-[[package]]
-name = "qedlang_macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "psy_vm",
- "quote",
- "syn 2.0.106",
 ]
 
 [[package]]

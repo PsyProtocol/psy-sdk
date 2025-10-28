@@ -138,7 +138,7 @@ jobs:
           TAG_NAME: ${{ (env.IS_NIGHTLY == 'true' && 'nightly') || needs.prepare.outputs.tag_name }}
           TARGET: ${{ matrix.target }}
           OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
-          DARGO_STD_PATH: ${{ github.workspace }}/qed_compiler/qed-std/std.qed
+          DARGO_STD_PATH: ${{ github.workspace }}/qed_compiler/psy-std/std.qed
           SQLX_OFFLINE: true
         shell: bash
         run: |

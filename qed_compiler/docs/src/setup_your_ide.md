@@ -9,7 +9,7 @@ This document introduces how to use the QED language server `psy-lsp-server` for
 1. Clone repository:
 
 ```bash
-  git clone https://github.com/QEDProtocol/qedlang-rust.git
+  git clone https://github.com/PsyProtocol/psy-v1.git
   cd qed-lang
 ```
 

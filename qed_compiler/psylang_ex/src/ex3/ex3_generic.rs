@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use psy_vm::dpn::{eval::exec_eval::exec_eval_simple, ops::{context_trait::{ContextFelt, DPNContext}, exec_context::QExecContext, sym_felt::SymFeltRef}};
-use qedlang_macros::qcontract;
+use psylang_macros::qcontract;
 
 
 pub struct ExampleContract2<F: ContextFelt, C: DPNContext<F>> {

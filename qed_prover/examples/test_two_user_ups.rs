@@ -20,7 +20,7 @@ use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
 };
-use qedlang_macros::qcontract;
+use psylang_macros::qcontract;
 
 type Felt = SymFeltRef;
 

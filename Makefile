@@ -1,4 +1,4 @@
-export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
+export DARGO_STD_PATH := $(PWD)/qed_compiler/psy-std/std.qed
 export SQLX_OFFLINE=true
 
 PROFILE := release

@@ -29,7 +29,7 @@ psy_common_circuit = { workspace = true }
 qed_prover = { workspace = true }
 kvq = { workspace = true }
 psy_vm = { workspace = true }
-qedlang_macros = { workspace = true }
+psylang_macros = { workspace = true }
 
 # Additional dependencies
 fred = { workspace = true }

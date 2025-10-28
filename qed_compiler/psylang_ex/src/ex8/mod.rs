@@ -3,11 +3,11 @@ use std::marker::PhantomData;
 use psy_vm::dpn::ops::sym_felt::QStateInitializable;
 use psy_vm::dpn::ops::utils::SparseArray;
 use psy_vm::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
-use qedlang_macros::{qcontract, FeltSized, QStateInitializable};
+use psylang_macros::{qcontract, FeltSized, QStateInitializable};
 
 type Felt = SymFeltRef;
 use psy_vm::dpn::ops::context_trait::FeltSized;
-//use qedlang_macros::FeltSized;
+//use psylang_macros::FeltSized;
 
 #[derive(FeltSized, QStateInitializable)]
 pub struct SimpleContractState {
