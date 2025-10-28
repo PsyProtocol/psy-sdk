@@ -595,11 +595,11 @@ get-checkpoint-leaf-data:
 get-contract-code-definition:
 	@./target/${PROFILE}/psy_user_cli get-contract-code-definition --contract-id ${CONTRACT_ID}
 
-get-latest-l2-block-state:
-	@./target/${PROFILE}/psy_user_cli get-latest-l2-block-state
+get-latest-block-state:
+	@./target/${PROFILE}/psy_user_cli get-latest-block-state
 
-get-l2-block-state:
-	@./target/${PROFILE}/psy_user_cli get-l2-block-state --checkpoint-id ${CHECKPOINT_ID}
+get-block-state:
+	@./target/${PROFILE}/psy_user_cli get-block-state --checkpoint-id ${CHECKPOINT_ID}
 
 # Tree structure RPC commands
 get-checkpoint-tree-root:
