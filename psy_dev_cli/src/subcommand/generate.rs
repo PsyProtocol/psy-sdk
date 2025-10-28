@@ -460,7 +460,7 @@ async fn run_deployment_impl(config: &Config, args: RunArgs) -> Result<()> {
 }
 
 fn build_api_service_command(service_config: &ServiceConfig) -> Result<Vec<String>> {
-    let mut cmd = vec!["./target/release/psy_api_services".to_string()];
+    let mut cmd = vec!["./target/release/psy_services".to_string()];
 
     // Add service-specific args if any
     for (key, value) in &service_config.args {
@@ -1122,15 +1122,15 @@ fn start_timescaledb() -> Result<()> {
 fn run_database_migrations() -> Result<()> {
     info!("Running database migrations...");
 
-    // First check if psy_api_services directory exists
-    if !Path::new("./psy_api_services").exists() {
-        warn!("psy_api_services directory not found, skipping migrations");
+    // First check if psy_services directory exists
+    if !Path::new("./psy_services").exists() {
+        warn!("psy_services directory not found, skipping migrations");
         return Ok(());
     }
 
     let output = Command::new("cargo")
         .args(&["sqlx", "migrate", "run"])
-        .current_dir("./psy_api_services")
+        .current_dir("./psy_services")
         .env("DATABASE_URL", "postgres://postgres:password@localhost:5432/psy")
         .output()
         .context("Failed to run database migrations")?;

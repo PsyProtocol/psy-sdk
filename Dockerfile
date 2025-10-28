@@ -20,8 +20,8 @@ WORKDIR /psy-node
 COPY ./target/${PROFILE}/psy_node_cli /psy-node
 COPY ./target/${PROFILE}/psy_user_cli /psy-node
 COPY ./target/${PROFILE}/psy_dev_cli /psy-node
-COPY ./target/${PROFILE}/psy_api_services /psy-node
-COPY ./psy_api_services/migrations /psy-node/migrations
+COPY ./target/${PROFILE}/psy_services /psy-node
+COPY ./psy_services/migrations /psy-node/migrations
 COPY .env /psy-node/.env
 
 # Copy precompiles

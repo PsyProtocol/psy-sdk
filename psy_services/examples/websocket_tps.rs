@@ -14,8 +14,8 @@ use std::time::Duration;
 use chrono::Utc;
 use futures_util::StreamExt;
 // Import types from the API service crate instead of redefining them
-use psy_api_services::handlers::websocket::{EventType, WebSocketEvent};
-use psy_api_services::models::TpsData;
+use psy_services::handlers::websocket::{EventType, WebSocketEvent};
+use psy_services::models::TpsData;
 use reqwest::Client;
 use serde_json::json;
 use tokio::time::sleep;

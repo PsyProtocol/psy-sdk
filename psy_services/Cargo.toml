@@ -1,5 +1,5 @@
 [package]
-name = "psy_api_services"
+name = "psy_services"
 edition.workspace = true
 rust-version.workspace = true
 version.workspace = true

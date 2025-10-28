@@ -28,7 +28,7 @@ members = [
     "psy_compiler/psy-interpreter",
     "psy_compiler/psy-package",
     "psy_compiler/psy-dargo-cli",
-    "psy_api_services",
+    "psy_services",
 ]
 resolver = "2"
 
@@ -251,7 +251,7 @@ psy-interpreter = { path = "./psy_compiler/psy-interpreter" }
 psy-package = { path = "./psy_compiler/psy-package" }
 dargo = { path = "./psy_compiler/psy-dargo-cli" }
 psy-abi = { path = "./psy_compiler/psy-abi" }
-psy_api_services = { path = "./psy_api_services" }
+psy_services = { path = "./psy_services" }
 serial_test = "3.2"
 
 shadow-rs = "0.27.1"

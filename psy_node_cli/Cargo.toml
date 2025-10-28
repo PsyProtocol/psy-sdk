@@ -21,4 +21,4 @@ psy_prover = { workspace = true }
 psy_store = { workspace = true }
 psy_data = { workspace = true }
 kvq = { workspace = true }
-psy_api_services = { workspace = true }
+psy_services = { workspace = true }

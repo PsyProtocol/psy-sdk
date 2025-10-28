@@ -1,4 +1,4 @@
-use psy_api_services::{config::Config, run};
+use psy_services::{config::Config, run};
 use tracing_subscriber::{self, EnvFilter};
 
 #[tokio::main]

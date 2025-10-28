@@ -582,7 +582,7 @@ Psy_CONFIG_PATH="$ETC_DIR/config.json"
 NUM_PROXIES=$NUM_PROXIES
 BASE_PORT=$BASE_PORT
 #LOG_LEVEL="psy_node_utils=trace,psy_user_cli=debug,psy_prover=trace"
-LOG_LEVEL="psy_node_utils=trace,tikv_client=warn,psy_store=trace,psy_user_cli=debug,psy_dev_cli=debug,psy_api_services=info,psy_node_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error"
+LOG_LEVEL="psy_node_utils=trace,tikv_client=warn,psy_store=trace,psy_user_cli=debug,psy_dev_cli=debug,psy_services=info,psy_node_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error"
 
 RESTART_DELAY=5
 START_DELAY=0.5

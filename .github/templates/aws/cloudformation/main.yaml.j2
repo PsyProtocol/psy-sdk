@@ -2913,7 +2913,7 @@ Resources:
               echo "TimescaleDB is ready!"
 
               # Create TimescaleDB extension
-              docker exec api-service sh -c "cd /psy-node/psy_api_services && sqlx migrate run" || {
+              docker exec api-service sh -c "cd /psy-node/psy_services && sqlx migrate run" || {
                 echo "Migration status:"
                 docker logs api-service --tail 20
               }

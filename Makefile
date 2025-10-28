@@ -2,7 +2,7 @@ export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.psy
 export SQLX_OFFLINE=true
 
 PROFILE := release
-LOG_LEVEL := psy_node_utils=trace,tikv_client=warn,psy_store=trace,psy_user_cli=debug,psy_dev_cli=debug,psy_api_services=info,psy_node_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
+LOG_LEVEL := psy_node_utils=trace,tikv_client=warn,psy_store=trace,psy_user_cli=debug,psy_dev_cli=debug,psy_services=info,psy_node_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
 
 
 BACKUP ?= false
@@ -22,7 +22,7 @@ fix:
 
 build: config_gen_v2
 	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p psy_precompiles
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server --bin psy_api_services --examples
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server --bin psy_services --examples
 
 fmt:
 	@cargo fmt
@@ -185,7 +185,7 @@ init:
 	# @docker run -d --name psy-scylla-coordinator -p 9042:9042 scylladb/scylla:latest
 	# @docker run -d --name psy-scylla-realm0 -p 9043:9042 scylladb/scylla:latest
 	# @docker run -d --name psy-scylla-realm1 -p 9044:9042 scylladb/scylla:latest
-	@cd ./psy_api_services && export DATABASE_URL="postgres://postgres:password@localhost/postgres" && cargo sqlx database create && cargo sqlx migrate run
+	@cd ./psy_services && export DATABASE_URL="postgres://postgres:password@localhost/postgres" && cargo sqlx database create && cargo sqlx migrate run
 	@sleep 5
 
 .PHONY: shutdown
@@ -330,7 +330,7 @@ run-watcher-realm1:
     --queue-biz-key realm1
 
 run-api-service:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_api_services
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_services
 
 run-worker0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
@@ -700,4 +700,4 @@ init-timescaledb:
 	@echo "Starting TimescaleDB container..."
 	@docker start timescaledb || docker run -d --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb:latest-pg17
 	@sleep 5
-	@cd ./psy_api_services && export DATABASE_URL="postgres://postgres:password@localhost/postgres" && cargo sqlx database create && cargo sqlx migrate run
+	@cd ./psy_services && export DATABASE_URL="postgres://postgres:password@localhost/postgres" && cargo sqlx database create && cargo sqlx migrate run

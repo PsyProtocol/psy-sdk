@@ -746,8 +746,8 @@ async fn start_global_services(config: &Config, manager: &ProcessManager, work_d
                 info!("🔄 Running database migrations...");
                 let mut migrate_cmd = Command::new("cargo");
                 migrate_cmd
-                    .args(&["run", "--bin", "psy_api_services", "--", "migrate"])
-                    .current_dir("./psy_api_services")
+                    .args(&["run", "--bin", "psy_services", "--", "migrate"])
+                    .current_dir("./psy_services")
                     .env("DATABASE_URL", "postgres://postgres:password@localhost/postgres");
 
                 let output = migrate_cmd.output()?;
@@ -761,7 +761,7 @@ async fn start_global_services(config: &Config, manager: &ProcessManager, work_d
         if let Some(api_service) = &global_services.api_service {
             if api_service.enabled {
                 info!("🔌 Starting API Service...");
-                let mut cmd = Command::new("./target/release/psy_api_services");
+                let mut cmd = Command::new("./target/release/psy_services");
 
                 // Set default environment variables
                 cmd.env("DATABASE_URL", "postgres://postgres:password@localhost/postgres");

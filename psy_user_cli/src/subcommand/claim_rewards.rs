@@ -10,7 +10,7 @@ use plonky2::{
     hash::hash_types::HashOut,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_api_services::models::{WorkerEvent, WorkerEventSource};
+use psy_services::models::{WorkerEvent, WorkerEventSource};
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_core::{
     config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID},
