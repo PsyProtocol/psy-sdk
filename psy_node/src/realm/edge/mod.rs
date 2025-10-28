@@ -11,7 +11,7 @@ pub use edge_v2::run_realm_edge_v2;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
 use psy_store::{
-    queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedisAsync},
+    queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis},
     store::PsyStore,
 };
 use tower_http::cors::{Any, CorsLayer};
@@ -29,9 +29,9 @@ use crate::{
 };
 
 const WATCHER_NODE_ID_PREFIX: &str = "realm_edge_node_";
-pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedisAsync> {
+pub async fn creat_redis_store(config: RealmEdgeConfig) -> Result<ProofStoreRedis> {
     // Create storage and queues
-    let proof_store = ProofStoreRedisAsync::new(&config.redis.redis_uri, config.queue.queue_biz_key.clone()).await?;
+    let proof_store = ProofStoreRedis::new(&config.redis.redis_uri, config.queue.queue_biz_key.clone()).await?;
     debug!("created proof store successfully!");
     Ok(proof_store)
 }
@@ -77,7 +77,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let realm_config = RealmConfig::get_standard(config.realm.realm_id);
     debug!("created realm config successfully!");
 
-    // Use the same ProofStoreRedisAsync for checkpoint sync
+    // Use the same ProofStoreRedis for checkpoint sync
     let sync_queue = proof_store.clone();
 
     // Create Edge node context

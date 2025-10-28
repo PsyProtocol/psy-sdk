@@ -8,7 +8,7 @@ use std::{env, net::SocketAddr};
 
 use hyper::Method;
 use jsonrpsee::server::Server;
-use psy_store::{queue::ProofStoreRedisAsync, store::PsyStore};
+use psy_store::{queue::ProofStoreRedis, store::PsyStore};
 use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 use tracing::info;
 
@@ -20,8 +20,8 @@ use super::args::CoordinatorEdgeArgs;
 use crate::common::{health::HealthLayer, jobs::JobSchedulerRpcServer};
 
 pub type StoreReader = PsyStore;
-pub type DrainQueue = ProofStoreRedisAsync;
-pub type ProofStore = ProofStoreRedisAsync;
+pub type DrainQueue = ProofStoreRedis;
+pub type ProofStore = ProofStoreRedis;
 
 pub async fn run_edge(config: CoordinatorEdgeArgs) -> anyhow::Result<()> {
     info!("🚀 Starting coordinator edge node...");

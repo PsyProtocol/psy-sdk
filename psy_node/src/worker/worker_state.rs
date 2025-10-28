@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use psy_crypto::common::{generic_circuit_verifier::GenericCircuitVerifier, simple_circuit_library::SimpleCircuitLibrary};
 use psy_data::config::store_config::PsyHasher;
 use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
-use psy_store::queue::{new_fred_pool, new_redis_async_pool, ProofStoreFred, ProofStoreRedisAsync};
+use psy_store::queue::{new_redis_async_pool, ProofStoreRedis};
 
 use crate::{
     common::verifier::get_cached_generic_verifier,
@@ -19,7 +19,7 @@ pub type H = PsyHasher;
 
 #[derive(Debug)]
 pub struct WorkerState {
-    pub queue: ProofStoreRedisAsync,
+    pub queue: ProofStoreRedis,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub coordinator_worker_circuits: PsyCoordinatorCircuitManager<C, D>,
 }
@@ -28,7 +28,7 @@ impl WorkerState {
     pub async fn new(redis_url: String, pool_size: usize, biz_key: String) -> anyhow::Result<Self> {
         use psy_core::config::network_constants::get_default_worker_public_key;
         // Create storage and queues
-        let realm_qps = ProofStoreRedisAsync::new(redis_url.as_str(), biz_key).await?;
+        let realm_qps = ProofStoreRedis::new(redis_url.as_str(), biz_key).await?;
 
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 

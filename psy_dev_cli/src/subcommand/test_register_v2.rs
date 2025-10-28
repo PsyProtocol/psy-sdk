@@ -49,26 +49,24 @@ use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-        ProofStoreFred,
+        ProofStoreRedis,
     },
     store::journal::JournalStore,
 };
 
 use super::super::test_helpers::contract::gen_test_contract;
 
-async fn run_fred_test3() -> anyhow::Result<()> {
+async fn run_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
     type F = GoldilocksField;
     const D: usize = 2;
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = psy_store::queue::new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let q = ProofStoreRedis::new("redis://127.0.0.1:6379", "wq1".to_string()).await?;
+    let realm_q = ProofStoreRedis::new("redis://127.0.0.1:6379", "rwq1".to_string()).await?;
 
     timer.lap("connected to redis");
-
-    let q = ProofStoreFred::new(pool.clone(), "wq1".to_string());
-    let realm_q = ProofStoreFred::new(pool, "rwq1".to_string());
 
     let store_reader: Arc<KVQSimpleMemoryBackingStore> = Arc::new(KVQSimpleMemoryBackingStore::new());
 
@@ -362,5 +360,5 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     Ok(())
 }
 pub async fn run(args: super::TestRegisterV2Args) -> anyhow::Result<()> {
-    run_fred_test3().await
+    run_test3().await
 }

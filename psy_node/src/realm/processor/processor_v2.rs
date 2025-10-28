@@ -86,7 +86,7 @@ use psy_store::{
     queue::{
         new_redis_async_pool,
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-        ProofStoreRedisAsync, QPendingUserStoreAsyncImm,
+        ProofStoreRedis, QPendingUserStoreAsyncImm,
     },
     store::{
         journal::{Journal, JournalStore},
@@ -148,7 +148,7 @@ pub struct RealmProcessorV2 {
     pub config_path: String,
     pub edge_queue_helper: Arc<RealmEdgeQueueHelper<F>>,
     pub coordinator_client: Arc<ConcreteCoordinatorClient>,
-    pub proof_store: Arc<ProofStoreRedisAsync>,
+    pub proof_store: Arc<ProofStoreRedis>,
 }
 
 impl RealmProcessorV2 {
@@ -160,7 +160,7 @@ impl RealmProcessorV2 {
         self.proof_verifier.verify_proof_of_type(circuit_type, proof)
     }
 
-    async fn get_context(&self) -> anyhow::Result<RealmProcessorContextV2<ProofStoreRedisAsync>> {
+    async fn get_context(&self) -> anyhow::Result<RealmProcessorContextV2<ProofStoreRedis>> {
         Ok(RealmProcessorContextV2 {
             realm_config: self.realm_config,
             proof_store: self.proof_store.clone(),
@@ -182,7 +182,7 @@ impl RealmProcessorV2 {
         )
         .await?;
 
-        let realm_qps = ProofStoreRedisAsync::new(&config.redis.redis_uri.as_str(), config.queue.queue_biz_key).await?;
+        let realm_qps = ProofStoreRedis::new(&config.redis.redis_uri.as_str(), config.queue.queue_biz_key).await?;
 
         let store = PsyStore::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());

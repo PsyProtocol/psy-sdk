@@ -19,7 +19,7 @@ use psy_core::{
     },
     utils::debug_timer::DebugTimer,
 };
-use psy_store::queue::{new_fred_pool, ProofStoreFred};
+use psy_store::queue::{new_redis_async_pool, ProofStoreRedis};
 
 #[derive(Debug, Clone)]
 pub struct PsyFakeProver {
@@ -150,15 +150,13 @@ impl SimpleActorWorker {
     }
 }
 
-async fn run_fred_test3() -> anyhow::Result<()> {
+async fn run_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let q = ProofStoreRedis::new("redis://127.0.0.1:6379", "wq1".to_string()).await?;
 
     timer.lap("connected to redis");
-
-    let q = ProofStoreFred::new(pool, "wq1".to_string());
 
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
@@ -176,5 +174,5 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 }
 #[tokio::main]
 async fn main() {
-    run_fred_test3().await.unwrap();
+    run_test3().await.unwrap();
 }

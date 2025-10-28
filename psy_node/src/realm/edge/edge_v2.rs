@@ -4,7 +4,7 @@ use anyhow::Result;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
 use psy_store::{
-    queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedisAsync},
+    queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis},
     store::PsyStore,
 };
 use tower_http::cors::{Any, CorsLayer};
@@ -67,7 +67,7 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
     let realm_config = RealmConfig::get_standard(config.realm.realm_id);
     debug!("created realm config successfully!");
 
-    // Use the same ProofStoreRedisAsync for checkpoint sync
+    // Use the same ProofStoreRedis for checkpoint sync
     // let sync_queue = proof_store.clone();
 
     // Create Edge node context

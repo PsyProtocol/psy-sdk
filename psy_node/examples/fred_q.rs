@@ -6,7 +6,7 @@ use psy_core::{
     job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DrainQueueMetadata, DrainQueueMetadataTagged},
     utils::debug_timer::DebugTimer,
 };
-use psy_store::queue::{new_fred_pool, DrainQueueFred};
+use psy_store::queue::ProofStoreRedis;
 use rand::{thread_rng, Rng};
 use tokio::task::JoinHandle;
 
@@ -63,15 +63,13 @@ impl DrainQueueMetadataTagged for TestItem {
     }
 }
 
-async fn run_fred_test3() -> anyhow::Result<()> {
+async fn run_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let q = ProofStoreRedis::new("redis://127.0.0.1:6379", "fred_q".to_string()).await?;
 
     timer.lap("connected to redis");
-
-    let q = DrainQueueFred::new(pool, "fred_q".to_string());
 
     let worker_count = 16usize;
     let items_per_worker = 2000usize;
@@ -107,15 +105,13 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     Ok(())
 }
-async fn run_fred_test2() -> anyhow::Result<()> {
+async fn run_test2() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let q = ProofStoreRedis::new("redis://127.0.0.1:6379", "fred_q".to_string()).await?;
 
     timer.lap("connected to redis");
-
-    let q = DrainQueueFred::new(pool, "fred_q".to_string());
 
     /*
     let worker_count = 4usize;
@@ -155,15 +151,13 @@ async fn run_fred_test2() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn run_fred_test() -> anyhow::Result<()> {
+async fn run_test() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let q = ProofStoreRedis::new("redis://127.0.0.1:6379", "fred_q".to_string()).await?;
 
     timer.lap("connected to redis");
-
-    let q = DrainQueueFred::new(pool, "fred_q".to_string());
     let items = TestItem::gen_many(2, 10000, 0);
     timer.lap("generated items");
     for item in items {
@@ -180,7 +174,7 @@ async fn run_fred_test() -> anyhow::Result<()> {
 }
 #[tokio::main]
 async fn main() {
-    run_fred_test().await.unwrap();
-    run_fred_test2().await.unwrap();
-    run_fred_test3().await.unwrap();
+    run_test().await.unwrap();
+    run_test2().await.unwrap();
+    run_test3().await.unwrap();
 }

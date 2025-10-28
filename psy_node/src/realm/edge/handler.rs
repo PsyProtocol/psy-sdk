@@ -51,7 +51,7 @@ use psy_store::{
     node::realm::PsyRealmStoreReaderAsync,
     queue::{
         task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl},
-        ProofStoreRedisAsync,
+        ProofStoreRedis,
     },
 };
 use tracing::{debug, error, info, warn};
@@ -81,7 +81,7 @@ use crate::{
 #[derive(Clone)]
 pub struct RealmEdgeHandler<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> {
     ctx: RealmEdgeContext<SR, DQ, PS>,
-    job_notify_queue: Arc<ProofStoreRedisAsync>,
+    job_notify_queue: Arc<ProofStoreRedis>,
     task_store: Arc<QProvingTaskStoreImpl>,
     whitelist_cache: WhiteListCache,
     watcher_client: Arc<WatcherClient>,
@@ -97,7 +97,7 @@ where
 {
     pub fn new(
         ctx: RealmEdgeContext<SR, DQ, PS>,
-        job_notify_queue: Arc<ProofStoreRedisAsync>,
+        job_notify_queue: Arc<ProofStoreRedis>,
         task_store: Arc<QProvingTaskStoreImpl>,
         whitelist_cache: WhiteListCache,
         watcher_client: Arc<WatcherClient>,

@@ -49,7 +49,7 @@ use psy_data::{
 use psy_network_circuit::verify_witness::verify_witness_and_proof;
 use psy_store::{
     node::coordinator::PsyCoordinatorStoreReaderAsync,
-    queue::{new_redis_async_pool, rsmq_queue::CEQueueNotification, ProofStoreRedisAsync},
+    queue::{new_redis_async_pool, rsmq_queue::CEQueueNotification, ProofStoreRedis},
     store::{Backend, PsyStore},
 };
 use rand::RngCore;
@@ -97,7 +97,7 @@ impl CoordinatorEdgeHandler {
         let task_store = QProvingTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size, &args.queue_args.queue_biz_key).await?;
         let qe_args = &args.queue_args;
 
-        let proof_store = Arc::new(ProofStoreRedisAsync::new(&args.redis_uri, qe_args.queue_biz_key.clone()).await?);
+        let proof_store = Arc::new(ProofStoreRedis::new(&args.redis_uri, qe_args.queue_biz_key.clone()).await?);
 
         // init verifier
         let verifier = Arc::new(get_cached_generic_verifier::<_, 2>());

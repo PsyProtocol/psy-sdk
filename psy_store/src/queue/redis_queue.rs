@@ -107,19 +107,19 @@ impl<T: BizKey> QueuePrefixKey for T {
 }
 
 #[derive(Debug, Clone)]
-pub struct ProofStoreRedisAsync {
+pub struct ProofStoreRedis {
     pub(crate) redis: ResilientRedisConnection,
     pub(crate) redis_blocking: ResilientRedisConnection,
     pub(crate) biz_key: String,
 }
 
-impl BizKey for ProofStoreRedisAsync {
+impl BizKey for ProofStoreRedis {
     fn biz_key(&self) -> String {
         self.biz_key.clone()
     }
 }
 
-impl ProofStoreRedisAsync {
+impl ProofStoreRedis {
     pub async fn new(redis_url: &str, biz_key: String) -> anyhow::Result<Self> {
         let redis = ResilientRedisConnection::new(redis_url).await?;
         let redis_blocking = ResilientRedisConnection::new(redis_url).await?;
@@ -138,7 +138,7 @@ impl ProofStoreRedisAsync {
 }
 
 #[async_trait]
-impl QProofStoreReaderAsync for ProofStoreRedisAsync {
+impl QProofStoreReaderAsync for ProofStoreRedis {
     async fn contains_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
         let checkpoint_id = id.goal_id;
         let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
@@ -167,7 +167,7 @@ impl QProofStoreReaderAsync for ProofStoreRedisAsync {
 }
 
 #[async_trait]
-impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
+impl QProofStoreWriterAsyncImm for ProofStoreRedis {
     async fn set_proof_by_id<C: GenericConfig<D>, const D: usize>(
         &self,
         id: QProvingJobDataID,
@@ -274,7 +274,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
 }
 
 #[async_trait]
-impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedisAsync {
+impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedis {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
         let metadata = item.get_dq_metadata();
         let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
@@ -287,7 +287,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedisAsync {
 }
 
 #[async_trait]
-impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
+impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedis {
     async fn cdq_drain_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
         let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
         let key = format!("{}-{}", checkpoint_queue_prefix, channel_id);
@@ -334,7 +334,7 @@ pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueue
 }
 
 #[async_trait]
-impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
+impl WorkerEventReceiverAsyncImm for ProofStoreRedis {
     async fn wait_for_next_job_imm(&self) -> anyhow::Result<QProvingJobDataID> {
         match self.redis_blocking.blpop(self.worker_queue_key(), 0).await? {
             Some((_, data)) => Ok(QProvingJobDataID::try_from_byte_vec(&data)?),
@@ -358,7 +358,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreRedisAsync {
 }
 
 #[async_trait]
-impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
+impl WorkerEventTransmitterAsyncImm for ProofStoreRedis {
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         if jobs.is_empty() {
             return Ok(());
@@ -404,7 +404,7 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreRedisAsync {
 }
 
 #[async_trait]
-impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreRedisAsync {
+impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreRedis {
     async fn chq_push_imm<T: HQSerializable>(&self, item: T) -> anyhow::Result<()> {
         let metadata = item.get_hq_metadata();
         let bytes = item.to_bytes()?;
@@ -430,7 +430,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreRedisAsync {
 }
 
 #[async_trait]
-impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedisAsync {
+impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreRedis {
     async fn chq_items_gte<T: HQSerializable>(&self, channel_id: u64, start_checkpoint_id: u64) -> anyhow::Result<Vec<T>> {
         let current_checkpoint_key = format!("{}-{}", self.checkpoint_history_queue_prefix_key(), channel_id);
 
@@ -489,7 +489,7 @@ pub trait NotificationQueue<T: HQSerializable> {
 }
 
 #[async_trait]
-impl<T: HQSerializable> NotificationQueue<T> for ProofStoreRedisAsync {
+impl<T: HQSerializable> NotificationQueue<T> for ProofStoreRedis {
     async fn produce_item(&self, item: T) -> anyhow::Result<()>
     where
         T: 'async_trait,
@@ -547,7 +547,7 @@ pub trait QPendingUserStoreAsyncImm: Send + Sync {
 }
 
 #[async_trait]
-impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
+impl QPendingUserStoreAsyncImm for ProofStoreRedis {
     async fn push_pending_users<F: RichField>(&self, pending_users: &[MerkleProofCore<QHashOut<F>>]) -> anyhow::Result<()> {
         if pending_users.is_empty() {
             return Ok(());
@@ -663,7 +663,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 }
 
 #[async_trait]
-impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
+impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedis {
     async fn peek_with_position<T: DQSerializable>(
         &self,
         count: Option<isize>,

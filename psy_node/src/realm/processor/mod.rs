@@ -49,7 +49,7 @@ use psy_store::{
     queue::{
         new_redis_async_pool,
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-        ProofStoreRedisAsync, QPendingUserStoreAsyncImm,
+        ProofStoreRedis, QPendingUserStoreAsyncImm,
     },
     store::{
         journal::{Journal, JournalStore},
@@ -98,18 +98,18 @@ struct RealmBackupRequest {
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
     JournalStore<PsyStore>,
-    ProofStoreRedisAsync,
-    ProofStoreRedisAsync,
-    ProofStoreRedisAsync,
-    ProofStoreRedisAsync,
+    ProofStoreRedis,
+    ProofStoreRedis,
+    ProofStoreRedis,
+    ProofStoreRedis,
     QProvingTaskStoreImpl,
 >;
 
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
     pub max_processed_end_caps_per_block: Option<isize>,
-    pub sync_proof: ProofStoreRedisAsync,
-    pub sync_checkpoint: Arc<ProofStoreRedisAsync>,
+    pub sync_proof: ProofStoreRedis,
+    pub sync_checkpoint: Arc<ProofStoreRedis>,
     pub store: PsyStore,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub task_store: Arc<QProvingTaskStoreImpl>,
@@ -139,7 +139,7 @@ impl RealmProcessor {
             &config.queue.queue_biz_key,
         )
         .await?;
-        let realm_qps = ProofStoreRedisAsync::new(&config.redis.redis_uri, config.queue.queue_biz_key).await?;
+        let realm_qps = ProofStoreRedis::new(&config.redis.redis_uri, config.queue.queue_biz_key).await?;
         let store = PsyStore::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.realm_id);
@@ -203,10 +203,10 @@ impl RealmProcessor {
         let realm_qps = Arc::new(self.sync_proof.clone());
         RealmProcessorContext::<
             JournalStore<PsyStore>,
-            ProofStoreRedisAsync,
-            ProofStoreRedisAsync,
-            ProofStoreRedisAsync,
-            ProofStoreRedisAsync,
+            ProofStoreRedis,
+            ProofStoreRedis,
+            ProofStoreRedis,
+            ProofStoreRedis,
             QProvingTaskStoreImpl,
         >::new(
             self.realm_config,

@@ -53,7 +53,7 @@ use psy_store::{
         redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue},
         rsmq_queue::CEQueueNotification,
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-        ProofStoreFred, ProofStoreRedisAsync,
+        ProofStoreRedis,
     },
     store::{
         journal::{Journal, JournalStore},
@@ -228,18 +228,18 @@ impl
     CoordinatorProcessNode<
         JournalStore<PsyStore>,
         JournalStore<PsyStore>,
-        ProofStoreRedisAsync,
-        ProofStoreRedisAsync,
-        ProofStoreRedisAsync,
-        ProofStoreRedisAsync,
-        ProofStoreRedisAsync,
+        ProofStoreRedis,
+        ProofStoreRedis,
+        ProofStoreRedis,
+        ProofStoreRedis,
+        ProofStoreRedis,
         QProvingTaskStoreImpl,
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
         let task_store =
             Arc::new(QProvingTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size, &cp_config.queue_args.queue_biz_key).await?);
-        let q = ProofStoreRedisAsync::new(&cp_config.redis_uri, cp_config.queue_args.queue_biz_key.clone()).await?;
+        let q = ProofStoreRedis::new(&cp_config.redis_uri, cp_config.queue_args.queue_biz_key.clone()).await?;
 
         let psy_store = PsyStore::from_backend(cp_config.backend.to_backend()).await?;
         let psy_store = JournalStore::new(psy_store);

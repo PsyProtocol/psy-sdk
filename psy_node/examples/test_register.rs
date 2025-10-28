@@ -18,23 +18,21 @@ use psy_node::{
 use psy_store::{
     node::coordinator::PsyCoordinatorStoreWriterAsyncImm,
     queue::{
-        new_fred_pool,
+        new_redis_async_pool,
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-        ProofStoreFred,
+        ProofStoreRedis,
     },
     store::journal::JournalStore,
 };
 
-async fn run_fred_test3() -> anyhow::Result<()> {
+async fn run_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let q = ProofStoreRedis::new("redis://127.0.0.1:6379", "wq1".to_string()).await?;
     timer.lap("connected to redis");
-
-    let q = ProofStoreFred::new(pool, "wq1".to_string());
 
     let store_reader = Arc::new(KVQSimpleMemoryBackingStore::new());
 
@@ -115,5 +113,5 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 }
 #[tokio::main]
 async fn main() {
-    run_fred_test3().await.unwrap();
+    run_test3().await.unwrap();
 }

@@ -10,7 +10,7 @@ use psy_core::{
     },
     utils::debug_timer::DebugTimer,
 };
-use psy_store::queue::{new_fred_pool, ProofStoreFred};
+use psy_store::queue::{new_redis_async_pool, ProofStoreRedis};
 
 fn gen_jobs_ids(checkpoint_id: u64, height: usize) -> Vec<Vec<QProvingJobDataID>> {
     let mut jobs = Vec::with_capacity(height);
@@ -48,14 +48,12 @@ fn gen_jobs_ids(checkpoint_id: u64, height: usize) -> Vec<Vec<QProvingJobDataID>
     jobs
 }
 
-async fn run_fred_test3() -> anyhow::Result<()> {
+async fn run_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let q = ProofStoreRedis::new("redis://127.0.0.1:6379", "wq1".to_string()).await?;
     timer.lap("connected to redis");
-
-    let q = ProofStoreFred::new(pool, "wq1".to_string());
 
     timer.lap("started up");
     let checkpoint_id: u64 = 13;
@@ -76,5 +74,5 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 }
 #[tokio::main]
 async fn main() {
-    run_fred_test3().await.unwrap();
+    run_test3().await.unwrap();
 }

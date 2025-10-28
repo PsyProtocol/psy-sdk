@@ -11,7 +11,7 @@ use psy_data::{
 };
 use psy_store::{
     node::realm::PsyRealmStoreReaderAsync,
-    queue::{new_redis_async_pool, ProofStoreRedisAsync, QPendingUserStoreAsyncImm},
+    queue::{new_redis_async_pool, ProofStoreRedis, QPendingUserStoreAsyncImm},
     store::{
         journal::{Journal, JournalStore},
         PsyStore,
@@ -27,7 +27,7 @@ pub struct RealmRecoveryManager {
     psy_store: PsyStore,
     store: JournalStore<PsyStore>,
     backup_client: RealmS3BackupClient,
-    sync_queue: std::sync::Arc<ProofStoreRedisAsync>,
+    sync_queue: std::sync::Arc<ProofStoreRedis>,
     config_path: String,
 }
 
@@ -45,7 +45,7 @@ impl RealmRecoveryManager {
         let store = JournalStore::new(psy_store.clone());
 
         // Initialize sync_queue using redis configuration
-        let sync_queue = std::sync::Arc::new(ProofStoreRedisAsync::new(&redis_uri, queue_biz_key).await?);
+        let sync_queue = std::sync::Arc::new(ProofStoreRedis::new(&redis_uri, queue_biz_key).await?);
 
         Ok(Self {
             realm_id,

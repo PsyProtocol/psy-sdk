@@ -1,13 +1,11 @@
-pub mod fred_queue;
 pub mod pool;
 pub mod redis_queue;
 pub mod resilient_redis;
 pub mod rsmq_queue;
 pub mod task_queue;
 
-pub use fred_queue::{DrainQueueFred, ProofStoreFred};
-pub use pool::{new_fred_pool, new_redis_async_pool, new_resilient_redis_connection};
-pub use redis_queue::{BizKey, ProofStoreRedisAsync, QPendingUserStoreAsyncImm, QueuePrefixKey};
+pub use pool::{new_redis_async_pool, new_resilient_redis_connection};
+pub use redis_queue::{BizKey, ProofStoreRedis, QPendingUserStoreAsyncImm, QueuePrefixKey};
 pub use resilient_redis::{CommandBuilder, ConnectionStats, ResilientRedisConnection};
 pub use rsmq_queue::*;
 pub mod worker_queue_redis {

@@ -33,7 +33,7 @@ use psy_data::{
     qdata::checkpoint::CheckpointSyncInfo,
 };
 use psy_node_utils::generate_jwt_token;
-use psy_store::{node::realm::PsyRealmStoreReaderAsync, queue::ProofStoreRedisAsync};
+use psy_store::{node::realm::PsyRealmStoreReaderAsync, queue::ProofStoreRedis};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
 
@@ -259,7 +259,7 @@ pub async fn spawn_realm_job_update_task<
     DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 >(
-    proof_store: Arc<ProofStoreRedisAsync>,
+    proof_store: Arc<ProofStoreRedis>,
     realm_id: u64,
     coordinator_addr: String,
     ctx: Arc<RealmEdgeContext<SR, DQ, PS>>,
