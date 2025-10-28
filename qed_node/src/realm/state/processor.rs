@@ -44,7 +44,6 @@ use qed_store::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
-use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use qed_store::store::journal::Journal;
 use crate::common::slot::SLOT_SIZE;
 
@@ -102,7 +101,7 @@ impl RealmConfig {
 #[derive(Clone)]
 pub struct RealmProcessorContext<
     SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F> + Journal,
-    DQ: TxPoolAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
+    DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
     HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     WQ: WorkerEventTransmitterAsyncImm,
     PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -121,7 +120,7 @@ pub struct RealmProcessorContext<
 
 impl<
         SR: QEDRealmStoreWriterAsyncImm<F> + QEDRealmStoreReaderAsync<F> + Journal,
-        DQ: TxPoolAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
+        DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         HQ: CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         WQ: WorkerEventTransmitterAsyncImm,
         PS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,

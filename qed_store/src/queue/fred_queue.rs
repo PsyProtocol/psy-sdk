@@ -26,7 +26,6 @@ use qed_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::RichField;
 use qed_data::guta::api::UserEndCapNonProofCoreInputQueueItem;
 use crate::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState};
-use crate::queue::tx_pool::{TxPoolAsyncImm};
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -568,34 +567,6 @@ impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for Pr
         Ok(None)
     }
 }
-
-#[async_trait]
-impl TxPoolAsyncImm for ProofStoreFred {
-    async fn contains_tx(&self, channel_id: u64, id: u64) -> anyhow::Result<bool> {
-        todo!()
-    }
-
-    async fn add_tx<C: GenericConfig<D>, const D: usize, T: DQSerializable>(&self, id: QProvingJobDataID, proof: &ProofWithPublicInputs<C::F, C, D>, tx: T) -> anyhow::Result<()> {
-        todo!()
-    }
-
-    async fn get_txs<C: GenericConfig<D>, const D: usize, T: DQSerializable>(&self, count: Option<isize>, channel_id: u64, checkpoint_id: u64) -> anyhow::Result<Vec<T>> {
-        todo!()
-    }
-
-    async fn remove_txs(&self, channel_id: u64) -> anyhow::Result<()> {
-        todo!()
-    }
-
-    async fn remove_expired_txs(&self, channel_id: u64) -> anyhow::Result<()> {
-        todo!()
-    }
-
-    async fn len(&self, channel_id: u64) -> anyhow::Result<usize> {
-        todo!()
-    }
-}
-
 
 #[async_trait]
 impl QPendingUserStoreAsyncImm for ProofStoreFred {

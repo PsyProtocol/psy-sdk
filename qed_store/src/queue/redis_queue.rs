@@ -57,9 +57,6 @@ pub trait QueuePrefixKey {
     // checkpoint management keys
     fn checkpoint_list_key(&self) -> String;
     fn checkpoint_proofs_key(&self, checkpoint_id: u64) -> String;
-
-    fn tx_key(&self, channel_id: u64) -> String;
-
     fn id_key(&self, channel_id: u64) -> String;
     // public inputs key
     fn public_inputs_key(&self) -> String;
@@ -102,10 +99,6 @@ impl<T: BizKey> QueuePrefixKey for T {
 
     fn checkpoint_proofs_key(&self, checkpoint_id: u64) -> String {
         format!("checkpoint_proofs:{}-{}", checkpoint_id, self.biz_key())
-    }
-
-    fn tx_key(&self, channel_id: u64) -> String {
-        format!("txs:{}-{}", channel_id, self.biz_key())
     }
 
     fn id_key(&self, channel_id: u64) -> String {

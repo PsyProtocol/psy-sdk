@@ -9,14 +9,13 @@ use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use tracing::debug;
 use crate::realm::{C, D, F, H};
 use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
-use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use super::processor::RealmConfig;
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<
     SR: QEDRealmStoreReaderAsync<F> + Sync,
-    DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
-    PS: TxPoolAsyncImm + QProofStoreAsyncImm,
+    DQ: CheckpointDrainQueueEmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
 > {
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
@@ -27,8 +26,8 @@ pub struct RealmEdgeContext<
 
 impl<
         SR: QEDRealmStoreReaderAsync<F> + Sync,
-        DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
-        PS: TxPoolAsyncImm + QProofStoreAsyncImm,
+        DQ: CheckpointDrainQueueEmitterAsyncImm,
+        PS: QProofStoreAsyncImm,
     > RealmEdgeContext<SR, DQ, PS>
 {
     pub async fn new(

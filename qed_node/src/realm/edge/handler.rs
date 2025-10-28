@@ -44,7 +44,6 @@ use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob, current_timestamp_millis};
 use crate::coordinator::edge::ProofStore;
 use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
-use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use crate::common::whitelist::{WhiteList, WhiteListCache};
 use crate::common_v2::traits::realm::{RealmEdgeContractStateTreeUpdate, RealmEdgeStateHelper, RealmEdgeUserContractTreeUpdate, RealmEdgeUserUpdateSubmission, SimpleTreeUpdateBuilder, UniqueQueueId};
 use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
@@ -54,8 +53,8 @@ use crate::watcher::watcher_client::WatcherClient;
 #[derive(Clone)]
 pub struct RealmEdgeHandler<
     SR: QEDRealmStoreReaderAsync<F> + Sync,
-    DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
-    PS: TxPoolAsyncImm + QProofStoreAsyncImm,
+    DQ: CheckpointDrainQueueEmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
 > {
     ctx: RealmEdgeContext<SR, DQ, PS>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
@@ -69,8 +68,8 @@ pub struct RealmEdgeHandler<
 impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync,
-    DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
-    PS: TxPoolAsyncImm + QProofStoreAsyncImm,
+    DQ: CheckpointDrainQueueEmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
 {
     pub fn new(
         ctx: RealmEdgeContext<SR, DQ, PS>,
@@ -359,8 +358,8 @@ where
 impl<SR, DQ, PS> RealmEdgeRpcServer for RealmEdgeHandler<SR, DQ, PS>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-    DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
-    PS: TxPoolAsyncImm + QProofStoreAsyncImm + Sync + Send + 'static,
+    DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
+    PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
     async fn check_user_id_in_realm(&self, user_id: u64) -> RpcResult<bool> {
         Ok(self.ctx.includes_user_id(user_id))
@@ -1057,8 +1056,8 @@ where
 impl<SR, DQ, PS> JobSchedulerRpcServer for RealmEdgeHandler<SR, DQ, PS>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
-    DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
-    PS: TxPoolAsyncImm + QProofStoreAsyncImm + Sync + Send + 'static,
+    DQ: CheckpointDrainQueueEmitterAsyncImm + Sync + Send + 'static,
+    PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
     async fn get_pending_job(&self, signed: SignedRequest<QEDHash>) -> RpcResult<Option<QJob>> {
         self.whitelist_cache.verify_request(&signed, &MESSAGE_CLAIM_JOB.to_string(), Some(Duration::from_secs(30))).map_err(|e|
@@ -1212,8 +1211,8 @@ where
 impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync,
-    DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
-    PS: TxPoolAsyncImm + QProofStoreAsyncImm,
+    DQ: CheckpointDrainQueueEmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
 {
     async fn acknowledge_job_completion(&self, job: &QJob, worker_id: impl ToString) -> anyhow::Result<()> {
         let job_id = job.job_id;
@@ -1262,8 +1261,8 @@ where
 impl<SR, DQ, PS> RealmEdgeStateHelper for RealmEdgeHandler<SR, DQ, PS>
 where
     SR: QEDRealmStoreReaderAsync<F> + Sync,
-    DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
-    PS: TxPoolAsyncImm + QProofStoreAsyncImm,
+    DQ: CheckpointDrainQueueEmitterAsyncImm,
+    PS: QProofStoreAsyncImm,
 {
     async fn get_shared_checkpoint_id(&self) -> anyhow::Result<UniqueQueueId> {
         self.queue_helper.get_shared_checkpoint_id().await
