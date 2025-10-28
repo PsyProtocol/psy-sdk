@@ -16,7 +16,7 @@ use psy_ast::*;
 use psy_common::Graph;
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use psy_fmt::Formatter;
-use qed_parser::Parser;
+use psy_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
 use psy_vm::dpn::ops::exec_context::QExecContext;

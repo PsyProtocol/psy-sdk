@@ -1,5 +1,5 @@
 use psy_ast::{Position, Program, TextPosition, TextRange};
-use qed_interpreter::Interpreter;
+use psy_interpreter::Interpreter;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};

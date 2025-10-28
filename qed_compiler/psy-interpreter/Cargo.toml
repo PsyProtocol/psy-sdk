@@ -1,11 +1,11 @@
 [package]
 edition = "2021"
-name    = "qed-interpreter"
+name    = "psy-interpreter"
 version = "0.1.0"
 
 [dependencies]
 psy-ast = { workspace = true }
-qed-parser = { workspace = true }
+psy-parser = { workspace = true }
 qed-sema = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }

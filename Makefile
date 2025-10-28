@@ -98,13 +98,13 @@ ci:
 
 	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
 	       --package psy-ast \
-	       --package qed-parser \
+	       --package psy-parser \
 	       -- \
 	       --nocapture
 
 	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
 	       --package qed-sema \
-	       --package qed-interpreter \
+	       --package psy-interpreter \
 	       -- \
 	       --nocapture
 

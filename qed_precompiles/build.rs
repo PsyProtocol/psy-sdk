@@ -94,7 +94,7 @@ fn main() -> Result<()> {
         with_workspace(compile_options, dargo_config, |opts, workspace| {
             use dargo::cli::resolve_crate_path_graph;
             let crate_path_graph = resolve_crate_path_graph(&workspace, opts.entry_path.clone());
-            match qed_interpreter::interpret(
+            match psy_interpreter::interpret(
                 opts.contract_name.clone(),
                 opts.method_names.clone(),
                 crate_path_graph,

@@ -1,5 +1,5 @@
 ---
-source: qed_compiler/qed-interpreter/src/lib.rs
+source: qed_compiler/psy-interpreter/src/lib.rs
 expression: "ctx.debug_scope(ScopeId::root())"
 input_file: qed_compiler/tests/fn_chain_call_test.qed
 ---

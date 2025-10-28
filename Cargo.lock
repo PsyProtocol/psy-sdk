@@ -2376,6 +2376,7 @@ dependencies = [
  "psy-abi",
  "psy-ast",
  "psy-common",
+ "psy-interpreter",
  "psy_common_circuit",
  "psy_core",
  "psy_crypto",
@@ -2383,7 +2384,6 @@ dependencies = [
  "psy_exec",
  "psy_store",
  "psy_vm",
- "qed-interpreter",
  "qed-sema",
  "qed_package",
  "qed_prover",
@@ -5661,10 +5661,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "psy-interpreter"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ariadne",
+ "enum-as-inner",
+ "indexmap 2.11.3",
+ "insta",
+ "plonky2",
+ "psy-ast",
+ "psy-common",
+ "psy-fmt",
+ "psy-parser",
+ "psy_common_circuit",
+ "psy_core",
+ "psy_crypto",
+ "psy_data",
+ "psy_exec",
+ "psy_store",
+ "psy_vm",
+ "qed-sema",
+ "qed_prover",
+ "serial_test",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "psy-lexer"
 version = "0.1.0"
 dependencies = [
  "logos",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "psy-parser"
+version = "0.1.0"
+dependencies = [
+ "indexmap 2.11.3",
+ "insta",
+ "lalrpop",
+ "lalrpop-util",
+ "psy-ast",
+ "psy-common",
+ "psy-lexer",
+ "psy_vm",
  "thiserror 2.0.17",
 ]
 
@@ -5942,35 +5986,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-interpreter"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ariadne",
- "enum-as-inner",
- "indexmap 2.11.3",
- "insta",
- "plonky2",
- "psy-ast",
- "psy-common",
- "psy-fmt",
- "psy_common_circuit",
- "psy_core",
- "psy_crypto",
- "psy_data",
- "psy_exec",
- "psy_store",
- "psy_vm",
- "qed-parser",
- "qed-sema",
- "qed_prover",
- "serial_test",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "qed-lsp-server"
 version = "0.1.0"
 dependencies = [
@@ -5978,29 +5993,14 @@ dependencies = [
  "lsp-types 0.97.0",
  "psy-ast",
  "psy-common",
+ "psy-interpreter",
  "psy_vm",
- "qed-interpreter",
  "qed-sema",
  "qed_package",
  "thiserror 2.0.17",
  "tokio",
  "tower-lsp",
  "unicode-segmentation",
-]
-
-[[package]]
-name = "qed-parser"
-version = "0.1.0"
-dependencies = [
- "indexmap 2.11.3",
- "insta",
- "lalrpop",
- "lalrpop-util",
- "psy-ast",
- "psy-common",
- "psy-lexer",
- "psy_vm",
- "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -6104,9 +6104,9 @@ dependencies = [
  "anyhow",
  "dargo",
  "minijinja",
+ "psy-interpreter",
  "psy_data",
  "psy_vm",
- "qed-interpreter",
  "qed_package",
  "serde_json",
 ]

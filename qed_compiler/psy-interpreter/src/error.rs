@@ -1,7 +1,7 @@
 use ariadne::{Label, Report, ReportKind};
 use core::fmt;
 use psy_ast::{Location, Program, TextPosition, TextRange, VisitorContext};
-use qed_parser::Error as ParseError;
+use psy_parser::Error as ParseError;
 use qed_sema::{
     AstVisualizer, Error as SemaError, TypeCheckerErrorDescriptor, TypeCheckerVisitorContext,
 };
@@ -59,7 +59,7 @@ fn build_report<F: Clone + From<u32> + ContextFelt>(
 }
 
 pub fn lowering_parse_error<F: Clone + From<u32> + ContextFelt>(
-    error: &qed_parser::Error,
+    error: &psy_parser::Error,
     program: &Program<F>,
 ) -> String {
     match error {

@@ -3,7 +3,7 @@ use crate::errors::Result;
 use clap::Args;
 use psy_abi::AbiExtractor;
 use qed_package::Workspace;
-use qed_interpreter::Interpreter;
+use psy_interpreter::Interpreter;
 use psy_vm::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 use std::path::PathBuf;
 

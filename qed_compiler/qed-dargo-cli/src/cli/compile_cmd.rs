@@ -34,7 +34,7 @@ pub fn compile_workspace_full(
     let crate_path_graph =
         super::resolve_crate_path_graph(workspace, compile_options.entry_path.clone());
 
-    let mut interpret_result = qed_interpreter::interpret(
+    let mut interpret_result = psy_interpreter::interpret(
         compile_options.contract_name.clone(),
         compile_options.method_names.clone(),
         crate_path_graph,

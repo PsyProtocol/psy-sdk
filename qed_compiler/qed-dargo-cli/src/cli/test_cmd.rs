@@ -5,7 +5,7 @@ use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashou
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use psy_data::{config::store_config::{C, D}, qblock::cmds::register_user::QBCRegisterUser};
 use psy_exec::vm::exec::QEDEvalSessionResult;
-use qed_interpreter::Interpreter;
+use psy_interpreter::Interpreter;
 use psy_data::config::store_config::QEDHasher;
 use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use psy_store::controllers::local::prepare_environment_with_real_contract;

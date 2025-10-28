@@ -302,7 +302,7 @@ fn std_path() -> PathBuf {
         }
     }
 
-    panic!("Cannot find qed-std/std.qed. Please set DARGO_STD_PATH environment variable or ensure qed-std is in the expected location relative to qed-parser.");
+    panic!("Cannot find qed-std/std.qed. Please set DARGO_STD_PATH environment variable or ensure qed-std is in the expected location relative to psy-parser.");
 }
 
 #[cfg(test)]
@@ -313,7 +313,7 @@ mod tests {
     use psy_vm::dpn::ops::exec_context::QExecContext;
     use std::path::PathBuf;
     #[test]
-    fn test_qed_parser() {
+    fn test_psy_parser() {
         let mut program = Program::new();
         let mut ctx = QExecContext::new();
         let mut crate_path_graph = Graph::new();

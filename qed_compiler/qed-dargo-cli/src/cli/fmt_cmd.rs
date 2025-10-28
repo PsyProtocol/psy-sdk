@@ -1,7 +1,7 @@
 use crate::cli::write_to_file;
 use crate::errors::Result;
 use clap::Args;
-use qed_interpreter::Interpreter;
+use psy_interpreter::Interpreter;
 use psy_vm::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 use std::path::PathBuf;
 
