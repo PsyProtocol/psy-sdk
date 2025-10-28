@@ -26,7 +26,7 @@ use psy_core::{
     },
     data::qhashout::QHashOut,
     job::{
-        id::{ProvingJobCircuitType, ProvingJobDataId, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+        id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::WorkerEventTransmitterAsyncImm,
     },

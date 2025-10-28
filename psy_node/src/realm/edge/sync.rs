@@ -17,7 +17,7 @@ use psy_core::{
     job::{
         drain_queue::CheckpointDrainQueueEmitterAsyncImm,
         history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm},
-        id::{ProvingJobDataId, QProvingJobDataID},
+        id::QProvingJobDataID,
         traits::QProofStoreAsyncImm,
     },
     traits::to_qfelts::ToQFelts,
@@ -287,12 +287,12 @@ pub async fn spawn_realm_job_update_task<
         loop {
             // Listen for new proof job IDs from the history queue
             match proof_store
-                .wait_for_next_item_imm::<ProvingJobDataId>(REALM_PROCESSOR_TO_EDGE_CHANNEL, last_checkpoint)
+                .wait_for_next_item_imm::<QProvingJobDataID>(REALM_PROCESSOR_TO_EDGE_CHANNEL, last_checkpoint)
                 .await
             {
                 Ok(job_id) => {
                     info!(?job_id, "Received proof from realm processor");
-                    last_checkpoint = job_id.checkpoint_id + 1;
+                    last_checkpoint = job_id.goal_id + 1;
 
                     // Use the RealmProofSender instance
                     if let Err(err) = proof_sender.send_proof(ctx.clone(), job_id).await {
@@ -346,13 +346,13 @@ impl RealmProofSender {
     >(
         &self,
         ctx: Arc<RealmEdgeContext<SR, DQ, PS>>,
-        job_info: ProvingJobDataId,
+        job_info: QProvingJobDataID,
     ) -> Result<()> {
-        info!(?job_info.job_id, "send_realm_proof start");
+        info!(?job_info, "send_realm_proof start");
         // Get bytes with retry
         // let bytes = self.get_bytes_with_retry(proof_store.clone(),
         // job_info.job_id).await?;
-        let bytes = ctx.proof_store.get_bytes_by_id(job_info.job_id).await?;
+        let bytes = ctx.proof_store.get_bytes_by_id(job_info).await?;
         // Deserialize realm result
         let realm_result: GUTARealmCheckpointResult<PsyFelt> = bincode::deserialize(&bytes)?;
         // Get proof with retry

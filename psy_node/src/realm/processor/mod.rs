@@ -27,7 +27,7 @@ use psy_core::{
     data::qhashout::QHashOut,
     job::{
         history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm},
-        id::ProvingJobDataId,
+        id::QProvingJobDataID,
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
 };
@@ -427,9 +427,9 @@ impl RealmProcessor {
         Ok(())
     }
 
-    async fn submit_guta(&self, build_ctx: &ConcreteRealmProcessorContext, job_id: ProvingJobDataId) -> anyhow::Result<()> {
+    async fn submit_guta(&self, build_ctx: &ConcreteRealmProcessorContext, job_id: QProvingJobDataID) -> anyhow::Result<()> {
         use psy_core::job::traits::QProofStoreReaderAsync;
-        let bytes = build_ctx.proof_store.get_bytes_by_id(job_id.job_id).await?;
+        let bytes = build_ctx.proof_store.get_bytes_by_id(job_id).await?;
         // Deserialize realm result
         let realm_result: GUTARealmCheckpointResult<F> = bincode::deserialize(&bytes)?;
         // Get proof with retry
@@ -591,12 +591,11 @@ impl RealmProcessor {
         }
     }
 
-    pub async fn build_block(&self, build_ctx: &ConcreteRealmProcessorContext, next_checkpoint_id: u64) -> anyhow::Result<ProvingJobDataId> {
+    pub async fn build_block(&self, build_ctx: &ConcreteRealmProcessorContext, next_checkpoint_id: u64) -> anyhow::Result<QProvingJobDataID> {
         let slot = self.slot_timer.get_current_slot();
         build_ctx
             .build_block(slot)
             .await
-            .map(|job_id| ProvingJobDataId::new(next_checkpoint_id, job_id))
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {
