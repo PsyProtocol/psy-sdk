@@ -9,14 +9,14 @@ license = "Apache-2.0"
 [dependencies]
 reth-mdbx-sys = { path = "./mdbx-sys" }
 
-bitflags = "2.4"
-byteorder = "1.5"
+bitflags = { workspace = true }
+byteorder = { workspace = true }
 derive_more = "0.99"
-indexmap = "2.0"
-parking_lot = "0.12"
-smallvec = "1.11"
+indexmap = { workspace = true }
+parking_lot = { workspace = true }
+smallvec = { workspace = true }
 thiserror = "1.0"
-tracing = "0.1"
+tracing = { workspace = true }
 
 dashmap = { version = "5.5", features = ["inline"], optional = true }
 

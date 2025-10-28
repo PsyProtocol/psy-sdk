@@ -77,7 +77,7 @@ http = { workspace = true }
 
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-reqwest = { version = "0.12", default-features = false, features = ["json"] }
+reqwest = { workspace = true, features = ["json"] }
 
 
 [package.metadata.wasm-pack.profile.release]

@@ -63,5 +63,5 @@ k256 = { workspace = true }
 ecdsa = { workspace = true }
 alloy-primitives = { workspace = true }
 sha2 = { workspace = true }
-aws-config = "1.0"
-aws-sdk-s3 = "1.0"
+aws-config = { workspace = true }
+aws-sdk-s3 = { workspace = true }
