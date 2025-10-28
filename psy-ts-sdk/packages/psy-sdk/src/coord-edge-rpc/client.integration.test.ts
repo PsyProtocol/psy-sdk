@@ -90,8 +90,8 @@ function expectPsyCheckpointLeaf(value: any) {
     // expect(typeof value.end_balance).toBe("number");
 }
 
-// function expectPsyL2BlockState(value: any) {
-//     // PsyL2BlockState has the same structure as PsyCheckpointLeaf
+// function expectPsyBlockState(value: any) {
+//     // PsyBlockState has the same structure as PsyCheckpointLeaf
 //     expectPsyCheckpointLeaf(value);
 // }
 
@@ -258,35 +258,35 @@ describe("CoordinatorEdgeRpcProvider Integration Tests", () => {
         }
     });
 
-    // --- L2 Block State Tests ---
+    // --- Block State Tests ---
 
-    it("getLatestL2BlockState should return PsyL2BlockState", async () => {
+    it("getLatestBlockState should return PsyBlockState", async () => {
         try {
-            const result = await client.getLatestL2BlockState();
-            // expectPsyL2BlockState(result);
-            console.log("getLatestL2BlockState result:", result);
+            const result = await client.getLatestBlockState();
+            // expectPsyBlockState(result);
+            console.log("getLatestBlockState result:", result);
         } catch (error) {
-            console.warn("getLatestL2BlockState failed:", error);
+            console.warn("getLatestBlockState failed:", error);
         }
     });
 
-    it("getL2BlockState should return PsyL2BlockState", async () => {
+    it("getBlockState should return PsyBlockState", async () => {
         try {
-            const result = await client.getL2BlockState(mockCheckpointIdNum);
-            // expectPsyL2BlockState(result);
-            console.log("getL2BlockState result:", result);
+            const result = await client.getBlockState(mockCheckpointIdNum);
+            // expectPsyBlockState(result);
+            console.log("getBlockState result:", result);
         } catch (error) {
-            console.warn("getL2BlockState failed:", error);
+            console.warn("getBlockState failed:", error);
         }
     });
 
-    it("getL2BlockStateF should return PsyL2BlockState", async () => {
+    it("getBlockStateF should return PsyBlockState", async () => {
         try {
-            const result = await client.getL2BlockStateF(mockCheckpointIdBigInt);
-            // expectPsyL2BlockState(result);
-            console.log("getL2BlockStateF result:", result);
+            const result = await client.getBlockStateF(mockCheckpointIdBigInt);
+            // expectPsyBlockState(result);
+            console.log("getBlockStateF result:", result);
         } catch (error) {
-            console.warn("getL2BlockStateF failed:", error);
+            console.warn("getBlockStateF failed:", error);
         }
     });
 

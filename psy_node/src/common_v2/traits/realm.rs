@@ -32,9 +32,9 @@ use psy_data::{
         proof_input::{VerifyEndCapSimpleStandardInput, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput},
         stats::GUTAStats,
     },
-    models::checkpoint::block_state::L2BlockStatesModel,
+    models::checkpoint::block_state::BlockStatesModel,
     qdata::{
-        checkpoint::{CheckpointSyncInfo, PsyL2BlockState},
+        checkpoint::{CheckpointSyncInfo, PsyBlockState},
         staging_checkpoint_info::StagingCheckpointInfo,
         ups_end_cap_result::UPSEndCapResultCompact,
         user::PsyUserLeaf,

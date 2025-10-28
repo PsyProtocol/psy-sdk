@@ -15,7 +15,7 @@ pub async fn run(args: CheckTxArgs) -> Result<()> {
 
     let checkpoint_id = match args.checkpoint_id {
         Some(id) => id,
-        None => provider.get_latest_l2_block_state().await?.checkpoint_id,
+        None => provider.get_latest_block_state().await?.checkpoint_id,
     };
 
     let tx_hash = QHashOut::<F>::from_str(&args.tx_hash)?;

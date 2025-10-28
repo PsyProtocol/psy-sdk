@@ -333,7 +333,7 @@ impl<F: RichField> QFieldHashable<F> for PsyCheckpointLeafCompact<F> {
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Copy, Hash, Eq, PartialEq, TS)]
 #[ts(export)]
-pub struct PsyL2BlockState {
+pub struct PsyBlockState {
     pub checkpoint_id: u64,
 
     pub next_add_withdrawal_id: u64,
@@ -348,7 +348,7 @@ pub struct PsyL2BlockState {
 
     pub next_contract_id: u32,
 }
-impl PsyL2BlockState {
+impl PsyBlockState {
     pub fn get_genesis_value() -> Self {
         Self {
             checkpoint_id: 0,
@@ -362,7 +362,7 @@ impl PsyL2BlockState {
         }
     }
 }
-impl KVQSerializable for PsyL2BlockState {
+impl KVQSerializable for PsyBlockState {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         // 7 * 8 + 4 = 60 bytes
         let mut result = Vec::with_capacity(60);
@@ -379,7 +379,7 @@ impl KVQSerializable for PsyL2BlockState {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 60 {
-            anyhow::bail!("expected 60 bytes for deserializing PsyL2BlockState, got {} bytes", bytes.len());
+            anyhow::bail!("expected 60 bytes for deserializing PsyBlockState, got {} bytes", bytes.len());
         }
         let checkpoint_id = u64::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]);
         let next_add_withdrawal_id = u64::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]]);
@@ -481,8 +481,8 @@ impl<F: RichField> psy_core::job::history_queue::HistoryQueueMetadataTagged for 
         // Use the same channel as the compact version for consistency
         psy_core::job::history_queue::HistoryQueueMetadata {
             channel_id: psy_core::config::network_constants::Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
-            checkpoint_id: self.compact.l2_block_state.checkpoint_id,
-            item_id: self.compact.l2_block_state.checkpoint_id,
+            checkpoint_id: self.compact.block_state.checkpoint_id,
+            item_id: self.compact.block_state.checkpoint_id,
         }
     }
 }

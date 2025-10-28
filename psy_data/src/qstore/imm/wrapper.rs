@@ -62,8 +62,8 @@ impl<F: RichField, P: PsyReadCommandProcessorSyncMut<F>> PsyReadCommandProcessor
         self.write()?.resolve_get_checkpoint_leaf_mut(input)
     }
 
-    fn resolve_get_l2_block_state(&self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<PsyL2BlockState> {
-        self.write()?.resolve_get_l2_block_state_mut(input)
+    fn resolve_get_block_state(&self, input: &QSRCmdGetBlockState) -> anyhow::Result<PsyBlockState> {
+        self.write()?.resolve_get_block_state_mut(input)
     }
 }
     */

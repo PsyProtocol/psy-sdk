@@ -356,10 +356,10 @@ export class RpcProvider implements IContractProvider {
         return response.data.result;
     }
 
-    async getLatestL2BlockState(): Promise<any> {
+    async getLatestBlockState(): Promise<any> {
         const request: RpcRequest = {
             jsonrpc: '2.0',
-            method: 'psy_get_latest_l2_block_state',
+            method: 'psy_get_latest_block_state',
             params: [],
             id: this.requestId++,
         };

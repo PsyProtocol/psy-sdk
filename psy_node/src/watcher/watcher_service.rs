@@ -496,8 +496,8 @@ impl WatcherService {
 
     async fn fetch_block_height_from_db(&self) -> Result<u64> {
         let block_state = match self.config.node_type {
-            NodeType::Coordinator => PsyCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?,
-            NodeType::Realm => PsyRealmStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?,
+            NodeType::Coordinator => PsyCoordinatorStoreReaderAsync::get_latest_block_state(&self.psy_store).await?,
+            NodeType::Realm => PsyRealmStoreReaderAsync::get_latest_block_state(&self.psy_store).await?,
         };
 
         Ok(block_state.checkpoint_id)
@@ -585,8 +585,8 @@ impl WatcherService {
 
 async fn fetch_initial_block_height(node_type: &NodeType, store: &PsyStore) -> Result<u64> {
     let block_state = match node_type {
-        NodeType::Coordinator => PsyCoordinatorStoreReaderAsync::get_latest_l2_block_state(store).await?,
-        NodeType::Realm => PsyRealmStoreReaderAsync::get_latest_l2_block_state(store).await?,
+        NodeType::Coordinator => PsyCoordinatorStoreReaderAsync::get_latest_block_state(store).await?,
+        NodeType::Realm => PsyRealmStoreReaderAsync::get_latest_block_state(store).await?,
     };
 
     Ok(block_state.checkpoint_id)

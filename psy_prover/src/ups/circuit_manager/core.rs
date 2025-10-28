@@ -11,7 +11,7 @@ use plonky2::{
 };
 use psy_common_circuit::{
     circuits::{
-        l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
+        secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
     },
     treeprover::qrecursion::standard::manager::{
         leaf_circuit_set::QStandardBinaryRecursionTreeCircuitSet,
@@ -83,7 +83,7 @@ where
     pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
 
     pub zk_circuit: PsyBasicZKSignatureCircuit<C, D>,
-    pub secp_circuit: L1Secp256K1SignatureCircuit<C, D>,
+    pub secp_circuit: Secp256K1SignatureCircuit<C, D>,
 }
 
 impl<C: GenericConfig<D> + 'static, const D: usize> PsyUPSStepCircuitManager<C, D>
@@ -152,7 +152,7 @@ where
             ups_cfc_deferred_tx_whitelist_proof,
             contract_circuits: DashMap::new(),
             zk_circuit: PsyBasicZKSignatureCircuit::new(),
-            secp_circuit: L1Secp256K1SignatureCircuit::new(),
+            secp_circuit: Secp256K1SignatureCircuit::new(),
         }
     }
 

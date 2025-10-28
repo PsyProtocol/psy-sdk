@@ -10,7 +10,7 @@ use psy_data::{
         kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore,
     },
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
         user::PsyUserLeaf,
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
@@ -33,12 +33,12 @@ impl<T: KVQBinaryStore> PsyRealmStoreReaderAsync<F> for T {
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<PsyCheckpointLeaf<F>> {
         <Self as QMetaDataStoreReaderSync<F>>::get_checkpoint_leaf_data(self, checkpoint_id).await
     }
-    async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState> {
-        Ok(CheckpointSyncInfoTableStore::<Self>::get_latest_checkpoint_sync_info_compact(self)?.l2_block_state)
+    async fn get_latest_block_state(&self) -> anyhow::Result<PsyBlockState> {
+        Ok(CheckpointSyncInfoTableStore::<Self>::get_latest_checkpoint_sync_info_compact(self)?.block_state)
     }
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyL2BlockState> {
-        Ok(CheckpointSyncInfoTableStore::<Self>::get_checkpoint_sync_info_compact_or_latest(self, checkpoint_id)?.l2_block_state)
+    async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyBlockState> {
+        Ok(CheckpointSyncInfoTableStore::<Self>::get_checkpoint_sync_info_compact_or_latest(self, checkpoint_id)?.block_state)
     }
 
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {

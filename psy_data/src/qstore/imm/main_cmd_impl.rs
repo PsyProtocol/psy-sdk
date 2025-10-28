@@ -4,14 +4,14 @@ use psy_crypto::hash::merkle::core::MerkleProofCore;
 
 use super::{
     cmd::{
-        QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetL2BlockState, QSRCmdGetUserLeafData,
+        QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetBlockState, QSRCmdGetUserLeafData,
         QSRHashCmd, QSRMerkleCmd,
     },
     cmd_processor::{PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync},
 };
 use crate::{
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{PsyCheckpointLeaf, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },
@@ -38,9 +38,9 @@ impl<F: RichField, R: PsyComboDataStoreReaderSync<F> + Sync> PsyReadCommandProce
         for x in &input.get_checkpoint_leaf {
             get_checkpoint_leaf.push(self.resolve_get_checkpoint_leaf(x).await?);
         }
-        let mut get_l2_block_state = Vec::new();
-        for x in &input.get_l2_block_state {
-            get_l2_block_state.push(self.resolve_get_l2_block_state(x).await?);
+        let mut get_block_state = Vec::new();
+        for x in &input.get_block_state {
+            get_block_state.push(self.resolve_get_block_state(x).await?);
         }
         let mut get_merkle_proof = Vec::new();
         for x in &input.get_merkle_proof {
@@ -55,7 +55,7 @@ impl<F: RichField, R: PsyComboDataStoreReaderSync<F> + Sync> PsyReadCommandProce
             get_contract_leaf: get_contract_leaf,
             get_contract_code: get_contract_code,
             get_checkpoint_leaf: get_checkpoint_leaf,
-            get_l2_block_state: get_l2_block_state,
+            get_block_state: get_block_state,
             get_merkle_proof: get_merkle_proof,
             get_hash: get_hash,
         })
@@ -128,11 +128,11 @@ impl<F: RichField, R: PsyComboDataStoreReaderSync<F> + Sync> PsyReadCommandProce
         self.get_checkpoint_leaf_data(input.checkpoint_id).await
     }
 
-    async fn resolve_get_l2_block_state(&self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<PsyL2BlockState> {
-        self.get_l2_block_state(input.checkpoint_id).await
+    async fn resolve_get_block_state(&self, input: &QSRCmdGetBlockState) -> anyhow::Result<PsyBlockState> {
+        self.get_block_state(input.checkpoint_id).await
     }
 
-    async fn resolve_get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState> {
-        self.get_latest_l2_block_state().await
+    async fn resolve_get_latest_block_state(&self) -> anyhow::Result<PsyBlockState> {
+        self.get_latest_block_state().await
     }
 }

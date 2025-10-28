@@ -108,13 +108,13 @@ where
 
     async fn update_local_checkpoint(&mut self) -> bool {
         trace!("Starting active checkpoint sync cycle...");
-        match self.store_reader.get_latest_l2_block_state().await {
+        match self.store_reader.get_latest_block_state().await {
             Ok(state) => {
                 self.current_local_checkpoint_id = state.checkpoint_id;
                 self.is_genesis = true;
             }
             Err(e) => {
-                warn!("Failed to get latest L2 block state: {:?}", e);
+                warn!("Failed to get latest block state: {:?}", e);
                 if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>() {
                     self.current_local_checkpoint_id = 0;
                     self.is_genesis = false;
@@ -197,7 +197,7 @@ where
         if self.is_up_to_date() {
             warn!(
                 expected = next_checkpoint_id,
-                received = sync_info.compact.l2_block_state.checkpoint_id,
+                received = sync_info.compact.block_state.checkpoint_id,
                 latest = sync_info.latest_checkpoint_id,
                 "Received out-of-order checkpoint sync info from coordinator. Retrying cycle."
             );

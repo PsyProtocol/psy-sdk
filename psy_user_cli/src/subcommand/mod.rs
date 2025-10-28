@@ -81,8 +81,8 @@ pub enum Commands {
     GetContractLeafData(crate::subcommand::args::ContractLeafDataArgs),
     GetCheckpointLeafData(crate::subcommand::args::CheckpointLeafDataArgs),
     GetContractCodeDefinition(crate::subcommand::args::ContractCodeDefinitionArgs),
-    GetLatestL2BlockState(crate::subcommand::args::LatestL2BlockStateArgs),
-    GetL2BlockState(crate::subcommand::args::L2BlockStateArgs),
+    GetLatestBlockState(crate::subcommand::args::LatestBlockStateArgs),
+    GetBlockState(crate::subcommand::args::BlockStateArgs),
 
     // session
     WalletSession(WalletSessionArgs),

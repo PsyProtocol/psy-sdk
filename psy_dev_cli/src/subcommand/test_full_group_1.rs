@@ -210,15 +210,15 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     )
     .await?;
 
-    let latest = store_reader.get_latest_l2_block_state().await?;
+    let latest = store_reader.get_latest_block_state().await?;
     let new_sync = store_reader.get_checkpoint_sync_info_compact(latest.checkpoint_id).await?;
 
     realm_processor_node.handle_checkpoint_sync(new_sync).await?;
 
-    let latest_l2_block_state = st.get_latest_l2_block_state().await?;
+    let latest_block_state = st.get_latest_block_state().await?;
 
     //let stroots =
-    // st.get_checkpoint_global_state_roots(latest_l2_block_state.checkpoint_id).
+    // st.get_checkpoint_global_state_roots(latest_block_state.checkpoint_id).
     // await?; println!("[mainfnc] current_state_roots:
     // {}",serde_json::to_string_pretty(&stroots).unwrap());
 
@@ -229,7 +229,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("end: init PsyUPSStepCircuitManager");
 
-    let user_0_pub_key = st.get_user_registration_tree_leaf_hash(latest_l2_block_state.checkpoint_id, 0).await?;
+    let user_0_pub_key = st.get_user_registration_tree_leaf_hash(latest_block_state.checkpoint_id, 0).await?;
     let priv_key_user_0 = if pub_key_0.qfhash::<PsyHasher>() == user_0_pub_key {
         priv_key_0
     } else if pub_key_1.qfhash::<PsyHasher>() == user_0_pub_key {
@@ -240,7 +240,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let lps: PsyLocalProvingSessionStore<GoldilocksField, Arc<KVQlibmdbxStore>> = PsyLocalProvingSessionStore::new_at(
         store_reader.clone(),
-        GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
+        GoldilocksField::from_noncanonical_u64(latest_block_state.checkpoint_id),
         GoldilocksField::from_noncanonical_u64(0),
         GoldilocksField::ONE,
         UPS_SESSION_PROOF_TREE_HEIGHT as usize,
@@ -329,7 +329,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         .await?;
 
     // let user_0_pub_key =
-    // st.get_user_registration_tree_leaf_hash(latest_l2_block_state.checkpoint_id,
+    // st.get_user_registration_tree_leaf_hash(latest_block_state.checkpoint_id,
     // 0).await?; let priv_key_user_0 = if pub_key_0.qfhash::<PsyHasher>() ==
     // user_0_pub_key {     priv_key_0
     // }else if pub_key_1.qfhash::<PsyHasher>() == user_0_pub_key {
@@ -384,7 +384,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     )
     .await?;
 
-    let latest = store_reader.get_latest_l2_block_state().await?;
+    let latest = store_reader.get_latest_block_state().await?;
     let new_sync = store_reader.get_checkpoint_sync_info_compact(latest.checkpoint_id).await?;
 
     realm_processor_node.handle_checkpoint_sync(new_sync).await?;

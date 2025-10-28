@@ -7,7 +7,7 @@ use psy_crypto::hash::merkle::{
 };
 use psy_data::{
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },
@@ -26,11 +26,11 @@ pub trait PsyRealmStoreReaderAsync<F: RichField> {
         <Self as PsyRealmStoreReaderAsync<F>>::get_checkpoint_leaf_data(self, checkpoint_id.to_canonical_u64()).await
     }
 
-    async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState>;
+    async fn get_latest_block_state(&self) -> anyhow::Result<PsyBlockState>;
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyL2BlockState>;
-    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<PsyL2BlockState> {
-        <Self as PsyRealmStoreReaderAsync<F>>::get_l2_block_state(self, checkpoint_id.to_canonical_u64()).await
+    async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyBlockState>;
+    async fn get_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<PsyBlockState> {
+        <Self as PsyRealmStoreReaderAsync<F>>::get_block_state(self, checkpoint_id.to_canonical_u64()).await
     }
 
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;

@@ -35,7 +35,7 @@ use psy_data::{
     config::store_config::UserPublicKeyTableStore,
     models::checkpoint::user_public_keys::PsyUserPublicKeyHelperModelCore,
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user_public_key::PsyUserPublicKeyRecord,
     },
@@ -61,11 +61,11 @@ pub trait PsyCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
     async fn get_contract_code_definition_f(&self, contract_id: F) -> anyhow::Result<ContractCodeDefinition> {
         <Self as PsyCoordinatorStoreReaderAsync<F>>::get_contract_code_definition(self, contract_id.to_canonical_u64()).await
     }
-    async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState>;
+    async fn get_latest_block_state(&self) -> anyhow::Result<PsyBlockState>;
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyL2BlockState>;
-    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<PsyL2BlockState> {
-        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_l2_block_state(self, checkpoint_id.to_canonical_u64()).await
+    async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyBlockState>;
+    async fn get_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<PsyBlockState> {
+        <Self as PsyCoordinatorStoreReaderAsync<F>>::get_block_state(self, checkpoint_id.to_canonical_u64()).await
     }
 
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>>;
@@ -418,7 +418,7 @@ pub trait PsyCoordinatorStoreWriterAsyncImm<F: RichField> {
         .await
     }
 
-    async fn set_l2_block_state_imm(&self, block_state: &PsyL2BlockState) -> anyhow::Result<()>;
+    async fn set_block_state_imm(&self, block_state: &PsyBlockState) -> anyhow::Result<()>;
     async fn set_checkpoint_sync_info_imm(&self, sync_info: PsyCheckpointSyncInfoCompact<F>) -> anyhow::Result<()>;
     async fn initialize_store(&self, params: Option<InitializeParams<F>>) -> anyhow::Result<u64>;
 

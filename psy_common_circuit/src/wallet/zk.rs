@@ -5,7 +5,7 @@ use plonky2::plonk::{
     proof::ProofWithPublicInputs,
 };
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::signature::zk::wallet::SimpleL2PrivateKey;
+use psy_crypto::signature::zk::wallet::SimplePrivateKey;
 
 use crate::circuits::{
     traits::qstandard::QStandardCircuit,
@@ -101,7 +101,7 @@ where
         }
     }
     pub fn get_fingerprint_public_key_for_private_key(&self, private_key: QHashOut<C::F>) -> QHashOut<C::F> {
-        let pk = SimpleL2PrivateKey::new(private_key);
+        let pk = SimplePrivateKey::new(private_key);
         let hash_public_key = pk.get_public_key::<C::Hasher>();
         let fixed_circuit = ZKSignatureCircuitSimpleFixedPublicKey::new_from_isc(&self.inner_circuit, hash_public_key);
         fixed_circuit.get_fingerprint()
@@ -113,7 +113,7 @@ where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     fn zk_sign(&self, private_key: QHashOut<C::F>, action_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let pk = SimpleL2PrivateKey::new(private_key);
+        let pk = SimplePrivateKey::new(private_key);
         let hash_public_key = pk.get_public_key::<C::Hasher>();
         let fingeprint_result = self.hash_public_key_to_fingerprint.get(&hash_public_key);
         if fingeprint_result.is_some() {
@@ -306,7 +306,7 @@ where
     }
 
     fn add_private_key(&mut self, private_key: QHashOut<C::F>) -> QHashOut<C::F> {
-        let pk = SimpleL2PrivateKey::new(private_key);
+        let pk = SimplePrivateKey::new(private_key);
         let hash_public_key = pk.get_public_key::<C::Hasher>();
         let public_key = self.basic_wallet.add_hash_public_key(hash_public_key);
         self.fingerprint_public_key_to_private_key.insert(public_key, private_key);

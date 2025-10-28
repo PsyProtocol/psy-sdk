@@ -42,7 +42,7 @@ where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
-        //let public_key = SimpleL2PrivateKey::new(private_key).get_public_key();
+        //let public_key = SimplePrivateKey::new(private_key).get_public_key();
 
         let config = CircuitConfig::standard_recursion_zk_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);

@@ -39,7 +39,7 @@ use psy_data::{
     models::checkpoint::sync_info::PsyCheckpointSyncInfoModelReaderCore,
     qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{
-        checkpoint::{CheckpointSyncInfo, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{CheckpointSyncInfo, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },
@@ -141,7 +141,7 @@ impl CoordinatorEdgeHandler {
     }
 
     async fn get_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
-        let block_state = PsyCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await?;
+        let block_state = PsyCoordinatorStoreReaderAsync::get_latest_block_state(&*self.store).await?;
         Ok(block_state.checkpoint_id)
     }
 
@@ -443,19 +443,19 @@ impl CoordinatorEdgeHandler {
     pub async fn get_contract_code_definition_f(&self, contract_id: F) -> anyhow::Result<ContractCodeDefinition> {
         PsyCoordinatorStoreReaderAsync::get_contract_code_definition_f(&*self.store, contract_id).await
     }
-    // async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState>;
-    pub async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState> {
-        PsyCoordinatorStoreReaderAsync::get_latest_l2_block_state(&*self.store).await
+    // async fn get_latest_block_state(&self) -> anyhow::Result<PsyBlockState>;
+    pub async fn get_latest_block_state(&self) -> anyhow::Result<PsyBlockState> {
+        PsyCoordinatorStoreReaderAsync::get_latest_block_state(&*self.store).await
     }
-    // async fn get_l2_block_state(&self, checkpoint_id: u64) ->
-    // anyhow::Result<PsyL2BlockState>;
-    pub async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyL2BlockState> {
-        PsyCoordinatorStoreReaderAsync::get_l2_block_state(&*self.store, checkpoint_id).await
+    // async fn get_block_state(&self, checkpoint_id: u64) ->
+    // anyhow::Result<PsyBlockState>;
+    pub async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyBlockState> {
+        PsyCoordinatorStoreReaderAsync::get_block_state(&*self.store, checkpoint_id).await
     }
-    // async fn get_l2_block_state_f(&self, checkpoint_id: F) ->
-    // anyhow::Result<PsyL2BlockState>;
-    pub async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<PsyL2BlockState> {
-        PsyCoordinatorStoreReaderAsync::get_l2_block_state_f(&*self.store, checkpoint_id).await
+    // async fn get_block_state_f(&self, checkpoint_id: F) ->
+    // anyhow::Result<PsyBlockState>;
+    pub async fn get_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<PsyBlockState> {
+        PsyCoordinatorStoreReaderAsync::get_block_state_f(&*self.store, checkpoint_id).await
     }
     // async fn get_user_registration_tree_root(&self, checkpoint_id: u64) ->
     // anyhow::Result<QHashOut<F>>;
@@ -897,16 +897,16 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         self.get_checkpoint_global_state_roots(checkpoint_id).await.map_err(RpcError::Anyhow)
     }
 
-    async fn get_latest_l2_block_state(&self) -> RpcResult<PsyL2BlockState> {
-        self.get_latest_l2_block_state().await.map_err(RpcError::Anyhow)
+    async fn get_latest_block_state(&self) -> RpcResult<PsyBlockState> {
+        self.get_latest_block_state().await.map_err(RpcError::Anyhow)
     }
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<PsyL2BlockState> {
-        self.get_l2_block_state(checkpoint_id).await.map_err(RpcError::Anyhow)
+    async fn get_block_state(&self, checkpoint_id: u64) -> RpcResult<PsyBlockState> {
+        self.get_block_state(checkpoint_id).await.map_err(RpcError::Anyhow)
     }
 
-    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyL2BlockState> {
-        self.get_l2_block_state_f(checkpoint_id).await.map_err(RpcError::Anyhow)
+    async fn get_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyBlockState> {
+        self.get_block_state_f(checkpoint_id).await.map_err(RpcError::Anyhow)
     }
 
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {

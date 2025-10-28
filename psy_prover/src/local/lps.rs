@@ -9,7 +9,7 @@ use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
     config::store_config::PsyHasher,
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{PsyCheckpointLeaf, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf, SimpleContractCodeDefinition},
         user::{self, PsyUserLeaf},
     },
@@ -1121,44 +1121,44 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self))]
-    async fn get_latest_l2_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyL2BlockState> {
-        info!("Fetching latest L2 block state");
+    async fn get_latest_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
+        info!("Fetching latest block state");
         let rpc_url = self.get_coordinator_url()?;
-        let input = QLatestL2BlockStateRPCRequest {};
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetLatestL2BlockState(input), PsyL2BlockState);
+        let input = QLatestBlockStateRPCRequest {};
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetLatestBlockState(input), PsyBlockState);
         match response.result {
             ResponseResult::Success(block_state) => {
                 debug!(
                     block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
-                    "Successfully fetched L2 block state"
+                    "Successfully fetched block state"
                 );
                 Ok(block_state)
             }
             ResponseResult::Error(e) => {
                 error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_latest_l2_block_state rpc call failed `{:?}`", e))
+                Err(anyhow::format_err!("get_latest_block_state rpc call failed `{:?}`", e))
             }
         }
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyL2BlockState> {
-        info!("Fetching L2 block state checkpoint_id: {}", checkpoint_id);
+    async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
+        info!("Fetching block state checkpoint_id: {}", checkpoint_id);
         let rpc_url = self.get_coordinator_url()?;
-        let input = QL2BlockStateRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetL2BlockState(input), PsyL2BlockState);
+        let input = QBlockStateRPCRequest { checkpoint_id };
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetBlockState(input), PsyBlockState);
         match response.result {
             ResponseResult::Success(block_state) => {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
-                    "Successfully fetched L2 block state"
+                    "Successfully fetched block state"
                 );
                 Ok(block_state)
             }
             ResponseResult::Error(e) => {
                 error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_l2_block_state rpc call failed `{:?}`", e))
+                Err(anyhow::format_err!("get_block_state rpc call failed `{:?}`", e))
             }
         }
     }

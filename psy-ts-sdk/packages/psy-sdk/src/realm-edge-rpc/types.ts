@@ -3,7 +3,7 @@ import {
     ProofWithPublicInputs,
     PsyCheckpointGlobalStateRoots,
     PsyCheckpointLeaf,
-    PsyL2BlockState,
+    PsyBlockState,
     PsyUserLeaf,
     SubmitUserEndCapNonProofInput,
 } from "../types";
@@ -14,9 +14,9 @@ export enum RealmEdgeRPCCommand {
     SubmitUserEndCap = "psy_submit_user_end_cap",
     GetCheckpointLeafData = "psy_get_checkpoint_leaf_data",
     GetCheckpointLeafDataF = "psy_get_checkpoint_leaf_data_f",
-    GetLatestL2BlockState = "psy_get_latest_l2_block_state",
-    GetL2BlockState = "psy_get_l2_block_state",
-    GetL2BlockStateF = "psy_get_l2_block_state_f",
+    GetLatestBlockState = "psy_get_latest_block_state",
+    GetBlockState = "psy_get_block_state",
+    GetBlockStateF = "psy_get_block_state_f",
     GetUserRegistrationTreeRoot = "psy_get_user_registration_tree_root",
     GetLatestCheckpointTreeRoot = "psy_get_latest_checkpoint_tree_root",
     GetCheckpointTreeRoot = "psy_get_checkpoint_tree_root",
@@ -68,10 +68,10 @@ export interface IRealmEdgeRpcProvider {
     getCheckpointLeafData(checkpointId: Felt): Promise<PsyCheckpointLeaf>;
     getCheckpointLeafDataF(checkpointId: Felt): Promise<PsyCheckpointLeaf>;
 
-    // Get L2 block state
-    getLatestL2BlockState(): Promise<PsyL2BlockState>;
-    getL2BlockState(checkpointId: Felt): Promise<PsyL2BlockState>;
-    getL2BlockStateF(checkpointId: Felt): Promise<PsyL2BlockState>;
+    // Get block state
+    getLatestBlockState(): Promise<PsyBlockState>;
+    getBlockState(checkpointId: Felt): Promise<PsyBlockState>;
+    getBlockStateF(checkpointId: Felt): Promise<PsyBlockState>;
 
     // Get user registration tree root
     getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut>;

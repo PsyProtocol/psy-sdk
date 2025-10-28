@@ -8,7 +8,7 @@ use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
     signature::{
         secp256k1::wallet::{CompressedPublicKeyToP2PKH, MemorySecp256K1Wallet},
-        zk::wallet::{SimpleL2PrivateKey, SimplePsyPrivateKey},
+        zk::wallet::{SimplePrivateKey, SimplePsyPrivateKey},
     },
 };
 use psy_data::config::store_config::PsyHasher;

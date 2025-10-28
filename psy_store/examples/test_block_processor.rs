@@ -36,7 +36,7 @@ async fn test_simple_block_processor() -> anyhow::Result<()> {
         update_users: vec![],
     };
     SimpleBlockProcessor::process_block(&st, &block_0_cmds, &circuit_fingerprints).await?;
-    let latest_block_st = st.get_latest_l2_block_state().await?;
+    let latest_block_st = st.get_latest_block_state().await?;
     println!("latest_block_st: {:?}", latest_block_st);
     Ok(())
 }

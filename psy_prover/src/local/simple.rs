@@ -20,7 +20,7 @@ use psy_data::{
         api::{SubmitUserEndCapProofAPIInput, SubmitUserEndCapProofIDAPIInput},
         proof_input::{VerifyEndCapSimpleStandardInput, VerifyTwoEndCapCircuitInput, VerifyTwoEndCapCircuitWithIdsInput},
     },
-    qdata::checkpoint::PsyL2BlockState,
+    qdata::checkpoint::PsyBlockState,
     traits::qdatastore::qtreedata::PsyComboDataStoreReaderWriterSync,
 };
 use psy_network_circuit::guta::guta_helper::PsyGUTACircuitManager;
@@ -41,7 +41,7 @@ pub struct SimpleAPI<
 
     next_block_mempool_updates: HashMap<u64, SubmitUserEndCapProofIDAPIInput<F>>,
 
-    latest_l2_block_state: PsyL2BlockState,
+    latest_block_state: PsyBlockState,
 
     _f: PhantomData<F>,
 }
@@ -57,13 +57,13 @@ where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
     pub async fn new(proof_store: PS, state_store: SS, guta_circuits: PsyGUTACircuitManager<C, D>) -> anyhow::Result<Self> {
-        let latest_l2_block_state = state_store.get_latest_l2_block_state().await?;
+        let latest_block_state = state_store.get_latest_block_state().await?;
 
         Ok(Self {
             proof_store,
             state_store,
             guta_circuits,
-            latest_l2_block_state,
+            latest_block_state,
             _f: PhantomData,
             next_block_mempool_updates: HashMap::new(),
         })
@@ -77,10 +77,10 @@ where
 {
     pub fn submit_proof(&mut self, proof_input: SubmitUserEndCapProofAPIInput<F, C, D>) -> anyhow::Result<()> {
         let user_id = proof_input.input.core.state_transition.user_id.to_canonical_u64();
-        let proof_id = QProvingJobDataID::end_cap_proof(self.latest_l2_block_state.checkpoint_id, 0, 0, user_id as u32);
+        let proof_id = QProvingJobDataID::end_cap_proof(self.latest_block_state.checkpoint_id, 0, 0, user_id as u32);
         self.proof_store.set_proof_by_id(proof_id, &proof_input.proof)?;
 
-        let new_checkpoint_id = self.latest_l2_block_state.checkpoint_id + 1;
+        let new_checkpoint_id = self.latest_block_state.checkpoint_id + 1;
 
         for u in proof_input.input.contract_state_updates.iter() {
             let height = u.contract_state_tree_updates[0].siblings.len() as u8;
@@ -116,7 +116,7 @@ where
             let checkpoint_proof = self
                 .state_store
                 .get_checkpoint_tree_merkle_proof(
-                    self.latest_l2_block_state.checkpoint_id,
+                    self.latest_block_state.checkpoint_id,
                     results[i * 2].input.core.checkpoint_id.to_canonical_u64(),
                 )
                 .await?;
@@ -127,7 +127,7 @@ where
                 checkpoint_historical_merkle_proof: checkpoint_proof,
             };
             let dmp_a = self.state_store.set_user_tree_leaf_hash(
-                self.latest_l2_block_state.checkpoint_id,
+                self.latest_block_state.checkpoint_id,
                 results[i * 2].input.core.state_transition.user_id.to_canonical_u64(),
                 results[i * 2].input.core.state_transition.end_user_leaf_hash,
             )?;
@@ -135,7 +135,7 @@ where
             let checkpoint_proof = self
                 .state_store
                 .get_checkpoint_tree_merkle_proof(
-                    self.latest_l2_block_state.checkpoint_id,
+                    self.latest_block_state.checkpoint_id,
                     results[i * 2 + 1].input.core.checkpoint_id.to_canonical_u64(),
                 )
                 .await?;
@@ -146,7 +146,7 @@ where
                 checkpoint_historical_merkle_proof: checkpoint_proof,
             };
             let dmp_b = self.state_store.set_user_tree_leaf_hash(
-                self.latest_l2_block_state.checkpoint_id,
+                self.latest_block_state.checkpoint_id,
                 results[i * 2 + 1].input.core.state_transition.user_id.to_canonical_u64(),
                 results[i * 2 + 1].input.core.state_transition.end_user_leaf_hash,
             )?;
@@ -160,13 +160,13 @@ where
                     nca_proof,
                 },
                 proof_a_id: QProvingJobDataID::end_cap_proof(
-                    self.latest_l2_block_state.checkpoint_id,
+                    self.latest_block_state.checkpoint_id,
                     0,
                     0,
                     results[i * 2].input.core.state_transition.user_id.to_canonical_u64() as u32,
                 ),
                 proof_b_id: QProvingJobDataID::end_cap_proof(
-                    self.latest_l2_block_state.checkpoint_id,
+                    self.latest_block_state.checkpoint_id,
                     0,
                     0,
                     results[i * 2 + 1].input.core.state_transition.user_id.to_canonical_u64() as u32,

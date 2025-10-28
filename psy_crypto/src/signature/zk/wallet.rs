@@ -122,11 +122,11 @@ pub static PRIVATE_KEY_CONSTANTS: [u64; 20] = [
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Hash, Eq, Debug)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct SimpleL2PrivateKey<F: RichField> {
+pub struct SimplePrivateKey<F: RichField> {
     pub private_key: QHashOut<F>,
 }
 
-impl<F: RichField> SimpleL2PrivateKey<F> {
+impl<F: RichField> SimplePrivateKey<F> {
     pub fn new(private_key: QHashOut<F>) -> Self {
         Self { private_key }
     }

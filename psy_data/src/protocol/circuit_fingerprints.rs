@@ -9,7 +9,7 @@ pub struct PsyWorkerToolboxCoreCircuitFingerprints<F: RichField> {
     pub network_magic: u64,
 
     pub zk_signature_wrapper: QHashOut<F>,
-    pub l1_secp256k1_signature: QHashOut<F>,
+    pub secp256k1_signature: QHashOut<F>,
 
     // state transition operations
     pub op_register_user: TPCircuitFingerprintConfig<F>,

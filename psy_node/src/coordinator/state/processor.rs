@@ -69,7 +69,7 @@ use psy_data::{
     qdata::{
         checkpoint::{
             CheckpointSyncInfo, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafCompactWithStateRoots, PsyCheckpointLeafStats,
-            PsyL2BlockState,
+            PsyBlockState,
         },
         contract::PsyContractLeaf,
         pm_jobs_completed_stats::PMJobsCompletedStats,
@@ -223,7 +223,7 @@ impl<
         u32,
         BidirectionalGraph<QProvingJobDataID>,
     )> {
-        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        let last_l2_blockstate = self.store.get_latest_block_state().await?;
 
         let last_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
         tracing::debug!("last_contract_tree_root: {}", last_contract_tree_root);
@@ -366,7 +366,7 @@ impl<
         Vec<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
     )> {
-        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        let last_l2_blockstate = self.store.get_latest_block_state().await?;
 
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
         tracing::debug!("last_user_registration_tree_root: {}", last_user_registration_tree_root);
@@ -1202,7 +1202,7 @@ impl<
 
         self.task_store.clear_task_graph().await?;
 
-        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        let last_l2_blockstate = self.store.get_latest_block_state().await?;
         self.proof_store
             .cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64)
             .await?;
@@ -1392,8 +1392,8 @@ impl<
             .await?;
         debug!("Block proving jobs completed for checkpoint {}", new_checkpoint_id);
 
-        // Update L2 block state
-        let new_l2_block_state = PsyL2BlockState {
+        // Update block state
+        let new_block_state = PsyBlockState {
             checkpoint_id: last_l2_blockstate.checkpoint_id + 1,
             next_add_withdrawal_id: last_l2_blockstate.next_add_withdrawal_id,
             next_process_withdrawal_id: last_l2_blockstate.next_process_withdrawal_id,
@@ -1406,12 +1406,12 @@ impl<
 
         // Save checkpoint data
         self.store.set_checkpoint_leaf_data_imm(new_checkpoint_id, &new_checkpoint_leaf).await?;
-        self.store.set_l2_block_state_imm(&new_l2_block_state).await?;
+        self.store.set_block_state_imm(&new_block_state).await?;
 
         let lf_state = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;
 
         let l2_sync = QCheckpointSyncInfoCompact {
-            l2_block_state: new_l2_block_state,
+            block_state: new_block_state,
             stats: new_checkpoint_leaf.stats,
             state_roots: lf_state,
             checkpoint_tree_update_siblings: checkpoint_dmp.siblings.clone(),

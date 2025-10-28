@@ -37,7 +37,7 @@ impl SimpleBlockProcessor {
         cmds: &PsyBlockCommands<PsyFelt>,
         fingerprints: &PsyWorkerToolboxCoreCircuitFingerprints<PsyFelt>,
     ) -> anyhow::Result<PsyInternalBlockCircuitInputs<PsyFelt>> {
-        let current_block_state = store.get_latest_l2_block_state().await?;
+        let current_block_state = store.get_latest_block_state().await?;
 
         let old_checkpoint_id = current_block_state.checkpoint_id;
         let old_checkpoint_leaf = store.get_checkpoint_leaf_data(old_checkpoint_id).await?;
@@ -150,7 +150,7 @@ impl SimpleBlockProcessor {
 
         let boundry_user_update_merkle_proof = store.get_user_tree_merkle_proof(new_checkpoint_id, boundry_user_id).await?;
         new_block_state.checkpoint_id = new_checkpoint_id;
-        store.set_l2_block_state(&new_block_state)?;
+        store.set_block_state(&new_block_state)?;
 
         let new_state_roots = PsyCheckpointGlobalStateRoots {
             contract_tree_root: store.get_contract_tree_root(new_checkpoint_id).await?,

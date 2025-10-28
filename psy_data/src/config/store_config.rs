@@ -16,7 +16,7 @@ use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use crate::{
     models::{
         checkpoint::{
-            block_state::L2BlockStatesModel, checkpoint_hash::PsyCheckpointHashHelperModel, checkpoint_leaf::PsyCheckpointLeafModel,
+            block_state::BlockStatesModel, checkpoint_hash::PsyCheckpointHashHelperModel, checkpoint_leaf::PsyCheckpointLeafModel,
             sync_info::PsyCheckpointSyncInfoModel, user_public_keys::PsyUserPublicKeyHelperModel,
         },
         contract::{contract_code::ContractCodeModel, contract_leaf::ContractLeafModel},
@@ -29,7 +29,7 @@ use crate::{
         user::user_leaf::UserLeafModel,
     },
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{PsyCheckpointLeaf, PsyBlockState},
         checkpoint_id_key::CheckpointTableIdKey,
         contract::{ContractCodeDefinition, PsyContractLeaf},
         hash_cache_result::PsyHashHelperResult,
@@ -111,8 +111,8 @@ pub type ContractCodeTableStore<S, IDKVA = KVQStandardAdapter<S, CheckpointTable
 pub type CheckpointLeafTableStore<S, IDKVA = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>> =
     PsyCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, IDKVA>;
 
-pub type L2BlockStateTableStore<S, IDKVA = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, PsyL2BlockState>> =
-    L2BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, IDKVA>;
+pub type BlockStateTableStore<S, IDKVA = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, PsyBlockState>> =
+    BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, IDKVA>;
 
 pub type CheckpointSyncInfoTableStore<S, IDKVA = KVQStandardAdapter<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>> =
     PsyCheckpointSyncInfoModel<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, IDKVA>;

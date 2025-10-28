@@ -120,13 +120,13 @@ await client.getCheckpointTreeRoot(checkpointId);
 await client.getCheckpointTreeMerkleProof(checkpointId, leafCheckpointId);
 ```
 
-### L2 Block State
+### Block State
 
 ```typescript
-// Get L2 block state
-await client.getLatestL2BlockState();
-await client.getL2BlockState(checkpointId);
-await client.getL2BlockStateF(checkpointId); // Field version
+// Get block state
+await client.getLatestBlockState();
+await client.getBlockState(checkpointId);
+await client.getBlockStateF(checkpointId); // Field version
 ```
 
 ### User Tree Operations
@@ -269,7 +269,7 @@ const config: ClientConfig = {
         customTtl: new Map([
             // Fast-changing data
             ["psy_get_latest_checkpoint_tree_root", 5000],
-            ["psy_get_latest_l2_block_state", 5000],
+            ["psy_get_latest_block_state", 5000],
 
             // Slow-changing data
             ["psy_get_checkpoint_leaf_data", 300000], // 5 minutes
@@ -335,7 +335,7 @@ import {
     RealmEdgeRPCCommand,
     PsyUserLeaf,
     PsyCheckpointLeaf,
-    PsyL2BlockState,
+    PsyBlockState,
     MerkleProofCore,
     QHashOut,
 } from "@psy/sdk";

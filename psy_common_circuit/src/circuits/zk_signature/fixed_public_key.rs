@@ -52,7 +52,7 @@ where
         inner_sig_circuit_verifier_data: &VerifierOnlyCircuitData<C, D>,
         public_key: QHashOut<C::F>,
     ) -> Self {
-        //let public_key = SimpleL2PrivateKey::new(private_key).get_public_key();
+        //let public_key = SimplePrivateKey::new(private_key).get_public_key();
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);

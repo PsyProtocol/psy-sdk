@@ -47,22 +47,22 @@ pub trait PsyCheckpointSyncInfoModelReaderCore<
         max_results: Option<usize>,
     ) -> anyhow::Result<Vec<QCheckpointSyncInfoCompact>> {
         let latest = Self::get_latest_checkpoint_sync_info_compact(store)?;
-        if latest.l2_block_state.checkpoint_id < start_checkpoint_id {
+        if latest.block_state.checkpoint_id < start_checkpoint_id {
             return Ok(Vec::new());
-        } else if latest.l2_block_state.checkpoint_id == start_checkpoint_id {
+        } else if latest.block_state.checkpoint_id == start_checkpoint_id {
             return Ok(vec![latest]);
         }
 
         let end_checkpoint_id = match max_results {
             Some(x) => start_checkpoint_id + x as u64,
-            None => latest.l2_block_state.checkpoint_id + 1,
+            None => latest.block_state.checkpoint_id + 1,
         }
-        .min(latest.l2_block_state.checkpoint_id + 1);
+        .min(latest.block_state.checkpoint_id + 1);
 
-        if end_checkpoint_id == (latest.l2_block_state.checkpoint_id + 1) {
+        if end_checkpoint_id == (latest.block_state.checkpoint_id + 1) {
             let mut res = KVA::get_many_exact(
                 store,
-                &(start_checkpoint_id..latest.l2_block_state.checkpoint_id)
+                &(start_checkpoint_id..latest.block_state.checkpoint_id)
                     .map(|id| U64TableKey(id))
                     .collect::<Vec<_>>(),
             )?;
@@ -96,12 +96,12 @@ pub trait PsyCheckpointSyncInfoModelCore<
         }
     }
     fn set_checkpoint_sync_info(store: &S, checkpoint_sync_info: QCheckpointSyncInfoCompact) -> anyhow::Result<()> {
-        let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_sync_info.l2_block_state.checkpoint_id);
+        let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_sync_info.block_state.checkpoint_id);
         KVA::set(store, key_id, checkpoint_sync_info)?;
         Ok(())
     }
     fn set_checkpoint_sync_info_ref(store: &S, checkpoint_sync_info: &QCheckpointSyncInfoCompact) -> anyhow::Result<()> {
-        let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_sync_info.l2_block_state.checkpoint_id);
+        let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_sync_info.block_state.checkpoint_id);
         KVA::set_ref(store, &key_id, &checkpoint_sync_info)?;
         Ok(())
     }

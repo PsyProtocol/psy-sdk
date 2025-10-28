@@ -11,12 +11,12 @@ use psy_crypto::hash::merkle::{
 use crate::{
     config::store_config::{
         CheckpointLeafTableStore, CheckpointTreeStore, ContractCodeTableStore, ContractFunctionTreeStore, ContractLeafTableStore, ContractTreeStore,
-        DepositTreeStore, L2BlockStateTableStore, PsyFelt, UserContractTreeStore, UserLeafTableStore, UserRegistrationTreeStore, UserTreeStore,
+        DepositTreeStore, BlockStateTableStore, PsyFelt, UserContractTreeStore, UserLeafTableStore, UserRegistrationTreeStore, UserTreeStore,
         WithdrawalTreeStore, MAX_CHECKPOINT,
     },
     models::{
         checkpoint::{
-            block_state::{L2BlockStatesModelCore, L2BlockStatesModelReaderCore},
+            block_state::{BlockStatesModelCore, BlockStatesModelReaderCore},
             checkpoint_leaf::{PsyCheckpointLeafModelCore, PsyCheckpointLeafModelReaderCore},
         },
         contract::{
@@ -33,7 +33,7 @@ use crate::{
         },
     },
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{PsyCheckpointLeaf, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },
@@ -67,12 +67,12 @@ impl<T: KVQBinaryStore> QMetaDataStoreReaderSync<F> for T {
         ContractCodeTableStore::<T>::get_contract_code_by_id(self, MAX_CHECKPOINT, contract_id)
     }
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyL2BlockState> {
-        L2BlockStateTableStore::<T>::get_block_state_by_id(self, checkpoint_id)
+    async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyBlockState> {
+        BlockStateTableStore::<T>::get_block_state_by_id(self, checkpoint_id)
     }
 
-    async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState> {
-        L2BlockStateTableStore::<T>::get_latest_block_state(self)
+    async fn get_latest_block_state(&self) -> anyhow::Result<PsyBlockState> {
+        BlockStateTableStore::<T>::get_latest_block_state(self)
     }
 }
 
@@ -93,8 +93,8 @@ impl<T: KVQBinaryStore> QMetaDataStoreWriterSync<F> for T {
         ContractCodeTableStore::<T>::set_contract_code_ref(self, checkpoint_id, contract_id, definition)
     }
 
-    fn set_l2_block_state(&self, block_state: &PsyL2BlockState) -> anyhow::Result<()> {
-        L2BlockStateTableStore::<T>::set_block_state_ref(self, block_state)
+    fn set_block_state(&self, block_state: &PsyBlockState) -> anyhow::Result<()> {
+        BlockStateTableStore::<T>::set_block_state_ref(self, block_state)
     }
 }
 

@@ -21,7 +21,7 @@ type QUserEndCapAPIInput = SubmitUserEndCapProofAPIInput<F, C, D>;
 #[async_trait]
 pub trait EdgeContext {
     async fn get_checkpoint_u64<S: PsyRealmStoreReaderAsync<F> + Sync>(store: &S) -> anyhow::Result<u64> {
-        Ok(store.get_latest_l2_block_state().await?.checkpoint_id)
+        Ok(store.get_latest_block_state().await?.checkpoint_id)
     }
     fn get_node_id(&self) -> u32;
     async fn enqueue_user_end_cap_job<PS: QProofStoreWriterSyncImm + Sync>(&self, ps: &PS, job: QProvingJobDataID) -> anyhow::Result<()>;
@@ -65,11 +65,11 @@ pub trait CoordinatorAPIStateHelperImm: EdgeContext {
         checkpoint_sync_info: QCheckpointSyncInfoCompact,
     ) -> anyhow::Result<()> {
         //store.
-        let start_registration_id = checkpoint_sync_info.l2_block_state.next_user_id - checkpoint_sync_info.registered_users.len() as u64;
+        let start_registration_id = checkpoint_sync_info.block_state.next_user_id - checkpoint_sync_info.registered_users.len() as u64;
         let mut new_good_users: Vec<PsyAPIRegisterUserRequestForUserId<F>> = Vec::new();
 
         for (registration_id, reg) in
-            (start_registration_id..checkpoint_sync_info.l2_block_state.next_user_id).zip(checkpoint_sync_info.registered_users.iter())
+            (start_registration_id..checkpoint_sync_info.block_state.next_user_id).zip(checkpoint_sync_info.registered_users.iter())
         {
             let user_id = get_user_id_from_registration_id(registration_id);
             if self.realm_contains_user_id(user_id) {

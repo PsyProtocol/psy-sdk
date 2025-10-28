@@ -11,7 +11,7 @@ use psy_data::{
         realm_status::RealmStatusModelReaderCore,
     },
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         realm_status::BasicRealmStatus,
     },
@@ -37,16 +37,16 @@ impl<T: KVQBinaryStore> PsyCoordinatorStoreReaderAsync<F> for T {
     async fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<ContractCodeDefinition> {
         <Self as QMetaDataStoreReaderSync<F>>::get_contract_code_definition(self, contract_id).await
     }
-    async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState> {
-        let latest_l2_block_state = <Self as QMetaDataStoreReaderSync<F>>::get_latest_l2_block_state(self).await?;
+    async fn get_latest_block_state(&self) -> anyhow::Result<PsyBlockState> {
+        let latest_block_state = <Self as QMetaDataStoreReaderSync<F>>::get_latest_block_state(self).await?;
 
-        // println!("got latest_l2_block_state.checkpoint_id:
-        // {}",latest_l2_block_state.checkpoint_id);
-        Ok(latest_l2_block_state)
+        // println!("got latest_block_state.checkpoint_id:
+        // {}",latest_block_state.checkpoint_id);
+        Ok(latest_block_state)
     }
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyL2BlockState> {
-        <Self as QMetaDataStoreReaderSync<F>>::get_l2_block_state(self, checkpoint_id).await
+    async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyBlockState> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_block_state(self, checkpoint_id).await
     }
 
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {

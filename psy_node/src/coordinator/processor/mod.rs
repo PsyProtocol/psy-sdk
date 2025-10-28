@@ -169,18 +169,18 @@ impl<
 
     pub async fn wait_for_produce_block(&mut self) -> anyhow::Result<bool> {
         // Get current checkpoint to listen from
-        let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
+        let latest_block_state = self.ctx.store.get_latest_block_state().await?;
         let notify_message = self.edge_command_queue.consume_item(COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL).await?;
 
-        let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
+        let latest_block_state = self.ctx.store.get_latest_block_state().await?;
 
         let CEQueueNotification::StartProduceBlock { next_checkpoint } = notify_message;
         debug!(
-            "coordinator: wait_for_produce_block: next_checkpoint: {}, latest_l2_block_state.checkpoint_id: {}",
-            next_checkpoint, latest_l2_block_state.checkpoint_id
+            "coordinator: wait_for_produce_block: next_checkpoint: {}, latest_block_state.checkpoint_id: {}",
+            next_checkpoint, latest_block_state.checkpoint_id
         );
 
-        match next_checkpoint.cmp(&latest_l2_block_state.checkpoint_id) {
+        match next_checkpoint.cmp(&latest_block_state.checkpoint_id) {
             std::cmp::Ordering::Equal => {
                 info!("✅ Building new block for checkpoint {}", next_checkpoint);
                 // No need to delete from history queue, it's already processed
@@ -189,15 +189,15 @@ impl<
             std::cmp::Ordering::Less => {
                 warn!(
                     "⚠️ Outdated checkpoint {}, current {}",
-                    next_checkpoint, latest_l2_block_state.checkpoint_id
+                    next_checkpoint, latest_block_state.checkpoint_id
                 );
                 // No need to delete from history queue, it's already processed
                 return Ok(false);
             }
-            std::cmp::Ordering::Greater if next_checkpoint - latest_l2_block_state.checkpoint_id > 1 => {
+            std::cmp::Ordering::Greater if next_checkpoint - latest_block_state.checkpoint_id > 1 => {
                 warn!(
                     "🚧 Future checkpoint {} too far ahead of {}",
-                    next_checkpoint, latest_l2_block_state.checkpoint_id
+                    next_checkpoint, latest_block_state.checkpoint_id
                 );
                 return Ok(false);
             }
@@ -364,8 +364,8 @@ impl
     }
 
     pub async fn next_checkpoint_id(&self) -> anyhow::Result<u64> {
-        let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
-        Ok(latest_l2_block_state.checkpoint_id + 1)
+        let latest_block_state = self.ctx.store.get_latest_block_state().await?;
+        Ok(latest_block_state.checkpoint_id + 1)
     }
 
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {

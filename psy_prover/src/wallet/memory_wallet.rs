@@ -13,7 +13,7 @@ use plonky2::{
     },
 };
 use psy_common_circuit::circuits::{
-    l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
+    secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
 };
 use psy_core::{
     config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
@@ -50,7 +50,7 @@ type F = GoldilocksField;
 // #[derive(Clone)]
 pub struct PsyMemoryWallet {
     // pub zk_circuit: Option<PsyBasicZKSignatureCircuit<C, D>>,
-    // pub secp_circuit: Option<L1Secp256K1SignatureCircuit<C, D>>,
+    // pub secp_circuit: Option<Secp256K1SignatureCircuit<C, D>>,
     // figerprint, circuit
     pub software_defined_circuits: DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
     pub circuit_manager: Vec<Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync>>,
@@ -245,7 +245,7 @@ mod tests {
 
     use anyhow::Result;
     use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-    use psy_common_circuit::circuits::{l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit};
+    use psy_common_circuit::circuits::{secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit};
     use psy_core::data::qhashout::QHashOut;
 
     use super::*;
@@ -293,7 +293,7 @@ mod tests {
         println!("  Message: {:?}", hex::encode(&secp_signature.message.0));
 
         // Create L1 SECP256K1 signature circuit and test
-        let l1_circuit = L1Secp256K1SignatureCircuit::<C, D>::new();
+        let l1_circuit = Secp256K1SignatureCircuit::<C, D>::new();
 
         println!("Created L1 SECP256K1 circuit, fingerprint: {}", l1_circuit.get_fingerprint());
 
@@ -367,7 +367,7 @@ mod tests {
         println!("  Message: {:?}", hex::encode(&secp_signature.message.0));
 
         // Create L1 SECP256K1 signature circuit and test
-        let l1_circuit = L1Secp256K1SignatureCircuit::<C, D>::new();
+        let l1_circuit = Secp256K1SignatureCircuit::<C, D>::new();
 
         println!("Created L1 SECP256K1 circuit, fingerprint: {}", l1_circuit.get_fingerprint());
 

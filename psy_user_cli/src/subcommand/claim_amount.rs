@@ -10,7 +10,7 @@ pub async fn run(args: ClaimAmountArgs) -> Result<()> {
 
     let checkpoint_id = match args.checkpoint_id {
         Some(id) => id,
-        None => provider.get_latest_l2_block_state().await?.checkpoint_id,
+        None => provider.get_latest_block_state().await?.checkpoint_id,
     };
 
     let claim_amount = provider.get_claim_amount(checkpoint_id, args.user_id, args.claim_user_id).await?;

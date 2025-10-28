@@ -70,8 +70,8 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         .await?;
     let user_id = provider.get_user_id(user_pk_hash).await?;
 
-    let latest_l2_block_state = provider.get_latest_l2_block_state().await?;
-    let latest_checkpoint_id = latest_l2_block_state.checkpoint_id;
+    let latest_block_state = provider.get_latest_block_state().await?;
+    let latest_checkpoint_id = latest_block_state.checkpoint_id;
 
     info!("Latest checkpoint: {}", latest_checkpoint_id);
 

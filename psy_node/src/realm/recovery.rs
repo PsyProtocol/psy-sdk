@@ -216,7 +216,7 @@ impl RealmRecoveryManager {
 
     pub async fn verify_recovery(&self, expected_checkpoint: Option<u64>) -> Result<()> {
         if let Some(expected_checkpoint) = expected_checkpoint {
-            let latest_state = self.store.get_latest_l2_block_state().await?;
+            let latest_state = self.store.get_latest_block_state().await?;
             if latest_state.checkpoint_id == expected_checkpoint {
                 info!("✅ Successfully recovered to checkpoint {}", latest_state.checkpoint_id);
             } else {

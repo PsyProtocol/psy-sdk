@@ -15,8 +15,8 @@ export enum CoordinatorRpcMethods {
 
     // Block operations
     BUILD_BLOCK = 'psy_build_block',
-    GET_LATEST_L2_BLOCK_STATE = 'psy_get_latest_l2_block_state',
-    GET_L2_BLOCK_STATE = 'psy_get_l2_block_state',
+    GET_LATEST_BLOCK_STATE = 'psy_get_latest_block_state',
+    GET_BLOCK_STATE = 'psy_get_block_state',
 
     // User operations
     REGISTER_USER = 'psy_register_user',
@@ -53,8 +53,8 @@ export enum RealmRpcMethods {
 
     // Some methods might be available on both endpoints
     // These are typically replicated for performance
-    GET_LATEST_L2_BLOCK_STATE_REALM = 'psy_get_latest_l2_block_state',
-    GET_L2_BLOCK_STATE_REALM = 'psy_get_l2_block_state',
+    GET_LATEST_BLOCK_STATE_REALM = 'psy_get_latest_block_state',
+    GET_BLOCK_STATE_REALM = 'psy_get_block_state',
     GET_CHECKPOINT_LEAF_DATA_REALM = 'psy_get_checkpoint_leaf_data',
     GET_CHECKPOINT_TREE_ROOT_REALM = 'psy_get_checkpoint_tree_root',
     GET_USER_TREE_ROOT_REALM = 'psy_get_user_tree_root',
@@ -90,7 +90,7 @@ export const RPC_METHOD_MAPPING: RpcMethodInfo[] = [
     { method: 'psy_get_user_bottom_tree_merkle_proof', endpoint: 'realm', description: 'Get user bottom tree merkle proof' },
 
     // Methods available on both endpoints
-    { method: 'psy_get_latest_l2_block_state', endpoint: 'both', description: 'Get latest L2 block state' },
+    { method: 'psy_get_latest_block_state', endpoint: 'both', description: 'Get latest block state' },
     { method: 'psy_get_checkpoint_tree_root', endpoint: 'both', description: 'Get checkpoint tree root' },
     { method: 'psy_get_user_tree_root', endpoint: 'both', description: 'Get user tree root' },
 ];

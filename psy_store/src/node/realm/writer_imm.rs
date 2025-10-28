@@ -90,7 +90,7 @@ impl<T: KVQBinaryStore> PsyRealmStoreWriterAsyncImm<F> for T {
         UserTreeStore::<Self>::smart_injest_nca_fc(self, root_level, checkpoint_id, nodes)
     }
     async fn injest_checkpoint_sync_data_imm(&self, sync_info: PsyCheckpointSyncInfo<F>) -> anyhow::Result<()> {
-        let checkpoint_id = sync_info.core.l2_block_state.checkpoint_id;
+        let checkpoint_id = sync_info.core.block_state.checkpoint_id;
 
         let old_checkpoint_proof = MerkleProofCore {
             root: sync_info.checkpoint_tree_update_proof.old_root,
@@ -113,7 +113,7 @@ impl<T: KVQBinaryStore> PsyRealmStoreWriterAsyncImm<F> for T {
             sync_info.core.checkpoint_leaf_hash,
             sync_info.core.checkpoint_tree_root,
         )?;
-        let start_registration_user_id = sync_info.core.l2_block_state.next_user_id - (sync_info.registered_users.len() as u64);
+        let start_registration_user_id = sync_info.core.block_state.next_user_id - (sync_info.registered_users.len() as u64);
 
         let new_user_records = sync_info
             .registered_users
@@ -142,7 +142,7 @@ impl<T: KVQBinaryStore> PsyRealmStoreWriterAsyncImm<F> for T {
             GLOBAL_USER_TREE_HEIGHT as usize,
             &UserRegistrationTreeStore::<Self>::new_leaf_key_fc(
                 checkpoint_id,
-                sync_info.core.l2_block_state.next_user_id - (sync_info.registered_users.len() as u64),
+                sync_info.core.block_state.next_user_id - (sync_info.registered_users.len() as u64),
             ),
             log2_ceil(sync_info.registered_users.len()).min(8) as u8,
             &new_user_records.iter().map(|x| x.public_key).collect::<Vec<_>>(),

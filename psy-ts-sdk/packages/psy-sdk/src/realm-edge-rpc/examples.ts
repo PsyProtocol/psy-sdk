@@ -207,7 +207,7 @@ async function fullConfigurationExample() {
             customTtl: new Map([
                 // Fast-changing data
                 ["psy_get_latest_checkpoint_tree_root", 5000],
-                ["psy_get_latest_l2_block_state", 5000],
+                ["psy_get_latest_block_state", 5000],
 
                 // Slow-changing data
                 ["psy_get_checkpoint_leaf_data", 300000], // 5 minutes

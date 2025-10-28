@@ -326,18 +326,18 @@ async fn main() -> anyhow::Result<()> {
             let definition = provider.get_contract_code_definition(args.contract_id).await?;
             println!("{}", serde_json::to_string_pretty(&definition)?);
         }
-        Commands::GetLatestL2BlockState(args) => {
+        Commands::GetLatestBlockState(args) => {
             use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
             use psy_prover::local::provider::RpcProvider;
             let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
-            let state = provider.get_latest_l2_block_state().await?;
+            let state = provider.get_latest_block_state().await?;
             println!("{}", serde_json::to_string_pretty(&state)?);
         }
-        Commands::GetL2BlockState(args) => {
+        Commands::GetBlockState(args) => {
             use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
             use psy_prover::local::provider::RpcProvider;
             let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
-            let state = provider.get_l2_block_state(args.checkpoint_id).await?;
+            let state = provider.get_block_state(args.checkpoint_id).await?;
             println!("{}", serde_json::to_string_pretty(&state)?);
         }
 

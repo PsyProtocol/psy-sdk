@@ -8,7 +8,7 @@ use plonky2::plonk::{
     proof::ProofWithPublicInputs,
 };
 use psy_common_circuit::circuits::{
-    l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature::inner,
+    secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature::inner,
     zk_signature3::core::PsyBasicZKSignatureCircuit,
 };
 use psy_core::{

@@ -1,6 +1,6 @@
 use city_crypto::hash::{qhashout::QHashOut, traits::hasher::MerkleZeroHasher};
 use city_rollup_common::introspection::rollup::signature::{
-    SimpleL2PrivateKey, PRIVATE_KEY_CONSTANTS,
+    SimplePrivateKey, PRIVATE_KEY_CONSTANTS,
 };
 use plonky2::{
     field::types::Field,
@@ -176,7 +176,7 @@ where
     C::Hasher:AlgebraicHasher<C::F>,
 {
     pub fn new(public_key: QHashOut<C::F>) -> Self {
-        //let public_key = SimpleL2PrivateKey::new(private_key).get_public_key();
+        //let public_key = SimplePrivateKey::new(private_key).get_public_key();
 
         let config = CircuitConfig::standard_recursion_zk_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
@@ -286,7 +286,7 @@ pub fn gen_standard_wrapped_zk_signature_proof<C: GenericConfig<D> + 'static, co
 where
     C::Hasher:AlgebraicHasher<C::F>,
 {
-    let public_key = SimpleL2PrivateKey::new(private_key).get_public_key::<C::Hasher>();
+    let public_key = SimplePrivateKey::new(private_key).get_public_key::<C::Hasher>();
     let sig_circuit = ZKSignatureCircuit::<C, D>::new(public_key);
     let proof_inner = sig_circuit.prove_base(private_key, action_hash)?;
     let wrapper_circuit = ZKSignatureWrapperCircuit::<C, D>::new();

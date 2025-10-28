@@ -24,7 +24,7 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::PsyHasher,
     qblock::cmds::deploy_contract::QBCDeployContract,
-    qdata::{checkpoint::PsyL2BlockState, contract::ContractCodeDefinition, user_contract_state::UserContractState},
+    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user_contract_state::UserContractState},
     qstore::imm::{
         cmd::{QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot},
         cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
@@ -357,7 +357,7 @@ impl WalletSession {
             }
         };
         let public_key = pk_info.qfhash::<PsyHasher>();
-        let checkpoint_id = self.st_provider.get_latest_l2_block_state().await?.checkpoint_id;
+        let checkpoint_id = self.st_provider.get_latest_block_state().await?.checkpoint_id;
         tracing::info!(
             "add user {} with type {:?}, on checkpoint_id {}",
             public_key.to_string(),
@@ -435,7 +435,7 @@ impl WalletSession {
         tracing::info!("exec contract call: {}", serde_json::to_string_pretty(&contract_call_args)?);
         let sign_type = self.wallet.get_sign_type(public_key).await?;
         tracing::info!("exec contract call with sign type: {:?}", sign_type);
-        let result = self.st_provider.get_latest_l2_block_state().await?;
+        let result = self.st_provider.get_latest_block_state().await?;
         tracing::info!("start session on global checkpoint: {}", result.checkpoint_id);
         self.start_session(public_key).await?;
         tracing::info!("prove contract calls");
@@ -461,26 +461,26 @@ impl WalletSession {
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
 
-        let latest_l2_block_state = user_session_mgr.rpc_provider.get_realm_latest_l2_block_state().await?;
-        let global_latest_l2_block_state = self.st_provider.get_latest_l2_block_state().await?;
+        let latest_block_state = user_session_mgr.rpc_provider.get_realm_latest_block_state().await?;
+        let global_latest_block_state = self.st_provider.get_latest_block_state().await?;
 
-        if latest_l2_block_state.checkpoint_id <= global_latest_l2_block_state.checkpoint_id {
+        if latest_block_state.checkpoint_id <= global_latest_block_state.checkpoint_id {
             tracing::info!(
                 "block state: user_id {}, realm latest checkpoint {}, coordinator checkpoint {}",
                 user_session_mgr.user_id,
-                latest_l2_block_state.checkpoint_id,
-                global_latest_l2_block_state.checkpoint_id
+                latest_block_state.checkpoint_id,
+                global_latest_block_state.checkpoint_id
             );
         } else {
             tracing::error!(
                 "realm latest checkpoint {} is ahead coordinator checkpoint {}",
-                latest_l2_block_state.checkpoint_id,
-                global_latest_l2_block_state.checkpoint_id
+                latest_block_state.checkpoint_id,
+                global_latest_block_state.checkpoint_id
             );
             return Err(anyhow::format_err!(
                 "realm latest checkpoint {} is ahead of coordinator checkpoint {}",
-                latest_l2_block_state.checkpoint_id,
-                global_latest_l2_block_state.checkpoint_id
+                latest_block_state.checkpoint_id,
+                global_latest_block_state.checkpoint_id
             ));
         };
 
@@ -488,13 +488,13 @@ impl WalletSession {
             UserState::Active => {
                 let latest_nonce = self
                     .st_provider
-                    .get_user_leaf_data(latest_l2_block_state.checkpoint_id, user_session_mgr.user_id)
+                    .get_user_leaf_data(latest_block_state.checkpoint_id, user_session_mgr.user_id)
                     .await?
                     .nonce
                     + F::from_noncanonical_u64(1);
 
                 if latest_nonce == user_session_mgr.nonce
-                    && latest_l2_block_state.checkpoint_id == user_session_mgr.current_checkpoint_id
+                    && latest_block_state.checkpoint_id == user_session_mgr.current_checkpoint_id
                     && user_session_mgr.mgr.current_ups_header.current_state.tx_count == F::ZERO
                 {
                     tracing::info!("user session manager already exists");
@@ -503,7 +503,7 @@ impl WalletSession {
                     *user_session_mgr = UserSessionStateManager::new(
                         user_session_mgr.user_id,
                         latest_nonce,
-                        latest_l2_block_state.checkpoint_id,
+                        latest_block_state.checkpoint_id,
                         self.st_provider.clone(),
                         self.circuit_info.clone(),
                         self.wallet.random_circuit_manager().as_ref(),
@@ -517,7 +517,7 @@ impl WalletSession {
                     .get_user_id(public_key)
                     .await
                     .map_err(|e| anyhow::format_err!("can not get user id for user `{}`, please add it first: {}", public_key.to_string(), e))?;
-                let checkpoint_id = latest_l2_block_state.checkpoint_id;
+                let checkpoint_id = latest_block_state.checkpoint_id;
                 let user_leaf_data = self.st_provider.get_user_leaf_data(checkpoint_id, user_id).await.map_err(|e| {
                     anyhow::format_err!(
                         "can not get user id for user `{}`, please wait for 2 blocks after register: {}",

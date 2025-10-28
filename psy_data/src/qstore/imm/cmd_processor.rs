@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::cmd::{
-    QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetL2BlockState, QSRCmdGetUserLeafData,
+    QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetBlockState, QSRCmdGetUserLeafData,
     QSRHashCmd, QSRMerkleCmd,
 };
 use crate::{
     dpn::proving_session::DPNProvingSessionSimpleMethodCall,
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyL2BlockState},
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },
@@ -23,7 +23,7 @@ pub struct PsyReadCommandBatchInput {
     pub get_contract_leaf: Vec<QSRCmdGetContractLeafData>,
     pub get_contract_code: Vec<QSRCmdGetContractCodeDefinition>,
     pub get_checkpoint_leaf: Vec<QSRCmdGetCheckpointLeafData>,
-    pub get_l2_block_state: Vec<QSRCmdGetL2BlockState>,
+    pub get_block_state: Vec<QSRCmdGetBlockState>,
     pub get_merkle_proof: Vec<QSRMerkleCmd>,
     pub get_hash: Vec<QSRHashCmd>,
 }
@@ -34,7 +34,7 @@ impl PsyReadCommandBatchInput {
             get_contract_leaf: Vec::new(),
             get_contract_code: Vec::new(),
             get_checkpoint_leaf: Vec::new(),
-            get_l2_block_state: Vec::new(),
+            get_block_state: Vec::new(),
             get_merkle_proof: Vec::new(),
             get_hash: Vec::new(),
         }
@@ -59,9 +59,9 @@ impl PsyReadCommandBatchInput {
         self.get_checkpoint_leaf.push(QSRCmdGetCheckpointLeafData { checkpoint_id });
         id
     }
-    pub fn push_get_l2_block_state(&mut self, checkpoint_id: u64) -> usize {
-        let id = self.get_l2_block_state.len();
-        self.get_l2_block_state.push(QSRCmdGetL2BlockState { checkpoint_id });
+    pub fn push_get_block_state(&mut self, checkpoint_id: u64) -> usize {
+        let id = self.get_block_state.len();
+        self.get_block_state.push(QSRCmdGetBlockState { checkpoint_id });
         id
     }
     pub fn push_get_merkle_proof(&mut self, cmd: QSRMerkleCmd) -> usize {
@@ -83,7 +83,7 @@ pub struct PsyReadCommandBatchOutput<F: RichField> {
     pub get_contract_leaf: Vec<PsyContractLeaf<F>>,
     pub get_contract_code: Vec<ContractCodeDefinition>,
     pub get_checkpoint_leaf: Vec<PsyCheckpointLeaf<F>>,
-    pub get_l2_block_state: Vec<PsyL2BlockState>,
+    pub get_block_state: Vec<PsyBlockState>,
     pub get_merkle_proof: Vec<MerkleProofCore<QHashOut<F>>>,
     pub get_hash: Vec<QHashOut<F>>,
 }
@@ -302,7 +302,7 @@ impl<F: RichField> PsyReadCommandBatchOutput<F> {
             get_contract_leaf: Vec::new(),
             get_contract_code: Vec::new(),
             get_checkpoint_leaf: Vec::new(),
-            get_l2_block_state: Vec::new(),
+            get_block_state: Vec::new(),
             get_merkle_proof: Vec::new(),
             get_hash: Vec::new(),
         }
@@ -312,7 +312,7 @@ impl<F: RichField> PsyReadCommandBatchOutput<F> {
         self.get_contract_leaf.extend(other.get_contract_leaf);
         self.get_contract_code.extend(other.get_contract_code);
         self.get_checkpoint_leaf.extend(other.get_checkpoint_leaf);
-        self.get_l2_block_state.extend(other.get_l2_block_state);
+        self.get_block_state.extend(other.get_block_state);
         self.get_merkle_proof.extend(other.get_merkle_proof);
         self.get_hash.extend(other.get_hash);
     }
@@ -333,8 +333,8 @@ pub trait PsyReadCommandProcessorSync<F: RichField> {
     async fn resolve_get_contract_leaf(&self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<PsyContractLeaf<F>>;
     async fn resolve_get_contract_code(&self, input: &QSRCmdGetContractCodeDefinition) -> anyhow::Result<ContractCodeDefinition>;
     async fn resolve_get_checkpoint_leaf(&self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<PsyCheckpointLeaf<F>>;
-    async fn resolve_get_l2_block_state(&self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<PsyL2BlockState>;
-    async fn resolve_get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState>;
+    async fn resolve_get_block_state(&self, input: &QSRCmdGetBlockState) -> anyhow::Result<PsyBlockState>;
+    async fn resolve_get_latest_block_state(&self) -> anyhow::Result<PsyBlockState>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -347,8 +347,8 @@ pub trait PsyReadCommandProcessorSyncMut<F: RichField> {
     async fn resolve_get_contract_leaf_mut(&mut self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<PsyContractLeaf<F>>;
     async fn resolve_get_contract_code_mut(&mut self, input: &QSRCmdGetContractCodeDefinition) -> anyhow::Result<ContractCodeDefinition>;
     async fn resolve_get_checkpoint_leaf_mut(&mut self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<PsyCheckpointLeaf<F>>;
-    async fn resolve_get_l2_block_state_mut(&mut self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<PsyL2BlockState>;
-    async fn resolve_get_latest_l2_block_state_mut(&mut self) -> anyhow::Result<PsyL2BlockState>;
+    async fn resolve_get_block_state_mut(&mut self, input: &QSRCmdGetBlockState) -> anyhow::Result<PsyBlockState>;
+    async fn resolve_get_latest_block_state_mut(&mut self) -> anyhow::Result<PsyBlockState>;
 }
 /*
  */

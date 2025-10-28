@@ -4,7 +4,7 @@ use kvq::{
 };
 use psy_data::{
     config::store_config::CHECKPOINT_BLOCK_STATE_TABLE_TYPE,
-    qdata::{checkpoint::PsyL2BlockState, u64_key::U64TableKey},
+    qdata::{checkpoint::PsyBlockState, u64_key::U64TableKey},
 };
 use psy_store::store::scylla::kvq_store::ScyllaKVQStore;
 
@@ -19,10 +19,10 @@ async fn test_checkpoint_block_state_get_latest() -> anyhow::Result<()> {
 
     // Create adapter for block state
     type BlockStateKey = U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>;
-    type BlockStateAdapter = KVQStandardAdapter<ScyllaKVQStore, BlockStateKey, PsyL2BlockState>;
+    type BlockStateAdapter = KVQStandardAdapter<ScyllaKVQStore, BlockStateKey, PsyBlockState>;
 
     // Insert some test block states
-    let block_state_0 = PsyL2BlockState {
+    let block_state_0 = PsyBlockState {
         checkpoint_id: 0,
         next_add_withdrawal_id: 0,
         next_process_withdrawal_id: 0,
@@ -33,7 +33,7 @@ async fn test_checkpoint_block_state_get_latest() -> anyhow::Result<()> {
         next_contract_id: 0,
     };
 
-    let block_state_1 = PsyL2BlockState {
+    let block_state_1 = PsyBlockState {
         checkpoint_id: 1,
         next_add_withdrawal_id: 0,
         next_process_withdrawal_id: 0,
@@ -44,7 +44,7 @@ async fn test_checkpoint_block_state_get_latest() -> anyhow::Result<()> {
         next_contract_id: 0,
     };
 
-    let block_state_5 = PsyL2BlockState {
+    let block_state_5 = PsyBlockState {
         checkpoint_id: 5,
         next_add_withdrawal_id: 2,
         next_process_withdrawal_id: 1,
@@ -95,7 +95,7 @@ async fn test_empty_checkpoint_block_state() -> anyhow::Result<()> {
 
     // Create adapter for block state
     type BlockStateKey = U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>;
-    type BlockStateAdapter = KVQStandardAdapter<ScyllaKVQStore, BlockStateKey, PsyL2BlockState>;
+    type BlockStateAdapter = KVQStandardAdapter<ScyllaKVQStore, BlockStateKey, PsyBlockState>;
 
     // Test get_leq on empty table
     let max_key = U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(0xffffffffffffff_u64);

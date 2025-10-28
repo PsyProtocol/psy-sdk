@@ -17,13 +17,13 @@ pub async fn run(args: CheckRegisteredUsersArgs) -> anyhow::Result<()> {
     let mut error_registered_user_ids = Vec::new();
     let mut error_registered_ids = Vec::new();
 
-    let latest_l2_block_state = provider.get_latest_l2_block_state().await?;
+    let latest_block_state = provider.get_latest_block_state().await?;
 
-    for registration_id in 0..latest_l2_block_state.next_user_id {
+    for registration_id in 0..latest_block_state.next_user_id {
         tracing::info!("check registration_id {}", registration_id);
         let user_id = UserIdBitsStrategy4::get_user_id_from_registration_id(registration_id);
 
-        match provider.get_user_leaf_data(latest_l2_block_state.checkpoint_id + 1000, user_id).await {
+        match provider.get_user_leaf_data(latest_block_state.checkpoint_id + 1000, user_id).await {
             Ok(user_leaf) => tracing::info!("Register {} User {}: {}", registration_id, user_id, user_leaf.public_key),
             Err(e) => {
                 tracing::warn!("Error `{}` Register {} User {}: Not registered", e.to_string(), registration_id, user_id);

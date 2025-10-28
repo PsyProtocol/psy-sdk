@@ -437,13 +437,13 @@ pub struct ContractCodeDefinitionArgs {
 }
 
 #[derive(Clone, Args)]
-pub struct LatestL2BlockStateArgs {
+pub struct LatestBlockStateArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
 }
 
 #[derive(Clone, Args)]
-pub struct L2BlockStateArgs {
+pub struct BlockStateArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
     #[arg(long, env)]

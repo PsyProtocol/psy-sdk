@@ -8,7 +8,7 @@ import {
     PsyCheckpointLeaf,
     PsyCheckpointSyncInfoCompact,
     PsyContractLeaf,
-    PsyL2BlockState,
+    PsyBlockState,
     PsyUserLeaf,
     ZKPublicKeyInfo,
 } from "../types";
@@ -29,9 +29,9 @@ export enum CoordinatorEdgeRPCCommand {
     GetCheckpointLeafDataF = "psy_get_checkpoint_leaf_data_f",
     GetContractCodeDefinition = "psy_get_contract_code_definition",
     GetContractCodeDefinitionF = "psy_get_contract_code_definition_f",
-    GetLatestL2BlockState = "psy_get_latest_l2_block_state",
-    GetL2BlockState = "psy_get_l2_block_state",
-    GetL2BlockStateF = "psy_get_l2_block_state_f",
+    GetLatestBlockState = "psy_get_latest_block_state",
+    GetBlockState = "psy_get_block_state",
+    GetBlockStateF = "psy_get_block_state_f",
     GetUserRegistrationTreeRoot = "psy_get_user_registration_tree_root",
     GetUserRegistrationTreeRootF = "psy_get_user_registration_tree_root_f",
     GetUserRegistrationTreeLeafHash = "psy_get_user_registration_tree_leaf_hash",
@@ -99,9 +99,9 @@ export interface ICoordinatorEdgeRpcProvider {
     getCheckpointLeafDataF(checkpointId: Felt): Promise<PsyCheckpointLeaf>;
     getContractCodeDefinition(contractId: Felt): Promise<ContractCodeDefinition>;
     getContractCodeDefinitionF(contractId: Felt): Promise<ContractCodeDefinition>;
-    getLatestL2BlockState(): Promise<PsyL2BlockState>;
-    getL2BlockState(checkpointId: Felt): Promise<PsyL2BlockState>;
-    getL2BlockStateF(checkpointId: Felt): Promise<PsyL2BlockState>;
+    getLatestBlockState(): Promise<PsyBlockState>;
+    getBlockState(checkpointId: Felt): Promise<PsyBlockState>;
+    getBlockStateF(checkpointId: Felt): Promise<PsyBlockState>;
     getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut>;
     getUserRegistrationTreeRootF(checkpointId: Felt): Promise<QHashOut>;
     getUserRegistrationTreeLeafHash(checkpointId: Felt, leafIndex: number): Promise<QHashOut>;

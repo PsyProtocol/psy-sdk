@@ -77,7 +77,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
     }
 
     pub async fn get_checkpoint_id_async(&self) -> anyhow::Result<u64> {
-        Ok(self.store_reader.get_latest_l2_block_state().await?.checkpoint_id)
+        Ok(self.store_reader.get_latest_block_state().await?.checkpoint_id)
     }
 
     pub async fn handle_recv_end_cap_from_user(
@@ -263,7 +263,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
     }
 
     pub async fn get_tx_status(&self, user_id: u64, nonce: u64) -> anyhow::Result<TxStatus> {
-        let latest_checkpoint_id = self.store_reader.get_latest_l2_block_state().await?.checkpoint_id;
+        let latest_checkpoint_id = self.store_reader.get_latest_block_state().await?.checkpoint_id;
         let onchain_nonce = self
             .store_reader
             .get_user_leaf_data(latest_checkpoint_id, user_id)

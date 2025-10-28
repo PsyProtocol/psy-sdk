@@ -21,7 +21,7 @@ pub struct QSRCmdGetCheckpointLeafData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct QSRCmdGetL2BlockState {
+pub struct QSRCmdGetBlockState {
     pub checkpoint_id: u64,
 }
 

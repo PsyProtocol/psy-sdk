@@ -41,7 +41,7 @@ use psy_data::{
         proof_input::VerifyEndCapSimpleStandardInput,
     },
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
         user::PsyUserLeaf,
     },
 };
@@ -420,19 +420,19 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_latest_l2_block_state(&self) -> RpcResult<PsyL2BlockState> {
-        Ok(self.ctx.store_reader.get_latest_l2_block_state().await.map_err(RpcError::Anyhow)?)
+    async fn get_latest_block_state(&self) -> RpcResult<PsyBlockState> {
+        Ok(self.ctx.store_reader.get_latest_block_state().await.map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<PsyL2BlockState> {
-        Ok(self.ctx.store_reader.get_l2_block_state(checkpoint_id).await.map_err(RpcError::Anyhow)?)
+    async fn get_block_state(&self, checkpoint_id: u64) -> RpcResult<PsyBlockState> {
+        Ok(self.ctx.store_reader.get_block_state(checkpoint_id).await.map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyL2BlockState> {
+    async fn get_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyBlockState> {
         Ok(self
             .ctx
             .store_reader
-            .get_l2_block_state(checkpoint_id.to_canonical_u64())
+            .get_block_state(checkpoint_id.to_canonical_u64())
             .await
             .map_err(RpcError::Anyhow)?)
     }

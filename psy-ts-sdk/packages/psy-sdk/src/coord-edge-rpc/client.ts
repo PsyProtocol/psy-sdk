@@ -13,7 +13,7 @@ import {
     PsyCheckpointSyncInfoCompact,
     PsyContractLeaf,
     PsyUserLeaf,
-    PsyL2BlockState,
+    PsyBlockState,
     ZKPublicKeyInfo,
 } from "../types";
 
@@ -32,9 +32,9 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
         CoordinatorEdgeRPCCommand.GetCheckpointLeafDataF,
         CoordinatorEdgeRPCCommand.GetContractCodeDefinition,
         CoordinatorEdgeRPCCommand.GetContractCodeDefinitionF,
-        CoordinatorEdgeRPCCommand.GetLatestL2BlockState,
-        CoordinatorEdgeRPCCommand.GetL2BlockState,
-        CoordinatorEdgeRPCCommand.GetL2BlockStateF,
+        CoordinatorEdgeRPCCommand.GetLatestBlockState,
+        CoordinatorEdgeRPCCommand.GetBlockState,
+        CoordinatorEdgeRPCCommand.GetBlockStateF,
         CoordinatorEdgeRPCCommand.GetUserRegistrationTreeRoot,
         CoordinatorEdgeRPCCommand.GetUserRegistrationTreeRootF,
         CoordinatorEdgeRPCCommand.GetUserRegistrationTreeLeafHash,
@@ -215,29 +215,29 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     /**
-     * Get latest L2 block state
-     * @returns L2 block state
+     * Get latest block state
+     * @returns block state
      */
-    async getLatestL2BlockState(): Promise<PsyL2BlockState> {
-        return this.rpc<PsyL2BlockState>(CoordinatorEdgeRPCCommand.GetLatestL2BlockState, []);
+    async getLatestBlockState(): Promise<PsyBlockState> {
+        return this.rpc<PsyBlockState>(CoordinatorEdgeRPCCommand.GetLatestBlockState, []);
     }
 
     /**
-     * Get L2 block state for a specific checkpoint
+     * Get block state for a specific checkpoint
      * @param checkpointId The checkpoint ID
-     * @returns L2 block state
+     * @returns block state
      */
-    async getL2BlockState(checkpointId: Felt): Promise<PsyL2BlockState> {
-        return this.rpc<PsyL2BlockState>(CoordinatorEdgeRPCCommand.GetL2BlockState, [checkpointId]);
+    async getBlockState(checkpointId: Felt): Promise<PsyBlockState> {
+        return this.rpc<PsyBlockState>(CoordinatorEdgeRPCCommand.GetBlockState, [checkpointId]);
     }
 
     /**
-     * Get L2 block state with field element
+     * Get block state with field element
      * @param checkpointId The checkpoint ID as a bigint
-     * @returns L2 block state
+     * @returns block state
      */
-    async getL2BlockStateF(checkpointId: Felt): Promise<PsyL2BlockState> {
-        return this.rpc<PsyL2BlockState>(CoordinatorEdgeRPCCommand.GetL2BlockStateF, [checkpointId]);
+    async getBlockStateF(checkpointId: Felt): Promise<PsyBlockState> {
+        return this.rpc<PsyBlockState>(CoordinatorEdgeRPCCommand.GetBlockStateF, [checkpointId]);
     }
 
     // User Registration Tree methods
@@ -626,14 +626,14 @@ export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider 
     getContractCodeDefinitionF(contractId: Felt): Promise<ContractCodeDefinition> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractCodeDefinitionF(contractId);
     }
-    getLatestL2BlockState(): Promise<PsyL2BlockState> {
-        return this.rpcs.get(this.getCurrentCoordinatorId())!.getLatestL2BlockState();
+    getLatestBlockState(): Promise<PsyBlockState> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getLatestBlockState();
     }
-    getL2BlockState(checkpointId: Felt): Promise<PsyL2BlockState> {
-        return this.rpcs.get(this.getCurrentCoordinatorId())!.getL2BlockState(checkpointId);
+    getBlockState(checkpointId: Felt): Promise<PsyBlockState> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getBlockState(checkpointId);
     }
-    getL2BlockStateF(checkpointId: Felt): Promise<PsyL2BlockState> {
-        return this.rpcs.get(this.getCurrentCoordinatorId())!.getL2BlockStateF(checkpointId);
+    getBlockStateF(checkpointId: Felt): Promise<PsyBlockState> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getBlockStateF(checkpointId);
     }
     getUserRegistrationTreeRoot(checkpointId: Felt): Promise<QHashOut> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserRegistrationTreeRoot(checkpointId);

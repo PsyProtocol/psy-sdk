@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 
 const fetchBlockNumber = async (walletProvider: PsyUserWalletProvider) => {
     try {
-        console.log("Fetching latest L2 block state from coordinator...");
-        const latestBlockState = await walletProvider.coordinatorEdgeRpcProvider.getLatestL2BlockState();
+        console.log("Fetching latest block state from coordinator...");
+        const latestBlockState = await walletProvider.coordinatorEdgeRpcProvider.getLatestBlockState();
         console.log("Latest block state:", PsyJSON.stringify(latestBlockState, null, 2));
         if (latestBlockState) {
             return Number(latestBlockState.checkpoint_id);

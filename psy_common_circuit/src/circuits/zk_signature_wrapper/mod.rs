@@ -44,7 +44,7 @@ where
         Self::new_from_common(child_common_data, verifier_data_cap_height)
     }
     pub fn new_from_common(child_common_data: &CommonCircuitData<C::F, D>, verifier_data_cap_height: usize) -> Self {
-        //let public_key = SimpleL2PrivateKey::new(private_key).get_public_key();
+        //let public_key = SimplePrivateKey::new(private_key).get_public_key();
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);

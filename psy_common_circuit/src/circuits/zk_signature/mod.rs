@@ -9,7 +9,7 @@ use plonky2::{
     },
 };
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::SimpleL2PrivateKey};
+use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::SimplePrivateKey};
 use serde::{Deserialize, Serialize};
 
 use self::{fixed_public_key::ZKSignatureCircuitSimpleFixedPublicKey, inner::ZKSignatureCircuitInner};
@@ -101,7 +101,7 @@ pub fn gen_standard_wrapped_zk_signature_proof<C: GenericConfig<D> + 'static, co
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
-    let public_key = SimpleL2PrivateKey::new(private_key).get_public_key::<C::Hasher>();
+    let public_key = SimplePrivateKey::new(private_key).get_public_key::<C::Hasher>();
     let sig_circuit = ZKSignatureCircuit::<C, D>::new(public_key);
     sig_circuit.prove_base(private_key, action_hash)
 }

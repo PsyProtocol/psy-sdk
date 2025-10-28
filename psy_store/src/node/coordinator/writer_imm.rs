@@ -17,7 +17,7 @@ use psy_data::{
         realm_status::RealmStatusModelCore,
     },
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyL2BlockState},
+        checkpoint::{PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         realm_status::BasicRealmStatus,
     },
@@ -111,25 +111,25 @@ impl<T: KVQBinaryStore + PsyCoordinatorStoreReaderAsync<F>> PsyCoordinatorStoreW
     ) -> anyhow::Result<()> {
         <Self as QMetaDataStoreWriterSync<F>>::set_contract_code_definition(self, checkpoint_id, contract_id, definition)
     }
-    async fn set_l2_block_state_imm(&self, block_state: &PsyL2BlockState) -> anyhow::Result<()> {
-        <Self as QMetaDataStoreWriterSync<F>>::set_l2_block_state(self, block_state)
+    async fn set_block_state_imm(&self, block_state: &PsyBlockState) -> anyhow::Result<()> {
+        <Self as QMetaDataStoreWriterSync<F>>::set_block_state(self, block_state)
     }
     async fn set_checkpoint_sync_info_imm(&self, sync_info: PsyCheckpointSyncInfoCompact<F>) -> anyhow::Result<()> {
         CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, sync_info)
     }
 
     async fn initialize_store(&self, params: Option<InitializeParams<F>>) -> anyhow::Result<u64> {
-        let latest_l2_block_state_or_err = self.get_latest_l2_block_state().await;
-        if let Ok(v) = latest_l2_block_state_or_err {
+        let latest_block_state_or_err = self.get_latest_block_state().await;
+        if let Ok(v) = latest_block_state_or_err {
             Ok(v.checkpoint_id)
         } else {
-            let mut genesis_l2_block_state = PsyL2BlockState::get_genesis_value();
+            let mut genesis_block_state = PsyBlockState::get_genesis_value();
             let genesis_checkpoint_stats = PsyCheckpointLeafStats::get_genesis_value();
             let genesis_global_state_roots = self.get_checkpoint_global_state_roots(0).await?;
 
             if let Some(params) = params {
-                genesis_l2_block_state.next_contract_id = params.next_contract_id;
-                genesis_l2_block_state.next_user_id = params.next_user_id;
+                genesis_block_state.next_contract_id = params.next_contract_id;
+                genesis_block_state.next_user_id = params.next_user_id;
 
                 if genesis_global_state_roots.contract_tree_root != params.deploy_contracts_root {
                     return Err(anyhow::anyhow!(
@@ -161,14 +161,14 @@ impl<T: KVQBinaryStore + PsyCoordinatorStoreReaderAsync<F>> PsyCoordinatorStoreW
                 stats: genesis_checkpoint_stats,
             };
 
-            self.set_l2_block_state_imm(&genesis_l2_block_state).await?;
+            self.set_block_state_imm(&genesis_block_state).await?;
             self.set_checkpoint_leaf_data_imm(0, &genesis_checkpoint_leaf).await?;
             let r = self
                 .set_checkpoint_tree_leaf_hash_imm(0, genesis_checkpoint_leaf.qfhash::<PsyHasher>())
                 .await?;
 
             let sync_info = PsyCheckpointSyncInfoCompact {
-                l2_block_state: genesis_l2_block_state,
+                block_state: genesis_block_state,
                 stats: genesis_checkpoint_stats,
                 state_roots: genesis_global_state_roots,
                 checkpoint_tree_update_siblings: r.siblings.clone(),

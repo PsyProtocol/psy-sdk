@@ -70,14 +70,14 @@ use psy_data::{
         stats::GUTAStats,
     },
     models::{
-        checkpoint::{block_state::L2BlockStatesModel, sync_info::CheckpointError},
+        checkpoint::{block_state::BlockStatesModel, sync_info::CheckpointError},
         kvq_merkle::{
             key::KVQMerkleNodeKey,
             model::{KVQMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore},
         },
     },
     qdata::{
-        checkpoint::PsyL2BlockState, staging_checkpoint_info::StagingCheckpointInfo, ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf,
+        checkpoint::PsyBlockState, staging_checkpoint_info::StagingCheckpointInfo, ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf,
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
@@ -339,7 +339,7 @@ impl RealmProcessorV2 {
             };
             info!(
                 coordinator_realm_root = %serde_json::to_string_pretty(&coordinator_update.realm_root).unwrap(),
-                coordinator_checkpoint_id = coordinator_update.compact.l2_block_state.checkpoint_id,
+                coordinator_checkpoint_id = coordinator_update.compact.block_state.checkpoint_id,
                 "📥 Received coordinator update"
             );
 
@@ -1558,7 +1558,7 @@ impl RealmProcessorV2 {
 
         let mut prev_realm_root = updates[0].realm_root;
         for (i, update) in updates.iter().enumerate().skip(1) {
-            let checkpoint_id = update.compact.l2_block_state.checkpoint_id;
+            let checkpoint_id = update.compact.block_state.checkpoint_id;
             info!(
                 update_index = i,
                 checkpoint_id = checkpoint_id,
@@ -1796,7 +1796,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
         delta: &RealmProcessorCombinedUpdate<F>,
         global_block_update: &GlobalBlockUpdateFromCoordinator<F>,
     ) -> anyhow::Result<()> {
-        let canonical_checkpoint_id = global_block_update.compact.l2_block_state.checkpoint_id;
+        let canonical_checkpoint_id = global_block_update.compact.block_state.checkpoint_id;
 
         info!(
             canonical_checkpoint_id = canonical_checkpoint_id,
@@ -1958,7 +1958,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
     async fn apply_only_global_block_update_dangerous(&self, global_block_update: &GlobalBlockUpdateFromCoordinator<F>) -> anyhow::Result<()> {
         let merkle_proofs = global_block_update.compact.get_registered_user_merkle_proofs::<PsyHasher>();
         let start_registration_user_id =
-            global_block_update.compact.l2_block_state.next_user_id - (global_block_update.compact.registered_users.len() as u64);
+            global_block_update.compact.block_state.next_user_id - (global_block_update.compact.registered_users.len() as u64);
         let realm_users: Vec<_> = merkle_proofs
             .into_iter()
             .enumerate()
@@ -2030,12 +2030,12 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
     }
 
     async fn get_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
-        let sync_info = self.store.get_latest_l2_block_state().await?;
+        let sync_info = self.store.get_latest_block_state().await?;
         Ok(sync_info.checkpoint_id)
     }
 
     async fn get_latest_checkpoint_and_realm_root(&self) -> anyhow::Result<(u64, QHashOut<F>)> {
-        let sync_info = self.store.get_latest_l2_block_state().await?;
+        let sync_info = self.store.get_latest_block_state().await?;
         let checkpoint_id = sync_info.checkpoint_id;
 
         let realm_root = self

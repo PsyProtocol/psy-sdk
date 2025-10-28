@@ -13,7 +13,7 @@ use psy_data::{
     guta::api::SubmitGUTARealmResultAPINoProofInput,
     qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{
-        checkpoint::{CheckpointSyncInfo, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{CheckpointSyncInfo, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },
@@ -96,15 +96,15 @@ pub trait CoordinatorEdgeRpc {
     #[method(name = "get_checkpoint_global_state_roots")]
     async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> RpcResult<PsyCheckpointGlobalStateRoots<F>>;
 
-    // L2 block state
-    #[method(name = "get_latest_l2_block_state")]
-    async fn get_latest_l2_block_state(&self) -> RpcResult<PsyL2BlockState>;
+    // block state
+    #[method(name = "get_latest_block_state")]
+    async fn get_latest_block_state(&self) -> RpcResult<PsyBlockState>;
 
-    #[method(name = "get_l2_block_state")]
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<PsyL2BlockState>;
+    #[method(name = "get_block_state")]
+    async fn get_block_state(&self, checkpoint_id: u64) -> RpcResult<PsyBlockState>;
 
-    #[method(name = "get_l2_block_state_f")]
-    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyL2BlockState>;
+    #[method(name = "get_block_state_f")]
+    async fn get_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyBlockState>;
 
     // User registration tree
     #[method(name = "get_user_registration_tree_root")]

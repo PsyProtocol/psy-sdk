@@ -17,7 +17,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct L1Secp256K1SignatureCircuit<C: GenericConfig<D>, const D: usize>
+pub struct Secp256K1SignatureCircuit<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -25,7 +25,7 @@ where
     pub base_circuit_data: CircuitData<C::F, C, D>,
     pub minifier_chain: PsyProofMinifierChain<D, C::F, C>,
 }
-impl<C: GenericConfig<D>, const D: usize> Clone for L1Secp256K1SignatureCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> Clone for Secp256K1SignatureCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -33,7 +33,7 @@ where
         Self::new()
     }
 }
-impl<C: GenericConfig<D>, const D: usize> L1Secp256K1SignatureCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> Secp256K1SignatureCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -59,7 +59,7 @@ where
     pub fn prove(&self, compressed_signature: &PsyCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let prepared_signature: PsyPreparedSecp256K1Signature<C::F> = compressed_signature.try_into()?;
 
-        let mut timer = DebugTimer::new("DogeSecp256K1SignatureCircuit::Prove");
+        let mut timer = DebugTimer::new("Secp256K1SignatureCircuit::Prove");
         tracing::info!("start prove base secp256k1 signature");
         timer.lap("start prove base");
         let mut pw = PartialWitness::new();
@@ -79,7 +79,7 @@ where
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for L1Secp256K1SignatureCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for Secp256K1SignatureCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {

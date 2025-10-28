@@ -36,7 +36,7 @@ class UserWalletCache {
         rpc: IRealmEdgeRpcProvider,
         userId: number
     ): Promise<{ cache: IUserCacheRecord; user: PsyUserLeaf }> {
-        const currentBlock = await rpc.getLatestL2BlockState();
+        const currentBlock = await rpc.getLatestBlockState();
         const user = await rpc.getUserLeafData(currentBlock.checkpoint_id, userId);
         const cachedUser = this.getUserCached(userId);
         if (currentBlock.checkpoint_id > cachedUser.unprocessedCheckpointId) {

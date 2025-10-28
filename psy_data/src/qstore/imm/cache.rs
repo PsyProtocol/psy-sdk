@@ -6,13 +6,13 @@ use psy_crypto::hash::merkle::core::MerkleProofCore;
 
 use super::{
     cmd::{
-        QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetL2BlockState, QSRCmdGetUserLeafData,
+        QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetBlockState, QSRCmdGetUserLeafData,
         QSRHashCmd, QSRMerkleCmd,
     },
     cmd_processor::{PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
 };
 use crate::qdata::{
-    checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+    checkpoint::{PsyCheckpointLeaf, PsyBlockState},
     contract::{ContractCodeDefinition, PsyContractLeaf},
     user::PsyUserLeaf,
 };
@@ -23,7 +23,7 @@ pub struct PsyCmdDataStoreCache<F: RichField> {
     pub contract_leaf_cache: HashMap<u64, PsyContractLeaf<F>>,
     pub checkpoint_leaf_cache: HashMap<u64, PsyCheckpointLeaf<F>>,
     pub contract_code_definition_cache: HashMap<u64, ContractCodeDefinition>,
-    pub l2_block_state_cache: HashMap<u64, PsyL2BlockState>,
+    pub block_state_cache: HashMap<u64, PsyBlockState>,
     pub hash_cmd_cache: HashMap<QSRHashCmd, QHashOut<F>>,
     pub merkle_cmd_cache: HashMap<QSRMerkleCmd, MerkleProofCore<QHashOut<F>>>,
 }
@@ -34,7 +34,7 @@ impl<F: RichField> PsyCmdDataStoreCache<F> {
             contract_leaf_cache: HashMap::new(),
             checkpoint_leaf_cache: HashMap::new(),
             contract_code_definition_cache: HashMap::new(),
-            l2_block_state_cache: HashMap::new(),
+            block_state_cache: HashMap::new(),
             hash_cmd_cache: HashMap::new(),
             merkle_cmd_cache: HashMap::new(),
         }
@@ -91,10 +91,10 @@ impl<F: RichField, S: PsyReadCommandProcessorSync<F> + Send> PsyReadCommandProce
                 .filter(|x| !self.cache.contract_code_definition_cache.contains_key(&x.contract_id))
                 .cloned()
                 .collect(),
-            get_l2_block_state: input
-                .get_l2_block_state
+            get_block_state: input
+                .get_block_state
                 .iter()
-                .filter(|x| !self.cache.l2_block_state_cache.contains_key(&x.checkpoint_id))
+                .filter(|x| !self.cache.block_state_cache.contains_key(&x.checkpoint_id))
                 .cloned()
                 .collect(),
             get_hash: input
@@ -139,12 +139,12 @@ impl<F: RichField, S: PsyReadCommandProcessorSync<F> + Send> PsyReadCommandProce
                 .map(|x| x.contract_id)
                 .zip(base_output.get_contract_code.clone()),
         );
-        self.cache.l2_block_state_cache.extend(
+        self.cache.block_state_cache.extend(
             filtered_get
-                .get_l2_block_state
+                .get_block_state
                 .iter()
                 .map(|x| x.checkpoint_id)
-                .zip(base_output.get_l2_block_state.clone()),
+                .zip(base_output.get_block_state.clone()),
         );
 
         self.cache.hash_cmd_cache.extend(
@@ -183,10 +183,10 @@ impl<F: RichField, S: PsyReadCommandProcessorSync<F> + Send> PsyReadCommandProce
                 .iter()
                 .map(|x| self.cache.contract_code_definition_cache.get(&x.contract_id).unwrap().clone())
                 .collect(),
-            get_l2_block_state: input
-                .get_l2_block_state
+            get_block_state: input
+                .get_block_state
                 .iter()
-                .map(|x| self.cache.l2_block_state_cache.get(&x.checkpoint_id).unwrap().clone())
+                .map(|x| self.cache.block_state_cache.get(&x.checkpoint_id).unwrap().clone())
                 .collect(),
             get_hash: input.get_hash.iter().map(|x| self.cache.hash_cmd_cache.get(x).unwrap().clone()).collect(),
             get_merkle_proof: input
@@ -257,17 +257,17 @@ impl<F: RichField, S: PsyReadCommandProcessorSync<F> + Send> PsyReadCommandProce
         }
     }
 
-    async fn resolve_get_l2_block_state_mut(&mut self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<PsyL2BlockState> {
-        if self.cache.l2_block_state_cache.contains_key(&input.checkpoint_id) {
-            Ok(self.cache.l2_block_state_cache.get(&input.checkpoint_id).unwrap().clone())
+    async fn resolve_get_block_state_mut(&mut self, input: &QSRCmdGetBlockState) -> anyhow::Result<PsyBlockState> {
+        if self.cache.block_state_cache.contains_key(&input.checkpoint_id) {
+            Ok(self.cache.block_state_cache.get(&input.checkpoint_id).unwrap().clone())
         } else {
-            let result = self.read_store.resolve_get_l2_block_state(input).await?;
-            self.cache.l2_block_state_cache.insert(input.checkpoint_id, result.clone());
+            let result = self.read_store.resolve_get_block_state(input).await?;
+            self.cache.block_state_cache.insert(input.checkpoint_id, result.clone());
             Ok(result)
         }
     }
 
-    async fn resolve_get_latest_l2_block_state_mut(&mut self) -> anyhow::Result<PsyL2BlockState> {
-        self.read_store.resolve_get_latest_l2_block_state().await
+    async fn resolve_get_latest_block_state_mut(&mut self) -> anyhow::Result<PsyBlockState> {
+        self.read_store.resolve_get_latest_block_state().await
     }
 }

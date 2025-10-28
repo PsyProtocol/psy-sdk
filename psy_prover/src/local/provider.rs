@@ -32,7 +32,7 @@ use psy_crypto::{
 };
 use psy_data::{
     config::store_config::{PsyFelt, PsyHasher},
-    qdata::{checkpoint::PsyL2BlockState, contract::ContractCodeDefinition, user},
+    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user},
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
     ups::{
         start_step::UPSStartStepInput,
@@ -78,8 +78,8 @@ use super::request::{
 };
 use crate::{
     local::request::{
-        QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QL2BlockStateRPCRequest,
-        QLatestL2BlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest,
+        QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QBlockStateRPCRequest,
+        QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest,
         QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest,
         QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest,
         QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
@@ -395,47 +395,47 @@ impl RpcProvider {
         }
     }
 
-    pub async fn get_realm_latest_l2_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyL2BlockState> {
-        tracing::info!("Fetching latest realm L2 block state");
+    pub async fn get_realm_latest_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
+        tracing::info!("Fetching latest realm block state");
         let rpc_url = self.get_realm_url(self.current_user_id)?;
-        let input = QLatestL2BlockStateRPCRequest {};
+        let input = QLatestBlockStateRPCRequest {};
         let response = psy_rpc_call_back!(
             self,
             rpc_url,
-            RequestParams::<GoldilocksField>::GetLatestL2BlockState(input),
-            PsyL2BlockState
+            RequestParams::<GoldilocksField>::GetLatestBlockState(input),
+            PsyBlockState
         );
         match response.result {
             ResponseResult::Success(block_state) => {
                 tracing::debug!(
                     block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
-                    "Successfully fetched L2 block state"
+                    "Successfully fetched block state"
                 );
                 Ok(block_state)
             }
             ResponseResult::Error(e) => {
                 tracing::error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_realm_latest_l2_block_state rpc call failed `{:?}`", e))
+                Err(anyhow::format_err!("get_realm_latest_block_state rpc call failed `{:?}`", e))
             }
         }
     }
 
-    pub async fn get_realm_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyL2BlockState> {
-        tracing::info!("Fetching realm L2 block state at checkpoint {}", checkpoint_id);
+    pub async fn get_realm_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
+        tracing::info!("Fetching realm block state at checkpoint {}", checkpoint_id);
         let rpc_url = self.get_realm_url(self.current_user_id)?;
-        let input = QL2BlockStateRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetL2BlockState(input), PsyL2BlockState);
+        let input = QBlockStateRPCRequest { checkpoint_id };
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetBlockState(input), PsyBlockState);
         match response.result {
             ResponseResult::Success(block_state) => {
                 tracing::debug!(
                     block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
-                    "Successfully fetched L2 block state"
+                    "Successfully fetched block state"
                 );
                 Ok(block_state)
             }
             ResponseResult::Error(e) => {
                 tracing::error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_realm_l2_block_state rpc call failed `{:?}`", e))
+                Err(anyhow::format_err!("get_realm_block_state rpc call failed `{:?}`", e))
             }
         }
     }

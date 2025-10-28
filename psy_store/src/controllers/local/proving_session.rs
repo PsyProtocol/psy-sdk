@@ -192,7 +192,7 @@ impl<F: RichField, R: PsyReadCommandProcessorSync<F> + Send + Sync> PsyLocalProv
         self.cmd_store
     }
     pub async fn into_clean_for_user(mut self, user_id: F) -> anyhow::Result<Self> {
-        let blk_state = self.cmd_store.resolve_get_latest_l2_block_state_mut().await?;
+        let blk_state = self.cmd_store.resolve_get_latest_block_state_mut().await?;
 
         let start_checkpoint = F::from_canonical_u64(blk_state.checkpoint_id);
         let nonce = self
@@ -216,7 +216,7 @@ impl<F: RichField, R: PsyReadCommandProcessorSync<F> + Send + Sync> PsyLocalProv
         self.session_proof_tree_root = session_proof_tree_root;
     }
     pub async fn new_at_head(read_store: R, user_id: F, nonce: F, q_recursion_tree_height: usize) -> anyhow::Result<Self> {
-        let start_checkpoint = read_store.resolve_get_latest_l2_block_state().await?;
+        let start_checkpoint = read_store.resolve_get_latest_block_state().await?;
 
         Ok(Self::new_at(
             read_store,

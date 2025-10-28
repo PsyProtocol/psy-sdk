@@ -40,7 +40,7 @@ impl<SR: PsyCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsync
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
-        let latest = store_reader.get_latest_l2_block_state().await?;
+        let latest = store_reader.get_latest_block_state().await?;
         Ok(Self {
             coordinator_config,
             store_reader,

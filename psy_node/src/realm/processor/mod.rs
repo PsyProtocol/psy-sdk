@@ -235,14 +235,14 @@ impl RealmProcessor {
 
         let (sync_tx, mut sync_rx) = mpsc::channel(100);
         let build_ctx = self.context().await?;
-        if let Ok(local_latest_l2_block_state) = self.store.get_latest_l2_block_state().await {
-            info!("local_latest_l2_block_state: {:?}", local_latest_l2_block_state.clone());
-            let pending_checkpoint_id = local_latest_l2_block_state.checkpoint_id + 1;
+        if let Ok(local_latest_block_state) = self.store.get_latest_block_state().await {
+            info!("local_latest_block_state: {:?}", local_latest_block_state.clone());
+            let pending_checkpoint_id = local_latest_block_state.checkpoint_id + 1;
             if let Some(snapshot) = build_ctx.store.get_snapshot(pending_checkpoint_id)? {
                 build_ctx.store.restore_snapshot(snapshot)?;
                 self.pending_checkpoint_id.store(pending_checkpoint_id, Ordering::Relaxed);
                 let block = self
-                    .sync_checkpoint(&self.context().await?, pending_checkpoint_id, local_latest_l2_block_state.checkpoint_id)
+                    .sync_checkpoint(&self.context().await?, pending_checkpoint_id, local_latest_block_state.checkpoint_id)
                     .await?;
                 self.confirm_pending_checkpoint(&build_ctx, sync_tx.clone(), block).await?;
             }
@@ -515,8 +515,8 @@ impl RealmProcessor {
         let block = self.wait_expected_checkpoint(expected_checkpoint).await;
         match block {
             Ok(block) => {
-                // checkpoint.l2_block_state
-                let checkpoint_id = block.compact.l2_block_state.checkpoint_id;
+                // checkpoint.block_state
+                let checkpoint_id = block.compact.block_state.checkpoint_id;
                 let mut ret = SyncCheckpointResult {
                     checkpoint_id,
                     latest_checkpoint_id: block.latest_checkpoint_id,
@@ -621,7 +621,7 @@ impl RealmProcessor {
     pub async fn get_local_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
         let state = self
             .store
-            .get_latest_l2_block_state()
+            .get_latest_block_state()
             .await
             .map_err(|err| anyhow!("Error getting latest l2 block state: {:?}", err))?;
         Ok(state.checkpoint_id)

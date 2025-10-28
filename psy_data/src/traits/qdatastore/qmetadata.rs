@@ -2,7 +2,7 @@ use plonky2::hash::hash_types::RichField;
 
 //use psy_core::config::network_constants::PsyTreeConfig;
 use crate::qdata::{
-    checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+    checkpoint::{PsyCheckpointLeaf, PsyBlockState},
     contract::{ContractCodeDefinition, PsyContractLeaf},
     user::PsyUserLeaf,
 };
@@ -30,11 +30,11 @@ pub trait QMetaDataStoreReaderSync<F: RichField>: Send + Sync {
         <Self as QMetaDataStoreReaderSync<F>>::get_contract_code_definition(self, contract_id.to_canonical_u64()).await
     }
 
-    async fn get_latest_l2_block_state(&self) -> anyhow::Result<PsyL2BlockState>;
+    async fn get_latest_block_state(&self) -> anyhow::Result<PsyBlockState>;
 
-    async fn get_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyL2BlockState>;
-    async fn get_l2_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<PsyL2BlockState> {
-        <Self as QMetaDataStoreReaderSync<F>>::get_l2_block_state(self, checkpoint_id.to_canonical_u64()).await
+    async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyBlockState>;
+    async fn get_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<PsyBlockState> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_block_state(self, checkpoint_id.to_canonical_u64()).await
     }
 }
 
@@ -66,5 +66,5 @@ pub trait QMetaDataStoreWriterSync<F: RichField> {
         )
     }
 
-    fn set_l2_block_state(&self, block_state: &PsyL2BlockState) -> anyhow::Result<()>;
+    fn set_block_state(&self, block_state: &PsyBlockState) -> anyhow::Result<()>;
 }

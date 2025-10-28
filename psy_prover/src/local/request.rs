@@ -22,7 +22,7 @@ use psy_data::{
     guta::{api::SubmitGUTARealmResultAPINoProofInput, end_cap_input::SubmitUserEndCapNonProofInput},
     qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyL2BlockState},
+        checkpoint::{PsyCheckpointLeaf, PsyBlockState},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },
@@ -236,12 +236,12 @@ pub enum RequestParams<F: RichField> {
     GetContractCodeDefinition(QContractCodeDefinitionRPCRequest),
     #[serde(rename = "psy_get_contract_code_definition_f")]
     GetContractCodeDefinitionF(QContractCodeDefinitionFRPCRequest<F>),
-    #[serde(rename = "psy_get_latest_l2_block_state")]
-    GetLatestL2BlockState(QLatestL2BlockStateRPCRequest),
-    #[serde(rename = "psy_get_l2_block_state")]
-    GetL2BlockState(QL2BlockStateRPCRequest),
-    #[serde(rename = "psy_get_l2_block_state_f")]
-    GetL2BlockStateF(QL2BlockStateFRPCRequest<F>),
+    #[serde(rename = "psy_get_latest_block_state")]
+    GetLatestBlockState(QLatestBlockStateRPCRequest),
+    #[serde(rename = "psy_get_block_state")]
+    GetBlockState(QBlockStateRPCRequest),
+    #[serde(rename = "psy_get_block_state_f")]
+    GetBlockStateF(QBlockStateFRPCRequest<F>),
 
     /// generate proof
     #[serde(rename = "psy_get_circuits_data")]
@@ -362,8 +362,8 @@ pub enum LPSResponse {
     GetContractLeaf(PsyContractLeaf<F>),
     GetContractCode(ContractCodeDefinition),
     GetCheckpointLeaf(PsyCheckpointLeaf<F>),
-    GetL2BlockState(PsyL2BlockState),
-    // GetLatestL2BlockState(PsyL2BlockState),
+    GetBlockState(PsyBlockState),
+    // GetLatestBlockState(PsyBlockState),
     GetUserId(u64),
 }
 
@@ -1085,18 +1085,18 @@ pub struct QContractCodeDefinitionFRPCRequest<F: RichField> {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
-pub struct QLatestL2BlockStateRPCRequest {}
+pub struct QLatestBlockStateRPCRequest {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
-pub struct QL2BlockStateRPCRequest {
+pub struct QBlockStateRPCRequest {
     pub checkpoint_id: u64,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
-pub struct QL2BlockStateFRPCRequest<F: RichField> {
+pub struct QBlockStateFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
 }
 
@@ -1445,9 +1445,9 @@ pub enum QRPCRequest<F: RichField> {
     QCheckpointLeafDataFRPCRequest((u32, QCheckpointLeafDataFRPCRequest<F>)),
     QContractCodeDefinitionRPCRequest((u32, QContractCodeDefinitionRPCRequest)),
     QContractCodeDefinitionFRPCRequest((u32, QContractCodeDefinitionFRPCRequest<F>)),
-    QLatestL2BlockStateRPCRequest((u32, QLatestL2BlockStateRPCRequest)),
-    QL2BlockStateRPCRequest((u32, QL2BlockStateRPCRequest)),
-    QL2BlockStateFRPCRequest((u32, QL2BlockStateFRPCRequest<F>)),
+    QLatestBlockStateRPCRequest((u32, QLatestBlockStateRPCRequest)),
+    QBlockStateRPCRequest((u32, QBlockStateRPCRequest)),
+    QBlockStateFRPCRequest((u32, QBlockStateFRPCRequest<F>)),
 
     // genetate proof
     QProveUpsStartRPCRequest((u32, QProveUpsStartRPCRequest<F>)),

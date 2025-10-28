@@ -23,7 +23,7 @@ impl<const TABLE_TYPE: u16> KVQSerializable for U64TableKey<TABLE_TYPE> {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 10 {
-            anyhow::bail!("expected 10 bytes for deserializing L2BlockStateKeyCore, got {} bytes", bytes.len());
+            anyhow::bail!("expected 10 bytes for deserializing BlockStateKeyCore, got {} bytes", bytes.len());
         }
         Ok(U64TableKey(u64::from_be_bytes([
             bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9],

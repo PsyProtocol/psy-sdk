@@ -54,14 +54,14 @@ export * from "./PsyCheckpointLeafCompactWithStateRoots";
 export * from "./PsyCheckpointLeafStats";
 export * from "./PsyContractLeaf";
 export * from "./PsyContractStateUpdateHistory";
-export * from "./PsyL2BlockState";
+export * from "./PsyBlockState";
 export * from "./PsyUserLeaf";
 export * from "./PsyUserPublicKeyRecord";
 export * from "./QHashOut";
-export * from "./QL2BlockStateFRPCRequest";
-export * from "./QL2BlockStateRPCRequest";
+export * from "./QBlockStateFRPCRequest";
+export * from "./QBlockStateRPCRequest";
 export * from "./QLatestCheckpointTreeRootRPCRequest";
-export * from "./QLatestL2BlockStateRPCRequest";
+export * from "./QLatestBlockStateRPCRequest";
 export * from "./QRPCRequest";
 export * from "./QRegisterUserRPCRequest";
 export * from "./QSubmitEndCapRPCRequest";
@@ -141,9 +141,9 @@ export interface SubmitUserEndCapNonProofInput {
 }
 
 /**
- * L2 Block State structure
+ * Block State structure
  */
-export interface PsyL2BlockState {
+export interface PsyBlockState {
     checkpoint_id: bigint;
     next_add_withdrawal_id: bigint;
     next_process_withdrawal_id: bigint;
@@ -226,11 +226,11 @@ export interface QContractCodeDefinitionFRPCRequest {
     contract_id: bigint;
 }
 
-export interface QL2BlockStateRPCRequest {
+export interface QBlockStateRPCRequest {
     checkpoint_id: number;
 }
 
-export interface QL2BlockStateFRPCRequest {
+export interface QBlockStateFRPCRequest {
     checkpoint_id: bigint;
 }
 
