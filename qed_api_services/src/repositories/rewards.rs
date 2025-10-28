@@ -53,7 +53,7 @@ impl WorkerRewardsRepository {
                 r#"
                 SELECT COALESCE(SUM(total_rewards), 0)::BIGINT
                 FROM worker_rewards_1d
-                WHERE public_key = $1 AND bucket >= $2
+                WHERE worker_public_key = $1 AND bucket >= $2
                 "#,
                 worker_public_key,
                 twenty_four_hours_ago
@@ -66,7 +66,7 @@ impl WorkerRewardsRepository {
                 r#"
                 SELECT COALESCE(SUM(total_rewards), 0)::BIGINT
                 FROM worker_rewards_1d
-                WHERE public_key = $1 AND bucket >= $2
+                WHERE worker_public_key = $1 AND bucket >= $2
                 "#,
                 worker_public_key,
                 seven_days_ago
@@ -79,7 +79,7 @@ impl WorkerRewardsRepository {
                 r#"
                 SELECT COALESCE(SUM(total_rewards), 0)::BIGINT
                 FROM worker_rewards_1d
-                WHERE public_key = $1 AND bucket >= $2
+                WHERE worker_public_key = $1 AND bucket >= $2
                 "#,
                 worker_public_key,
                 thirty_days_ago

@@ -126,9 +126,9 @@ impl WorkerRewardsAggregationRepository {
                 SELECT
                     last_reward_time as bucket,
                     worker_public_key as public_key,
-                    jobs_completed::BIGINT as completed_proofs,
+                    total_jobs_completed::BIGINT as completed_proofs,
                     total_rewards::BIGINT as total_rewards,
-                    max_checkpoint::BIGINT as max_checkpoint
+                    COALESCE(max_checkpoint, 0)::BIGINT as max_checkpoint
                 FROM worker_rewards
                 WHERE worker_public_key = $1
                 LIMIT 1
@@ -149,7 +149,7 @@ impl WorkerRewardsAggregationRepository {
                 SELECT
                     bucket,
                     worker_public_key as public_key,
-                    jobs_completed::BIGINT as completed_proofs,
+                    completed_proofs::BIGINT as completed_proofs,
                     total_rewards::BIGINT as total_rewards,
                     max_checkpoint::BIGINT as max_checkpoint
                 FROM {}
@@ -197,6 +197,37 @@ impl WorkerRewardsAggregationRepository {
         Ok(aggregations)
     }
 
+    /// Force refresh an aggregate
+    /// Note: worker_rewards table is updated via trigger, so no need to manual refresh
+    pub async fn refresh_aggregate(pool: &PgPool, view_name: &str) -> Result<()> {
+        let valid_views = vec![
+            "worker_rewards_1d",
+            "worker_rewards_1w",
+            "worker_rewards_1m"
+        ];
+        if !valid_views.contains(&view_name) {
+            return Err(anyhow::anyhow!("Invalid view name: {}", view_name));
+        }
+
+        tracing::info!("Manually refreshing aggregate: {}", view_name);
+
+        let query = format!(
+            "CALL refresh_continuous_aggregate('{}', NULL, NULL)",
+            view_name
+        );
+
+        sqlx::query(&query)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to refresh aggregate {}: {}", view_name, e);
+                anyhow::anyhow!("Failed to refresh aggregate {}: {}", view_name, e)
+            })?;
+
+        tracing::info!("Successfully refreshed aggregate: {}", view_name);
+        Ok(())
+    }
+
     /// Get total rewards for a worker across time range from aggregates
     pub async fn get_worker_rewards_with_period(
         pool: &PgPool,
@@ -217,10 +248,10 @@ impl WorkerRewardsAggregationRepository {
         let query = format!(
             r#"
             SELECT
-                COALESCE(SUM(jobs_completed), 0)::BIGINT as total_proofs,
+                COALESCE(SUM(completed_proofs), 0)::BIGINT as total_proofs,
                 COALESCE(SUM(total_rewards), 0)::BIGINT as total_rewards
             FROM {}
-            WHERE worker_public_key = $1
+            WHERE public_key = $1
                 AND ($2::TIMESTAMPTZ IS NULL OR bucket >= $2)
                 AND ($3::TIMESTAMPTZ IS NULL OR bucket <= $3)
             "#,
@@ -246,26 +277,22 @@ impl WorkerRewardsAggregationRepository {
         worker_public_key: &str,
     ) -> Result<i64> {
 
-        let view_name = "worker_rewards";
-        let query = format!(
-            r#"
-            SELECT
-                COALESCE(SUM(completed_proofs), 0)::BIGINT as total_proofs,
-                COALESCE(SUM(total_rewards), 0)::BIGINT as total_rewards
-            FROM {}
-            WHERE public_key = $1
-            "#,
-            view_name
-        );
+        let query = r#"
+            SELECT COALESCE(total_rewards, 0) AS total_rewards
+            FROM worker_rewards
+            WHERE worker_public_key = $1
+        "#;
 
-        let row = sqlx::query(&query)
+        let row = sqlx::query(query)
             .bind(worker_public_key)
-            .fetch_one(pool)
+            .fetch_optional(pool)
             .await?;
 
-        let total_rewards: i64 = row.try_get("total_rewards")?;
-
-        Ok(total_rewards)
+        if let Some(row) = row {
+            Ok(row.try_get("total_rewards")?)
+        } else {
+            Ok(0)
+        }
     }
 
     /// Check if a continuous aggregate has any data
