@@ -12,7 +12,7 @@ use psy_data::{
     },
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
-use qed_exec::vm::exec::QEDEvalSessionResult;
+use psy_exec::vm::exec::QEDEvalSessionResult;
 use psy_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, qstore::imm::cmd_processor::QEDReadCommandProcessorSync, traits::qdatastore::
         qtreedata::

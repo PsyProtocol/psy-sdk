@@ -10,7 +10,7 @@ use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureMa
 use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use psy_data::{config::store_config::{C, D}, qblock::cmds::register_user::QBCRegisterUser};
-use qed_exec::vm::exec::QEDEvalSessionResult;
+use psy_exec::vm::exec::QEDEvalSessionResult;
 use psy_data::config::store_config::QEDHasher;
 
 /// Executes a circuit to calculate its return value

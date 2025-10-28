@@ -24,7 +24,7 @@ use psy_data::{
     },
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}, qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
 };
-use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
+use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_prover::dpn::{
     circuits::cfc::DapenContractFunctionCircuit,
 };

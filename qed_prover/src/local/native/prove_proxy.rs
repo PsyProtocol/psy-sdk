@@ -30,7 +30,7 @@ use psy_data::{
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     }
 };
-use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
+use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
 use psy_vm::dpn::contract::cfc_code_definition_to_dapen_fc;
 use serde::{Deserialize, Deserializer, Serialize};

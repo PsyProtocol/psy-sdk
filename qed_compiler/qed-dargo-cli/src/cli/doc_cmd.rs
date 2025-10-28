@@ -11,7 +11,7 @@ use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_package::Workspace;
 use psy_data::qblock::cmds::register_user::QBCRegisterUser;
-use qed_exec::vm::exec::QEDEvalSessionResult;
+use psy_exec::vm::exec::QEDEvalSessionResult;
 use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use qed_sema::{
     CheckedFunctionNode, Implementer, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,

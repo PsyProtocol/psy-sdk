@@ -32,7 +32,7 @@ qed-common = { workspace = true }
 psy_vm = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
-qed_exec = { workspace = true, default-features = false }
+psy_exec = { workspace = true, default-features = false }
 qed_store = { workspace = true, default-features = false }
 qedlang_macros = { workspace = true }
 wasm-bindgen = { workspace = true }
@@ -88,7 +88,7 @@ wasm-opt = ["-O", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 is_sync = [
     "psy_data/is_sync",
     "maybe-async/is_sync",
-    "qed_exec/is_sync",
+    "psy_exec/is_sync",
     "qed_store/is_sync",
     "qed_common_circuit/is_sync",
     "qed_rollup_circuit/is_sync",

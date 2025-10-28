@@ -23,7 +23,7 @@ use psy_crypto::signature::{
 };
 use psy_data::config::store_config::QEDHasher;
 use psy_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
-use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
+use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::local::args::SignType;

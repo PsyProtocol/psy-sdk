@@ -93,8 +93,8 @@ export interface SignData {
 
 // Namespace corresponds to "qed" in Rust
 enum QedUserProverRPCCommand {
-    ExecContractCall = "qed_exec_contract_call",
-    ExecContractCallWithSignData = "qed_exec_contract_call_with_sign_data",
+    ExecContractCall = "psy_exec_contract_call",
+    ExecContractCallWithSignData = "psy_exec_contract_call_with_sign_data",
     StartSession = "qed_start_session",
     ProveContractCall = "qed_prove_contract_call",
     ProveContractCalls = "qed_prove_contract_calls",

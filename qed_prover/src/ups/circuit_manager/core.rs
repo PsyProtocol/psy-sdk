@@ -48,7 +48,7 @@ use psy_data::{
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
-use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
+use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qed_rollup_circuit::ups::circuits::{
     end_cap::UPSStandardEndCapCircuit, ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit,
     ups_cfc_standard::UPSCFCStandardTransactionCircuit, ups_start::UPSStartSessionCircuit,

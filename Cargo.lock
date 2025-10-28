@@ -2376,6 +2376,7 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_exec",
  "psy_vm",
  "qed-abi",
  "qed-ast",
@@ -2383,7 +2384,6 @@ dependencies = [
  "qed-interpreter",
  "qed-sema",
  "qed_common_circuit",
- "qed_exec",
  "qed_package",
  "qed_prover",
  "qed_store",
@@ -5697,6 +5697,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "psy_exec"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "kvq",
+ "maybe-async",
+ "plonky2",
+ "psy_core",
+ "psy_crypto",
+ "psy_data",
+ "psy_vm",
+ "qed_store",
+ "qedlang_macros",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "ts-rs",
+]
+
+[[package]]
 name = "psy_vm"
 version = "0.1.0"
 dependencies = [
@@ -5770,6 +5793,7 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_exec",
  "psy_vm",
  "qed-ast",
  "qed-common",
@@ -5777,7 +5801,6 @@ dependencies = [
  "qed-parser",
  "qed-sema",
  "qed_common_circuit",
- "qed_exec",
  "qed_prover",
  "qed_store",
  "serial_test",
@@ -5937,29 +5960,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_exec"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "kvq",
- "maybe-async",
- "plonky2",
- "psy_core",
- "psy_crypto",
- "psy_data",
- "psy_vm",
- "qed_store",
- "qedlang_macros",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "ts-rs",
-]
-
-[[package]]
 name = "qed_node"
 version = "0.1.0"
 dependencies = [
@@ -6080,10 +6080,10 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_exec",
  "psy_vm",
  "qed-common",
  "qed_common_circuit",
- "qed_exec",
  "qed_rollup_circuit",
  "qed_rollup_utils",
  "qed_store",
