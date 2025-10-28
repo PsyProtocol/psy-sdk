@@ -50,7 +50,7 @@ const WalletActions: React.FC = () => {
                     </div>
                     {/* <div>
                         <WalletActionButton
-                            label="Withdraw to L1"
+                            label="Withdraw"
                             icon={<WithdrawIcon size={24} />}
                             onClick={() => {
                                 openModal(AddressModalType.Withdraw);

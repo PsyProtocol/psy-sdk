@@ -223,7 +223,7 @@ impl<
         u32,
         BidirectionalGraph<QProvingJobDataID>,
     )> {
-        let last_l2_blockstate = self.store.get_latest_block_state().await?;
+        let last_blockstate = self.store.get_latest_block_state().await?;
 
         let last_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
         tracing::debug!("last_contract_tree_root: {}", last_contract_tree_root);
@@ -247,7 +247,7 @@ impl<
 
         let new_hashes = new_contract_leaves.iter().map(|x| x.qfhash::<PsyHasher>()).collect::<Vec<_>>();
 
-        let start_contract_id = last_l2_blockstate.next_contract_id;
+        let start_contract_id = last_blockstate.next_contract_id;
 
         for (i, dc) in deploy_contract_items.iter().enumerate() {
             self.store
@@ -366,7 +366,7 @@ impl<
         Vec<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
     )> {
-        let last_l2_blockstate = self.store.get_latest_block_state().await?;
+        let last_blockstate = self.store.get_latest_block_state().await?;
 
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
         tracing::debug!("last_user_registration_tree_root: {}", last_user_registration_tree_root);
@@ -375,7 +375,7 @@ impl<
             .peek_with_position::<ZKPublicKeyInfo<F>>(self.max_processed_users_per_block, COORD_API_REGISTER_USER_CHANNEL_ID, checkpoint_id)
             .await?;
 
-        let start_registration_user_id = last_l2_blockstate.next_user_id;
+        let start_registration_user_id = last_blockstate.next_user_id;
 
         let new_user_records = user_registrations
             .iter()
@@ -1202,14 +1202,14 @@ impl<
 
         self.task_store.clear_task_graph().await?;
 
-        let last_l2_blockstate = self.store.get_latest_block_state().await?;
+        let last_blockstate = self.store.get_latest_block_state().await?;
         self.proof_store
-            .cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64)
+            .cleanup_old_proofs(last_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64)
             .await?;
-        let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
-        let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
-        let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
-        let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
+        let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_blockstate.checkpoint_id).await?;
+        let last_contract_tree_root = self.store.get_contract_tree_root(last_blockstate.checkpoint_id).await?;
+        let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_blockstate.checkpoint_id).await?;
+        let new_checkpoint_id = last_blockstate.checkpoint_id + 1;
         info!("💥 coordinator processor build block checkpoint_id: {}", new_checkpoint_id);
         let (deploy_jobs, deploy_transition, next_contract_id, deploy_graph) = self.handle_deploy_contracts(new_checkpoint_id, slot).await?;
         let (user_registration_jobs, user_registration_transition, new_accounts, regsitered_users_start_pivot_siblings, user_reg_graph) =
@@ -1358,7 +1358,7 @@ impl<
 
         let previous_checkpoint_proof = self
             .store
-            .get_checkpoint_tree_merkle_proof(last_l2_blockstate.checkpoint_id, last_l2_blockstate.checkpoint_id)
+            .get_checkpoint_tree_merkle_proof(last_blockstate.checkpoint_id, last_blockstate.checkpoint_id)
             .await?;
         tracing::debug!(previous_checkpoint_proof = %serde_json::to_string_pretty(&previous_checkpoint_proof).unwrap(), "Previous checkpoint proof");
 
@@ -1394,13 +1394,13 @@ impl<
 
         // Update block state
         let new_block_state = PsyBlockState {
-            checkpoint_id: last_l2_blockstate.checkpoint_id + 1,
-            next_add_withdrawal_id: last_l2_blockstate.next_add_withdrawal_id,
-            next_process_withdrawal_id: last_l2_blockstate.next_process_withdrawal_id,
-            next_deposit_id: last_l2_blockstate.next_deposit_id,
-            total_deposits_claimed_epoch: last_l2_blockstate.total_deposits_claimed_epoch,
-            next_user_id: last_l2_blockstate.next_user_id + new_accounts.len() as u64,
-            end_balance: last_l2_blockstate.end_balance,
+            checkpoint_id: last_blockstate.checkpoint_id + 1,
+            next_add_withdrawal_id: last_blockstate.next_add_withdrawal_id,
+            next_process_withdrawal_id: last_blockstate.next_process_withdrawal_id,
+            next_deposit_id: last_blockstate.next_deposit_id,
+            total_deposits_claimed_epoch: last_blockstate.total_deposits_claimed_epoch,
+            next_user_id: last_blockstate.next_user_id + new_accounts.len() as u64,
+            end_balance: last_blockstate.end_balance,
             next_contract_id,
         };
 
@@ -1410,7 +1410,7 @@ impl<
 
         let lf_state = self.store.get_checkpoint_global_state_roots(new_checkpoint_id).await?;
 
-        let l2_sync = QCheckpointSyncInfoCompact {
+        let sync_info = QCheckpointSyncInfoCompact {
             block_state: new_block_state,
             stats: new_checkpoint_leaf.stats,
             state_roots: lf_state,
@@ -1421,8 +1421,8 @@ impl<
             slot,
         };
 
-        tracing::debug!(l2_sync = %serde_json::to_string_pretty(&l2_sync).unwrap(), "Checkpoint sync info");
-        self.store.set_checkpoint_sync_info_imm(l2_sync.clone()).await?;
+        tracing::debug!(sync_info = %serde_json::to_string_pretty(&sync_info).unwrap(), "Checkpoint sync info");
+        self.store.set_checkpoint_sync_info_imm(sync_info.clone()).await?;
         trace!("build block {}, slot {}, cost time: {:?}", new_checkpoint_id, slot, start.elapsed());
         Ok(())
     }

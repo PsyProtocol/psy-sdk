@@ -35,7 +35,7 @@ interface IPsyWithdrawalRequest {
     network_magic: string;
     user: number;
     nonce: SCNumberLike;
-    l1_address: string;
+    address: string;
     amount: SCNumberLike;
     withdrawal_fee: number;
 }

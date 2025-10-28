@@ -292,13 +292,13 @@ mod tests {
         println!("  Signature: {:?}", hex::encode(&secp_signature.signature));
         println!("  Message: {:?}", hex::encode(&secp_signature.message.0));
 
-        // Create L1 SECP256K1 signature circuit and test
-        let l1_circuit = Secp256K1SignatureCircuit::<C, D>::new();
+        // Create SECP256K1 signature circuit and test
+        let secp_circuit = Secp256K1SignatureCircuit::<C, D>::new();
 
-        println!("Created L1 SECP256K1 circuit, fingerprint: {}", l1_circuit.get_fingerprint());
+        println!("Created SECP256K1 circuit, fingerprint: {}", secp_circuit.get_fingerprint());
 
-        // Generate ZK proof using the L1 circuit
-        let zk_proof = l1_circuit.prove(&secp_signature)?;
+        // Generate ZK proof using the circuit
+        let zk_proof = secp_circuit.prove(&secp_signature)?;
 
         println!("Generated ZK proof with {} public inputs", zk_proof.public_inputs.len());
         println!("Public inputs: {:?}", zk_proof.public_inputs);
@@ -314,7 +314,7 @@ mod tests {
             ],
         });
 
-        println!("L1 circuit public inputs (combined hash): {}", combined_hash_from_proof);
+        println!("Circuit public inputs (combined hash): {}", combined_hash_from_proof);
 
         // Calculate expected combined hash: hash(sighash, public_key_param)
         use plonky2::hash::poseidon::PoseidonPermutation;
@@ -366,13 +366,13 @@ mod tests {
         println!("  Signature: {:?}", hex::encode(&secp_signature.signature));
         println!("  Message: {:?}", hex::encode(&secp_signature.message.0));
 
-        // Create L1 SECP256K1 signature circuit and test
-        let l1_circuit = Secp256K1SignatureCircuit::<C, D>::new();
+        // Create SECP256K1 signature circuit and test
+        let secp_circuit = Secp256K1SignatureCircuit::<C, D>::new();
 
-        println!("Created L1 SECP256K1 circuit, fingerprint: {}", l1_circuit.get_fingerprint());
+        println!("Created SECP256K1 circuit, fingerprint: {}", secp_circuit.get_fingerprint());
 
-        // Generate ZK proof using the L1 circuit
-        let zk_proof = l1_circuit.prove(&secp_signature)?;
+        // Generate ZK proof using the circuit
+        let zk_proof = secp_circuit.prove(&secp_signature)?;
 
         println!("Generated ZK proof with {} public inputs", zk_proof.public_inputs.len());
         println!("Public inputs: {:?}", zk_proof.public_inputs);
@@ -391,7 +391,7 @@ mod tests {
             ],
         });
 
-        println!("L1 circuit combined hash output: {}", combined_hash_from_proof);
+        println!("Circuit combined hash output: {}", combined_hash_from_proof);
 
         // Verify this matches expected format: hash(message_hash, public_key_param)
         use plonky2::hash::poseidon::PoseidonPermutation;

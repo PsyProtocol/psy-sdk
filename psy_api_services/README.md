@@ -349,7 +349,7 @@ curl -X POST http://localhost:3000/telemetry/events \
       "public_key": "0x1234...",
       "status": "COMPLETED",
       "source": "REALM",
-      "job_id": {"task_id": 123, "circuit_type": "AddL1Deposit"},
+      "job_id": {"task_id": 123, "circuit_type": "AddDeposit"},
       "checkpoint_id": 456,
       "duration": 1500,
       "timestamp": "2023-01-01T12:00:00Z"

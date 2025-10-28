@@ -51,7 +51,7 @@ function getTransferSigAction(request: IPsyTransferRequest): IPsySigAction {
 }
 
 function getWithdrawalSigAction(request: IPsyWithdrawalRequest): IPsySigAction {
-    const withdrawalHash = getWithdrawalHashFromAddress(psyFelt(BigInt(request.amount)), request.l1_address);
+    const withdrawalHash = getWithdrawalHashFromAddress(psyFelt(BigInt(request.amount)), request.address);
 
     return {
         network_magic: request.network_magic + "",

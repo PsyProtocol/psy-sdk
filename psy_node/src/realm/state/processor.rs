@@ -878,11 +878,11 @@ impl<
     pub async fn build_block(&self, slot: u64) -> anyhow::Result<QProvingJobDataID> {
         self.task_store.clear_task_graph().await?;
 
-        let last_l2_blockstate = self.store.get_latest_block_state().await?;
+        let last_blockstate = self.store.get_latest_block_state().await?;
         self.proof_store
-            .cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64)
+            .cleanup_old_proofs(last_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64)
             .await?;
-        let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
+        let new_checkpoint_id = last_blockstate.checkpoint_id + 1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
 
         let has_guta = self.has_pending_guta_tasks(new_checkpoint_id).await?;

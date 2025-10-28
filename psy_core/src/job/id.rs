@@ -1046,7 +1046,7 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn claim_deposit_l1_signature_proof(checkpoint_id: u64, slot_id: u64, group_id: u32, deposit_id: u32) -> Self {
+    pub fn claim_deposit_signature_proof(checkpoint_id: u64, slot_id: u64, group_id: u32, deposit_id: u32) -> Self {
         Self {
             topic: QJobTopic::BlockUserSignatureProof,
             goal_id: checkpoint_id,

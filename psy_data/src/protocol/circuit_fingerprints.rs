@@ -14,13 +14,13 @@ pub struct PsyWorkerToolboxCoreCircuitFingerprints<F: RichField> {
     // state transition operations
     pub op_register_user: TPCircuitFingerprintConfig<F>,
     pub op_deploy_contract: TPCircuitFingerprintConfig<F>,
-    pub op_claim_l1_deposit: TPCircuitFingerprintConfig<F>,
-    pub op_l2_transfer: TPCircuitFingerprintConfig<F>,
-    pub op_add_l1_withdrawal: TPCircuitFingerprintConfig<F>,
+    pub op_claim_deposit: TPCircuitFingerprintConfig<F>,
+    pub op_transfer: TPCircuitFingerprintConfig<F>,
+    pub op_add_withdrawal: TPCircuitFingerprintConfig<F>,
 
     // state transition with events operations
-    pub op_add_l1_deposit: TPCircuitFingerprintConfig<F>,
-    pub op_process_l1_withdrawal: TPCircuitFingerprintConfig<F>,
+    pub op_add_deposit: TPCircuitFingerprintConfig<F>,
+    pub op_process_withdrawal: TPCircuitFingerprintConfig<F>,
 
     // operation aggregators
     pub agg_state_transition: QHashOut<F>,
