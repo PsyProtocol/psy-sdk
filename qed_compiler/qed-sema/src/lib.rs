@@ -44,7 +44,7 @@ pub use variable::*;
 pub use visualizer::*;
 
 use anyhow::anyhow;
-use qed_ast::*;
+use psy_ast::*;
 use std::collections::{HashMap, HashSet};
 use std::result::Result as StdResult;
 use tracing::instrument;

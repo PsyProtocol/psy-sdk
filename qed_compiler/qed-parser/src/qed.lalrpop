@@ -1,6 +1,6 @@
 use qed_common::{FileId, Arena};
 use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
-use qed_ast::*;
+use psy_ast::*;
 use qed_lexer::Token;
 
 grammar<'input, F, C>(

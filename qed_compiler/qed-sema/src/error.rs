@@ -1,4 +1,4 @@
-use qed_ast::{IdentId, Location, TextRange};
+use psy_ast::{IdentId, Location, TextRange};
 use std::path::PathBuf;
 use thiserror::Error;
 

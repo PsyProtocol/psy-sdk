@@ -1,5 +1,5 @@
 use crate::TypeId;
-use qed_ast::{ExprId, Location, NodeInfo, NodeType};
+use psy_ast::{ExprId, Location, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedCase {

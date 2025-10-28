@@ -1,8 +1,8 @@
 use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
 
-use qed_ast::{ExprId, Identifier, Location};
-use qed_ast::{IdentId, Visibility};
+use psy_ast::{ExprId, Identifier, Location};
+use psy_ast::{IdentId, Visibility};
 
 use crate::CheckedFunctionParameter;
 use crate::CheckedFunctionSignature;

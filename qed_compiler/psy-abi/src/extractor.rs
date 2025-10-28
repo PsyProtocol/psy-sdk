@@ -1,4 +1,4 @@
-use qed_ast::{
+use psy_ast::{
     DefId, DefaultVisitorContext, FunctionNode, Program, StructNode, Visibility, VisitorContext,
 };
 
@@ -149,12 +149,12 @@ impl AbiExtractor {
 
     fn extract_type_name<F: Clone + From<u32>>(
         &self,
-        unchecked_type: &qed_ast::UncheckedType,
+        unchecked_type: &psy_ast::UncheckedType,
         ctx: &DefaultVisitorContext<F, ()>,
     ) -> String {
         match unchecked_type {
-            qed_ast::UncheckedType::Basic(identifier) => ctx.ident(*identifier).0.to_string(),
-            qed_ast::UncheckedType::Path(path) => self.extract_type_name(&path.target, ctx),
+            psy_ast::UncheckedType::Basic(identifier) => ctx.ident(*identifier).0.to_string(),
+            psy_ast::UncheckedType::Path(path) => self.extract_type_name(&path.target, ctx),
             _ => "unknown".to_string(),
         }
     }

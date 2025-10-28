@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use qed_ast::{Comment, Identifier, Location, NodeInfo, NodeType, Visibility};
+use psy_ast::{Comment, Identifier, Location, NodeInfo, NodeType, Visibility};
 
 use crate::{CheckedStructField, ScopeId, TypeId};
 

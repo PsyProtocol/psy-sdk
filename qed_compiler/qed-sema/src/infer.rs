@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use itertools::Itertools;
-use qed_ast::IdentId;
+use psy_ast::IdentId;
 use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{

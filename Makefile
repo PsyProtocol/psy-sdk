@@ -97,7 +97,7 @@ ci:
 	@$(DARGO_CLI_EXECUTE) clear_entire_tree_test.qed
 
 	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
-	       --package qed-ast \
+	       --package psy-ast \
 	       --package qed-parser \
 	       -- \
 	       --nocapture

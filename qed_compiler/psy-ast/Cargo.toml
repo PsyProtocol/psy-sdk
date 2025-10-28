@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "qed-ast"
+name    = "psy-ast"
 version = "0.1.0"
 
 [dependencies]

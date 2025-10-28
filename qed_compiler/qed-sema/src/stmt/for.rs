@@ -1,4 +1,4 @@
-use qed_ast::{Comment, Location};
+use psy_ast::{Comment, Location};
 
 use crate::{ExprId, Identifier, NodeInfo, NodeType, ScopeId};
 

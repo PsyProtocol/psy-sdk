@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use qed_ast::{DefaultVisitorContext, ModuleId};
+use psy_ast::{DefaultVisitorContext, ModuleId};
 
 use qed_common::FileId;
 use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};

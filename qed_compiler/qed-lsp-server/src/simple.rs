@@ -1,4 +1,4 @@
-use qed_ast::{Position, Program, TextPosition, TextRange};
+use psy_ast::{Position, Program, TextPosition, TextRange};
 use qed_interpreter::Interpreter;
 use std::collections::HashMap;
 use std::path::PathBuf;

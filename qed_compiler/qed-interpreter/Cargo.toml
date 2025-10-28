@@ -4,7 +4,7 @@ name    = "qed-interpreter"
 version = "0.1.0"
 
 [dependencies]
-qed-ast = { workspace = true }
+psy-ast = { workspace = true }
 qed-parser = { workspace = true }
 qed-sema = { workspace = true }
 anyhow = { workspace = true }

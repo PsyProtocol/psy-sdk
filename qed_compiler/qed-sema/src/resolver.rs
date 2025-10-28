@@ -1,4 +1,4 @@
-use qed_ast::{IdentId, Identifier, ModuleId, PathNode, UncheckedType, UseNode, VisitorContext};
+use psy_ast::{IdentId, Identifier, ModuleId, PathNode, UncheckedType, UseNode, VisitorContext};
 use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{

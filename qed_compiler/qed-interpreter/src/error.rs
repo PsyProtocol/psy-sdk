@@ -1,6 +1,6 @@
 use ariadne::{Label, Report, ReportKind};
 use core::fmt;
-use qed_ast::{Location, Program, TextPosition, TextRange, VisitorContext};
+use psy_ast::{Location, Program, TextPosition, TextRange, VisitorContext};
 use qed_parser::Error as ParseError;
 use qed_sema::{
     AstVisualizer, Error as SemaError, TypeCheckerErrorDescriptor, TypeCheckerVisitorContext,

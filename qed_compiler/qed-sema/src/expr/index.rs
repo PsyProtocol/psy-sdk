@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, Identifier, Location, NodeInfo, NodeType};
+use psy_ast::{ExprId, Identifier, Location, NodeInfo, NodeType};
 
 use crate::TypeId;
 

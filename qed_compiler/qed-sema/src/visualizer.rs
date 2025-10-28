@@ -3,7 +3,7 @@ use crate::{
     TypeCheckerVisitorContext, TypeId, VarId,
 };
 use itertools::Itertools;
-use qed_ast::{
+use psy_ast::{
     Comment, DefId, DefinitionNode, EnumVariant, ExprId, ExprNode, IdentId, StmtId, StmtNode,
     Visibility, VisitorContext,
 };

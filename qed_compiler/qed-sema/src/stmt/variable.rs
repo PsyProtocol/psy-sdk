@@ -1,4 +1,4 @@
-use qed_ast::{Comment, ExprId, Identifier, Location, NodeInfo, NodeType, TypeQualifier};
+use psy_ast::{Comment, ExprId, Identifier, Location, NodeInfo, NodeType, TypeQualifier};
 
 use crate::{ScopeId, TypeId};
 

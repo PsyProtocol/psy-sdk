@@ -4,7 +4,7 @@ use crate::cli::compile_cmd::compile_workspace_full;
 use crate::cli::execute_cmd::ExecuteCommand;
 use num_bigint::BigUint;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
-use qed_ast::{ModuleId, VisitorContext};
+use psy_ast::{ModuleId, VisitorContext};
 use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use psy_core::data::qhashout::QHashOut;
@@ -81,7 +81,7 @@ pub enum CommentParamValue {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Comment(qed_ast::Comment);
+pub struct Comment(psy_ast::Comment);
 
 impl Comment {
     pub fn is_input_comment(&self) -> bool {
@@ -177,14 +177,14 @@ impl Comment {
     }
 }
 
-impl From<qed_ast::Comment> for Comment {
-    fn from(comment: qed_ast::Comment) -> Self {
+impl From<psy_ast::Comment> for Comment {
+    fn from(comment: psy_ast::Comment) -> Self {
         Self(comment)
     }
 }
 
 impl Deref for Comment {
-    type Target = qed_ast::Comment;
+    type Target = psy_ast::Comment;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -376,7 +376,7 @@ mod tests {
     use crate::cli::compile_cmd::CompileOptions;
     use num_traits::Num;
     use plonky2::field::fft::ifft;
-    use qed_ast::Location;
+    use psy_ast::Location;
     use qed_package::{CrateName, Package, PackageType};
     use std::collections::BTreeMap;
     use std::default::Default;
@@ -384,7 +384,7 @@ mod tests {
 
     #[test]
     fn test_parse_input_values() {
-        let comment = Comment::from(qed_ast::Comment::new_line(
+        let comment = Comment::from(psy_ast::Comment::new_line(
             "input: 1, 2, 3".to_string(),
             Location::default(),
         ));
@@ -397,7 +397,7 @@ mod tests {
                 CommentParamValue::U32(3)
             ]
         );
-        let comment = Comment::from(qed_ast::Comment::new_line(
+        let comment = Comment::from(psy_ast::Comment::new_line(
             "input: true, false, 10".to_string(),
             Location::default(),
         ));
@@ -410,7 +410,7 @@ mod tests {
                 CommentParamValue::U32(10)
             ]
         );
-        let comment = Comment::from(qed_ast::Comment::new_line(
+        let comment = Comment::from(psy_ast::Comment::new_line(
             "input: 0x123456789abcdef, 0xabcdef123456789".to_string(),
             Location::default(),
         ));

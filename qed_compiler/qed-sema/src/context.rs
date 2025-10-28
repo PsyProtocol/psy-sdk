@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use qed_ast::{
+use psy_ast::{
     CrateId, DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, InsertPosition, ModuleId, ModuleNode,
     NodeId, NodeInfo, NodeType, Program, StmtId, StmtNode, VisitorContext,
 };

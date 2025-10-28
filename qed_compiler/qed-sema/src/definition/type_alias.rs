@@ -1,4 +1,4 @@
-use qed_ast::{Comment, Visibility};
+use psy_ast::{Comment, Visibility};
 
 use crate::{Identifier, NodeInfo, NodeType, TypeId};
 

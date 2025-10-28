@@ -13,7 +13,7 @@ pub use r#return::*;
 pub use r#while::*;
 pub use variable::*;
 
-use qed_ast::{DefId, ExprId, NodeInfo, NodeType};
+use psy_ast::{DefId, ExprId, NodeInfo, NodeType};
 
 use crate::{CheckedDefinitionNode, CheckedExprNode};
 

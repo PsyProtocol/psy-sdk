@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use indexmap::{IndexMap, IndexSet};
-use qed_ast::{DefId, IdentId, VisitorContext};
+use psy_ast::{DefId, IdentId, VisitorContext};
 use psy_vm::dpn::ops::context_trait::ContextFelt;
 use tracing::instrument;
 

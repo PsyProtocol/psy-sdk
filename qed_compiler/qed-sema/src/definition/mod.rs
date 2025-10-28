@@ -10,7 +10,7 @@ mod type_alias;
 pub use array::*;
 use enum_as_inner::EnumAsInner;
 pub use function::*;
-use qed_ast::{IdentId, NodeInfo, NodeType, UseNode};
+use psy_ast::{IdentId, NodeInfo, NodeType, UseNode};
 pub use r#const::*;
 pub use r#enum::*;
 pub use r#impl::*;

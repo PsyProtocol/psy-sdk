@@ -44,7 +44,7 @@ pub(crate) fn run(args: GenerateAbiCommand, workspace: Workspace) -> Result<()> 
     let program_ptr: *mut _ = &mut ctx.program;
     let spec_abi = unsafe {
         let static_program = &mut *(program_ptr
-            as *mut qed_ast::Program<psy_vm::dpn::ops::sym_felt::SymFeltRef>);
+            as *mut psy_ast::Program<psy_vm::dpn::ops::sym_felt::SymFeltRef>);
         extractor.extract_spec_compliant_abi(static_program)?
     };
 

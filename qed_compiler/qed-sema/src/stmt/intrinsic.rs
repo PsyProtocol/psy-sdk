@@ -1,4 +1,4 @@
-use qed_ast::{Comment, ExprId, Location, NodeInfo, NodeType};
+use psy_ast::{Comment, ExprId, Location, NodeInfo, NodeType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CheckedIntrinsicStmtNode {

@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use qed_ast::{DefaultVisitorContext, UncheckedType, VisitorContext};
+use psy_ast::{DefaultVisitorContext, UncheckedType, VisitorContext};
 
 // New spec-compliant ABI structures
 #[derive(Debug, Clone, PartialEq, Serialize)]

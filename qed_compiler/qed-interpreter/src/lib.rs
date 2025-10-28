@@ -12,7 +12,7 @@ use crate::{
 use error::{Error, Result};
 use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
-use qed_ast::*;
+use psy_ast::*;
 use qed_common::Graph;
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_fmt::Formatter;

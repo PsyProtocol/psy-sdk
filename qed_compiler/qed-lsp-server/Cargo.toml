@@ -12,7 +12,7 @@ lsp-types = {workspace = true}
 unicode-segmentation = { workspace = true }
 
 qed-sema = { workspace = true }
-qed-ast = { workspace = true }
+psy-ast = { workspace = true }
 qed-interpreter = { workspace = true }
 qed-common = { workspace = true }
 dargo = { workspace = true }

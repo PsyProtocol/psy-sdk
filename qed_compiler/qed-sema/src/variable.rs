@@ -1,4 +1,4 @@
-use qed_ast::{Identifier, Location, TypeQualifier};
+use psy_ast::{Identifier, Location, TypeQualifier};
 use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{ScopeId, TypeId};

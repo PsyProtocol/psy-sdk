@@ -2374,6 +2374,7 @@ dependencies = [
  "num-traits",
  "plonky2",
  "psy-abi",
+ "psy-ast",
  "psy_common_circuit",
  "psy_core",
  "psy_crypto",
@@ -2381,7 +2382,6 @@ dependencies = [
  "psy_exec",
  "psy_store",
  "psy_vm",
- "qed-ast",
  "qed-common",
  "qed-interpreter",
  "qed-sema",
@@ -5623,10 +5623,21 @@ name = "psy-abi"
 version = "0.1.0"
 dependencies = [
  "pretty_assertions",
- "qed-ast",
+ "psy-ast",
  "qed-common",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "psy-ast"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "enum-as-inner",
+ "indexmap 2.11.3",
+ "qed-common",
+ "smol_str",
 ]
 
 [[package]]
@@ -5903,17 +5914,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-ast"
-version = "0.1.0"
-dependencies = [
- "ariadne",
- "enum-as-inner",
- "indexmap 2.11.3",
- "qed-common",
- "smol_str",
-]
-
-[[package]]
 name = "qed-common"
 version = "0.1.0"
 dependencies = [
@@ -5928,8 +5928,8 @@ dependencies = [
 name = "qed-fmt"
 version = "0.1.0"
 dependencies = [
+ "psy-ast",
  "psy_vm",
- "qed-ast",
  "qed-common",
 ]
 
@@ -5943,6 +5943,7 @@ dependencies = [
  "indexmap 2.11.3",
  "insta",
  "plonky2",
+ "psy-ast",
  "psy_common_circuit",
  "psy_core",
  "psy_crypto",
@@ -5950,7 +5951,6 @@ dependencies = [
  "psy_exec",
  "psy_store",
  "psy_vm",
- "qed-ast",
  "qed-common",
  "qed-fmt",
  "qed-parser",
@@ -5976,8 +5976,8 @@ version = "0.1.0"
 dependencies = [
  "dargo",
  "lsp-types 0.97.0",
+ "psy-ast",
  "psy_vm",
- "qed-ast",
  "qed-common",
  "qed-interpreter",
  "qed-sema",
@@ -5996,8 +5996,8 @@ dependencies = [
  "insta",
  "lalrpop",
  "lalrpop-util",
+ "psy-ast",
  "psy_vm",
- "qed-ast",
  "qed-common",
  "qed-lexer",
  "thiserror 2.0.17",
@@ -6014,8 +6014,8 @@ dependencies = [
  "itertools 0.14.0",
  "once_cell",
  "petgraph",
+ "psy-ast",
  "psy_vm",
- "qed-ast",
  "qed-common",
  "qed-fmt",
  "rangemap",

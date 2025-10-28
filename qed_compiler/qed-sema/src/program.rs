@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use qed_ast::{DefId, ExprId, StmtId};
+use psy_ast::{DefId, ExprId, StmtId};
 use qed_common::Arena;
 
 use crate::{CheckedDefinitionNode, CheckedExprNode, CheckedStmtNode, Result};

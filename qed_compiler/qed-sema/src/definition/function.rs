@@ -1,4 +1,4 @@
-use qed_ast::{
+use psy_ast::{
     AttrNode, Comment, ExprId, Identifier, Location, NodeInfo, NodeType, Qualifier, TypeQualifier,
     Visibility,
 };

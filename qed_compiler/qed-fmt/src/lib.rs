@@ -1,6 +1,6 @@
-use qed_ast::BlockExprNode;
-use qed_ast::IfExprNode;
-use qed_ast::*;
+use psy_ast::BlockExprNode;
+use psy_ast::IfExprNode;
+use psy_ast::*;
 use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use std::fmt::Debug;
 
@@ -1267,7 +1267,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     message.unwrap_or_default()
                 )
             }
-            qed_ast::IntrinsicStmtNode::ClearEntireTree { comments, .. } => {
+            psy_ast::IntrinsicStmtNode::ClearEntireTree { comments, .. } => {
                 let comments_content = self.visit_comments(&comments);
                 format!(
                     "{}__ctx_clear_entire_tree();",

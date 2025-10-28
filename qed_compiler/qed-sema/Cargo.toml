@@ -4,7 +4,7 @@ name    = "qed-sema"
 version = "0.1.0"
 
 [dependencies]
-qed-ast = { workspace = true }
+psy-ast = { workspace = true }
 thiserror = { workspace = true }
 qed-common = { workspace = true }
 qed-fmt = { workspace = true }

@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use indexmap::IndexMap;
-use qed_ast::*;
+use psy_ast::*;
 
 #[derive(Debug)]
 pub struct StorageProcessor<'a> {

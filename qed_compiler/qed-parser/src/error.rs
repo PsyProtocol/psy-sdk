@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use qed_ast::Location;
+use psy_ast::Location;
 use qed_common::FileId;
 use qed_lexer::{Loc, Token};
 use thiserror::Error as ThisError;

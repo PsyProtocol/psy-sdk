@@ -1,4 +1,4 @@
-use qed_ast::Visibility;
+use psy_ast::Visibility;
 
 use crate::{ConstId, Identifier, NodeInfo, NodeType, ScopeId, TypeId};
 

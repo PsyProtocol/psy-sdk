@@ -1,4 +1,4 @@
-use qed_ast::{ExprId, Location};
+use psy_ast::{ExprId, Location};
 
 use crate::{
     CheckedFunctionParameter, CheckedFunctionSignature, Identifier, NodeInfo, NodeType, ScopeId,
