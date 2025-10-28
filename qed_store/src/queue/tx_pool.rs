@@ -154,6 +154,8 @@ pub trait TxPoolAsyncImmV2: Send + Sync {
     ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>>;
 
     async fn remove_txs(&self, channel_id: u64) -> anyhow::Result<()>;
+
+    async fn remove_expired_txs(&self, channel_id: u64) -> anyhow::Result<()>;
     async fn len(&self, channel_id: u64) -> anyhow::Result<usize>;
 }
 
@@ -202,10 +204,10 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
                 user_end_cap_key,
                 user_end_cap.to_bytes()?,
             ).zadd(
-                id_key,
+                id_key.clone(),
                 user_end_cap.cst_user_update.user_id,
                 now[0],
-            );
+            ).zremrangebyscore(id_key, 0, now[0] - 1800); // remove expired txs
         builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
@@ -216,9 +218,7 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
         channel_id: u64,
         checkpoint_id: u64,
     ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>> {
-        let id_key = self.id_key(channel_id);
-        let now = self.redis.server_time().await?;
-        self.redis.zremrangebyscore(id_key, 0, now[0] - 1800).await?;
+        self.remove_expired_txs(channel_id).await?;
         let len= self.len(channel_id).await?;
         if len == 0 {
             return Ok(vec![]);
@@ -259,8 +259,6 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
         let state_data: Option<Vec<u8>> = self.redis.get(state_key.clone()).await.ok();
         let mut builder = self.redis.cmd_builder();
         let id_key = self.id_key(channel_id);
-        let now = self.redis.server_time().await?;
-        builder = builder.zremrangebyscore(id_key, 0, now[0] - 1800);
         if let Some(data) = state_data {
             if !data.is_empty() {
                 let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!("Failed to deserialize state: {}", e))?;
@@ -269,11 +267,19 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
                 builder = builder.del(state_key.clone());
             }
         }
+        let now = self.redis.server_time().await?;
+        builder = builder.zremrangebyscore(id_key, 0, now[0] - 1800);
         builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
 
     async fn len(&self, channel_id: u64) -> anyhow::Result<usize> {
         self.redis.zcard(self.id_key(channel_id)).await
+    }
+
+    async fn remove_expired_txs(&self, channel_id: u64) -> anyhow::Result<()> {
+        let id_key = self.id_key(channel_id);
+        let now = self.redis.server_time().await?;
+        self.redis.zremrangebyscore(id_key, 0, now[0] - 1800).await
     }
 }
