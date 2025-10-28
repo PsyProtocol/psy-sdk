@@ -2,23 +2,21 @@ use std::sync::Arc;
 
 use anyhow::ensure;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::proof::ProofWithPublicInputs};
-use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID}, traits::QProofStoreAsyncImm}};
+use qed_core::{data::qhashout::QHashOut, job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID}, traits::QProofStoreAsyncImm}};
 use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::{MerkleZeroHasher, PoseidonHasher}, qhashable::QFieldHashable}};
 use qed_data::{config::store_config::{QCheckpointSyncInfoCompact, QEDHasher}, guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}};
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use tracing::debug;
 use crate::realm::{C, D, F, H};
-use qed_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;
-use qed_crypto::hash::traits::hasher::FieldQHasher;
 use qed_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
-use qed_store::queue::tx_pool::TxPoolAsyncImmV2;
+use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use super::processor::RealmConfig;
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<
     SR: QEDRealmStoreReaderAsync<F> + Sync,
-    DQ: TxPoolAsyncImmV2 + CheckpointDrainQueueEmitterAsyncImm,
-    PS: TxPoolAsyncImmV2 + QProofStoreAsyncImm,
+    DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
+    PS: TxPoolAsyncImm + QProofStoreAsyncImm,
 > {
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
@@ -29,8 +27,8 @@ pub struct RealmEdgeContext<
 
 impl<
         SR: QEDRealmStoreReaderAsync<F> + Sync,
-        DQ: TxPoolAsyncImmV2 + CheckpointDrainQueueEmitterAsyncImm,
-        PS: TxPoolAsyncImmV2 + QProofStoreAsyncImm,
+        DQ: TxPoolAsyncImm + CheckpointDrainQueueEmitterAsyncImm,
+        PS: TxPoolAsyncImm + QProofStoreAsyncImm,
     > RealmEdgeContext<SR, DQ, PS>
 {
     pub async fn new(
@@ -242,7 +240,7 @@ impl<
             0,
         );
 
-        if self.proof_store.contains_tx(self.realm_config.guta_channel_id, user_id_u64).await? {
+        if self.proof_store.contains_item(self.realm_config.guta_channel_id, user_id_u64).await? {
             tracing::warn!("already submitted proof {:?} for this block", proof_id);
             anyhow::bail!("already submitted proof {:?} for this block", proof_id);
         }
@@ -255,6 +253,7 @@ impl<
             proof_id,
             proof.public_inputs
         );
+        self.proof_store.set_proof_by_id(proof_id, proof).await?;
         let queue_item = UserEndCapNonProofCoreInputQueueItem {
             input: input.core,
             proof_id,
@@ -269,7 +268,7 @@ impl<
             serde_json::to_string_pretty(&queue_item).unwrap()
         );
 
-        self.checkpoint_queue.add_tx(proof_id, proof, queue_item).await?;
+        self.checkpoint_queue.cdq_push_imm(queue_item).await?;
 
         debug!("enqueued queue item successfully");
 

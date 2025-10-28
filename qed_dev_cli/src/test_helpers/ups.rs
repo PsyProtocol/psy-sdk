@@ -9,7 +9,7 @@ use qed_node::{coordinator::state::edge::CoordinatorEdgeContext, realm::state::e
 use qed_prover::ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager};
 use qed_data::{config::store_config::QEDHasher, qstore::imm::cmd_processor::QEDReadCommandProcessorSync};
 use qed_store::node::{coordinator::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync};
-use qed_store::queue::tx_pool::TxPoolAsyncImmV2;
+use qed_store::queue::tx_pool::TxPoolAsyncImm;
 use super::contract::SimpleTestContract;
 
 
@@ -230,8 +230,8 @@ impl ExampleDemoUserInfoStore {
     }
     pub async fn send_txs_to_edge<
     SR: QEDRealmStoreReaderAsync<F> + Sync,
-    DQ: CheckpointDrainQueueEmitterAsyncImm + TxPoolAsyncImmV2,
-    PS: QProofStoreAsyncImm + TxPoolAsyncImmV2,
+    DQ: CheckpointDrainQueueEmitterAsyncImm + TxPoolAsyncImm,
+    PS: QProofStoreAsyncImm + TxPoolAsyncImm,
 > (&mut self, edge: &RealmEdgeContext<SR, DQ, PS>) -> anyhow::Result<()>{
 
     self.awaiting_send_end_caps = {

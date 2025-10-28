@@ -1,143 +1,13 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
-use kvq::traits::KVQSerializable;
 use qed_core::job::id::QProvingJobDataID;
-use qed_data::guta::api::UserEndCapNonProofCoreInputQueueItem;
-use crate::queue::{ProofStoreRedisAsync, QueuePrefixKey, PS_DRAIN_QUEUE_KEY_PREFIX};
-use crate::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState};
+use crate::queue::{ProofStoreRedisAsync, QueuePrefixKey};
+use crate::queue::redis_queue::{QueueOffsetState};
 use qed_core::job::drain_queue::DQSerializable;
 
-
 #[async_trait]
-pub trait TxPoolAsyncImm: CheckpointDrainQueueConsumerAsyncImmWithPosition + Send + Sync {
-    async fn contains_tx_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool>;
-    async fn add_user_tx<C: GenericConfig<D>, const D: usize>(
-        &self,
-        id: QProvingJobDataID,
-        proof: &ProofWithPublicInputs<C::F, C, D>,
-        user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
-    ) -> anyhow::Result<()>;
-
-    async fn get_user_txs<C: GenericConfig<D>, const D: usize>(
-        &self,
-        count: Option<isize>,
-        channel_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>>;
-
-    async fn remove_user_txs(&self, channel_id: u64) -> anyhow::Result<()>;
-    async fn pool_len(&self, channel_id: u64) -> anyhow::Result<usize> {
-        self.cdq_len_imm(channel_id).await
-    }
-}
-
-
-#[async_trait]
-impl TxPoolAsyncImm for ProofStoreRedisAsync {
-    async fn contains_tx_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
-        self.redis.exists(id.to_fixed_bytes().to_vec()).await
-    }
-    async fn add_user_tx<C: GenericConfig<D>, const D: usize>(
-        &self,
-        id: QProvingJobDataID,
-        proof: &ProofWithPublicInputs<C::F, C, D>,
-        user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
-    ) -> anyhow::Result<()> {
-        let mut builder = self.redis.cmd_builder();
-        let checkpoint_id = id.goal_id;
-        let checkpoint_list_key = self.checkpoint_list_key();
-        let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
-        let public_inputs_key = self.public_inputs_key();
-
-        let proof_bytes = bincode::serialize(proof)?;
-        let public_inputs_data = bincode::serialize(&proof.public_inputs)?;
-        builder = builder
-            .sadd(checkpoint_list_key, checkpoint_id)
-            .hset(
-                checkpoint_proofs_key,
-                id.to_fixed_bytes().to_vec(),
-                proof_bytes,
-            ).hset(
-                public_inputs_key,
-                id.to_fixed_bytes().to_vec(),
-                public_inputs_data,
-            ).set_ex(
-                id.to_fixed_bytes().to_vec(),   //QProvingJobDataID
-                2 * 60,                //2 minutes
-                user_end_cap.to_bytes()?,//UserEndCapNonProofCoreInputQueueItem
-            );
-        // QProvingJobDataID
-        let (key, bytes) = self.cdq_kv_pair(user_end_cap.channel_id, id)?;
-        builder = builder.rpush(key, bytes);
-        builder.execute_atomic(&self.redis).await?;
-        Ok(())
-    }
-
-    async fn get_user_txs<C: GenericConfig<D>, const D: usize>(
-        &self,
-        count: Option<isize>,
-        channel_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>> {
-        let (job_ids, state) = CheckpointDrainQueueConsumerAsyncImmWithPosition::peek_with_position::<QProvingJobDataID>(self, count, channel_id, checkpoint_id).await?;
-        if job_ids.is_empty() {
-            return Ok(vec![]);
-        }
-        let mut ids: Vec<Vec<u8>> = job_ids.iter().map(|id| id.to_fixed_bytes().to_vec()).collect();
-        ids.dedup(); //remove duplicates
-        //TODO remove old user tx
-        let rets: Option<Vec<Option<Vec<u8>>>> = self.redis.mget(ids).await.ok();
-        let mut txs = vec![];
-        if let Some(rets) = rets {
-            for item in &rets {
-                if let Some(ret) = item {
-                    let txc = UserEndCapNonProofCoreInputQueueItem::from_bytes(ret)?;
-                    txs.push(txc);
-                }
-            }
-        }
-        Ok(txs)
-    }
-
-    async fn remove_user_txs(&self, channel_id: u64) -> anyhow::Result<()> {
-        let state = CheckpointDrainQueueConsumerAsyncImmWithPosition::get_last_peek_offset(self, channel_id).await?;
-        if let Some(state) = state {
-            // CheckpointDrainQueueConsumerAsyncImmWithPosition::commit_offset(self, &state).await?;
-            // remove txs
-            // remove user end cap
-            if state.consumed_count == 0 {
-                return Ok(());
-            }
-
-            let checkpoint_queue_prefix =
-                format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-            let key = format!("{}-{}", checkpoint_queue_prefix, state.channel_id);
-            let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", state.channel_id);
-            let job_ids: Vec<Vec<u8>> = self.redis.lrange(key.clone(), state.start_position as isize, state.end_position as isize).await?;
-            let mut builder = self.redis.cmd_builder();
-            if job_ids.len() <= 1000 {
-                for job_id in &job_ids {
-                    builder = builder.del(job_id);
-                }
-                let checkpoint_proofs_key = self.checkpoint_proofs_key(state.checkpoint_id);
-                builder = builder.hdel(checkpoint_proofs_key, &job_ids);
-                // let public_inputs_key = self.public_inputs_key();
-                // builder = builder.hdel(public_inputs_key, &job_ids);
-            }
-            builder.ltrim(key, (state.end_position + 1) as isize, -1)
-                .del(state_key.clone())
-                .execute_atomic(&self.redis).await?;
-            tracing::debug!("Remove user tx {} items for checkpoint {}, channel_id {}, state_key {}",
-              state.consumed_count, state.checkpoint_id, state.channel_id, state_key);
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
-pub trait TxPoolAsyncImmV2: Send + Sync {
+pub trait TxPoolAsyncImm: Send + Sync {
     async fn contains_tx(&self, channel_id: u64, id: u64) -> anyhow::Result<bool>;
     async fn add_tx<C: GenericConfig<D>, const D: usize, T: DQSerializable>(
         &self,
@@ -160,7 +30,7 @@ pub trait TxPoolAsyncImmV2: Send + Sync {
 }
 
 #[async_trait]
-impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
+impl TxPoolAsyncImm for ProofStoreRedisAsync {
     async fn contains_tx(&self, channel_id: u64, id: u64) -> anyhow::Result<bool> {
         let server_time = self.redis.server_time().await?;
         let id_key = self.id_key(channel_id);

@@ -441,6 +441,19 @@ impl ResilientRedisConnection {
         }).await
     }
 
+    pub async fn zadd<K,M,S, V>(&self, key: K, member: M, score: S) -> Result<V>
+
+    where
+        K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        M: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        S: redis::ToRedisArgs + Send + Sync + Clone + 'static,
+        V: redis::FromRedisValue + Send + 'static,
+    {
+        self.execute(move |mut conn| async move {
+            conn.zadd(key, member, score).await
+        }).await
+    }
+
     pub async fn smembers<K, V>(&self, key: K) -> Result<Vec<V>>
     where
         K: redis::ToRedisArgs + Send + Sync + 'static,

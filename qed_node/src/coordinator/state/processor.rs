@@ -1390,7 +1390,7 @@ impl<
         {
             self.checkpoint_queue.commit_offset(&state).await?;
         }
-        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(COORD_API_REGISTER_USER_CHANNEL_ID).await? {
+        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(self.coordinator_config.register_user_channel_id).await? {
             self.checkpoint_queue.commit_offset(&state).await?;
         }
         if let Some(state) = self

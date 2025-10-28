@@ -26,7 +26,7 @@ use qed_core::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::RichField;
 use qed_data::guta::api::UserEndCapNonProofCoreInputQueueItem;
 use crate::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState};
-use crate::queue::tx_pool::{TxPoolAsyncImm, TxPoolAsyncImmV2};
+use crate::queue::tx_pool::{TxPoolAsyncImm};
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -196,14 +196,9 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
 #[async_trait]
 impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
-        let checkpoint_queue_prefix =
-            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
         let metadata: qed_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
-        let key = format!(
-            "{}-{}",
-            checkpoint_queue_prefix, metadata.channel_id,
-        );
+        let key = self.drain_queue_key(metadata.channel_id);
         // tracing::debug!("Pushing job id to queue: {:?}", key);
         self.pool.rpush::<(), String, &[u8]>(key, &bytes).await?;
 
@@ -217,12 +212,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Vec<T>> {
-        let checkpoint_queue_prefix =
-            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-        let key = format!(
-            "{}-{}",
-            checkpoint_queue_prefix, channel_id
-        );
+        let key = self.drain_queue_key(channel_id);
         let members: Vec<Vec<u8>> = self
             .pool
             .lrange::<Vec<Vec<u8>>, String>(key.clone(), 0, -1)
@@ -239,12 +229,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
         &self,
         channel_id: u64,
     ) -> anyhow::Result<Vec<T>> {
-        let checkpoint_queue_prefix =
-            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-        let key = format!(
-            "{}-{}",
-            checkpoint_queue_prefix, channel_id
-        );
+        let key = self.drain_queue_key(channel_id);
         let members: Vec<Vec<u8>> = self
             .pool
             .lrange::<Vec<Vec<u8>>, String>(key, 0, -1)
@@ -259,12 +244,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
         &self,
         channel_id: u64,
     ) -> anyhow::Result<usize> {
-        let checkpoint_queue_prefix =
-            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-        let key = format!(
-            "{}-{}",
-            checkpoint_queue_prefix, channel_id
-        );
+        let key = self.drain_queue_key(channel_id);
         let count: usize = self.pool.llen(key).await?;
         Ok(count)
     }
@@ -591,34 +571,6 @@ impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for Pr
 
 #[async_trait]
 impl TxPoolAsyncImm for ProofStoreFred {
-    async fn contains_tx_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
-        todo!()
-    }
-    async fn add_user_tx<C: GenericConfig<D>, const D: usize>(
-        &self,
-        id: QProvingJobDataID,
-        proof: &ProofWithPublicInputs<C::F, C, D>,
-        user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
-    ) -> anyhow::Result<()> {
-        todo!()
-    }
-
-    async fn get_user_txs<C: GenericConfig<D>, const D: usize>(
-        &self,
-        count: Option<isize>,
-        channel_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<UserEndCapNonProofCoreInputQueueItem<C::F>>> {
-        todo!()
-    }
-
-    async fn remove_user_txs(&self, channel_id: u64) -> anyhow::Result<()> {
-        todo!()
-    }
-}
-
-#[async_trait]
-impl TxPoolAsyncImmV2 for ProofStoreFred {
     async fn contains_tx(&self, channel_id: u64, id: u64) -> anyhow::Result<bool> {
         todo!()
     }

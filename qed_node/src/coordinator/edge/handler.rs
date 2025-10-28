@@ -158,7 +158,7 @@ impl CoordinatorEdgeHandler {
         );
         self.ctx
             .checkpoint_queue
-            .cdq_push_imm(zk_user_info)
+            .cdq_push_imm(zk_user_info) //TODO 
             .await
             .map_err(|e| CoordinatorError::QueueError(e.to_string()))?;
         info!("✅ User pushed to checkpoint queue.");
@@ -211,7 +211,7 @@ impl CoordinatorEdgeHandler {
             with_root,
         );
 
-        self.ctx.checkpoint_queue.cdq_push_imm(cd_for_queue).await?;
+        self.ctx.checkpoint_queue.cdq_push_imm(cd_for_queue).await?;//TODO
 
         // Report contract deployment to watcher
         let metadata = UserDeployContractMetadata {
