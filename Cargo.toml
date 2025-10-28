@@ -1,8 +1,8 @@
 [workspace]
 members = [
     "psy_vm",
-    "qed_compiler/psylang_ex",
-    "qed_compiler/psylang_macros",
+    "psy_compiler/psylang_ex",
+    "psy_compiler/psylang_macros",
     "kvq",
     "psy_core",
     "psy_crypto",
@@ -18,16 +18,16 @@ members = [
     "qed_dev_cli",
     "qed_rollup_utils",
     "qed_precompiles",
-    "qed_compiler/psy-fmt",
-    "qed_compiler/psy-lsp-server",
-    "qed_compiler/psy-parser",
-    "qed_compiler/psy-common",
-    "qed_compiler/psy-ast",
-    "qed_compiler/psy-sema",
-    "qed_compiler/psy-lexer",
-    "qed_compiler/psy-interpreter",
-    "qed_compiler/psy-package",
-    "qed_compiler/psy-dargo-cli",
+    "psy_compiler/psy-fmt",
+    "psy_compiler/psy-lsp-server",
+    "psy_compiler/psy-parser",
+    "psy_compiler/psy-common",
+    "psy_compiler/psy-ast",
+    "psy_compiler/psy-sema",
+    "psy_compiler/psy-lexer",
+    "psy_compiler/psy-interpreter",
+    "psy_compiler/psy-package",
+    "psy_compiler/psy-dargo-cli",
     "qed_api_services",
 ]
 resolver = "2"
@@ -226,7 +226,7 @@ jsonrpsee = { version = "0.26", features = ["server", "client", "macros"] }
 config = "0.15"
 
 psy_vm = { path = "./psy_vm" }
-psylang_macros = { path = "./qed_compiler/psylang_macros" }
+psylang_macros = { path = "./psy_compiler/psylang_macros" }
 psy_crypto = { path = "./psy_crypto" }
 psy_exec = { path = "./psy_exec", default-features = false}
 psy_store = { path = "./psy_store", default-features = false}
@@ -240,17 +240,17 @@ psy_network_circuit = { path = "./psy_network_circuit" , default-features = fals
 qed_rollup_utils= { path = "./qed_rollup_utils" , default-features = false}
 qed_precompiles = { path = "./qed_precompiles" , default-features = false}
 
-psy-ast = { path = "./qed_compiler/psy-ast" }
-psy-fmt = { path = "./qed_compiler/psy-fmt" }
-psy-lsp-server = { path = "./qed_compiler/psy-lsp-server" }
-psy-parser = { path = "./qed_compiler/psy-parser" }
-psy-common = { path = "./qed_compiler/psy-common" }
-psy-sema = { path = "./qed_compiler/psy-sema" }
-psy-lexer = { path = "./qed_compiler/psy-lexer" }
-psy-interpreter = { path = "./qed_compiler/psy-interpreter" }
-psy-package = { path = "./qed_compiler/psy-package" }
-dargo = { path = "./qed_compiler/psy-dargo-cli" }
-psy-abi = { path = "./qed_compiler/psy-abi" }
+psy-ast = { path = "./psy_compiler/psy-ast" }
+psy-fmt = { path = "./psy_compiler/psy-fmt" }
+psy-lsp-server = { path = "./psy_compiler/psy-lsp-server" }
+psy-parser = { path = "./psy_compiler/psy-parser" }
+psy-common = { path = "./psy_compiler/psy-common" }
+psy-sema = { path = "./psy_compiler/psy-sema" }
+psy-lexer = { path = "./psy_compiler/psy-lexer" }
+psy-interpreter = { path = "./psy_compiler/psy-interpreter" }
+psy-package = { path = "./psy_compiler/psy-package" }
+dargo = { path = "./psy_compiler/psy-dargo-cli" }
+psy-abi = { path = "./psy_compiler/psy-abi" }
 qed_api_services = { path = "./qed_api_services" }
 serial_test = "3.2"
 

@@ -1,7 +1,7 @@
 ---
-source: qed_compiler/psy-interpreter/src/lib.rs
+source: psy_compiler/psy-interpreter/src/lib.rs
 expression: "ctx.debug_scope(ScopeId::root())"
-input_file: qed_compiler/tests/fn_test.qed
+input_file: psy_compiler/tests/fn_test.qed
 ---
 ScopeId(0) (Module)
     Types:

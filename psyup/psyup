@@ -85,7 +85,7 @@ main() {
     cd "$PSYUP_LOCAL_REPO"
     
     # Set DARGO_STD_PATH for compilation
-    export DARGO_STD_PATH="$PWD/qed_compiler/psy-std/std.qed"
+    export DARGO_STD_PATH="$PWD/psy_compiler/psy-std/std.qed"
     export SQLX_OFFLINE=true
     
     ensure cargo build --bins "${CARGO_BUILD_ARGS[@]}" --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin psy-lsp-server
@@ -227,7 +227,7 @@ main() {
     say "installing version $PSYUP_VERSION"
 
     # Set required environment variables for QED build
-    export DARGO_STD_PATH="$PWD/qed_compiler/psy-std/std.qed"
+    export DARGO_STD_PATH="$PWD/psy_compiler/psy-std/std.qed"
     export SQLX_OFFLINE=true
 
     # Build the repo.

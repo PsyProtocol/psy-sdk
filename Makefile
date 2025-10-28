@@ -1,4 +1,4 @@
-export DARGO_STD_PATH := $(PWD)/qed_compiler/psy-std/std.qed
+export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.qed
 export SQLX_OFFLINE=true
 
 PROFILE := release
@@ -28,8 +28,8 @@ fmt:
 	@cargo fmt
 
 install:
-	@cargo install --path qed_compiler/psy-dargo-cli
-	@cargo install --path qed_compiler/psy-lsp-server
+	@cargo install --path psy_compiler/psy-dargo-cli
+	@cargo install --path psy_compiler/psy-lsp-server
 	@cargo install --path qed_user_cli
 	@cargo install --path qed_rollup_cli
 	@cargo install --path qed_dev_cli
@@ -37,18 +37,18 @@ install:
 clean:
 	@rm -r target
 
-DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) ./target/${PROFILE}/dargo compile --program-dir qed_compiler/tests --debug --entry-path
-DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo execute --program-dir qed_compiler/tests --debug --entry-path
+DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) ./target/${PROFILE}/dargo compile --program-dir psy_compiler/tests --debug --entry-path
+DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo execute --program-dir psy_compiler/tests --debug --entry-path
 DARGO_CLI_TEST    = RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo test --file
 
 ci:
-	@$(DARGO_CLI_TEST) qed_compiler/tests/in_mod_attr_test.qed
-	# @$(DARGO_CLI_TEST) qed_compiler/tests/should_panic_test.qed
-	@$(DARGO_CLI_TEST) qed_compiler/tests/for_if_test.qed
-	@$(DARGO_CLI_TEST) qed_compiler/tests/array_struct_modification_test.qed
-	@$(DARGO_CLI_TEST) qed_compiler/tests/conditional_assert_test.qed
-	@$(DARGO_CLI_TEST) qed_compiler/tests/guta_nullifier_calculation_test.qed
-	@$(DARGO_CLI_TEST) qed_compiler/tests/root_calculation_test.qed
+	@$(DARGO_CLI_TEST) psy_compiler/tests/in_mod_attr_test.qed
+	# @$(DARGO_CLI_TEST) psy_compiler/tests/should_panic_test.qed
+	@$(DARGO_CLI_TEST) psy_compiler/tests/for_if_test.qed
+	@$(DARGO_CLI_TEST) psy_compiler/tests/array_struct_modification_test.qed
+	@$(DARGO_CLI_TEST) psy_compiler/tests/conditional_assert_test.qed
+	@$(DARGO_CLI_TEST) psy_compiler/tests/guta_nullifier_calculation_test.qed
+	@$(DARGO_CLI_TEST) psy_compiler/tests/root_calculation_test.qed
 
 	@$(DARGO_CLI_COMPILE) ctx_test.qed
 	@$(DARGO_CLI_COMPILE) storage_test.qed --contract-name=SimpleContract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
@@ -127,7 +127,7 @@ config_gen_v2:
 #                                   TMP                                        #
 ################################################################################
 PROJECT_DIR              := $(PWD)/examples
-FILE                     := $(PWD)/qed_compiler/tests/opcode_test.qed
+FILE                     := $(PWD)/psy_compiler/tests/opcode_test.qed
 PARAMETERS               := 1,2
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
 USER0_PUBLIC_KEY         := cc92647d3a77819dec2f054a241d0863c9bd54cf5a1103ca560ed85ad59c460d
@@ -168,11 +168,11 @@ init:
 	@mkdir -p ${PROJECT_DIR}
 	# Create token contract subdirectory
 	@rm -rf ${PROJECT_DIR}/token && ./target/${PROFILE}/dargo new ${PROJECT_DIR}/token
-	@cp qed_compiler/tests/new_token.qed ${PROJECT_DIR}/token/src/main.qed
+	@cp psy_compiler/tests/new_token.qed ${PROJECT_DIR}/token/src/main.qed
 	@rm -rf ${PROJECT_DIR}/rewards && ./target/${PROFILE}/dargo new ${PROJECT_DIR}/rewards
-	@cp qed_compiler/tests/rewards.qed ${PROJECT_DIR}/rewards/src/main.qed
+	@cp psy_compiler/tests/rewards.qed ${PROJECT_DIR}/rewards/src/main.qed
 	@rm -rf ${PROJECT_DIR}/mining_rewards &&./target/${PROFILE}/dargo new ${PROJECT_DIR}/mining_rewards
-	@cp qed_compiler/tests/mining_rewards.qed ${PROJECT_DIR}/mining_rewards/src/main.qed
+	@cp psy_compiler/tests/mining_rewards.qed ${PROJECT_DIR}/mining_rewards/src/main.qed
 	@mkdir -p $(PWD)/db
 	@echo "Waiting for databases to be ready..."
 	# @echo "Starting Redis containers..."

@@ -41,7 +41,7 @@ const STD_GIT_PATH_HTTPS: &str = "https://github.com/QEDProtocol/qedlang-rust";
 const STD_GIT_PATH_SSH: &str = "git@github.com:QEDProtocol/qedlang-rust.git";
 const STD_TAG: &str = "v0.0.1-rc";
 const TAG_LATEST: &str = "latest";
-const STD_FILE: &str = "qed_compiler/psy-std/std.qed";
+const STD_FILE: &str = "psy_compiler/psy-std/std.qed";
 
 impl PackageConfig {
     fn resolve_to_package(

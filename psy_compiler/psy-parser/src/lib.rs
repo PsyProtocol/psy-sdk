@@ -288,8 +288,8 @@ fn std_path() -> PathBuf {
             "../psy-std/std.qed",
             "../../psy-std/std.qed",
             "../../../psy-std/std.qed",
-            "../qed_compiler/psy-std/std.qed",
-            "../../qed_compiler/psy-std/std.qed"
+            "../psy_compiler/psy-std/std.qed",
+            "../../psy_compiler/psy-std/std.qed"
         ];
 
         for candidate in &candidates {
