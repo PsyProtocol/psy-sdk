@@ -64,7 +64,7 @@ use psy_data::{
     config::store_config::{QEDFelt, QEDHasher},
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
-use qed_store::{
+use psy_store::{
     controllers::local::{
         proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
     },
@@ -86,9 +86,9 @@ use plonky2::{
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use psy_core::data::qhashout::QHashOut;
-use qed_store::queue::QPendingUserStoreAsyncImm;
-use qed_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
-use qed_store::store::journal::{Journal, JournalStore};
+use psy_store::queue::QPendingUserStoreAsyncImm;
+use psy_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
+use psy_store::store::journal::{Journal, JournalStore};
 
 struct TestGrouping<
     CSR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,

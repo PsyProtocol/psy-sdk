@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
-use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
+use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, plonk::config::PoseidonGoldilocksConfig};
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
@@ -18,7 +18,7 @@ use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
 use psy_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
-use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, prepare_environment_with_real_contract};
+use psy_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, prepare_environment_with_real_contract};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},

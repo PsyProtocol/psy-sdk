@@ -15,7 +15,7 @@ use plonky2::{
 use psy_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use psy_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
 use psy_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTAToCapCircuitInputSimple};
-use qed_store::queue::task_queue::QProvingTaskStore;
+use psy_store::queue::task_queue::QProvingTaskStore;
 use tracing::{debug, error, info, trace, warn};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -82,7 +82,7 @@ use psy_data::{
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync}
 };
-use qed_store::{
+use psy_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
     queue::{task_queue::QProvingTaskStoreImpl, QPendingUserStoreAsyncImm, ProofStoreRedisAsync, new_redis_async_pool},
     store::QEDStore,

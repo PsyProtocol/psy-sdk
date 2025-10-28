@@ -18,8 +18,8 @@ use std::net::SocketAddr;
 use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 use tracing::info;
 
-use qed_store::store::QEDStore;
-use qed_store::queue::ProofStoreRedisAsync;
+use psy_store::store::QEDStore;
+use psy_store::queue::ProofStoreRedisAsync;
 
 pub type StoreReader = QEDStore;
 pub type DrainQueue = ProofStoreRedisAsync;

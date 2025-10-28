@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use anyhow::Result;
 use plonky2::hash::hash_types::RichField;
-use qed_store::queue::{QueueId, QueueStats};
+use psy_store::queue::{QueueId, QueueStats};
 use crate::common_v2::traits::realm::{RealmEdgeUserUpdateSubmission, UniqueQueueId};
 
 #[async_trait]

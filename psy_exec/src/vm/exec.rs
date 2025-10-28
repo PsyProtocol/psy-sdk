@@ -33,7 +33,7 @@ use psy_data::{
         },
     },
 };
-use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
+use psy_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
 use psy_vm::dpn::{
     ops::{
         op_types::DPNOpType,

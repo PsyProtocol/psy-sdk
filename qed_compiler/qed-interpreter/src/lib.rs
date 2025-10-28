@@ -1908,7 +1908,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
 #[cfg(test)]
 mod tests {
     use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
-    use qed_store::controllers::local::prepare_environment_with_real_contract;
+    use psy_store::controllers::local::prepare_environment_with_real_contract;
     use serial_test::serial;
     use std::{
         fs::File,

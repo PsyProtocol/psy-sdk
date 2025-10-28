@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
-use qed_store::queue::{new_fred_pool, new_redis_async_pool};
-use qed_store::queue::ProofStoreFred;
+use psy_store::queue::{new_fred_pool, new_redis_async_pool};
+use psy_store::queue::ProofStoreFred;
 use crate::worker::simple_async_coord::SimpleAsyncCoordinatorWorker;
 use crate::worker::simple_async_realm::SimpleAsyncRealmWorker;
 use crate::common::verifier::get_cached_generic_verifier;
@@ -10,7 +10,7 @@ use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitMa
 use psy_data::config::store_config::QEDHasher;
 use std::ops::Deref;
 use std::sync::Arc;
-use qed_store::queue::ProofStoreRedisAsync;
+use psy_store::queue::ProofStoreRedisAsync;
 
 pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 pub const D: usize = 2;

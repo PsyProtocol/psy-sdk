@@ -8,7 +8,7 @@ use psy_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use qed_node::{coordinator::state::edge::CoordinatorEdgeContext, realm::state::edge::RealmEdgeContext};
 use qed_prover::ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager};
 use psy_data::{config::store_config::QEDHasher, qstore::imm::cmd_processor::QEDReadCommandProcessorSync};
-use qed_store::node::{coordinator::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync};
+use psy_store::node::{coordinator::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync};
 
 use super::contract::SimpleTestContract;
 

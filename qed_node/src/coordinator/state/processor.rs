@@ -67,7 +67,7 @@ use psy_data::{
     },
 };
 use qed_rollup_circuit::guta::gadgets::guta_header;
-use qed_store::{
+use psy_store::{
     node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
     queue::{
         redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState, MAX_CHECKPOINT_COUNT},
@@ -78,8 +78,8 @@ use psy_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_
 use crate::common_v2::traits::realm::BasicRealmStatusOnCoordinator;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
-use qed_store::store::journal::{Journal, JournalStore};
-use qed_store::store::QEDStore;
+use psy_store::store::journal::{Journal, JournalStore};
+use psy_store::store::QEDStore;
 use crate::common::slot::SLOT_SIZE;
 use psy_data::qdata::realm_status::BasicRealmStatus;
 

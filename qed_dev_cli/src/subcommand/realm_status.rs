@@ -14,7 +14,7 @@ use qed_prover::local::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
 };
-use qed_store::{
+use psy_store::{
     node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
     store::{backend::LmdbxConfig, journal::JournalStore, Backend, QEDStore},
 };
@@ -30,8 +30,8 @@ pub async fn run() -> anyhow::Result<()> {
         lmdbx_path: "realm-status".to_string(),
         lmdbx_mmap_size_gb: 100,
     });
-    let qed_store = QEDStore::from_backend(backend).await?;
-    let qed_store = JournalStore::new(qed_store);
+    let psy_store = QEDStore::from_backend(backend).await?;
+    let psy_store = JournalStore::new(psy_store);
 
     let realm_ids = (0..1 << COORDINATOR_USER_TREE_HEIGHT).collect::<Vec<u64>>();
     let realm_statuses = (0..1 << COORDINATOR_USER_TREE_HEIGHT)
@@ -43,12 +43,12 @@ pub async fn run() -> anyhow::Result<()> {
 
     tracing::info!("set_realm_statuses start");
     let set_start = Instant::now();
-    qed_store.set_realm_statuses(&realm_ids, &realm_statuses).await?;
+    psy_store.set_realm_statuses(&realm_ids, &realm_statuses).await?;
     tracing::info!("set_realm_statuses end, cost: {:?}", set_start.elapsed());
 
     tracing::info!("get_realm_statuses start");
     let get_start = Instant::now();
-    let readed_realm_statuses = qed_store.get_realm_statuses(&realm_ids).await?;
+    let readed_realm_statuses = psy_store.get_realm_statuses(&realm_ids).await?;
     tracing::info!("get_realm_statuses end, cost: {:?}", get_start.elapsed());
 
     assert_eq!(realm_statuses, readed_realm_statuses);

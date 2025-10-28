@@ -1,9 +1,9 @@
 use std::str::FromStr;
-use qed_store::store::backend::BackendConfig;
+use psy_store::store::backend::BackendConfig;
 use anyhow::Result;
 use crate::watcher::watcher::NodeType;
 use clap::Args;
-use qed_store::queue::QueueId;
+use psy_store::queue::QueueId;
 use crate::realm::QueueConfig;
 
 #[derive(Clone, Debug, Args)]

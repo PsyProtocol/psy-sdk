@@ -11,7 +11,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
-use qed_store::{node::realm::QEDRealmStoreReaderAsync, queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, Status}};
+use psy_store::{node::realm::QEDRealmStoreReaderAsync, queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, Status}};
 
 use crate::realm::state::processor::RealmConfig;
 use crate::realm::state::queue_impl_rsmq::SubmissionQueue;

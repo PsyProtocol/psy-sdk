@@ -6,7 +6,7 @@ use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashou
 use psy_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::{MerkleZeroHasher, PoseidonHasher}, qhashable::QFieldHashable}};
 use psy_data::{config::store_config::{QCheckpointSyncInfoCompact, QEDHasher}, guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}};
 use qed_prover::session::TxStatus;
-use qed_store::node::realm::QEDRealmStoreReaderAsync;
+use psy_store::node::realm::QEDRealmStoreReaderAsync;
 use tracing::debug;
 use crate::realm::{C, D, F, H};
 use psy_core::job::history_queue::CheckpointHistoryQueueEmitterAsyncImm;

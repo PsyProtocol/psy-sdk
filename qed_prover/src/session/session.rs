@@ -53,7 +53,7 @@ use psy_data::{
 use psy_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
-use qed_store::controllers::local::{
+use psy_store::controllers::local::{
     proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
 };
 use psy_vm::dpn::{

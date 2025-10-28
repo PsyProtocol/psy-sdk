@@ -1,7 +1,7 @@
 use fred::prelude::*;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use std::sync::Arc;
-use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
+use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use qed_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use psy_core::{config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync}, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer}
 ;
@@ -21,7 +21,7 @@ use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use psy_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
-use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::ProofStoreFred, queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl}};
+use psy_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::ProofStoreFred, queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl}};
 use super::super::test_helpers::contract::gen_test_contract;
 use std::time::Duration;
 
@@ -35,7 +35,7 @@ use plonky2::{
 use psy_core::
     data::qhashout::QHashOut
 ;
-use qed_store::store::journal::JournalStore;
+use psy_store::store::journal::JournalStore;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -44,7 +44,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = qed_store::queue::new_fred_pool("redis://127.0.0.1:6379",8).await?;
+    let pool = psy_store::queue::new_fred_pool("redis://127.0.0.1:6379",8).await?;
 
     timer.lap("connected to redis");
 

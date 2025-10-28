@@ -31,7 +31,7 @@ use psy_data::{
     }
 };
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
-use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
+use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
 use psy_vm::dpn::contract::cfc_code_definition_to_dapen_fc;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -233,7 +233,7 @@ impl ProveProxyServerProvider {
     pub async fn new_with_config(rpc_config: RpcConfig, network_magic: u64) -> anyhow::Result<Self> {
         use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use psy_core::ups::circuits::LocalCircuitType;
-        use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
+        use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
 
         let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;
 

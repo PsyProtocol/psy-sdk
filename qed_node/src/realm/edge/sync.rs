@@ -13,7 +13,7 @@ use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use serde::{Serialize, Deserialize};
 use tracing::{info, error, warn, debug, trace};
-use qed_store::node::realm::QEDRealmStoreReaderAsync;
+use psy_store::node::realm::QEDRealmStoreReaderAsync;
 use anyhow::{anyhow, Result};
 use http::{HeaderMap, HeaderValue};
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -28,7 +28,7 @@ use psy_core::job::traits::QProofStoreAsyncImm;
 use psy_data::config::store_config::{QEDFelt, QEDHasher};
 use psy_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 use qed_rollup_utils::generate_jwt_token;
-use qed_store::queue::ProofStoreRedisAsync;
+use psy_store::queue::ProofStoreRedisAsync;
 use crate::common::retry::{RetryConfig, Retryable};
 use crate::realm::state::edge::RealmEdgeContext;
 

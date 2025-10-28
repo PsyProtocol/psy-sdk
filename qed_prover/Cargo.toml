@@ -33,7 +33,7 @@ psy_vm = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 psy_exec = { workspace = true, default-features = false }
-qed_store = { workspace = true, default-features = false }
+psy_store = { workspace = true, default-features = false }
 qedlang_macros = { workspace = true }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
@@ -89,7 +89,7 @@ is_sync = [
     "psy_data/is_sync",
     "maybe-async/is_sync",
     "psy_exec/is_sync",
-    "qed_store/is_sync",
+    "psy_store/is_sync",
     "qed_common_circuit/is_sync",
     "qed_rollup_circuit/is_sync",
 ]

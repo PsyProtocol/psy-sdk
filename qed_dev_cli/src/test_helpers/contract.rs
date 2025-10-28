@@ -22,7 +22,7 @@ use qed_prover::{
     dpn::circuits::cfc::DapenContractFunctionCircuit, session::gen_contract_deploy_and_circuits_for_functions, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}
 };
 use psy_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
-use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
+use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
 
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},

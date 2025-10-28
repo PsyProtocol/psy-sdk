@@ -21,7 +21,7 @@ psy_crypto = { workspace = true }
 async-trait = { workspace = true }
 maybe-async = {workspace = true}
 tracing = { workspace = true }
-qed_store = { workspace = true, default-features = false }
+psy_store = { workspace = true, default-features = false }
 qedlang_macros = { workspace = true }
 
 [features]
@@ -29,7 +29,7 @@ qedlang_macros = { workspace = true }
 is_sync = [
     "maybe-async/is_sync",
     "psy_data/is_sync",
-    "qed_store/is_sync"]
+    "psy_store/is_sync"]
 
 [dev-dependencies]
 tokio = { workspace = true }

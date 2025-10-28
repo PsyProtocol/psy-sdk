@@ -35,7 +35,7 @@ use psy_data::{
     }
 };
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
-use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
+use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, marker::PhantomData, sync::Arc};
 

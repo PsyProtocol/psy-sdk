@@ -1,6 +1,6 @@
 use fred::prelude::*;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
-use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
+use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use psy_core::
     utils::debug_timer::DebugTimer
 ;
@@ -14,8 +14,8 @@ use qed_node::{
     },
     worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
 };
-use qed_store::queue::ProofStoreFred;
-use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
+use psy_store::queue::ProofStoreFred;
+use psy_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use psy_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
@@ -31,8 +31,8 @@ use plonky2::{
 use psy_core::
     data::qhashout::QHashOut
 ;
-use qed_store::queue::new_fred_pool;
-use qed_store::store::journal::JournalStore;
+use psy_store::queue::new_fred_pool;
+use psy_store::store::journal::JournalStore;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;

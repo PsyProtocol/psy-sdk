@@ -83,7 +83,7 @@ pub enum Commands {
         #[arg(long = "aws-bucket", help = "AWS S3 bucket for backup storage")]
         aws_bucket: String,
         #[command(flatten)]
-        backend_config: qed_store::store::backend::BackendConfig,
+        backend_config: psy_store::store::backend::BackendConfig,
         #[arg(long, help = "Path to configuration file", default_value = "config.json")]
         config_path: String,
     },
@@ -100,7 +100,7 @@ pub enum Commands {
         #[arg(long, env = "REALM_QUEUE_BIZ_KEY", default_value = "rwq0")]
         queue_biz_key: String,
         #[command(flatten)]
-        backend_config: qed_store::store::backend::BackendConfig,
+        backend_config: psy_store::store::backend::BackendConfig,
         #[arg(long, help = "Path to configuration file", default_value = "config.json")]
         config_path: String,
     },

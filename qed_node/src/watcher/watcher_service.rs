@@ -9,11 +9,11 @@ use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use chrono::{DateTime, Utc};
 use psy_core::job::id::QProvingJobDataID;
-use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
-use qed_store::node::realm::QEDRealmStoreReaderAsync;
-use qed_store::queue::task_queue::QProvingTaskStoreImpl;
-use qed_store::queue::{new_redis_async_pool, QueueId, RsmqQueue};
-use qed_store::store::QEDStore;
+use psy_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
+use psy_store::node::realm::QEDRealmStoreReaderAsync;
+use psy_store::queue::task_queue::QProvingTaskStoreImpl;
+use psy_store::queue::{new_redis_async_pool, QueueId, RsmqQueue};
+use psy_store::store::QEDStore;
 use redis::AsyncCommands;
 use rsmq::RsmqMessage;
 use tokio::sync::Semaphore;
@@ -39,7 +39,7 @@ const FAILURE_BACKOFF_DURATION: u64 = 30;
 
 pub struct WatcherService {
     config: WatcherConfig,
-    qed_store: Arc<QEDStore>,
+    psy_store: Arc<QEDStore>,
     redis_pool: Arc<Pool<RedisConnectionManager>>,
     rsmq_queue: Arc<RsmqQueue>,
     rsmq_queue_id: QueueId,
@@ -59,7 +59,7 @@ impl WatcherService {
             node_type: config.node_type,
         });
 
-        let qed_store = Arc::new(
+        let psy_store = Arc::new(
             QEDStore::from_backend(config.backend.to_backend())
                 .await
                 .map_err(|e| anyhow!("Database initialization failed: {}", e))?,
@@ -106,7 +106,7 @@ impl WatcherService {
 
         let block_height_manager = Arc::new(BlockHeightManager::new());
 
-        match fetch_initial_block_height(&config.node_type, &qed_store).await {
+        match fetch_initial_block_height(&config.node_type, &psy_store).await {
             Ok(height) => {
                 block_height_manager.set_height(height);
                 info!("Block height initialized to {} from database", height);
@@ -128,7 +128,7 @@ impl WatcherService {
             task_manager,
             timeout_watcher,
             config,
-            qed_store,
+            psy_store,
         })
     }
 
@@ -525,10 +525,10 @@ impl WatcherService {
     async fn fetch_block_height_from_db(&self) -> Result<u64> {
         let block_state = match self.config.node_type {
             NodeType::Coordinator => {
-                QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.qed_store).await?
+                QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?
             }
             NodeType::Realm => {
-                QEDRealmStoreReaderAsync::get_latest_l2_block_state(&self.qed_store).await?
+                QEDRealmStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?
             }
         };
 

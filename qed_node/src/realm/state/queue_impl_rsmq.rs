@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use async_trait::async_trait;
 use plonky2::hash::hash_types::RichField;
-use qed_store::queue::{QueueId, QueueStats, RsmqQueue};
+use psy_store::queue::{QueueId, QueueStats, RsmqQueue};
 use crate::common_v2::traits::realm::{RealmEdgeUserUpdateSubmission, UniqueQueueId};
 use crate::realm::state::queue_traits::EdgeSubmissionQueue;
 use anyhow::Result;

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use async_trait::async_trait;
 use anyhow::{anyhow, Result};
 use psy_data::config::store_config::StagingCheckpointInfoStore;
-use qed_store::store::QEDStore;
+use psy_store::store::QEDStore;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use bb8::Pool;
@@ -10,7 +10,7 @@ use bb8_redis::RedisConnectionManager;
 use plonky2::hash::hash_types::RichField;
 use redis::AsyncCommands;
 use tokio::sync::RwLock;
-use qed_store::queue::{new_redis_async_pool, QueueId, RsmqQueue};
+use psy_store::queue::{new_redis_async_pool, QueueId, RsmqQueue};
 use crate::common_v2::traits::realm::{RealmEdgeUserUpdateSubmission, RealmProcessorEdgeQueueHelper, UniqueQueueId};
 use crate::realm::state::queue_traits::{DuplicateTracker, EdgeSubmissionQueue};
 

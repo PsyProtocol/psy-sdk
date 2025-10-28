@@ -2,7 +2,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use qed_store::store::backend::BackendConfig;
+use psy_store::store::backend::BackendConfig;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]

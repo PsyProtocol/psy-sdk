@@ -28,21 +28,21 @@ use psy_data::{
     traits::qdatastore::{qtreedata::QEDComboDataStoreReaderWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_store::node::coordinator::InitializeParams;
-use qed_store::node::coordinator::{
+use psy_store::node::coordinator::InitializeParams;
+use psy_store::node::coordinator::{
     QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
 };
-use qed_store::queue::new_redis_async_pool;
-use qed_store::queue::ProofStoreFred;
-use qed_store::queue::ProofStoreRedisAsync;
-use qed_store::queue::rsmq_queue::CEQueueNotification;
+use psy_store::queue::new_redis_async_pool;
+use psy_store::queue::ProofStoreFred;
+use psy_store::queue::ProofStoreRedisAsync;
+use psy_store::queue::rsmq_queue::CEQueueNotification;
 use psy_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
-use qed_store::store::QEDStore;
+use psy_store::store::QEDStore;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tracing::trace;
 use std::time::Duration;
 use psy_data::qdata::realm_status::BasicRealmStatus;
-use qed_store::store::journal::{Journal, JournalStore};
+use psy_store::store::journal::{Journal, JournalStore};
 use std::sync::Arc;
 use psy_crypto::hash::merkle::utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey};
 use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
@@ -64,8 +64,8 @@ use plonky2::hash::hash_types::RichField;
 use tokio::time::{sleep_until, Instant};
 use tracing::{debug, error, info, warn};
 use serde_json;
-use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
-use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue};
+use psy_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
+use psy_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue};
 use crate::common::clock::SlotTimer;
 use crate::common::retry::Retryable;
 use crate::common::slot;
@@ -242,21 +242,21 @@ impl
         )
         .await?;
 
-        let qed_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
-        let qed_store = JournalStore::new(qed_store);
+        let psy_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
+        let psy_store = JournalStore::new(psy_store);
 
         let genesis_config = GenesisConfig::from_path(&cp_config.config_path)?;
 
-        match Self::initialize_store(&qed_store, genesis_config).await {
+        match Self::initialize_store(&psy_store, genesis_config).await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
                 info!("Initialized store to genesis state");
-                qed_store.commit(None)?;
+                psy_store.commit(None)?;
             }
             Ok(checkpoint_id) => {
                 info!("Store already initialized, current checkpoint {}", checkpoint_id);
             }
             Err(_) => {
-                qed_store.rollback(0)?;
+                psy_store.rollback(0)?;
             }
         }
 
@@ -270,7 +270,7 @@ impl
 
         let coordinator_processor_ctx = CoordinatorProcessorContext::new(
             coord_config,
-            Arc::new(qed_store.clone()),
+            Arc::new(psy_store.clone()),
             qps.clone(),
             qps.clone(),
             qps.clone(),
@@ -288,7 +288,7 @@ impl
 
         Ok(CoordinatorProcessNode::new(
             coordinator_processor_ctx,
-            qed_store,
+            psy_store,
             edge_command_queue,
             q.clone(),
             q,
@@ -298,13 +298,13 @@ impl
         ).await)
     }
 
-    pub async fn initialize_store(qed_store: &JournalStore<QEDStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>) -> anyhow::Result<u64> {
+    pub async fn initialize_store(psy_store: &JournalStore<QEDStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>) -> anyhow::Result<u64> {
 
         let genesis_store_config = if let Some(ref config) = genesis_config {
             info!("initialize_store Some()");
-            let deploy_root = Self::process_genesis_contracts(qed_store, config).await?;
-            let register_users_root = Self::process_genesis_user_registrations(qed_store, config).await?;
-            let user_root = Self::process_genesis_user_states(qed_store, config).await?;
+            let deploy_root = Self::process_genesis_contracts(psy_store, config).await?;
+            let register_users_root = Self::process_genesis_user_registrations(psy_store, config).await?;
+            let user_root = Self::process_genesis_user_states(psy_store, config).await?;
             let next_contract_id = config.get_precompile_configs().len() as u32;
             let next_user_id = config.get_genesis_users().len() as u64;
             info!("next_user_id: {}", next_user_id);
@@ -320,7 +320,7 @@ impl
             info!("initialize_store none");
             None
         };
-        qed_store.initialize_store(genesis_store_config).await
+        psy_store.initialize_store(genesis_store_config).await
     }
 
     pub async fn build_block(&self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {

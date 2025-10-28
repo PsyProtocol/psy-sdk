@@ -19,7 +19,7 @@ use qed_prover::wallet::{
     secp_sign::{Eip712Signable, SignedRequest},
     secp_wallet::Wallet,
 };
-use qed_store::queue::task_queue::QJob;
+use psy_store::queue::task_queue::QJob;
 use tracing::{debug, info, trace, warn};
 
 #[rpc(server, client, namespace = "qed")]

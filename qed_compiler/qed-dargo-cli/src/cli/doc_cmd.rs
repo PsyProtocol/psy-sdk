@@ -17,7 +17,7 @@ use qed_sema::{
     CheckedFunctionNode, Implementer, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 use psy_data::config::store_config::{QEDHasher, C, D};
-use qed_store::controllers::local::prepare_environment_with_real_contract;
+use psy_store::controllers::local::prepare_environment_with_real_contract;
 use psy_vm::dpn::ops::exec_context::QExecContext;
 use psy_vm::dpn::ops::sym_felt::SymFeltRef;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;

@@ -3,8 +3,8 @@
 use std::sync::Arc;
 use plonky2::hash::hash_types::RichField;
 use anyhow::Result;
-use qed_store::queue::{new_redis_async_pool, RsmqQueue};
-use qed_store::store::QEDStore;
+use psy_store::queue::{new_redis_async_pool, RsmqQueue};
+use psy_store::store::QEDStore;
 use crate::realm::state::duplicate_tracker::RedisDuplicateTracker;
 use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
 use crate::realm::state::queue_impl_rsmq::SubmissionQueue;

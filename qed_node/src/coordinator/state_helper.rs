@@ -12,7 +12,7 @@ use psy_data::{
     api::coordinator::register_user::QEDAPIRegisterUserRequestForUserId, guta::api::SubmitUserEndCapProofAPIInput
 };
 use psy_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
-use qed_store::node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm};
+use psy_store::node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm};
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;

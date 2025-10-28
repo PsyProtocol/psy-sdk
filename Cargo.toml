@@ -6,7 +6,7 @@ members = [
     "kvq",
     "psy_core",
     "psy_crypto",
-    "qed_store",
+    "psy_store",
     "qed_prover",
     "psy_exec",
     "psy_data",
@@ -229,7 +229,7 @@ psy_vm = { path = "./psy_vm" }
 qedlang_macros = { path = "./qed_compiler/qedlang_macros" }
 psy_crypto = { path = "./psy_crypto" }
 psy_exec = { path = "./psy_exec", default-features = false}
-qed_store = { path = "./qed_store", default-features = false}
+psy_store = { path = "./psy_store", default-features = false}
 psy_data = { path = "./psy_data",default-features = false}
 psy_core = { path = "./psy_core" }
 qed_node = { path = "./qed_node" }

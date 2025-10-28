@@ -1,5 +1,5 @@
 use clap::Args;
-use qed_store::store::backend::BackendConfig;
+use psy_store::store::backend::BackendConfig;
 
 #[derive(Clone, Debug, Args)]
 pub struct CoordinatorWorkerArgs {

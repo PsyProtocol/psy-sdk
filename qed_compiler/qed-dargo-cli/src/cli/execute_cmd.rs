@@ -2,7 +2,7 @@ use crate::cli::compile_cmd::{compile_workspace_full, CompileOptions};
 use clap::Args;
 use qed_package::Workspace;
 use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
-use qed_store::controllers::local::prepare_environment_with_real_contract;
+use psy_store::controllers::local::prepare_environment_with_real_contract;
 
 use crate::cli::doc_cmd::run_doc;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};

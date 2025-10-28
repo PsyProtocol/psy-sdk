@@ -8,7 +8,7 @@ use psy_core::job::{
 use psy_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, signature::zk::data::ZKPublicKeyInfo};
 use psy_data::{guta::api::SubmitGUTARealmResultAPINoProofInput, qblock::cmds::deploy_contract::QBCDeployContract};
 use psy_data::config::store_config::{QEDFelt, QEDHasher};
-use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
+use psy_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use rand::{thread_rng, RngCore};
 
 use super::processor::CoordinatorConfig;

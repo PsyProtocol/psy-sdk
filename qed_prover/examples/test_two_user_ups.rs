@@ -15,7 +15,7 @@ use qed_rollup_circuit::guta::guta_helper::QEDGUTACircuitManager;
 use psy_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
-use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, prepare_environment_with_real_contract}, node::coordinator::QEDCoordinatorStoreWriterAsyncImm};
+use psy_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, prepare_environment_with_real_contract}, node::coordinator::QEDCoordinatorStoreWriterAsyncImm};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},

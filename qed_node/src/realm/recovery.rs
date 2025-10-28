@@ -9,7 +9,7 @@ use psy_data::{
     },
     models::checkpoint::sync_info::QEDCheckpointSyncInfoModelReaderCore,
 };
-use qed_store::{
+use psy_store::{
     node::realm::QEDRealmStoreReaderAsync,
     queue::{new_redis_async_pool, ProofStoreRedisAsync, QPendingUserStoreAsyncImm},
     store::{
@@ -24,7 +24,7 @@ use crate::realm::RealmProcessor;
 
 pub struct RealmRecoveryManager {
     realm_id: u32,
-    qed_store: QEDStore,
+    psy_store: QEDStore,
     store: JournalStore<QEDStore>,
     backup_client: RealmS3BackupClient,
     sync_queue: std::sync::Arc<ProofStoreRedisAsync>,
@@ -34,22 +34,22 @@ pub struct RealmRecoveryManager {
 impl RealmRecoveryManager {
     pub async fn new(
         realm_id: u32,
-        backend: qed_store::store::backend::Backend,
+        backend: psy_store::store::backend::Backend,
         bucket: String,
         redis_uri: String,
         queue_biz_key: String,
         config_path: String,
     ) -> Result<Self> {
         let backup_client = RealmS3BackupClient::new(realm_id, bucket).await?;
-        let qed_store = QEDStore::from_backend(backend).await?;
-        let store = JournalStore::new(qed_store.clone());
+        let psy_store = QEDStore::from_backend(backend).await?;
+        let store = JournalStore::new(psy_store.clone());
 
         // Initialize sync_queue using redis configuration
         let sync_queue = std::sync::Arc::new(ProofStoreRedisAsync::new(&redis_uri, queue_biz_key).await?);
 
         Ok(Self {
             realm_id,
-            qed_store,
+            psy_store,
             store,
             backup_client,
             sync_queue,
@@ -71,7 +71,7 @@ impl RealmRecoveryManager {
         let target = target_checkpoint.unwrap_or(recovery_info.latest_checkpoint);
 
         let genesis_config = GenesisConfig::<GoldilocksField>::from_path(&self.config_path)?;
-        RealmProcessor::initialize_store(&self.qed_store, genesis_config, self.realm_id).await?;
+        RealmProcessor::initialize_store(&self.psy_store, genesis_config, self.realm_id).await?;
 
         info!("⚡ Recovering realm {} from checkpoint 0 to {}", self.realm_id, target);
 
@@ -211,7 +211,7 @@ impl RealmRecoveryManager {
 
     // Helper method to get checkpoint sync info from store
     async fn get_checkpoint_sync_info(&self, checkpoint_id: u64) -> Result<QCheckpointSyncInfoCompact> {
-        CheckpointSyncInfoTableStore::<QEDStore>::get_checkpoint_sync_info_compact_or_latest(&self.qed_store, checkpoint_id)
+        CheckpointSyncInfoTableStore::<QEDStore>::get_checkpoint_sync_info_compact_or_latest(&self.psy_store, checkpoint_id)
     }
 
     pub async fn verify_recovery(&self, expected_checkpoint: Option<u64>) -> Result<()> {
@@ -239,7 +239,7 @@ pub async fn run_realm_sync_command(
     realm_id: u32,
     target_checkpoint: Option<u64>,
     aws_bucket: String,
-    backend_config: qed_store::store::backend::BackendConfig,
+    backend_config: psy_store::store::backend::BackendConfig,
     redis_uri: String,
     queue_biz_key: String,
     config_path: String,

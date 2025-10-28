@@ -17,14 +17,14 @@ use psy_data::{
     },
     qdata::contract::QEDContractLeaf,
 };
-use qed_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
-use qed_store::{
+use psy_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
+use psy_store::{
     node::coordinator::{
         QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
     },
     queue::task_queue::QProvingTaskStore,
 };
-use qed_store::store::journal::Journal;
+use psy_store::store::journal::Journal;
 
 type F = QEDFelt;
 impl<

@@ -3,10 +3,10 @@ use psy_core::{
     job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::QProofStoreWriterAsyncImm, worker_queue::WorkerEventTransmitterAsyncImm},
     utils::debug_timer::DebugTimer,
 };
-use qed_store::queue::ProofStoreFred;
+use psy_store::queue::ProofStoreFred;
 use std::time::Duration;
 use aws_sdk_s3::config::retry::ShouldAttempt::No;
-use qed_store::queue::new_fred_pool;
+use psy_store::queue::new_fred_pool;
 
 fn gen_jobs_ids(checkpoint_id: u64, height: usize) -> Vec<Vec<QProvingJobDataID>> {
     let mut jobs = Vec::with_capacity(height);

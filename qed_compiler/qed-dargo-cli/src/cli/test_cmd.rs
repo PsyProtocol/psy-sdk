@@ -8,7 +8,7 @@ use psy_exec::vm::exec::QEDEvalSessionResult;
 use qed_interpreter::Interpreter;
 use psy_data::config::store_config::QEDHasher;
 use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
-use qed_store::controllers::local::prepare_environment_with_real_contract;
+use psy_store::controllers::local::prepare_environment_with_real_contract;
 use psy_vm::dpn::{
     ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::compile::QEDCompileResult,

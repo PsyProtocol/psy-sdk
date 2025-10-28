@@ -18,9 +18,9 @@ use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use psy_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
-use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::ProofStoreFred, queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl}};
+use psy_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::QEDCoordinatorStoreReaderAsync, queue::ProofStoreFred, queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl}};
 use super::super::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
-use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
+use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use std::time::Duration;
 
 
@@ -33,7 +33,7 @@ use plonky2::{
 use psy_core::
     data::qhashout::QHashOut
 ;
-use qed_store::store::journal::JournalStore;
+use psy_store::store::journal::JournalStore;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;

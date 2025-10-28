@@ -128,7 +128,7 @@ pub async fn run_worker(
 async fn process_job_with_retry<S, R>(
     store: &S,
     job_receiver: &R,
-    job: qed_store::queue::task_queue::QJob,
+    job: psy_store::queue::task_queue::QJob,
     prover: &Arc<QEDCoordinatorCircuitManager<C, D>>,
     verifier: &Arc<GenericCircuitVerifier<C, D>>,
     wallet: Arc<Wallet>,

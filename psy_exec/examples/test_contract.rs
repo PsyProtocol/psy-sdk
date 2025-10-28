@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
-use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
+use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
@@ -18,7 +18,7 @@ use psy_data::{
         qtreedata::
             QEDComboDataStoreReaderWriterSync
 };
-use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, prepare_environment_with_real_contract};
+use psy_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, prepare_environment_with_real_contract};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},

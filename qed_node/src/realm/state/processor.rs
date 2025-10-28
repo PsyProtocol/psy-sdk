@@ -38,13 +38,13 @@ use psy_data::{
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
 use psy_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
-use qed_store::{
+use psy_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
     queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm, redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, MAX_CHECKPOINT_COUNT}},
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
-use qed_store::store::journal::Journal;
+use psy_store::store::journal::Journal;
 use crate::common::slot::SLOT_SIZE;
 
 type F = QEDFelt;

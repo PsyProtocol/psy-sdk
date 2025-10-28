@@ -57,12 +57,12 @@ use psy_data::qdata::checkpoint::CheckpointSyncInfo;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use psy_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
 use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
-use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
+use psy_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use psy_data::models::checkpoint::sync_info::QEDCheckpointSyncInfoModelReaderCore;
-use qed_store::queue::new_redis_async_pool;
-use qed_store::queue::rsmq_queue::CEQueueNotification;
-use qed_store::queue::ProofStoreRedisAsync;
-use qed_store::store::{Backend, QEDStore};
+use psy_store::queue::new_redis_async_pool;
+use psy_store::queue::rsmq_queue::CEQueueNotification;
+use psy_store::queue::ProofStoreRedisAsync;
+use psy_store::store::{Backend, QEDStore};
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use crate::common_v2::traits::realm::RealmDataForCoordinator;
 use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
@@ -89,8 +89,8 @@ impl CoordinatorEdgeHandler {
 
         // Create QED store reader from backend configuration
         info!("🗄️ Initializing storage backend...");
-        let qed_store = QEDStore::from_backend(args.backend.to_backend()).await?;
-        let store_reader = Arc::new(qed_store);
+        let psy_store = QEDStore::from_backend(args.backend.to_backend()).await?;
+        let store_reader = Arc::new(psy_store);
         let task_store = QProvingTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size, &args.queue_args.queue_biz_key).await?;
         let qe_args = &args.queue_args;
 
@@ -1051,8 +1051,8 @@ use psy_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
 use serde::Serialize;
 use qed_prover::local::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
 use qed_prover::wallet::secp_sign::SignedRequest;
-use qed_store::queue::redis_queue::NotificationQueue;
-use qed_store::queue::task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl};
+use psy_store::queue::redis_queue::NotificationQueue;
+use psy_store::queue::task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl};
 use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserDeployContractMetadata, UserGutaSubmissionMetadata, WatcherMessage};
 use crate::watcher::watcher::NodeType;
 use crate::watcher::watcher_client::WatcherClient;

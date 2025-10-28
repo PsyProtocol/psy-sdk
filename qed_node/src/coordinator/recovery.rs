@@ -3,7 +3,7 @@ use aws_sdk_s3::config::retry::ShouldAttempt::No;
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_data::config::genesis_config::GenesisConfig;
-use qed_store::{
+use psy_store::{
     node::coordinator::QEDCoordinatorStoreReaderAsync,
     store::{
         journal::{Journal, JournalStore},
@@ -23,12 +23,12 @@ pub struct CoordinatorRecoveryManager {
 }
 
 impl CoordinatorRecoveryManager {
-    pub async fn new(backend: qed_store::store::backend::Backend, bucket: String, config_path: String) -> Result<Self> {
+    pub async fn new(backend: psy_store::store::backend::Backend, bucket: String, config_path: String) -> Result<Self> {
         let backup_client = CoordinatorS3BackupClient::new(bucket).await?;
         info!("Initialized S3BackupClient for recovery");
-        let qed_store = QEDStore::from_backend(backend).await?;
+        let psy_store = QEDStore::from_backend(backend).await?;
         info!("Initialized QEDStore for recovery");
-        let store = JournalStore::new(qed_store);
+        let store = JournalStore::new(psy_store);
         info!("Initialized JournalStore for recovery");
         let current_checkpoint_id = 0;
         Ok(Self {
@@ -154,7 +154,7 @@ impl CoordinatorRecoveryManager {
 pub async fn run_sync_command(
     target_checkpoint: Option<u64>,
     aws_bucket: String,
-    backend_config: qed_store::store::backend::BackendConfig,
+    backend_config: psy_store::store::backend::BackendConfig,
     config_path: String,
 ) -> Result<()> {
     info!("{:#?}", backend_config);

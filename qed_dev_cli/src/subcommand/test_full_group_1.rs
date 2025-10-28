@@ -1,7 +1,7 @@
 use fred::prelude::*;
 use std::sync::Arc;
-use qed_store::store::lmdbx::KVQlibmdbxStore;
-use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
+use psy_store::store::lmdbx::KVQlibmdbxStore;
+use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use qed_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
 };
@@ -44,7 +44,7 @@ use psy_data::{
     config::store_config::{QEDFelt, QEDHasher},
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
-use qed_store::{controllers::local::{
+use psy_store::{controllers::local::{
         proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
     },
     node::coordinator::QEDCoordinatorStoreReaderAsync,
@@ -63,8 +63,8 @@ use plonky2::{
 };
 use psy_core::data::qhashout::QHashOut;
 use qed_node::coordinator::edge::rpc::CoordinatorEdgeRpcClient;
-use qed_store::store::journal::JournalStore;
-use qed_store::store::QEDStore;
+use psy_store::store::journal::JournalStore;
+use psy_store::store::QEDStore;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -72,7 +72,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = qed_store::queue::new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+    let pool = psy_store::queue::new_fred_pool("redis://127.0.0.1:6379", 8).await?;
 
     timer.lap("connected to redis");
 
