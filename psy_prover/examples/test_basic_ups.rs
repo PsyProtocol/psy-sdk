@@ -24,6 +24,7 @@ use psy_data::{
         process::simple::SimpleBlockProcessor,
     },
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
+    qstore::controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore},
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::PsyComboDataStoreReaderWriterSync},
 };
 use psy_prover::{
@@ -34,9 +35,7 @@ use psy_prover::{
         session::UserProvingSessionManager,
     },
 };
-use psy_data::qstore::controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
-use psy_store::prepare_environment_with_real_contract;
-use psy_store::node::coordinator::PsyCoordinatorStoreWriterAsyncImm;
+use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},

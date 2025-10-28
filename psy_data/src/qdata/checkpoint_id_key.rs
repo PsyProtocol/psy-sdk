@@ -35,10 +35,7 @@ impl<const TABLE_TYPE: u16> KVQSerializable for CheckpointTableIdKey<TABLE_TYPE>
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 18 {
-            anyhow::bail!(
-                "expected 18 bytes for deserializing DepositKeyByDepositIdCore, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 18 bytes for deserializing DepositKeyByDepositIdCore, got {} bytes", bytes.len());
         }
         let mut id_be_bytes = [0u8; 8];
         id_be_bytes.copy_from_slice(&bytes[2..10]);

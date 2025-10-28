@@ -29,7 +29,7 @@ use crate::{
         user::user_leaf::UserLeafModel,
     },
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyBlockState},
+        checkpoint::{PsyBlockState, PsyCheckpointLeaf},
         checkpoint_id_key::CheckpointTableIdKey,
         contract::{ContractCodeDefinition, PsyContractLeaf},
         hash_cache_result::PsyHashHelperResult,

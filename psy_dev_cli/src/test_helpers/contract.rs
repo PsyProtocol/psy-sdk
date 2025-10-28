@@ -14,8 +14,9 @@ use psy_core::{
 };
 use psy_crypto::hash::{traits::hasher::MerkleZeroHasher, utils::gen_dapen_contract_function_method_id};
 use psy_data::{
-    qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
-    qstore::imm::cmd_processor::PsyReadCommandProcessorSync,
+    qblock::cmds::deploy_contract::QBCDeployContract,
+    qdata::contract::ContractCodeDefinition,
+    qstore::{controllers::session_info::SessionCircuitInfoStore, imm::cmd_processor::PsyReadCommandProcessorSync},
 };
 use psy_prover::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
@@ -25,7 +26,6 @@ use psy_prover::{
         session::UserProvingSessionManager,
     },
 };
-use psy_data::qstore::controllers::session_info::SessionCircuitInfoStore;
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},

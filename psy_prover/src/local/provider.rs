@@ -33,6 +33,7 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::{PsyFelt, PsyHasher},
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user},
+    qstore::controllers::session_info::SessionCircuitInfoStore,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
     ups::{
         start_step::UPSStartStepInput,
@@ -41,7 +42,6 @@ use psy_data::{
     },
 };
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
-use psy_data::qstore::controllers::session_info::SessionCircuitInfoStore;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Hash, Eq, PartialEq)]
@@ -78,12 +78,11 @@ use super::request::{
 };
 use crate::{
     local::request::{
-        QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QBlockStateRPCRequest,
-        QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest,
-        QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest,
-        QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest,
-        QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
-        QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
+        QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest,
+        QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest,
+        QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest,
+        QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2,
+        QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
     },
     session::TxStatus,
     wallet::software_defined_circuit::{SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput},
@@ -399,12 +398,7 @@ impl RpcProvider {
         tracing::info!("Fetching latest realm block state");
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QLatestBlockStateRPCRequest {};
-        let response = psy_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<GoldilocksField>::GetLatestBlockState(input),
-            PsyBlockState
-        );
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetLatestBlockState(input), PsyBlockState);
         match response.result {
             ResponseResult::Success(block_state) => {
                 tracing::debug!(

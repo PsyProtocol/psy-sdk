@@ -12,12 +12,11 @@ use psy_data::{
         process::simple::SimpleBlockProcessor,
     },
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
-    qstore::imm::cmd_processor::PsyReadCommandProcessorSync,
+    qstore::{controllers::proving_session::PsyLocalProvingSessionStore, imm::cmd_processor::PsyReadCommandProcessorSync},
     traits::qdatastore::qtreedata::PsyComboDataStoreReaderWriterSync,
 };
 use psy_exec::vm::exec::PsyEvalSessionResult;
-use psy_data::qstore::controllers::proving_session::PsyLocalProvingSessionStore;
-use psy_store::{prepare_environment_with_real_contract, node::coordinator::PsyCoordinatorStoreWriterAsyncImm};
+use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},

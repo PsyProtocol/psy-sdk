@@ -10,9 +10,9 @@ use psy_crypto::hash::merkle::{
 
 use crate::{
     config::store_config::{
-        CheckpointLeafTableStore, CheckpointTreeStore, ContractCodeTableStore, ContractFunctionTreeStore, ContractLeafTableStore, ContractTreeStore,
-        DepositTreeStore, BlockStateTableStore, PsyFelt, UserContractTreeStore, UserLeafTableStore, UserRegistrationTreeStore, UserTreeStore,
-        WithdrawalTreeStore, MAX_CHECKPOINT,
+        BlockStateTableStore, CheckpointLeafTableStore, CheckpointTreeStore, ContractCodeTableStore, ContractFunctionTreeStore,
+        ContractLeafTableStore, ContractTreeStore, DepositTreeStore, PsyFelt, UserContractTreeStore, UserLeafTableStore, UserRegistrationTreeStore,
+        UserTreeStore, WithdrawalTreeStore, MAX_CHECKPOINT,
     },
     models::{
         checkpoint::{
@@ -33,7 +33,7 @@ use crate::{
         },
     },
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyBlockState},
+        checkpoint::{PsyBlockState, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },

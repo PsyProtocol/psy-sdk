@@ -24,6 +24,7 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::{PsyFelt, PsyHasher},
     guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput},
+    qstore::controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore},
     traits::qdatastore::qtreedata::PsyComboDataStoreReaderWriterSync,
 };
 use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
@@ -49,7 +50,6 @@ use psy_prover::{
         session::UserProvingSessionManager,
     },
 };
-use psy_data::qstore::controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{

@@ -11,7 +11,7 @@ use psy_crypto::hash::{
 use super::qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync};
 use crate::{
     config::store_config::PsyHasher,
-    qdata::checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyBlockState},
+    qdata::checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats},
 };
 
 pub trait ActiveCheckpointReaderSync<F: RichField> {

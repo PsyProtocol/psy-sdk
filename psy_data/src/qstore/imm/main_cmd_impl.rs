@@ -4,14 +4,14 @@ use psy_crypto::hash::merkle::core::MerkleProofCore;
 
 use super::{
     cmd::{
-        QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetBlockState, QSRCmdGetUserLeafData,
+        QSRCmdGetBlockState, QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData,
         QSRHashCmd, QSRMerkleCmd,
     },
     cmd_processor::{PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync},
 };
 use crate::{
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyBlockState},
+        checkpoint::{PsyBlockState, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },

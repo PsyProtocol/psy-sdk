@@ -8,7 +8,7 @@ use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
     guta::end_cap_input::SubmitUserEndCapNonProofInput,
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
+        checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         user::PsyUserLeaf,
     },
 };

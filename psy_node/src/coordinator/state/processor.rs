@@ -68,8 +68,8 @@ use psy_data::{
     qblock::cmds::deploy_contract::QBCDeployContractWithRoot,
     qdata::{
         checkpoint::{
-            CheckpointSyncInfo, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafCompactWithStateRoots, PsyCheckpointLeafStats,
-            PsyBlockState,
+            CheckpointSyncInfo, PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafCompactWithStateRoots,
+            PsyCheckpointLeafStats,
         },
         contract::PsyContractLeaf,
         pm_jobs_completed_stats::PMJobsCompletedStats,

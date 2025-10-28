@@ -13,7 +13,7 @@ use psy_data::{
     guta::api::SubmitGUTARealmResultAPINoProofInput,
     qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{
-        checkpoint::{CheckpointSyncInfo, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
+        checkpoint::{CheckpointSyncInfo, PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },

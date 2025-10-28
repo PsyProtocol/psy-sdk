@@ -26,7 +26,10 @@ use psy_crypto::{
 };
 use psy_data::{
     qdata::contract::ContractCodeDefinition,
-    qstore::imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::PsyReadCommandProcessorSync},
+    qstore::{
+        controllers::session_info::SessionCircuitInfoStore,
+        imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::PsyReadCommandProcessorSync},
+    },
     ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
@@ -34,7 +37,6 @@ use psy_data::{
     },
 };
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
-use psy_data::qstore::controllers::session_info::SessionCircuitInfoStore;
 use psy_vm::dpn::contract::cfc_code_definition_to_dapen_fc;
 use serde::{Deserialize, Deserializer, Serialize};
 

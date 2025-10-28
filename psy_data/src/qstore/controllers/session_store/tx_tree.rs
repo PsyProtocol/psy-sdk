@@ -10,6 +10,9 @@ use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::qhashable::QFieldHashable,
 };
+use serde::{Deserialize, Serialize};
+
+use super::config::{LocalProvingSessionTreeStore, LOCAL_PROVING_SESSION_TREE_TABLE_TYPE};
 use crate::{
     config::store_config::{PsyFelt, PsyHash, PsyHasher},
     dpn::proving_session::DPNTransactionDebtItem,
@@ -18,9 +21,6 @@ use crate::{
         model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore},
     },
 };
-use serde::{Deserialize, Serialize};
-
-use super::config::{LocalProvingSessionTreeStore, LOCAL_PROVING_SESSION_TREE_TABLE_TYPE};
 
 type GF = PsyFelt;
 type QHasher = PsyHasher;

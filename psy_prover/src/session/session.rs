@@ -25,13 +25,15 @@ use psy_data::{
     config::store_config::PsyHasher,
     qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user_contract_state::UserContractState},
-    qstore::imm::{
-        cmd::{QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot},
-        cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
+    qstore::{
+        controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore},
+        imm::{
+            cmd::{QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot},
+            cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
+        },
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
-use psy_data::qstore::controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
 use psy_vm::dpn::{
     contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function},
     vm::def::DPNFunctionCircuitDefinition,

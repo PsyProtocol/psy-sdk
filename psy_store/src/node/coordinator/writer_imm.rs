@@ -17,7 +17,7 @@ use psy_data::{
         realm_status::RealmStatusModelCore,
     },
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyBlockState},
+        checkpoint::{PsyBlockState, PsyCheckpointLeaf, PsyCheckpointLeafStats},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         realm_status::BasicRealmStatus,
     },

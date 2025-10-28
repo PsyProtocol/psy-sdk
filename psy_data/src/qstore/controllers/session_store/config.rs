@@ -1,5 +1,6 @@
 use kvq::adapters::standard::KVQStandardAdapter;
 use psy_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
+
 use crate::{
     config::store_config::{PsyHash, PsyHasher},
     models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQFixedConfigMerkleTreeModel},

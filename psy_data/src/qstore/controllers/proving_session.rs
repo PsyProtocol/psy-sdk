@@ -19,6 +19,11 @@ use psy_crypto::hash::{
     traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     utils::safe_hash_fixed_length,
 };
+
+use super::{
+    session_store::{config::LPS_DEFERRED_TRANSACTION_TREE_ID, tx_tree::TransactionDebtTreeRef},
+    state_tracker::PsyLocalStateTracker,
+};
 use crate::{
     config::store_config::{PsyHasher, UserContractTreeStore},
     dpn::{
@@ -48,11 +53,6 @@ use crate::{
         cmd_processor::{DPNReadOtherUserLeafMerkleProof, PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
     },
     ups::{ups_context_input::UserProvingSessionStartContext, ups_standard_cfc_input::UPSCFCStandardStateDeltaInput},
-};
-
-use super::{
-    session_store::{config::LPS_DEFERRED_TRANSACTION_TREE_ID, tx_tree::TransactionDebtTreeRef},
-    state_tracker::PsyLocalStateTracker,
 };
 
 pub struct PsyLocalProvingSessionStore<F: RichField, R: PsyReadCommandProcessorSync<F> + Send + Sync> {

@@ -187,10 +187,7 @@ impl<
                 return Ok(false);
             }
             std::cmp::Ordering::Less => {
-                warn!(
-                    "⚠️ Outdated checkpoint {}, current {}",
-                    next_checkpoint, latest_block_state.checkpoint_id
-                );
+                warn!("⚠️ Outdated checkpoint {}, current {}", next_checkpoint, latest_block_state.checkpoint_id);
                 // No need to delete from history queue, it's already processed
                 return Ok(false);
             }

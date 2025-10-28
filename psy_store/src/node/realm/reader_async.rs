@@ -10,7 +10,7 @@ use psy_data::{
         kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore,
     },
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
+        checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         user::PsyUserLeaf,
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},

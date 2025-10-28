@@ -47,13 +47,18 @@ use psy_data::{
         user::PsyUserLeaf,
         user_contract_state::{SignContext, UserContractState},
     },
-    qstore::imm::{
-        cache::PsyCmdStoreWithCache,
-        cmd::{
-            QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof,
-            QSRMerkleCmdGetUserTreeMerkleProof,
+    qstore::{
+        controllers::{
+            proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::PsyUserSessionUpdateHistory,
         },
-        cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
+        imm::{
+            cache::PsyCmdStoreWithCache,
+            cmd::{
+                QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof,
+                QSRMerkleCmdGetUserTreeMerkleProof,
+            },
+            cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
+        },
     },
     ups::{
         start_step::UPSStartStepInput,
@@ -65,9 +70,6 @@ use psy_data::{
     },
 };
 use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
-use psy_data::qstore::controllers::{
-    proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::PsyUserSessionUpdateHistory,
-};
 use psy_vm::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition};
 use serde::Serialize;
 

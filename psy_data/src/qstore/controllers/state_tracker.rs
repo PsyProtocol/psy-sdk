@@ -2,9 +2,10 @@ use indexmap::IndexMap;
 use plonky2::hash::hash_types::RichField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
-use crate::{guta::api::PsyContractStateUpdateHistory, qdata::user::PsyUserLeaf};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+
+use crate::{guta::api::PsyContractStateUpdateHistory, qdata::user::PsyUserLeaf};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 pub struct PsyLocalStateSetKey {

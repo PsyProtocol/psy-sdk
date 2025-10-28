@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::cmd::{
-    QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetBlockState, QSRCmdGetUserLeafData,
-    QSRHashCmd, QSRMerkleCmd,
+    QSRCmdGetBlockState, QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRHashCmd,
+    QSRMerkleCmd,
 };
 use crate::{
     dpn::proving_session::DPNProvingSessionSimpleMethodCall,
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats, PsyBlockState},
+        checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyCheckpointLeafStats},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
     },

@@ -9,7 +9,7 @@ use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
     config::store_config::PsyHasher,
     qdata::{
-        checkpoint::{PsyCheckpointLeaf, PsyBlockState},
+        checkpoint::{PsyBlockState, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf, SimpleContractCodeDefinition},
         user::{self, PsyUserLeaf},
     },

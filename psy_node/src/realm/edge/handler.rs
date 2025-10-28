@@ -41,7 +41,7 @@ use psy_data::{
         proof_input::VerifyEndCapSimpleStandardInput,
     },
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
+        checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         user::PsyUserLeaf,
     },
 };

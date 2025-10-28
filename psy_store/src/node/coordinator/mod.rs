@@ -35,7 +35,7 @@ use psy_data::{
     config::store_config::UserPublicKeyTableStore,
     models::checkpoint::user_public_keys::PsyUserPublicKeyHelperModelCore,
     qdata::{
-        checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf, PsyBlockState},
+        checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user_public_key::PsyUserPublicKeyRecord,
     },
