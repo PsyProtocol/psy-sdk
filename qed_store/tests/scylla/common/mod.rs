@@ -6,7 +6,7 @@ use qed_store::store::scylla::{
     clustering_store::ScyllaClusteringStore,
     ScyllaStore,
 };
-use qed_data::models::kvq_merkle::key::KVQMerkleNodeKey;
+use psy_data::models::kvq_merkle::key::KVQMerkleNodeKey;
 use scylla::{Session, SessionBuilder};
 use std::sync::Arc;
 

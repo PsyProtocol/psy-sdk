@@ -1,7 +1,7 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::{PartialWitness, Witness, WitnessWrite}}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor};
 use qed_core::data::qhashout::QHashOut;
-use qed_data::qdata::pm_reward_commitment::PMRewardCommitment;
+use psy_data::qdata::pm_reward_commitment::PMRewardCommitment;
 
 
 pub const PM_REWARD_COMMITMENT_TARGET_SIZE: usize = 12; // 3 QHashOut, each with 4 fields

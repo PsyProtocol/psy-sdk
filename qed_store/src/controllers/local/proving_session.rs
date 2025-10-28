@@ -19,7 +19,7 @@ use psy_crypto::hash::{
     traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     utils::safe_hash_fixed_length,
 };
-use qed_data::{
+use psy_data::{
     dpn::{
         cfc_context_input::{
             DapenCFCProvingSessionStartContext, DapenCFCUserTransactionCallStartContext,
@@ -37,7 +37,7 @@ use qed_data::{
     }
 };
 
-use qed_data::{
+use psy_data::{
     config::store_config::{QEDHasher, UserContractTreeStore},
     models::{
         kvq_merkle::model::{

@@ -8,10 +8,10 @@ use qed_core::job::{
     traits::QProofStoreWriterSyncImm,
 };
 use psy_crypto::common::user_id::get_user_id_from_registration_id;
-use qed_data::{
+use psy_data::{
     api::coordinator::register_user::QEDAPIRegisterUserRequestForUserId, guta::api::SubmitUserEndCapProofAPIInput
 };
-use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
+use psy_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
 use qed_store::node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm};
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;

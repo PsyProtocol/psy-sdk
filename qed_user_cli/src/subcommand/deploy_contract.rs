@@ -12,11 +12,11 @@ use qed_core::{
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimpleQEDPrivateKey,
 };
-use qed_data::{
+use psy_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
 use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
-use qed_data::config::store_config::QEDHasher;
+use psy_data::config::store_config::QEDHasher;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use qed_prover::local::{
@@ -29,7 +29,7 @@ use super::args::DeployContractArgs;
 // #[cfg(feature = "is_sync")]
 pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     tracing::info!("user cli deploying contract");
-    use qed_data::config::store_config::{C, D};
+    use psy_data::config::store_config::{C, D};
     use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
 
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)?;

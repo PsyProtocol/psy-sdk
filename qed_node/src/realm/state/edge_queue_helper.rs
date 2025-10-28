@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use async_trait::async_trait;
 use anyhow::{anyhow, Result};
-use qed_data::config::store_config::StagingCheckpointInfoStore;
+use psy_data::config::store_config::StagingCheckpointInfoStore;
 use qed_store::store::QEDStore;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

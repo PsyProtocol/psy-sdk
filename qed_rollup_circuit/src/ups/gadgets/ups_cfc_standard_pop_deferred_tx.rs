@@ -9,7 +9,7 @@ use qed_common_circuit::{hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleP
 ;
 use qed_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
-use qed_data::ups::ups_standard_cfc_input::UPSVerifyPopDeferredTxStepInput;
+use psy_data::ups::ups_standard_cfc_input::UPSVerifyPopDeferredTxStepInput;
 
 use crate::gadgets::{qdata::
     ups_context_input::UserProvingSessionHeaderGadget, stack_items::deferred_transaction::DeferredTransactionStackItemGadget}

@@ -38,7 +38,7 @@ use psy_crypto::{
     },
     signature::secp256k1::core::QEDCompressedSecp256K1Signature,
 };
-use qed_data::{
+use psy_data::{
     qdata::contract::ContractCodeDefinition,
     ups::{
         start_step::UPSStartStepInput,

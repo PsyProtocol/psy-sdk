@@ -4,7 +4,7 @@ use plonky2::{
 };
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::id::{QProvingJobDataID, ProvingJobCircuitType};
-use qed_data::config::store_config::QEDProof;
+use psy_data::config::store_config::QEDProof;
 use tracing::info;
 
 pub mod api_request_id;

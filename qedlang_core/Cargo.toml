@@ -19,5 +19,5 @@ ts-rs = { workspace = true }
 k256 = { workspace = true }
 
 qed_core = { workspace = true }
-qed_data = { workspace = true }
+psy_data = { workspace = true }
 psy_crypto = { workspace = true }

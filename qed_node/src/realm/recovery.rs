@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_crypto::common::user_id::get_user_id_from_registration_id;
-use qed_data::{
+use psy_data::{
     config::{
         genesis_config::GenesisConfig,
         store_config::{CheckpointSyncInfoTableStore, QCheckpointSyncInfoCompact},
@@ -159,7 +159,7 @@ impl RealmRecoveryManager {
 
         if let Ok(sync_info) = self.get_checkpoint_sync_info(checkpoint_id).await {
             // Reference handle_checkpoint_sync method implementation
-            let dmps = sync_info.get_registered_user_merkle_proofs::<qed_data::config::store_config::QEDHasher>();
+            let dmps = sync_info.get_registered_user_merkle_proofs::<psy_data::config::store_config::QEDHasher>();
 
             // Filter users that belong to this realm (consistent with
             // handle_checkpoint_sync logic)

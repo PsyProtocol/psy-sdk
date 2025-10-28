@@ -17,7 +17,7 @@ use qed_common_circuit::{
 };
 use qed_core::{config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
-use qed_data::ups::start_step::UPSStartStepInput;
+use psy_data::ups::start_step::UPSStartStepInput;
 
 use crate::ups::gadgets::ups_start::UPSStartStepGadget;
 

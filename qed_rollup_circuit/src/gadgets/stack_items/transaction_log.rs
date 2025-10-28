@@ -9,7 +9,7 @@ use qed_common_circuit::
         AlgebraicHashableTarget, CreatableTarget, WitnessValueFor,
     }
 ;
-use qed_data::dpn::proving_session::DPNProvingSessionCompactMethodCall;
+use psy_data::dpn::proving_session::DPNProvingSessionCompactMethodCall;
 
 use crate::gadgets::qdata::contract_function_call::DPNProvingSessionCompactMethodCallGadget;
 

@@ -29,7 +29,7 @@ use qed_common_circuit::{
     },
 };
 use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
-use qed_data::config::store_config::QEDHasher;
+use psy_data::config::store_config::QEDHasher;
 use qedlang_core::dpn::ops::op_types::{
     decode_indexed_op_id, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType,
 };

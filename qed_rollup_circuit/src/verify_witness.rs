@@ -14,27 +14,27 @@ use psy_crypto::hash::merkle::treeprover::AggStateTransitionInput;
 use psy_crypto::hash::merkle::treeprover::DummyAggStateTransition;
 use psy_crypto::hash::traits::hasher::MerkleHasher;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
-use qed_data::config::store_config::QEDHasher;
-use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
-use qed_data::guta::proof_input::GUTANoChangeFullInput;
-use qed_data::guta::proof_input::GUTAOnlyRegisterUsersInput;
-use qed_data::guta::proof_input::VerifyGUTARegisterUsersCircuitInputSimple;
-use qed_data::guta::proof_input::VerifyGUTAToCapCircuitInputSimple;
-use qed_data::guta::proof_input::VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple;
-use qed_data::guta::proof_input::VerifyLeftEndCapRightGUTAInputSimple;
-use qed_data::guta::proof_input::VerifyLeftGUTARightEndCapInputSimple;
-use qed_data::guta::proof_input::VerifySingleEndCapInput;
-use qed_data::guta::proof_input::VerifyTwoEndCapCircuitInput;
-use qed_data::guta::proof_input::VerifyTwoGUTAProofGadgetStandardInputSimple;
-use qed_data::guta::proof_input::VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple;
-use qed_data::guta::stats::GUTAStats;
-use qed_data::protocol::circuit_inputs::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput;
-use qed_data::protocol::circuit_inputs::checkpoint_transition::QCQEDCheckpointStateTransitionInput;
-use qed_data::protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput;
+use psy_data::config::store_config::QEDHasher;
+use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
+use psy_data::guta::proof_input::GUTANoChangeFullInput;
+use psy_data::guta::proof_input::GUTAOnlyRegisterUsersInput;
+use psy_data::guta::proof_input::VerifyGUTARegisterUsersCircuitInputSimple;
+use psy_data::guta::proof_input::VerifyGUTAToCapCircuitInputSimple;
+use psy_data::guta::proof_input::VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple;
+use psy_data::guta::proof_input::VerifyLeftEndCapRightGUTAInputSimple;
+use psy_data::guta::proof_input::VerifyLeftGUTARightEndCapInputSimple;
+use psy_data::guta::proof_input::VerifySingleEndCapInput;
+use psy_data::guta::proof_input::VerifyTwoEndCapCircuitInput;
+use psy_data::guta::proof_input::VerifyTwoGUTAProofGadgetStandardInputSimple;
+use psy_data::guta::proof_input::VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple;
+use psy_data::guta::stats::GUTAStats;
+use psy_data::protocol::circuit_inputs::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput;
+use psy_data::protocol::circuit_inputs::checkpoint_transition::QCQEDCheckpointStateTransitionInput;
+use psy_data::protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput;
 
 pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 pub const D: usize = 2;
-pub type F = qed_data::config::store_config::QEDFelt;
+pub type F = psy_data::config::store_config::QEDFelt;
 
 pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
     proof_verifier: &GenericCircuitVerifier<C, D>,
@@ -49,7 +49,7 @@ pub async fn verify_witness_and_proof<PS: QProofStoreAsyncImm>(
             if proof.public_inputs.len() != 19 {
                 anyhow::bail!("invalid public input length");
             }
-            use qed_data::protocol::circuit_inputs::append_user_registration_tree::QCAppendUserRegistrationTreeCircuitInput;
+            use psy_data::protocol::circuit_inputs::append_user_registration_tree::QCAppendUserRegistrationTreeCircuitInput;
             let input: QCAppendUserRegistrationTreeCircuitInput<F> = bincode::deserialize(
                 &proof_store
                     .get_bytes_by_id(job_id.get_input_witness_id())

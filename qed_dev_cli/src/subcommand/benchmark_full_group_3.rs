@@ -36,7 +36,7 @@ use psy_crypto::{
     },
     signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
-use qed_data::guta::api::{
+use psy_data::guta::api::{
     GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput,
 };
 use qed_node::{
@@ -60,7 +60,7 @@ use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{
     circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager,
 }};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_data::{
+use psy_data::{
     config::store_config::{QEDFelt, QEDHasher},
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };

@@ -5,7 +5,7 @@ use qed_core::data::base_types::hash256::Hash256;
 use qed_core::data::qhashout::QHashOut;
 use psy_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
-use qed_data::config::store_config::{QEDFelt, QEDHash, QEDHasher};
+use psy_data::config::store_config::{QEDFelt, QEDHash, QEDHasher};
 use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_node::common::retry::{RetryConfig, retry_with_backoff};
 use qed_node::worker::{

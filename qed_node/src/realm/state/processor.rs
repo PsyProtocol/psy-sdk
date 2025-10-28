@@ -28,7 +28,7 @@ use psy_crypto::{
             utils::common::{QMerkleNode, SimpleMerkleNodeKey},
         }, traits::qhashable::QFieldHashable}
 };
-use qed_data::{
+use psy_data::{
     guta::{
         api::{GUTARealmCheckpointResult, UserEndCapNonProofCoreInputQueueItem}, header::GlobalUserTreeAggregatorHeader, proof_input::{
             GUTANoChangeFullInput, GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyEndCapSimpleStandardInput, VerifyGUTARegisterUsersCircuitInputSimple, VerifyGUTAToCapCircuitInputSimple, VerifyLeftEndCapRightGUTAInputSimple, VerifyLeftGUTARightEndCapInputSimple, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput, VerifyTwoGUTAProofGadgetStandardInputSimple
@@ -37,7 +37,7 @@ use qed_data::{
     qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, user::QEDUserLeaf},
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
-use qed_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
+use psy_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
 use qed_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
     queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm, redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, MAX_CHECKPOINT_COUNT}},

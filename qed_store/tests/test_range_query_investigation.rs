@@ -2,7 +2,7 @@ use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use qed_store::store::lmdbx::KVQlibmdbxStore;
 use qed_store::store::scylla::ScyllaStore;
-use qed_data::config::store_config::*;
+use psy_data::config::store_config::*;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_range_query_investigation() -> Result<()> {

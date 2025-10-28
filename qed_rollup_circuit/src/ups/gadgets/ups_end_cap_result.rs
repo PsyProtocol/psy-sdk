@@ -8,7 +8,7 @@ use qed_common_circuit::{builder::{core::CircuitBuilderHelpersCore, hash::core::
     traits::{AlgebraicHashableTarget, WitnessValueFor}}
 ;
 use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
-use qed_data::qdata::ups_end_cap_result::UPSEndCapResultCompact;
+use psy_data::qdata::ups_end_cap_result::UPSEndCapResultCompact;
 
 
 

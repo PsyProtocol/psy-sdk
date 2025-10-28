@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use qed_common_circuit::traits::{AlgebraicHashableTarget, WitnessValueFor};
-use qed_data::guta::stats::GUTAStats;
+use psy_data::guta::stats::GUTAStats;
 
 #[derive(Clone, Debug, Copy)]
 pub struct GUTAStatsGadget {

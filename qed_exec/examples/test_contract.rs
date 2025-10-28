@@ -5,7 +5,7 @@ use qed_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use qed_core::data::qhashout::QHashOut;
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
-use qed_data::{
+use psy_data::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
     qblock::cmds::{
         core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
@@ -13,7 +13,7 @@ use qed_data::{
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
 use qed_exec::vm::exec::QEDEvalSessionResult;
-use qed_data::{
+use psy_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, qstore::imm::cmd_processor::QEDReadCommandProcessorSync, traits::qdatastore::
         qtreedata::
             QEDComboDataStoreReaderWriterSync

@@ -8,7 +8,7 @@ use qed_common_circuit::
     traits::WitnessValueFor
 ;
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
-use qed_data::ups::ups_standard_cfc_input::UPSVerifyCFCStandardStepInput;
+use psy_data::ups::ups_standard_cfc_input::UPSVerifyCFCStandardStepInput;
 
 use crate::gadgets::qdata::
     ups_context_input::UserProvingSessionHeaderGadget

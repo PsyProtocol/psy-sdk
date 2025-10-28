@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use qed_core::data::qhashout::QHashOut;
-use qed_data::dpn::cfc_context_input::DapenCFCUserTransactionInputContext;
+use psy_data::dpn::cfc_context_input::DapenCFCUserTransactionInputContext;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

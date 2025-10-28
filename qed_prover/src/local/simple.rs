@@ -7,9 +7,9 @@ use plonky2::{
 };
 use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStore}};
 use psy_crypto::hash::{merkle::utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof, traits::hasher::MerkleZeroHasher};
-use qed_data::{guta::{api::{SubmitUserEndCapProofAPIInput, SubmitUserEndCapProofIDAPIInput}, proof_input::{VerifyEndCapSimpleStandardInput, VerifyTwoEndCapCircuitInput, VerifyTwoEndCapCircuitWithIdsInput}}, qdata::checkpoint::QEDL2BlockState};
+use psy_data::{guta::{api::{SubmitUserEndCapProofAPIInput, SubmitUserEndCapProofIDAPIInput}, proof_input::{VerifyEndCapSimpleStandardInput, VerifyTwoEndCapCircuitInput, VerifyTwoEndCapCircuitWithIdsInput}}, qdata::checkpoint::QEDL2BlockState};
 use qed_rollup_circuit::guta::guta_helper::QEDGUTACircuitManager;
-use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
+use psy_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 
 pub struct QEDMemPoolUpdates {
 

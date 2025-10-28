@@ -19,6 +19,6 @@ qed_rollup_circuit = { workspace = true }
 psy_crypto = { workspace = true }
 qed_prover = { workspace = true }
 qed_store = { workspace = true }
-qed_data = { workspace = true }
+psy_data = { workspace = true }
 kvq = { workspace = true }
 qed_api_services = { workspace = true }

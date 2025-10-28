@@ -1049,7 +1049,7 @@ mod tests {
     #[test]
     fn test_variable_height_delta_merkle_proof_opt() -> anyhow::Result<()> {
         use super::{VariableHeightDeltaMerkleProofOptGadget, VariableHeightDeltaMerkleProofOpt};
-        use qed_data::config::store_config::QEDHasher;
+        use psy_data::config::store_config::QEDHasher;
         let max_height = 4;
 
         let index = 8;

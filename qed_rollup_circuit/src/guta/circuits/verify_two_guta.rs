@@ -23,7 +23,7 @@ use qed_core::{
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{
     merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher,
 }};
-use qed_data::guta::proof_input::{
+use psy_data::guta::proof_input::{
     VerifyTwoGUTAProofGadgetStandardInput, VerifyTwoGUTAProofGadgetStandardInputSimple,
 };
 

@@ -18,7 +18,7 @@ use qed_store::queue::ProofStoreFred;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use qed_node::common::verifier::get_cached_generic_verifier;
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use qed_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
+use psy_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::{sync::Arc, time::Duration};
 
 

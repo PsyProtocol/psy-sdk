@@ -10,8 +10,8 @@ use qed_core::config::network_constants::{
 use qed_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey};
-use qed_data::config::store_config::QEDHasher;
-use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+use psy_data::config::store_config::QEDHasher;
+use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_prover::local::args::SignType;
 use qed_prover::local::provider::{QUserRpcProvider, RpcProvider};
 use qed_prover::local::request::QRegisterUserRPCRequest;

@@ -6,8 +6,8 @@ use qed_core::job::{
     traits::QProofStoreAsyncImm,
 };
 use psy_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, signature::zk::data::ZKPublicKeyInfo};
-use qed_data::{guta::api::SubmitGUTARealmResultAPINoProofInput, qblock::cmds::deploy_contract::QBCDeployContract};
-use qed_data::config::store_config::{QEDFelt, QEDHasher};
+use psy_data::{guta::api::SubmitGUTARealmResultAPINoProofInput, qblock::cmds::deploy_contract::QBCDeployContract};
+use psy_data::config::store_config::{QEDFelt, QEDHasher};
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use rand::{thread_rng, RngCore};
 

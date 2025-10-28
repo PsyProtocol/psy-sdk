@@ -15,10 +15,10 @@ tracing = { workspace = true }
 
 qed_core = { workspace = true }
 qed_common_circuit = { workspace = true, default-features = false }
-qed_data = { workspace = true, default-features = false }
+psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 
 
 [features]
 # default = ["is_sync"]
-is_sync = ["qed_data/is_sync","qed_common_circuit/is_sync"]
+is_sync = ["psy_data/is_sync","qed_common_circuit/is_sync"]

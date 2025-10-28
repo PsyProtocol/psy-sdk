@@ -5,9 +5,9 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof};
 use psy_crypto::hash::merkle::core::MerkleProofCore;
-use qed_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
-use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
-use qed_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
+use psy_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
+use psy_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
+use psy_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
 use qed_prover::session::TxStatus;
 
 #[rpc(server, client, namespace = "qed")]

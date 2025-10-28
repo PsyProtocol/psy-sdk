@@ -9,7 +9,7 @@ use qed_common_circuit::{
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_data::qdata::user::QEDUserLeaf;
+use psy_data::qdata::user::QEDUserLeaf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
 pub struct QEDUserLeafGadget {

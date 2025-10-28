@@ -1,6 +1,6 @@
 use anyhow::Result;
 use minijinja::{context, Environment};
-use qed_data::qdata::contract::{ContractConfig, PrecompileConfig, RootConfig};
+use psy_data::qdata::contract::{ContractConfig, PrecompileConfig, RootConfig};
 use std::env;
 use std::path::Path;
 

@@ -8,12 +8,12 @@ use qed_core::{
     data::qhashout::QHashOut,
 };
 use psy_crypto::hash::merkle::core::MerkleProofCore;
-use qed_data::qdata::{
+use psy_data::qdata::{
     checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
     contract::{ContractCodeDefinition, QEDContractLeaf, SimpleContractCodeDefinition},
     user::{self, QEDUserLeaf},
 };
-use qed_data::{
+use psy_data::{
     config::store_config::QEDHasher,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync,
@@ -1351,7 +1351,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     async fn get_contract_leaf_data(
         &self,
         contract_id: u64,
-    ) -> anyhow::Result<qed_data::qdata::contract::QEDContractLeaf<F>> {
+    ) -> anyhow::Result<psy_data::qdata::contract::QEDContractLeaf<F>> {
         info!("Fetching contract leaf data contract_id: {}", contract_id);
         let rpc_url = self.get_coordinator_url()?;
         let input = QContractLeafDataRPCRequest { contract_id };
@@ -1384,7 +1384,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     async fn get_checkpoint_leaf_data(
         &self,
         checkpoint_id: u64,
-    ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDCheckpointLeaf<F>> {
+    ) -> anyhow::Result<psy_data::qdata::checkpoint::QEDCheckpointLeaf<F>> {
         info!(
             "Fetching checkpoint leaf data checkpoint_id: {}",
             checkpoint_id
@@ -1420,7 +1420,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     async fn get_contract_code_definition(
         &self,
         contract_id: u64,
-    ) -> anyhow::Result<qed_data::qdata::contract::ContractCodeDefinition> {
+    ) -> anyhow::Result<psy_data::qdata::contract::ContractCodeDefinition> {
         info!(
             "Fetching contract code definition contract_id: {}",
             contract_id
@@ -1457,7 +1457,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self))]
     async fn get_latest_l2_block_state(
         &self,
-    ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
+    ) -> anyhow::Result<psy_data::qdata::checkpoint::QEDL2BlockState> {
         info!("Fetching latest L2 block state");
         let rpc_url = self.get_coordinator_url()?;
         let input = QLatestL2BlockStateRPCRequest {};
@@ -1489,7 +1489,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     async fn get_l2_block_state(
         &self,
         checkpoint_id: u64,
-    ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
+    ) -> anyhow::Result<psy_data::qdata::checkpoint::QEDL2BlockState> {
         info!("Fetching L2 block state checkpoint_id: {}", checkpoint_id);
         let rpc_url = self.get_coordinator_url()?;
         let input = QL2BlockStateRPCRequest { checkpoint_id };

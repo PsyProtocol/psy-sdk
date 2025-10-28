@@ -12,7 +12,7 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use tokio::time::timeout;
 use qed_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
-use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
+use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use crate::session::{WalletKeyPair, WalletSession};
 use crate::local::store::UserProverWorkerStore;

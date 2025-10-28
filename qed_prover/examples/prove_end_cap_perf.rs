@@ -16,7 +16,7 @@ use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},
 };
-use qed_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
+use psy_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
 use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use serde::{Deserialize, Serialize};
 

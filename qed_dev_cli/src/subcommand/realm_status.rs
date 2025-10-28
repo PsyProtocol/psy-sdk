@@ -9,7 +9,7 @@ use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
     signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
-use qed_data::{config::store_config::QEDHasher, qdata::realm_status::BasicRealmStatus};
+use psy_data::{config::store_config::QEDHasher, qdata::realm_status::BasicRealmStatus};
 use qed_prover::local::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,

@@ -33,7 +33,7 @@ use psy_crypto::{
         traits::hasher::MerkleZeroHasher,
     },
 };
-use qed_data::
+use psy_data::
     protocol::circuit_inputs::checkpoint_transition::QCQEDCheckpointStateTransitionInput
 ;
 

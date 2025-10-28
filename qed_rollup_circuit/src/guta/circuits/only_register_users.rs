@@ -14,7 +14,7 @@ use qed_common_circuit::{
 };
 use qed_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::QProofStoreReaderAsync}};
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::traits::hasher::MerkleZeroHasher};
-use qed_data::{guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput}, qdata::pm_jobs_completed_stats::PMJobsCompletedStats};
+use psy_data::{guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput}, qdata::pm_jobs_completed_stats::PMJobsCompletedStats};
 
 use crate::{guta::gadgets::guta_only_register_users_gadget::GUTAOnlyRegisterUsersGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 

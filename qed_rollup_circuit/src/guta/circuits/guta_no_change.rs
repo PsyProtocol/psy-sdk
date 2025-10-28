@@ -27,7 +27,7 @@ use psy_crypto::{
     common::circuit_library::CircuitInfoLibrary,
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},
 };
-use qed_data::{
+use psy_data::{
     guta::proof_input::GUTANoChangeFullInput,
     qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, pm_jobs_completed_stats::PMJobsCompletedStats},
 };

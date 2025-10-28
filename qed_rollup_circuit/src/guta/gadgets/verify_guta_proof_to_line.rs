@@ -11,7 +11,7 @@ use plonky2::{
 };
 use qed_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
-use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
+use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
 
 use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_line::GUTAHeaderLineProofGadget, helpers::ToGUTAHeader, verify_guta_proof::VerifyGUTAProofGadget};
 

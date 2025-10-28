@@ -12,7 +12,7 @@ use qed_core::{
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-use qed_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
+use psy_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
 use qed_node::worker::job_tracker::{JobInfo, JobLocation, WorkerJobTracker};
 use qed_prover::{local::provider::{RpcConfig, RpcProvider}, session::WalletSession};
 use serde_json::json;

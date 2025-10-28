@@ -10,7 +10,7 @@ use qed_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use psy_crypto::signature::secp256k1::wallet::{CompressedPublicKeyToP2PKH, MemorySecp256K1Wallet};
 use psy_crypto::signature::zk::wallet::{SimpleL2PrivateKey, SimpleQEDPrivateKey};
-use qed_data::config::store_config::QEDHasher;
+use psy_data::config::store_config::QEDHasher;
 use qed_prover::local::args::SignType;
 use qed_prover::ups::circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager};
 use qed_prover::wallet::memory_wallet::QEDMemoryWallet;

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, utils::{common::QMerkleNode, sub_tree_nca::UpdateNCAProofsWithDependencies}};
-use qed_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}, qstore::uct_merkle_nodes::CSTUserUpdate, qsync::coordinator::QEDCheckpointSyncInfo};
+use psy_data::{qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf}, qstore::uct_merkle_nodes::CSTUserUpdate, qsync::coordinator::QEDCheckpointSyncInfo};
 
 pub mod reader_async;
 pub mod writer_imm;

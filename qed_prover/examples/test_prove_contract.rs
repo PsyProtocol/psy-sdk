@@ -6,7 +6,7 @@ use plonky2::{field::{goldilocks_field::GoldilocksField, types::Field}, plonk::c
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use qed_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
-use qed_data::{
+use psy_data::{
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
     qblock::cmds::{
         core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
@@ -15,7 +15,7 @@ use qed_data::{
 };
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
 use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
-use qed_data::{
+use psy_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
 use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, prepare_environment_with_real_contract};

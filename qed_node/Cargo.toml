@@ -21,7 +21,7 @@ kvq = { workspace = true }
 qed_core = { workspace = true }
 qed_common_circuit = { workspace = true }
 qed_rollup_circuit = { workspace = true }
-qed_data = { workspace = true }
+psy_data = { workspace = true }
 psy_crypto = { workspace = true }
 qed_store = { workspace = true }
 qed_api_services = { workspace = true }

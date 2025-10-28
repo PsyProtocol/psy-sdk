@@ -21,7 +21,7 @@ psy_crypto = { workspace = true }
 qed_exec = { workspace = true }
 ariadne = { workspace = true }
 tokio = { workspace = true }
-qed_data = { workspace = true }
+psy_data = { workspace = true }
 qed_core = { workspace = true }
 qed_common_circuit = { workspace = true }
 qed_store = { workspace = true }
@@ -29,7 +29,7 @@ qed_store = { workspace = true }
 [features]
 # default = ["is_sync"]
 is_sync = [
-    "qed_data/is_sync",
+    "psy_data/is_sync",
     "qed_store/is_sync",
 ]
 

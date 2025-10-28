@@ -185,7 +185,7 @@ export const config = {
         // Log signer operations
         logSignerOps: process.env.LOG_SIGNER_OPS !== 'false',
         // Detailed log level from Makefile
-        rustLogLevel: process.env.RUST_LOG || 'qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,qed_data=debug,plonky2=error',
+        rustLogLevel: process.env.RUST_LOG || 'qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error',
     }
 };
 

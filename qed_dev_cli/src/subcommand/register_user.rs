@@ -9,7 +9,7 @@ use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
     signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
-use qed_data::config::store_config::QEDHasher;
+use psy_data::config::store_config::QEDHasher;
 use serde::{Deserialize, Serialize};
 
 use qed_prover::local::{

@@ -9,7 +9,7 @@ use qed_common_circuit::{
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
 use qed_core::config::network_constants::DEFERRED_CALL_MAGIC;
-use qed_data::dpn::proving_session::{
+use psy_data::dpn::proving_session::{
     DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall,
 };
 

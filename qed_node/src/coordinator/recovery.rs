@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use aws_sdk_s3::config::retry::ShouldAttempt::No;
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_data::config::genesis_config::GenesisConfig;
+use psy_data::config::genesis_config::GenesisConfig;
 use qed_store::{
     node::coordinator::QEDCoordinatorStoreReaderAsync,
     store::{

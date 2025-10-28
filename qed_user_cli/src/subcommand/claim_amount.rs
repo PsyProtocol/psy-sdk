@@ -1,5 +1,5 @@
 use anyhow::Result;
-use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_prover::local::provider::RpcProvider;
 
 use crate::subcommand::args::ClaimAmountArgs;

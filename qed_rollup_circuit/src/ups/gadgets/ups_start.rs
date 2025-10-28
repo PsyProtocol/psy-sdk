@@ -12,7 +12,7 @@ use qed_core::{
     data::qhashout::QHashOut,
 };
 use psy_crypto::hash::traits::hasher::iterate_merkle_hasher_alg;
-use qed_data::ups::start_step::UPSStartStepInput;
+use psy_data::ups::start_step::UPSStartStepInput;
 
 use crate::gadgets::qdata::{
     checkpoint::QEDCheckpointLeafGadget,

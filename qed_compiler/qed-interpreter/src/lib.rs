@@ -1920,10 +1920,10 @@ mod tests {
     use qed_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
     use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
     use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-    use qed_data::{config::store_config::{C, D}, qblock::cmds::register_user::QBCRegisterUser};
+    use psy_data::{config::store_config::{C, D}, qblock::cmds::register_user::QBCRegisterUser};
     use qed_exec::vm::exec::QEDEvalSessionResult;
 
-    use qed_data::config::store_config::QEDHasher;
+    use psy_data::config::store_config::QEDHasher;
     use qedlang_core::dpn::{
         ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
         vm::compile::QEDCompileResult,

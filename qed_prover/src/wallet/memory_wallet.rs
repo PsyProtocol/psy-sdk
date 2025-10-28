@@ -21,8 +21,8 @@ use psy_crypto::signature::{
     secp256k1::core::QEDCompressedSecp256K1Signature,
     zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
-use qed_data::config::store_config::QEDHasher;
-use qed_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
+use psy_data::config::store_config::QEDHasher;
+use psy_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 
@@ -373,7 +373,7 @@ mod tests {
 
         // Calculate expected combined hash: hash(sighash, public_key_param)
         use psy_crypto::hash::traits::hasher::FieldQHasher;
-        use qed_data::config::store_config::QEDHasher;
+        use psy_data::config::store_config::QEDHasher;
         use plonky2::hash::poseidon::PoseidonPermutation;
 
         let public_key_param = crate::wallet::utils::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
@@ -448,7 +448,7 @@ mod tests {
 
         // Verify this matches expected format: hash(message_hash, public_key_param)
         use psy_crypto::hash::traits::hasher::FieldQHasher;
-        use qed_data::config::store_config::QEDHasher;
+        use psy_data::config::store_config::QEDHasher;
         use plonky2::hash::poseidon::PoseidonPermutation;
 
         // Get public key param the same way as in memory wallet

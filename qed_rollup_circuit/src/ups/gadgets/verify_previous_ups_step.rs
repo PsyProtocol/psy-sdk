@@ -9,7 +9,7 @@ use qed_common_circuit::{
     treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::AttestTreeAwareProofInTreeGadget,
 };
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
-use qed_data::ups::verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput;
+use psy_data::ups::verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput;
 
 use crate::gadgets::qdata::ups_context_input::
     UserProvingSessionHeaderGadget

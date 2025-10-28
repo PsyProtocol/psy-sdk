@@ -40,7 +40,7 @@ use psy_crypto::{
     },
     signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
 };
-use qed_data::{
+use psy_data::{
     config::store_config::QEDHasher,
     models::user::contract_state_tree::UserContractStateTreeId,
     qdata::user_contract_state::UserContractState,

@@ -25,7 +25,7 @@ use psy_crypto::{
         traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     },
 };
-use qed_data::{
+use psy_data::{
     config::store_config::{QEDFelt, QEDHasher}, qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition, user}, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync}, ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{
@@ -443,7 +443,7 @@ impl RpcProvider {
 
     pub async fn get_realm_latest_l2_block_state(
         &self,
-    ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
+    ) -> anyhow::Result<psy_data::qdata::checkpoint::QEDL2BlockState> {
         tracing::info!("Fetching latest realm L2 block state");
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QLatestL2BlockStateRPCRequest {};
@@ -474,7 +474,7 @@ impl RpcProvider {
     pub async fn get_realm_l2_block_state(
         &self,
         checkpoint_id: u64,
-    ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
+    ) -> anyhow::Result<psy_data::qdata::checkpoint::QEDL2BlockState> {
         tracing::info!("Fetching realm L2 block state at checkpoint {}", checkpoint_id);
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QL2BlockStateRPCRequest { checkpoint_id };

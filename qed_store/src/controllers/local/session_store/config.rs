@@ -1,7 +1,7 @@
 use kvq::adapters::standard::KVQStandardAdapter;
 use qed_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
 
-use qed_data::{config::store_config::{QEDHash, QEDHasher}, models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQFixedConfigMerkleTreeModel}};
+use psy_data::{config::store_config::{QEDHash, QEDHasher}, models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQFixedConfigMerkleTreeModel}};
 
 
 pub const LOCAL_PROVING_SESSION_TREE_TABLE_TYPE: u16 = 0xFE01;

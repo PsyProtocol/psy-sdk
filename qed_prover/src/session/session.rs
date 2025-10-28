@@ -36,7 +36,7 @@ use qed_core::{
     ups::circuits::LocalCircuitType,
 };
 use psy_crypto::{hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable}, signature::zk::data::ZKPublicKeyInfo};
-use qed_data::{
+use psy_data::{
     config::store_config::QEDHasher,
     qdata::{user_contract_state::UserContractState, checkpoint::QEDL2BlockState},
     qstore::imm::{
@@ -50,7 +50,7 @@ use qed_data::{
         qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync,
     },
 };
-use qed_data::{
+use psy_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
 use qed_store::controllers::local::{

@@ -10,7 +10,7 @@ use qed_common_circuit::{
 };
 use qed_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable}};
-use qed_data::qdata::checkpoint::QEDCheckpointLeafCompactWithStateRoots;
+use psy_data::qdata::checkpoint::QEDCheckpointLeafCompactWithStateRoots;
 
 use crate::{
     gadgets::qdata::checkpoint_compact_with_state::QEDCheckpointLeafCompactWithStateRootsGadget,

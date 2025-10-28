@@ -8,8 +8,8 @@ use qed_core::{
 use psy_crypto::hash::merkle::{
     spiderman::SpidermanUpdateProof, treeprover::data::CircuitInputWithJobId,
 };
-use qed_data::config::store_config::QEDFelt;
-use qed_data::{
+use psy_data::config::store_config::QEDFelt;
+use psy_data::{
     proof_store::builder::ProofStoreBuilder,
     protocol::circuit_inputs::{
         append_user_registration_tree::QCAppendUserRegistrationTreeCircuitInput,

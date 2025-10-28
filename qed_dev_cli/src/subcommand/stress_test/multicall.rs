@@ -11,7 +11,7 @@ use parking_lot::RwLock;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
-use qed_data::config::store_config::QEDHasher;
+use psy_data::config::store_config::QEDHasher;
 use qed_prover::local::args::ContractCallArgs;
 use qed_prover::session::{gen_contract_deploy_and_circuits_for_functions, WalletSession};
 use scheduled_thread_pool::ScheduledThreadPool;
@@ -24,7 +24,7 @@ use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_prover::local::provider::{QUserRpcProvider, RpcProvider};
 use qed_prover::local::request::QDeployContractRPCRequest;
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
-use qed_data::config::store_config::{C, D};
+use psy_data::config::store_config::{C, D};
 
 const USER0_PRIVATE_KEY: &str = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a";
 const USER0_PUBLIC_KEY: &str = "6ee6d9596a34a5de293cb550d5d100d00b30487245777018677cc803345633c5";

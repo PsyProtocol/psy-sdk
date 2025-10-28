@@ -16,11 +16,11 @@ use psy_crypto::hash::{
     traits::{qhashable::QFieldHashable, hasher::MerkleZeroHasher},
     utils::safe_hash_fixed_length,
 };
-use qed_data::{dpn::{
+use psy_data::{dpn::{
     cfc_context_input::{DapenCFCUserTransactionEndContext, DapenCFCUserTransactionInputContext},
     proving_session::DPNProvingSessionSimpleMethodCall,
 }, qstore::imm::cmd_processor::DPNClearEntireTreeWitness};
-use qed_data::{
+use psy_data::{
     config::store_config::QEDHasher,
     qstore::imm::{
         cmd::{

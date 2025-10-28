@@ -2,9 +2,9 @@ use kvq::traits::{
     KVQBinaryStoreAsync, KVQStoreAdapterAsync, KVQStoreAdapterReaderAsync,
 };
 use qed_store::store::scylla::kvq_store::ScyllaKVQStore;
-use qed_data::config::store_config::CHECKPOINT_BLOCK_STATE_TABLE_TYPE;
-use qed_data::qdata::u64_key::U64TableKey;
-use qed_data::qdata::checkpoint::QEDL2BlockState;
+use psy_data::config::store_config::CHECKPOINT_BLOCK_STATE_TABLE_TYPE;
+use psy_data::qdata::u64_key::U64TableKey;
+use psy_data::qdata::checkpoint::QEDL2BlockState;
 use kvq::adapters::standard::KVQStandardAdapter;
 
 mod common;

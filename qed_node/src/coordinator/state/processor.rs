@@ -40,7 +40,7 @@ use psy_crypto::{
     },
     signature::zk::data::ZKPublicKeyInfo,
 };
-use qed_data::{
+use psy_data::{
     config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserPublicKeyTableStore, UserTreeStore},
     guta::{
         api::SubmitGUTARealmResultAPIQueueItem,
@@ -81,7 +81,7 @@ use tracing::{debug, error, info, trace, warn};
 use qed_store::store::journal::{Journal, JournalStore};
 use qed_store::store::QEDStore;
 use crate::common::slot::SLOT_SIZE;
-use qed_data::qdata::realm_status::BasicRealmStatus;
+use psy_data::qdata::realm_status::BasicRealmStatus;
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;

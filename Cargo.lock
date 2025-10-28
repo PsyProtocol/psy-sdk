@@ -2374,6 +2374,7 @@ dependencies = [
  "num-traits",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed-abi",
  "qed-ast",
  "qed-common",
@@ -2381,7 +2382,6 @@ dependencies = [
  "qed-sema",
  "qed_common_circuit",
  "qed_core",
- "qed_data",
  "qed_exec",
  "qed_package",
  "qed_prover",
@@ -5650,6 +5650,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "psy_data"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "hashbrown 0.14.5",
+ "hex",
+ "indexmap 2.11.3",
+ "kvq",
+ "maybe-async",
+ "plonky2",
+ "psy_crypto",
+ "qed_core",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "thiserror 2.0.17",
+ "tracing",
+ "ts-rs",
+]
+
+[[package]]
 name = "qed-abi"
 version = "0.1.0"
 dependencies = [
@@ -5702,6 +5725,7 @@ dependencies = [
  "insta",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed-ast",
  "qed-common",
  "qed-fmt",
@@ -5709,7 +5733,6 @@ dependencies = [
  "qed-sema",
  "qed_common_circuit",
  "qed_core",
- "qed_data",
  "qed_exec",
  "qed_prover",
  "qed_store",
@@ -5825,8 +5848,8 @@ dependencies = [
  "plonky2",
  "plonky2_maybe_rayon",
  "psy_crypto",
+ "psy_data",
  "qed_core",
- "qed_data",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
@@ -5860,29 +5883,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_data"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "hashbrown 0.14.5",
- "hex",
- "indexmap 2.11.3",
- "kvq",
- "maybe-async",
- "plonky2",
- "psy_crypto",
- "qed_core",
- "serde",
- "serde_json",
- "serde_repr",
- "thiserror 2.0.17",
- "tracing",
- "ts-rs",
-]
-
-[[package]]
 name = "qed_dev_cli"
 version = "0.1.0"
 dependencies = [
@@ -5899,10 +5899,10 @@ dependencies = [
  "parking_lot",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed-common",
  "qed_common_circuit",
  "qed_core",
- "qed_data",
  "qed_node",
  "qed_prover",
  "qed_rollup_circuit",
@@ -5928,8 +5928,8 @@ dependencies = [
  "maybe-async",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed_core",
- "qed_data",
  "qed_store",
  "qedlang_core",
  "qedlang_macros",
@@ -5972,10 +5972,10 @@ dependencies = [
  "once_cell",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed_api_services",
  "qed_common_circuit",
  "qed_core",
- "qed_data",
  "qed_prover",
  "qed_rollup_circuit",
  "qed_rollup_utils",
@@ -6024,8 +6024,8 @@ dependencies = [
  "anyhow",
  "dargo",
  "minijinja",
+ "psy_data",
  "qed-interpreter",
- "qed_data",
  "qed_package",
  "qedlang_core",
  "serde_json",
@@ -6059,10 +6059,10 @@ dependencies = [
  "parking_lot",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed-common",
  "qed_common_circuit",
  "qed_core",
- "qed_data",
  "qed_exec",
  "qed_rollup_circuit",
  "qed_rollup_utils",
@@ -6104,9 +6104,9 @@ dependencies = [
  "bincode",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed_common_circuit",
  "qed_core",
- "qed_data",
  "serde_json",
  "tracing",
 ]
@@ -6121,10 +6121,10 @@ dependencies = [
  "kvq",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed-common",
  "qed_api_services",
  "qed_core",
- "qed_data",
  "qed_node",
  "qed_prover",
  "qed_rollup_circuit",
@@ -6171,8 +6171,8 @@ dependencies = [
  "maybe-async",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed_core",
- "qed_data",
  "qed_rollup_utils",
  "qedlang_core",
  "rand 0.8.5",
@@ -6211,11 +6211,11 @@ dependencies = [
  "kvq",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed-common",
  "qed_api_services",
  "qed_common_circuit",
  "qed_core",
- "qed_data",
  "qed_node",
  "qed_prover",
  "qed_rollup_utils",
@@ -6250,8 +6250,8 @@ dependencies = [
  "k256",
  "plonky2",
  "psy_crypto",
+ "psy_data",
  "qed_core",
- "qed_data",
  "serde",
  "serde_cbor",
  "serde_repr",

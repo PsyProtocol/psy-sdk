@@ -1,5 +1,5 @@
 use crate::node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm};
-use qed_data::{
+use psy_data::{
     config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore},
     models::{
         checkpoint::sync_info::QEDCheckpointSyncInfoModelCore,
@@ -22,7 +22,7 @@ use psy_crypto::hash::{
     },
     traits::qhashable::QFieldHashable,
 };
-use qed_data::{
+use psy_data::{
     qdata::{
         checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
         contract::{ContractCodeDefinition, QEDContractLeaf},
@@ -30,7 +30,7 @@ use qed_data::{
     },
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
 };
-use qed_data::models::realm_status::RealmStatusModelCore;
+use psy_data::models::realm_status::RealmStatusModelCore;
 
 use super::InitializeParams;
 
@@ -255,16 +255,16 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
 
     async fn set_user_public_key_records(
         &self,
-        records: &[qed_data::qdata::user_public_key::QEDUserPublicKeyRecord<F>],
+        records: &[psy_data::qdata::user_public_key::QEDUserPublicKeyRecord<F>],
     ) -> anyhow::Result<()> {
-        use qed_data::config::store_config::UserPublicKeyTableStore;
-        use qed_data::models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore;
+        use psy_data::config::store_config::UserPublicKeyTableStore;
+        use psy_data::models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore;
 
         UserPublicKeyTableStore::<Self>::set_user_public_key_records(self, records)
     }
 
     async fn set_realm_statuses(&self, realm_ids: &[u64], realm_statuses: &[BasicRealmStatus<F>]) -> anyhow::Result<()> {
-        use qed_data::config::store_config::RealmStatusTableStore;
+        use psy_data::config::store_config::RealmStatusTableStore;
         RealmStatusTableStore::<F, Self>::set_realm_statuses(self, realm_ids, realm_statuses)
     }
 }

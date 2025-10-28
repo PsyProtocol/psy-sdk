@@ -5,7 +5,7 @@ use anyhow::Result;
 use scylla::{Session, SessionBuilder};
 use std::sync::Arc;
 
-use qed_data::config::store_config::{
+use psy_data::config::store_config::{
     CHECKPOINT_BLOCK_STATE_TABLE_TYPE, CHECKPOINT_HASH_HELPER_TABLE_TYPE,
     CHECKPOINT_LEAF_TABLE_TYPE, CHECKPOINT_SYNC_INFO_TABLE_TYPE, CHECKPOINT_TREE_TABLE_TYPE,
     CONTRACT_CODE_TABLE_TYPE, CONTRACT_FUNCTION_TREE_TABLE_TYPE, CONTRACT_LEAF_TABLE_TYPE,

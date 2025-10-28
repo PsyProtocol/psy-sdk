@@ -14,7 +14,7 @@ use qed_common_circuit::{
 };
 use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::spiderman::SpidermanUpdateProof, traits::hasher::MerkleZeroHasher}};
-use qed_data::{protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput, qdata::{contract::QEDContractLeaf, pm_jobs_completed_stats::PMJobsCompletedStats}};
+use psy_data::{protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput, qdata::{contract::QEDContractLeaf, pm_jobs_completed_stats::PMJobsCompletedStats}};
 
 use crate::{coordinator::gadgets::deploy_contract::BatchDeployContractsGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 

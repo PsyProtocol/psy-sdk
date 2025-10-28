@@ -29,7 +29,7 @@ use psy_crypto::{
         traits::hasher::MerkleZeroHasher,
     },
 };
-use qed_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
+use psy_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
 
 use crate::ups::gadgets::ups_end_cap_tree::UPSEndCapFromProofTreeGadget;
 

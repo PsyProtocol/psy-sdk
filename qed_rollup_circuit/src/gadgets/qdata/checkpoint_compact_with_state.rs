@@ -1,7 +1,7 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, CreatableWithHasherTarget, WitnessValueFor};
 use qed_core::data::qhashout::QHashOut;
-use qed_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeafCompactWithStateRoots};
+use psy_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeafCompactWithStateRoots};
 
 use super::{checkpoint::QEDCheckpointLeafCompactGadget, checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget};
 

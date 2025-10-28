@@ -17,7 +17,7 @@ use qed_core::{
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-use qed_data::{
+use psy_data::{
     config::store_config::QEDHasher,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };

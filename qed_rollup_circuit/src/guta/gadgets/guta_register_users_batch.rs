@@ -2,7 +2,7 @@ use plonky2::{field::extension::Extendable, hash::hash_types::{HashOut, HashOutT
 use qed_common_circuit::treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget;
 use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut};
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
-use qed_data::{guta::{header::GlobalUserTreeAggregatorHeader, proof_input::GUTARegisterUserFullInput}, qdata::user::QEDUserLeaf};
+use psy_data::{guta::{header::GlobalUserTreeAggregatorHeader, proof_input::GUTARegisterUserFullInput}, qdata::user::QEDUserLeaf};
 
 use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_register_users::GUTARegisterUsersGadget, helpers::ToGUTAHeader, verify_guta_proof_to_line::VerifyGUTAProofToLineGadget};
 

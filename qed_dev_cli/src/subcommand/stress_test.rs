@@ -10,7 +10,7 @@ use std::{
 
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_prover::{
     local::provider::{QUserRpcProvider, RpcConfig},
     session::WalletSession,

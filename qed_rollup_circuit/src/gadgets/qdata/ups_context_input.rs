@@ -10,7 +10,7 @@ use qed_common_circuit::{
         AlgebraicHashableTarget, CreatableTarget, CreatableWithHasherTarget, WitnessValueFor,
     },
 };
-use qed_data::ups::ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader, UserProvingSessionStartContext};
+use psy_data::ups::ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader, UserProvingSessionStartContext};
 
 
 use super::

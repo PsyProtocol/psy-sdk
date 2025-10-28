@@ -8,7 +8,7 @@ use qed_common_circuit::treeprover::qrecursion::standard::gadgets::attest_proof_
 ;
 use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT}, data::qhashout::QHashOut};
 use psy_crypto::{common::witnesses::qrecursion::header::AttestProofInTreeInput, hash::traits::hasher::MerkleZeroHasher};
-use qed_data::{qdata::user_contract_state::UserContractState, ups::{ups_end_cap::UPSEndCapFromProofTreeGadgetInput, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}};
+use psy_data::{qdata::user_contract_state::UserContractState, ups::{ups_end_cap::UPSEndCapFromProofTreeGadgetInput, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}};
 
 use crate::gadgets::qdata::user_contract_state::UserContractStateGadget;
 

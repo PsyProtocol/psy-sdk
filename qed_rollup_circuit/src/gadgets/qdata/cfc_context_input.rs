@@ -11,7 +11,7 @@ use qed_common_circuit::{
         ToTargets, WitnessValueFor,
     },
 };
-use qed_data::dpn::cfc_context_input::{
+use psy_data::dpn::cfc_context_input::{
     DapenCFCProvingSessionStartContext, DapenCFCUserTransactionCallStartContext, DapenCFCUserTransactionEndContext, DapenCFCUserTransactionInputContext,
 };
 

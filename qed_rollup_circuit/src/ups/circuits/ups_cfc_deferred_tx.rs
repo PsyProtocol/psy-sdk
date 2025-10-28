@@ -14,7 +14,7 @@ use qed_common_circuit::{
 };
 use qed_core::{config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
-use qed_data::ups::ups_cfc_standard_step::UPSCFCDeferredTransactionCircuitInput;
+use psy_data::ups::ups_cfc_standard_step::UPSCFCDeferredTransactionCircuitInput;
 
 use crate::ups::gadgets::{ups_cfc_standard_pop_deferred_tx::UPSVerifyPopDeferredTxStepGadget, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeGadget};
 

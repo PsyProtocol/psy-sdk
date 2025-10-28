@@ -36,7 +36,7 @@ use psy_crypto::{
         traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable},
     },
 };
-use qed_data::{
+use psy_data::{
     guta::header::GlobalUserTreeAggregatorHeader,
     protocol::circuit_inputs::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput,
 };

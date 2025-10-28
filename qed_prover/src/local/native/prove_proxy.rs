@@ -23,7 +23,7 @@ use psy_crypto::{
     signature,
     signature::{secp256k1, secp256k1::core::QEDCompressedSecp256K1Signature},
 };
-use qed_data::{
+use psy_data::{
     qdata::contract::ContractCodeDefinition, qstore::imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync}, ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},

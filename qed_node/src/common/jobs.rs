@@ -25,7 +25,7 @@ use tracing::{debug, info, trace, warn};
 #[rpc(server, client, namespace = "qed")]
 pub trait JobSchedulerRpc {
     #[method(name = "get_pending_job")]
-    async fn get_pending_job(&self, signed: SignedRequest<qed_data::config::store_config::QEDHash>) -> RpcResult<Option<QJob>>;
+    async fn get_pending_job(&self, signed: SignedRequest<psy_data::config::store_config::QEDHash>) -> RpcResult<Option<QJob>>;
 
     #[method(name = "get_proof_by_id")]
     async fn get_proof_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
@@ -38,7 +38,7 @@ pub trait JobSchedulerRpc {
         &self,
         job: QJob,
         proof: QEDProof,
-        signed: SignedRequest<qed_data::config::store_config::QEDHash>,
+        signed: SignedRequest<psy_data::config::store_config::QEDHash>,
     ) -> RpcResult<()>;
 }
 

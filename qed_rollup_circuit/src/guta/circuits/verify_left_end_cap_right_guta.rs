@@ -14,7 +14,7 @@ use qed_common_circuit::{
 };
 use qed_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher}};
-use qed_data::guta::proof_input::{VerifyLeftEndCapRightGUTAInput, VerifyLeftEndCapRightGUTAInputSimple};
+use psy_data::guta::proof_input::{VerifyLeftEndCapRightGUTAInput, VerifyLeftEndCapRightGUTAInputSimple};
 
 use crate::{guta::gadgets::{helpers::ToGUTAHeader, two_nca_state_transition::TwoNCAStateTransitionGadget, verify_end_cap::VerifyEndCapProofGadget, verify_guta_proof::VerifyGUTAProofGadget}, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 

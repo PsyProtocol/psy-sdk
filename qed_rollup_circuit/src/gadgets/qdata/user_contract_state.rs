@@ -5,7 +5,7 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 use qed_common_circuit::traits::CreatableTarget;
-use qed_data::qdata::user_contract_state::UserContractState;
+use psy_data::qdata::user_contract_state::UserContractState;
 
 use super::user::QEDUserLeafGadget;
 

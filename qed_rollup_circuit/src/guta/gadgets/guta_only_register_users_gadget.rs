@@ -1,6 +1,6 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut};
-use qed_data::{guta::proof_input::GUTARegisterUserFullInput, qdata::user::QEDUserLeaf};
+use psy_data::{guta::proof_input::GUTARegisterUserFullInput, qdata::user::QEDUserLeaf};
 
 use crate::guta::gadgets::guta_stats::GUTAStatsGadget;
 

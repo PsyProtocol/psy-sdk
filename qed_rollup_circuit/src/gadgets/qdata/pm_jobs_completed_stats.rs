@@ -1,6 +1,6 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor};
-use qed_data::qdata::pm_jobs_completed_stats::PMJobsCompletedStats;
+use psy_data::qdata::pm_jobs_completed_stats::PMJobsCompletedStats;
 
 pub const PM_JOBS_COMPLETED_STATS_TARGET_SIZE: usize = 3;
 

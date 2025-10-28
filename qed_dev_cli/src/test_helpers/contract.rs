@@ -15,13 +15,13 @@ use qed_core::{
 use psy_crypto::hash::{
     traits::hasher::MerkleZeroHasher, utils::gen_dapen_contract_function_method_id,
 };
-use qed_data::{
+use psy_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
 use qed_prover::{
     dpn::circuits::cfc::DapenContractFunctionCircuit, session::gen_contract_deploy_and_circuits_for_functions, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}
 };
-use qed_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
+use psy_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
 
 use qedlang_core::dpn::{

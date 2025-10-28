@@ -4,10 +4,10 @@ use kvq::{adapters::standard::KVQStandardAdapter, traits::{ KVQSerializable, KVQ
 use plonky2::hash::hash_types::RichField;
 use qed_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
-use qed_data::{config::store_config::QEDHash, dpn::proving_session::DPNTransactionDebtItem, models::kvq_merkle::key::KVQMerkleNodeKey};
+use psy_data::{config::store_config::QEDHash, dpn::proving_session::DPNTransactionDebtItem, models::kvq_merkle::key::KVQMerkleNodeKey};
 use serde::{Deserialize, Serialize};
 
-use qed_data::{config::store_config::{QEDFelt, QEDHasher}, models::kvq_merkle::model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore}};
+use psy_data::{config::store_config::{QEDFelt, QEDHasher}, models::kvq_merkle::model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore}};
 
 use super::config::{LocalProvingSessionTreeStore, LOCAL_PROVING_SESSION_TREE_TABLE_TYPE};
 

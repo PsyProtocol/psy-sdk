@@ -5,7 +5,7 @@ use jsonrpsee::{
 };
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use tracing::{error, info, trace};
-use qed_data::{config::store_config::QEDFelt, guta::api::SubmitGUTARealmResultAPINoProofInput, qdata::checkpoint::CheckpointSyncInfo};
+use psy_data::{config::store_config::QEDFelt, guta::api::SubmitGUTARealmResultAPINoProofInput, qdata::checkpoint::CheckpointSyncInfo};
 
 use crate::{
     common::retry::{RetryConfig, Retryable},

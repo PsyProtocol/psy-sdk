@@ -20,7 +20,7 @@ serde_json = { workspace = true }
 qed_rollup_utils = { workspace = true }
 qed-common = { workspace = true }
 qed_core = { workspace = true }
-qed_data = { workspace = true }
+psy_data = { workspace = true }
 psy_crypto = { workspace = true }
 qed_store = { workspace = true }
 qed_node = { workspace = true }

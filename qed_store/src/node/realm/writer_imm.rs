@@ -1,4 +1,4 @@
-use qed_data::{
+use psy_data::{
     config::store_config::{
         BaseContractStateTreeStore, CheckpointHashHelperTableStore, CheckpointLeafTableStore, CheckpointSyncInfoTableStore, CheckpointTreeStore, QEDHasher, UserContractTreeStore, UserPublicKeyTableStore, UserRegistrationTreeStore, UserTreeStore, CONTRACT_STATE_TREE_ID, USER_CONTRACT_STATE_TREE_TABLE_TYPE
     },
@@ -31,7 +31,7 @@ use psy_crypto::{common::user_id::get_user_id_from_registration_id, hash::{
     ,
     traits::qhashable::QFieldHashable,
 }};
-use qed_data::{
+use psy_data::{
     qdata::{
         contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
     }, qstore::uct_merkle_nodes::CSTUserUpdate, qsync::coordinator::{QEDCheckpointSyncInfo, QEDCheckpointSyncInfoCompact}

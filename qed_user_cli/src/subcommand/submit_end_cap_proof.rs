@@ -5,7 +5,7 @@ use qed_core::config::network_constants::{
     MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT,
 };
 use qed_core::data::qhashout::QHashOut;
-use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_prover::local::args::{SignData, WalletSessionArgs};
 use qed_prover::session::WalletSession;
 use qed_prover::wallet::simple_sign::SoftwareDefinedSignGadget;

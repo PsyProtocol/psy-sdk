@@ -1,6 +1,6 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::{builder::hash::core::CircuitBuilderHashCore, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
-use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
+use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
 
 use super::{guta_stats::GUTAStatsGadget, helpers::ToGUTAHeader};
 

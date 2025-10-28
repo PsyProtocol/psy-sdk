@@ -1,7 +1,7 @@
 use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
 use qed_common_circuit::{builder::{comparison::CircuitBuilderComparison, connect::CircuitBuilderConnectHelpers, core::CircuitBuilderHelpersCore, select::CircuitBuilderSelectHelpers}, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
 use qed_core::data::qhashout::QHashOut;
-use qed_data::guta::proof_input::GUTARegisterUserFullInput;
+use psy_data::guta::proof_input::GUTARegisterUserFullInput;
 
 
 use super::guta_register_user_full::GUTARegisterUserFullGadget;

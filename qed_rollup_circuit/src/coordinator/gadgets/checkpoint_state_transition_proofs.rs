@@ -20,7 +20,7 @@ use qed_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::Q
 use psy_crypto::hash::merkle::
     treeprover::AggStateTransition
 ;
-use qed_data::{
+use psy_data::{
     guta::header::GlobalUserTreeAggregatorHeader,
     qdata::{
         checkpoint::QEDCheckpointLeafStats,

@@ -14,7 +14,7 @@ use plonky2::{
 };
 use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use psy_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
-use qed_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTAToCapCircuitInputSimple};
+use psy_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTAToCapCircuitInputSimple};
 use qed_store::queue::task_queue::QProvingTaskStore;
 use tracing::{debug, error, info, trace, warn};
 use rand::Rng;
@@ -56,7 +56,7 @@ use psy_crypto::{
         },
     },
 };
-use qed_data::{
+use psy_data::{
     config::{
         genesis_config::GenesisConfig,
         store_config::{
@@ -88,8 +88,8 @@ use qed_store::{
     store::QEDStore,
     store::journal::{Journal, JournalStore}
 };
-use qed_data::config::store_config::{StagingCheckpointInfoStore, StagingDeltaRecordStore};
-use qed_data::guta::proof_input::VerifyLeftGUTARightEndCapInputSimple;
+use psy_data::config::store_config::{StagingCheckpointInfoStore, StagingDeltaRecordStore};
+use psy_data::guta::proof_input::VerifyLeftGUTARightEndCapInputSimple;
 use crate::common::slot::SLOT_SIZE;
 use crate::{
     common_v2::traits::realm::{
@@ -474,8 +474,8 @@ impl RealmProcessorV2 {
         existing_root_job_id: QProvingJobDataID,
     ) -> anyhow::Result<RealmProcessorCombinedUpdate<F>> {
         use psy_crypto::common::user_id::get_user_id_from_registration_id;
-        use qed_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTARegisterUsersCircuitInputSimple};
-        use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
+        use psy_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTARegisterUsersCircuitInputSimple};
+        use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
         use psy_crypto::hash::merkle::treeprover::data::CircuitInputWithDependencies;
 
         let realm_id = self.realm_config.realm_id as u64;
