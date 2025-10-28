@@ -1,6 +1,6 @@
 mod subcommand;
 mod aws;
-use qed_dev_cli::test_helpers;
+use psy_dev_cli::test_helpers;
 
 use clap::Parser;
 use subcommand::{Cli, Commands};

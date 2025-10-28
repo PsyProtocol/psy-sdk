@@ -18,7 +18,7 @@ cleanup() {
             kill -TERM "$pid" 2>/dev/null
         fi
     done
-    pkill -f qed_dev_cli
+    pkill -f psy_dev_cli
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] All processes terminated. Exiting."
     exit 0
 }

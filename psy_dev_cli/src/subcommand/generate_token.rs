@@ -1,4 +1,4 @@
-use qed_rollup_utils::{decrypt_jwt_token, generate_jwt_token};
+use psy_node_utils::{decrypt_jwt_token, generate_jwt_token};
 
 pub async fn run(args: super::GenerateTokenArgs) -> anyhow::Result<()> {
     let token = generate_jwt_token(&args.private_key, args.realm_id)?;

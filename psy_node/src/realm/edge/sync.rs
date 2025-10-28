@@ -27,7 +27,7 @@ use psy_core::job::id::{ProvingJobDataId, QProvingJobDataID};
 use psy_core::job::traits::QProofStoreAsyncImm;
 use psy_data::config::store_config::{QEDFelt, QEDHasher};
 use psy_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
-use qed_rollup_utils::generate_jwt_token;
+use psy_node_utils::generate_jwt_token;
 use psy_store::queue::ProofStoreRedisAsync;
 use crate::common::retry::{RetryConfig, Retryable};
 use crate::realm::state::edge::RealmEdgeContext;

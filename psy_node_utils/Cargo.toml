@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "qed_rollup_utils"
+name = "psy_node_utils"
 version = "0.1.0"
 
 [dependencies]

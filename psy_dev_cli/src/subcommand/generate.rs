@@ -801,7 +801,7 @@ fn start_independent_workers(config: &Config, _args: &RunArgs) -> Result<()> {
 }
 fn build_worker_command(workers: &WorkerConfig) -> Result<Vec<String>> {
     let mut cmd = vec![
-        "./target/release/qed_rollup_cli".to_string(),
+        "./target/release/psy_node_cli".to_string(),
         "worker".to_string(),
     ];
 
@@ -835,7 +835,7 @@ fn build_watcher_command(
     backend_config: Option<&BackendConfig>,
 ) -> Result<Vec<String>> {
     let mut cmd = vec![
-        "./target/release/qed_rollup_cli".to_string(),
+        "./target/release/psy_node_cli".to_string(),
         "watcher".to_string(),
     ];
 
@@ -879,7 +879,7 @@ fn build_service_command(
     backend_config: Option<&BackendConfig>,
 ) -> Result<Vec<String>> {
     let mut cmd = vec![
-        "./target/release/qed_rollup_cli".to_string(),
+        "./target/release/psy_node_cli".to_string(),
         service_type.to_string(),
     ];
 
@@ -1190,7 +1190,7 @@ async fn stop_deployment() -> Result<()> {
 
     // Stop all QED services
     let output = Command::new("pkill")
-        .args(&["-f", "qed_rollup_cli"])
+        .args(&["-f", "psy_node_cli"])
         .output()
         .context("Failed to stop QED services")?;
 

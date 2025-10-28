@@ -541,7 +541,7 @@ services:
       args:
         PROFILE: release
     container_name: qed-prover
-    entrypoint: ["/qed-rollup/qed_user_cli"]
+    entrypoint: ["/qed-rollup/psy_user_cli"]
     ports:
       - "{{ (config.nodes.prover.args.listen_addr | default('0.0.0.0:8888')) | split(':') | last }}:{{ (config.nodes.prover.args.listen_addr | default('0.0.0.0:8888')) | split(':') | last }}"
     command: >

@@ -16,7 +16,7 @@ QED_BIN_PATH="$QED_BIN_DIR/psyup"
 
 PSYUP_JOBS=""
 
-BINS=(qed_user_cli qed_rollup_cli qed_dev_cli dargo psy-lsp-server)
+BINS=(psy_user_cli psy_node_cli psy_dev_cli dargo psy-lsp-server)
 
 export RUSTFLAGS="${RUSTFLAGS:--C target-cpu=native}"
 
@@ -88,7 +88,7 @@ main() {
     export DARGO_STD_PATH="$PWD/psy_compiler/psy-std/std.qed"
     export SQLX_OFFLINE=true
     
-    ensure cargo build --bins "${CARGO_BUILD_ARGS[@]}" --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin psy-lsp-server
+    ensure cargo build --bins "${CARGO_BUILD_ARGS[@]}" --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server
 
     for bin in "${BINS[@]}"; do
       # Remove prior installations if they exist
@@ -158,7 +158,7 @@ main() {
 
     ensure mkdir -p "$QED_VERSIONS_DIR"
     # Download and extract the binaries archive
-    say "downloading qed_user_cli, qed_rollup_cli, qed_dev_cli, dargo, and psy-lsp-server for $PSYUP_TAG version"
+    say "downloading psy_user_cli, psy_node_cli, psy_dev_cli, dargo, and psy-lsp-server for $PSYUP_TAG version"
     if [ "$PLATFORM" = "win32" ]; then
       tmp="$(mktemp -d 2>/dev/null || echo ".")/qed.zip"
       ensure download "$BIN_ARCHIVE_URL" "$tmp"
@@ -231,7 +231,7 @@ main() {
     export SQLX_OFFLINE=true
 
     # Build the repo.
-    ensure cargo build --bins "${CARGO_BUILD_ARGS[@]}" --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin psy-lsp-server
+    ensure cargo build --bins "${CARGO_BUILD_ARGS[@]}" --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server
     # Create QED custom version directory.
     ensure mkdir -p "$QED_VERSIONS_DIR/$PSYUP_VERSION"
     for bin in "${BINS[@]}"; do

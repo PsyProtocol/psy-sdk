@@ -9,7 +9,7 @@ set -e
 # Configuration with defaults
 NUM_PROXIES=${1:-3}  # Default to 3 prove proxies if not specified
 BASE_PORT=${2:-9090}  # Default base port
-LOG_LEVEL=${LOG_LEVEL:-"qed_rollup_utils=trace,qed_user_cli=debug,psy_prover=trace"}
+LOG_LEVEL=${LOG_LEVEL:-"psy_node_utils=trace,psy_user_cli=debug,psy_prover=trace"}
 PROFILE=${PROFILE:-release}
 
 # Define log directory and ensure it exists
@@ -48,7 +48,7 @@ cleanup() {
     done
 
     # Additional cleanup for any stragglers
-    pkill -f "qed_user_cli prove-proxy" 2>/dev/null || true
+    pkill -f "psy_user_cli prove-proxy" 2>/dev/null || true
 
     print_message "$GREEN" "[$(date '+%Y-%m-%d %H:%M:%S')] All processes terminated. Exiting."
     exit 0
@@ -68,7 +68,7 @@ run_prove_proxy() {
 
     while true; do
         # Run service with unbuffered output and append both stdout and stderr to log file
-        RUST_LOG=$LOG_LEVEL stdbuf -oL -eL ./target/${PROFILE}/qed_user_cli prove-proxy \
+        RUST_LOG=$LOG_LEVEL stdbuf -oL -eL ./target/${PROFILE}/psy_user_cli prove-proxy \
             --listen-addr "0.0.0.0:${port}" 2>&1 | \
             stdbuf -oL sed 's/\x1b\[[0-9;]*m//g' | \
             while IFS= read -r line; do
@@ -151,7 +151,7 @@ ${YELLOW}Arguments:${NC}
     BASE_PORT      Starting port number (default: 9090)
 
 ${YELLOW}Environment Variables:${NC}
-    LOG_LEVEL      Rust log level (default: qed_rollup_utils=trace,qed_user_cli=debug,psy_prover=trace)
+    LOG_LEVEL      Rust log level (default: psy_node_utils=trace,psy_user_cli=debug,psy_prover=trace)
     PROFILE        Build profile to use (default: release)
 
 ${YELLOW}Examples:${NC}
@@ -207,8 +207,8 @@ main() {
     fi
 
     # Check if binary exists
-    if [ ! -f "./target/${PROFILE}/qed_user_cli" ]; then
-        print_message "$RED" "Error: Binary ./target/${PROFILE}/qed_user_cli not found"
+    if [ ! -f "./target/${PROFILE}/psy_user_cli" ]; then
+        print_message "$RED" "Error: Binary ./target/${PROFILE}/psy_user_cli not found"
         print_message "$YELLOW" "Please run 'make build' first"
         exit 1
     fi

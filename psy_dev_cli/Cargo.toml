@@ -1,10 +1,10 @@
 [package]
-name = "qed_dev_cli"
+name = "psy_dev_cli"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "qed_dev_cli"
+name = "psy_dev_cli"
 path = "src/lib.rs"
 
 [dependencies]
@@ -17,7 +17,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 # QED dependencies
-qed_rollup_utils = { workspace = true }
+psy_node_utils = { workspace = true }
 psy-common = { workspace = true }
 psy_core = { workspace = true }
 psy_data = { workspace = true }
@@ -46,5 +46,5 @@ scheduled-thread-pool = "0.2.7"
 num_cpus = "1.17.0"
 
 [[bin]]
-name = "qed_dev_cli"
+name = "psy_dev_cli"
 path = "src/main.rs"

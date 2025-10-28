@@ -17,9 +17,9 @@ COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/
 
 WORKDIR /qed-rollup
 
-COPY ./target/${PROFILE}/qed_rollup_cli /qed-rollup
-COPY ./target/${PROFILE}/qed_user_cli /qed-rollup
-COPY ./target/${PROFILE}/qed_dev_cli /qed-rollup
+COPY ./target/${PROFILE}/psy_node_cli /qed-rollup
+COPY ./target/${PROFILE}/psy_user_cli /qed-rollup
+COPY ./target/${PROFILE}/psy_dev_cli /qed-rollup
 COPY ./target/${PROFILE}/qed_api_services /qed-rollup
 COPY ./qed_api_services/migrations /qed-rollup/migrations
 COPY .env /qed-rollup/.env
@@ -30,7 +30,7 @@ COPY ./psy_precompiles/rewards         /qed-rollup/psy_precompiles/rewards
 COPY ./psy_precompiles/mining_rewards  /qed-rollup/psy_precompiles/mining_rewards
 
 
-RUN echo '#!/bin/bash\n/qed-rollup/qed_rollup_cli $@' > /qed-rollup/.entrypoint.sh
+RUN echo '#!/bin/bash\n/qed-rollup/psy_node_cli $@' > /qed-rollup/.entrypoint.sh
 RUN chmod u+x /qed-rollup/.entrypoint.sh
 
 ENTRYPOINT ["/qed-rollup/.entrypoint.sh"]

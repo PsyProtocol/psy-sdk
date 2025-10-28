@@ -84,7 +84,7 @@ fn test_guta_verify_to_cap_proof() {
     // },
     // "root": "1061913c4082f0b67cb9f041371df3e48ac597668f7ee147114b6e77945318ee"
 
-    // QHashOut felts from qed_dev_cli qhash from-string
+    // QHashOut felts from psy_dev_cli qhash from-string
     let reward_leaf = [
         14766743708420665888, 17765979509351206360,
         2105232290032940756, 3109752530715174030

@@ -2,7 +2,7 @@ export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.qed
 export SQLX_OFFLINE=true
 
 PROFILE := release
-LOG_LEVEL := qed_rollup_utils=trace,tikv_client=warn,psy_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
+LOG_LEVEL := psy_node_utils=trace,tikv_client=warn,psy_store=trace,psy_user_cli=debug,psy_dev_cli=debug,qed_api_services=info,psy_node_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
 
 
 BACKUP ?= false
@@ -22,7 +22,7 @@ fix:
 
 build: config_gen_v2
 	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p psy_precompiles
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin psy-lsp-server --bin qed_api_services --examples
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server --bin qed_api_services --examples
 
 fmt:
 	@cargo fmt
@@ -30,9 +30,9 @@ fmt:
 install:
 	@cargo install --path psy_compiler/psy-dargo-cli
 	@cargo install --path psy_compiler/psy-lsp-server
-	@cargo install --path qed_user_cli
-	@cargo install --path qed_rollup_cli
-	@cargo install --path qed_dev_cli
+	@cargo install --path psy_user_cli
+	@cargo install --path psy_node_cli
+	@cargo install --path psy_dev_cli
 
 clean:
 	@rm -r target
@@ -218,36 +218,36 @@ compile:
 	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/mining_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.qed --contract-name=ContractRef --method-names advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward claim_guta_proof
 
 run-api-services:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli api-services
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli api-services
 
 run-coordinator-processor:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli coordinator-processor \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/coordinator \
       --queue-biz-key coordinator
 
 run-coordinator-edge:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli coordinator-edge \
 	  --database lmdbx \
 	  --lmdbx-path ${PWD}/db/coordinator \
       --queue-biz-key coordinator
 
 run-realm-processor:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
 	  --redis-uri=redis://127.0.0.1:6379 \
 	  --database lmdbx\
 	  --lmdbx-path ${PWD}/db/realm0 \
 	  --queue-biz-key realm0
 
 run-realm-edge:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
 	  --redis-uri=redis://127.0.0.1:6379 \
 	  --database lmdbx \
 	  --lmdbx-path ${PWD}/db/realm0 \
 	  --queue-biz-key realm0
 
 run-realm-processor1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm1 \
@@ -256,7 +256,7 @@ run-realm-processor1:
 	  --queue-biz-key realm1
 
 run-realm-edge1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
       --listen-addr=0.0.0.0:8547 \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
@@ -266,14 +266,14 @@ run-realm-edge1:
 	  --queue-biz-key realm1
 
 run-realm-processor-v2:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor-v2 \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor-v2 \
       --redis-uri=redis://127.0.0.1:6380 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm0 \
       --coordinator-addr=http://127.0.0.1:8545
 
 run-realm-processor1-v2:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor-v2 \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor-v2 \
       --redis-uri=redis://127.0.0.1:6381 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm1 \
@@ -283,14 +283,14 @@ run-realm-processor1-v2:
       --coordinator-addr=http://127.0.0.1:8545
 
 run-realm-edge-v2:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge-v2 \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge-v2 \
       --redis-uri=redis://127.0.0.1:6380 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm0 \
       --coordinator-addr=http://127.0.0.1:8545
 
 run-realm-edge1-v2:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge-v2 \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge-v2 \
       --listen-addr=0.0.0.0:8547 \
       --redis-uri=redis://127.0.0.1:6381 \
       --database lmdbx \
@@ -300,7 +300,7 @@ run-realm-edge1-v2:
       --queue-biz-key=rwq1
 
 run-watcher-coordinator:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli watcher \
 	--node-id 0 \
 	--node-type coordinator \
 	--redis-uri redis://127.0.0.1:6379 \
@@ -310,7 +310,7 @@ run-watcher-coordinator:
     --queue-biz-key coordinator
 
 run-watcher-realm0:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli watcher \
 	--node-id 0 \
 	--node-type realm \
 	--redis-uri redis://127.0.0.1:6379 \
@@ -320,7 +320,7 @@ run-watcher-realm0:
     --queue-biz-key realm0
 
 run-watcher-realm1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli watcher \
 	--node-id 1 \
 	--node-type realm \
 	--redis-uri redis://127.0.0.1:6379 \
@@ -333,17 +333,17 @@ run-api-service:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_api_services
 
 run-worker0:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --private-key=${USER0_PRIVATE_KEY}
 
 run-worker1:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --private-key=${USER1_PRIVATE_KEY}
 
 run-worker2:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli worker \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --private-key=${USER2_PRIVATE_KEY}
 
@@ -362,21 +362,21 @@ shutdown-tikv: shutdown
 	@echo "TiKV cluster stopped"
 
 run-coordinator-processor-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli coordinator-processor \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace coordinator \
 	    --queue-biz-key coordinator
 
 run-coordinator-edge-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli coordinator-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli coordinator-edge \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
 		--tikv-namespace coordinator \
 		--queue-biz-key coordinator
 
 run-realm-processor-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -384,7 +384,7 @@ run-realm-processor-tikv:
 		--queue-biz-key realm0
 
 run-realm-edge-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -392,7 +392,7 @@ run-realm-edge-tikv:
 		--queue-biz-key realm0
 
 run-realm-processor1-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -401,7 +401,7 @@ run-realm-processor1-tikv:
 		--queue-biz-key realm1
 
 run-realm-edge1-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
 		--listen-addr=0.0.0.0:8547 \
         --redis-uri=redis://127.0.0.1:6379 \
         --database tikv \
@@ -412,7 +412,7 @@ run-realm-edge1-tikv:
 		--queue-biz-key realm1
 
 run-watcher-coordinator-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli watcher \
 	--node-id 0 \
 	--node-type coordinator \
 	--redis-uri redis://127.0.0.1:6379 \
@@ -423,7 +423,7 @@ run-watcher-coordinator-tikv:
     --queue-biz-key coordinator
 
 run-watcher-realm0-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli watcher \
 	--node-id 0 \
 	--node-type realm \
 	--redis-uri redis://127.0.0.1:6379 \
@@ -434,7 +434,7 @@ run-watcher-realm0-tikv:
     --queue-biz-key realm0
 
 run-watcher-realm1-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli watcher \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli watcher \
 	--node-id 1 \
 	--node-type realm \
 	--redis-uri redis://127.0.0.1:6379 \
@@ -448,10 +448,10 @@ run-all-tikv: shutdown-tikv init-tikv compile
 	@./scripts/run_all_tikv.sh
 
 run-user-prover:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli local-prover
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli local-prover
 
 run-prove-proxy:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli prove-proxy
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli prove-proxy
 
 run-web-wallet:
 	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
@@ -460,108 +460,108 @@ run-benchmark:
 	@./scripts/run_benchmark.sh
 
 run-benchmark-user:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --only-user --concurrent-tasks 1000
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --only-user --concurrent-tasks 1000
 
 run-benchmark-register:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/examples/register_user
 
 run-benchmark-mint:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100
 
 run-benchmark-transfer:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-multi-user-transfer --concurrent-tasks 20
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-multi-user-transfer --concurrent-tasks 20
 
 run-benchmark-flow:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --concurrent-tasks 100
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-flow --concurrent-tasks 100
 
 run-benchmark-flow-repeat:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-flow --repeat 100
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-flow --repeat 100
 
 run-benchmark-deploy:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path ./psy_precompiles/token/target/token.json
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path ./psy_precompiles/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path ./psy_precompiles/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path ./psy_precompiles/token/target/token.json
 
 generate-access-token:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli generate-access-token
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli generate-access-token
 
 get-public-key:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY} --sign-type ${SIGN_TYPE}
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY} --sign-type ${SIGN_TYPE}
 
 wallet:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli wallet create
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli wallet create
 
 random-wallet:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli random-wallet
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli random-wallet
 
 register-user:
 	@echo "Registering all 4 users..."
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER0_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
+	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER0_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
 	@sleep 0.5
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER1_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
+	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER1_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
 	@sleep 0.5
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
+	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER2_PRIVATE_KEY} --sign-type zk | tail -5 | jq .
 	@sleep 0.5
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER0_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
+	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER0_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
 	@sleep 0.5
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER1_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
+	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER1_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
 	@sleep 0.5
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
+	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER2_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
 	@sleep 0.5
-	# @RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER2_PRIVATE_KEY} | tail -5 | jq .
+	# @RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER2_PRIVATE_KEY} | tail -5 | jq .
 	# @sleep 0.5
-	# @RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user --private-key=${USER3_PRIVATE_KEY} | tail -5 | jq .
+	# @RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER3_PRIVATE_KEY} | tail -5 | jq .
 
 register-random-user:
 	@echo "Registering random users..."
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user | tail -6 | jq .
+	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user | tail -6 | jq .
 	@sleep 0.5
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli register-user | tail -6 | jq .
+	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user | tail -6 | jq .
 	@sleep 0.5
 
 deploy-contract:
 	@echo "Deploying contracts..."
 	@echo "USER0 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
 	@echo "USER1 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
 
 multi-contract-call:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli wallet-session -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli wallet-session -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}
 
 mint:
 	@echo "All users minting 1000 tokens..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000 --sign-type $(SIGN_TYPE)
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000 --sign-type $(SIGN_TYPE)
-	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER2_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000
-	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER3_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000 --sign-type $(SIGN_TYPE)
+	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER2_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000
+	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER3_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000
 
 transfer:
 	@echo "USER0 transferring 250 to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name batch_simple_transfer --inputs 1048576 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 250000000000 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name batch_simple_transfer --inputs 1048576 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 250000000000 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --sign-type $(SIGN_TYPE)
 	@echo "USER1 transferring 250 to USER0..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name batch_simple_transfer --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 250000000000 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name batch_simple_transfer --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 250000000000 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --sign-type $(SIGN_TYPE)
 
 claim:
 	@echo "USER1 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0 --sign-type $(SIGN_TYPE)
 	@echo "USER0 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 1048576 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 1048576 --sign-type $(SIGN_TYPE)
 
 return-back:
 	@echo "USER1 transferring back to USER0..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 	@echo "USER0 transferring back to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
 claim-rewards:
-	@RUST_LOG=info ./target/${PROFILE}/qed_user_cli claim-rewards --private-key ${USER2_PRIVATE_KEY} --sign-type secp256k1 --limit 10000
+	@RUST_LOG=info ./target/${PROFILE}/psy_user_cli claim-rewards --private-key ${USER2_PRIVATE_KEY} --sign-type secp256k1 --limit 10000
 
 get-job-proof:
-	@RUST_LOG=info ./target/${PROFILE}/qed_dev_cli get-job-proof --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
+	@RUST_LOG=info ./target/${PROFILE}/psy_dev_cli get-job-proof --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
 
-# Unified RPC commands using qed_user_cli automatic routing
+# Unified RPC commands using psy_user_cli automatic routing
 get-slot-value:
-	@RUST_LOG=error ./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID} | jq '.value' | tr -d '"'
+	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID} | jq '.value' | tr -d '"'
 
 reward-of:
 	@echo "Getting rewards of all users ..."
@@ -587,80 +587,80 @@ latest-checkpoint:
 
 # Metadata RPC commands
 get-contract-leaf-data:
-	@./target/${PROFILE}/qed_user_cli get-contract-leaf-data --contract-id ${CONTRACT_ID}
+	@./target/${PROFILE}/psy_user_cli get-contract-leaf-data --contract-id ${CONTRACT_ID}
 
 get-checkpoint-leaf-data:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-leaf-data --checkpoint-id ${CHECKPOINT_ID}
+	@./target/${PROFILE}/psy_user_cli get-checkpoint-leaf-data --checkpoint-id ${CHECKPOINT_ID}
 
 get-contract-code-definition:
-	@./target/${PROFILE}/qed_user_cli get-contract-code-definition --contract-id ${CONTRACT_ID}
+	@./target/${PROFILE}/psy_user_cli get-contract-code-definition --contract-id ${CONTRACT_ID}
 
 get-latest-l2-block-state:
-	@./target/${PROFILE}/qed_user_cli get-latest-l2-block-state
+	@./target/${PROFILE}/psy_user_cli get-latest-l2-block-state
 
 get-l2-block-state:
-	@./target/${PROFILE}/qed_user_cli get-l2-block-state --checkpoint-id ${CHECKPOINT_ID}
+	@./target/${PROFILE}/psy_user_cli get-l2-block-state --checkpoint-id ${CHECKPOINT_ID}
 
 # Tree structure RPC commands
 get-checkpoint-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-root --checkpoint-id ${CHECKPOINT_ID}
+	@./target/${PROFILE}/psy_user_cli get-checkpoint-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
 get-latest-checkpoint-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-latest-checkpoint-tree-root
+	@./target/${PROFILE}/psy_user_cli get-latest-checkpoint-tree-root
 
 get-checkpoint-tree-leaf-hash:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
+	@./target/${PROFILE}/psy_user_cli get-checkpoint-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
 
 get-checkpoint-tree-merkle-proof:
-	@./target/${PROFILE}/qed_user_cli get-checkpoint-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
+	@./target/${PROFILE}/psy_user_cli get-checkpoint-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --leaf-checkpoint-id ${LEAF_CHECKPOINT_ID}
 
 # User tree RPC commands
 get-user-leaf-data-by-pubkey:
-	@./target/${PROFILE}/qed_user_cli get-user-leaf --checkpoint-id ${CHECKPOINT_ID} --pub-key ${CURRENT_USER_PUBLIC_KEY}
+	@./target/${PROFILE}/psy_user_cli get-user-leaf --checkpoint-id ${CHECKPOINT_ID} --pub-key ${CURRENT_USER_PUBLIC_KEY}
 
 get-user-leaf-data-by-userid:
-	@./target/${PROFILE}/qed_user_cli get-user-leaf --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
+	@./target/${PROFILE}/psy_user_cli get-user-leaf --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
 get-user-leaf-data: get-user-leaf-data-by-pubkey
 
 get-user-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-user-tree-root --checkpoint-id ${CHECKPOINT_ID}
+	@./target/${PROFILE}/psy_user_cli get-user-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
 get-user-tree-leaf-hash:
-	@./target/${PROFILE}/qed_user_cli get-user-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
+	@./target/${PROFILE}/psy_user_cli get-user-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
 get-user-tree-merkle-proof:
-	@./target/${PROFILE}/qed_user_cli get-user-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
+	@./target/${PROFILE}/psy_user_cli get-user-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
 get-user-sub-tree-merkle-proof:
-	@./target/${PROFILE}/qed_user_cli get-user-sub-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --root-level 0 --leaf-level ${REALM_TREE_LEAF_LEVEL} --leaf-index ${REALM_ID}
+	@./target/${PROFILE}/psy_user_cli get-user-sub-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --root-level 0 --leaf-level ${REALM_TREE_LEAF_LEVEL} --leaf-index ${REALM_ID}
 
 get-user-registration-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-user-registration-tree-root --checkpoint-id ${CHECKPOINT_ID}
+	@./target/${PROFILE}/psy_user_cli get-user-registration-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
 # User contract tree RPC commands
 get-user-contract-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-user-contract-tree-root --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
+	@./target/${PROFILE}/psy_user_cli get-user-contract-tree-root --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
 
 get-user-contract-state-tree-root:
-	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-root --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID}
+	@./target/${PROFILE}/psy_user_cli get-user-contract-state-tree-root --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID}
 
 get-user-contract-tree-merkle-proof:
-	@./target/${PROFILE}/qed_user_cli get-user-contract-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID}
+	@./target/${PROFILE}/psy_user_cli get-user-contract-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID}
 
 get-user-contract-state-tree-merkle-proof:
-	@./target/${PROFILE}/qed_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
+	@./target/${PROFILE}/psy_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
 
 AWS_S3_BUCKET := qed-backup
 
 sync-store-coordinator-processor:
-	@./target/${PROFILE}/qed_rollup_cli coordinator-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/coordinator
+	@./target/${PROFILE}/psy_node_cli coordinator-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/coordinator
 
 sync-store-realm-processor:
-	@./target/${PROFILE}/qed_rollup_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm0 --realm-id 0 --queue-biz-key rwq0 --redis-uri redis://127.0.0.1:6379
+	@./target/${PROFILE}/psy_node_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm0 --realm-id 0 --queue-biz-key rwq0 --redis-uri redis://127.0.0.1:6379
 
 sync-store-realm-processor1:
-	@./target/${PROFILE}/qed_rollup_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm1 --realm-id 1 --queue-biz-key rwq1 --redis-uri redis://127.0.0.1:6379
+	@./target/${PROFILE}/psy_node_cli realm-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/realm1 --realm-id 1 --queue-biz-key rwq1 --redis-uri redis://127.0.0.1:6379
 
 get-realm-status:
 	@curl -s -X POST "${COORDINATOR_RPC_URL}" -H "Content-Type: application/json" -d '{ "jsonrpc": "2.0", "method": "qed_get_current_realm_status_on_coordinator", "params": {"realm_id": ${REALM_ID}}, "id": 1}' | jq .
@@ -678,7 +678,7 @@ get-graphviz-realm:
 	@curl -s -X POST "${REALM_RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "method": "qed_get_graphviz", "params": [${CHECKPOINT_ID}], "id": 1}' | jq -r '.result' | sed 's/\\n/\n/g'
 
 get-user-id-from-registration-id:
-	@./target/${PROFILE}/qed_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY}
+	@./target/${PROFILE}/psy_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY}
 
 image:
 	docker build \

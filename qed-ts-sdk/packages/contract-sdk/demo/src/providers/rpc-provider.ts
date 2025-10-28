@@ -437,7 +437,7 @@ export class RpcProvider implements IContractProvider {
             // In the actual QED system, this would:
             // 1. Create the transaction payload
             // 2. Sign it with the private key
-            // 3. Submit via qed_user_cli or appropriate RPC method
+            // 3. Submit via psy_user_cli or appropriate RPC method
 
             // For now, we'll simulate the transaction submission
             const request: RpcRequest = {

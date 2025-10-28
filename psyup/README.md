@@ -66,9 +66,9 @@ psyup --update
 
 psyup installs the following QED tools:
 
-- **qed_user_cli** - User-facing command line interface
-- **qed_rollup_cli** - Rollup management and operation tools
-- **qed_dev_cli** - Development and testing utilities
+- **psy_user_cli** - User-facing command line interface
+- **psy_node_cli** - Rollup management and operation tools
+- **psy_dev_cli** - Development and testing utilities
 - **dargo** - QED language compiler and toolchain
 - **psy-lsp-server** - Language Server Protocol support for IDEs
 

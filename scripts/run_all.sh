@@ -63,9 +63,9 @@ cleanup() {
             kill -TERM "$pid" 2>/dev/null
         fi
     done
-    pkill -f qed_user_cli
-    pkill -f qed_rollup_cli
-    pkill -f qed_dev_cli
+    pkill -f psy_user_cli
+    pkill -f psy_node_cli
+    pkill -f psy_dev_cli
     pkill -f register_user
     pkill -f qed_api_services
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] All processes terminated. Exiting."

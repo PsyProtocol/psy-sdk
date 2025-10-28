@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "qed_rollup_cli"
+name = "psy_node_cli"
 version = "0.1.0"
 
 [dependencies]
@@ -11,7 +11,7 @@ psy_core = { workspace = true }
 plonky2 = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
-qed_rollup_utils = { workspace = true }
+psy_node_utils = { workspace = true }
 psy-common = { workspace = true }
 tracing = { workspace = true }
 serde_json = { workspace = true }

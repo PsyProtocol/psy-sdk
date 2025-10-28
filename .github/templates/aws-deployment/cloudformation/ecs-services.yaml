@@ -80,7 +80,7 @@ Resources:
         - Name: coordinator-processor
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - qed_rollup_cli
+            - psy_node_cli
             - coordinator-processor
             - --database
             - lmdbx
@@ -143,7 +143,7 @@ Resources:
         - Name: coordinator-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - qed_rollup_cli
+            - psy_node_cli
             - coordinator-edge
 
             - --redis-uri
@@ -229,7 +229,7 @@ Resources:
         - Name: coordinator-worker
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - qed_rollup_cli
+            - psy_node_cli
             - coordinator-worker
             - --redis-uri
             - !Sub 'redis://${RedisCoordinatorEndpoint}:6379'
@@ -284,7 +284,7 @@ Resources:
         - Name: realm-0-processor
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - qed_rollup_cli
+            - psy_node_cli
             - realm-processor
 
             - --redis-uri
@@ -339,7 +339,7 @@ Resources:
         - Name: realm-0-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - qed_rollup_cli
+            - psy_node_cli
             - realm-edge
 
             - --redis-uri
@@ -423,7 +423,7 @@ Resources:
         - Name: realm-0-worker
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - qed_rollup_cli
+            - psy_node_cli
             - realm-worker
             - --redis-uri
             - !Sub 'redis://${RedisRealm0Endpoint}:6379'
@@ -479,7 +479,7 @@ Resources:
         - Name: realm-1-processor
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - qed_rollup_cli
+            - psy_node_cli
             - realm-processor
 
             - --redis-uri
@@ -534,7 +534,7 @@ Resources:
         - Name: realm-1-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - qed_rollup_cli
+            - psy_node_cli
             - realm-edge
 
             - --redis-uri
@@ -618,7 +618,7 @@ Resources:
         - Name: realm-1-worker
           Image: !Sub '${ECRRepositoryURI}:latest'
           Command:
-            - qed_rollup_cli
+            - psy_node_cli
             - realm-worker
             - --redis-uri
             - !Sub 'redis://${RedisRealm1Endpoint}:6379'

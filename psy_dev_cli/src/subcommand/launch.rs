@@ -487,19 +487,19 @@ fn add_service_args(cmd: &mut Command, service: &ServiceConfig) -> Result<()> {
 
 fn get_binary_path() -> Result<PathBuf> {
     // First check if binary exists in target/release
-    let release_path = PathBuf::from("./target/release/qed_rollup_cli");
+    let release_path = PathBuf::from("./target/release/psy_node_cli");
     if release_path.exists() {
         return Ok(release_path);
     }
 
     // Then check debug
-    let debug_path = PathBuf::from("./target/debug/qed_rollup_cli");
+    let debug_path = PathBuf::from("./target/debug/psy_node_cli");
     if debug_path.exists() {
         return Ok(debug_path);
     }
 
     // Finally check if it's in PATH
-    if let Ok(output) = Command::new("which").arg("qed_rollup_cli").output() {
+    if let Ok(output) = Command::new("which").arg("psy_node_cli").output() {
         if output.status.success() {
             let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
             return Ok(PathBuf::from(path));
@@ -507,7 +507,7 @@ fn get_binary_path() -> Result<PathBuf> {
     }
 
     Err(anyhow::anyhow!(
-        "qed_rollup_cli binary not found. Please build it first with 'cargo build --release'"
+        "psy_node_cli binary not found. Please build it first with 'cargo build --release'"
     ))
 }
 

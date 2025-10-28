@@ -8,7 +8,7 @@ use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_prover::local::request::{Id, QRegisterUserRPCRequest, RequestParams, RpcRequest, Version};
 
-//just copy from qed_user_cli/src/subcommand/register_user.rs
+//just copy from psy_user_cli/src/subcommand/register_user.rs
 const ZK_FINGERPRINT: &str = "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
 
 // Generate a random public key using thread_rng for better performance

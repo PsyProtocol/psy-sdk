@@ -196,7 +196,7 @@ Resources:
               fi
 
               # Start coordinator-edge
-              exec /qed-rollup/qed_rollup_cli coordinator-edge \
+              exec /qed-rollup/psy_node_cli coordinator-edge \
                 --database tikv \
                 --tikv-pd-endpoints "$PD_ENDPOINTS" \
                 --tikv-namespace "{{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator" \
@@ -324,7 +324,7 @@ Resources:
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'pgrep -f "qed_rollup_cli.*realm-processor" || exit 1'
+              - 'pgrep -f "psy_node_cli.*realm-processor" || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
@@ -381,7 +381,7 @@ Resources:
               echo "==========================================================="
 
               # Start realm processor
-              exec /qed-rollup/qed_rollup_cli realm-processor \
+              exec /qed-rollup/psy_node_cli realm-processor \
                 --realm-id {{ realm.id }} \
                 --database tikv \
                 --tikv-pd-endpoints "$PD_ENDPOINTS" \
@@ -510,7 +510,7 @@ Resources:
 
               {% set listen_addr = (realm.edge.args['listen_addr'] if realm.edge.args is defined and 'listen_addr' in realm.edge.args else '0.0.0.0:' ~ (8546 + realm.id)) -%}
               # Start realm edge
-              exec /qed-rollup/qed_rollup_cli realm-edge \
+              exec /qed-rollup/psy_node_cli realm-edge \
                 --database tikv \
                 --tikv-pd-endpoints "$PD_ENDPOINTS" \
                 --tikv-namespace "{{ realm.backend.tikv.namespace }}" \
@@ -663,7 +663,7 @@ Resources:
               fi
 
               # Start worker with mounted config
-              exec /qed-rollup/qed_rollup_cli worker \
+              exec /qed-rollup/psy_node_cli worker \
                 --config /qed-rollup/config.json \
                 {%- for key, value in (config.nodes.workers.args | default({}) | dictsort) %}
                 {%- if key != 'config' %}
@@ -733,7 +733,7 @@ Resources:
             - /bin/bash
             - -c
           Command:
-            - /qed-rollup/qed_user_cli prove-proxy
+            - /qed-rollup/psy_user_cli prove-proxy
           Environment:
             - Name: RUST_LOG
               Value: '{{ config.nodes.prover.env.RUST_LOG | default("info") }}'
@@ -894,7 +894,7 @@ Resources:
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'pgrep -f "qed_rollup_cli.*watcher.*--node-type" || exit 1'
+              - 'pgrep -f "psy_node_cli.*watcher.*--node-type" || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
@@ -949,7 +949,7 @@ Resources:
               echo "  API: $API_URL"
               
               # Start watcher
-              exec /qed-rollup/qed_rollup_cli watcher \
+              exec /qed-rollup/psy_node_cli watcher \
                 --node-type coordinator \
                 --node-id 0 \
                 --database tikv \
@@ -1021,7 +1021,7 @@ Resources:
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'pgrep -f "qed_rollup_cli.*watcher.*--node-type realm" || exit 1'
+              - 'pgrep -f "psy_node_cli.*watcher.*--node-type realm" || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
@@ -1075,7 +1075,7 @@ Resources:
               echo "  API: $API_URL"
               
               # Start watcher
-              exec /qed-rollup/qed_rollup_cli watcher \
+              exec /qed-rollup/psy_node_cli watcher \
                 --node-type realm \
                 --node-id {{ realm.id }} \
                 --database tikv \
