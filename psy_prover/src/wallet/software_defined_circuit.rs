@@ -38,10 +38,8 @@ use psy_rust_sdk::{
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::{
-    dpn::vm::compile::PsyContractFunctionBuilderGadget,
-    wallet::simple_sign::{SoftwareDefinedSignTrait, StateReader, StateReaderGadget},
-};
+use psy_dpn_circuit::vm::compile::PsyContractFunctionBuilderGadget;
+use crate::wallet::simple_sign::{SoftwareDefinedSignTrait, StateReader, StateReaderGadget};
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]

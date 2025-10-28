@@ -18,13 +18,11 @@ use psy_data::{
     qdata::contract::ContractCodeDefinition,
     qstore::{controllers::session_info::SessionCircuitInfoStore, imm::cmd_processor::PsyReadCommandProcessorSync},
 };
-use psy_prover::{
-    dpn::circuits::cfc::DapenContractFunctionCircuit,
-    session::gen_contract_deploy_and_circuits_for_functions,
-    ups::{
-        circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
-        session::UserProvingSessionManager,
-    },
+use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+use psy_ups_circuit::{
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
+    session::UserProvingSessionManager,
 };
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},

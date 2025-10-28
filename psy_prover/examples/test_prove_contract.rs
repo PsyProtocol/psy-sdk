@@ -23,7 +23,7 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::PsyComboDataStoreReaderWriterSync},
 };
 use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
-use psy_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},

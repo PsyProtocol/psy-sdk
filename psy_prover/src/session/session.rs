@@ -48,16 +48,16 @@ use psy_rust_sdk::{
     wallet::software_defined_circuit::QSoftwareDefinedSignatureWitnessInput,
 };
 
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+use psy_ups_circuit::{
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
+    session::UserProvingSessionManager,
+};
 use crate::{
-    dpn::circuits::cfc::DapenContractFunctionCircuit,
     local::{
         args::{ContractCallArgs, JobInfo, JobLocation, SignData, SignType, WalletSessionArgs},
     },
     session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint, MINING_REWARDS_CONTRACT_ID},
-    ups::{
-        circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
-        session::UserProvingSessionManager,
-    },
     wallet::{
         memory_wallet::PsyMemoryWallet,
         simple_sign::StateReader,

@@ -26,7 +26,7 @@ use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
-use crate::dpn::vm::compile::PsyContractFunctionBuilderGadget;
+use crate::vm::compile::PsyContractFunctionBuilderGadget;
 
 #[derive(Debug)]
 pub struct DapenContractFunctionCircuit<C: GenericConfig<D>, const D: usize>

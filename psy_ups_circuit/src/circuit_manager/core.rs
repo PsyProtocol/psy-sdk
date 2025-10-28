@@ -58,10 +58,7 @@ use psy_rust_sdk::{
     request::QAggProofRecord,
 };
 
-use crate::{
-    dpn::circuits::cfc::DapenContractFunctionCircuit,
-    local::{},
-};
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 
 #[derive(Debug)]
 pub struct PsyUPSStepCircuitManager<C: GenericConfig<D> + 'static, const D: usize>

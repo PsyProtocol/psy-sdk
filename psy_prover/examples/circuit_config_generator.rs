@@ -4,7 +4,7 @@ use psy_core::{config::network_constants::PSY_NETWORK_MAGIC_REGTEST, job::id::Pr
 use psy_crypto::common::{circuit_library::CircuitInfoLibraryBuilder, simple_circuit_library::SimpleCircuitLibrary};
 use psy_data::config::store_config::PsyFelt;
 use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};
-use psy_prover::ups::circuit_manager::core::PsyUPSStepCircuitManager;
+use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 
 fn run_gen_config() -> anyhow::Result<()> {
     const D: usize = 2;

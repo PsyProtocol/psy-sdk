@@ -11,7 +11,7 @@ use psy_common_circuit::circuits::{
 use psy_core::{config::network_constants::PSY_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};
-use psy_prover::ups::circuit_manager::core::PsyUPSStepCircuitManager;
+use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 
 fn write_file(path: PathBuf, content: &str) -> anyhow::Result<()> {
     let mut file = File::create(path).map_err(|e| anyhow::anyhow!("{}", e))?;

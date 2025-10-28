@@ -31,9 +31,9 @@ use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use psy_rust_sdk::provider::UPSCircuitManagerTrait;
 
+use psy_ups_circuit::{circuit_manager, circuit_manager::core::QCircuitManager};
 use crate::{
     local::args::SignType,
-    ups::{circuit_manager, circuit_manager::core::QCircuitManager},
     wallet::{
         simple_sign::StateReader,
         software_defined_circuit::{
@@ -360,8 +360,8 @@ mod tests {
         let sig_hash = QHashOut::<F>::from_str("83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186")?;
 
         // Create a mock memory wallet for testing
-        let circuit_manager = crate::ups::circuit_manager::core::QCircuitManager::Local(
-            crate::ups::circuit_manager::core::PsyUPSStepCircuitManager::new_with_config(0x1337),
+        let circuit_manager = psy_ups_circuit::circuit_manager::core::QCircuitManager::Local(
+            psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager::new_with_config(0x1337),
         );
         let wallet = PsyMemoryWallet::new(vec![Box::new(circuit_manager)]);
 

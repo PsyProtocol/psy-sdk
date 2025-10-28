@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "psy_prover"
+name    = "psy_dpn_circuit"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -27,8 +27,6 @@ kvq = { workspace = true }
 psy_core = { workspace = true }
 psy_common_circuit = { workspace = true, default-features = false }
 psy_network_circuit = { workspace = true, default-features = false }
-psy_dpn_circuit = { workspace = true, default-features = false }
-psy_ups_circuit = { workspace = true, default-features = false }
 psy-common = { workspace = true }
 psy_vm = { workspace = true }
 psy_data = { workspace = true, default-features = false }
@@ -94,6 +92,4 @@ is_sync = [
     "psy_store/is_sync",
     "psy_common_circuit/is_sync",
     "psy_network_circuit/is_sync",
-    "psy_dpn_circuit/is_sync",
-    "psy_ups_circuit/is_sync",
 ]

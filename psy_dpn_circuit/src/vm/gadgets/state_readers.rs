@@ -30,7 +30,7 @@ use psy_vm::dpn::ops::state_cmd::data::DPNStateCmd;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use crate::dpn::vm::ops::SimpleDPNBuilder;
+use crate::vm::ops::SimpleDPNBuilder;
 
 #[derive(Clone, Debug)]
 pub struct ClearEntireTreeGadget {

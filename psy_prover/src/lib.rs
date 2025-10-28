@@ -1,7 +1,5 @@
-pub mod dpn;
 pub mod local;
 pub mod session;
-pub mod ups;
 pub mod wallet;
 
 #[cfg(not(target_arch = "wasm32"))]

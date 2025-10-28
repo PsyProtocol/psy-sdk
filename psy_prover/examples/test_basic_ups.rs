@@ -27,12 +27,10 @@ use psy_data::{
     qstore::controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore},
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::PsyComboDataStoreReaderWriterSync},
 };
-use psy_prover::{
-    dpn::circuits::cfc::DapenContractFunctionCircuit,
-    ups::{
-        circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
-        session::UserProvingSessionManager,
-    },
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+use psy_ups_circuit::{
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
+    session::UserProvingSessionManager,
 };
 use psy_rust_sdk::provider::UPSCircuitManagerTrait;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
@@ -230,7 +228,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     let defs_array = [simple_mint_debug_def, simple_transfer_def, simple_claim_def];
     timer.lap("start building circuits");
 
-    use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
+    use psy_prover::session::session::gen_contract_deploy_and_circuits_for_functions;
 
     let (result_circuits, deploy_cmd) =
         gen_contract_deploy_and_circuits_for_functions::<C, D>(deployer, contract_state_tree_height as u8, &defs_array)?;

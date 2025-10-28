@@ -12,6 +12,8 @@ members = [
     "psy_data",
     "psy_common_circuit",
     "psy_network_circuit",
+    "psy_ups_circuit",
+    "psy_dpn_circuit",
     "psy_node",
     "psy_user_cli",
     "psy_node_cli",
@@ -235,6 +237,8 @@ psy_core = { path = "./psy_core" }
 psy_node = { path = "./psy_node" }
 psy_prover = { path = "./psy_prover", default-features = false }
 psy_common_circuit = { path = "./psy_common_circuit" ,default-features = false}
+psy_dpn_circuit = { path = "./psy_dpn_circuit" ,default-features = false}
+psy_ups_circuit = { path = "./psy_ups_circuit" ,default-features = false}
 kvq = { path = "./kvq" }
 psy_network_circuit = { path = "./psy_network_circuit" , default-features = false}
 psy_precompiles = { path = "./psy_precompiles" , default-features = false}

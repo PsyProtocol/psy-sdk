@@ -43,13 +43,11 @@ use serde::{Deserialize, Deserializer, Serialize};
 // use crate::local::provider::LocalCommonCircuitsData;
 use psy_rust_sdk::provider::{QCommonCircuitData, RpcConfig, RpcProvider, UPSCircuitManagerTrait};
 use psy_rust_sdk::wallet::software_defined_circuit::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput};
-use crate::{
-    dpn::circuits::cfc::DapenContractFunctionCircuit,
-    ups::circuit_manager::core::PsyUPSStepCircuitManager,
-    wallet::software_defined_circuit::{
-        SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget,
-        SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
-    },
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
+use crate::wallet::software_defined_circuit::{
+    SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget,
+    SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
 };
 
 type C = PoseidonGoldilocksConfig;

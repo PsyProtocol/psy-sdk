@@ -9,7 +9,7 @@ use psy_core::{
 };
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::{config::store_config::PsyHasher, qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition};
-use psy_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QDeployContractRPCRequest,
