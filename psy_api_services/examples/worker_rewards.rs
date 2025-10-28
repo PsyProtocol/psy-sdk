@@ -12,7 +12,7 @@
 //! - Rewards are calculated and stored by the background reward processing service
 
 use chrono::Utc;
-use qed_api_services::models::WorkerRewards;
+use psy_api_services::models::WorkerRewards;
 use psy_core::job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID};
 use reqwest::Client;
 use serde_json::json;

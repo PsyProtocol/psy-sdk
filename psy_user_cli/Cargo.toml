@@ -24,7 +24,7 @@ psy_prover = { workspace = true, default-features = false}
 psy_data = { workspace = true }
 psy_node = { workspace = true }
 psy_node_utils = { workspace = true }
-qed_api_services = { workspace = true }
+psy_api_services = { workspace = true }
 psy-common = { workspace = true }
 psy_store = { workspace = true, default-features = false }
 kvq = { workspace = true }

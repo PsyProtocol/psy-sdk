@@ -24,7 +24,7 @@ psy_network_circuit = { workspace = true }
 psy_data = { workspace = true }
 psy_crypto = { workspace = true }
 psy_store = { workspace = true }
-qed_api_services = { workspace = true }
+psy_api_services = { workspace = true }
 psy_vm = { workspace = true }
 
 indexmap = { workspace = true }

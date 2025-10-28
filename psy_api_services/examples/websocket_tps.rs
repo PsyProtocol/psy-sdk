@@ -17,8 +17,8 @@ use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 // Import types from the API service crate instead of redefining them
-use qed_api_services::handlers::websocket::{EventType, WebSocketEvent};
-use qed_api_services::models::TpsData;
+use psy_api_services::handlers::websocket::{EventType, WebSocketEvent};
+use psy_api_services::models::TpsData;
 
 const API_BASE: &str = "http://localhost:3000";
 const TPS_WS_URL: &str = "ws://localhost:3000/ws/tps";

@@ -20,8 +20,8 @@ WORKDIR /qed-rollup
 COPY ./target/${PROFILE}/psy_node_cli /qed-rollup
 COPY ./target/${PROFILE}/psy_user_cli /qed-rollup
 COPY ./target/${PROFILE}/psy_dev_cli /qed-rollup
-COPY ./target/${PROFILE}/qed_api_services /qed-rollup
-COPY ./qed_api_services/migrations /qed-rollup/migrations
+COPY ./target/${PROFILE}/psy_api_services /qed-rollup
+COPY ./psy_api_services/migrations /qed-rollup/migrations
 COPY .env /qed-rollup/.env
 
 # Copy precompiles

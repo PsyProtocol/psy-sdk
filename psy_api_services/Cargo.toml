@@ -1,5 +1,5 @@
 [package]
-name = "qed_api_services"
+name = "psy_api_services"
 edition.workspace = true
 rust-version.workspace = true
 version.workspace = true

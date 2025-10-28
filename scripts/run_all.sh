@@ -67,7 +67,7 @@ cleanup() {
     pkill -f psy_node_cli
     pkill -f psy_dev_cli
     pkill -f register_user
-    pkill -f qed_api_services
+    pkill -f psy_api_services
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] All processes terminated. Exiting."
     exit 0
 }

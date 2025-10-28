@@ -29,7 +29,7 @@ use psy_prover::{
     },
     session::WalletSession,
 };
-use qed_api_services::models::{WorkerEvent, WorkerEventSource};
+use psy_api_services::models::{WorkerEvent, WorkerEventSource};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{info, warn};

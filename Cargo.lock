@@ -5766,6 +5766,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "psy_api_services"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum 0.8.6",
+ "chrono",
+ "futures",
+ "futures-util",
+ "psy_core",
+ "rand 0.8.5",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "strum",
+ "tokio",
+ "tokio-tungstenite",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid 1.18.1",
+]
+
+[[package]]
 name = "psy_common_circuit"
 version = "0.1.0"
 dependencies = [
@@ -5978,6 +6002,7 @@ dependencies = [
  "kvq",
  "once_cell",
  "plonky2",
+ "psy_api_services",
  "psy_common_circuit",
  "psy_core",
  "psy_crypto",
@@ -5987,7 +6012,6 @@ dependencies = [
  "psy_prover",
  "psy_store",
  "psy_vm",
- "qed_api_services",
  "rand 0.8.5",
  "redis 0.30.0",
  "reqwest",
@@ -6019,6 +6043,7 @@ dependencies = [
  "kvq",
  "plonky2",
  "psy-common",
+ "psy_api_services",
  "psy_core",
  "psy_crypto",
  "psy_data",
@@ -6027,7 +6052,6 @@ dependencies = [
  "psy_node_utils",
  "psy_prover",
  "psy_store",
- "qed_api_services",
  "serde_json",
  "tokio",
  "tracing",
@@ -6187,6 +6211,7 @@ dependencies = [
  "kvq",
  "plonky2",
  "psy-common",
+ "psy_api_services",
  "psy_common_circuit",
  "psy_core",
  "psy_crypto",
@@ -6196,7 +6221,6 @@ dependencies = [
  "psy_prover",
  "psy_store",
  "psy_vm",
- "qed_api_services",
  "rand 0.8.5",
  "reqwest",
  "rpassword",
@@ -6253,30 +6277,6 @@ dependencies = [
  "psy_vm",
  "quote",
  "syn 2.0.106",
-]
-
-[[package]]
-name = "qed_api_services"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum 0.8.6",
- "chrono",
- "futures",
- "futures-util",
- "psy_core",
- "rand 0.8.5",
- "reqwest",
- "serde",
- "serde_json",
- "sqlx",
- "strum",
- "tokio",
- "tokio-tungstenite",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid 1.18.1",
 ]
 
 [[package]]
